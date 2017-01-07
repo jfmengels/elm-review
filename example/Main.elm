@@ -1,10 +1,11 @@
 module Main exposing (main)
 
+import Result
 import Ast
 import Ast.Expression exposing (..)
 import Ast.Statement exposing (..)
-import Html exposing (..)
-import Html
+import Html exposing (Html, p, div, li, ul, pre, textarea, text)
+import Html.Attributes exposing (id)
 import Html.Events exposing (..)
 import Json.Decode as JD
 
@@ -68,9 +69,19 @@ statement s =
             li [] [ pre [] [ text <| toString s ] ]
 
 
-tree : String -> Html Msg
-tree m =
-    case Ast.parse m of
+tree2 : ( Result (List String) (List Statement), a ) -> Html Msg
+tree2 ast =
+    case ast of
+        ( Ok statements, _ ) ->
+            ul [] (List.map statement statements)
+
+        err ->
+            div [] [ text <| toString err ]
+
+
+tree : Result a ( b, c, List Statement ) -> Html Msg
+tree ast =
+    case ast of
         Ok ( _, _, statements ) ->
             ul [] (List.map statement statements)
 
@@ -78,12 +89,37 @@ tree m =
             div [] [ text <| toString err ]
 
 
+lint : Result a ( b, c, List Statement ) -> Html Msg
+lint ast =
+    let
+        statements =
+            ast
+                |> Result.map (\( _, _, statements ) -> statements)
+                |> Result.withDefault []
+
+        errors =
+            []
+    in
+        div [] (List.map (\x -> p [] [ text x ]) errors)
+
+
 view : String -> Html Msg
 view model =
-    div []
-        [ textarea [ on "input" (JD.map Replace targetValue) ] [ text model ]
-        , tree model
-        ]
+    let
+        ast =
+            Ast.parse model
+    in
+        div [ id "wrapper" ]
+            [ textarea
+                [ id "left"
+                , on "input" (JD.map Replace targetValue)
+                ]
+                [ text model ]
+            , div [ id "right" ]
+                [ p [ id "ast" ] [ tree ast ]
+                , p [ id "lint" ] [ lint ast ]
+                ]
+            ]
 
 
 main : Program Never String Msg
