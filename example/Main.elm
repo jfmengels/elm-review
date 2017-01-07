@@ -8,6 +8,8 @@ import Html exposing (Html, p, div, li, ul, pre, textarea, text)
 import Html.Attributes exposing (id)
 import Html.Events exposing (..)
 import Json.Decode as JD
+import Lint
+import NoDebug
 
 
 type Msg
@@ -19,12 +21,12 @@ init =
     """module Main exposing (..)
 
 f : Int -> Int
-f x = x + 1
+f x = x Debug.log 1
 
-g : Int -> Int
-g x = x * 2
+a : a -> a
+a = Debug.log "foo" x
 
-h = f << g
+h = f << Debug.log
 """
 
 
@@ -98,7 +100,7 @@ lint ast =
                 |> Result.withDefault []
 
         errors =
-            []
+            Lint.lint statements NoDebug.rule
     in
         div [] (List.map (\x -> p [] [ text x ]) errors)
 

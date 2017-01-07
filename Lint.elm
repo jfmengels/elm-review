@@ -1,4 +1,4 @@
-module Lint exposing (lint, LintRule, Error)
+module Lint exposing (lint, LintRule, Error, doNothing)
 
 import Ast.Expression exposing (..)
 import Ast.Statement exposing (..)
@@ -22,6 +22,11 @@ type alias LintRule context =
 
 type alias Visitor context =
     LintRule context -> context -> ( List Error, context )
+
+
+doNothing : LintImplementation a context
+doNothing ctx _ =
+    ( [], ctx )
 
 
 visitExpression : Expression -> Visitor context
