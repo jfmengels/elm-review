@@ -93,12 +93,9 @@ statementToVisitors node =
                 []
 
 
-lint : List Statement -> LintRule context -> List Error
-lint statements rule =
+lintWithVisitors : List (Visitor context) -> LintRule context -> List Error
+lintWithVisitors visitors rule =
     let
-        visitors =
-            List.concatMap statementToVisitors statements
-
         ( errors, _ ) =
             List.foldl
                 (\visitor ( errors, ctx ) ->
@@ -112,3 +109,8 @@ lint statements rule =
                 visitors
     in
         errors
+
+
+lint : List Statement -> LintRule context -> List Error
+lint statements =
+    lintWithVisitors (List.concatMap statementToVisitors statements)

@@ -100,10 +100,13 @@ lint ast =
                 |> Result.map (\( _, _, statements ) -> statements)
                 |> Result.withDefault []
 
+        lint =
+            Lint.lint statements
+
         errors =
             List.concat
-                [ Lint.lint statements FindNoAnnotatedFunction.rule
-                , Lint.lint statements NoDebug.rule
+                [ lint FindNoAnnotatedFunction.rule
+                , lint NoDebug.rule
                 ]
     in
         div [] (List.map (\x -> p [] [ text x ]) errors)
