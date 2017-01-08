@@ -29,28 +29,28 @@ doNothing ctx _ =
     ( [], ctx )
 
 
-visitExpression : Expression -> Visitor context
-visitExpression node rule context =
+expressionVisitor : Expression -> Visitor context
+expressionVisitor node rule context =
     rule.expressionFn context node
 
 
-visitType : Type -> Visitor context
-visitType node rule context =
+typeVisitor : Type -> Visitor context
+typeVisitor node rule context =
     rule.typeFn context node
 
 
-visitStatement : Statement -> Visitor context
-visitStatement node rule context =
+statementVisitor : Statement -> Visitor context
+statementVisitor node rule context =
     rule.statementFn context node
 
 
-transformExpression : Expression -> List (Visitor context)
-transformExpression node =
+expressionToVisitors : Expression -> List (Visitor context)
+expressionToVisitors node =
     let
         visitAndTransformChildren children =
             List.concat
-                [ [ visitExpression node ]
-                , List.concatMap transformExpression children
+                [ [ expressionVisitor node ]
+                , List.concatMap expressionToVisitors children
                 ]
     in
         case node of
@@ -61,25 +61,25 @@ transformExpression node =
                 visitAndTransformChildren [ expression ]
 
             Variable _ ->
-                [ visitExpression node ]
+                [ expressionVisitor node ]
 
             _ ->
                 []
 
 
-transformType : Type -> List (Visitor context)
-transformType node =
+typeToVisitors : Type -> List (Visitor context)
+typeToVisitors node =
     []
 
 
-transformStatement : Statement -> List (Visitor context)
-transformStatement node =
+statementToVisitors : Statement -> List (Visitor context)
+statementToVisitors node =
     let
         visitAndTransformChildren expresssions types =
             List.concat
-                [ [ visitStatement node ]
-                , List.concatMap transformExpression expresssions
-                , List.concatMap transformType types
+                [ [ statementVisitor node ]
+                , List.concatMap expressionToVisitors expresssions
+                , List.concatMap typeToVisitors types
                 ]
     in
         case node of
@@ -93,16 +93,11 @@ transformStatement node =
                 []
 
 
-transform : List Statement -> List (Visitor context)
-transform statements =
-    List.concatMap transformStatement statements
-
-
 lint : List Statement -> LintRule context -> List Error
 lint statements rule =
     let
-        validators =
-            transform statements
+        visitors =
+            List.concatMap statementToVisitors statements
 
         ( errors, _ ) =
             List.foldl
@@ -114,6 +109,6 @@ lint statements rule =
                         ( errors ++ errors_, ctx_ )
                 )
                 ( [], rule.context )
-                validators
+                visitors
     in
         errors

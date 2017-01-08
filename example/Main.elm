@@ -10,6 +10,7 @@ import Html.Events exposing (..)
 import Json.Decode as JD
 import Lint
 import NoDebug
+import FindNoAnnotatedFunction
 
 
 type Msg
@@ -100,7 +101,10 @@ lint ast =
                 |> Result.withDefault []
 
         errors =
-            Lint.lint statements NoDebug.rule
+            List.concat
+                [ Lint.lint statements FindNoAnnotatedFunction.rule
+                , Lint.lint statements NoDebug.rule
+                ]
     in
         div [] (List.map (\x -> p [] [ text x ]) errors)
 
