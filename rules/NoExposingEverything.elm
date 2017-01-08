@@ -1,6 +1,7 @@
 module NoExposingEverything exposing (rule)
 
 import Lint exposing (LintRule, Error, doNothing)
+import Node exposing (..)
 import Ast.Statement exposing (..)
 
 
@@ -17,10 +18,10 @@ rule =
     }
 
 
-statementFn : Context -> Statement -> ( List Error, Context )
+statementFn : Context -> Direction Statement -> ( List Error, Context )
 statementFn ctx node =
     case node of
-        ModuleDeclaration names AllExport ->
+        Enter (ModuleDeclaration names AllExport) ->
             case names of
                 [ name ] ->
                     ( [ "Do not expose everything from module " ++ name ++ " using (..)" ], ctx )

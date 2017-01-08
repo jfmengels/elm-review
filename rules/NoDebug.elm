@@ -1,6 +1,7 @@
 module NoDebug exposing (rule)
 
 import Lint exposing (LintRule, Error, doNothing)
+import Node exposing (..)
 import Ast.Expression exposing (..)
 
 
@@ -17,10 +18,10 @@ rule =
     }
 
 
-expressionFn : Context -> Expression -> ( List Error, Context )
+expressionFn : Context -> Direction Expression -> ( List Error, Context )
 expressionFn ctx node =
     case node of
-        Variable vars ->
+        Enter (Variable vars) ->
             if List.member "Debug" vars then
                 ( [ "Forbidden use of Debug" ], ctx )
             else

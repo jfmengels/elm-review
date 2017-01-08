@@ -1,6 +1,7 @@
 module FindNoAnnotatedFunction exposing (rule)
 
 import Lint exposing (LintRule, Error, doNothing)
+import Node exposing (..)
 import Ast.Statement exposing (..)
 
 
@@ -18,13 +19,13 @@ rule =
     }
 
 
-statementFn : Context -> Statement -> ( List Error, Context )
+statementFn : Context -> Direction Statement -> ( List Error, Context )
 statementFn ctx node =
     case node of
-        FunctionTypeDeclaration name application ->
+        Enter (FunctionTypeDeclaration name application) ->
             ( [], { ctx | annotatedFunctions = name :: ctx.annotatedFunctions } )
 
-        FunctionDeclaration name params body ->
+        Enter (FunctionDeclaration name params body) ->
             if List.member name ctx.annotatedFunctions then
                 ( [], ctx )
             else

@@ -1,7 +1,14 @@
-module Lint exposing (lint, LintRule, Error, doNothing)
+module Lint
+    exposing
+        ( lint
+        , LintRule
+        , Error
+        , doNothing
+        )
 
 import Ast.Expression exposing (..)
 import Ast.Statement exposing (..)
+import Node exposing (..)
 
 
 type alias Error =
@@ -9,7 +16,7 @@ type alias Error =
 
 
 type alias LintImplementation nodeType context =
-    context -> nodeType -> ( List Error, context )
+    context -> Direction nodeType -> ( List Error, context )
 
 
 type alias LintRule context =
@@ -29,17 +36,21 @@ doNothing ctx _ =
     ( [], ctx )
 
 
-expressionVisitor : Expression -> Visitor context
+createExitAndEnterWithChildren : (Direction nodeType -> Visitor context) -> nodeType -> List (Visitor context) -> List (Visitor context)
+createExitAndEnterWithChildren toVisitor node children =
+    List.concat
+        [ [ toVisitor (Enter node) ]
+        , children
+        , [ toVisitor (Exit node) ]
+        ]
+
+
+expressionVisitor : Direction Expression -> Visitor context
 expressionVisitor node rule context =
     rule.expressionFn context node
 
 
-typeVisitor : Type -> Visitor context
-typeVisitor node rule context =
-    rule.typeFn context node
-
-
-statementVisitor : Statement -> Visitor context
+statementVisitor : Direction Statement -> Visitor context
 statementVisitor node rule context =
     rule.statementFn context node
 
@@ -47,24 +58,24 @@ statementVisitor node rule context =
 expressionToVisitors : Expression -> List (Visitor context)
 expressionToVisitors node =
     let
-        visitAndTransformChildren children =
-            List.concat
-                [ [ expressionVisitor node ]
-                , List.concatMap expressionToVisitors children
-                ]
+        children =
+            case node of
+                Application expression1 expression2 ->
+                    [ expression1, expression2 ]
+
+                Access expression names ->
+                    [ expression ]
+
+                Variable _ ->
+                    []
+
+                _ ->
+                    []
+
+        childrenVisitors =
+            List.concatMap expressionToVisitors children
     in
-        case node of
-            Application expression1 expression2 ->
-                visitAndTransformChildren [ expression1, expression2 ]
-
-            Access expression names ->
-                visitAndTransformChildren [ expression ]
-
-            Variable _ ->
-                [ expressionVisitor node ]
-
-            _ ->
-                []
+        createExitAndEnterWithChildren expressionVisitor node childrenVisitors
 
 
 typeToVisitors : Type -> List (Visitor context)
@@ -72,28 +83,32 @@ typeToVisitors node =
     []
 
 
+statementChildrenToVisitors : List Expression -> List Type -> List (Visitor context)
+statementChildrenToVisitors expressions types =
+    List.concat
+        [ List.concatMap expressionToVisitors expressions
+        , List.concatMap typeToVisitors types
+        ]
+
+
 statementToVisitors : Statement -> List (Visitor context)
 statementToVisitors node =
     let
-        visitAndTransformChildren expressions types =
-            List.concat
-                [ [ statementVisitor node ]
-                , List.concatMap expressionToVisitors expressions
-                , List.concatMap typeToVisitors types
-                ]
+        childrenVisitors =
+            case node of
+                FunctionTypeDeclaration name application ->
+                    statementChildrenToVisitors [] [ application ]
+
+                FunctionDeclaration name params body ->
+                    statementChildrenToVisitors [ body ] []
+
+                ModuleDeclaration name exportSet ->
+                    statementChildrenToVisitors [] []
+
+                _ ->
+                    []
     in
-        case node of
-            FunctionTypeDeclaration name application ->
-                visitAndTransformChildren [] [ application ]
-
-            FunctionDeclaration name params body ->
-                visitAndTransformChildren [ body ] []
-
-            ModuleDeclaration name exportSet ->
-                visitAndTransformChildren [] []
-
-            _ ->
-                []
+        createExitAndEnterWithChildren statementVisitor node childrenVisitors
 
 
 visitAndAccumulate : LintRule context -> Visitor context -> ( List Error, context ) -> ( List Error, context )
