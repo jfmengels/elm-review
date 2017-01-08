@@ -75,10 +75,10 @@ typeToVisitors node =
 statementToVisitors : Statement -> List (Visitor context)
 statementToVisitors node =
     let
-        visitAndTransformChildren expresssions types =
+        visitAndTransformChildren expressions types =
             List.concat
                 [ [ statementVisitor node ]
-                , List.concatMap expressionToVisitors expresssions
+                , List.concatMap expressionToVisitors expressions
                 , List.concatMap typeToVisitors types
                 ]
     in
@@ -88,6 +88,9 @@ statementToVisitors node =
 
             FunctionDeclaration name params body ->
                 visitAndTransformChildren [ body ] []
+
+            ModuleDeclaration name exportSet ->
+                visitAndTransformChildren [] []
 
             _ ->
                 []

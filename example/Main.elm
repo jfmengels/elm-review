@@ -9,8 +9,13 @@ import Html.Attributes exposing (id)
 import Html.Events exposing (..)
 import Json.Decode as JD
 import Lint
-import NoDebug
+
+
+-- Rules
+
 import FindNoAnnotatedFunction
+import NoDebug
+import NoExposingEverything
 
 
 type Msg
@@ -107,6 +112,7 @@ lint ast =
             List.concat
                 [ lint FindNoAnnotatedFunction.rule
                 , lint NoDebug.rule
+                , lint NoExposingEverything.rule
                 ]
     in
         div [] (List.map (\x -> p [] [ text x ]) errors)
