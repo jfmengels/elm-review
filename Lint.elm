@@ -93,24 +93,20 @@ statementToVisitors node =
                 []
 
 
+visitAndAccumulate : LintRule context -> Visitor context -> ( List Error, context ) -> ( List Error, context )
+visitAndAccumulate rule visitor ( errors, ctx ) =
+    visitor rule ctx
+        |> Tuple.mapFirst (\errors_ -> errors ++ errors_)
+
+
 lintWithVisitors : List (Visitor context) -> LintRule context -> List Error
 lintWithVisitors visitors rule =
-    let
-        ( errors, _ ) =
-            List.foldl
-                (\visitor ( errors, ctx ) ->
-                    let
-                        ( errors_, ctx_ ) =
-                            visitor rule ctx
-                    in
-                        ( errors ++ errors_, ctx_ )
-                )
-                ( [], rule.context )
-                visitors
-    in
-        errors
+    visitors
+        |> List.foldl (visitAndAccumulate rule) ( [], rule.context )
+        |> Tuple.first
 
 
 lint : List Statement -> LintRule context -> List Error
 lint statements =
-    lintWithVisitors (List.concatMap statementToVisitors statements)
+    List.concatMap statementToVisitors statements
+        |> lintWithVisitors
