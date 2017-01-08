@@ -23,6 +23,7 @@ type alias LintRule context =
     { statementFn : LintImplementation Statement context
     , typeFn : LintImplementation Type context
     , expressionFn : LintImplementation Expression context
+    , moduleEndFn : context -> ( List Error, context )
     , context : context
     }
 
@@ -43,6 +44,11 @@ createExitAndEnterWithChildren toVisitor node children =
         , children
         , [ toVisitor (Exit node) ]
         ]
+
+
+moduleVisitor : Visitor context
+moduleVisitor rule context =
+    rule.moduleEndFn context
 
 
 expressionVisitor : Direction Expression -> Visitor context
@@ -126,5 +132,7 @@ lintWithVisitors visitors rule =
 
 lint : List Statement -> LintRule context -> List Error
 lint statements =
-    List.concatMap statementToVisitors statements
+    statements
+        |> List.concatMap statementToVisitors
+        |> (\allVisitors -> List.append allVisitors [ moduleVisitor ])
         |> lintWithVisitors

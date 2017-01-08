@@ -15,6 +15,7 @@ rule =
     { statementFn = statementFn
     , typeFn = doNothing
     , expressionFn = doNothing
+    , moduleEndFn = (\ctx -> ( [], ctx ))
     , context = Context []
     }
 
