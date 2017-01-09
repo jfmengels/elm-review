@@ -1,7 +1,7 @@
 module NoExposingEverything exposing (rule)
 
-import Lint exposing (LintRule, Error, doNothing)
-import Node exposing (..)
+import Lint exposing (doNothing)
+import Types exposing (LintRule, Error, Direction(..))
 import Ast.Statement exposing (..)
 
 
