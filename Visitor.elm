@@ -2,7 +2,7 @@ module Visitor exposing (transformStatementsIntoVisitors)
 
 import Ast.Expression exposing (..)
 import Ast.Statement exposing (..)
-import Types exposing (Error, LintImplementation, LintRule, Direction(..), Visitor)
+import Types exposing (Direction(..), Visitor)
 
 
 createExitAndEnterWithChildren : (Direction nodeType -> Visitor context) -> nodeType -> List (Visitor context) -> List (Visitor context)

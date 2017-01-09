@@ -1,6 +1,6 @@
 module Lint exposing (lint, doNothing)
 
-import Ast.Statement exposing (..)
+import Ast
 import Types exposing (Error, LintImplementation, LintRule, Direction, Visitor)
 import Visitor exposing (transformStatementsIntoVisitors)
 
@@ -23,7 +23,11 @@ lintWithVisitors visitors rule =
         |> Tuple.first
 
 
-lint : List Statement -> LintRule context -> List Error
-lint statements =
-    transformStatementsIntoVisitors statements
+lint : String -> LintRule context -> List Error
+lint source =
+    source
+        |> Ast.parse
+        |> Result.map (\( _, _, statements ) -> statements)
+        |> Result.withDefault []
+        |> transformStatementsIntoVisitors
         |> lintWithVisitors

@@ -97,16 +97,11 @@ tree ast =
             div [] [ text <| toString err ]
 
 
-lint : Result a ( b, c, List Statement ) -> Html Msg
-lint ast =
+lint : String -> Html Msg
+lint source =
     let
-        statements =
-            ast
-                |> Result.map (\( _, _, statements ) -> statements)
-                |> Result.withDefault []
-
         lint =
-            Lint.lint statements
+            Lint.lint source
 
         errors =
             List.concat
@@ -120,21 +115,17 @@ lint ast =
 
 view : String -> Html Msg
 view model =
-    let
-        ast =
-            Ast.parse model
-    in
-        div [ id "wrapper" ]
-            [ textarea
-                [ id "left"
-                , on "input" (JD.map Replace targetValue)
-                ]
-                [ text model ]
-            , div [ id "right" ]
-                [ p [ id "ast" ] [ tree ast ]
-                , p [ id "lint" ] [ lint ast ]
-                ]
+    div [ id "wrapper" ]
+        [ textarea
+            [ id "left"
+            , on "input" (JD.map Replace targetValue)
             ]
+            [ text model ]
+        , div [ id "right" ]
+            [ p [ id "ast" ] [ tree <| Ast.parse model ]
+            , p [ id "lint" ] [ lint model ]
+            ]
+        ]
 
 
 main : Program Never String Msg
