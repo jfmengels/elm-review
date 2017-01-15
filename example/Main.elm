@@ -5,7 +5,7 @@ import Ast
 import Ast.Expression exposing (..)
 import Ast.Statement exposing (..)
 import Html exposing (Html, p, div, li, ul, pre, textarea, text)
-import Html.Attributes exposing (id)
+import Html.Attributes exposing (id, class)
 import Html.Events exposing (..)
 import Json.Decode as JD
 import Lint
@@ -116,14 +116,23 @@ lint source =
 view : String -> Html Msg
 view model =
     div [ id "wrapper" ]
-        [ textarea
-            [ id "left"
-            , on "input" (JD.map Replace targetValue)
+        [ div [ id "left" ]
+            [ p [ class "title" ] [ text "Source code" ]
+            , textarea
+                [ id "input"
+                , on "input" (JD.map Replace targetValue)
+                ]
+                [ text model ]
+            , div []
+                [ p [ class "title" ] [ text "Linting errors" ]
+                , div [ id "lint" ]
+                    [ lint model
+                    ]
+                ]
             ]
-            [ text model ]
         , div [ id "right" ]
-            [ p [ id "ast" ] [ tree <| Ast.parse model ]
-            , p [ id "lint" ] [ lint model ]
+            [ p [ class "title" ] [ text "AST" ]
+            , p [ id "ast" ] [ tree <| Ast.parse model ]
             ]
         ]
 
