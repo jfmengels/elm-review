@@ -1,6 +1,6 @@
 module FindNoAnnotatedFunction exposing (rule)
 
-import Lint exposing (doNothing)
+import Lint exposing (lint, doNothing)
 import Types exposing (LintRule, Error, Direction(..))
 import Ast.Statement exposing (..)
 import Set exposing (Set)
@@ -11,13 +11,18 @@ type alias Context =
     }
 
 
-rule : LintRule Context
-rule =
+rule : String -> List Error
+rule input =
+    lint input implementation
+
+
+implementation : LintRule Context
+implementation =
     { statementFn = statementFn
     , typeFn = doNothing
     , expressionFn = doNothing
     , moduleEndFn = (\ctx -> ( [], ctx ))
-    , context = Context Set.empty
+    , initialContext = Context Set.empty
     }
 
 

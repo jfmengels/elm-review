@@ -9,6 +9,7 @@ import Html.Attributes exposing (id, class)
 import Html.Events exposing (..)
 import Json.Decode as JD
 import Lint
+import Types
 
 
 -- Rules
@@ -97,20 +98,28 @@ tree ast =
             div [] [ text <| toString err ]
 
 
+rules : List (String -> List Types.Error)
+rules =
+    [ FindNoAnnotatedFunction.rule
+    , NoDebug.rule
+    , NoExposingEverything.rule
+    ]
+
+
 lint : String -> Html Msg
 lint source =
     let
-        lint =
-            Lint.lint source
-
         errors =
-            List.concat
-                [ lint FindNoAnnotatedFunction.rule
-                , lint NoDebug.rule
-                , lint NoExposingEverything.rule
-                ]
+            List.map (\rule -> rule source) rules
+                |> List.concat
     in
-        div [] (List.map (\x -> p [] [ text x ]) errors)
+        div []
+            (List.map
+                (\x ->
+                    p [] [ text x ]
+                )
+                errors
+            )
 
 
 view : String -> Html Msg

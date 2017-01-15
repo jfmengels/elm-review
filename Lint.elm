@@ -19,7 +19,7 @@ visitAndAccumulate rule visitor ( errors, ctx ) =
 lintWithVisitors : List (Visitor context) -> LintRule context -> List Error
 lintWithVisitors visitors rule =
     visitors
-        |> List.foldl (visitAndAccumulate rule) ( [], rule.context )
+        |> List.foldl (visitAndAccumulate rule) ( [], rule.initialContext )
         |> Tuple.first
 
 

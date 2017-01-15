@@ -22,7 +22,7 @@ type alias LintRule context =
     , typeFn : LintImplementation Type context
     , expressionFn : LintImplementation Expression context
     , moduleEndFn : context -> ( List Error, context )
-    , context : context
+    , initialContext : context
     }
 
 
