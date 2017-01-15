@@ -5,7 +5,9 @@ import Ast.Statement exposing (..)
 
 
 type alias Error =
-    String
+    { rule : String
+    , message : String
+    }
 
 
 type Direction node

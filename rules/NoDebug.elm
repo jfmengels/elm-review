@@ -24,12 +24,17 @@ implementation =
     }
 
 
+createError : String -> Error
+createError =
+    Error "NoDebug"
+
+
 expressionFn : Context -> Direction Expression -> ( List Error, Context )
 expressionFn ctx node =
     case node of
         Enter (Variable vars) ->
             if List.member "Debug" vars then
-                ( [ "Forbidden use of Debug" ], ctx )
+                ( [ createError "Forbidden use of Debug" ], ctx )
             else
                 ( [], ctx )
 

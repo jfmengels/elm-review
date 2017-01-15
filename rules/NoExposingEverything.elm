@@ -24,13 +24,18 @@ implementation =
     }
 
 
+createError : String -> Error
+createError name =
+    Error "NoExposingEverything" ("Do not expose everything from module " ++ name ++ " using (..)")
+
+
 statementFn : Context -> Direction Statement -> ( List Error, Context )
 statementFn ctx node =
     case node of
         Enter (ModuleDeclaration names AllExport) ->
             case names of
                 [ name ] ->
-                    ( [ "Do not expose everything from module " ++ name ++ " using (..)" ], ctx )
+                    ( [ createError name ], ctx )
 
                 _ ->
                     ( [], ctx )

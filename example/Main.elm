@@ -8,7 +8,6 @@ import Html exposing (Html, p, div, li, ul, pre, textarea, text)
 import Html.Attributes exposing (id, class)
 import Html.Events exposing (..)
 import Json.Decode as JD
-import Lint
 import Types
 
 
@@ -115,8 +114,8 @@ lint source =
     in
         div []
             (List.map
-                (\x ->
-                    p [] [ text x ]
+                (\err ->
+                    p [] [ text (err.rule ++ ": " ++ err.message) ]
                 )
                 errors
             )

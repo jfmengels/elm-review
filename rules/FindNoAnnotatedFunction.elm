@@ -26,6 +26,11 @@ implementation =
     }
 
 
+createError : String -> Error
+createError name =
+    Error "FindNoAnnotatedFunction" ("`" ++ name ++ "` does not have a type declaration")
+
+
 statementFn : Context -> Direction Statement -> ( List Error, Context )
 statementFn ctx node =
     case node of
@@ -36,7 +41,7 @@ statementFn ctx node =
             if Set.member name ctx.annotatedFunctions then
                 ( [], ctx )
             else
-                ( [ "`" ++ name ++ "` does not have a type declaration" ], ctx )
+                ( [ createError name ], ctx )
 
         _ ->
             ( [], ctx )
