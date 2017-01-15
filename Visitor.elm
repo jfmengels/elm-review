@@ -61,11 +61,27 @@ expressionToVisitors node =
                 Record pairs ->
                     List.map Tuple.second pairs
 
+                RecordUpdate name updates ->
+                    List.map Tuple.second updates
+
                 BinOp operator left right ->
                     [ operator, left, right ]
 
-                _ ->
-                    []
+                If cond then_ else_ ->
+                    [ cond, then_, else_ ]
+
+                Let declarations body ->
+                    List.append
+                        (List.map Tuple.second declarations)
+                        [ body ]
+
+                Case target cases ->
+                    List.append
+                        [ target ]
+                        (List.concatMap (\( a, b ) -> [ a, b ]) cases)
+
+                Lambda names expression ->
+                    [ expression ]
 
         childrenVisitors =
             List.concatMap expressionToVisitors children

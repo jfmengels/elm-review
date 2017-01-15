@@ -4,6 +4,7 @@ import Test exposing (describe, Test)
 import Test.Runner.Node exposing (run)
 import Json.Encode exposing (Value)
 import NoUnannotatedFunctionTest
+import NoDebugTest
 
 
 main : Test.Runner.Node.TestProgram
@@ -17,5 +18,6 @@ port emit : ( String, Value ) -> Cmd msg
 all : Test
 all =
     describe "Visitors"
-        [ NoUnannotatedFunctionTest.all
+        [ NoDebugTest.all
+        , NoUnannotatedFunctionTest.all
         ]
