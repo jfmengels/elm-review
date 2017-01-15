@@ -13,7 +13,7 @@ import Types
 
 -- Rules
 
-import FindNoAnnotatedFunction
+import NoUnannotatedFunction
 import NoDebug
 import NoExposingEverything
 
@@ -99,9 +99,9 @@ tree ast =
 
 rules : List (String -> List Types.Error)
 rules =
-    [ FindNoAnnotatedFunction.rule
-    , NoDebug.rule
+    [ NoDebug.rule
     , NoExposingEverything.rule
+    , NoUnannotatedFunction.rule
     ]
 
 
@@ -109,8 +109,7 @@ lint : String -> Html Msg
 lint source =
     let
         errors =
-            List.map (\rule -> rule source) rules
-                |> List.concat
+            List.concatMap (\rule -> rule source) rules
     in
         div []
             (List.map

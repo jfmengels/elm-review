@@ -1,4 +1,4 @@
-module FindNoAnnotatedFunction exposing (rule)
+module NoUnannotatedFunction exposing (rule)
 
 import Lint exposing (lint, doNothing)
 import Types exposing (LintRule, Error, Direction(..))
@@ -28,7 +28,7 @@ implementation =
 
 createError : String -> Error
 createError name =
-    Error "FindNoAnnotatedFunction" ("`" ++ name ++ "` does not have a type declaration")
+    Error "NoUnannotatedFunction" ("`" ++ name ++ "` does not have a type declaration")
 
 
 statementFn : Context -> Direction Statement -> ( List Error, Context )

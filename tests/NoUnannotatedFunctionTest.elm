@@ -1,14 +1,14 @@
-port module FindNoAnnotatedFunctionTest exposing (all)
+port module NoUnannotatedFunctionTest exposing (all)
 
 import Expect
 import Test exposing (describe, test, Test)
-import FindNoAnnotatedFunction exposing (rule)
+import NoUnannotatedFunction exposing (rule)
 import Types exposing (Error)
 
 
 error : String -> Error
 error =
-    Error "FindNoAnnotatedFunction"
+    Error "NoUnannotatedFunction"
 
 
 tests : List Test
@@ -79,4 +79,4 @@ tests =
 
 all : Test
 all =
-    describe "FindNoAnnotatedFunction" tests
+    describe "NoUnannotatedFunction" tests
