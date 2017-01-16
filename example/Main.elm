@@ -78,16 +78,6 @@ statement s =
             li [] [ pre [] [ text <| toString s ] ]
 
 
-tree2 : ( Result (List String) (List Statement), a ) -> Html Msg
-tree2 ast =
-    case ast of
-        ( Ok statements, _ ) ->
-            ul [] (List.map statement statements)
-
-        err ->
-            div [] [ text <| toString err ]
-
-
 tree : Result a ( b, c, List Statement ) -> Html Msg
 tree ast =
     case ast of
@@ -112,13 +102,17 @@ lint source =
     let
         errors =
             List.concatMap (\rule -> rule source) rules
+
+        messages =
+            if List.isEmpty errors then
+                [ "No issues here." ]
+            else
+                List.map (\err -> err.rule ++ ": " ++ err.message) errors
     in
         div []
             (List.map
-                (\err ->
-                    p [] [ text (err.rule ++ ": " ++ err.message) ]
-                )
-                errors
+                (\message -> p [] [ text message ])
+                messages
             )
 
 
