@@ -16,6 +16,7 @@ import Types
 import NoUnannotatedFunction
 import NoDebug
 import NoExposingEverything
+import NoUnusedVariables
 
 
 type Msg
@@ -102,6 +103,7 @@ rules =
     [ NoDebug.rule
     , NoExposingEverything.rule
     , NoUnannotatedFunction.rule
+    , NoUnusedVariables.rule
     ]
 
 
