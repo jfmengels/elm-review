@@ -15,56 +15,49 @@ tests : List Test
 tests =
     [ test "should not report constants that are annotated" <|
         \() ->
-            """
+            rule """
             f : Int"
             f = 2
             """
-                |> rule
                 |> Expect.equal []
     , test "should not report functions that are annotated" <|
         \() ->
-            """
+            rule """
             f : Int -> Int"
             f n = 2
             """
-                |> rule
                 |> Expect.equal []
     , test "should report constants that are not annotated" <|
         \() ->
-            "f = 2"
-                |> rule
+            rule "f = 2"
                 |> Expect.equal [ error "`f` does not have a type declaration" ]
     , test "should report functions that are not annotated" <|
         \() ->
-            "f n = 2"
-                |> rule
+            rule "f n = 2"
                 |> Expect.equal [ error "`f` does not have a type declaration" ]
     , test "should report functions that are not annotated" <|
         \() ->
-            "f n = 2"
-                |> rule
+            rule "f n = 2"
                 |> Expect.equal [ error "`f` does not have a type declaration" ]
     , test "should report functions that are not annotated when there are annotations" <|
         \() ->
-            """
+            rule """
             f : Int -> Int
             g n = 3
             """
-                |> rule
                 |> Expect.equal [ error "`g` does not have a type declaration" ]
     , test "should report functions that are not annotated when there are other annotated functions" <|
         \() ->
-            """
+            rule """
             f : Int -> Int
             f n = 2
 
             g n = 3
             """
-                |> rule
                 |> Expect.equal [ error "`g` does not have a type declaration" ]
     , test "should not functions declared in a `let` body" <|
         \() ->
-            """
+            rule """
             f : Int -> Int
             f n =
               let
@@ -72,7 +65,6 @@ tests =
               in
                 a
             """
-                |> rule
                 |> Expect.equal []
     ]
 

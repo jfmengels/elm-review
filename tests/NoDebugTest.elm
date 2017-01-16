@@ -15,136 +15,115 @@ tests : List Test
 tests =
     [ test "should not report normal function calls" <|
         \() ->
-            """
+            rule """
             a = foo n
             b = bar.foo n
             c = debug
             e = debug.log n
             d = debug.log n
             """
-                |> rule
                 |> Expect.equal []
     , test "should report Debug.log use" <|
         \() ->
-            "a = Debug.log"
-                |> rule
+            rule "a = Debug.log"
                 |> Expect.equal [ error "Forbidden use of Debug" ]
     , test "should report Debug.log calls" <|
         \() ->
-            "a = Debug.log z"
-                |> rule
+            rule "a = Debug.log z"
                 |> Expect.equal [ error "Forbidden use of Debug" ]
     , test "should report multiple Debug.log calls" <|
         \() ->
-            """
+            rule """
             a = Debug.log z
             b = Debug.log z
             """
-                |> rule
                 |> Expect.equal
                     [ error "Forbidden use of Debug"
                     , error "Forbidden use of Debug"
                     ]
     , test "should report Debug.crash calls" <|
         \() ->
-            "a = Debug.crash 1"
-                |> rule
+            rule "a = Debug.crash 1"
                 |> Expect.equal [ error "Forbidden use of Debug" ]
     , test "should report any Debug method" <|
         \() ->
-            "a = Debug.foo 1"
-                |> rule
+            rule "a = Debug.foo 1"
                 |> Expect.equal [ error "Forbidden use of Debug" ]
     , test "should report Debug in a binary expression" <|
         \() ->
-            "a = (Debug.log z) + 2"
-                |> rule
+            rule "a = (Debug.log z) + 2"
                 |> Expect.equal [ error "Forbidden use of Debug" ]
     , test "should report Debug in a << binary expression" <|
         \() ->
-            "a = fn << Debug.log"
-                |> rule
+            rule "a = fn << Debug.log"
                 |> Expect.equal [ error "Forbidden use of Debug" ]
     , test "should report Debug in a pipe expression" <|
         \() ->
-            "a = fn |> Debug.log z"
-                |> rule
+            rule "a = fn |> Debug.log z"
                 |> Expect.equal [ error "Forbidden use of Debug" ]
     , test "should report Debug in an list expression" <|
         \() ->
-            "a = [Debug.log z y]"
-                |> rule
+            rule "a = [Debug.log z y]"
                 |> Expect.equal [ error "Forbidden use of Debug" ]
     , test "should report Debug in an record expression" <|
         \() ->
-            "a = { foo = Debug.log z y }"
-                |> rule
+            rule "a = { foo = Debug.log z y }"
                 |> Expect.equal [ error "Forbidden use of Debug" ]
       -- elm-ast doesn't handle record update expressions
       -- , test "should report Debug in an record update expression" <|
       --     \() ->
-      --         "a = { model | foo = Debug.log z y }"
-      --             |> rule
+      --         rule "a = { model | foo = Debug.log z y }"
       --             |> Expect.equal [ error "Forbidden use of Debug" ]
     , test "should report Debug in an lambda expression" <|
         \() ->
-            "a = (\\foo -> Debug.log z foo)"
-                |> rule
+            rule "a = (\\foo -> Debug.log z foo)"
                 |> Expect.equal [ error "Forbidden use of Debug" ]
     , test "should report Debug in an if expression condition" <|
         \() ->
-            "a = if Debug.log a b then True else False"
-                |> rule
+            rule "a = if Debug.log a b then True else False"
                 |> Expect.equal [ error "Forbidden use of Debug" ]
     , test "should report Debug in an if expression then" <|
         \() ->
-            "a = if True then Debug.log a b else False"
-                |> rule
+            rule "a = if True then Debug.log a b else False"
                 |> Expect.equal [ error "Forbidden use of Debug" ]
     , test "should report Debug in an if expression else" <|
         \() ->
-            "a = if True then True else Debug.log a b"
-                |> rule
+            rule "a = if True then True else Debug.log a b"
                 |> Expect.equal [ error "Forbidden use of Debug" ]
     , test "should report Debug in a case value" <|
         \() ->
-            """
+            rule """
             a = case Debug.log a b of
               _ -> []
             """
-                |> rule
                 |> Expect.equal [ error "Forbidden use of Debug" ]
     , test "should report Debug in a case pattern" <|
         \() ->
-            """
+            rule """
             a = case a of
               Debug.log a b -> []
             """
-                |> rule
                 |> Expect.equal [ error "Forbidden use of Debug" ]
     , test "should report Debug in a case body" <|
         \() ->
-            """
+            rule """
             a = case a of
               _ -> Debug.log a b
             """
-                |> rule
                 |> Expect.equal [ error "Forbidden use of Debug" ]
     , test "should report Debug in let declaration section" <|
         \() ->
-            """
+            rule """
             a = let b = Debug.log a b
                 in b
             """
-                |> rule
                 |> Expect.equal [ error "Forbidden use of Debug" ]
     , test "should report Debug in let body" <|
         \() ->
-            """
+            rule """
             a = let b = c
                 in Debug.log a b
             """
-                |> rule
                 |> Expect.equal [ error "Forbidden use of Debug" ]
     ]
 
