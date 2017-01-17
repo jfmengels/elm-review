@@ -24,9 +24,9 @@ implementation =
     }
 
 
-createError : String -> Error
-createError =
-    Error "NoDebug"
+error : Error
+error =
+    Error "NoDebug" "Forbidden use of Debug"
 
 
 expressionFn : Context -> Direction Expression -> ( List Error, Context )
@@ -34,7 +34,7 @@ expressionFn ctx node =
     case node of
         Enter (Variable vars) ->
             if List.member "Debug" vars then
-                ( [ createError "Forbidden use of Debug" ], ctx )
+                ( [ error ], ctx )
             else
                 ( [], ctx )
 
