@@ -88,7 +88,7 @@ tree ast =
             ul [] (List.map statement statements)
 
         err ->
-            div [] [ text <| toString err ]
+            div [] [ text "Sorry, I could not parse your code. This may be my fault though :/" ]
 
 
 rules : List (String -> List Types.Error)
