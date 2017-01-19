@@ -4,9 +4,10 @@ import Test exposing (describe, Test)
 import Test.Runner.Node exposing (run)
 import Json.Encode exposing (Value)
 import NoDebugTest
+import NoDuplicateImportsTest
+import NoImportingEverythingTest
 import NoUnannotatedFunctionTest
 import NoUnusedVariablesTest
-import NoDuplicateImportsTest
 
 
 main : Test.Runner.Node.TestProgram
@@ -21,7 +22,8 @@ all : Test
 all =
     describe "Visitors"
         [ NoDebugTest.all
+        , NoDuplicateImportsTest.all
+        , NoImportingEverythingTest.all
         , NoUnannotatedFunctionTest.all
         , NoUnusedVariablesTest.all
-        , NoDuplicateImportsTest.all
         ]

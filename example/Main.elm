@@ -2,6 +2,7 @@ module Main exposing (main)
 
 import Result
 import Ast
+import Ast as L
 import Ast.Expression exposing (..)
 import Ast.Statement exposing (..)
 import Html exposing (Html, p, div, li, ul, pre, textarea, text)
@@ -13,11 +14,12 @@ import Types
 
 -- Rules
 
-import NoUnannotatedFunction
 import NoDebug
-import NoExposingEverything
-import NoUnusedVariables
 import NoDuplicateImports
+import NoExposingEverything
+import NoImportingEverything
+import NoUnannotatedFunction
+import NoUnusedVariables
 
 
 type Msg
@@ -29,7 +31,7 @@ init =
     """module Main exposing (f)
 
 import Html
-import Html exposing (div)
+import Html exposing (..)
 
 f : Int -> Int
 f x = x Debug.log 1
@@ -92,10 +94,11 @@ tree ast =
 rules : List (String -> List Types.Error)
 rules =
     [ NoDebug.rule
+    , NoDuplicateImports.rule
     , NoExposingEverything.rule
+    , NoImportingEverything.rule
     , NoUnannotatedFunction.rule
     , NoUnusedVariables.rule
-    , NoDuplicateImports.rule
     ]
 
 
