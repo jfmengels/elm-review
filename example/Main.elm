@@ -10,6 +10,7 @@ import Html.Attributes exposing (id, class)
 import Html.Events exposing (..)
 import Json.Decode as JD
 import Types
+import Regex exposing (regex, escape)
 
 
 -- Rules
@@ -24,6 +25,17 @@ import NoUnusedVariables
 
 type Msg
     = Replace String
+
+
+rules : List (String -> List Types.Error)
+rules =
+    [ NoDebug.rule
+    , NoDuplicateImports.rule
+    , NoExposingEverything.rule
+    , NoImportingEverything.rule
+    , NoUnannotatedFunction.rule
+    , NoUnusedVariables.rule
+    ]
 
 
 init : String
@@ -49,10 +61,7 @@ update action model =
 
 withChild : a -> List (Html Msg) -> Html Msg
 withChild title children =
-    li []
-        [ pre [] [ text <| toString title ]
-        , ul [] children
-        ]
+    elementWithChildren (toString title) children
 
 
 expression : Expression -> Html Msg
@@ -62,23 +71,76 @@ expression e =
             withChild e (List.map expression es)
 
         Application e1 e2 ->
-            withChild e
-                [ expression e1
-                , expression e2
-                ]
+            displayElementAndExpressions e [ e1, e2 ]
+
+        BinOp operator left right ->
+            displayElementAndExpressions e [ operator, left, right ]
 
         e ->
             li [] [ pre [] [ text <| toString e ] ]
 
 
+replace : String -> String -> String -> String
+replace search substitution string =
+    string
+        |> Regex.replace (Regex.AtMost 1) (regex (escape search)) (\_ -> substitution)
+
+
+removeSubElement : a -> List b -> String
+removeSubElement parent children =
+    List.foldl
+        (\child res ->
+            res
+                |> replace ("(" ++ child ++ ")") ""
+                |> replace child ""
+        )
+        (toString parent)
+        (List.map toString children)
+
+
+elementWithChildren : String -> List (Html msg) -> Html msg
+elementWithChildren title children =
+    li []
+        [ pre [] [ text title ]
+        , ul [] children
+        ]
+
+
+displayElementAndExpressions : a -> List Expression -> Html Msg
+displayElementAndExpressions element expressions =
+    elementWithChildren
+        (removeSubElement element expressions)
+        (List.map expression expressions)
+
+
+displayElementAndAnyChild : a -> List b -> Html Msg
+displayElementAndAnyChild element children =
+    elementWithChildren
+        (removeSubElement element children)
+        [ li [] [ pre [] [ text <| String.join " " <| List.map toString children ] ] ]
+
+
 statement : Statement -> Html Msg
 statement s =
-    case s of
-        FunctionDeclaration _ _ e ->
-            withChild s [ expression e ]
-
-        s ->
+    let
+        defaultDisplay =
             li [] [ pre [] [ text <| toString s ] ]
+    in
+        case s of
+            FunctionDeclaration _ _ body ->
+                displayElementAndExpressions s [ body ]
+
+            FunctionTypeDeclaration _ body ->
+                displayElementAndAnyChild s [ body ]
+
+            ModuleDeclaration _ exportSet ->
+                displayElementAndAnyChild s [ exportSet ]
+
+            ImportStatement _ _ exportSet ->
+                displayElementAndAnyChild s [ exportSet ]
+
+            s ->
+                defaultDisplay
 
 
 tree : Result a ( b, c, List Statement ) -> Html Msg
@@ -89,17 +151,6 @@ tree ast =
 
         err ->
             div [] [ text "Sorry, I could not parse your code. This may be my fault though :/" ]
-
-
-rules : List (String -> List Types.Error)
-rules =
-    [ NoDebug.rule
-    , NoDuplicateImports.rule
-    , NoExposingEverything.rule
-    , NoImportingEverything.rule
-    , NoUnannotatedFunction.rule
-    , NoUnusedVariables.rule
-    ]
 
 
 lint : String -> Html Msg
