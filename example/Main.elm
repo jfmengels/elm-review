@@ -17,6 +17,7 @@ import NoUnannotatedFunction
 import NoDebug
 import NoExposingEverything
 import NoUnusedVariables
+import NoDuplicateImports
 
 
 type Msg
@@ -25,15 +26,15 @@ type Msg
 
 init : String
 init =
-    """module Main exposing (..)
+    """module Main exposing (f)
+
+import Html
+import Html exposing (div)
 
 f : Int -> Int
 f x = x Debug.log 1
 
-a : a -> a
-a = Debug.log "foo" x
-
-h = f << Debug.log
+g n = n + 1
 """
 
 
@@ -94,6 +95,7 @@ rules =
     , NoExposingEverything.rule
     , NoUnannotatedFunction.rule
     , NoUnusedVariables.rule
+    , NoDuplicateImports.rule
     ]
 
 

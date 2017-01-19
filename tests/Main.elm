@@ -6,6 +6,7 @@ import Json.Encode exposing (Value)
 import NoDebugTest
 import NoUnannotatedFunctionTest
 import NoUnusedVariablesTest
+import NoDuplicateImportsTest
 
 
 main : Test.Runner.Node.TestProgram
@@ -22,4 +23,5 @@ all =
         [ NoDebugTest.all
         , NoUnannotatedFunctionTest.all
         , NoUnusedVariablesTest.all
+        , NoDuplicateImportsTest.all
         ]

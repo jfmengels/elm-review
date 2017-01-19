@@ -20,6 +20,7 @@ You can read the slides for my [presentation](http://slides.com/jeroenengels/elm
 
 - [NoUnusedVariables](rules/NoUnusedVariables.md) - Reports variables that are declared but never used.
 - [NoDebug](rules/NoDebug.md) - Forbid the use of `Debug` before it goes into production.
+- [NoDuplicateImports](rules/NoDuplicateImports.md) - Forbid importing the same module several times in a file.
 - [NoUnannotatedFunction](rules/NoUnannotatedFunction.md) - Ensure every top-level function declaration has a type annotation.
 - [NoExposingEverything](rules/no-class.md) - Forbid exporting everything in your modules `module Main exposing (..)`, to make your module explicit in what it exposes.
 
