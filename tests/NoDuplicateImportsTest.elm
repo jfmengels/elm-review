@@ -78,6 +78,20 @@ tests =
             import Regex exposing (b)
             """
                 |> Expect.equal [ error "Regex was imported several times" ]
+    , test "should report duplicated submodule imports" <|
+        \() ->
+            rule """
+            import Html.App
+            import Html.App
+            """
+                |> Expect.equal [ error "Html.App was imported several times" ]
+    , test "should not report the import of a module and its submodule" <|
+        \() ->
+            rule """
+            import Html
+            import Html.App
+            """
+                |> Expect.equal []
     ]
 
 

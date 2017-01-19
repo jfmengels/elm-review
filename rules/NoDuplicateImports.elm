@@ -36,15 +36,14 @@ statementFn : Context -> Direction Statement -> ( List Error, Context )
 statementFn ctx node =
     case node of
         Enter (ImportStatement names alias exportSet) ->
-            case List.head names of
-                Just name ->
-                    if Set.member name ctx.imports then
-                        ( [], { ctx | duplicates = Set.insert name ctx.duplicates } )
-                    else
-                        ( [], { ctx | imports = Set.insert name ctx.imports } )
-
-                _ ->
-                    ( [], ctx )
+            let
+                name =
+                    String.join "." names
+            in
+                if Set.member name ctx.imports then
+                    ( [], { ctx | duplicates = Set.insert name ctx.duplicates } )
+                else
+                    ( [], { ctx | imports = Set.insert name ctx.imports } )
 
         _ ->
             ( [], ctx )
