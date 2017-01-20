@@ -21,6 +21,7 @@ import NoExposingEverything
 import NoImportingEverything
 import NoUnannotatedFunction
 import NoUnusedVariables
+import SimplifyPiping
 
 
 type Msg
@@ -35,6 +36,7 @@ rules =
     , NoImportingEverything.rule
     , NoUnannotatedFunction.rule
     , NoUnusedVariables.rule
+    , SimplifyPiping.rule
     ]
 
 

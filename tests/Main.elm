@@ -8,6 +8,7 @@ import NoDuplicateImportsTest
 import NoImportingEverythingTest
 import NoUnannotatedFunctionTest
 import NoUnusedVariablesTest
+import SimplifyPipingTest
 
 
 main : Test.Runner.Node.TestProgram
@@ -26,4 +27,5 @@ all =
         , NoImportingEverythingTest.all
         , NoUnannotatedFunctionTest.all
         , NoUnusedVariablesTest.all
+        , SimplifyPipingTest.all
         ]
