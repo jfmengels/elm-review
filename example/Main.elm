@@ -14,6 +14,7 @@ import Regex exposing (regex, escape)
 
 -- Rules
 
+import NoConstantCondition
 import NoDebug
 import NoDuplicateImports
 import NoExposingEverything
@@ -29,7 +30,8 @@ type Msg
 
 rules : List (String -> List Types.Error)
 rules =
-    [ NoDebug.rule
+    [ NoConstantCondition.rule
+    , NoDebug.rule
     , NoDuplicateImports.rule
     , NoExposingEverything.rule
     , NoImportingEverything.rule

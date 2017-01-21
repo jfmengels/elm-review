@@ -18,11 +18,12 @@ You can read the slides for my [presentation](http://slides.com/jeroenengels/elm
 
 ## Rules
 
-- [NoUnusedVariables](rules/NoUnusedVariables.md) - Reports variables that are declared but never used.
+- [NoConstantCondition](rules/NoConstantCondition.md) - Forbid the use of expressions in an If condition whose value are always the same.
 - [NoDebug](rules/NoDebug.md) - Forbid the use of `Debug` before it goes into production.
 - [NoDuplicateImports](rules/NoDuplicateImports.md) - Forbid importing the same module several times in a file.
-- [NoUnannotatedFunction](rules/NoUnannotatedFunction.md) - Ensure every top-level function declaration has a type annotation.
 - [NoExposingEverything](rules/NoExposingEverything.md) - Forbid exporting everything in your modules `module Main exposing (..)`, to make your module explicit in what it exposes.
+- [NoUnannotatedFunction](rules/NoUnannotatedFunction.md) - Ensure every top-level function declaration has a type annotation.
+- [NoUnusedVariables](rules/NoUnusedVariables.md) - Reports variables that are declared but never used.
 - [SimplifyPiping](rules/SimplifyPiping.md) - Simplify piped functions like `List.map f >> List.map g` to `List.map (f >> g)`
 
 More rule ideas in this [slide](http://slides.com/jeroenengels/elm-lint#/5/3) and the ones below it.
