@@ -1,4 +1,4 @@
-module Visitor exposing (transformStatementsIntoVisitors)
+module Visitor exposing (transformStatementsIntoVisitors, expressionToVisitors)
 
 import Ast.Expression exposing (..)
 import Ast.Statement exposing (..)

@@ -24,6 +24,7 @@ You can read the slides for my [presentation](http://slides.com/jeroenengels/elm
 - [NoExposingEverything](rules/NoExposingEverything.md) - Forbid exporting everything in your modules `module Main exposing (..)`, to make your module explicit in what it exposes.
 - [NoUnannotatedFunction](rules/NoUnannotatedFunction.md) - Ensure every top-level function declaration has a type annotation.
 - [NoUnusedVariables](rules/NoUnusedVariables.md) - Reports variables that are declared but never used.
+- [NoUselessPatternMatching](rules/NoUselessPatternMatching.md) - Reports case expressions that can be simplified. Either when all patterns will lead to the same value, or when a patter will lead to the same value as the default pattern.
 - [SimplifyPiping](rules/SimplifyPiping.md) - Simplify piped functions like `List.map f >> List.map g` to `List.map (f >> g)`
 
 More rule ideas in this [slide](http://slides.com/jeroenengels/elm-lint#/5/3) and the ones below it.

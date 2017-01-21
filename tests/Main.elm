@@ -9,6 +9,7 @@ import NoDuplicateImportsTest
 import NoImportingEverythingTest
 import NoUnannotatedFunctionTest
 import NoUnusedVariablesTest
+import NoUselessPatternMatchingTest
 import SimplifyPipingTest
 
 
@@ -29,5 +30,6 @@ all =
         , NoImportingEverythingTest.all
         , NoUnannotatedFunctionTest.all
         , NoUnusedVariablesTest.all
+        , NoUselessPatternMatchingTest.all
         , SimplifyPipingTest.all
         ]
