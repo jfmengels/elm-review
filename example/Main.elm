@@ -2,7 +2,6 @@ module Main exposing (main)
 
 import Result
 import Ast
-import Ast as L
 import Ast.Expression exposing (..)
 import Ast.Statement exposing (..)
 import Html exposing (Html, p, div, li, ul, pre, textarea, text)
