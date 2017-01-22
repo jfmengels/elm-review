@@ -14,6 +14,7 @@ import Regex exposing (regex, escape)
 
 -- Rules
 
+import DefaultPatternPosition
 import NoConstantCondition
 import NoDebug
 import NoDuplicateImports
@@ -32,7 +33,8 @@ type Msg
 
 rules : List (String -> List Types.Error)
 rules =
-    [ NoConstantCondition.rule
+    [ DefaultPatternPosition.rule { position = DefaultPatternPosition.Last }
+    , NoConstantCondition.rule
     , NoDebug.rule
     , NoDuplicateImports.rule
     , NoExposingEverything.rule

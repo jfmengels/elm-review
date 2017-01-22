@@ -18,6 +18,7 @@ You can read the slides for my [presentation](http://slides.com/jeroenengels/elm
 
 ## Rules
 
+- [DefaultPatternPosition](rules/DefaultPatternPosition.md) - Enforce the default pattern to always appear first or last.
 - [NoConstantCondition](rules/NoConstantCondition.md) - Forbid the use of expressions in an If condition whose value are always the same.
 - [NoDebug](rules/NoDebug.md) - Forbid the use of `Debug` before it goes into production.
 - [NoDuplicateImports](rules/NoDuplicateImports.md) - Forbid importing the same module several times in a file.

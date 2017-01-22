@@ -3,6 +3,7 @@ port module Tests exposing (..)
 import Test exposing (describe, Test)
 import Test.Runner.Node exposing (run)
 import Json.Encode exposing (Value)
+import DefaultPatternPositionTest
 import NoConstantConditionTest
 import NoDebugTest
 import NoDuplicateImportsTest
@@ -25,7 +26,8 @@ port emit : ( String, Value ) -> Cmd msg
 all : Test
 all =
     describe "Visitors"
-        [ NoConstantConditionTest.all
+        [ DefaultPatternPositionTest.all
+        , NoConstantConditionTest.all
         , NoDebugTest.all
         , NoDuplicateImportsTest.all
         , NoImportingEverythingTest.all
