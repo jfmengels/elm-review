@@ -22,6 +22,7 @@ import NoImportingEverything
 import NoUnannotatedFunction
 import NoUnusedVariables
 import NoUselessPatternMatching
+import NoWarningComments
 import SimplifyPiping
 
 
@@ -39,6 +40,7 @@ rules =
     , NoUnannotatedFunction.rule
     , NoUnusedVariables.rule
     , NoUselessPatternMatching.rule
+    , NoWarningComments.rule
     , SimplifyPiping.rule
     ]
 
