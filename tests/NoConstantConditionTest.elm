@@ -44,7 +44,7 @@ validComparisonTests =
 
 tests : List Test
 tests =
-    [ test "should not report a condition that access a variable" <|
+    [ test "should not report a condition that accesses a variable" <|
         \() ->
             condition "b"
                 |> rule

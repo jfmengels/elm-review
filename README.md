@@ -25,6 +25,7 @@ You can read the slides for my [presentation](http://slides.com/jeroenengels/elm
 - [NoExposingEverything](rules/NoExposingEverything.md) - Forbid exporting everything in your modules `module Main exposing (..)`, to make your module explicit in what it exposes.
 - [NoUnannotatedFunction](rules/NoUnannotatedFunction.md) - Ensure every top-level function declaration has a type annotation.
 - [NoUnusedVariables](rules/NoUnusedVariables.md) - Reports variables that are declared but never used.
+- [NoUselessIf](rules/NoUselessIf.md) - Reports when both paths of an If expression result will lead to the same value.
 - [NoUselessPatternMatching](rules/NoUselessPatternMatching.md) - Reports case expressions that can be simplified. Either when all patterns will lead to the same value, or when a patter will lead to the same value as the default pattern.
 - [NoWarningComments](rules/NoWarningComments.md) - Detect comments containing words like `TODO`, `FIXME` and `XXX`.
 - [SimplifyPiping](rules/SimplifyPiping.md) - Simplify piped functions like `List.map f >> List.map g` to `List.map (f >> g)`
