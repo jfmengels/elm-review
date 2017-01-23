@@ -93,6 +93,24 @@ tests =
               Baz -> b
             """
                 |> Expect.equal []
+    , test "should not report case where there is only one pattern (which introduces and uses variables)" <|
+        \() ->
+            rule """a = case b of
+              Foo d -> d
+            """
+                |> Expect.equal []
+    , test "should report case where there is only one pattern (which doesn't have variables)" <|
+        \() ->
+            rule """a = case b of
+              Foo -> d
+            """
+                |> Expect.equal [ uselessError ]
+    , test "should report case where there is only the default pattern" <|
+        \() ->
+            rule """a = case b of
+              _ -> d
+            """
+                |> Expect.equal [ uselessError ]
     ]
 
 
