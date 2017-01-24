@@ -8,6 +8,7 @@ import NoConstantConditionTest
 import NoDebugTest
 import NoDuplicateImportsTest
 import NoImportingEverythingTest
+import NoNestedLetTest
 import NoUnannotatedFunctionTest
 import NoUnusedVariablesTest
 import NoUselessIfTest
@@ -32,6 +33,7 @@ all =
         , NoDebugTest.all
         , NoDuplicateImportsTest.all
         , NoImportingEverythingTest.all
+        , NoNestedLetTest.all
         , NoUnannotatedFunctionTest.all
         , NoUnusedVariablesTest.all
         , NoUselessIfTest.all

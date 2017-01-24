@@ -20,6 +20,7 @@ import NoDebug
 import NoDuplicateImports
 import NoExposingEverything
 import NoImportingEverything
+import NoNestedLet
 import NoUnannotatedFunction
 import NoUnusedVariables
 import NoUselessIf
@@ -40,6 +41,7 @@ rules =
     , NoDuplicateImports.rule
     , NoExposingEverything.rule
     , NoImportingEverything.rule
+    , NoNestedLet.rule
     , NoUnannotatedFunction.rule
     , NoUnusedVariables.rule
     , NoUselessIf.rule

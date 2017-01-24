@@ -23,6 +23,8 @@ You can read the slides for my [presentation](http://slides.com/jeroenengels/elm
 - [NoDebug](rules/NoDebug.md) - Forbid the use of `Debug` before it goes into production.
 - [NoDuplicateImports](rules/NoDuplicateImports.md) - Forbid importing the same module several times in a file.
 - [NoExposingEverything](rules/NoExposingEverything.md) - Forbid exporting everything in your modules `module Main exposing (..)`, to make your module explicit in what it exposes.
+- [NoImportingEverything](rules/NoImportingEverything.md) - Forbid importing everything from your module. This can especially be confusing to newcomers when the exposed functions and types are unknown to them.
+- [NoNestedLet](rules/NoNestedLet.md) - Forbid nesting let expressions directly.
 - [NoUnannotatedFunction](rules/NoUnannotatedFunction.md) - Ensure every top-level function declaration has a type annotation.
 - [NoUnusedVariables](rules/NoUnusedVariables.md) - Reports variables that are declared but never used.
 - [NoUselessIf](rules/NoUselessIf.md) - Reports when both paths of an If expression result will lead to the same value.
