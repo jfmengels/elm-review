@@ -41,7 +41,7 @@ implementation =
 
 createError : String -> Error
 createError name =
-    Error "NoUnusedVariables" ("Variable `" ++ name ++ "` was not used`")
+    Error "NoUnusedVariables" ("Variable `" ++ name ++ "` is not used")
 
 
 addUsedToStack : List Scope -> List String -> List Scope
@@ -159,6 +159,23 @@ statementFn ctx node =
 
         Enter (ModuleDeclaration names AllExport) ->
             ( [], { ctx | exportsEverything = True } )
+
+        Enter (ImportStatement module_ alias_ (Just (SubsetExport imported))) ->
+            let
+                variables =
+                    List.foldl
+                        (\var res ->
+                            case var of
+                                FunctionExport name ->
+                                    name :: res
+
+                                _ ->
+                                    res
+                        )
+                        []
+                        imported
+            in
+                ( [], { ctx | scopes = addFoundToStack ctx.scopes variables } )
 
         Enter (ModuleDeclaration names exportType) ->
             ( []
