@@ -1,5 +1,23 @@
 module Lint.Rules.NoUselessIf exposing (rule)
 
+{-|
+@docs rule
+
+# Fail
+
+    if condition then
+        value
+    else
+        value
+
+# Success
+
+    if condition then
+        value1
+    else
+        value2
+-}
+
 import Ast.Expression exposing (..)
 import Lint exposing (lint, doNothing)
 import Lint.Types exposing (LintRule, Error, Direction(..))
@@ -9,6 +27,12 @@ type alias Context =
     {}
 
 
+{-| Reports when both paths of an If expression result will lead to the same value.
+
+    rules =
+        [ NoUselessIf.rule
+        ]
+-}
 rule : String -> List Error
 rule input =
     lint input implementation

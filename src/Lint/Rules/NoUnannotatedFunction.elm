@@ -1,5 +1,20 @@
 module Lint.Rules.NoUnannotatedFunction exposing (rule)
 
+{-|
+@docs rule
+
+# Fail
+
+    a n =
+        n + 1
+
+# Success
+
+    a : Int -> Int
+    a n =
+        n + 1
+-}
+
 import Ast.Statement exposing (..)
 import Lint exposing (lint, doNothing)
 import Lint.Types exposing (LintRule, Error, Direction(..))
@@ -11,6 +26,12 @@ type alias Context =
     }
 
 
+{-| Ensure every top-level function declaration has a type annotation.
+
+    rules =
+        [ NoUnannotatedFunction.rule
+        ]
+-}
 rule : String -> List Error
 rule input =
     lint input implementation

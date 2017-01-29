@@ -1,6 +1,7 @@
 # elm-lint
 
 An [Elm](http://elm-lang.org/) linter written in Elm. Get your code from correct to better.
+You can learn about the API and the rules it provides on the [package documentation](http://package.elm-lang.org/packages/jfmengels/elm-ast).
 
 ## Try it
 
@@ -28,7 +29,7 @@ You can read the slides for my [presentation](http://slides.com/jeroenengels/elm
 - [NoUnannotatedFunction](rules/NoUnannotatedFunction.md) - Ensure every top-level function declaration has a type annotation.
 - [NoUnusedVariables](rules/NoUnusedVariables.md) - Reports variables that are declared but never used.
 - [NoUselessIf](rules/NoUselessIf.md) - Reports when both paths of an If expression result will lead to the same value.
-- [NoUselessPatternMatching](rules/NoUselessPatternMatching.md) - Reports case expressions that can be simplified. Either when all patterns will lead to the same value, or when a patter will lead to the same value as the default pattern.
+- [NoUselessPatternMatching](rules/NoUselessPatternMatching.md) - Reports case expressions that can be simplified. Either when all patterns will lead to the same value, or when a pattern will lead to the same value as the default pattern.
 - [NoWarningComments](rules/NoWarningComments.md) - Detect comments containing words like `TODO`, `FIXME` and `XXX`.
 - [SimplifyPiping](rules/SimplifyPiping.md) - Simplify piped functions like `List.map f >> List.map g` to `List.map (f >> g)`
 

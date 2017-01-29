@@ -1,5 +1,19 @@
 module Lint.Rules.NoWarningComments exposing (rule)
 
+{-|
+@docs rule
+
+# Fail
+
+    -- TODO Refactor this part of the code
+    -- FIXME Broken because of...
+    -- XXX This should not be done like this
+
+# Success
+
+    -- Regular comment
+-}
+
 import Ast.Statement exposing (..)
 import Lint exposing (doNothing, lint)
 import Lint.Types exposing (Direction(..), Error, LintRule)
@@ -10,6 +24,12 @@ type alias Context =
     {}
 
 
+{-| Detect comments containing words like `TODO`, `FIXME` and `XXX`.
+
+    rules =
+        [ NoWarningComments.rule
+        ]
+-}
 rule : String -> List Error
 rule input =
     lint input implementation

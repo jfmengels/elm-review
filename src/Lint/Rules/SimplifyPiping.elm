@@ -1,5 +1,20 @@
 module Lint.Rules.SimplifyPiping exposing (rule)
 
+{-|
+@docs rule
+
+# Fail
+
+    a = values
+        |> List.map foo
+        |> List.map bar
+
+# Success
+
+    a = values
+        |> List.map (foo >> bar)
+-}
+
 import Ast.Expression exposing (..)
 import Lint exposing (lint, doNothing)
 import Lint.Types exposing (LintRule, Error, Direction(..))
@@ -10,6 +25,12 @@ type alias Context =
     {}
 
 
+{-| Simplify piped functions like `List.map f >> List.map g` to `List.map (f >> g)`
+
+    rules =
+        [ SimplifyPiping.rule
+        ]
+-}
 rule : String -> List Error
 rule input =
     lint input implementation

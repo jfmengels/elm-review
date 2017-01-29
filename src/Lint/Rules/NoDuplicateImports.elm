@@ -1,5 +1,18 @@
 module Lint.Rules.NoDuplicateImports exposing (rule)
 
+{-|
+@docs rule
+
+# Fail
+
+    import Set
+    import Set exposing (Set)
+
+# Success
+
+    import Set exposing (Set)
+-}
+
 import Ast.Statement exposing (..)
 import Lint exposing (lint, doNothing)
 import Lint.Types exposing (LintRule, Error, Direction(..))
@@ -12,6 +25,12 @@ type alias Context =
     }
 
 
+{-| Forbid importing the same module several times in a file.
+
+    rules =
+        [ NoDuplicateImports.rule
+        ]
+-}
 rule : String -> List Error
 rule input =
     lint input implementation

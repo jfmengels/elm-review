@@ -1,5 +1,56 @@
 module Lint.Rules.DefaultPatternPosition exposing (rule, PatternPosition(..))
 
+{-|
+@docs rule, PatternPosition
+
+# Fail
+
+    rules =
+        [ DefaultPatternPosition.rule { position = Lint.Rules.DefaultPatternPosition.Last }
+        ]
+
+    case value of
+      -- Error, this pattern should appear last
+      _ -> result
+      Foo -> bar
+
+    -- --------------------
+
+    rules =
+        [ DefaultPatternPosition.rule { position = Lint.Rules.DefaultPatternPosition.First }
+        ]
+
+    case value of
+      Foo -> bar
+      -- Error, this pattern should appear first
+      _ -> result
+
+# Success
+
+    rules =
+        [ DefaultPatternPosition.rule { position = Lint.Rules.DefaultPatternPosition.Last }
+        ]
+
+    case value of
+      Foo -> bar
+      _ -> result
+
+    case value of
+      -- No default pattern
+      Foo -> bar
+      Bar -> foo
+
+    -- --------------------
+
+    rules =
+        [ DefaultPatternPosition.rule { position = Lint.Rules.DefaultPatternPosition.First }
+        ]
+
+    case value of
+      _ -> result
+      Foo -> bar
+-}
+
 import Ast.Expression exposing (..)
 import Lint exposing (doNothing, lint)
 import Lint.Types exposing (Direction(..), Error, LintRule)
@@ -11,6 +62,8 @@ type alias Context =
     {}
 
 
+{-| Configures whether the default pattern should appear first or last.
+-}
 type PatternPosition
     = First
     | Last
@@ -21,6 +74,8 @@ type alias Configuration =
     }
 
 
+{-| Enforce the default pattern to always appear first or last.
+-}
 rule : Configuration -> String -> List Error
 rule config input =
     lint input (implementation config)
@@ -41,8 +96,10 @@ error =
     Error "DefaultPatternPosition"
 
 
-{-| TODO Share this in a util file, already defined in NoUselessPatternMatching
--}
+
+{- TODO Share isVariable this in a util file, already defined in NoUselessPatternMatching -}
+
+
 isVariable : String -> Bool
 isVariable =
     Regex.contains (Regex.regex "^[_a-z][\\w\\d]*$")

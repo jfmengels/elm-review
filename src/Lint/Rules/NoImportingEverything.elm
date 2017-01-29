@@ -1,5 +1,17 @@
 module Lint.Rules.NoImportingEverything exposing (rule)
 
+{-|
+@docs rule
+
+# Fail
+
+    import Html exposing (..)
+
+# Success
+
+    import Html exposing (div, p, textarea)
+-}
+
 import Ast.Statement exposing (..)
 import Lint exposing (lint, doNothing)
 import Lint.Types exposing (LintRule, Error, Direction(..))
@@ -9,6 +21,13 @@ type alias Context =
     {}
 
 
+{-| Forbid importing everything from your module. This can especially be confusing to newcomers when the exposed
+functions and types are unknown to them.
+
+    rules =
+        [ NoImportingEverything.rule
+        ]
+-}
 rule : String -> List Error
 rule input =
     lint input implementation

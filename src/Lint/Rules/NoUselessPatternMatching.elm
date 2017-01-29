@@ -1,5 +1,34 @@
 module Lint.Rules.NoUselessPatternMatching exposing (rule)
 
+{-|
+@docs rule
+
+# Fail
+
+    -- Useless pattern matching
+    case value of
+        Foo -> 1
+        Bar -> 1
+        _ -> 1
+
+    -- Useless pattern `Bar`, it's the same as the default pattern
+    case value of
+        Foo -> 2
+        Bar -> 1
+        _ -> 1
+
+# Success
+
+    case value of
+        Foo -> 1
+        Bar -> 2
+        _ -> 3
+
+    case value of
+        Foo n -> n
+        Bar n -> n
+-}
+
 import Ast.Expression exposing (..)
 import Lint exposing (lint, visitExpression, doNothing)
 import Lint.Types exposing (LintRule, Error, Direction(..))
@@ -11,6 +40,13 @@ type alias Context =
     {}
 
 
+{-| Reports case expressions that can be simplified. Either when all patterns will lead to the same value, or when a
+pattern will lead to the same value as the default pattern.
+
+    rules =
+        [ NoUselessPatternMatching.rule
+        ]
+-}
 rule : String -> List Error
 rule input =
     lint input implementation

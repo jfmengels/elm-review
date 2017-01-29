@@ -1,5 +1,24 @@
 module Lint.Rules.NoDebug exposing (rule)
 
+{-|
+@docs rule
+
+# Fail
+
+    if Debug.log "condition" condition then a else b
+    if condition then
+        Debug.crash "Nooo!"
+    else
+        value
+
+# Success
+
+    if condition then
+        a
+    else
+        b
+-}
+
 import Ast.Expression exposing (..)
 import Lint exposing (lint, doNothing)
 import Lint.Types exposing (LintRule, Error, Direction(..))
@@ -9,6 +28,12 @@ type alias Context =
     {}
 
 
+{-| Forbid the use of `Debug` before it goes into production.
+
+    rules =
+        [ NoDebug.rule
+        ]
+-}
 rule : String -> List Error
 rule input =
     lint input implementation

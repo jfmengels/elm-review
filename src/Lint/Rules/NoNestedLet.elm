@@ -1,5 +1,23 @@
 module Lint.Rules.NoNestedLet exposing (rule)
 
+{-|
+@docs rule
+
+# Fail
+
+    a = let b = 1
+        in  let c = 2
+            in b + c
+
+# Success
+
+    a = let
+          b = 1
+          c = 2
+        in
+          b + c
+-}
+
 import Ast.Expression exposing (..)
 import Lint exposing (lint, doNothing)
 import Lint.Types exposing (LintRule, Error, Direction(..))
@@ -9,6 +27,12 @@ type alias Context =
     {}
 
 
+{-| Forbid nesting let expressions directly.
+
+    rules =
+        [ NoNestedLet.rule
+        ]
+-}
 rule : String -> List Error
 rule input =
     lint input implementation

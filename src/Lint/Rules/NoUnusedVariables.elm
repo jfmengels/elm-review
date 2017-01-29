@@ -1,5 +1,22 @@
 module Lint.Rules.NoUnusedVariables exposing (rule)
 
+{-|
+@docs rule
+
+# Fail
+
+    module Main exposing (a)
+    a n =
+        n + 1
+    b = a 2
+
+# Success
+
+    module Main exposing (a)
+    a n =
+        n + 1
+-}
+
 import Ast.Expression exposing (..)
 import Ast.Statement exposing (..)
 import Lint exposing (lint, doNothing)
@@ -24,6 +41,12 @@ emptyScope =
     Scope Set.empty Set.empty
 
 
+{-| Reports variables that are declared but never used.
+
+    rules =
+        [ NoUnusedVariables.rule
+        ]
+-}
 rule : String -> List Error
 rule input =
     lint input implementation

@@ -1,5 +1,19 @@
 module Lint.Rules.NoConstantCondition exposing (rule)
 
+{-|
+@docs rule
+
+# Fail
+
+    if True then a else b
+    if False then a else b
+    if foo == foo then a else b
+
+# Success
+
+    if foo == bar then a else b
+-}
+
 import Ast.Expression exposing (..)
 import Lint exposing (lint, doNothing)
 import Lint.Types exposing (LintRule, Error, Direction(..))
@@ -10,6 +24,12 @@ type alias Context =
     {}
 
 
+{-| Forbid the use of expressions in an If condition whose value are always the same.
+
+    rules =
+        [ NoConstantCondition.rule
+        ]
+-}
 rule : String -> List Error
 rule input =
     lint input implementation
