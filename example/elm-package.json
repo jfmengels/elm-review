@@ -1,7 +1,7 @@
 {
     "version": "1.0.0",
-    "summary": "helpful summary of your project, less than 80 characters",
-    "repository": "https://github.com/user/project.git",
+    "summary": "Online example for elm-lint",
+    "repository": "https://github.com/jfmengels/elm-lint.git",
     "license": "BSD3",
     "source-directories": [
         ".",

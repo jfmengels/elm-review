@@ -1,6 +1,6 @@
 # elm-lint
 
-An [Elm](http://elm-lang.org/) linter written in Elm.
+An [Elm](http://elm-lang.org/) linter written in Elm. Get your code from correct to better.
 
 ## Try it
 
