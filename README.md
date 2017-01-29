@@ -35,5 +35,3 @@ You can read the slides for my [presentation](http://slides.com/jeroenengels/elm
 
 More rule ideas in this [slide](http://slides.com/jeroenengels/elm-lint#/5/3) and the ones below it.
 Note that some rules were implemented but may not be good ideas. Think for yourself and ask the community whether you should enable them.
-
-MIT © [Jeroen Engels](https://github.com/jfmengels)
