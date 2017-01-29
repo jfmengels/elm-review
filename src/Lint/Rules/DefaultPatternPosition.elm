@@ -1,12 +1,10 @@
-module DefaultPatternPosition exposing (rule, PatternPosition(..))
+module Lint.Rules.DefaultPatternPosition exposing (rule, PatternPosition(..))
 
 import Ast.Expression exposing (..)
-import Html.Attributes exposing (pattern)
 import Lint exposing (doNothing, lint)
+import Lint.Types exposing (Direction(..), Error, LintRule)
 import List.Extra exposing (findIndex)
 import Regex
-import Set exposing (Set)
-import Types exposing (Direction(..), Error, LintRule)
 
 
 type alias Context =

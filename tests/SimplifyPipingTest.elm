@@ -2,8 +2,8 @@ port module SimplifyPipingTest exposing (all)
 
 import Expect
 import Test exposing (describe, test, Test)
-import SimplifyPiping exposing (rule)
-import Types exposing (Error)
+import Lint.Rules.SimplifyPiping exposing (rule)
+import Lint.Types exposing (Error)
 
 
 error : String -> String -> Error

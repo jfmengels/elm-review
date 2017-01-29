@@ -1,8 +1,8 @@
-module SimplifyPiping exposing (rule)
+module Lint.Rules.SimplifyPiping exposing (rule)
 
-import Lint exposing (lint, doNothing)
-import Types exposing (LintRule, Error, Direction(..))
 import Ast.Expression exposing (..)
+import Lint exposing (lint, doNothing)
+import Lint.Types exposing (LintRule, Error, Direction(..))
 import Set exposing (Set)
 
 

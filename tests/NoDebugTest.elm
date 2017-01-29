@@ -2,8 +2,8 @@ port module NoDebugTest exposing (all)
 
 import Expect
 import Test exposing (describe, test, Test)
-import NoDebug exposing (rule)
-import Types exposing (Error)
+import Lint.Rules.NoDebug exposing (rule)
+import Lint.Types exposing (Error)
 
 
 error : String -> Error

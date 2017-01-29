@@ -1,8 +1,8 @@
-module NoUselessIf exposing (rule)
+module Lint.Rules.NoUselessIf exposing (rule)
 
-import Lint exposing (lint, doNothing)
-import Types exposing (LintRule, Error, Direction(..))
 import Ast.Expression exposing (..)
+import Lint exposing (lint, doNothing)
+import Lint.Types exposing (LintRule, Error, Direction(..))
 
 
 type alias Context =

@@ -1,8 +1,8 @@
-module NoDebug exposing (rule)
+module Lint.Rules.NoNestedLet exposing (rule)
 
-import Lint exposing (lint, doNothing)
-import Types exposing (LintRule, Error, Direction(..))
 import Ast.Expression exposing (..)
+import Lint exposing (lint, doNothing)
+import Lint.Types exposing (LintRule, Error, Direction(..))
 
 
 type alias Context =
@@ -26,17 +26,14 @@ implementation =
 
 error : Error
 error =
-    Error "NoDebug" "Forbidden use of Debug"
+    Error "NoNestedLet" "Do not nest Let expressions directly"
 
 
 expressionFn : Context -> Direction Expression -> ( List Error, Context )
 expressionFn ctx node =
     case node of
-        Enter (Variable vars) ->
-            if List.member "Debug" vars then
-                ( [ error ], ctx )
-            else
-                ( [], ctx )
+        Enter (Let declarations (Let _ _)) ->
+            ( [ error ], ctx )
 
         _ ->
             ( [], ctx )

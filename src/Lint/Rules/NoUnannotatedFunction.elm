@@ -1,8 +1,8 @@
-module NoUnannotatedFunction exposing (rule)
+module Lint.Rules.NoUnannotatedFunction exposing (rule)
 
-import Lint exposing (lint, doNothing)
-import Types exposing (LintRule, Error, Direction(..))
 import Ast.Statement exposing (..)
+import Lint exposing (lint, doNothing)
+import Lint.Types exposing (LintRule, Error, Direction(..))
 import Set exposing (Set)
 
 

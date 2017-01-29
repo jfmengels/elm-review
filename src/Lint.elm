@@ -2,8 +2,8 @@ module Lint exposing (lint, visitExpression, doNothing)
 
 import Ast
 import Ast.Expression exposing (Expression)
-import Types exposing (Error, LintImplementation, LintRule, Direction, Visitor)
-import Visitor exposing (transformStatementsIntoVisitors, expressionToVisitors)
+import Lint.Types exposing (Error, LintImplementation, LintRule, Direction, Visitor)
+import Lint.Visitor exposing (transformStatementsIntoVisitors, expressionToVisitors)
 
 
 doNothing : LintImplementation a context

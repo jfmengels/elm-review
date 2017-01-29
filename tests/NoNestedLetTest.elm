@@ -2,8 +2,8 @@ port module NoNestedLetTest exposing (all)
 
 import Expect
 import Test exposing (describe, test, Test)
-import NoNestedLet exposing (rule)
-import Types exposing (Error)
+import Lint.Rules.NoNestedLet exposing (rule)
+import Lint.Types exposing (Error)
 
 
 error : Error

@@ -1,10 +1,10 @@
-module NoUselessPatternMatching exposing (rule)
+module Lint.Rules.NoUselessPatternMatching exposing (rule)
 
-import Lint exposing (lint, visitExpression, doNothing)
-import Types exposing (LintRule, Error, Direction(..))
 import Ast.Expression exposing (..)
-import Set exposing (Set)
+import Lint exposing (lint, visitExpression, doNothing)
+import Lint.Types exposing (LintRule, Error, Direction(..))
 import Regex
+import Set exposing (Set)
 
 
 type alias Context =

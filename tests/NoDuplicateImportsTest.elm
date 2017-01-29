@@ -2,8 +2,8 @@ port module NoDuplicateImportsTest exposing (all)
 
 import Expect
 import Test exposing (describe, test, Test)
-import NoDuplicateImports exposing (rule)
-import Types exposing (Error)
+import Lint.Rules.NoDuplicateImports exposing (rule)
+import Lint.Types exposing (Error)
 
 
 error : String -> Error

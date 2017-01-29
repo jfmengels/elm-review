@@ -2,8 +2,8 @@ port module NoWarningCommentsTest exposing (all)
 
 import Expect
 import Test exposing (describe, test, Test)
-import NoWarningComments exposing (rule)
-import Types exposing (Error)
+import Lint.Rules.NoWarningComments exposing (rule)
+import Lint.Types exposing (Error)
 
 
 error : String -> Error

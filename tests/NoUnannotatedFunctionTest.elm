@@ -2,8 +2,8 @@ port module NoUnannotatedFunctionTest exposing (all)
 
 import Expect
 import Test exposing (describe, test, Test)
-import NoUnannotatedFunction exposing (rule)
-import Types exposing (Error)
+import Lint.Rules.NoUnannotatedFunction exposing (rule)
+import Lint.Types exposing (Error)
 
 
 error : String -> Error

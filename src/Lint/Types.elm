@@ -1,4 +1,4 @@
-module Types exposing (..)
+module Lint.Types exposing (..)
 
 import Ast.Expression exposing (..)
 import Ast.Statement exposing (..)

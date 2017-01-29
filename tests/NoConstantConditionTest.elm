@@ -2,8 +2,8 @@ port module NoConstantConditionTest exposing (all)
 
 import Expect
 import Test exposing (describe, test, Test)
-import NoConstantCondition exposing (rule)
-import Types exposing (Error)
+import Lint.Rules.NoConstantCondition exposing (rule)
+import Lint.Types exposing (Error)
 
 
 error : Error

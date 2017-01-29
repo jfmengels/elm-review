@@ -1,9 +1,9 @@
-module NoDuplicateImports exposing (rule)
+module Lint.Rules.NoDuplicateImports exposing (rule)
 
-import Set exposing (Set)
-import Lint exposing (lint, doNothing)
-import Types exposing (LintRule, Error, Direction(..))
 import Ast.Statement exposing (..)
+import Lint exposing (lint, doNothing)
+import Lint.Types exposing (LintRule, Error, Direction(..))
+import Set exposing (Set)
 
 
 type alias Context =

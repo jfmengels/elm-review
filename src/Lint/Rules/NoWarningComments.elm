@@ -1,9 +1,9 @@
-module NoWarningComments exposing (rule)
+module Lint.Rules.NoWarningComments exposing (rule)
 
 import Ast.Statement exposing (..)
 import Lint exposing (doNothing, lint)
+import Lint.Types exposing (Direction(..), Error, LintRule)
 import Regex exposing (Regex)
-import Types exposing (Direction(..), Error, LintRule)
 
 
 type alias Context =

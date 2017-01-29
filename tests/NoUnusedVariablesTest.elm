@@ -2,8 +2,8 @@ port module NoUnusedVariablesTest exposing (all)
 
 import Expect
 import Test exposing (describe, test, Test)
-import NoUnusedVariables exposing (rule)
-import Types exposing (Error)
+import Lint.Rules.NoUnusedVariables exposing (rule)
+import Lint.Types exposing (Error)
 
 
 error : String -> Error

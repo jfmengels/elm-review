@@ -2,8 +2,8 @@ port module NoImportingEverythingTest exposing (all)
 
 import Expect
 import Test exposing (describe, test, Test)
-import NoImportingEverything exposing (rule)
-import Types exposing (Error)
+import Lint.Rules.NoImportingEverything exposing (rule)
+import Lint.Types exposing (Error)
 
 
 error : String -> Error

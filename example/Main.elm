@@ -8,7 +8,7 @@ import Html exposing (Html, p, div, li, ul, pre, textarea, text)
 import Html.Attributes exposing (id, class)
 import Html.Events exposing (..)
 import Json.Decode as JD
-import Types
+import Lint.Types
 import Regex exposing (regex, escape)
 
 

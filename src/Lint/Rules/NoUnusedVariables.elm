@@ -1,9 +1,9 @@
-module NoUnusedVariables exposing (rule)
+module Lint.Rules.NoUnusedVariables exposing (rule)
 
-import Lint exposing (lint, doNothing)
-import Types exposing (LintRule, Error, Direction(..))
 import Ast.Expression exposing (..)
 import Ast.Statement exposing (..)
+import Lint exposing (lint, doNothing)
+import Lint.Types exposing (LintRule, Error, Direction(..))
 import Set exposing (Set)
 
 
