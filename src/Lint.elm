@@ -1,9 +1,32 @@
-module Lint exposing (lint, visitExpression, doNothing)
+module Lint exposing (lintSource, lint, visitExpression, doNothing)
 
 {-| A linter for Elm.
 
-See Lint.Rules for the implemented rules.
+See Lint.Rules for available rules.
+To define the rules you wish to use:
 
+    rules =
+        [ Lint.Rules.NoDebug.rule
+        , Lint.Rules.NoUnusedVariables
+        ]
+
+To run the rules on a source code and get a list of errors:
+
+    lint : String -> List String
+    lint source =
+        let
+            errors =
+                List.concatMap (\rule -> rule source) rules
+        in
+            if List.isEmpty errors then
+                [ "No errors." ]
+            else
+                List.map (\err -> err.rule ++ ": " ++ err.message) errors
+
+# Implementation
+@docs lintSource
+
+# Rule creation functions
 @docs lint, doNothing, visitExpression
 -}
 
@@ -11,6 +34,18 @@ import Ast
 import Ast.Expression exposing (Expression)
 import Lint.Types exposing (Error, LintImplementation, LintRule, Direction, Visitor)
 import Lint.Visitor exposing (transformStatementsIntoVisitors, expressionToVisitors)
+
+
+{-| Lints a file and gives back the errors raised by the given rules.
+
+    errors =
+        lintSource rules source
+-}
+lintSource : List (String -> List Error) -> String -> List String
+lintSource rules source =
+    rules
+        |> List.concatMap (\rule -> rule source)
+        |> List.map (\err -> err.rule ++ ": " ++ err.message)
 
 
 {-| Lints source code using a given rule implementation, and gives back a list of errors that were found.
