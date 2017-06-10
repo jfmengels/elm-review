@@ -19,8 +19,8 @@ module Lint.Rules.NoUnusedVariables exposing (rule)
 
 import Ast.Expression exposing (..)
 import Ast.Statement exposing (..)
-import Lint exposing (lint, doNothing)
-import Lint.Types exposing (LintRule, Error, Direction(..))
+import Lint exposing (doNothing, lint)
+import Lint.Types exposing (Direction(..), Error, LintRule)
 import Set exposing (Set)
 
 
@@ -118,6 +118,16 @@ makeReport scope =
                 ( errors, variablesUsedButNotFromThisScope )
 
 
+variableName : Expression -> Maybe (List String)
+variableName expr =
+    case expr of
+        Variable names ->
+            Just names
+
+        _ ->
+            Nothing
+
+
 expressionFn : Context -> Direction Expression -> ( List Error, Context )
 expressionFn ctx node =
     case node of
@@ -133,6 +143,8 @@ expressionFn ctx node =
             let
                 variables =
                     List.map Tuple.first declarations
+                        |> List.filterMap variableName
+                        |> List.concat
                         |> Set.fromList
 
                 newScope =
@@ -212,13 +224,6 @@ statementFn ctx node =
 
         _ ->
             ( [], ctx )
-
-
-getNotUsed : Set comparable -> Set comparable -> List comparable
-getNotUsed declared used =
-    Set.diff declared used
-        |> Set.toList
-        |> List.sort
 
 
 moduleEndFn : Context -> ( List Error, Context )

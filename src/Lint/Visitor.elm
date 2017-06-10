@@ -83,6 +83,12 @@ expressionToVisitors node =
                 Lambda names expression ->
                     [ expression ]
 
+                Tuple expressions ->
+                    expressions
+
+                AccessFunction name ->
+                    []
+
         childrenVisitors =
             List.concatMap expressionToVisitors children
     in
