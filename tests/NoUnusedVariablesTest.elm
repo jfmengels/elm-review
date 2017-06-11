@@ -72,6 +72,13 @@ tests =
                   in 2
               """
                 |> Expect.equal [ error "Variable `b` is not used" ]
+    , test "should report unused functions from let even if they are exposed by name" <|
+        \() ->
+            testRule """module A exposing (a)
+              a = let b param = 1
+                  in 2
+              """
+                |> Expect.equal [ error "Variable `b` is not used" ]
     , test "should report unused variables from let even if everything is exposed" <|
         \() ->
             testRule """module A exposing (..)

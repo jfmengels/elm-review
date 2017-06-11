@@ -124,6 +124,9 @@ variableName expr =
         Variable names ->
             Just names
 
+        Application var _ ->
+            variableName var
+
         _ ->
             Nothing
 
