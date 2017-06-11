@@ -28,6 +28,7 @@ import Lint.Rules.NoUselessIf
 import Lint.Rules.NoUselessPatternMatching
 import Lint.Rules.NoWarningComments
 import Lint.Rules.SimplifyPiping
+import Lint.Rules.SimplifyPropertyAccess
 
 
 type Msg
@@ -49,6 +50,7 @@ rules =
     , Lint.Rules.NoUselessPatternMatching.rule
     , Lint.Rules.NoWarningComments.rule
     , Lint.Rules.SimplifyPiping.rule
+    , Lint.Rules.SimplifyPropertyAccess.rule
     ]
 
 

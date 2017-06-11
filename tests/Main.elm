@@ -15,6 +15,7 @@ import NoUselessIfTest
 import NoUselessPatternMatchingTest
 import NoWarningCommentsTest
 import SimplifyPipingTest
+import SimplifyPropertyAccessTest
 
 
 main : Test.Runner.Node.TestProgram
@@ -27,7 +28,7 @@ port emit : ( String, Value ) -> Cmd msg
 
 all : Test
 all =
-    describe "Visitors"
+    describe "Rules"
         [ DefaultPatternPositionTest.all
         , NoConstantConditionTest.all
         , NoDebugTest.all
@@ -40,4 +41,5 @@ all =
         , NoUselessPatternMatchingTest.all
         , NoWarningCommentsTest.all
         , SimplifyPipingTest.all
+        , SimplifyPropertyAccessTest.all
         ]

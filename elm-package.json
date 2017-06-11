@@ -21,7 +21,8 @@
         "Lint.Rules.NoUselessIf",
         "Lint.Rules.NoUselessPatternMatching",
         "Lint.Rules.NoWarningComments",
-        "Lint.Rules.SimplifyPiping"
+        "Lint.Rules.SimplifyPiping",
+        "Lint.Rules.SimplifyPropertyAccess"
     ],
     "dependencies": {
         "Bogdanp/elm-ast": "8.0.3 <= v < 9.0.0",
