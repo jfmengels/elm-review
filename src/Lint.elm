@@ -34,6 +34,7 @@ import Ast
 import Ast.Expression exposing (Expression)
 import Lint.Types exposing (Error, LintImplementation, LintRule, Direction, Visitor)
 import Lint.Visitor exposing (transformStatementsIntoVisitors, expressionToVisitors)
+import Regex
 
 
 {-| Lints a file and gives back the errors raised by the given rules.
@@ -46,6 +47,12 @@ lintSource rules source =
     rules
         |> List.concatMap (\rule -> rule source)
         |> List.map (\err -> err.rule ++ ": " ++ err.message)
+
+
+removeComments : String -> String
+removeComments =
+    Regex.replace Regex.All (Regex.regex "--.$") (always "")
+        >> Regex.replace Regex.All (Regex.regex "\n +\\w+ : .*") (always "")
 
 
 {-| Lints source code using a given rule implementation, and gives back a list of errors that were found.
@@ -66,6 +73,7 @@ lintSource rules source =
 lint : String -> LintRule context -> List Error
 lint source =
     source
+        |> removeComments
         |> Ast.parse
         |> Result.map (\( _, _, statements ) -> statements)
         |> Result.withDefault []

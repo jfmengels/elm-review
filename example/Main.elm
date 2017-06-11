@@ -94,6 +94,12 @@ expression e =
             li [] [ pre [] [ text <| toString e ] ]
 
 
+removeComments : String -> String
+removeComments =
+    Regex.replace Regex.All (Regex.regex "--.$") (always "")
+        >> Regex.replace Regex.All (Regex.regex "\n +\\w+ : .*") (always "")
+
+
 replace : String -> String -> String -> String
 replace search substitution string =
     string
@@ -205,7 +211,7 @@ view model =
             ]
         , div [ id "right" ]
             [ p [ class "title" ] [ text "AST" ]
-            , p [ id "ast" ] [ tree <| Ast.parse model ]
+            , p [ id "ast" ] [ tree <| Ast.parse <| removeComments model ]
             ]
         ]
 
