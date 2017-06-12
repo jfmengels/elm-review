@@ -34,7 +34,7 @@ import Ast
 import Ast.Expression exposing (Expression)
 import Ast.Statement
 import Combine
-import Lint.Types exposing (LintRule, LintResult, Error, LintImplementation, LintRuleImplementation, Direction, Visitor)
+import Lint.Types exposing (LintRule, LintResult, LintError, LintImplementation, LintRuleImplementation, Direction, Visitor)
 import Lint.Visitor exposing (transformStatementsIntoVisitors, expressionToVisitors)
 import Regex
 
@@ -113,7 +113,7 @@ lint source rule =
 {-| Visit an expression using a sub rule implementation. The use of this function is not encouraged, but it can make
 part of the implementation of complex rules much easier. It gives back a list of errors and a context.
 
-    expressionFn : Context -> Direction Expression -> ( List Error, Context )
+    expressionFn : Context -> Direction Expression -> ( List LintError, Context )
     expressionFn ctx node =
         case node of
             Enter (Case expr patterns) ->
@@ -130,19 +130,19 @@ part of the implementation of complex rules much easier. It gives back a list of
         , initialContext = Subcontext
         }
 -}
-visitExpression : LintRuleImplementation context -> Expression -> ( List Error, context )
+visitExpression : LintRuleImplementation context -> Expression -> ( List LintError, context )
 visitExpression rule expression =
     expressionToVisitors expression
         |> List.foldl (visitAndAccumulate rule) ( [], rule.initialContext )
 
 
-visitAndAccumulate : LintRuleImplementation context -> Visitor context -> ( List Error, context ) -> ( List Error, context )
+visitAndAccumulate : LintRuleImplementation context -> Visitor context -> ( List LintError, context ) -> ( List LintError, context )
 visitAndAccumulate rule visitor ( errors, ctx ) =
     visitor rule ctx
         |> Tuple.mapFirst (\errors_ -> errors ++ errors_)
 
 
-lintWithVisitors : LintRuleImplementation context -> List (Visitor context) -> List Error
+lintWithVisitors : LintRuleImplementation context -> List (Visitor context) -> List LintError
 lintWithVisitors rule visitors =
     visitors
         |> List.foldl (visitAndAccumulate rule) ( [], rule.initialContext )

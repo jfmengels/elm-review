@@ -31,7 +31,7 @@ module Lint.Rules.NoUselessPatternMatching exposing (rule)
 
 import Ast.Expression exposing (..)
 import Lint exposing (lint, visitExpression, doNothing)
-import Lint.Types exposing (LintRule, LintRuleImplementation, Error, Direction(..))
+import Lint.Types exposing (LintRule, LintRuleImplementation, LintError, Direction(..))
 import Regex
 import Set exposing (Set)
 
@@ -72,7 +72,7 @@ variableFinder =
     }
 
 
-findVariable : Set String -> Direction Expression -> ( List Error, Set String )
+findVariable : Set String -> Direction Expression -> ( List LintError, Set String )
 findVariable foundVariables node =
     case node of
         Enter (Variable a) ->
@@ -82,17 +82,17 @@ findVariable foundVariables node =
             ( [], foundVariables )
 
 
-baseError : String -> Error
+baseError : String -> LintError
 baseError =
-    Error "NoUselessPatternMatching"
+    LintError "NoUselessPatternMatching"
 
 
-uselessPatternMatchingError : Error
+uselessPatternMatchingError : LintError
 uselessPatternMatchingError =
     baseError "Useless case expression: It will always evaluate to the same value"
 
 
-uselessPatternError : Error
+uselessPatternError : LintError
 uselessPatternError =
     baseError "Useless patterns: Some will always evaluate to the same value as the default pattern"
 
@@ -209,7 +209,7 @@ thereAreUselessPatterns patterns =
                )
 
 
-expressionFn : Context -> Direction Expression -> ( List Error, Context )
+expressionFn : Context -> Direction Expression -> ( List LintError, Context )
 expressionFn ctx node =
     case node of
         Enter (Case expr patterns) ->

@@ -17,7 +17,7 @@ module Lint.Rules.SimplifyPiping exposing (rule)
 
 import Ast.Expression exposing (..)
 import Lint exposing (lint, doNothing)
-import Lint.Types exposing (LintRule, LintRuleImplementation, Error, Direction(..))
+import Lint.Types exposing (LintRule, LintRuleImplementation, LintError, Direction(..))
 import Set exposing (Set)
 
 
@@ -46,9 +46,9 @@ implementation =
     }
 
 
-error : String -> String -> Error
+error : String -> String -> LintError
 error op fn =
-    Error
+    LintError
         "SimplifyPiping"
         ("Instead of `" ++ fn ++ " f " ++ op ++ " List.map g`, try " ++ fn ++ " (f " ++ op ++ " g)")
 
@@ -70,7 +70,7 @@ nameOfMethod members =
         |> String.join "."
 
 
-reportIfSimplifiableMethod : String -> Expression -> Expression -> List Error
+reportIfSimplifiableMethod : String -> Expression -> Expression -> List LintError
 reportIfSimplifiableMethod op left right =
     case [ left, right ] of
         [ Application (Access (Variable names1) fns1) _, Application (Access (Variable names2) fns2) _ ] ->
@@ -83,7 +83,7 @@ reportIfSimplifiableMethod op left right =
             []
 
 
-expressionFn : Context -> Direction Expression -> ( List Error, Context )
+expressionFn : Context -> Direction Expression -> ( List LintError, Context )
 expressionFn ctx node =
     case node of
         Enter (BinOp (Variable [ "|>" ]) (Application left _) right) ->

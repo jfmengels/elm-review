@@ -15,7 +15,7 @@ module Lint.Rules.SimplifyPropertyAccess exposing (rule)
 import Ast.Statement exposing (..)
 import Ast.Expression exposing (..)
 import Lint exposing (lint, doNothing)
-import Lint.Types exposing (LintRule, LintRuleImplementation, Error, Direction(..))
+import Lint.Types exposing (LintRule, LintRuleImplementation, LintError, Direction(..))
 
 
 type alias Context =
@@ -43,12 +43,12 @@ implementation =
     }
 
 
-error : String -> Error
+error : String -> LintError
 error property =
-    Error "SimplifyPropertyAccess" ("Access to property `" ++ property ++ "` could be simplified by using `." ++ property ++ "`")
+    LintError "SimplifyPropertyAccess" ("Access to property `" ++ property ++ "` could be simplified by using `." ++ property ++ "`")
 
 
-expressionFn : Context -> Direction Expression -> ( List Error, Context )
+expressionFn : Context -> Direction Expression -> ( List LintError, Context )
 expressionFn ctx node =
     case node of
         Enter (Lambda [ Variable paramNames ] (Access (Variable varName) properties)) ->
@@ -61,7 +61,7 @@ expressionFn ctx node =
             ( [], ctx )
 
 
-statementFn : Context -> Direction Statement -> ( List Error, Context )
+statementFn : Context -> Direction Statement -> ( List LintError, Context )
 statementFn ctx node =
     case node of
         Enter (FunctionDeclaration _ [ Variable paramNames ] (Access (Variable varName) properties)) ->

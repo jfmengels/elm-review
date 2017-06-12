@@ -15,7 +15,7 @@ module Lint.Rules.NoDuplicateImports exposing (rule)
 
 import Ast.Statement exposing (..)
 import Lint exposing (lint, doNothing)
-import Lint.Types exposing (LintRule, LintRuleImplementation, Error, Direction(..))
+import Lint.Types exposing (LintRule, LintRuleImplementation, LintError, Direction(..))
 import Set exposing (Set)
 
 
@@ -46,12 +46,12 @@ implementation =
     }
 
 
-error : String -> Error
+error : String -> LintError
 error name =
-    Error "NoDuplicateImports" (name ++ " was imported several times")
+    LintError "NoDuplicateImports" (name ++ " was imported several times")
 
 
-statementFn : Context -> Direction Statement -> ( List Error, Context )
+statementFn : Context -> Direction Statement -> ( List LintError, Context )
 statementFn ctx node =
     case node of
         Enter (ImportStatement names alias exportSet) ->
@@ -68,7 +68,7 @@ statementFn ctx node =
             ( [], ctx )
 
 
-moduleEndFn : Context -> ( List Error, Context )
+moduleEndFn : Context -> ( List LintError, Context )
 moduleEndFn ctx =
     let
         errors =

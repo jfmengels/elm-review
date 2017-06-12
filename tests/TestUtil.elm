@@ -2,7 +2,7 @@ module TestUtil exposing (ruleTester, expectErrors)
 
 import Expect
 import Regex
-import Lint.Types exposing (LintRule, LintResult, Error)
+import Lint.Types exposing (LintRule, LintResult, LintError)
 
 
 spacesRegex : Regex.Regex
@@ -16,7 +16,7 @@ ruleTester rule str =
         |> rule
 
 
-expectErrors : List Error -> LintResult -> Expect.Expectation
+expectErrors : List LintError -> LintResult -> Expect.Expectation
 expectErrors expectedErrors result =
     case result of
         Err _ ->

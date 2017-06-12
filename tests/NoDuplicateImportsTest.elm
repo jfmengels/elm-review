@@ -2,13 +2,13 @@ port module NoDuplicateImportsTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoDuplicateImports exposing (rule)
-import Lint.Types exposing (LintRule, Error)
+import Lint.Types exposing (LintRule, LintError)
 import TestUtil exposing (expectErrors)
 
 
-error : String -> Error
+error : String -> LintError
 error =
-    Error "NoDuplicateImports"
+    LintError "NoDuplicateImports"
 
 
 tests : List Test

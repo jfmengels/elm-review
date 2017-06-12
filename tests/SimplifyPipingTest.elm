@@ -2,13 +2,13 @@ port module SimplifyPipingTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.SimplifyPiping exposing (rule)
-import Lint.Types exposing (LintRule, Error)
+import Lint.Types exposing (LintRule, LintError)
 import TestUtil exposing (expectErrors)
 
 
-error : String -> String -> Error
+error : String -> String -> LintError
 error op fn =
-    Error "SimplifyPiping" ("Instead of `" ++ fn ++ " f " ++ op ++ " List.map g`, try " ++ fn ++ " (f " ++ op ++ " g)")
+    LintError "SimplifyPiping" ("Instead of `" ++ fn ++ " f " ++ op ++ " List.map g`, try " ++ fn ++ " (f " ++ op ++ " g)")
 
 
 tests : List Test

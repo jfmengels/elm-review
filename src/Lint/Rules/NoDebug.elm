@@ -21,7 +21,7 @@ module Lint.Rules.NoDebug exposing (rule)
 
 import Ast.Expression exposing (..)
 import Lint exposing (lint, doNothing)
-import Lint.Types exposing (LintRule, LintRuleImplementation, Error, Direction(..))
+import Lint.Types exposing (LintRule, LintRuleImplementation, LintError, Direction(..))
 
 
 type alias Context =
@@ -49,12 +49,12 @@ implementation =
     }
 
 
-error : Error
+error : LintError
 error =
-    Error "NoDebug" "Forbidden use of Debug"
+    LintError "NoDebug" "Forbidden use of Debug"
 
 
-expressionFn : Context -> Direction Expression -> ( List Error, Context )
+expressionFn : Context -> Direction Expression -> ( List LintError, Context )
 expressionFn ctx node =
     case node of
         Enter (Variable vars) ->

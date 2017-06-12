@@ -2,13 +2,13 @@ port module NoConstantConditionTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoConstantCondition exposing (rule)
-import Lint.Types exposing (LintRule, Error)
+import Lint.Types exposing (LintRule, LintError)
 import TestUtil exposing (expectErrors)
 
 
-error : Error
+error : LintError
 error =
-    Error "NoConstantCondition" "Useless condition: It will always evaluate to the same value"
+    LintError "NoConstantCondition" "Useless condition: It will always evaluate to the same value"
 
 
 condition : String -> String

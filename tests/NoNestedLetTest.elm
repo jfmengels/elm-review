@@ -2,13 +2,13 @@ port module NoNestedLetTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoNestedLet exposing (rule)
-import Lint.Types exposing (LintRule, Error)
+import Lint.Types exposing (LintRule, LintError)
 import TestUtil exposing (expectErrors)
 
 
-error : Error
+error : LintError
 error =
-    Error "NoNestedLet" "Do not nest Let expressions directly"
+    LintError "NoNestedLet" "Do not nest Let expressions directly"
 
 
 tests : List Test

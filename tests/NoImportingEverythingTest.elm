@@ -2,13 +2,13 @@ port module NoImportingEverythingTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoImportingEverything exposing (rule)
-import Lint.Types exposing (LintRule, Error)
+import Lint.Types exposing (LintRule, LintError)
 import TestUtil exposing (expectErrors)
 
 
-error : String -> Error
+error : String -> LintError
 error =
-    Error "NoImportingEverything"
+    LintError "NoImportingEverything"
 
 
 tests : List Test

@@ -2,13 +2,13 @@ port module NoWarningCommentsTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoWarningComments exposing (rule)
-import Lint.Types exposing (LintRule, Error)
+import Lint.Types exposing (LintRule, LintError)
 import TestUtil exposing (expectErrors)
 
 
-error : String -> Error
+error : String -> LintError
 error word =
-    Error "NoWarningComments" ("Unexpected " ++ word ++ " comment")
+    LintError "NoWarningComments" ("Unexpected " ++ word ++ " comment")
 
 
 wordsToLookFor : List String

@@ -2,13 +2,13 @@ port module DefaultPatternPositionTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.DefaultPatternPosition exposing (rule, PatternPosition(First, Last))
-import Lint.Types exposing (LintRule, Error)
+import Lint.Types exposing (LintRule, LintError)
 import TestUtil exposing (expectErrors)
 
 
-error : String -> Error
+error : String -> LintError
 error position =
-    Error "DefaultPatternPosition" ("Expected default pattern to appear " ++ position ++ " in the list of patterns")
+    LintError "DefaultPatternPosition" ("Expected default pattern to appear " ++ position ++ " in the list of patterns")
 
 
 tests : List Test

@@ -2,13 +2,13 @@ port module NoUselessIfTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoUselessIf exposing (rule)
-import Lint.Types exposing (LintRule, Error)
+import Lint.Types exposing (LintRule, LintError)
 import TestUtil exposing (expectErrors)
 
 
-error : Error
+error : LintError
 error =
-    Error "NoUselessIf" "Useless if expression: It will always evaluate to the same value"
+    LintError "NoUselessIf" "Useless if expression: It will always evaluate to the same value"
 
 
 tests : List Test

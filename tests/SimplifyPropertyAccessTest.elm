@@ -2,13 +2,13 @@ port module SimplifyPropertyAccessTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.SimplifyPropertyAccess exposing (rule)
-import Lint.Types exposing (LintRule, Error)
+import Lint.Types exposing (LintRule, LintError)
 import TestUtil exposing (expectErrors)
 
 
-error : String -> Error
+error : String -> LintError
 error =
-    Error "SimplifyPropertyAccess"
+    LintError "SimplifyPropertyAccess"
 
 
 tests : List Test

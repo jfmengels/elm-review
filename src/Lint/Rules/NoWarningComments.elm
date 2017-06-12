@@ -16,7 +16,7 @@ module Lint.Rules.NoWarningComments exposing (rule)
 
 import Ast.Statement exposing (..)
 import Lint exposing (doNothing, lint)
-import Lint.Types exposing (LintRule, Direction(..), Error, LintRuleImplementation)
+import Lint.Types exposing (LintRule, Direction(..), LintError, LintRuleImplementation)
 import Regex exposing (Regex)
 
 
@@ -45,9 +45,9 @@ implementation =
     }
 
 
-error : String -> Error
+error : String -> LintError
 error word =
-    Error "NoWarningComments" ("Unexpected " ++ word ++ " comment")
+    LintError "NoWarningComments" ("Unexpected " ++ word ++ " comment")
 
 
 commentRegex : Regex
@@ -55,7 +55,7 @@ commentRegex =
     Regex.caseInsensitive <| Regex.regex "(TODO|FIXME|XXX)"
 
 
-findWarning : String -> Maybe Error
+findWarning : String -> Maybe LintError
 findWarning text =
     if String.contains "TODO" text then
         Just <| error "TODO"
@@ -73,7 +73,7 @@ findWarning text =
         Nothing
 
 
-statementFn : Context -> Direction Statement -> ( List Error, Context )
+statementFn : Context -> Direction Statement -> ( List LintError, Context )
 statementFn ctx node =
     case node of
         Enter (Comment text) ->

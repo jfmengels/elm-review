@@ -20,7 +20,7 @@ module Lint.Rules.NoUselessIf exposing (rule)
 
 import Ast.Expression exposing (..)
 import Lint exposing (lint, doNothing)
-import Lint.Types exposing (LintRule, LintRuleImplementation, Error, Direction(..))
+import Lint.Types exposing (LintRule, LintRuleImplementation, LintError, Direction(..))
 
 
 type alias Context =
@@ -48,12 +48,12 @@ implementation =
     }
 
 
-error : Error
+error : LintError
 error =
-    Error "NoUselessIf" "Useless if expression: It will always evaluate to the same value"
+    LintError "NoUselessIf" "Useless if expression: It will always evaluate to the same value"
 
 
-expressionFn : Context -> Direction Expression -> ( List Error, Context )
+expressionFn : Context -> Direction Expression -> ( List LintError, Context )
 expressionFn ctx node =
     case node of
         Enter (If cond then_ else_) ->

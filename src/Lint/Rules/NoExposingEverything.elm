@@ -14,7 +14,7 @@ module Lint.Rules.NoExposingEverything exposing (rule)
 
 import Ast.Statement exposing (..)
 import Lint exposing (lint, doNothing)
-import Lint.Types exposing (LintRule, LintRuleImplementation, Error, Direction(..))
+import Lint.Types exposing (LintRule, LintRuleImplementation, LintError, Direction(..))
 
 
 type alias Context =
@@ -42,12 +42,12 @@ implementation =
     }
 
 
-createError : String -> Error
+createError : String -> LintError
 createError name =
-    Error "NoExposingEverything" ("Do not expose everything from module " ++ name ++ " using (..)")
+    LintError "NoExposingEverything" ("Do not expose everything from module " ++ name ++ " using (..)")
 
 
-statementFn : Context -> Direction Statement -> ( List Error, Context )
+statementFn : Context -> Direction Statement -> ( List LintError, Context )
 statementFn ctx node =
     case node of
         Enter (ModuleDeclaration names AllExport) ->

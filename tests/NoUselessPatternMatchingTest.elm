@@ -2,18 +2,18 @@ port module NoUselessPatternMatchingTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoUselessPatternMatching exposing (rule)
-import Lint.Types exposing (LintRule, Error)
+import Lint.Types exposing (LintRule, LintError)
 import TestUtil exposing (expectErrors)
 
 
-uselessError : Error
+uselessError : LintError
 uselessError =
-    Error "NoUselessPatternMatching" "Useless case expression: It will always evaluate to the same value"
+    LintError "NoUselessPatternMatching" "Useless case expression: It will always evaluate to the same value"
 
 
-uselessPatternError : Error
+uselessPatternError : LintError
 uselessPatternError =
-    Error "NoUselessPatternMatching" "Useless patterns: Some will always evaluate to the same value as the default pattern"
+    LintError "NoUselessPatternMatching" "Useless patterns: Some will always evaluate to the same value as the default pattern"
 
 
 tests : List Test

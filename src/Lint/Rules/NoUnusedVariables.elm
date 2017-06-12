@@ -20,7 +20,7 @@ module Lint.Rules.NoUnusedVariables exposing (rule)
 import Ast.Expression exposing (..)
 import Ast.Statement exposing (..)
 import Lint exposing (doNothing, lint)
-import Lint.Types exposing (LintRule, Direction(..), Error, LintRuleImplementation)
+import Lint.Types exposing (LintRule, Direction(..), LintError, LintRuleImplementation)
 import Set exposing (Set)
 
 
@@ -62,9 +62,9 @@ implementation =
     }
 
 
-createError : String -> Error
+createError : String -> LintError
 createError name =
-    Error "NoUnusedVariables" ("Variable `" ++ name ++ "` is not used")
+    LintError "NoUnusedVariables" ("Variable `" ++ name ++ "` is not used")
 
 
 addUsedToStack : List Scope -> List String -> List Scope
@@ -95,7 +95,7 @@ addFoundToStack scopes variables =
         lastScope :: (List.drop 1 scopes)
 
 
-makeReport : Maybe Scope -> ( List Error, Set String )
+makeReport : Maybe Scope -> ( List LintError, Set String )
 makeReport scope =
     case scope of
         Nothing ->
@@ -131,7 +131,7 @@ variableName expr =
             Nothing
 
 
-expressionFn : Context -> Direction Expression -> ( List Error, Context )
+expressionFn : Context -> Direction Expression -> ( List LintError, Context )
 expressionFn ctx node =
     case node of
         Enter (Variable names) ->
@@ -189,7 +189,7 @@ getExported exportType =
             Set.singleton name
 
 
-statementFn : Context -> Direction Statement -> ( List Error, Context )
+statementFn : Context -> Direction Statement -> ( List LintError, Context )
 statementFn ctx node =
     case node of
         Enter (FunctionDeclaration name args body) ->
@@ -229,7 +229,7 @@ statementFn ctx node =
             ( [], ctx )
 
 
-moduleEndFn : Context -> ( List Error, Context )
+moduleEndFn : Context -> ( List LintError, Context )
 moduleEndFn ctx =
     let
         ( errors, _ ) =

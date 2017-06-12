@@ -20,7 +20,7 @@ module Lint.Rules.NoNestedLet exposing (rule)
 
 import Ast.Expression exposing (..)
 import Lint exposing (lint, doNothing)
-import Lint.Types exposing (LintRule, LintRuleImplementation, Error, Direction(..))
+import Lint.Types exposing (LintRule, LintRuleImplementation, LintError, Direction(..))
 
 
 type alias Context =
@@ -48,12 +48,12 @@ implementation =
     }
 
 
-error : Error
+error : LintError
 error =
-    Error "NoNestedLet" "Do not nest Let expressions directly"
+    LintError "NoNestedLet" "Do not nest Let expressions directly"
 
 
-expressionFn : Context -> Direction Expression -> ( List Error, Context )
+expressionFn : Context -> Direction Expression -> ( List LintError, Context )
 expressionFn ctx node =
     case node of
         Enter (Let declarations (Let _ _)) ->

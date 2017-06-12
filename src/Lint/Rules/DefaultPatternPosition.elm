@@ -10,7 +10,7 @@ module Lint.Rules.DefaultPatternPosition exposing (rule, PatternPosition(..))
         ]
 
     case value of
-      -- Error, this pattern should appear last
+      -- LintError, this pattern should appear last
       _ -> result
       Foo -> bar
 
@@ -22,7 +22,7 @@ module Lint.Rules.DefaultPatternPosition exposing (rule, PatternPosition(..))
 
     case value of
       Foo -> bar
-      -- Error, this pattern should appear first
+      -- LintError, this pattern should appear first
       _ -> result
 
 # Success
@@ -53,7 +53,7 @@ module Lint.Rules.DefaultPatternPosition exposing (rule, PatternPosition(..))
 
 import Ast.Expression exposing (..)
 import Lint exposing (doNothing, lint)
-import Lint.Types exposing (LintRule, Direction(..), Error, LintRuleImplementation)
+import Lint.Types exposing (LintRule, Direction(..), LintError, LintRuleImplementation)
 import List.Extra exposing (findIndex)
 import Regex
 
@@ -91,9 +91,9 @@ implementation configuration =
     }
 
 
-error : String -> Error
+error : String -> LintError
 error =
-    Error "DefaultPatternPosition"
+    LintError "DefaultPatternPosition"
 
 
 
@@ -123,7 +123,7 @@ findDefaultPattern =
     findIndex isDefaultPattern
 
 
-expressionFn : Configuration -> Context -> Direction Expression -> ( List Error, Context )
+expressionFn : Configuration -> Context -> Direction Expression -> ( List LintError, Context )
 expressionFn config ctx node =
     case node of
         Enter (Case expr patterns) ->

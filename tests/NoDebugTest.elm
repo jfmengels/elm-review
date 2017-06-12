@@ -2,13 +2,13 @@ port module NoDebugTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoDebug exposing (rule)
-import Lint.Types exposing (LintRule, Error)
+import Lint.Types exposing (LintRule, LintError)
 import TestUtil exposing (expectErrors)
 
 
-error : String -> Error
+error : String -> LintError
 error =
-    Error "NoDebug"
+    LintError "NoDebug"
 
 
 tests : List Test

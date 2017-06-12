@@ -1,9 +1,9 @@
-module Lint.Types exposing (Error, LintImplementation, Direction(..), LintRule, LintRuleImplementation, LintResult, Visitor)
+module Lint.Types exposing (LintError, LintImplementation, Direction(..), LintRule, LintRuleImplementation, LintResult, Visitor)
 
 {-| This module contains types that are used for writing rules.
 
 # Elementary types
-@docs Error, Direction
+@docs LintError, Direction
 
 # Writing rules
 @docs LintRuleImplementation, LintImplementation, LintRule
@@ -14,17 +14,16 @@ module Lint.Types exposing (Error, LintImplementation, Direction(..), LintRule, 
 
 import Ast.Expression exposing (..)
 import Ast.Statement exposing (..)
-import Combine
 
 
 {-| Value that describes an error found by a given rule, that contains the name of the rule that raised the error, and
 a description of the error.
 
-    error : Error
+    error : LintError
     error =
-        Error "NoDebug" "Forbidden use of Debug"
+        LintError "NoDebug" "Forbidden use of Debug"
 -}
-type alias Error =
+type alias LintError =
     { rule : String
     , message : String
     }
@@ -53,14 +52,14 @@ enforce.
         }
 -}
 type alias LintImplementation nodeType context =
-    context -> Direction nodeType -> ( List Error, context )
+    context -> Direction nodeType -> ( List LintError, context )
 
 
 {-| When visiting the AST, nodes are visited twice:
 - on Enter, before the children of the node will be visited
 - on Exit, after the children of the node have been visited
 
-    expressionFn : Context -> Direction Expression -> ( List Error, Context )
+    expressionFn : Context -> Direction Expression -> ( List LintError, Context )
     expressionFn ctx node =
         case node of
             Enter (Variable names) ->
@@ -104,7 +103,7 @@ type alias LintRuleImplementation context =
     { statementFn : LintImplementation Statement context
     , typeFn : LintImplementation Type context
     , expressionFn : LintImplementation Expression context
-    , moduleEndFn : context -> ( List Error, context )
+    , moduleEndFn : context -> ( List LintError, context )
     , initialContext : context
     }
 
@@ -112,7 +111,7 @@ type alias LintRuleImplementation context =
 {-| Shortcut to the result of a lint rule
 -}
 type alias LintResult =
-    Result (List String) (List Error)
+    Result (List String) (List LintError)
 
 
 {-| Shortcut to a lint rule
@@ -121,10 +120,10 @@ type alias LintRule =
     String -> LintResult
 
 
-{-| Shorthand for a function that takes a rule's implementation, a context and returns ( List Error, context ).
+{-| Shorthand for a function that takes a rule's implementation, a context and returns ( List LintError, context ).
 A Visitor represents a node and calls the appropriate function for the given node type.
 
 Note: this is internal API, and will be removed in a future version.
 -}
 type alias Visitor context =
-    LintRuleImplementation context -> context -> ( List Error, context )
+    LintRuleImplementation context -> context -> ( List LintError, context )

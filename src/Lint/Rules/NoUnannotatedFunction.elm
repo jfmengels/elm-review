@@ -17,7 +17,7 @@ module Lint.Rules.NoUnannotatedFunction exposing (rule)
 
 import Ast.Statement exposing (..)
 import Lint exposing (lint, doNothing)
-import Lint.Types exposing (LintRule, LintRuleImplementation, Error, Direction(..))
+import Lint.Types exposing (LintRule, LintRuleImplementation, LintError, Direction(..))
 import Set exposing (Set)
 
 
@@ -47,12 +47,12 @@ implementation =
     }
 
 
-createError : String -> Error
+createError : String -> LintError
 createError name =
-    Error "NoUnannotatedFunction" ("`" ++ name ++ "` does not have a type declaration")
+    LintError "NoUnannotatedFunction" ("`" ++ name ++ "` does not have a type declaration")
 
 
-statementFn : Context -> Direction Statement -> ( List Error, Context )
+statementFn : Context -> Direction Statement -> ( List LintError, Context )
 statementFn ctx node =
     case node of
         Enter (FunctionTypeDeclaration name application) ->
