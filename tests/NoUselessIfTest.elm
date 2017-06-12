@@ -3,7 +3,7 @@ port module NoUselessIfTest exposing (all)
 import Expect
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoUselessIf exposing (rule)
-import Lint.Types exposing (Error)
+import Lint.Types exposing (LintRule, Error)
 
 
 error : Error

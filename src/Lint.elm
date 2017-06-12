@@ -32,7 +32,9 @@ To run the rules on a source code and get a list of errors:
 
 import Ast
 import Ast.Expression exposing (Expression)
-import Lint.Types exposing (Error, LintImplementation, LintRule, Direction, Visitor)
+import Ast.Statement
+import Combine
+import Lint.Types exposing (LintRule, LintResult, Error, LintImplementation, LintRuleImplementation, Direction, Visitor)
 import Lint.Visitor exposing (transformStatementsIntoVisitors, expressionToVisitors)
 import Regex
 
@@ -42,11 +44,37 @@ import Regex
     errors =
         lintSource rules source
 -}
-lintSource : List (String -> List Error) -> String -> List String
+lintSource : List LintRule -> String -> Result (List String) (List String)
 lintSource rules source =
-    rules
-        |> List.concatMap (\rule -> rule source)
-        |> List.map (\err -> err.rule ++ ": " ++ err.message)
+    let
+        sourceParsingResult =
+            parseSource source
+    in
+        case sourceParsingResult of
+            Err err ->
+                Err err
+
+            Ok parsedSource ->
+                rules
+                    |> List.concatMap
+                        (\rule -> rule source |> Result.withDefault [])
+                    |> List.map (\err -> err.rule ++ ": " ++ err.message)
+                    |> Ok
+
+
+parseSource : String -> Result (List String) (Combine.ParseOk () (List Ast.Statement.Statement))
+parseSource source =
+    source
+        |> removeComments
+        |> Ast.parse
+        |> (\sourceParsingResult ->
+                case sourceParsingResult of
+                    Err ( _, _, errors ) ->
+                        Err errors
+
+                    Ok parsedSource ->
+                        Ok parsedSource
+           )
 
 
 removeComments : String -> String
@@ -57,11 +85,11 @@ removeComments =
 
 {-| Lints source code using a given rule implementation, and gives back a list of errors that were found.
 
-    rule : String -> List Error
+    rule : LintRule
     rule input =
         lint input implementation
 
-    implementation : LintRule Context
+    implementation : LintRuleImplementation Context
     implementation =
         { statementFn = doNothing
         , typeFn = doNothing
@@ -70,15 +98,16 @@ removeComments =
         , initialContext = Context
         }
 -}
-lint : String -> LintRule context -> List Error
-lint source =
+lint : String -> LintRuleImplementation context -> LintResult
+lint source rule =
     source
-        |> removeComments
-        |> Ast.parse
-        |> Result.map (\( _, _, statements ) -> statements)
-        |> Result.withDefault []
-        |> transformStatementsIntoVisitors
-        |> lintWithVisitors
+        |> parseSource
+        |> Result.map
+            (\( _, _, statements ) ->
+                statements
+                    |> transformStatementsIntoVisitors
+                    |> lintWithVisitors rule
+            )
 
 
 {-| Visit an expression using a sub rule implementation. The use of this function is not encouraged, but it can make
@@ -92,7 +121,7 @@ part of the implementation of complex rules much easier. It gives back a list of
             _ ->
                 ( [], ctx )
 
-    subimplementation : LintRule Subcontext
+    subimplementation : LintRuleImplementation Subcontext
     subimplementation =
         { statementFn = doNothing
         , typeFn = doNothing
@@ -101,20 +130,20 @@ part of the implementation of complex rules much easier. It gives back a list of
         , initialContext = Subcontext
         }
 -}
-visitExpression : LintRule context -> Expression -> ( List Error, context )
+visitExpression : LintRuleImplementation context -> Expression -> ( List Error, context )
 visitExpression rule expression =
     expressionToVisitors expression
         |> List.foldl (visitAndAccumulate rule) ( [], rule.initialContext )
 
 
-visitAndAccumulate : LintRule context -> Visitor context -> ( List Error, context ) -> ( List Error, context )
+visitAndAccumulate : LintRuleImplementation context -> Visitor context -> ( List Error, context ) -> ( List Error, context )
 visitAndAccumulate rule visitor ( errors, ctx ) =
     visitor rule ctx
         |> Tuple.mapFirst (\errors_ -> errors ++ errors_)
 
 
-lintWithVisitors : List (Visitor context) -> LintRule context -> List Error
-lintWithVisitors visitors rule =
+lintWithVisitors : LintRuleImplementation context -> List (Visitor context) -> List Error
+lintWithVisitors rule visitors =
     visitors
         |> List.foldl (visitAndAccumulate rule) ( [], rule.initialContext )
         |> Tuple.first
@@ -123,7 +152,7 @@ lintWithVisitors visitors rule =
 {-| Basic implementation of a visitor function that does nothing, i.e. return an empty list of errors and an untouched
 context. This is used to avoid a bit of boilerplate for visitor functions whose node types we are not interested in.
 
-    implementation : LintRule Context
+    implementation : LintRuleImplementation Context
     implementation =
         { statementFn = doNothing
         , typeFn = doNothing

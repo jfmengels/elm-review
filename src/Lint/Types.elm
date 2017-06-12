@@ -1,4 +1,4 @@
-module Lint.Types exposing (Error, LintImplementation, Direction(..), LintRule, Visitor)
+module Lint.Types exposing (Error, LintImplementation, Direction(..), LintRule, LintRuleImplementation, LintResult, Visitor)
 
 {-| This module contains types that are used for writing rules.
 
@@ -6,14 +6,15 @@ module Lint.Types exposing (Error, LintImplementation, Direction(..), LintRule, 
 @docs Error, Direction
 
 # Writing rules
-@docs LintRule, LintImplementation
+@docs LintRuleImplementation, LintImplementation, LintRule
 
 # Internal types
-@docs Visitor
+@docs Visitor, LintResult
 -}
 
 import Ast.Expression exposing (..)
 import Ast.Statement exposing (..)
+import Combine
 
 
 {-| Value that describes an error found by a given rule, that contains the name of the rule that raised the error, and
@@ -38,11 +39,11 @@ the LintImplementation functions of your rule.
 It must return a list of errors which will be reported to the user, that are violations of the thing the rule wants to
 enforce.
 
-    rule : String -> List Error
+    rule : LintRule
     rule input =
         lint input implementation
 
-    implementation : LintRule Context
+    implementation : LintRuleImplementation Context
     implementation =
         { statementFn = doNothing
         , typeFn = doNothing
@@ -78,7 +79,7 @@ type Direction node
     | Exit node
 
 
-{-| A LintRule is the implementation of a rule. It is a record that contains:
+{-| A LintRuleImplementation is the implementation of a rule. It is a record that contains:
 - initialContext: An initial context
 - statementFn: A LintImplementation for Statement nodes
 - typeFn: A LintImplementation for Type nodes
@@ -86,11 +87,11 @@ type Direction node
 - moduleEndFn: A function that takes a context and returns a list of error. Similar to a LintImplementation, but will
 be called after visiting the whole AST.
 
-    rule : String -> List Error
+    rule : LintRule
     rule input =
         lint input implementation
 
-    implementation : LintRule Context
+    implementation : LintRuleImplementation Context
     implementation =
         { statementFn = doNothing
         , typeFn = doNothing
@@ -99,7 +100,7 @@ be called after visiting the whole AST.
         , initialContext = Context
         }
 -}
-type alias LintRule context =
+type alias LintRuleImplementation context =
     { statementFn : LintImplementation Statement context
     , typeFn : LintImplementation Type context
     , expressionFn : LintImplementation Expression context
@@ -108,10 +109,22 @@ type alias LintRule context =
     }
 
 
+{-| Shortcut to the result of a lint rule
+-}
+type alias LintResult =
+    Result (List String) (List Error)
+
+
+{-| Shortcut to a lint rule
+-}
+type alias LintRule =
+    String -> LintResult
+
+
 {-| Shorthand for a function that takes a rule's implementation, a context and returns ( List Error, context ).
 A Visitor represents a node and calls the appropriate function for the given node type.
 
 Note: this is internal API, and will be removed in a future version.
 -}
 type alias Visitor context =
-    LintRule context -> context -> ( List Error, context )
+    LintRuleImplementation context -> context -> ( List Error, context )

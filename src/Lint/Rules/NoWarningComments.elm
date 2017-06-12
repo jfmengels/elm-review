@@ -16,7 +16,7 @@ module Lint.Rules.NoWarningComments exposing (rule)
 
 import Ast.Statement exposing (..)
 import Lint exposing (doNothing, lint)
-import Lint.Types exposing (Direction(..), Error, LintRule)
+import Lint.Types exposing (LintRule, Direction(..), Error, LintRuleImplementation)
 import Regex exposing (Regex)
 
 
@@ -30,12 +30,12 @@ type alias Context =
         [ NoWarningComments.rule
         ]
 -}
-rule : String -> List Error
+rule : LintRule
 rule input =
     lint input implementation
 
 
-implementation : LintRule Context
+implementation : LintRuleImplementation Context
 implementation =
     { statementFn = statementFn
     , typeFn = doNothing

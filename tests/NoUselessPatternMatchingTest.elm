@@ -3,7 +3,7 @@ port module NoUselessPatternMatchingTest exposing (all)
 import Expect
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoUselessPatternMatching exposing (rule)
-import Lint.Types exposing (Error)
+import Lint.Types exposing (LintRule, Error)
 
 
 uselessError : Error

@@ -31,7 +31,7 @@ module Lint.Rules.NoUselessPatternMatching exposing (rule)
 
 import Ast.Expression exposing (..)
 import Lint exposing (lint, visitExpression, doNothing)
-import Lint.Types exposing (LintRule, Error, Direction(..))
+import Lint.Types exposing (LintRule, LintRuleImplementation, Error, Direction(..))
 import Regex
 import Set exposing (Set)
 
@@ -47,12 +47,12 @@ pattern will lead to the same value as the default pattern.
         [ NoUselessPatternMatching.rule
         ]
 -}
-rule : String -> List Error
+rule : LintRule
 rule input =
     lint input implementation
 
 
-implementation : LintRule Context
+implementation : LintRuleImplementation Context
 implementation =
     { statementFn = doNothing
     , typeFn = doNothing
@@ -62,7 +62,7 @@ implementation =
     }
 
 
-variableFinder : LintRule (Set String)
+variableFinder : LintRuleImplementation (Set String)
 variableFinder =
     { statementFn = doNothing
     , typeFn = doNothing

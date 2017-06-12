@@ -20,7 +20,7 @@ module Lint.Rules.NoUnusedVariables exposing (rule)
 import Ast.Expression exposing (..)
 import Ast.Statement exposing (..)
 import Lint exposing (doNothing, lint)
-import Lint.Types exposing (Direction(..), Error, LintRule)
+import Lint.Types exposing (LintRule, Direction(..), Error, LintRuleImplementation)
 import Set exposing (Set)
 
 
@@ -47,12 +47,12 @@ emptyScope =
         [ NoUnusedVariables.rule
         ]
 -}
-rule : String -> List Error
+rule : LintRule
 rule input =
     lint input implementation
 
 
-implementation : LintRule Context
+implementation : LintRuleImplementation Context
 implementation =
     { statementFn = statementFn
     , typeFn = doNothing

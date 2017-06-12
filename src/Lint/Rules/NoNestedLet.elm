@@ -20,7 +20,7 @@ module Lint.Rules.NoNestedLet exposing (rule)
 
 import Ast.Expression exposing (..)
 import Lint exposing (lint, doNothing)
-import Lint.Types exposing (LintRule, Error, Direction(..))
+import Lint.Types exposing (LintRule, LintRuleImplementation, Error, Direction(..))
 
 
 type alias Context =
@@ -33,12 +33,12 @@ type alias Context =
         [ NoNestedLet.rule
         ]
 -}
-rule : String -> List Error
+rule : LintRule
 rule input =
     lint input implementation
 
 
-implementation : LintRule Context
+implementation : LintRuleImplementation Context
 implementation =
     { statementFn = doNothing
     , typeFn = doNothing

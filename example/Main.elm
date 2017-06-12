@@ -1,16 +1,31 @@
 module Main exposing (main)
 
-import Result
 import Ast
 import Ast.Expression exposing (..)
 import Ast.Statement exposing (..)
-import Html exposing (Html, p, div, li, ul, pre, textarea, text)
-import Html.Attributes exposing (id, class)
+import Combine
+import Html exposing (..)
+import Html.Attributes exposing (class, id)
 import Html.Events exposing (..)
 import Json.Decode as JD
 import Lint exposing (lintSource)
+import Lint.Rules.DefaultPatternPosition
+import Lint.Rules.NoConstantCondition
+import Lint.Rules.NoDebug
+import Lint.Rules.NoDuplicateImports
+import Lint.Rules.NoExposingEverything
+import Lint.Rules.NoImportingEverything
+import Lint.Rules.NoNestedLet
+import Lint.Rules.NoUnannotatedFunction
+import Lint.Rules.NoUnusedVariables
+import Lint.Rules.NoUselessIf
+import Lint.Rules.NoUselessPatternMatching
+import Lint.Rules.NoWarningComments
+import Lint.Rules.SimplifyPiping
+import Lint.Rules.SimplifyPropertyAccess
 import Lint.Types
-import Regex exposing (regex, escape)
+import Regex exposing (escape, regex)
+import Result
 
 
 -- Rules
@@ -35,7 +50,7 @@ type Msg
     = Replace String
 
 
-rules : List (String -> List Lint.Types.Error)
+rules : List Lint.Types.LintRule
 rules =
     [ Lint.Rules.DefaultPatternPosition.rule { position = Lint.Rules.DefaultPatternPosition.Last }
     , Lint.Rules.NoConstantCondition.rule
@@ -165,27 +180,32 @@ statement s =
                 defaultDisplay
 
 
-tree : Result a ( b, c, List Statement ) -> Html Msg
+tree : Result (Combine.ParseErr ()) ( b, c, List Statement ) -> Html Msg
 tree ast =
     case ast of
         Ok ( _, _, statements ) ->
             ul [] (List.map statement statements)
 
-        err ->
-            div [] [ text "Sorry, I could not parse your code. This may be my fault though :/" ]
+        Err ( _, _, errors ) ->
+            div [] (List.map text errors)
 
 
 lint : String -> Html Msg
 lint source =
     let
-        errors =
+        lintResult =
             lintSource rules source
 
         messages =
-            if List.isEmpty errors then
-                [ "No errors." ]
-            else
-                errors
+            case lintResult of
+                Err errors ->
+                    errors
+
+                Ok errors ->
+                    if List.isEmpty errors then
+                        [ "No errors." ]
+                    else
+                        errors
     in
         div []
             (List.map

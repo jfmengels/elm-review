@@ -53,7 +53,7 @@ module Lint.Rules.DefaultPatternPosition exposing (rule, PatternPosition(..))
 
 import Ast.Expression exposing (..)
 import Lint exposing (doNothing, lint)
-import Lint.Types exposing (Direction(..), Error, LintRule)
+import Lint.Types exposing (LintRule, Direction(..), Error, LintRuleImplementation)
 import List.Extra exposing (findIndex)
 import Regex
 
@@ -76,12 +76,12 @@ type alias Configuration =
 
 {-| Enforce the default pattern to always appear first or last.
 -}
-rule : Configuration -> String -> List Error
+rule : Configuration -> LintRule
 rule config input =
     lint input (implementation config)
 
 
-implementation : Configuration -> LintRule Context
+implementation : Configuration -> LintRuleImplementation Context
 implementation configuration =
     { statementFn = doNothing
     , typeFn = doNothing

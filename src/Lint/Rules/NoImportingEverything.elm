@@ -14,7 +14,7 @@ module Lint.Rules.NoImportingEverything exposing (rule)
 
 import Ast.Statement exposing (..)
 import Lint exposing (lint, doNothing)
-import Lint.Types exposing (LintRule, Error, Direction(..))
+import Lint.Types exposing (LintRule, LintRuleImplementation, Error, Direction(..))
 
 
 type alias Context =
@@ -28,12 +28,12 @@ functions and types are unknown to them.
         [ NoImportingEverything.rule
         ]
 -}
-rule : String -> List Error
+rule : LintRule
 rule input =
     lint input implementation
 
 
-implementation : LintRule Context
+implementation : LintRuleImplementation Context
 implementation =
     { statementFn = statementFn
     , typeFn = doNothing

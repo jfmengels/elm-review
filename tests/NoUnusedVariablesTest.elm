@@ -4,7 +4,7 @@ import Expect
 import Test exposing (describe, test, Test)
 import TestUtil exposing (ruleTester)
 import Lint.Rules.NoUnusedVariables exposing (rule)
-import Lint.Types exposing (Error)
+import Lint.Types exposing (LintRule, Error)
 
 
 error : String -> Error
