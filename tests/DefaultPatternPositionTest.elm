@@ -1,9 +1,9 @@
 port module DefaultPatternPositionTest exposing (all)
 
-import Expect
 import Test exposing (describe, test, Test)
 import Lint.Rules.DefaultPatternPosition exposing (rule, PatternPosition(First, Last))
 import Lint.Types exposing (LintRule, Error)
+import TestUtil exposing (expectErrors)
 
 
 error : String -> Error
@@ -21,7 +21,7 @@ tests =
               Foo -> 1
             """
                 |> rule { position = First }
-                |> Expect.equal []
+                |> expectErrors []
     , test "should not report when default pattern is at the expected position (last)" <|
         \() ->
             """a = case b of
@@ -30,7 +30,7 @@ tests =
               _ -> 1
             """
                 |> rule { position = Last }
-                |> Expect.equal []
+                |> expectErrors []
     , test "should not report when there is no default pattern (first)" <|
         \() ->
             """a = case b of
@@ -38,7 +38,7 @@ tests =
               Bar -> 1
             """
                 |> rule { position = First }
-                |> Expect.equal []
+                |> expectErrors []
     , test "should not report when there is no default pattern (last)" <|
         \() ->
             """a = case b of
@@ -46,7 +46,7 @@ tests =
               Bar -> 1
             """
                 |> rule { position = Last }
-                |> Expect.equal []
+                |> expectErrors []
     , test "should report an error when the default pattern is not at the expected position (first) (opposite expected position)" <|
         \() ->
             """a = case b of
@@ -55,7 +55,7 @@ tests =
               _ -> 1
             """
                 |> rule { position = First }
-                |> Expect.equal [ error "first" ]
+                |> expectErrors [ error "first" ]
     , test "should report an error when the default pattern is not at the expected position (first) (somewhere in the middle)" <|
         \() ->
             """a = case b of
@@ -64,7 +64,7 @@ tests =
               Bar -> 1
             """
                 |> rule { position = First }
-                |> Expect.equal [ error "first" ]
+                |> expectErrors [ error "first" ]
     , test "should report an error when the default pattern is not at the expected position (last) (opposite expected position)" <|
         \() ->
             """a = case b of
@@ -73,7 +73,7 @@ tests =
               Bar -> 1
             """
                 |> rule { position = Last }
-                |> Expect.equal [ error "last" ]
+                |> expectErrors [ error "last" ]
     , test "should report an error when the default pattern is not at the expected position (last) (somewhere in the middle)" <|
         \() ->
             """a = case b of
@@ -82,7 +82,7 @@ tests =
               Bar -> 1
             """
                 |> rule { position = Last }
-                |> Expect.equal [ error "last" ]
+                |> expectErrors [ error "last" ]
     ]
 
 

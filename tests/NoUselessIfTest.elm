@@ -1,9 +1,9 @@
 port module NoUselessIfTest exposing (all)
 
-import Expect
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoUselessIf exposing (rule)
 import Lint.Types exposing (LintRule, Error)
+import TestUtil exposing (expectErrors)
 
 
 error : Error
@@ -16,15 +16,15 @@ tests =
     [ test "should not report If expression that has different values in both paths" <|
         \() ->
             rule "a = if b then c else d"
-                |> Expect.equal []
+                |> expectErrors []
     , test "should report If expression that has the same value in both paths" <|
         \() ->
             rule "a = if b then c else c"
-                |> Expect.equal [ error ]
+                |> expectErrors [ error ]
     , test "should report If expression that has the same complex value in both paths" <|
         \() ->
             rule "a = if b then (foo m, bar n p) else (foo m, bar n p)"
-                |> Expect.equal [ error ]
+                |> expectErrors [ error ]
     ]
 
 

@@ -1,9 +1,9 @@
 port module NoNestedLetTest exposing (all)
 
-import Expect
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoNestedLet exposing (rule)
 import Lint.Types exposing (LintRule, Error)
+import TestUtil exposing (expectErrors)
 
 
 error : Error
@@ -19,7 +19,7 @@ tests =
                    in b
             """
                 |> rule
-                |> Expect.equal []
+                |> expectErrors []
     , test "should report let expression inside the body of an other let expression" <|
         \() ->
             """a = let b = 1
@@ -27,7 +27,7 @@ tests =
                       in c
             """
                 |> rule
-                |> Expect.equal [ error ]
+                |> expectErrors [ error ]
     , test "should not report let expression indirectly inside another " <|
         \() ->
             """a = let b = 1
@@ -37,7 +37,7 @@ tests =
                         3
             """
                 |> rule
-                |> Expect.equal []
+                |> expectErrors []
     ]
 
 

@@ -1,9 +1,9 @@
 port module NoWarningCommentsTest exposing (all)
 
-import Expect
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoWarningComments exposing (rule)
 import Lint.Types exposing (LintRule, Error)
+import TestUtil exposing (expectErrors)
 
 
 error : String -> Error
@@ -24,22 +24,22 @@ failingTestCases =
                 \() ->
                     ("-- " ++ word)
                         |> rule
-                        |> Expect.equal [ error word ]
+                        |> expectErrors [ error word ]
             , test ("should report single-line comments containing " ++ word) <|
                 \() ->
                     ("-- " ++ word ++ ": Do this")
                         |> rule
-                        |> Expect.equal [ error word ]
+                        |> expectErrors [ error word ]
             , test ("should report single-line comments containing " ++ word ++ " (no space between comment and word)") <|
                 \() ->
                     ("--" ++ word ++ ": Do this")
                         |> rule
-                        |> Expect.equal [ error word ]
+                        |> expectErrors [ error word ]
             , test ("should report multi-line comments containing " ++ word) <|
                 \() ->
                     ("{-" ++ word ++ " \n -}")
                         |> rule
-                        |> Expect.equal [ error word ]
+                        |> expectErrors [ error word ]
             ]
         )
         wordsToLookFor
@@ -50,11 +50,11 @@ tests =
     [ test "should not report regular single-line comments" <|
         \() ->
             rule "-- foo bar"
-                |> Expect.equal []
+                |> expectErrors []
     , test "should not report regular multi-line comments" <|
         \() ->
             rule "{- foo bar \n -}"
-                |> Expect.equal []
+                |> expectErrors []
     ]
         ++ failingTestCases
 

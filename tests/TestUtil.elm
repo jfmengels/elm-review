@@ -1,7 +1,8 @@
-module TestUtil exposing (ruleTester)
+module TestUtil exposing (ruleTester, expectErrors)
 
+import Expect
 import Regex
-import Lint.Types exposing (LintRule, Error)
+import Lint.Types exposing (LintRule, LintResult, Error)
 
 
 spacesRegex : Regex.Regex
@@ -9,7 +10,17 @@ spacesRegex =
     Regex.regex "\n              "
 
 
-ruleTester : (LintRule) -> LintRule
+ruleTester : LintRule -> LintRule
 ruleTester rule str =
     Regex.replace Regex.All spacesRegex (\_ -> "\n") str
         |> rule
+
+
+expectErrors : List Error -> LintResult -> Expect.Expectation
+expectErrors expectedErrors result =
+    case result of
+        Err _ ->
+            Expect.fail "Parsing failure"
+
+        Ok errors ->
+            Expect.equal expectedErrors errors

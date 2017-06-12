@@ -1,9 +1,9 @@
 port module NoImportingEverythingTest exposing (all)
 
-import Expect
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoImportingEverything exposing (rule)
 import Lint.Types exposing (LintRule, Error)
+import TestUtil exposing (expectErrors)
 
 
 error : String -> Error
@@ -19,20 +19,20 @@ tests =
             import Html
             import Http
             """
-                |> Expect.equal []
+                |> expectErrors []
     , test "should not report imports that expose functions by name" <|
         \() ->
             rule """
             import Html exposing (a)
             import Http exposing (a, b)
             """
-                |> Expect.equal []
+                |> expectErrors []
     , test "should report imports that expose everything" <|
         \() ->
             rule """
             import Html exposing (..)
             """
-                |> Expect.equal
+                |> expectErrors
                     [ error "Do not expose everything from Html"
                     ]
     , test "should report imports from sub-modules" <|
@@ -40,7 +40,7 @@ tests =
             rule """
             import Html.App exposing (..)
             """
-                |> Expect.equal
+                |> expectErrors
                     [ error "Do not expose everything from Html.App"
                     ]
     , test "should report imports from sub-modules (multiple dots)" <|
@@ -48,13 +48,13 @@ tests =
             rule """
             import Html.Foo.Bar exposing (..)
             """
-                |> Expect.equal
+                |> expectErrors
                     [ error "Do not expose everything from Html.Foo.Bar"
                     ]
     , test "should not report when declaring a module that exposes everything" <|
         \() ->
             rule "module Main exposing (..)"
-                |> Expect.equal []
+                |> expectErrors []
     ]
 
 
