@@ -20,7 +20,7 @@ port resultPort : String -> Cmd msg
 
 
 type alias Model =
-    Dict String (List LintError)
+    {}
 
 
 type Msg
@@ -35,11 +35,6 @@ lint source =
 
         Ok errors ->
             errors
-
-
-init : ( Model, Cmd Msg )
-init =
-    ( Dict.empty, Cmd.none )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -66,7 +61,7 @@ subscriptions model =
 main : Program Never Model Msg
 main =
     Platform.program
-        { init = init
+        { init = ( Model, Cmd.none )
         , update = update
         , subscriptions = subscriptions
         }
