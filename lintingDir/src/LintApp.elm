@@ -13,10 +13,10 @@ type alias File =
     }
 
 
-port linting : (File -> msg) -> Sub msg
+port linting : (List File -> msg) -> Sub msg
 
 
-port resultPort : ( File, List String ) -> Cmd msg
+port resultPort : List ( File, List String ) -> Cmd msg
 
 
 type alias Model =
@@ -24,7 +24,7 @@ type alias Model =
 
 
 type Msg
-    = Lint File
+    = Lint (List File)
 
 
 lint : String -> List String
@@ -45,10 +45,9 @@ init =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Lint file ->
+        Lint files ->
             ( model
-            , resultPort
-                ( file, lint file.source )
+            , resultPort (List.map (\file -> ( file, lint file.source )) files)
             )
 
 
