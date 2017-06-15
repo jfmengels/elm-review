@@ -1,0 +1,19 @@
+{
+    "dependencies": {
+        "Bogdanp/elm-ast": "8.0.3 <= v < 9.0.0",
+        "elm-community/list-extra": "5.0.1 <= v < 6.0.0",
+        "elm-community/parser-combinators": "1.1.0 <= v < 2.0.0",
+        "elm-lang/core": "5.0.0 <= v < 6.0.0",
+        "elm-lang/html": "2.0.0 <= v < 3.0.0"
+    },
+    "version": "1.0.0",
+    "summary": "Linting binary",
+    "repository": "https://github.com/jfmengels/elm-lint.git",
+    "license": "BSD3",
+    "source-directories": [
+        "src",
+        "../src"
+    ],
+    "exposed-modules": [],
+    "elm-version": "0.18.0 <= v < 0.19.0"
+}
