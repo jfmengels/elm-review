@@ -16,7 +16,7 @@ type alias File =
 port linting : (List File -> msg) -> Sub msg
 
 
-port resultPort : List ( File, List String ) -> Cmd msg
+port resultPort : String -> Cmd msg
 
 
 type alias Model =
@@ -46,9 +46,16 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Lint files ->
-            ( model
-            , resultPort (List.map (\file -> ( file, lint file.source )) files)
-            )
+            let
+                lintResult =
+                    List.map (\file -> ( file, lint file.source )) files
+                        |> List.filter (Tuple.second >> List.isEmpty >> not)
+                        |> List.map formatReport
+                        |> String.join "\n\n"
+            in
+                ( model
+                , resultPort lintResult
+                )
 
 
 subscriptions : Model -> Sub Msg
@@ -63,3 +70,12 @@ main =
         , update = update
         , subscriptions = subscriptions
         }
+
+
+formatReport : ( File, List String ) -> String
+formatReport ( { filename }, errors ) =
+    (toString (List.length errors))
+        ++ " errors found in '"
+        ++ filename
+        ++ "':\n\n\t"
+        ++ (String.join "\n\t" errors)
