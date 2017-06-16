@@ -1,6 +1,6 @@
 module LintConfig exposing (config)
 
-import Lint.Types exposing (LintRule)
+import Lint.Types exposing (LintRule, Severity(..))
 import Lint.Rules.DefaultPatternPosition
 import Lint.Rules.NoConstantCondition
 import Lint.Rules.NoDebug
@@ -17,20 +17,20 @@ import Lint.Rules.SimplifyPiping
 import Lint.Rules.SimplifyPropertyAccess
 
 
-config : List LintRule
+config : List ( Severity, LintRule )
 config =
-    [ Lint.Rules.DefaultPatternPosition.rule { position = Lint.Rules.DefaultPatternPosition.Last }
-    , Lint.Rules.NoConstantCondition.rule
-    , Lint.Rules.NoDebug.rule
-    , Lint.Rules.NoDuplicateImports.rule
-    , Lint.Rules.NoExposingEverything.rule
-    , Lint.Rules.NoImportingEverything.rule
-    , Lint.Rules.NoNestedLet.rule
-    , Lint.Rules.NoUnannotatedFunction.rule
-    , Lint.Rules.NoUnusedVariables.rule
-    , Lint.Rules.NoUselessIf.rule
-    , Lint.Rules.NoUselessPatternMatching.rule
-    , Lint.Rules.NoWarningComments.rule
-    , Lint.Rules.SimplifyPiping.rule
-    , Lint.Rules.SimplifyPropertyAccess.rule
+    [ ( Critical, Lint.Rules.DefaultPatternPosition.rule { position = Lint.Rules.DefaultPatternPosition.Last } )
+    , ( Critical, Lint.Rules.NoConstantCondition.rule )
+    , ( Critical, Lint.Rules.NoDebug.rule )
+    , ( Critical, Lint.Rules.NoDuplicateImports.rule )
+    , ( Critical, Lint.Rules.NoExposingEverything.rule )
+    , ( Critical, Lint.Rules.NoImportingEverything.rule )
+    , ( Critical, Lint.Rules.NoNestedLet.rule )
+    , ( Critical, Lint.Rules.NoUnannotatedFunction.rule )
+    , ( Critical, Lint.Rules.NoUnusedVariables.rule )
+    , ( Critical, Lint.Rules.NoUselessIf.rule )
+    , ( Critical, Lint.Rules.NoUselessPatternMatching.rule )
+    , ( Warning, Lint.Rules.NoWarningComments.rule )
+    , ( Critical, Lint.Rules.SimplifyPiping.rule )
+    , ( Critical, Lint.Rules.SimplifyPropertyAccess.rule )
     ]
