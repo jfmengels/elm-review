@@ -14,7 +14,6 @@ function getFiles(filename) {
     return [];
   }
   if (fs.lstatSync(filename).isDirectory()) {
-    console.log(candidate);
     return flatMap(
       glob.sync('/' + defaultGlob, {
         root: filename,
