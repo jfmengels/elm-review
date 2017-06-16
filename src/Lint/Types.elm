@@ -1,12 +1,15 @@
-module Lint.Types exposing (LintError, LintImplementation, Direction(..), LintRule, LintRuleImplementation, LintResult, Visitor)
+module Lint.Types exposing (LintError, LintImplementation, Direction(..), LintRule, LintRuleImplementation, LintResult, Visitor, Severity, Severity(..))
 
 {-| This module contains types that are used for writing rules.
 
 # Elementary types
 @docs LintError, Direction
 
+# Configuration
+@docs LintRule, Severity
+
 # Writing rules
-@docs LintRuleImplementation, LintImplementation, LintRule
+@docs LintRuleImplementation, LintImplementation
 
 # Internal types
 @docs Visitor, LintResult
@@ -127,3 +130,15 @@ Note: this is internal API, and will be removed in a future version.
 -}
 type alias Visitor context =
     LintRuleImplementation context -> context -> ( List LintError, context )
+
+
+{-| Severity associated to a rule.
+
+- Critical: Transgressions reported by the rule will make the linting process fail.
+- Warning: Transgressions reported by the rule will not make the linting process fail.
+- Disabled: Rule will not be enforced.
+-}
+type Severity
+    = Disabled
+    | Warning
+    | Critical

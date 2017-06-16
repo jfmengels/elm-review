@@ -34,7 +34,7 @@ import Ast
 import Ast.Expression exposing (Expression)
 import Ast.Statement
 import Combine
-import Lint.Types exposing (LintRule, LintResult, LintError, LintImplementation, LintRuleImplementation, Direction, Visitor)
+import Lint.Types exposing (LintRule, LintResult, LintError, LintImplementation, LintRuleImplementation, Direction, Visitor, Severity, Severity(..))
 import Lint.Visitor exposing (transformStatementsIntoVisitors, expressionToVisitors)
 import Regex
 
@@ -44,22 +44,27 @@ import Regex
     errors =
         lintSource rules source
 -}
-lintSource : List LintRule -> String -> Result (List String) (List String)
+lintSource : List ( Severity, LintRule ) -> String -> Result (List String) (List ( Severity, LintError ))
 lintSource rules source =
-    let
-        sourceParsingResult =
-            parseSource source
-    in
-        case sourceParsingResult of
-            Err err ->
-                Err err
-
-            Ok parsedSource ->
+    source
+        |> parseSource
+        |> Result.map
+            (\_ ->
                 rules
                     |> List.concatMap
-                        (\rule -> rule source |> Result.withDefault [])
-                    |> List.map (\err -> err.rule ++ ": " ++ err.message)
-                    |> Ok
+                        (lintSourceWithRule source)
+            )
+
+
+
+-- type alias Reporter a =  -> a
+
+
+lintSourceWithRule : String -> ( Severity, LintRule ) -> List ( Severity, LintError )
+lintSourceWithRule source ( severity, rule ) =
+    rule source
+        |> Result.map (List.map ((,) severity))
+        |> Result.withDefault []
 
 
 parseSource : String -> Result (List String) (Combine.ParseOk () (List Ast.Statement.Statement))
@@ -67,14 +72,7 @@ parseSource source =
     source
         |> removeComments
         |> Ast.parse
-        |> (\sourceParsingResult ->
-                case sourceParsingResult of
-                    Err ( _, _, errors ) ->
-                        Err errors
-
-                    Ok parsedSource ->
-                        Ok parsedSource
-           )
+        |> Result.mapError (\( _, _, errors ) -> errors)
 
 
 removeComments : String -> String

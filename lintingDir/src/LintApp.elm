@@ -1,9 +1,8 @@
 port module LintApp exposing (..)
 
 import Json.Decode
-import Dict exposing (Dict)
 import Lint exposing (lintSource)
-import Lint.Types exposing (LintError)
+import Lint.Types exposing (LintRule, LintError, Severity(..))
 import LintConfig exposing (config)
 
 
@@ -27,14 +26,24 @@ type Msg
     = Lint (List File)
 
 
-lint : String -> List String
-lint source =
-    case lintSource config source of
-        Err errors ->
-            errors
+enabledRules : List ( Severity, LintRule )
+enabledRules =
+    config
+        |> List.filter (Tuple.first >> (/=) Disabled)
 
-        Ok errors ->
-            errors
+
+lint : String -> List ( Severity, LintError )
+lint source =
+    lintSource enabledRules source
+        |> (\result ->
+                case result of
+                    Err errors ->
+                        [ ( Critical, { rule = "ParseError", message = String.join "\n" errors } )
+                        ]
+
+                    Ok result ->
+                        result
+           )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -43,8 +52,10 @@ update msg model =
         Lint files ->
             let
                 lintResult =
-                    List.map (\file -> ( file, lint file.source )) files
-                        |> List.filter (Tuple.second >> List.isEmpty >> not)
+                    files
+                        |> List.map (\file -> ( file, lint file.source ))
+                        |> List.filter
+                            (Tuple.second >> List.isEmpty >> not)
                         |> List.map formatReport
                         |> String.join "\n\n"
             in
@@ -67,10 +78,31 @@ main =
         }
 
 
-formatReport : ( File, List String ) -> String
+formatSeverity : Severity -> String
+formatSeverity severity =
+    case severity of
+        Disabled ->
+            "Disabled"
+
+        Warning ->
+            "Warning"
+
+        Critical ->
+            "Critical"
+
+
+formatReport : ( File, List ( Severity, LintError ) ) -> String
 formatReport ( { filename }, errors ) =
-    (toString (List.length errors))
-        ++ " errors found in '"
-        ++ filename
-        ++ "':\n\n\t"
-        ++ (String.join "\n\t" errors)
+    let
+        formattedErrors =
+            List.map
+                (\( severity, { rule, message } ) ->
+                    "(" ++ (formatSeverity severity) ++ ") " ++ rule ++ ": " ++ message
+                )
+                errors
+    in
+        (toString (List.length errors))
+            ++ " errors found in '"
+            ++ filename
+            ++ "':\n\n\t"
+            ++ (String.join "\n\t" formattedErrors)
