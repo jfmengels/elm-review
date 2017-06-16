@@ -1,10 +1,13 @@
 const path = require('path');
-const _ = require('lodash');
 const fs = require('fs-extra');
 const glob = require('glob');
 
 const defaultGlob = '**/*.elm';
 const ignore = ['**/elm-stuff/**', '**/node_modules/**', 'lintingDir/**'];
+
+function flatMap(array, fn) {
+  return array.reduce((res, item) => res.concat(fn(item)), []);
+}
 
 function getFiles(filename) {
   if (!fs.existsSync(filename)) {
@@ -12,7 +15,7 @@ function getFiles(filename) {
   }
   if (fs.lstatSync(filename).isDirectory()) {
     console.log(candidate);
-    return _.flatMap(
+    return flatMap(
       glob.sync('/' + defaultGlob, {
         root: filename,
         nocase: true,
@@ -28,9 +31,7 @@ function getFiles(filename) {
 // Recursively search directories for *.elm files, excluding elm-stuff/
 function resolveFilePath(filename) {
   // Exclude everything having anything to do with elm-stuff
-  return getFiles(filename).filter(
-    candidate => !candidate.split(path.sep).includes('elm-stuff')
-  );
+  return getFiles(filename).filter(candidate => !candidate.split(path.sep).includes('elm-stuff'));
 }
 
 function globify(filename) {
@@ -52,17 +53,16 @@ function globifyWithRoot(root, filename) {
 
 function getElmFilePaths(filePathArgs) {
   if (filePathArgs.length > 0) {
-    return _.flatMap(filePathArgs, globify);
+    return flatMap(filePathArgs, globify);
   }
 
   const root = path.join(path.resolve(process.cwd()), '..');
   return globifyWithRoot(root, '**/*.elm');
 }
 
-
 function getElmFiles(filePathArgs) {
   const relativeElmFiles = getElmFilePaths(filePathArgs);
-  return _.flatMap(relativeElmFiles, resolveFilePath).map(file => {
+  return flatMap(relativeElmFiles, resolveFilePath).map(file => {
     return {
       filename: file,
       source: fs.readFileSync(file, 'utf8')
