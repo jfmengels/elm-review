@@ -1,4 +1,17 @@
-module Lint.Types exposing (LintError, LintImplementation, Direction(..), LintRule, LintRuleImplementation, LintResult, Visitor, Severity, Severity(..))
+module Lint.Types
+    exposing
+        ( Direction(..)
+        , File
+        , LintError
+        , LintImplementation
+        , LintResult
+        , LintRule
+        , LintRuleImplementation
+        , Reporter
+        , Severity
+        , Severity(..)
+        , Visitor
+        )
 
 {-| This module contains types that are used for writing rules.
 
@@ -6,13 +19,13 @@ module Lint.Types exposing (LintError, LintImplementation, Direction(..), LintRu
 @docs LintError, Direction
 
 # Configuration
-@docs LintRule, Severity
+@docs LintRule, Severity, Reporter
 
 # Writing rules
 @docs LintRuleImplementation, LintImplementation
 
 # Internal types
-@docs Visitor, LintResult
+@docs Visitor, LintResult, File
 -}
 
 import Ast.Expression exposing (..)
@@ -142,3 +155,17 @@ type Severity
     = Disabled
     | Warning
     | Critical
+
+
+{-| Description of an Elm file.
+-}
+type alias File =
+    { filename : String
+    , source : String
+    }
+
+
+{-| Function that summarizes the result of the linting process.
+-}
+type alias Reporter a =
+    List ( File, List ( Severity, LintError ) ) -> a

@@ -1,4 +1,4 @@
-module Lint exposing (lintSource, lint, visitExpression, doNothing)
+module Lint exposing (lintSource, lint, visitExpression, doNothing, countErrors)
 
 {-| A linter for Elm.
 
@@ -28,13 +28,16 @@ To run the rules on a source code and get a list of errors:
 
 # Rule creation functions
 @docs lint, doNothing, visitExpression
+
+# Internal
+@docs countErrors
 -}
 
 import Ast
 import Ast.Expression exposing (Expression)
 import Ast.Statement exposing (Statement)
 import Combine
-import Lint.Types exposing (LintRule, LintError, LintImplementation, LintRuleImplementation, Direction, Visitor, Severity, Severity(..))
+import Lint.Types exposing (File, LintRule, LintError, LintImplementation, LintRuleImplementation, Direction, Visitor, Severity, Severity(..))
 import Lint.Visitor exposing (transformStatementsIntoVisitors, expressionToVisitors)
 import Regex
 
@@ -152,3 +155,19 @@ context. This is used to avoid a bit of boilerplate for visitor functions whose 
 doNothing : LintImplementation a context
 doNothing ctx _ =
     ( [], ctx )
+
+
+{-| Count the number of errors of a given Severity in the list of errors.
+-}
+countErrors : Severity -> List ( File, List ( Severity, LintError ) ) -> Int
+countErrors severity errors =
+    errors
+        |> List.map
+            (Tuple.second
+                >> List.filter
+                    (Tuple.first
+                        >> (==) severity
+                    )
+                >> List.length
+            )
+        |> List.sum
