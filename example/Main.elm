@@ -23,7 +23,7 @@ import Lint.Rules.NoUselessPatternMatching
 import Lint.Rules.NoWarningComments
 import Lint.Rules.SimplifyPiping
 import Lint.Rules.SimplifyPropertyAccess
-import Lint.Types
+import Lint.Types exposing (LintRule, Severity(..))
 import Regex exposing (escape, regex)
 import Result
 
@@ -50,22 +50,22 @@ type Msg
     = Replace String
 
 
-rules : List Lint.Types.LintRule
-rules =
-    [ Lint.Rules.DefaultPatternPosition.rule { position = Lint.Rules.DefaultPatternPosition.Last }
-    , Lint.Rules.NoConstantCondition.rule
-    , Lint.Rules.NoDebug.rule
-    , Lint.Rules.NoDuplicateImports.rule
-    , Lint.Rules.NoExposingEverything.rule
-    , Lint.Rules.NoImportingEverything.rule
-    , Lint.Rules.NoNestedLet.rule
-    , Lint.Rules.NoUnannotatedFunction.rule
-    , Lint.Rules.NoUnusedVariables.rule
-    , Lint.Rules.NoUselessIf.rule
-    , Lint.Rules.NoUselessPatternMatching.rule
-    , Lint.Rules.NoWarningComments.rule
-    , Lint.Rules.SimplifyPiping.rule
-    , Lint.Rules.SimplifyPropertyAccess.rule
+config : List ( Severity, LintRule )
+config =
+    [ ( Critical, Lint.Rules.DefaultPatternPosition.rule { position = Lint.Rules.DefaultPatternPosition.Last } )
+    , ( Critical, Lint.Rules.NoConstantCondition.rule )
+    , ( Critical, Lint.Rules.NoDebug.rule )
+    , ( Critical, Lint.Rules.NoDuplicateImports.rule )
+    , ( Critical, Lint.Rules.NoExposingEverything.rule )
+    , ( Critical, Lint.Rules.NoImportingEverything.rule )
+    , ( Critical, Lint.Rules.NoNestedLet.rule )
+    , ( Critical, Lint.Rules.NoUnannotatedFunction.rule )
+    , ( Critical, Lint.Rules.NoUnusedVariables.rule )
+    , ( Critical, Lint.Rules.NoUselessIf.rule )
+    , ( Critical, Lint.Rules.NoUselessPatternMatching.rule )
+    , ( Warning, Lint.Rules.NoWarningComments.rule )
+    , ( Critical, Lint.Rules.SimplifyPiping.rule )
+    , ( Critical, Lint.Rules.SimplifyPropertyAccess.rule )
     ]
 
 
@@ -194,7 +194,7 @@ lint : String -> Html Msg
 lint source =
     let
         lintResult =
-            lintSource rules source
+            lintSource config source
 
         messages =
             case lintResult of
@@ -205,7 +205,7 @@ lint source =
                     if List.isEmpty errors then
                         [ "No errors." ]
                     else
-                        errors
+                        List.map (Tuple.second >> .message) errors
     in
         div []
             (List.map

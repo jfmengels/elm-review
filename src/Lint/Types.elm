@@ -120,7 +120,7 @@ type alias LintResult =
 {-| Shortcut to a lint rule
 -}
 type alias LintRule =
-    String -> LintResult
+    List Statement -> List LintError
 
 
 {-| Shorthand for a function that takes a rule's implementation, a context and returns ( List LintError, context ).

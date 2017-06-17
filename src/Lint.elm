@@ -32,9 +32,9 @@ To run the rules on a source code and get a list of errors:
 
 import Ast
 import Ast.Expression exposing (Expression)
-import Ast.Statement
+import Ast.Statement exposing (Statement)
 import Combine
-import Lint.Types exposing (LintRule, LintResult, LintError, LintImplementation, LintRuleImplementation, Direction, Visitor, Severity, Severity(..))
+import Lint.Types exposing (LintRule, LintError, LintImplementation, LintRuleImplementation, Direction, Visitor, Severity, Severity(..))
 import Lint.Visitor exposing (transformStatementsIntoVisitors, expressionToVisitors)
 import Regex
 
@@ -49,22 +49,17 @@ lintSource rules source =
     source
         |> parseSource
         |> Result.map
-            (\_ ->
+            (\( _, _, statements ) ->
                 rules
                     |> List.concatMap
-                        (lintSourceWithRule source)
+                        (lintSourceWithRule statements)
             )
 
 
-
--- type alias Reporter a =  -> a
-
-
-lintSourceWithRule : String -> ( Severity, LintRule ) -> List ( Severity, LintError )
-lintSourceWithRule source ( severity, rule ) =
-    rule source
-        |> Result.map (List.map ((,) severity))
-        |> Result.withDefault []
+lintSourceWithRule : List Statement -> ( Severity, LintRule ) -> List ( Severity, LintError )
+lintSourceWithRule statements ( severity, rule ) =
+    rule statements
+        |> List.map ((,) severity)
 
 
 parseSource : String -> Result (List String) (Combine.ParseOk () (List Ast.Statement.Statement))
@@ -96,16 +91,11 @@ removeComments =
         , initialContext = Context
         }
 -}
-lint : String -> LintRuleImplementation context -> LintResult
-lint source rule =
-    source
-        |> parseSource
-        |> Result.map
-            (\( _, _, statements ) ->
-                statements
-                    |> transformStatementsIntoVisitors
-                    |> lintWithVisitors rule
-            )
+lint : List Statement -> LintRuleImplementation context -> List LintError
+lint statements rule =
+    statements
+        |> transformStatementsIntoVisitors
+        |> lintWithVisitors rule
 
 
 {-| Visit an expression using a sub rule implementation. The use of this function is not encouraged, but it can make
