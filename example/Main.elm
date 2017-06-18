@@ -6,7 +6,7 @@ import Ast.Statement exposing (..)
 import Combine
 import Html exposing (..)
 import Html.Attributes exposing (class, id)
-import Html.Events exposing (..)
+import Html.Events exposing (on, targetValue)
 import Json.Decode as JD
 import Lint exposing (lintSource)
 import Lint.Types exposing (LintRule, Severity(..))

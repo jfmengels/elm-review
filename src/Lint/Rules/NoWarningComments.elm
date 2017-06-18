@@ -17,7 +17,6 @@ module Lint.Rules.NoWarningComments exposing (rule)
 import Ast.Statement exposing (..)
 import Lint exposing (doNothing, lint)
 import Lint.Types exposing (LintRule, Direction(..), LintError, LintRuleImplementation)
-import Regex exposing (Regex)
 
 
 type alias Context =
@@ -48,11 +47,6 @@ implementation =
 error : String -> LintError
 error word =
     LintError "NoWarningComments" ("Unexpected " ++ word ++ " comment")
-
-
-commentRegex : Regex
-commentRegex =
-    Regex.caseInsensitive <| Regex.regex "(TODO|FIXME|XXX)"
 
 
 findWarning : String -> Maybe LintError

@@ -46,10 +46,6 @@ tests =
         \() ->
             testRule "a = List.map f |> List.map g"
                 |> expectErrors []
-    , test "should not report piping the function in itself" <|
-        \() ->
-            testRule "a = List.map f |> List.map g"
-                |> expectErrors []
     , test "should report piping the complete call into the same function" <|
         \() ->
             testRule "a = List.map f data |> List.map g"
