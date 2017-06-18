@@ -33,6 +33,7 @@ You can read the slides for my [presentation](http://slides.com/jeroenengels/elm
 - [NoWarningComments](rules/NoWarningComments.md) - Detect comments containing words like `TODO`, `FIXME` and `XXX`.
 - [SimplifyPiping](rules/SimplifyPiping.md) - Simplify piped functions like `List.map f >> List.map g` to `List.map (f >> g)`
 - [SimplifyPropertyAccess](rules/SimplifyPropertyAccess.md) - Replace functions that only return the property of its parameter by an access function, like `(\x -> x.foo)` to `.foo`
+- [ElmTest.NoDuplicateTestBodies](rules/ElmTest/NoDuplicateTestBodies.md) - Forbid having multiple tests with the same bodies. Often a consequence of copy-pasting tests.
 
 More rule ideas in this [slide](http://slides.com/jeroenengels/elm-lint#/5/3) and the ones below it.
 Note that some rules were implemented but may not be good ideas. Think for yourself and ask the community whether you should enable them.

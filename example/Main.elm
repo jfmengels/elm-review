@@ -30,6 +30,7 @@ import Lint.Rules.NoUselessPatternMatching
 import Lint.Rules.NoWarningComments
 import Lint.Rules.SimplifyPiping
 import Lint.Rules.SimplifyPropertyAccess
+import Lint.Rules.ElmTest.NoDuplicateTestBodies
 
 
 type Msg
@@ -52,6 +53,7 @@ config =
     , ( Warning, Lint.Rules.NoWarningComments.rule )
     , ( Critical, Lint.Rules.SimplifyPiping.rule )
     , ( Critical, Lint.Rules.SimplifyPropertyAccess.rule )
+    , ( Critical, Lint.Rules.ElmTest.NoDuplicateTestBodies.rule )
     ]
 
 
