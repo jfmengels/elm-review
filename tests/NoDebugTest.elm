@@ -74,11 +74,10 @@ tests =
         \() ->
             testRule "a = { foo = Debug.log z y }"
                 |> expectErrors [ error "Forbidden use of Debug" ]
-      -- TODO elm-ast doesn't handle record update expressions
-      -- , test "should report Debug in an record update expression" <|
-      --     \() ->
-      --         testRule "a = { model | foo = Debug.log z y }"
-      --             |> expectErrors [ error "Forbidden use of Debug" ]
+    , test "should report Debug in an record update expression" <|
+        \() ->
+            testRule "a = { model | foo = Debug.log z y }"
+                |> expectErrors [ error "Forbidden use of Debug" ]
     , test "should report Debug in an lambda expression" <|
         \() ->
             testRule "a = (\\foo -> Debug.log z foo)"
