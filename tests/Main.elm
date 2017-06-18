@@ -1,4 +1,4 @@
-port module Tests exposing (..)
+port module Main exposing (..)
 
 import Test exposing (describe, Test)
 import Test.Runner.Node exposing (run)

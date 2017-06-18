@@ -1,19 +1,20 @@
 port module NoUnusedVariablesTest exposing (all)
 
+import Lint.Rules.NoUnusedVariables exposing (rule)
 import Test exposing (describe, test, Test)
 import TestUtil exposing (ruleTester, expectErrors)
-import Lint.Rules.NoUnusedVariables exposing (rule)
-import Lint.Types exposing (LintRule, LintError)
+import Lint.Types exposing (LintRule, LintError, LintResult)
+import TestUtil exposing (ruleTester, expectErrors)
+
+
+testRule : String -> LintResult
+testRule =
+    ruleTester rule
 
 
 error : String -> LintError
 error =
     LintError "NoUnusedVariables"
-
-
-testRule : LintRule
-testRule =
-    ruleTester rule
 
 
 tests : List Test

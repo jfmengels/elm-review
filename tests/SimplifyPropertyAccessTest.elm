@@ -2,8 +2,13 @@ port module SimplifyPropertyAccessTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.SimplifyPropertyAccess exposing (rule)
-import Lint.Types exposing (LintRule, LintError)
-import TestUtil exposing (expectErrors)
+import Lint.Types exposing (LintRule, LintError, LintResult)
+import TestUtil exposing (ruleTester, expectErrors)
+
+
+testRule : String -> LintResult
+testRule =
+    ruleTester rule
 
 
 error : String -> LintError
@@ -15,35 +20,35 @@ tests : List Test
 tests =
     [ test "should report a named function that returns the property of a record" <|
         \() ->
-            rule "a x = x.foo"
+            testRule "a x = x.foo"
                 |> expectErrors [ error "Access to property `foo` could be simplified by using `.foo`" ]
     , test "should report an anonymous function that returns the property of a record" <|
         \() ->
-            rule "a = List.map (\\x -> x.foo)"
+            testRule "a = List.map (\\x -> x.foo)"
                 |> expectErrors [ error "Access to property `foo` could be simplified by using `.foo`" ]
     , test "should not report a named function that returns a nested property" <|
         \() ->
-            rule "a x = x.foo.bar"
+            testRule "a x = x.foo.bar"
                 |> expectErrors []
     , test "should not report an anonymous function that returns a nested property" <|
         \() ->
-            rule "a = List.map (\\x -> x.foo.bar)"
+            testRule "a = List.map (\\x -> x.foo.bar)"
                 |> expectErrors []
     , test "should not report a named function that returns the property of another value" <|
         \() ->
-            rule "a x = b.foo"
+            testRule "a x = b.foo"
                 |> expectErrors []
     , test "should not report an anonymous function that returns the property of another value" <|
         \() ->
-            rule "a = List.map (\\x -> b.foo)"
+            testRule "a = List.map (\\x -> b.foo)"
                 |> expectErrors []
     , test "should not report a named function that has multiple parameters" <|
         \() ->
-            rule "a x y = x.foo"
+            testRule "a x y = x.foo"
                 |> expectErrors []
     , test "should not report an anonymous function that has multiple parameters" <|
         \() ->
-            rule "a = List.map (\\x y -> x.foo)"
+            testRule "a = List.map (\\x y -> x.foo)"
                 |> expectErrors []
     ]
 

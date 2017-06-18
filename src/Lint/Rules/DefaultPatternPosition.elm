@@ -1,7 +1,7 @@
-module Lint.Rules.DefaultPatternPosition exposing (rule, PatternPosition(..))
+module Lint.Rules.DefaultPatternPosition exposing (rule, Configuration, PatternPosition(..))
 
 {-|
-@docs rule, PatternPosition
+@docs rule, Configuration, PatternPosition
 
 # Fail
 

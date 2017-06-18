@@ -2,8 +2,13 @@ port module NoImportingEverythingTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoImportingEverything exposing (rule)
-import Lint.Types exposing (LintRule, LintError)
-import TestUtil exposing (expectErrors)
+import Lint.Types exposing (LintRule, LintError, LintResult)
+import TestUtil exposing (ruleTester, expectErrors)
+
+
+testRule : String -> LintResult
+testRule =
+    ruleTester rule
 
 
 error : String -> LintError
@@ -15,21 +20,21 @@ tests : List Test
 tests =
     [ test "should not report imports that do not expose anything" <|
         \() ->
-            rule """
+            testRule """
             import Html
             import Http
             """
                 |> expectErrors []
     , test "should not report imports that expose functions by name" <|
         \() ->
-            rule """
+            testRule """
             import Html exposing (a)
             import Http exposing (a, b)
             """
                 |> expectErrors []
     , test "should report imports that expose everything" <|
         \() ->
-            rule """
+            testRule """
             import Html exposing (..)
             """
                 |> expectErrors
@@ -37,7 +42,7 @@ tests =
                     ]
     , test "should report imports from sub-modules" <|
         \() ->
-            rule """
+            testRule """
             import Html.App exposing (..)
             """
                 |> expectErrors
@@ -45,7 +50,7 @@ tests =
                     ]
     , test "should report imports from sub-modules (multiple dots)" <|
         \() ->
-            rule """
+            testRule """
             import Html.Foo.Bar exposing (..)
             """
                 |> expectErrors
@@ -53,7 +58,7 @@ tests =
                     ]
     , test "should not report when declaring a module that exposes everything" <|
         \() ->
-            rule "module Main exposing (..)"
+            testRule "module Main exposing (..)"
                 |> expectErrors []
     ]
 

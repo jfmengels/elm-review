@@ -1,4 +1,4 @@
-module Lint exposing (lintSource, lint, visitExpression, doNothing, countErrors)
+module Lint exposing (lintSource, lint, visitExpression, doNothing, countErrors, parseSource)
 
 {-| A linter for Elm.
 
@@ -30,7 +30,7 @@ To run the rules on a source code and get a list of errors:
 @docs lint, doNothing, visitExpression
 
 # Internal
-@docs countErrors
+@docs countErrors, parseSource
 -}
 
 import Ast
@@ -52,7 +52,7 @@ lintSource rules source =
     source
         |> parseSource
         |> Result.map
-            (\( _, _, statements ) ->
+            (\statements ->
                 rules
                     |> List.concatMap
                         (lintSourceWithRule statements)
@@ -65,12 +65,15 @@ lintSourceWithRule statements ( severity, rule ) =
         |> List.map ((,) severity)
 
 
-parseSource : String -> Result (List String) (Combine.ParseOk () (List Ast.Statement.Statement))
+{-| Parse source code into a AST
+-}
+parseSource : String -> Result (List String) (List Ast.Statement.Statement)
 parseSource source =
     source
         |> removeComments
         |> Ast.parse
         |> Result.mapError (\( _, _, errors ) -> errors)
+        |> Result.map (\( _, _, statements ) -> statements)
 
 
 removeComments : String -> String

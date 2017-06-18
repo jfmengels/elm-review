@@ -2,8 +2,13 @@ port module NoWarningCommentsTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoWarningComments exposing (rule)
-import Lint.Types exposing (LintRule, LintError)
-import TestUtil exposing (expectErrors)
+import Lint.Types exposing (LintRule, LintError, LintResult)
+import TestUtil exposing (ruleTester, expectErrors)
+
+
+testRule : String -> LintResult
+testRule =
+    ruleTester rule
 
 
 error : String -> LintError
@@ -22,23 +27,19 @@ failingTestCases =
         (\word ->
             [ test ("should report single-line comments containing only " ++ word) <|
                 \() ->
-                    ("-- " ++ word)
-                        |> rule
+                    testRule ("-- " ++ word)
                         |> expectErrors [ error word ]
             , test ("should report single-line comments containing " ++ word) <|
                 \() ->
-                    ("-- " ++ word ++ ": Do this")
-                        |> rule
+                    testRule ("-- " ++ word ++ ": Do this")
                         |> expectErrors [ error word ]
             , test ("should report single-line comments containing " ++ word ++ " (no space between comment and word)") <|
                 \() ->
-                    ("--" ++ word ++ ": Do this")
-                        |> rule
+                    testRule ("--" ++ word ++ ": Do this")
                         |> expectErrors [ error word ]
             , test ("should report multi-line comments containing " ++ word) <|
                 \() ->
-                    ("{-" ++ word ++ " \n -}")
-                        |> rule
+                    testRule ("{-" ++ word ++ " \n -}")
                         |> expectErrors [ error word ]
             ]
         )
@@ -49,11 +50,11 @@ tests : List Test
 tests =
     [ test "should not report regular single-line comments" <|
         \() ->
-            rule "-- foo bar"
+            testRule "-- foo bar"
                 |> expectErrors []
     , test "should not report regular multi-line comments" <|
         \() ->
-            rule "{- foo bar \n -}"
+            testRule "{- foo bar \n -}"
                 |> expectErrors []
     ]
         ++ failingTestCases
