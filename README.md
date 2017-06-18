@@ -1,7 +1,7 @@
 # elm-lint
 
 An [Elm](http://elm-lang.org/) linter written in Elm. Get your code from correct to better.
-You can learn about the API and the rules it provides on the [package documentation](http://package.elm-lang.org/packages/jfmengels/elm-ast).
+You can learn about the API and the rules it provides on the [package documentation](http://package.elm-lang.org/packages/jfmengels/elm-lint).
 
 ## What does `elm-lint` do?
 
@@ -45,7 +45,7 @@ Note that some rules were implemented but may not be good ideas. Think for yours
 This means that your file could not be parsed.
 You should try and copy-paste that file's source code into the [`elm-ast` online demo](http://bogdanp.github.io/elm-ast/example/) to see if you can reproduce the error. If you are able to, then try to make a minimal reproducible example and open an issue on [`elm-ast`](https://github.com/Bogdanp/elm-ast).
 
-**In most cases**, this is due to comments made using `--` (e.g. `-- a comment`) that are not well handled by the parser. [elm-lint] tries to remove them before parsing, but does a bad job at it at the moment (help wanted).
+**In most cases**, this is due to comments made using `--` (e.g. `-- a comment`) that are not well handled by the parser. elm-lint tries to remove them before parsing, but does a bad job at it at the moment (help wanted).
 
 - Thanks for pointing out the error, but I would like to know **where** in my code the error is.
 
