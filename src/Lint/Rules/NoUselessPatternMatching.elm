@@ -104,9 +104,7 @@ subPatternMatchingVariables pattern =
             [ String.join "." a ]
 
         Application object variable ->
-            case variable of
-                _ ->
-                    (subPatternMatchingVariables object) ++ (subPatternMatchingVariables variable)
+            (subPatternMatchingVariables object) ++ (subPatternMatchingVariables variable)
 
         _ ->
             []
