@@ -189,6 +189,16 @@ getExported exportType =
             Set.singleton name
 
 
+addExposedVariables : Context -> Ast.Statement.ExportSet -> Context
+addExposedVariables ctx exportType =
+    { ctx
+        | scopes =
+            getExported exportType
+                |> Set.toList
+                |> addUsedToStack ctx.scopes
+    }
+
+
 statementFn : Context -> Direction Statement -> ( List LintError, Context )
 statementFn ctx node =
     case node of
@@ -196,6 +206,9 @@ statementFn ctx node =
             ( [], { ctx | scopes = addFoundToStack ctx.scopes [ name ] } )
 
         Enter (ModuleDeclaration names AllExport) ->
+            ( [], { ctx | exportsEverything = True } )
+
+        Enter (PortModuleDeclaration names AllExport) ->
             ( [], { ctx | exportsEverything = True } )
 
         Enter (ImportStatement module_ alias_ (Just (SubsetExport imported))) ->
@@ -216,14 +229,10 @@ statementFn ctx node =
                 ( [], { ctx | scopes = addFoundToStack ctx.scopes variables } )
 
         Enter (ModuleDeclaration names exportType) ->
-            ( []
-            , { ctx
-                | scopes =
-                    getExported exportType
-                        |> Set.toList
-                        |> addUsedToStack ctx.scopes
-              }
-            )
+            ( [], addExposedVariables ctx exportType )
+
+        Enter (PortModuleDeclaration names exportType) ->
+            ( [], addExposedVariables ctx exportType )
 
         _ ->
             ( [], ctx )

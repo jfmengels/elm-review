@@ -59,6 +59,28 @@ tests =
               c = 3
               """
                 |> expectErrors [ error "Variable `c` is not used" ]
+    , test "should not report unused top-level variables if everything is exposed (port module)" <|
+        \() ->
+            testRule """port module A exposing (..)
+              a n = 1
+              b = a 1
+              """
+                |> expectErrors []
+    , test "should not report unused top-level variables that are exposed by name (port module)" <|
+        \() ->
+            testRule """port module A exposing (a, b)
+              a = 1
+              b = 2
+              """
+                |> expectErrors []
+    , test "should not report unused top-level variables that are exposed by name, but report others (port module)" <|
+        \() ->
+            testRule """port module A exposing (a, b)
+              a = 1
+              b = 2
+              c = 3
+              """
+                |> expectErrors [ error "Variable `c` is not used" ]
     , test "should report unused variables from let declarations" <|
         \() ->
             testRule """module A exposing (a)
