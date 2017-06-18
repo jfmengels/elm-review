@@ -24,7 +24,7 @@ config =
     , ( Critical, Lint.Rules.NoDebug.rule )
     , ( Critical, Lint.Rules.NoDuplicateImports.rule )
     , ( Critical, Lint.Rules.NoExposingEverything.rule )
-    , ( Critical, Lint.Rules.NoImportingEverything.rule )
+    , ( Critical, Lint.Rules.NoImportingEverything.rule { exceptions = [ "Html" ] } )
     , ( Critical, Lint.Rules.NoNestedLet.rule )
     , ( Critical, Lint.Rules.NoUnannotatedFunction.rule )
     , ( Critical, Lint.Rules.NoUnusedVariables.rule )

@@ -9,20 +9,6 @@ import Html.Attributes exposing (class, id)
 import Html.Events exposing (..)
 import Json.Decode as JD
 import Lint exposing (lintSource)
-import Lint.Rules.DefaultPatternPosition
-import Lint.Rules.NoConstantCondition
-import Lint.Rules.NoDebug
-import Lint.Rules.NoDuplicateImports
-import Lint.Rules.NoExposingEverything
-import Lint.Rules.NoImportingEverything
-import Lint.Rules.NoNestedLet
-import Lint.Rules.NoUnannotatedFunction
-import Lint.Rules.NoUnusedVariables
-import Lint.Rules.NoUselessIf
-import Lint.Rules.NoUselessPatternMatching
-import Lint.Rules.NoWarningComments
-import Lint.Rules.SimplifyPiping
-import Lint.Rules.SimplifyPropertyAccess
 import Lint.Types exposing (LintRule, Severity(..))
 import Regex exposing (escape, regex)
 import Result
@@ -57,7 +43,7 @@ config =
     , ( Critical, Lint.Rules.NoDebug.rule )
     , ( Critical, Lint.Rules.NoDuplicateImports.rule )
     , ( Critical, Lint.Rules.NoExposingEverything.rule )
-    , ( Critical, Lint.Rules.NoImportingEverything.rule )
+    , ( Critical, Lint.Rules.NoImportingEverything.rule { exceptions = [ "Html" ] } )
     , ( Critical, Lint.Rules.NoNestedLet.rule )
     , ( Critical, Lint.Rules.NoUnannotatedFunction.rule )
     , ( Critical, Lint.Rules.NoUnusedVariables.rule )
