@@ -69,6 +69,8 @@ type PatternPosition
     | Last
 
 
+{-| Configuration for the rule.
+-}
 type alias Configuration =
     { position : PatternPosition
     }
