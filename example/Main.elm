@@ -161,6 +161,9 @@ statement s =
             ModuleDeclaration _ exportSet ->
                 displayElementAndAnyChild s [ exportSet ]
 
+            PortModuleDeclaration _ exportSet ->
+                displayElementAndAnyChild s [ exportSet ]
+
             ImportStatement _ _ exportSet ->
                 displayElementAndAnyChild s [ exportSet ]
 

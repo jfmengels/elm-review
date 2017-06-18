@@ -100,27 +100,16 @@ typeToVisitors node =
     []
 
 
-statementChildrenToVisitors : List Expression -> List Type -> List (Visitor context)
-statementChildrenToVisitors expressions types =
-    List.concat
-        [ List.concatMap expressionToVisitors expressions
-        , List.concatMap typeToVisitors types
-        ]
-
-
 statementToVisitors : Statement -> List (Visitor context)
 statementToVisitors node =
     let
         childrenVisitors =
             case node of
                 FunctionTypeDeclaration name application ->
-                    statementChildrenToVisitors [] [ application ]
+                    typeToVisitors application
 
                 FunctionDeclaration name params body ->
-                    statementChildrenToVisitors [ body ] []
-
-                ModuleDeclaration name exportSet ->
-                    statementChildrenToVisitors [] []
+                    expressionToVisitors body
 
                 _ ->
                     []
