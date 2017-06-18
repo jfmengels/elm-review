@@ -52,6 +52,14 @@ tests =
         \() ->
             testRule "port module Foo exposing (..)"
                 |> expectErrors [ error "Do not expose everything from module Foo using (..)" ]
+    , test "should report modules with dotted names that expose everything" <|
+        \() ->
+            testRule "module Foo.Bar.Baz exposing (..)"
+                |> expectErrors [ error "Do not expose everything from module Foo.Bar.Baz using (..)" ]
+    , test "should report port modules with dotted names that expose everything" <|
+        \() ->
+            testRule "port module Foo.Bar.Baz exposing (..)"
+                |> expectErrors [ error "Do not expose everything from module Foo.Bar.Baz using (..)" ]
     ]
 
 

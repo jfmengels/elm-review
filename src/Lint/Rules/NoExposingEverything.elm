@@ -47,24 +47,21 @@ createError name =
     LintError "NoExposingEverything" ("Do not expose everything from module " ++ name ++ " using (..)")
 
 
+reportModule : List String -> LintError
+reportModule name =
+    name
+        |> String.join "."
+        |> createError
+
+
 statementFn : Context -> Direction Statement -> ( List LintError, Context )
 statementFn ctx node =
     case node of
-        Enter (ModuleDeclaration names AllExport) ->
-            case names of
-                [ name ] ->
-                    ( [ createError name ], ctx )
+        Enter (ModuleDeclaration name AllExport) ->
+            ( [ reportModule name ], ctx )
 
-                _ ->
-                    ( [], ctx )
-
-        Enter (PortModuleDeclaration names AllExport) ->
-            case names of
-                [ name ] ->
-                    ( [ createError name ], ctx )
-
-                _ ->
-                    ( [], ctx )
+        Enter (PortModuleDeclaration name AllExport) ->
+            ( [ reportModule name ], ctx )
 
         _ ->
             ( [], ctx )
