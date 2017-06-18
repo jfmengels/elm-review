@@ -1,5 +1,5 @@
 {
-    "version": "2.0.0",
+    "version": "2.0.1",
     "summary": "A linter for Elm. Get your code from correct to better.",
     "repository": "https://github.com/jfmengels/elm-lint.git",
     "license": "BSD3",
