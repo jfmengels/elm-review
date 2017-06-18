@@ -65,4 +65,4 @@ tests =
 
 all : Test
 all =
-    describe "NoDuplicatedImports" tests
+    describe "NoImportingEverything" tests

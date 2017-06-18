@@ -102,4 +102,4 @@ tests =
 
 all : Test
 all =
-    describe "NoDuplicatedImports" tests
+    describe "NoDuplicateImports" tests

@@ -58,5 +58,13 @@ statementFn ctx node =
                 _ ->
                     ( [], ctx )
 
+        Enter (PortModuleDeclaration names AllExport) ->
+            case names of
+                [ name ] ->
+                    ( [ createError name ], ctx )
+
+                _ ->
+                    ( [], ctx )
+
         _ ->
             ( [], ctx )
