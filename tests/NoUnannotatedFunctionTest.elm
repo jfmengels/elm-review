@@ -1,4 +1,4 @@
-port module NoUnannotatedFunctionTest exposing (all)
+module NoUnannotatedFunctionTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoUnannotatedFunction exposing (rule)
@@ -35,10 +35,6 @@ tests =
     , test "should report constants that are not annotated" <|
         \() ->
             testRule "f = 2"
-                |> expectErrors [ error "`f` does not have a type declaration" ]
-    , test "should report functions that are not annotated" <|
-        \() ->
-            testRule "f n = 2"
                 |> expectErrors [ error "`f` does not have a type declaration" ]
     , test "should report functions that are not annotated" <|
         \() ->

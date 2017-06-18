@@ -1,4 +1,4 @@
-port module SimplifyPipingTest exposing (all)
+module SimplifyPipingTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.SimplifyPiping exposing (rule)

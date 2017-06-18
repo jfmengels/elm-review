@@ -1,4 +1,4 @@
-port module NoDebugTest exposing (all)
+module NoDebugTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoDebug exposing (rule)

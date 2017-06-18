@@ -1,4 +1,4 @@
-port module NoUnusedVariablesTest exposing (all)
+module NoUnusedVariablesTest exposing (all)
 
 import Lint.Rules.NoUnusedVariables exposing (rule)
 import Test exposing (describe, test, Test)

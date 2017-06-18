@@ -1,4 +1,4 @@
-port module NoNestedLetTest exposing (all)
+module NoNestedLetTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoNestedLet exposing (rule)

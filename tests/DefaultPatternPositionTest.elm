@@ -1,4 +1,4 @@
-port module DefaultPatternPositionTest exposing (all)
+module DefaultPatternPositionTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.DefaultPatternPosition exposing (rule, Configuration, PatternPosition(First, Last))

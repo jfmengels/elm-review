@@ -1,4 +1,4 @@
-port module NoUselessPatternMatchingTest exposing (all)
+module NoUselessPatternMatchingTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoUselessPatternMatching exposing (rule)

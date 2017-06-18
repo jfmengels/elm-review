@@ -1,4 +1,4 @@
-port module SimplifyPropertyAccessTest exposing (all)
+module SimplifyPropertyAccessTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.SimplifyPropertyAccess exposing (rule)

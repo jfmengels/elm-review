@@ -1,4 +1,4 @@
-port module NoImportingEverythingTest exposing (all)
+module NoImportingEverythingTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoImportingEverything exposing (rule)

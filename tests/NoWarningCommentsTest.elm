@@ -1,4 +1,4 @@
-port module NoWarningCommentsTest exposing (all)
+module NoWarningCommentsTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoWarningComments exposing (rule)

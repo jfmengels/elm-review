@@ -1,4 +1,4 @@
-port module NoDuplicateImportsTest exposing (all)
+module NoDuplicateImportsTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoDuplicateImports exposing (rule)

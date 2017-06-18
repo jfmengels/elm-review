@@ -1,4 +1,4 @@
-port module NoUselessIfTest exposing (all)
+module NoUselessIfTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoUselessIf exposing (rule)

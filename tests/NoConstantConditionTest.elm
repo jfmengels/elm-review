@@ -1,4 +1,4 @@
-port module NoConstantConditionTest exposing (all)
+module NoConstantConditionTest exposing (all)
 
 import Test exposing (describe, test, Test)
 import Lint.Rules.NoConstantCondition exposing (rule)
