@@ -36,8 +36,6 @@ These are the rules that are built-in and available for you to choose from.
 - **SimplifyPropertyAccess** - Replace functions that only return the property of its parameter by an access function, like `(\x -> x.foo)` to `.foo`
 - **ElmTest.NoDuplicateTestBodies** - Forbid having multiple tests with the same bodies. Often a consequence of copy-pasting tests.
 
-Note that some rules were implemented but may not be good ideas. Think for yourself and ask the community whether you should enable them.
-
 ### FAQ
 
 - I get the error `(Critical) Parsing error: expected end of input` for some of my files, what is happening?
