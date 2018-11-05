@@ -11,21 +11,7 @@ import Html.Attributes exposing (class, id)
 import Html.Events exposing (on, targetValue)
 import Json.Decode as JD
 import Lint exposing (lintSource)
-import Lint.Rules.DefaultPatternPosition
-import Lint.Rules.ElmTest.NoDuplicateTestBodies
-import Lint.Rules.NoConstantCondition
 import Lint.Rules.NoDebug
-import Lint.Rules.NoDuplicateImports
-import Lint.Rules.NoExposingEverything
-import Lint.Rules.NoImportingEverything
-import Lint.Rules.NoNestedLet
-import Lint.Rules.NoUnannotatedFunction
-import Lint.Rules.NoUnusedVariables
-import Lint.Rules.NoUselessIf
-import Lint.Rules.NoUselessPatternMatching
-import Lint.Rules.NoWarningComments
-import Lint.Rules.SimplifyPiping
-import Lint.Rules.SimplifyPropertyAccess
 import Lint.Types exposing (LintRule, Severity(..))
 import Regex exposing (escape, regex)
 import Result
