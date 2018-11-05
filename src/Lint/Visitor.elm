@@ -1,7 +1,9 @@
-module Lint.Visitor exposing (expressionToVisitors, transformStatementsIntoVisitors)
+module Lint.Visitor exposing (expressionToVisitors, transformDeclarationsIntoVisitors)
 
-import Ast.Expression exposing (..)
-import Ast.Statement exposing (..)
+import Elm.Syntax.Declaration exposing (Declaration(..))
+import Elm.Syntax.Expression exposing (Expression(..), Function, FunctionImplementation, LetDeclaration(..))
+import Elm.Syntax.Infix exposing (InfixDirection(..))
+import Elm.Syntax.Node exposing (Node, value)
 import Lint.Types exposing (Direction(..), LintRule, Visitor)
 
 
@@ -19,74 +21,89 @@ moduleVisitor rule context =
     rule.moduleEndFn context
 
 
-expressionVisitor : Direction Expression -> Visitor context
+expressionVisitor : Direction (Node Expression) -> Visitor context
 expressionVisitor node rule context =
     rule.expressionFn context node
 
 
-statementVisitor : Direction Statement -> Visitor context
-statementVisitor node rule context =
-    rule.statementFn context node
+functionToExpression : Function -> Node Expression
+functionToExpression { documentation, signature, declaration } =
+    let
+        { name, arguments, expression } =
+            value declaration
+    in
+    expression
 
 
-expressionToVisitors : Expression -> List (Visitor context)
+expressionToVisitors : Node Expression -> List (Visitor context)
 expressionToVisitors node =
     let
+        children : List (Node Expression)
         children =
-            case node of
-                Application expression1 expression2 ->
-                    [ expression1, expression2 ]
+            case value node of
+                Application expressions ->
+                    expressions
 
-                Access expression names ->
-                    [ expression ]
-
-                Variable _ ->
-                    []
-
-                String _ ->
-                    []
-
-                Character _ ->
+                Literal _ ->
                     []
 
                 Integer _ ->
                     []
 
-                Float _ ->
+                Floatable _ ->
                     []
 
-                List elements ->
+                UnitExpr ->
+                    []
+
+                ListExpr elements ->
                     elements
 
-                Record pairs ->
-                    List.map Tuple.second pairs
+                FunctionOrValue _ _ ->
+                    []
 
-                RecordUpdate name updates ->
-                    List.map Tuple.second updates
+                RecordUpdateExpression name setters ->
+                    List.map (value >> (\( field, expr ) -> expr)) setters
 
-                BinOp operator left right ->
-                    [ operator, left, right ]
+                OperatorApplication operator direction left right ->
+                    case direction of
+                        Left ->
+                            [ left, right ]
 
-                If cond then_ else_ ->
+                        Right ->
+                            [ right, left ]
+
+                        Non ->
+                            [ left, right ]
+
+                IfBlock cond then_ else_ ->
                     [ cond, then_, else_ ]
 
-                Let declarations body ->
-                    List.append
-                        (List.map Tuple.second declarations)
-                        [ body ]
+                LetExpression { expression, declarations } ->
+                    List.map
+                        (\declaration ->
+                            case value declaration of
+                                LetFunction function ->
+                                    functionToExpression function
 
-                Case target cases ->
-                    List.append
-                        [ target ]
-                        (List.concatMap (\( a, b ) -> [ a, b ]) cases)
+                                LetDestructuring pattern expr ->
+                                    expr
+                        )
+                        declarations
+                        ++ [ expression ]
 
-                Lambda names expression ->
+                CaseExpression { expression, cases } ->
+                    [ expression ]
+                        ++ List.map (\( pattern, caseExpression ) -> caseExpression) cases
+
+                LambdaExpression { args, expression } ->
                     [ expression ]
 
-                Tuple expressions ->
+                TupledExpression expressions ->
                     expressions
 
-                AccessFunction name ->
+                -- TODO Implement the rest
+                _ ->
                     []
 
         childrenVisitors =
@@ -95,30 +112,24 @@ expressionToVisitors node =
     createExitAndEnterWithChildren expressionVisitor node childrenVisitors
 
 
-typeToVisitors : Type -> List (Visitor context)
-typeToVisitors node =
-    []
-
-
-statementToVisitors : Statement -> List (Visitor context)
-statementToVisitors node =
+declarationToVisitors : Declaration -> List (Visitor context)
+declarationToVisitors declaration =
     let
         childrenVisitors =
-            case node of
-                FunctionTypeDeclaration name application ->
-                    typeToVisitors application
+            case declaration of
+                FunctionDeclaration function ->
+                    functionToExpression function |> expressionToVisitors
 
-                FunctionDeclaration name params body ->
-                    expressionToVisitors body
-
+                -- TODO Implement the rest
                 _ ->
                     []
     in
-    createExitAndEnterWithChildren statementVisitor node childrenVisitors
+    -- createExitAndEnterWithChildren statementVisitor declaration childrenVisitors
+    childrenVisitors
 
 
-transformStatementsIntoVisitors : List Statement -> List (Visitor context)
-transformStatementsIntoVisitors statements =
-    statements
-        |> List.concatMap statementToVisitors
+transformDeclarationsIntoVisitors : List (Node Declaration) -> List (Visitor context)
+transformDeclarationsIntoVisitors declarations =
+    declarations
+        |> List.concatMap (value >> declarationToVisitors)
         |> (\allVisitors -> List.append allVisitors [ moduleVisitor ])

@@ -1,8 +1,8 @@
 module Lint.Types exposing
     ( LintError, Direction(..)
-    , LintRule, Severity(..), Reporter
+    , LintRule, Severity(..)
     , LintRuleImplementation, LintImplementation
-    , Visitor, LintResult, File
+    , Visitor, LintResult
     )
 
 {-| This module contains types that are used for writing rules.
@@ -15,7 +15,7 @@ module Lint.Types exposing
 
 # Configuration
 
-@docs LintRule, Severity, Reporter
+@docs LintRule, Severity
 
 
 # Writing rules
@@ -25,12 +25,13 @@ module Lint.Types exposing
 
 # Internal types
 
-@docs Visitor, LintResult, File
+@docs Visitor, LintResult
 
 -}
 
-import Ast.Expression exposing (..)
-import Ast.Statement exposing (..)
+import Elm.Syntax.Expression exposing (Expression)
+import Elm.Syntax.File exposing (File)
+import Elm.Syntax.Node exposing (Node)
 
 
 {-| Value that describes an error found by a given rule, that contains the name of the rule that raised the error, and
@@ -71,7 +72,7 @@ enforce.
 
 -}
 type alias LintImplementation nodeType context =
-    context -> Direction nodeType -> ( List LintError, context )
+    context -> Direction (Node nodeType) -> ( List LintError, context )
 
 
 {-| When visiting the AST, nodes are visited twice:
@@ -104,10 +105,6 @@ type Direction node
 
   - initialContext: An initial context
 
-  - statementFn: A LintImplementation for Statement nodes
-
-  - typeFn: A LintImplementation for Type nodes
-
   - expressionFn: A LintImplementation for Expression nodes
 
   - moduleEndFn: A function that takes a context and returns a list of error. Similar to a LintImplementation, but will
@@ -119,18 +116,14 @@ type Direction node
 
     implementation : LintRuleImplementation Context
     implementation =
-    { statementFn = doNothing
-    , typeFn = doNothing
-    , expressionFn = expressionFn
+    { expressionFn = expressionFn
     , moduleEndFn = (\\ctx -> ( [], ctx ))
     , initialContext = Context
     }
 
 -}
 type alias LintRuleImplementation context =
-    { statementFn : LintImplementation Statement context
-    , typeFn : LintImplementation Type context
-    , expressionFn : LintImplementation Expression context
+    { expressionFn : LintImplementation Expression context
     , moduleEndFn : context -> ( List LintError, context )
     , initialContext : context
     }
@@ -145,7 +138,7 @@ type alias LintResult =
 {-| Shortcut to a lint rule
 -}
 type alias LintRule =
-    List Statement -> List LintError
+    File -> List LintError
 
 
 {-| Shorthand for a function that takes a rule's implementation, a context and returns ( List LintError, context ).
@@ -169,17 +162,3 @@ type Severity
     = Disabled
     | Warning
     | Critical
-
-
-{-| Description of an Elm file.
--}
-type alias File =
-    { filename : String
-    , source : String
-    }
-
-
-{-| Function that summarizes the result of the linting process.
--}
-type alias Reporter a =
-    List ( File, List ( Severity, LintError ) ) -> a

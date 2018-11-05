@@ -1,7 +1,7 @@
 module Lint exposing
     ( lintSource
     , lint, doNothing, visitExpression
-    , countErrors, parseSource
+    , parseSource
     )
 
 {-| A linter for Elm.
@@ -41,15 +41,17 @@ To run the rules on a source code and get a list of errors:
 
 # Internal
 
-@docs countErrors, parseSource
+@docs parseSource
 
 -}
 
-import Ast
-import Ast.Expression exposing (Expression)
-import Ast.Statement exposing (Statement)
-import Lint.Types exposing (Direction, File, LintError, LintImplementation, LintRule, LintRuleImplementation, Severity(..), Visitor)
-import Lint.Visitor exposing (expressionToVisitors, transformStatementsIntoVisitors)
+import Elm.Parser as Parser
+import Elm.Processing exposing (addFile, init, process)
+import Elm.Syntax.Expression exposing (Expression)
+import Elm.Syntax.File exposing (File)
+import Elm.Syntax.Node exposing (Node)
+import Lint.Types exposing (Direction, LintError, LintImplementation, LintRule, LintRuleImplementation, Severity(..), Visitor)
+import Lint.Visitor exposing (expressionToVisitors, transformDeclarationsIntoVisitors)
 import Regex
 
 
@@ -71,27 +73,22 @@ lintSource rules source =
             )
 
 
-lintSourceWithRule : List Statement -> ( Severity, LintRule ) -> List ( Severity, LintError )
-lintSourceWithRule statements ( severity, rule ) =
-    rule statements
+lintSourceWithRule : File -> ( Severity, LintRule ) -> List ( Severity, LintError )
+lintSourceWithRule file ( severity, rule ) =
+    rule file
         |> List.map (\b -> ( severity, b ))
 
 
 {-| Parse source code into a AST
 -}
-parseSource : String -> Result (List String) (List Ast.Statement.Statement)
+parseSource : String -> Result (List String) File
 parseSource source =
     source
-        |> removeComments
-        |> Ast.parse
-        |> Result.mapError (\( _, _, errors ) -> errors)
-        |> Result.map (\( _, _, statements ) -> statements)
-
-
-removeComments : String -> String
-removeComments =
-    Regex.replace Regex.All (Regex.regex "--.$") (always "")
-        >> Regex.replace Regex.All (Regex.regex "\n +\\w+ : .*") (always "")
+        |> Parser.parse
+        -- TODO Improve parsing error handling
+        |> Result.mapError (\error -> [ "Parsing error" ])
+        -- TODO Add all files to have more context https://package.elm-lang.org/packages/stil4m/elm-syntax/7.0.2/Elm-Processing
+        |> Result.map (process init)
 
 
 {-| Lints source code using a given rule implementation, and gives back a list of errors that were found.
@@ -102,18 +99,17 @@ removeComments =
 
     implementation : LintRuleImplementation Context
     implementation =
-        { statementFn = doNothing
-        , typeFn = doNothing
+        { typeFn = doNothing
         , expressionFn = expressionFn
         , moduleEndFn = \ctx -> ( [], ctx )
         , initialContext = Context
         }
 
 -}
-lint : List Statement -> LintRuleImplementation context -> List LintError
-lint statements rule =
-    statements
-        |> transformStatementsIntoVisitors
+lint : File -> LintRuleImplementation context -> List LintError
+lint file rule =
+    file.declarations
+        |> transformDeclarationsIntoVisitors
         |> lintWithVisitors rule
 
 
@@ -139,7 +135,7 @@ part of the implementation of complex rules much easier. It gives back a list of
         }
 
 -}
-visitExpression : LintRuleImplementation context -> Expression -> ( List LintError, context )
+visitExpression : LintRuleImplementation context -> Node Expression -> ( List LintError, context )
 visitExpression rule expression =
     expressionToVisitors expression
         |> List.foldl (visitAndAccumulate rule) ( [], rule.initialContext )
@@ -174,19 +170,3 @@ context. This is used to avoid a bit of boilerplate for visitor functions whose 
 doNothing : LintImplementation a context
 doNothing ctx _ =
     ( [], ctx )
-
-
-{-| Count the number of errors of a given Severity in the list of errors.
--}
-countErrors : Severity -> List ( File, List ( Severity, LintError ) ) -> Int
-countErrors severity errors =
-    errors
-        |> List.map
-            (Tuple.second
-                >> List.filter
-                    (Tuple.first
-                        >> (==) severity
-                    )
-                >> List.length
-            )
-        |> List.sum
