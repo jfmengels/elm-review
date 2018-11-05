@@ -1,21 +1,25 @@
 module Lint.Rules.NoDuplicateImports exposing (rule)
 
 {-|
+
 @docs rule
+
 
 # Fail
 
     import Set
     import Set exposing (Set)
 
+
 # Success
 
     import Set exposing (Set)
+
 -}
 
 import Ast.Statement exposing (..)
-import Lint exposing (lint, doNothing)
-import Lint.Types exposing (LintRule, LintRuleImplementation, LintError, Direction(..))
+import Lint exposing (doNothing, lint)
+import Lint.Types exposing (Direction(..), LintError, LintRule, LintRuleImplementation)
 import Set exposing (Set)
 
 
@@ -30,6 +34,7 @@ type alias Context =
     rules =
         [ NoDuplicateImports.rule
         ]
+
 -}
 rule : LintRule
 rule input =
@@ -59,10 +64,11 @@ statementFn ctx node =
                 name =
                     String.join "." names
             in
-                if Set.member name ctx.imports then
-                    ( [], { ctx | duplicates = Set.insert name ctx.duplicates } )
-                else
-                    ( [], { ctx | imports = Set.insert name ctx.imports } )
+            if Set.member name ctx.imports then
+                ( [], { ctx | duplicates = Set.insert name ctx.duplicates } )
+
+            else
+                ( [], { ctx | imports = Set.insert name ctx.imports } )
 
         _ ->
             ( [], ctx )
@@ -75,4 +81,4 @@ moduleEndFn ctx =
             Set.toList ctx.duplicates
                 |> List.map error
     in
-        ( errors, ctx )
+    ( errors, ctx )

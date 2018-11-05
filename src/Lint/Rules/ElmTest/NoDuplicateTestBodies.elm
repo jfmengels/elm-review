@@ -1,44 +1,52 @@
 module Lint.Rules.ElmTest.NoDuplicateTestBodies exposing (rule)
 
 {-|
+
 @docs rule
+
 
 # Fail
 
-    module Addition exposing (..)
-
     import Test exposing (test)
 
     tests =
         [ test "foo" <|
-            \() -> 1 + 1
-                |> Expect.equal 2
+            \() ->
+                1
+                    + 1
+                    |> Expect.equal 2
         , test "bar" <|
-            \() -> 1 + 1
-                |> Expect.equal 2
+            \() ->
+                1
+                    + 1
+                    |> Expect.equal 2
         ]
+
 
 # Success
 
-    module Addition exposing (..)
-
     import Test exposing (test)
 
     tests =
         [ test "foo" <|
-            \() -> 1 + 1
-                |> Expect.equal 2
+            \() ->
+                1
+                    + 1
+                    |> Expect.equal 2
         , test "bar" <|
-            \() -> 1 + 2
-                |> Expect.equal 3
+            \() ->
+                1
+                    + 2
+                    |> Expect.equal 3
         ]
+
 -}
 
 import Ast.Expression exposing (..)
 import Ast.Statement exposing (..)
-import Lint exposing (lint, doNothing)
-import Lint.Types exposing (LintRule, LintRuleImplementation, LintError, Direction(..))
 import Dict exposing (Dict)
+import Lint exposing (doNothing, lint)
+import Lint.Types exposing (Direction(..), LintError, LintRule, LintRuleImplementation)
 
 
 type alias Context =
@@ -53,6 +61,7 @@ This may result in specifications that are thought to be implemented but are not
     rules =
         [ ElmTest.NoDuplicateTestBodies.rule
         ]
+
 -}
 rule : LintRule
 rule input =
@@ -64,7 +73,7 @@ implementation =
     { statementFn = statementFn
     , typeFn = doNothing
     , expressionFn = expressionFn
-    , moduleEndFn = (\ctx -> ( [], ctx ))
+    , moduleEndFn = \ctx -> ( [], ctx )
     , initialContext = Context []
     }
 
@@ -97,6 +106,7 @@ filterTests availableTestAliases listItems =
                 BinOp (Variable [ "<|" ]) (Application fn (String title)) testBody ->
                     if isTestFunctionCall availableTestAliases fn then
                         [ ( title, testBody ) ]
+
                     else
                         []
 
@@ -124,17 +134,17 @@ expressionFn ctx node =
                                 existingTest =
                                     Dict.get testBodyAsString dict
                             in
-                                case existingTest of
-                                    Nothing ->
-                                        { dict = Dict.insert testBodyAsString title dict, redundant = redundant }
+                            case existingTest of
+                                Nothing ->
+                                    { dict = Dict.insert testBodyAsString title dict, redundant = redundant }
 
-                                    Just existingTestTitle ->
-                                        { dict = dict, redundant = redundant ++ [ ( title, existingTestTitle ) ] }
+                                Just existingTestTitle ->
+                                    { dict = dict, redundant = redundant ++ [ ( title, existingTestTitle ) ] }
                         )
                         { dict = Dict.empty, redundant = [] }
                         tests
             in
-                ( List.map error redundantTests.redundant, ctx )
+            ( List.map error redundantTests.redundant, ctx )
 
         _ ->
             ( [], ctx )
@@ -152,6 +162,7 @@ extractImported exportSet =
         FunctionExport name ->
             if name == "test" then
                 [ name ]
+
             else
                 []
 
@@ -172,12 +183,12 @@ statementFn ctx node =
                 moduleFnAccess =
                     computeAlias testAlias ++ ".test"
             in
-                case exportSet of
-                    Nothing ->
-                        ( [], { availableTestAliases = [ moduleFnAccess ] } )
+            case exportSet of
+                Nothing ->
+                    ( [], { availableTestAliases = [ moduleFnAccess ] } )
 
-                    Just subExportSet ->
-                        ( [], { availableTestAliases = [ moduleFnAccess ] ++ extractImported subExportSet } )
+                Just subExportSet ->
+                    ( [], { availableTestAliases = [ moduleFnAccess ] ++ extractImported subExportSet } )
 
         _ ->
             ( [], ctx )

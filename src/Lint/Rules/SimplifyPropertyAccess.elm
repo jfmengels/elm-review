@@ -1,21 +1,27 @@
 module Lint.Rules.SimplifyPropertyAccess exposing (rule)
 
 {-|
+
 @docs rule
+
 
 # Fail
 
-    a = List.map (\x -> x.foo) values
+    a =
+        List.map (\x -> x.foo) values
+
 
 # Success
 
-    a = List.map .foo values
+    a =
+        List.map .foo values
+
 -}
 
-import Ast.Statement exposing (..)
 import Ast.Expression exposing (..)
-import Lint exposing (lint, doNothing)
-import Lint.Types exposing (LintRule, LintRuleImplementation, LintError, Direction(..))
+import Ast.Statement exposing (..)
+import Lint exposing (doNothing, lint)
+import Lint.Types exposing (Direction(..), LintError, LintRule, LintRuleImplementation)
 
 
 type alias Context =
@@ -27,6 +33,7 @@ type alias Context =
     rules =
         [ SimplifyPropertyAccess.rule
         ]
+
 -}
 rule : LintRule
 rule input =
@@ -38,7 +45,7 @@ implementation =
     { statementFn = statementFn
     , typeFn = doNothing
     , expressionFn = expressionFn
-    , moduleEndFn = (\ctx -> ( [], ctx ))
+    , moduleEndFn = \ctx -> ( [], ctx )
     , initialContext = Context
     }
 
@@ -54,6 +61,7 @@ expressionFn ctx node =
         Enter (Lambda [ Variable paramNames ] (Access (Variable varName) properties)) ->
             if List.length properties == 1 && varName == paramNames then
                 ( [ String.join "" properties |> error ], ctx )
+
             else
                 ( [], ctx )
 
@@ -67,6 +75,7 @@ statementFn ctx node =
         Enter (FunctionDeclaration _ [ Variable paramNames ] (Access (Variable varName) properties)) ->
             if List.length properties == 1 && varName == paramNames then
                 ( [ String.join "" properties |> error ], ctx )
+
             else
                 ( [], ctx )
 

@@ -1,26 +1,32 @@
 module Lint.Rules.NoUselessIf exposing (rule)
 
 {-|
+
 @docs rule
+
 
 # Fail
 
     if condition then
         value
+
     else
         value
+
 
 # Success
 
     if condition then
         value1
+
     else
         value2
+
 -}
 
 import Ast.Expression exposing (..)
-import Lint exposing (lint, doNothing)
-import Lint.Types exposing (LintRule, LintRuleImplementation, LintError, Direction(..))
+import Lint exposing (doNothing, lint)
+import Lint.Types exposing (Direction(..), LintError, LintRule, LintRuleImplementation)
 
 
 type alias Context =
@@ -32,6 +38,7 @@ type alias Context =
     rules =
         [ NoUselessIf.rule
         ]
+
 -}
 rule : LintRule
 rule input =
@@ -43,7 +50,7 @@ implementation =
     { statementFn = doNothing
     , typeFn = doNothing
     , expressionFn = expressionFn
-    , moduleEndFn = (\ctx -> ( [], ctx ))
+    , moduleEndFn = \ctx -> ( [], ctx )
     , initialContext = Context
     }
 
@@ -59,6 +66,7 @@ expressionFn ctx node =
         Enter (If cond then_ else_) ->
             if then_ == else_ then
                 ( [ error ], ctx )
+
             else
                 ( [], ctx )
 

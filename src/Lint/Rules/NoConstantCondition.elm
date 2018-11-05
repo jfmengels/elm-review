@@ -1,22 +1,44 @@
 module Lint.Rules.NoConstantCondition exposing (rule)
 
 {-|
+
 @docs rule
+
 
 # Fail
 
-    if True then a else b
-    if False then a else b
-    if foo == foo then a else b
+    if True then
+        a
+
+    else
+        b
+
+    if False then
+        a
+
+    else
+        b
+
+    if foo == foo then
+        a
+
+    else
+        b
+
 
 # Success
 
-    if foo == bar then a else b
+    if foo == bar then
+        a
+
+    else
+        b
+
 -}
 
 import Ast.Expression exposing (..)
-import Lint exposing (lint, doNothing)
-import Lint.Types exposing (LintRule, LintRuleImplementation, LintError, Direction(..))
+import Lint exposing (doNothing, lint)
+import Lint.Types exposing (Direction(..), LintError, LintRule, LintRuleImplementation)
 import Set exposing (Set)
 
 
@@ -29,6 +51,7 @@ type alias Context =
     rules =
         [ NoConstantCondition.rule
         ]
+
 -}
 rule : LintRule
 rule input =
@@ -40,7 +63,7 @@ implementation =
     { statementFn = doNothing
     , typeFn = doNothing
     , expressionFn = expressionFn
-    , moduleEndFn = (\ctx -> ( [], ctx ))
+    , moduleEndFn = \ctx -> ( [], ctx )
     , initialContext = Context
     }
 
@@ -74,6 +97,7 @@ isStatic expr =
         Variable value ->
             if isStaticVariable value then
                 True
+
             else
                 False
 
@@ -87,7 +111,7 @@ isStatic expr =
             True
 
         BinOp (Variable op) left right ->
-            (Set.member op comparisonOperators)
+            Set.member op comparisonOperators
                 && (left == right || (isStatic left && isStatic right))
 
         _ ->
@@ -100,6 +124,7 @@ expressionFn ctx node =
         Enter (If cond _ _) ->
             if isStatic cond then
                 ( [ error ], ctx )
+
             else
                 ( [], ctx )
 

@@ -1,23 +1,29 @@
 module Lint.Rules.SimplifyPiping exposing (rule)
 
 {-|
+
 @docs rule
+
 
 # Fail
 
-    a = values
-        |> List.map foo
-        |> List.map bar
+    a =
+        values
+            |> List.map foo
+            |> List.map bar
+
 
 # Success
 
-    a = values
-        |> List.map (foo >> bar)
+    a =
+        values
+            |> List.map (foo >> bar)
+
 -}
 
 import Ast.Expression exposing (..)
-import Lint exposing (lint, doNothing)
-import Lint.Types exposing (LintRule, LintRuleImplementation, LintError, Direction(..))
+import Lint exposing (doNothing, lint)
+import Lint.Types exposing (Direction(..), LintError, LintRule, LintRuleImplementation)
 import Set exposing (Set)
 
 
@@ -30,6 +36,7 @@ type alias Context =
     rules =
         [ SimplifyPiping.rule
         ]
+
 -}
 rule : LintRule
 rule input =
@@ -41,7 +48,7 @@ implementation =
     { statementFn = doNothing
     , typeFn = doNothing
     , expressionFn = expressionFn
-    , moduleEndFn = (\ctx -> ( [], ctx ))
+    , moduleEndFn = \ctx -> ( [], ctx )
     , initialContext = Context
     }
 
@@ -76,6 +83,7 @@ reportIfSimplifiableMethod op left right =
         [ Application (Access (Variable names1) fns1) _, Application (Access (Variable names2) fns2) _ ] ->
             if [ names1, fns1 ] == [ names2, fns2 ] && Set.member (nameOfMethod [ names1, fns1 ]) simplifiableFns then
                 [ error op <| nameOfMethod [ names1, fns1 ] ]
+
             else
                 []
 

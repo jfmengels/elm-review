@@ -1,7 +1,9 @@
 module Lint.Rules.DefaultPatternPosition exposing (rule, Configuration, PatternPosition(..))
 
 {-|
+
 @docs rule, Configuration, PatternPosition
+
 
 # Fail
 
@@ -24,6 +26,7 @@ module Lint.Rules.DefaultPatternPosition exposing (rule, Configuration, PatternP
       Foo -> bar
       -- LintError, this pattern should appear first
       _ -> result
+
 
 # Success
 
@@ -49,11 +52,12 @@ module Lint.Rules.DefaultPatternPosition exposing (rule, Configuration, PatternP
     case value of
       _ -> result
       Foo -> bar
+
 -}
 
 import Ast.Expression exposing (..)
 import Lint exposing (doNothing, lint)
-import Lint.Types exposing (LintRule, Direction(..), LintError, LintRuleImplementation)
+import Lint.Types exposing (Direction(..), LintError, LintRule, LintRuleImplementation)
 import List.Extra exposing (findIndex)
 import Regex
 
@@ -88,7 +92,7 @@ implementation configuration =
     { statementFn = doNothing
     , typeFn = doNothing
     , expressionFn = expressionFn configuration
-    , moduleEndFn = (\ctx -> ( [], ctx ))
+    , moduleEndFn = \ctx -> ( [], ctx )
     , initialContext = Context
     }
 
@@ -113,6 +117,7 @@ isDefaultPattern pattern =
         Variable names ->
             if isVariable (String.join "." names) then
                 True
+
             else
                 False
 
@@ -138,12 +143,14 @@ expressionFn config ctx node =
                         First ->
                             if index /= 0 then
                                 ( [ error "Expected default pattern to appear first in the list of patterns" ], ctx )
+
                             else
                                 ( [], ctx )
 
                         Last ->
-                            if index /= (List.length patterns) - 1 then
+                            if index /= List.length patterns - 1 then
                                 ( [ error "Expected default pattern to appear last in the list of patterns" ], ctx )
+
                             else
                                 ( [], ctx )
 

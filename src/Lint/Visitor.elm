@@ -1,8 +1,8 @@
-module Lint.Visitor exposing (transformStatementsIntoVisitors, expressionToVisitors)
+module Lint.Visitor exposing (expressionToVisitors, transformStatementsIntoVisitors)
 
 import Ast.Expression exposing (..)
 import Ast.Statement exposing (..)
-import Lint.Types exposing (LintRule, Direction(..), Visitor)
+import Lint.Types exposing (Direction(..), LintRule, Visitor)
 
 
 createExitAndEnterWithChildren : (Direction nodeType -> Visitor context) -> nodeType -> List (Visitor context) -> List (Visitor context)
@@ -92,7 +92,7 @@ expressionToVisitors node =
         childrenVisitors =
             List.concatMap expressionToVisitors children
     in
-        createExitAndEnterWithChildren expressionVisitor node childrenVisitors
+    createExitAndEnterWithChildren expressionVisitor node childrenVisitors
 
 
 typeToVisitors : Type -> List (Visitor context)
@@ -114,7 +114,7 @@ statementToVisitors node =
                 _ ->
                     []
     in
-        createExitAndEnterWithChildren statementVisitor node childrenVisitors
+    createExitAndEnterWithChildren statementVisitor node childrenVisitors
 
 
 transformStatementsIntoVisitors : List Statement -> List (Visitor context)

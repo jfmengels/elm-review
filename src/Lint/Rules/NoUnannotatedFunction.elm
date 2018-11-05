@@ -1,23 +1,27 @@
 module Lint.Rules.NoUnannotatedFunction exposing (rule)
 
 {-|
+
 @docs rule
+
 
 # Fail
 
     a n =
         n + 1
 
+
 # Success
 
     a : Int -> Int
     a n =
         n + 1
+
 -}
 
 import Ast.Statement exposing (..)
-import Lint exposing (lint, doNothing)
-import Lint.Types exposing (LintRule, LintRuleImplementation, LintError, Direction(..))
+import Lint exposing (doNothing, lint)
+import Lint.Types exposing (Direction(..), LintError, LintRule, LintRuleImplementation)
 import Set exposing (Set)
 
 
@@ -31,6 +35,7 @@ type alias Context =
     rules =
         [ NoUnannotatedFunction.rule
         ]
+
 -}
 rule : LintRule
 rule input =
@@ -42,7 +47,7 @@ implementation =
     { statementFn = statementFn
     , typeFn = doNothing
     , expressionFn = doNothing
-    , moduleEndFn = (\ctx -> ( [], ctx ))
+    , moduleEndFn = \ctx -> ( [], ctx )
     , initialContext = Context Set.empty
     }
 
@@ -61,6 +66,7 @@ statementFn ctx node =
         Enter (FunctionDeclaration name params body) ->
             if Set.member name ctx.annotatedFunctions then
                 ( [], ctx )
+
             else
                 ( [ createError name ], ctx )
 

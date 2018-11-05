@@ -1,21 +1,25 @@
 module Lint.Rules.NoImportingEverything exposing (rule, Configuration)
 
 {-|
+
 @docs rule, Configuration
+
 
 # Fail
 
     import Html exposing (..)
 
+
 # Success
 
     import Html exposing (div, p, textarea)
+
 -}
 
-import Set exposing (Set)
 import Ast.Statement exposing (..)
-import Lint exposing (lint, doNothing)
-import Lint.Types exposing (LintRule, LintRuleImplementation, LintError, Direction(..))
+import Lint exposing (doNothing, lint)
+import Lint.Types exposing (Direction(..), LintError, LintRule, LintRuleImplementation)
+import Set exposing (Set)
 
 
 type alias Context =
@@ -32,8 +36,9 @@ type alias Configuration =
 functions and types are unknown to them.
 
     rules =
-        [ NoImportingEverything.rule { exceptions = ["Html"]}
+        [ NoImportingEverything.rule { exceptions = [ "Html" ] }
         ]
+
 -}
 rule : Configuration -> LintRule
 rule exceptions input =
@@ -45,7 +50,7 @@ implementation config =
     { statementFn = statementFn
     , typeFn = doNothing
     , expressionFn = doNothing
-    , moduleEndFn = (\ctx -> ( [], ctx ))
+    , moduleEndFn = \ctx -> ( [], ctx )
     , initialContext = Context (Set.fromList config.exceptions)
     }
 
@@ -63,10 +68,11 @@ statementFn ctx node =
                 name =
                     String.join "." names
             in
-                if Set.member name ctx.exceptions then
-                    ( [], ctx )
-                else
-                    ( [ error name ], ctx )
+            if Set.member name ctx.exceptions then
+                ( [], ctx )
+
+            else
+                ( [ error name ], ctx )
 
         _ ->
             ( [], ctx )

@@ -1,26 +1,32 @@
 module Lint.Rules.NoUnusedVariables exposing (rule)
 
 {-|
+
 @docs rule
+
 
 # Fail
 
-    module Main exposing (a)
+
     a n =
         n + 1
-    b = a 2
+
+    b =
+        a 2
+
 
 # Success
 
-    module Main exposing (a)
+
     a n =
         n + 1
+
 -}
 
 import Ast.Expression exposing (..)
 import Ast.Statement exposing (..)
 import Lint exposing (doNothing, lint)
-import Lint.Types exposing (LintRule, Direction(..), LintError, LintRuleImplementation)
+import Lint.Types exposing (Direction(..), LintError, LintRule, LintRuleImplementation)
 import Set exposing (Set)
 
 
@@ -46,6 +52,7 @@ emptyScope =
     rules =
         [ NoUnusedVariables.rule
         ]
+
 -}
 rule : LintRule
 rule input =
@@ -78,7 +85,7 @@ addUsedToStack scopes variables =
                 Just scope ->
                     { scope | used = Set.union scope.used (Set.fromList variables) }
     in
-        lastScope :: (List.drop 1 scopes)
+    lastScope :: List.drop 1 scopes
 
 
 addFoundToStack : List Scope -> List String -> List Scope
@@ -92,7 +99,7 @@ addFoundToStack scopes variables =
                 Just scope ->
                     { scope | declared = Set.union scope.declared (Set.fromList variables) }
     in
-        lastScope :: (List.drop 1 scopes)
+    lastScope :: List.drop 1 scopes
 
 
 makeReport : Maybe Scope -> ( List LintError, Set String )
@@ -115,7 +122,7 @@ makeReport scope =
                         |> List.sort
                         |> List.map createError
             in
-                ( errors, variablesUsedButNotFromThisScope )
+            ( errors, variablesUsedButNotFromThisScope )
 
 
 variableName : Expression -> Maybe (List String)
@@ -153,7 +160,7 @@ expressionFn ctx node =
                 newScope =
                     Scope variables Set.empty
             in
-                ( [], { ctx | scopes = newScope :: ctx.scopes } )
+            ( [], { ctx | scopes = newScope :: ctx.scopes } )
 
         Exit (Let _ _) ->
             let
@@ -165,7 +172,7 @@ expressionFn ctx node =
                 newScopes =
                     List.drop 1 ctx.scopes
             in
-                ( errors, { ctx | scopes = addUsedToStack newScopes (Set.toList variablesUsedButNotFromThisScope) } )
+            ( errors, { ctx | scopes = addUsedToStack newScopes (Set.toList variablesUsedButNotFromThisScope) } )
 
         _ ->
             ( [], ctx )
@@ -226,7 +233,7 @@ statementFn ctx node =
                         []
                         imported
             in
-                ( [], { ctx | scopes = addFoundToStack ctx.scopes variables } )
+            ( [], { ctx | scopes = addFoundToStack ctx.scopes variables } )
 
         Enter (ModuleDeclaration names exportType) ->
             ( [], addExposedVariables ctx exportType )
@@ -244,9 +251,10 @@ moduleEndFn ctx =
         ( errors, _ ) =
             if ctx.exportsEverything then
                 ( [], Set.empty )
+
             else
                 ctx.scopes
                     |> List.head
                     |> makeReport
     in
-        ( errors, ctx )
+    ( errors, ctx )

@@ -1,27 +1,38 @@
 module Lint.Rules.NoDebug exposing (rule)
 
 {-|
+
 @docs rule
+
 
 # Fail
 
-    if Debug.log "condition" condition then a else b
+    if Debug.log "condition" condition then
+        a
+
+    else
+        b
+
     if condition then
         Debug.crash "Nooo!"
+
     else
         value
+
 
 # Success
 
     if condition then
         a
+
     else
         b
+
 -}
 
 import Ast.Expression exposing (..)
-import Lint exposing (lint, doNothing)
-import Lint.Types exposing (LintRule, LintRuleImplementation, LintError, Direction(..))
+import Lint exposing (doNothing, lint)
+import Lint.Types exposing (Direction(..), LintError, LintRule, LintRuleImplementation)
 
 
 type alias Context =
@@ -33,6 +44,7 @@ type alias Context =
     rules =
         [ NoDebug.rule
         ]
+
 -}
 rule : LintRule
 rule input =
@@ -44,7 +56,7 @@ implementation =
     { statementFn = doNothing
     , typeFn = doNothing
     , expressionFn = expressionFn
-    , moduleEndFn = (\ctx -> ( [], ctx ))
+    , moduleEndFn = \ctx -> ( [], ctx )
     , initialContext = Context
     }
 
@@ -60,6 +72,7 @@ expressionFn ctx node =
         Enter (Variable vars) ->
             if List.member "Debug" vars then
                 ( [ error ], ctx )
+
             else
                 ( [], ctx )
 

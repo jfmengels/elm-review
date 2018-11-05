@@ -1,37 +1,59 @@
 module Lint.Rules.NoUselessPatternMatching exposing (rule)
 
 {-|
+
 @docs rule
+
 
 # Fail
 
     -- Useless pattern matching
     case value of
-        Foo -> 1
-        Bar -> 1
-        _ -> 1
+        Foo ->
+            1
+
+        Bar ->
+            1
+
+        _ ->
+            1
 
     -- Useless pattern `Bar`, it's the same as the default pattern
     case value of
-        Foo -> 2
-        Bar -> 1
-        _ -> 1
+        Foo ->
+            2
+
+        Bar ->
+            1
+
+        _ ->
+            1
+
 
 # Success
 
     case value of
-        Foo -> 1
-        Bar -> 2
-        _ -> 3
+        Foo ->
+            1
+
+        Bar ->
+            2
+
+        _ ->
+            3
 
     case value of
-        Foo n -> n
-        Bar n -> n
+        Foo n ->
+            n
+
+        Bar n ->
+            n
+
 -}
 
 import Ast.Expression exposing (..)
-import Lint exposing (lint, visitExpression, doNothing)
-import Lint.Types exposing (LintRule, LintRuleImplementation, LintError, Direction(..))
+import Lint exposing (doNothing, lint, visitExpression)
+import Lint.Types exposing (Direction(..), LintError, LintRule, LintRuleImplementation)
 import Regex
 import Set exposing (Set)
 
@@ -46,6 +68,7 @@ pattern will lead to the same value as the default pattern.
     rules =
         [ NoUselessPatternMatching.rule
         ]
+
 -}
 rule : LintRule
 rule input =
@@ -57,7 +80,7 @@ implementation =
     { statementFn = doNothing
     , typeFn = doNothing
     , expressionFn = expressionFn
-    , moduleEndFn = (\ctx -> ( [], ctx ))
+    , moduleEndFn = \ctx -> ( [], ctx )
     , initialContext = Context
     }
 
@@ -67,7 +90,7 @@ variableFinder =
     { statementFn = doNothing
     , typeFn = doNothing
     , expressionFn = findVariable
-    , moduleEndFn = (\ctx -> ( [], ctx ))
+    , moduleEndFn = \ctx -> ( [], ctx )
     , initialContext = Set.empty
     }
 
@@ -104,7 +127,7 @@ subPatternMatchingVariables pattern =
             [ String.join "." a ]
 
         Application object variable ->
-            (subPatternMatchingVariables object) ++ (subPatternMatchingVariables variable)
+            subPatternMatchingVariables object ++ subPatternMatchingVariables variable
 
         _ ->
             []
@@ -145,7 +168,7 @@ patternsAreAllTheSame patterns =
                 |> Set.fromList
                 |> (\set -> Set.size set == 1)
     in
-        (not anyUseVariables) && bodiesAreIdentical
+    not anyUseVariables && bodiesAreIdentical
 
 
 defaultPattern : List ( Expression, Expression, Set String, Set String ) -> Maybe ( Expression, Expression, Set String, Set String )
@@ -161,6 +184,7 @@ defaultPattern patterns =
                         Variable names ->
                             if isVariable (String.join "." names) then
                                 Just ( pattern, body, used, declared )
+
                             else
                                 Nothing
 
@@ -193,18 +217,17 @@ thereAreUselessPatterns patterns =
         justDefault =
             Maybe.withDefault ( Integer 1, Integer 1, Set.empty, Set.empty ) default
     in
-        hasDefault
-            && (List.foldl
-                    (\pattern res ->
-                        res
-                            || ((pattern /= justDefault)
-                                    && (patternBody pattern == patternBody justDefault)
-                                    && not (usesIntroducedVariable pattern)
-                               )
-                    )
-                    False
-                    patterns
-               )
+    hasDefault
+        && List.foldl
+            (\pattern res ->
+                res
+                    || ((pattern /= justDefault)
+                            && (patternBody pattern == patternBody justDefault)
+                            && not (usesIntroducedVariable pattern)
+                       )
+            )
+            False
+            patterns
 
 
 expressionFn : Context -> Direction Expression -> ( List LintError, Context )
@@ -219,12 +242,14 @@ expressionFn ctx node =
                                 ( pattern, body, Tuple.second <| visitExpression variableFinder body, patternMatchingVariables pattern )
                             )
             in
-                if patternsAreAllTheSame analyzedPatterns then
-                    ( [ uselessPatternMatchingError ], ctx )
-                else if thereAreUselessPatterns analyzedPatterns then
-                    ( [ uselessPatternError ], ctx )
-                else
-                    ( [], ctx )
+            if patternsAreAllTheSame analyzedPatterns then
+                ( [ uselessPatternMatchingError ], ctx )
+
+            else if thereAreUselessPatterns analyzedPatterns then
+                ( [ uselessPatternError ], ctx )
+
+            else
+                ( [], ctx )
 
         _ ->
             ( [], ctx )
