@@ -3,7 +3,7 @@
     "name": "jfmengels/elm-lint",
     "summary": "A linter for Elm. Get your code from correct to better.",
     "license": "BSD-3-Clause",
-    "version": "2.0.1",
+    "version": "3.0.0",
     "exposed-modules": [
         "Lint",
         "Lint.Types",
