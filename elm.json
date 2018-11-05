@@ -7,21 +7,7 @@
     "exposed-modules": [
         "Lint",
         "Lint.Types",
-        "Lint.Rules.DefaultPatternPosition",
-        "Lint.Rules.NoConstantCondition",
-        "Lint.Rules.NoDebug",
-        "Lint.Rules.NoDuplicateImports",
-        "Lint.Rules.NoExposingEverything",
-        "Lint.Rules.NoImportingEverything",
-        "Lint.Rules.NoNestedLet",
-        "Lint.Rules.NoUnannotatedFunction",
-        "Lint.Rules.NoUnusedVariables",
-        "Lint.Rules.NoUselessIf",
-        "Lint.Rules.NoUselessPatternMatching",
-        "Lint.Rules.NoWarningComments",
-        "Lint.Rules.SimplifyPiping",
-        "Lint.Rules.SimplifyPropertyAccess",
-        "Lint.Rules.ElmTest.NoDuplicateTestBodies"
+        "Lint.Rules.NoDebug"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
