@@ -1,10 +1,9 @@
 module NoUnusedVariablesTest exposing (all)
 
 import Lint.Rules.NoUnusedVariables exposing (rule)
-import Test exposing (describe, test, Test)
-import TestUtil exposing (ruleTester, expectErrors)
-import Lint.Types exposing (LintRule, LintError, LintResult)
-import TestUtil exposing (ruleTester, expectErrors)
+import Lint.Types exposing (LintError, LintResult, LintRule)
+import Test exposing (Test, describe, test)
+import TestUtil exposing (expectErrors, ruleTester)
 
 
 testRule : String -> LintResult
@@ -163,8 +162,9 @@ tests =
                     [ error "Variable `a` is not used"
                     , error "Variable `b` is not used"
                     ]
-      -- Needs to be improved, every case should create a new scope stack
-      -- Right now, every parameter is considered used, which is not great
+
+    -- Needs to be improved, every case should create a new scope stack
+    -- Right now, every parameter is considered used, which is not great
     , test "should not report unused pattern matching parameters" <|
         \() ->
             testRule """module A exposing (a)
@@ -172,7 +172,8 @@ tests =
                   Foo b c -> []
                 """
                 |> expectErrors []
-      -- What to do with types needs to be determined when I understand Type exports better (wrt sub-types)
+
+    -- What to do with types needs to be determined when I understand Type exports better (wrt sub-types)
     , test "should report unused type declarations" <|
         \() ->
             testRule """
@@ -180,59 +181,60 @@ tests =
                 type alias D = { a : B }
                 """
                 |> expectErrors []
-      -- , test "should not report unused type declarations if everything is exposed" <|
-      --     \() ->
-      --         testRule """module A exposing (a, b)
-      --            """
-      --             |> expectErrors [ error "Variable `a` is not used" ]
-      -- , test "should not report unused type declarations that are exposed by name" <|
-      --     \() ->
-      --         testRule """module A exposing (a, b)
-      --           a = 1
-      --           b = 2
-      --           c = 3
-      --           """
-      --             |> expectErrors [ error "Variable `a` is not used" ]
-      -- , test "should report unused named imports `import A exposing (a)`" <|
-      --     \() ->
-      --         testRule """module A exposing (a, b)
-      --           a = 1
-      --           b = 2
-      --           c = 3
-      --           """
-      --             |> expectErrors [ error "Variable `a` is not used" ]
-      -- , test "should not report used named imports `import A exposing (a)`" <|
-      --     \() ->
-      --         testRule """module A exposing (a, b)
-      --           a = 1
-      --           b = 2
-      --           c = 3
-      --           """
-      --             |> expectErrors [ error "Variable `a` is not used" ]
-      -- , test "should not report unused union imports `import A exposing (B(..))`" <|
-      --     \() ->
-      --         testRule """module A exposing (a, b)
-      --           a = 1
-      --           b = 2
-      --           c = 3
-      --           """
-      --             |> expectErrors [ error "Variable `a` is not used" ]
-      -- , test "should report unused union imports `import A exposing (B(B))`" <|
-      --     \() ->
-      --         testRule """module A exposing (a, b)
-      --           a = 1
-      --           b = 2
-      --           c = 3
-      --           """
-      --             |> expectErrors [ error "Variable `a` is not used" ]
-      -- , test "should not report unused union imports `import A exposing (B(B))` (with more nesting?)" <|
-      --     \() ->
-      --         testRule """module A exposing (a, b)
-      --           a = 1
-      --           b = 2
-      --           c = 3
-      --           """
-      --             |> expectErrors [ error "Variable `a` is not used" ]
+
+    -- , test "should not report unused type declarations if everything is exposed" <|
+    --     \() ->
+    --         testRule """module A exposing (a, b)
+    --            """
+    --             |> expectErrors [ error "Variable `a` is not used" ]
+    -- , test "should not report unused type declarations that are exposed by name" <|
+    --     \() ->
+    --         testRule """module A exposing (a, b)
+    --           a = 1
+    --           b = 2
+    --           c = 3
+    --           """
+    --             |> expectErrors [ error "Variable `a` is not used" ]
+    -- , test "should report unused named imports `import A exposing (a)`" <|
+    --     \() ->
+    --         testRule """module A exposing (a, b)
+    --           a = 1
+    --           b = 2
+    --           c = 3
+    --           """
+    --             |> expectErrors [ error "Variable `a` is not used" ]
+    -- , test "should not report used named imports `import A exposing (a)`" <|
+    --     \() ->
+    --         testRule """module A exposing (a, b)
+    --           a = 1
+    --           b = 2
+    --           c = 3
+    --           """
+    --             |> expectErrors [ error "Variable `a` is not used" ]
+    -- , test "should not report unused union imports `import A exposing (B(..))`" <|
+    --     \() ->
+    --         testRule """module A exposing (a, b)
+    --           a = 1
+    --           b = 2
+    --           c = 3
+    --           """
+    --             |> expectErrors [ error "Variable `a` is not used" ]
+    -- , test "should report unused union imports `import A exposing (B(B))`" <|
+    --     \() ->
+    --         testRule """module A exposing (a, b)
+    --           a = 1
+    --           b = 2
+    --           c = 3
+    --           """
+    --             |> expectErrors [ error "Variable `a` is not used" ]
+    -- , test "should not report unused union imports `import A exposing (B(B))` (with more nesting?)" <|
+    --     \() ->
+    --         testRule """module A exposing (a, b)
+    --           a = 1
+    --           b = 2
+    --           c = 3
+    --           """
+    --             |> expectErrors [ error "Variable `a` is not used" ]
     ]
 
 

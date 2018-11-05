@@ -74,7 +74,7 @@ lintSource rules source =
 lintSourceWithRule : List Statement -> ( Severity, LintRule ) -> List ( Severity, LintError )
 lintSourceWithRule statements ( severity, rule ) =
     rule statements
-        |> List.map ((,) severity)
+        |> List.map (\b -> ( severity, b ))
 
 
 {-| Parse source code into a AST

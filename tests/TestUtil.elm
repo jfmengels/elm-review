@@ -1,9 +1,9 @@
-module TestUtil exposing (ruleTester, expectErrors)
+module TestUtil exposing (expectErrors, ruleTester)
 
 import Expect
-import Regex
 import Lint exposing (parseSource)
-import Lint.Types exposing (LintRule, LintResult, LintError)
+import Lint.Types exposing (LintError, LintResult, LintRule)
+import Regex
 
 
 spacesRegex : Regex.Regex

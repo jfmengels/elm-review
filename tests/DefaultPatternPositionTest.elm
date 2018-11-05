@@ -1,9 +1,9 @@
 module DefaultPatternPositionTest exposing (all)
 
-import Test exposing (describe, test, Test)
-import Lint.Rules.DefaultPatternPosition exposing (rule, Configuration, PatternPosition(First, Last))
-import Lint.Types exposing (LintRule, LintError, LintResult)
-import TestUtil exposing (ruleTester, expectErrors)
+import Lint.Rules.DefaultPatternPosition exposing (Configuration, PatternPosition(..), rule)
+import Lint.Types exposing (LintError, LintResult, LintRule)
+import Test exposing (Test, describe, test)
+import TestUtil exposing (expectErrors, ruleTester)
 
 
 testRule : Configuration -> String -> LintResult

@@ -1,9 +1,9 @@
 module NoUselessIfTest exposing (all)
 
-import Test exposing (describe, test, Test)
 import Lint.Rules.NoUselessIf exposing (rule)
-import Lint.Types exposing (LintRule, LintError, LintResult)
-import TestUtil exposing (ruleTester, expectErrors)
+import Lint.Types exposing (LintError, LintResult, LintRule)
+import Test exposing (Test, describe, test)
+import TestUtil exposing (expectErrors, ruleTester)
 
 
 testRule : String -> LintResult
