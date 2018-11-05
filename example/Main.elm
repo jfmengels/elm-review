@@ -5,6 +5,7 @@ module Main exposing (main)
 import Ast
 import Ast.Expression exposing (..)
 import Ast.Statement exposing (..)
+import Browser
 import Combine
 import Html exposing (..)
 import Html.Attributes exposing (class, id)
@@ -216,7 +217,7 @@ view model =
 
 main : Program Never String Msg
 main =
-    Html.beginnerProgram
+    Browser.sandbox
         { model = init
         , update = update
         , view = view
