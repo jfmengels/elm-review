@@ -1,0 +1,27 @@
+{
+  "name": "elm-lint",
+  "version": "1.0.0",
+  "description": "An [Elm](http://elm-lang.org/) linter written in Elm. Get your code from correct to better. You can learn about the API and the rules it provides on the [package documentation](http://package.elm-lang.org/packages/jfmengels/elm-lint).",
+  "main": "index.js",
+  "directories": {
+    "example": "example",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jfmengels/elm-lint.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/jfmengels/elm-lint/issues"
+  },
+  "homepage": "https://github.com/jfmengels/elm-lint#readme",
+  "dependencies": {
+    "elm": "^0.19.0-bugfix2",
+    "elm-format": "^0.8.1"
+  }
+}

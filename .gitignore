@@ -1,3 +1,4 @@
 elm-stuff
 example/elm.js
 *.log
+node_modules/
