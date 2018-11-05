@@ -1,3 +1,5 @@
+# WIP. Currently upgrading to 0.19, but I'm not sure I want to maintain this.
+
 # elm-lint
 
 An [Elm](http://elm-lang.org/) linter written in Elm. Get your code from correct to better.
