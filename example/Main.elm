@@ -1,5 +1,7 @@
 module Main exposing (main)
 
+-- Rules
+
 import Ast
 import Ast.Expression exposing (..)
 import Ast.Statement exposing (..)
@@ -9,14 +11,8 @@ import Html.Attributes exposing (class, id)
 import Html.Events exposing (on, targetValue)
 import Json.Decode as JD
 import Lint exposing (lintSource)
-import Lint.Types exposing (LintRule, Severity(..))
-import Regex exposing (escape, regex)
-import Result
-
-
--- Rules
-
 import Lint.Rules.DefaultPatternPosition
+import Lint.Rules.ElmTest.NoDuplicateTestBodies
 import Lint.Rules.NoConstantCondition
 import Lint.Rules.NoDebug
 import Lint.Rules.NoDuplicateImports
@@ -30,7 +26,9 @@ import Lint.Rules.NoUselessPatternMatching
 import Lint.Rules.NoWarningComments
 import Lint.Rules.SimplifyPiping
 import Lint.Rules.SimplifyPropertyAccess
-import Lint.Rules.ElmTest.NoDuplicateTestBodies
+import Lint.Types exposing (LintRule, Severity(..))
+import Regex exposing (escape, regex)
+import Result
 
 
 type Msg
@@ -151,24 +149,24 @@ statement s =
         defaultDisplay =
             li [] [ pre [] [ text <| toString s ] ]
     in
-        case s of
-            FunctionDeclaration _ _ body ->
-                displayElementAndExpressions s [ body ]
+    case s of
+        FunctionDeclaration _ _ body ->
+            displayElementAndExpressions s [ body ]
 
-            FunctionTypeDeclaration _ body ->
-                displayElementAndAnyChild s [ body ]
+        FunctionTypeDeclaration _ body ->
+            displayElementAndAnyChild s [ body ]
 
-            ModuleDeclaration _ exportSet ->
-                displayElementAndAnyChild s [ exportSet ]
+        ModuleDeclaration _ exportSet ->
+            displayElementAndAnyChild s [ exportSet ]
 
-            PortModuleDeclaration _ exportSet ->
-                displayElementAndAnyChild s [ exportSet ]
+        PortModuleDeclaration _ exportSet ->
+            displayElementAndAnyChild s [ exportSet ]
 
-            ImportStatement _ _ exportSet ->
-                displayElementAndAnyChild s [ exportSet ]
+        ImportStatement _ _ exportSet ->
+            displayElementAndAnyChild s [ exportSet ]
 
-            s ->
-                defaultDisplay
+        s ->
+            defaultDisplay
 
 
 tree : Result (Combine.ParseErr ()) ( b, c, List Statement ) -> Html Msg
@@ -195,14 +193,15 @@ lint source =
                 Ok errors ->
                     if List.isEmpty errors then
                         [ "No errors." ]
+
                     else
                         List.map (Tuple.second >> .message) errors
     in
-        div []
-            (List.map
-                (\message -> p [] [ text message ])
-                messages
-            )
+    div []
+        (List.map
+            (\message -> p [] [ text message ])
+            messages
+        )
 
 
 view : String -> Html Msg
