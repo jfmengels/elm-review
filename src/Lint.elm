@@ -1,6 +1,6 @@
 module Lint exposing
     ( lintSource
-    , lint, doNothing, visitExpression
+    , lint, visitExpression
     , parseSource
     )
 
@@ -36,7 +36,7 @@ To run the rules on a source code and get a list of errors:
 
 # Rule creation functions
 
-@docs lint, doNothing, visitExpression
+@docs lint, visitExpression
 
 
 # Internal
@@ -152,21 +152,3 @@ lintWithVisitors rule visitors =
     visitors
         |> List.foldl (visitAndAccumulate rule) ( [], rule.initialContext )
         |> Tuple.first
-
-
-{-| Basic implementation of a visitor function that does nothing, i.e. return an empty list of errors and an untouched
-context. This is used to avoid a bit of boilerplate for visitor functions whose node types we are not interested in.
-
-    implementation : LintRuleImplementation Context
-    implementation =
-        { statementFn = doNothing
-        , typeFn = doNothing
-        , expressionFn = expressionFn
-        , moduleEndFn = \ctx -> ( [], ctx )
-        , initialContext = Context
-        }
-
--}
-doNothing : LintImplementation a context
-doNothing ctx _ =
-    ( [], ctx )

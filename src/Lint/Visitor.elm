@@ -7,12 +7,12 @@ import Elm.Syntax.Node exposing (Node, value)
 import Lint.Types exposing (Direction(..), LintRule, Visitor)
 
 
-createExitAndEnterWithChildren : (Direction nodeType -> Visitor context) -> nodeType -> List (Visitor context) -> List (Visitor context)
+createExitAndEnterWithChildren : (Direction -> nodeType -> Visitor context) -> nodeType -> List (Visitor context) -> List (Visitor context)
 createExitAndEnterWithChildren toVisitor node children =
     List.concat
-        [ [ toVisitor (Enter node) ]
+        [ [ toVisitor Enter node ]
         , children
-        , [ toVisitor (Exit node) ]
+        , [ toVisitor Exit node ]
         ]
 
 
@@ -21,9 +21,9 @@ moduleVisitor rule context =
     rule.moduleEndFn context
 
 
-expressionVisitor : Direction (Node Expression) -> Visitor context
-expressionVisitor node rule context =
-    rule.expressionFn context node
+expressionVisitor : Direction -> Node Expression -> Visitor context
+expressionVisitor direction node rule context =
+    rule.expressionFn context direction node
 
 
 functionToExpression : Function -> Node Expression

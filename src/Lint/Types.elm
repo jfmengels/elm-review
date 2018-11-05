@@ -1,7 +1,7 @@
 module Lint.Types exposing
     ( LintError, Direction(..)
     , LintRule, Severity(..)
-    , LintRuleImplementation, LintImplementation
+    , LintRuleImplementation, LintImplementation, emptyRule
     , Visitor, LintResult
     )
 
@@ -20,7 +20,7 @@ module Lint.Types exposing
 
 # Writing rules
 
-@docs LintRuleImplementation, LintImplementation
+@docs LintRuleImplementation, LintImplementation, emptyRule
 
 
 # Internal types
@@ -72,7 +72,7 @@ enforce.
 
 -}
 type alias LintImplementation nodeType context =
-    context -> Direction (Node nodeType) -> ( List LintError, context )
+    context -> Direction -> Node nodeType -> ( List LintError, context )
 
 
 {-| When visiting the AST, nodes are visited twice:
@@ -96,9 +96,9 @@ type alias LintImplementation nodeType context =
                   ( unusedVariables ctx |> List.map createError, ctx )
 
 -}
-type Direction node
-    = Enter node
-    | Exit node
+type Direction
+    = Enter
+    | Exit
 
 
 {-| A LintRuleImplementation is the implementation of a rule. It is a record that contains:
@@ -126,6 +126,14 @@ type alias LintRuleImplementation context =
     { expressionFn : LintImplementation Expression context
     , moduleEndFn : context -> ( List LintError, context )
     , initialContext : context
+    }
+
+
+emptyRule : context -> LintRuleImplementation context
+emptyRule initialContext =
+    { initialContext = initialContext
+    , expressionFn = \ctx direction node -> ( [], ctx )
+    , moduleEndFn = \ctx -> ( [], ctx )
     }
 
 
