@@ -1,4 +1,8 @@
-module Lint exposing (lintSource, lint, visitExpression, doNothing, countErrors, parseSource)
+module Lint exposing
+    ( lintSource
+    , lint, doNothing, visitExpression
+    , countErrors, parseSource
+    )
 
 {-| A linter for Elm.
 
@@ -18,27 +22,34 @@ To run the rules on a source code and get a list of errors:
             errors =
                 List.concatMap (\rule -> rule source) rules
         in
-            if List.isEmpty errors then
-                [ "No errors." ]
-            else
-                List.map (\err -> err.rule ++ ": " ++ err.message) errors
+        if List.isEmpty errors then
+            [ "No errors." ]
+
+        else
+            List.map (\err -> err.rule ++ ": " ++ err.message) errors
+
 
 # Implementation
+
 @docs lintSource
 
+
 # Rule creation functions
+
 @docs lint, doNothing, visitExpression
 
+
 # Internal
+
 @docs countErrors, parseSource
+
 -}
 
 import Ast
 import Ast.Expression exposing (Expression)
 import Ast.Statement exposing (Statement)
-import Combine
-import Lint.Types exposing (File, LintRule, LintError, LintImplementation, LintRuleImplementation, Direction, Visitor, Severity, Severity(..))
-import Lint.Visitor exposing (transformStatementsIntoVisitors, expressionToVisitors)
+import Lint.Types exposing (Direction, File, LintError, LintImplementation, LintRule, LintRuleImplementation, Severity(..), Visitor)
+import Lint.Visitor exposing (expressionToVisitors, transformStatementsIntoVisitors)
 import Regex
 
 
@@ -46,6 +57,7 @@ import Regex
 
     errors =
         lintSource rules source
+
 -}
 lintSource : List ( Severity, LintRule ) -> String -> Result (List String) (List ( Severity, LintError ))
 lintSource rules source =
@@ -93,9 +105,10 @@ removeComments =
         { statementFn = doNothing
         , typeFn = doNothing
         , expressionFn = expressionFn
-        , moduleEndFn = (\ctx -> ( [], ctx ))
+        , moduleEndFn = \ctx -> ( [], ctx )
         , initialContext = Context
         }
+
 -}
 lint : List Statement -> LintRuleImplementation context -> List LintError
 lint statements rule =
@@ -112,6 +125,7 @@ part of the implementation of complex rules much easier. It gives back a list of
         case node of
             Enter (Case expr patterns) ->
                 visitExpression subimplementation expr
+
             _ ->
                 ( [], ctx )
 
@@ -120,9 +134,10 @@ part of the implementation of complex rules much easier. It gives back a list of
         { statementFn = doNothing
         , typeFn = doNothing
         , expressionFn = subexpressionFn
-        , moduleEndFn = (\ctx -> ( [], ctx ))
+        , moduleEndFn = \ctx -> ( [], ctx )
         , initialContext = Subcontext
         }
+
 -}
 visitExpression : LintRuleImplementation context -> Expression -> ( List LintError, context )
 visitExpression rule expression =
@@ -151,9 +166,10 @@ context. This is used to avoid a bit of boilerplate for visitor functions whose 
         { statementFn = doNothing
         , typeFn = doNothing
         , expressionFn = expressionFn
-        , moduleEndFn = (\ctx -> ( [], ctx ))
+        , moduleEndFn = \ctx -> ( [], ctx )
         , initialContext = Context
         }
+
 -}
 doNothing : LintImplementation a context
 doNothing ctx _ =

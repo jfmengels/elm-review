@@ -7,7 +7,6 @@ module Lint.Rules.NoUnusedVariables exposing (rule)
 
 # Fail
 
-
     a n =
         n + 1
 
@@ -16,7 +15,6 @@ module Lint.Rules.NoUnusedVariables exposing (rule)
 
 
 # Success
-
 
     a n =
         n + 1
