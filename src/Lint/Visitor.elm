@@ -62,8 +62,14 @@ expressionToVisitors node =
                 FunctionOrValue _ _ ->
                     []
 
+                RecordExpr fields ->
+                    List.map (value >> (\( name, expr ) -> expr)) fields
+
                 RecordUpdateExpression name setters ->
                     List.map (value >> (\( field, expr ) -> expr)) setters
+
+                ParenthesizedExpression expr ->
+                    [ expr ]
 
                 OperatorApplication operator direction left right ->
                     case direction of

@@ -3,27 +3,19 @@ module TestUtil exposing (expectErrors, ruleTester)
 import Expect
 import Lint exposing (parseSource)
 import Lint.Types exposing (LintError, LintResult, LintRule)
-import Regex
-
-
-spacesRegex : Regex.Regex
-spacesRegex =
-    Regex.regex "\n              "
 
 
 ruleTester : LintRule -> String -> LintResult
 ruleTester rule str =
-    str
-        |> Regex.replace Regex.All spacesRegex (\_ -> "\n")
-        |> parseSource
+    parseSource str
         |> Result.map rule
 
 
 expectErrors : List LintError -> LintResult -> Expect.Expectation
 expectErrors expectedErrors result =
     case result of
-        Err _ ->
-            Expect.fail "Parsing failure"
+        Err errors ->
+            Expect.fail <| String.join "\n" errors
 
         Ok errors ->
             Expect.equal expectedErrors errors
