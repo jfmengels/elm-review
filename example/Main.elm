@@ -4,7 +4,7 @@ module Main exposing (main)
 
 import Browser
 import Html exposing (..)
-import Html.Attributes exposing (class, id)
+import Html.Attributes exposing (class, id, style)
 import Html.Events exposing (onInput)
 import Lint exposing (lintSource)
 import Lint.Rules.NoDebug
@@ -93,6 +93,8 @@ view model =
             , textarea
                 [ id "input"
                 , onInput Replace
+                , style "height" "500px"
+                , style "width" "500px"
                 ]
                 [ text model ]
             , div []

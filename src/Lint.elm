@@ -52,7 +52,6 @@ import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Node exposing (Node)
 import Lint.Types exposing (Direction, LintError, LintImplementation, LintRule, LintRuleImplementation, Severity(..), Visitor)
 import Lint.Visitor exposing (expressionToVisitors, transformDeclarationsIntoVisitors)
-import Regex
 
 
 {-| Lints a file and gives back the errors raised by the given rules.
