@@ -58,6 +58,11 @@ update action model =
             m
 
 
+errorToString : Lint.Types.LintError -> String
+errorToString { message, range } =
+    message ++ " (line " ++ String.fromInt range.start.row ++ ", column " ++ String.fromInt range.start.column ++ ")"
+
+
 lint : String -> Html Msg
 lint source =
     let
@@ -76,7 +81,7 @@ lint source =
                         [ "No errors." ]
 
                     else
-                        List.map (Tuple.second >> .message) errors
+                        List.map (Tuple.second >> errorToString) errors
     in
     div []
         (List.map

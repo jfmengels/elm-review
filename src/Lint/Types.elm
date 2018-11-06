@@ -32,6 +32,7 @@ module Lint.Types exposing
 import Elm.Syntax.Expression exposing (Expression)
 import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Node exposing (Node)
+import Elm.Syntax.Range exposing (Range)
 
 
 {-| Value that describes an error found by a given rule, that contains the name of the rule that raised the error, and
@@ -45,6 +46,7 @@ a description of the error.
 type alias LintError =
     { rule : String
     , message : String
+    , range : Range
     }
 
 
