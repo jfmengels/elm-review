@@ -1,10 +1,10 @@
-module Lint.Visitor exposing (expressionToVisitors, transformDeclarationsIntoVisitors)
+module Lint.NodeToVisitor exposing (declarationsIntoVisitors, expressionToVisitors)
 
 import Elm.Syntax.Declaration exposing (Declaration(..))
 import Elm.Syntax.Expression exposing (Expression(..), Function, FunctionImplementation, LetDeclaration(..))
 import Elm.Syntax.Infix exposing (InfixDirection(..))
 import Elm.Syntax.Node exposing (Node, value)
-import Lint.Types exposing (Direction(..), Visitor, evaluateExpression, finalEvaluation)
+import Lint.Rule exposing (Direction(..), Visitor, evaluateExpression, finalEvaluation)
 
 
 createExitAndEnterWithChildren : (Direction -> nodeType -> Visitor context) -> nodeType -> List (Visitor context) -> List (Visitor context)
@@ -134,8 +134,8 @@ declarationToVisitors declaration =
     childrenVisitors
 
 
-transformDeclarationsIntoVisitors : List (Node Declaration) -> List (Visitor context)
-transformDeclarationsIntoVisitors declarations =
+declarationsIntoVisitors : List (Node Declaration) -> List (Visitor context)
+declarationsIntoVisitors declarations =
     declarations
         |> List.concatMap (value >> declarationToVisitors)
         |> (\allVisitors -> List.append allVisitors [ moduleVisitor ])

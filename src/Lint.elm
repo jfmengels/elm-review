@@ -57,8 +57,8 @@ import Elm.Syntax.Expression exposing (Expression)
 import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Node exposing (Node)
 import Lint.Error exposing (Error)
-import Lint.Types exposing (Direction, LintRuleImplementation, Visitor, initialContext)
-import Lint.Visitor exposing (expressionToVisitors, transformDeclarationsIntoVisitors)
+import Lint.NodeToVisitor exposing (declarationsIntoVisitors, expressionToVisitors)
+import Lint.Rule exposing (Direction, Implementation, Visitor, initialContext)
 
 
 {-| Shortcut to a lint rule
@@ -122,7 +122,7 @@ parseSource source =
     rule input =
         lint input implementation
 
-    implementation : LintRuleImplementation Context
+    implementation : Implementation Context
     implementation =
         { typeFn = doNothing
         , visitExpression = visitExpression
@@ -131,10 +131,10 @@ parseSource source =
         }
 
 -}
-lint : File -> LintRuleImplementation context -> List Error
+lint : File -> Implementation context -> List Error
 lint file rule =
     file.declarations
-        |> transformDeclarationsIntoVisitors
+        |> declarationsIntoVisitors
         |> lintWithVisitors rule
 
 
@@ -150,7 +150,7 @@ part of the implementation of complex rules much easier. It gives back a list of
             _ ->
                 ( [], ctx )
 
-    subimplementation : LintRuleImplementation Subcontext
+    subimplementation : Implementation Subcontext
     subimplementation =
         { statementFn = doNothing
         , typeFn = doNothing
@@ -160,19 +160,19 @@ part of the implementation of complex rules much easier. It gives back a list of
         }
 
 -}
-visitExpression : LintRuleImplementation context -> Node Expression -> ( List Error, context )
+visitExpression : Implementation context -> Node Expression -> ( List Error, context )
 visitExpression rule expression =
     expressionToVisitors expression
         |> List.foldl (visitAndAccumulate rule) ( [], initialContext rule )
 
 
-visitAndAccumulate : LintRuleImplementation context -> Visitor context -> ( List Error, context ) -> ( List Error, context )
+visitAndAccumulate : Implementation context -> Visitor context -> ( List Error, context ) -> ( List Error, context )
 visitAndAccumulate rule visitor ( errors, ctx ) =
     visitor rule ctx
         |> Tuple.mapFirst (\errors_ -> errors ++ errors_)
 
 
-lintWithVisitors : LintRuleImplementation context -> List (Visitor context) -> List Error
+lintWithVisitors : Implementation context -> List (Visitor context) -> List Error
 lintWithVisitors rule visitors =
     visitors
         |> List.foldl (visitAndAccumulate rule) ( [], initialContext rule )

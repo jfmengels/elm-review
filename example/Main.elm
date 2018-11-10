@@ -8,7 +8,7 @@ import Html.Attributes exposing (class, id, style)
 import Html.Events exposing (onInput)
 import Lint exposing (Rule, Severity(..), lintSource)
 import Lint.Error exposing (Error)
-import Lint.Rules.NoDebug
+import Lint.Rule.NoDebug
 import Result exposing (Result)
 
 
@@ -18,22 +18,22 @@ type Msg
 
 config : List ( Severity, Rule )
 config =
-    [ ( Critical, Lint.Rules.NoDebug.rule )
+    [ ( Critical, Lint.Rule.NoDebug.rule )
 
-    -- , ( Critical, Lint.Rules.DefaultPatternPosition.rule { position = Lint.Rules.DefaultPatternPosition.Last } )
-    -- , ( Critical, Lint.Rules.NoConstantCondition.rule )
-    -- , ( Critical, Lint.Rules.NoDuplicateImports.rule )
-    -- , ( Critical, Lint.Rules.NoExposingEverything.rule )
-    -- , ( Critical, Lint.Rules.NoImportingEverything.rule { exceptions = [ "Html" ] } )
-    -- , ( Critical, Lint.Rules.NoNestedLet.rule )
-    -- , ( Critical, Lint.Rules.NoUnannotatedFunction.rule )
-    -- , ( Critical, Lint.Rules.NoUnusedVariables.rule )
-    -- , ( Critical, Lint.Rules.NoUselessIf.rule )
-    -- , ( Critical, Lint.Rules.NoUselessPatternMatching.rule )
-    -- , ( Warning, Lint.Rules.NoWarningComments.rule )
-    -- , ( Critical, Lint.Rules.SimplifyPiping.rule )
-    -- , ( Critical, Lint.Rules.SimplifyPropertyAccess.rule )
-    -- , ( Critical, Lint.Rules.ElmTest.NoDuplicateTestBodies.rule )
+    -- , ( Critical, Lint.Rule.DefaultPatternPosition.rule { position = Lint.Rule.DefaultPatternPosition.Last } )
+    -- , ( Critical, Lint.Rule.NoConstantCondition.rule )
+    -- , ( Critical, Lint.Rule.NoDuplicateImports.rule )
+    -- , ( Critical, Lint.Rule.NoExposingEverything.rule )
+    -- , ( Critical, Lint.Rule.NoImportingEverything.rule { exceptions = [ "Html" ] } )
+    -- , ( Critical, Lint.Rule.NoNestedLet.rule )
+    -- , ( Critical, Lint.Rule.NoUnannotatedFunction.rule )
+    -- , ( Critical, Lint.Rule.NoUnusedVariables.rule )
+    -- , ( Critical, Lint.Rule.NoUselessIf.rule )
+    -- , ( Critical, Lint.Rule.NoUselessPatternMatching.rule )
+    -- , ( Warning, Lint.Rule.NoWarningComments.rule )
+    -- , ( Critical, Lint.Rule.SimplifyPiping.rule )
+    -- , ( Critical, Lint.Rule.SimplifyPropertyAccess.rule )
+    -- , ( Critical, Lint.Rule.ElmTest.NoDuplicateTestBodies.rule )
     ]
 
 

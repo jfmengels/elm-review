@@ -1,4 +1,4 @@
-module Lint.Rules.NoDebug exposing (rule)
+module Lint.Rule.NoDebug exposing (rule)
 
 {-|
 
@@ -34,7 +34,7 @@ import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Node exposing (Node, range, value)
 import Lint exposing (Rule, lint)
 import Lint.Error exposing (Error)
-import Lint.Types exposing (Direction(..), LintRuleImplementation, createRule)
+import Lint.Rule exposing (Direction(..), Implementation, createRule)
 
 
 type alias Context =
@@ -53,7 +53,7 @@ rule input =
     lint input implementation
 
 
-implementation : LintRuleImplementation Context
+implementation : Implementation Context
 implementation =
     createRule
         Context

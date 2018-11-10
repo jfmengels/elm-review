@@ -3,7 +3,7 @@ module TestUtil exposing (expectErrors, ruleTester)
 import Expect
 import Lint exposing (Rule, parseSource)
 import Lint.Error exposing (Error)
-import Lint.Types exposing (LintResult)
+import Lint.Rule exposing (LintResult)
 
 
 ruleTester : Rule -> String -> LintResult

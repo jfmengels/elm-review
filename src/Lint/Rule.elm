@@ -1,6 +1,6 @@
-module Lint.Types exposing
+module Lint.Rule exposing
     ( Direction(..)
-    , LintRuleImplementation, createRule
+    , Implementation, createRule
     , Visitor, LintResult
     , evaluateExpression, finalEvaluation, initialContext
     )
@@ -15,7 +15,7 @@ module Lint.Types exposing
 
 # Writing rules
 
-@docs LintRuleImplementation, createRule
+@docs Implementation, createRule
 
 
 # Internal types
@@ -56,7 +56,7 @@ type Direction
     | Exit
 
 
-{-| A LintRuleImplementation is the implementation of a rule. It is a record that contains:
+{-| A Implementation is the implementation of a rule. It is a record that contains:
 
   - initialContext: An initial context
 
@@ -69,7 +69,7 @@ type Direction
     rule input =
     lint input implementation
 
-    implementation : LintRuleImplementation Context
+    implementation : Implementation Context
     implementation =
     { expression = expression
     , visitEnd = (\\ctx -> ( [], ctx ))
@@ -77,8 +77,8 @@ type Direction
     }
 
 -}
-type LintRuleImplementation context
-    = LintRuleImplementation
+type Implementation context
+    = Implementation
         { initContext : context
         , visitors : Visitors context
         }
@@ -90,9 +90,9 @@ type alias Visitors context =
     }
 
 
-createRule : context -> (Visitors context -> Visitors context) -> LintRuleImplementation context
+createRule : context -> (Visitors context -> Visitors context) -> Implementation context
 createRule initContext createVisitors =
-    LintRuleImplementation
+    Implementation
         { initContext = initContext
         , visitors =
             createVisitors
@@ -102,18 +102,18 @@ createRule initContext createVisitors =
         }
 
 
-initialContext : LintRuleImplementation context -> context
-initialContext (LintRuleImplementation { initContext }) =
+initialContext : Implementation context -> context
+initialContext (Implementation { initContext }) =
     initContext
 
 
-evaluateExpression : LintRuleImplementation context -> context -> Direction -> Node Expression -> ( List Error, context )
-evaluateExpression (LintRuleImplementation { visitors }) =
+evaluateExpression : Implementation context -> context -> Direction -> Node Expression -> ( List Error, context )
+evaluateExpression (Implementation { visitors }) =
     visitors.visitExpression
 
 
-finalEvaluation : LintRuleImplementation context -> context -> ( List Error, context )
-finalEvaluation (LintRuleImplementation { visitors }) =
+finalEvaluation : Implementation context -> context -> ( List Error, context )
+finalEvaluation (Implementation { visitors }) =
     visitors.visitEnd
 
 
@@ -130,4 +130,4 @@ Note: this is internal API, and will be removed in a future version.
 
 -}
 type alias Visitor context =
-    LintRuleImplementation context -> context -> ( List Error, context )
+    Implementation context -> context -> ( List Error, context )
