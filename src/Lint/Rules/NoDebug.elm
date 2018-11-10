@@ -33,7 +33,7 @@ module Lint.Rules.NoDebug exposing (rule)
 import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Node exposing (Node, range, value)
 import Lint exposing (lint)
-import Lint.Types exposing (Direction(..), LintError, LintRule, LintRuleImplementation, emptyRule)
+import Lint.Types exposing (Direction(..), LintError, LintRule, LintRuleImplementation, createRule)
 
 
 type alias Context =
@@ -54,11 +54,9 @@ rule input =
 
 implementation : LintRuleImplementation Context
 implementation =
-    let
-        impl =
-            emptyRule Context
-    in
-    { impl | expressionFn = expressionFn }
+    createRule
+        Context
+        (\v -> { v | expressionFn = expressionFn })
 
 
 error : Node a -> LintError

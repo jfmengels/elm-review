@@ -50,7 +50,7 @@ import Elm.Processing exposing (addFile, init, process)
 import Elm.Syntax.Expression exposing (Expression)
 import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Node exposing (Node)
-import Lint.Types exposing (Direction, LintError, LintImplementation, LintRule, LintRuleImplementation, Severity(..), Visitor)
+import Lint.Types exposing (Direction, LintError, LintRule, LintRuleImplementation, Severity(..), Visitor, initialContext)
 import Lint.Visitor exposing (expressionToVisitors, transformDeclarationsIntoVisitors)
 
 
@@ -137,7 +137,7 @@ part of the implementation of complex rules much easier. It gives back a list of
 visitExpression : LintRuleImplementation context -> Node Expression -> ( List LintError, context )
 visitExpression rule expression =
     expressionToVisitors expression
-        |> List.foldl (visitAndAccumulate rule) ( [], rule.initialContext )
+        |> List.foldl (visitAndAccumulate rule) ( [], initialContext rule )
 
 
 visitAndAccumulate : LintRuleImplementation context -> Visitor context -> ( List LintError, context ) -> ( List LintError, context )
@@ -149,5 +149,5 @@ visitAndAccumulate rule visitor ( errors, ctx ) =
 lintWithVisitors : LintRuleImplementation context -> List (Visitor context) -> List LintError
 lintWithVisitors rule visitors =
     visitors
-        |> List.foldl (visitAndAccumulate rule) ( [], rule.initialContext )
+        |> List.foldl (visitAndAccumulate rule) ( [], initialContext rule )
         |> Tuple.first

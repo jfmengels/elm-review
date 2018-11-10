@@ -1,8 +1,9 @@
 module Lint.Types exposing
     ( LintError, Direction(..)
     , LintRule, Severity(..)
-    , LintRuleImplementation, LintImplementation, emptyRule
+    , LintRuleImplementation, createRule
     , Visitor, LintResult
+    , evaluateExpression, finalEvaluation, initialContext
     )
 
 {-| This module contains types that are used for writing rules.
@@ -20,7 +21,7 @@ module Lint.Types exposing
 
 # Writing rules
 
-@docs LintRuleImplementation, LintImplementation, emptyRule
+@docs LintRuleImplementation, createRule
 
 
 # Internal types
@@ -50,41 +51,14 @@ type alias LintError =
     }
 
 
-{-| A LintImplementation is a function that takes a given Context object, as defined by each rule, a node (with a
-Direction) and returns a list of errors and an updated Context.
-Every rule should implement three LintImplementation functions, one for every Node type (Statement, Type and
-Expression).
-The Context is there to accumulate information about the source code as the AST is being visited and is shared by all
-the LintImplementation functions of your rule.
-It must return a list of errors which will be reported to the user, that are violations of the thing the rule wants to
-enforce.
-
-    rule : LintRule
-    rule input =
-        lint input implementation
-
-    implementation : LintRuleImplementation Context
-    implementation =
-        { statementFn = doNothing
-        , typeFn = doNothing
-        , expressionFn = expressionFn
-        , moduleEndFn = \ctx -> ( [], ctx )
-        , initialContext = Context
-        }
-
--}
-type alias LintImplementation nodeType context =
-    context -> Direction -> Node nodeType -> ( List LintError, context )
-
-
 {-| When visiting the AST, nodes are visited twice:
 
   - on Enter, before the children of the node will be visited
 
   - on Exit, after the children of the node have been visited
 
-    expressionFn : Context -> Direction Expression -> ( List LintError, Context )
-    expressionFn ctx node =
+    expression : Context -> Direction Expression -> ( List LintError, Context )
+    expression ctx node =
     case node of
     Enter (Variable names) ->
     ( [], markVariableAsUsed ctx names )
@@ -107,7 +81,7 @@ type Direction
 
   - initialContext: An initial context
 
-  - expressionFn: A LintImplementation for Expression nodes
+  - expression: A LintImplementation for Expression nodes
 
   - moduleEndFn: A function that takes a context and returns a list of error. Similar to a LintImplementation, but will
     be called after visiting the whole AST.
@@ -118,25 +92,50 @@ type Direction
 
     implementation : LintRuleImplementation Context
     implementation =
-    { expressionFn = expressionFn
+    { expression = expression
     , moduleEndFn = (\\ctx -> ( [], ctx ))
     , initialContext = Context
     }
 
 -}
-type alias LintRuleImplementation context =
-    { expressionFn : LintImplementation Expression context
+type LintRuleImplementation context
+    = LintRuleImplementation
+        { initContext : context
+        , visitors : Visitors context
+        }
+
+
+type alias Visitors context =
+    { expressionFn : context -> Direction -> Node Expression -> ( List LintError, context )
     , moduleEndFn : context -> ( List LintError, context )
-    , initialContext : context
     }
 
 
-emptyRule : context -> LintRuleImplementation context
-emptyRule initialContext =
-    { initialContext = initialContext
-    , expressionFn = \ctx direction node -> ( [], ctx )
-    , moduleEndFn = \ctx -> ( [], ctx )
-    }
+createRule : context -> (Visitors context -> Visitors context) -> LintRuleImplementation context
+createRule initContext createVisitors =
+    LintRuleImplementation
+        { initContext = initContext
+        , visitors =
+            createVisitors
+                { expressionFn = \ctx direction node -> ( [], ctx )
+                , moduleEndFn = \ctx -> ( [], ctx )
+                }
+        }
+
+
+initialContext : LintRuleImplementation context -> context
+initialContext (LintRuleImplementation { initContext }) =
+    initContext
+
+
+evaluateExpression : LintRuleImplementation context -> context -> Direction -> Node Expression -> ( List LintError, context )
+evaluateExpression (LintRuleImplementation { visitors }) =
+    visitors.expressionFn
+
+
+finalEvaluation : LintRuleImplementation context -> context -> ( List LintError, context )
+finalEvaluation (LintRuleImplementation { visitors }) =
+    visitors.moduleEndFn
 
 
 {-| Shortcut to the result of a lint rule
