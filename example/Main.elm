@@ -6,9 +6,9 @@ import Browser
 import Html exposing (..)
 import Html.Attributes exposing (class, id, style)
 import Html.Events exposing (onInput)
-import Lint exposing (lintSource)
+import Lint exposing (Rule, Severity(..), lintSource)
+import Lint.Error exposing (Error)
 import Lint.Rules.NoDebug
-import Lint.Types exposing (LintRule, Severity(..))
 import Result exposing (Result)
 
 
@@ -16,7 +16,7 @@ type Msg
     = Replace String
 
 
-config : List ( Severity, LintRule )
+config : List ( Severity, Rule )
 config =
     [ ( Critical, Lint.Rules.NoDebug.rule )
 
@@ -58,7 +58,7 @@ update action model =
             m
 
 
-errorToString : Lint.Types.LintError -> String
+errorToString : Error -> String
 errorToString { message, range } =
     message ++ " (line " ++ String.fromInt range.start.row ++ ", column " ++ String.fromInt range.start.column ++ ")"
 
@@ -66,7 +66,7 @@ errorToString { message, range } =
 lint : String -> Html Msg
 lint source =
     let
-        lintResult : Result (List String) (List ( Severity, Lint.Types.LintError ))
+        lintResult : Result (List String) (List ( Severity, Error ))
         lintResult =
             lintSource config source
 

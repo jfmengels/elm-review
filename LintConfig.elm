@@ -1,6 +1,6 @@
 module LintConfig exposing (config)
 
-import Lint.Types exposing (LintRule, Severity(..))
+import Lint.Types exposing (Rule, Severity(..))
 import Lint.Rules.DefaultPatternPosition
 import Lint.Rules.NoConstantCondition
 import Lint.Rules.NoDebug
@@ -18,7 +18,7 @@ import Lint.Rules.SimplifyPropertyAccess
 import Lint.Rules.ElmTest.NoDuplicateTestBodies
 
 
-config : List ( Severity, LintRule )
+config : List ( Severity, Rule )
 config =
     [ ( Critical, Lint.Rules.DefaultPatternPosition.rule { position = Lint.Rules.DefaultPatternPosition.Last } )
     , ( Critical, Lint.Rules.NoConstantCondition.rule )

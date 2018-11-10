@@ -1,22 +1,16 @@
 module Lint.Types exposing
-    ( LintError, Direction(..)
-    , LintRule, Severity(..)
+    ( Direction(..)
     , LintRuleImplementation, createRule
     , Visitor, LintResult
     , evaluateExpression, finalEvaluation, initialContext
     )
 
-{-| This module contains types that are used for writing rules.
+{-| This module contains functions that are used for writing rules.
 
 
 # Elementary types
 
-@docs LintError, Direction
-
-
-# Configuration
-
-@docs LintRule, Severity
+@docs Direction
 
 
 # Writing rules
@@ -33,22 +27,7 @@ module Lint.Types exposing
 import Elm.Syntax.Expression exposing (Expression)
 import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Node exposing (Node)
-import Elm.Syntax.Range exposing (Range)
-
-
-{-| Value that describes an error found by a given rule, that contains the name of the rule that raised the error, and
-a description of the error.
-
-    error : LintError
-    error =
-        LintError "NoDebug" "Forbidden use of Debug"
-
--}
-type alias LintError =
-    { rule : String
-    , message : String
-    , range : Range
-    }
+import Lint.Error exposing (Error)
 
 
 {-| When visiting the AST, nodes are visited twice:
@@ -57,7 +36,7 @@ type alias LintError =
 
   - on Exit, after the children of the node have been visited
 
-    expression : Context -> Direction Expression -> ( List LintError, Context )
+    expression : Context -> Direction Expression -> ( List Lint.Error.Error, Context )
     expression ctx node =
     case node of
     Enter (Variable names) ->
@@ -83,17 +62,17 @@ type Direction
 
   - expression: A LintImplementation for Expression nodes
 
-  - moduleEndFn: A function that takes a context and returns a list of error. Similar to a LintImplementation, but will
+  - visitEnd: A function that takes a context and returns a list of error. Similar to a LintImplementation, but will
     be called after visiting the whole AST.
 
-    rule : LintRule
+    rule : Rule
     rule input =
     lint input implementation
 
     implementation : LintRuleImplementation Context
     implementation =
     { expression = expression
-    , moduleEndFn = (\\ctx -> ( [], ctx ))
+    , visitEnd = (\\ctx -> ( [], ctx ))
     , initialContext = Context
     }
 
@@ -106,8 +85,8 @@ type LintRuleImplementation context
 
 
 type alias Visitors context =
-    { expressionFn : context -> Direction -> Node Expression -> ( List LintError, context )
-    , moduleEndFn : context -> ( List LintError, context )
+    { visitExpression : context -> Direction -> Node Expression -> ( List Error, context )
+    , visitEnd : context -> ( List Error, context )
     }
 
 
@@ -117,8 +96,8 @@ createRule initContext createVisitors =
         { initContext = initContext
         , visitors =
             createVisitors
-                { expressionFn = \ctx direction node -> ( [], ctx )
-                , moduleEndFn = \ctx -> ( [], ctx )
+                { visitExpression = \ctx direction node -> ( [], ctx )
+                , visitEnd = \ctx -> ( [], ctx )
                 }
         }
 
@@ -128,46 +107,27 @@ initialContext (LintRuleImplementation { initContext }) =
     initContext
 
 
-evaluateExpression : LintRuleImplementation context -> context -> Direction -> Node Expression -> ( List LintError, context )
+evaluateExpression : LintRuleImplementation context -> context -> Direction -> Node Expression -> ( List Error, context )
 evaluateExpression (LintRuleImplementation { visitors }) =
-    visitors.expressionFn
+    visitors.visitExpression
 
 
-finalEvaluation : LintRuleImplementation context -> context -> ( List LintError, context )
+finalEvaluation : LintRuleImplementation context -> context -> ( List Error, context )
 finalEvaluation (LintRuleImplementation { visitors }) =
-    visitors.moduleEndFn
+    visitors.visitEnd
 
 
 {-| Shortcut to the result of a lint rule
 -}
 type alias LintResult =
-    Result (List String) (List LintError)
+    Result (List String) (List Error)
 
 
-{-| Shortcut to a lint rule
--}
-type alias LintRule =
-    File -> List LintError
-
-
-{-| Shorthand for a function that takes a rule's implementation, a context and returns ( List LintError, context ).
+{-| Shorthand for a function that takes a rule's implementation, a context and returns ( List Lint.Error.Error, context ).
 A Visitor represents a node and calls the appropriate function for the given node type.
 
 Note: this is internal API, and will be removed in a future version.
 
 -}
 type alias Visitor context =
-    LintRuleImplementation context -> context -> ( List LintError, context )
-
-
-{-| Severity associated to a rule.
-
-  - Critical: Transgressions reported by the rule will make the linting process fail.
-  - Warning: Transgressions reported by the rule will not make the linting process fail.
-  - Disabled: Rule will not be enforced.
-
--}
-type Severity
-    = Disabled
-    | Warning
-    | Critical
+    LintRuleImplementation context -> context -> ( List Error, context )

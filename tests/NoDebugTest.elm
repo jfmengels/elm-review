@@ -1,8 +1,10 @@
 module NoDebugTest exposing (all)
 
 import Elm.Syntax.Range exposing (Location, Range)
+import Lint exposing (Rule)
+import Lint.Error exposing (Error)
 import Lint.Rules.NoDebug exposing (rule)
-import Lint.Types exposing (LintError, LintResult, LintRule)
+import Lint.Types exposing (LintResult)
 import Test exposing (Test, describe, only, test)
 import TestUtil exposing (expectErrors, ruleTester)
 
@@ -14,9 +16,9 @@ testRule string =
         |> ruleTester rule
 
 
-error : String -> Range -> LintError
+error : String -> Range -> Error
 error =
-    LintError "NoDebug"
+    Error "NoDebug"
 
 
 location : Int -> Int -> Int -> Range

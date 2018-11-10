@@ -1,17 +1,18 @@
 module TestUtil exposing (expectErrors, ruleTester)
 
 import Expect
-import Lint exposing (parseSource)
-import Lint.Types exposing (LintError, LintResult, LintRule)
+import Lint exposing (Rule, parseSource)
+import Lint.Error exposing (Error)
+import Lint.Types exposing (LintResult)
 
 
-ruleTester : LintRule -> String -> LintResult
+ruleTester : Rule -> String -> LintResult
 ruleTester rule str =
     parseSource str
         |> Result.map rule
 
 
-expectErrors : List LintError -> LintResult -> Expect.Expectation
+expectErrors : List Error -> LintResult -> Expect.Expectation
 expectErrors expectedErrors result =
     case result of
         Err errors ->

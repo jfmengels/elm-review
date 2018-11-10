@@ -32,8 +32,9 @@ module Lint.Rules.NoDebug exposing (rule)
 
 import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Node exposing (Node, range, value)
-import Lint exposing (lint)
-import Lint.Types exposing (Direction(..), LintError, LintRule, LintRuleImplementation, createRule)
+import Lint exposing (Rule, lint)
+import Lint.Error exposing (Error)
+import Lint.Types exposing (Direction(..), LintRuleImplementation, createRule)
 
 
 type alias Context =
@@ -47,7 +48,7 @@ type alias Context =
         ]
 
 -}
-rule : LintRule
+rule : Rule
 rule input =
     lint input implementation
 
@@ -56,16 +57,16 @@ implementation : LintRuleImplementation Context
 implementation =
     createRule
         Context
-        (\v -> { v | expressionFn = expressionFn })
+        (\v -> { v | visitExpression = visitExpression })
 
 
-error : Node a -> LintError
+error : Node a -> Error
 error node =
-    LintError "NoDebug" "Forbidden use of Debug" (range node)
+    Error "NoDebug" "Forbidden use of Debug" (range node)
 
 
-expressionFn : Context -> Direction -> Node Expression -> ( List LintError, Context )
-expressionFn ctx direction node =
+visitExpression : Context -> Direction -> Node Expression -> ( List Error, Context )
+visitExpression ctx direction node =
     case ( direction, value node ) of
         ( Enter, FunctionOrValue moduleName fnName ) ->
             if List.member "Debug" moduleName then

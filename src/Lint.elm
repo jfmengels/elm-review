@@ -1,5 +1,6 @@
 module Lint exposing
-    ( lintSource
+    ( Rule, Severity(..)
+    , lintSource
     , lint, visitExpression
     , parseSource
     )
@@ -29,6 +30,11 @@ To run the rules on a source code and get a list of errors:
             List.map (\err -> err.rule ++ ": " ++ err.message) errors
 
 
+# Configuration
+
+@docs Rule, Severity
+
+
 # Implementation
 
 @docs lintSource
@@ -50,8 +56,28 @@ import Elm.Processing exposing (addFile, init, process)
 import Elm.Syntax.Expression exposing (Expression)
 import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Node exposing (Node)
-import Lint.Types exposing (Direction, LintError, LintRule, LintRuleImplementation, Severity(..), Visitor, initialContext)
+import Lint.Error exposing (Error)
+import Lint.Types exposing (Direction, LintRuleImplementation, Visitor, initialContext)
 import Lint.Visitor exposing (expressionToVisitors, transformDeclarationsIntoVisitors)
+
+
+{-| Shortcut to a lint rule
+-}
+type alias Rule =
+    File -> List Error
+
+
+{-| Severity associated to a rule.
+
+  - Critical: Transgressions reported by the rule will make the linting process fail.
+  - Warning: Transgressions reported by the rule will not make the linting process fail.
+  - Disabled: Rule will not be enforced.
+
+-}
+type Severity
+    = Disabled
+    | Warning
+    | Critical
 
 
 {-| Lints a file and gives back the errors raised by the given rules.
@@ -60,7 +86,7 @@ import Lint.Visitor exposing (expressionToVisitors, transformDeclarationsIntoVis
         lintSource rules source
 
 -}
-lintSource : List ( Severity, LintRule ) -> String -> Result (List String) (List ( Severity, LintError ))
+lintSource : List ( Severity, Rule ) -> String -> Result (List String) (List ( Severity, Error ))
 lintSource rules source =
     source
         |> parseSource
@@ -72,7 +98,7 @@ lintSource rules source =
             )
 
 
-lintSourceWithRule : File -> ( Severity, LintRule ) -> List ( Severity, LintError )
+lintSourceWithRule : File -> ( Severity, Rule ) -> List ( Severity, Error )
 lintSourceWithRule file ( severity, rule ) =
     rule file
         |> List.map (\b -> ( severity, b ))
@@ -92,20 +118,20 @@ parseSource source =
 
 {-| Lints source code using a given rule implementation, and gives back a list of errors that were found.
 
-    rule : LintRule
+    rule : Rule
     rule input =
         lint input implementation
 
     implementation : LintRuleImplementation Context
     implementation =
         { typeFn = doNothing
-        , expressionFn = expressionFn
-        , moduleEndFn = \ctx -> ( [], ctx )
+        , visitExpression = visitExpression
+        , visitEnd = \ctx -> ( [], ctx )
         , initialContext = Context
         }
 
 -}
-lint : File -> LintRuleImplementation context -> List LintError
+lint : File -> LintRuleImplementation context -> List Error
 lint file rule =
     file.declarations
         |> transformDeclarationsIntoVisitors
@@ -115,8 +141,8 @@ lint file rule =
 {-| Visit an expression using a sub rule implementation. The use of this function is not encouraged, but it can make
 part of the implementation of complex rules much easier. It gives back a list of errors and a context.
 
-    expressionFn : Context -> Direction Expression -> ( List LintError, Context )
-    expressionFn ctx node =
+    visitExpression : Context -> Direction Expression -> ( List Lint.Error.Error, Context )
+    visitExpression ctx node =
         case node of
             Enter (Case expr patterns) ->
                 visitExpression subimplementation expr
@@ -128,25 +154,25 @@ part of the implementation of complex rules much easier. It gives back a list of
     subimplementation =
         { statementFn = doNothing
         , typeFn = doNothing
-        , expressionFn = subexpressionFn
-        , moduleEndFn = \ctx -> ( [], ctx )
+        , visitExpression = subvisitExpression
+        , visitEnd = \ctx -> ( [], ctx )
         , initialContext = Subcontext
         }
 
 -}
-visitExpression : LintRuleImplementation context -> Node Expression -> ( List LintError, context )
+visitExpression : LintRuleImplementation context -> Node Expression -> ( List Error, context )
 visitExpression rule expression =
     expressionToVisitors expression
         |> List.foldl (visitAndAccumulate rule) ( [], initialContext rule )
 
 
-visitAndAccumulate : LintRuleImplementation context -> Visitor context -> ( List LintError, context ) -> ( List LintError, context )
+visitAndAccumulate : LintRuleImplementation context -> Visitor context -> ( List Error, context ) -> ( List Error, context )
 visitAndAccumulate rule visitor ( errors, ctx ) =
     visitor rule ctx
         |> Tuple.mapFirst (\errors_ -> errors ++ errors_)
 
 
-lintWithVisitors : LintRuleImplementation context -> List (Visitor context) -> List LintError
+lintWithVisitors : LintRuleImplementation context -> List (Visitor context) -> List Error
 lintWithVisitors rule visitors =
     visitors
         |> List.foldl (visitAndAccumulate rule) ( [], initialContext rule )
