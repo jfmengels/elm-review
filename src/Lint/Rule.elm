@@ -125,9 +125,6 @@ type alias LintResult =
 
 {-| Shorthand for a function that takes a rule's implementation, a context and returns ( List Lint.Error.Error, context ).
 A Visitor represents a node and calls the appropriate function for the given node type.
-
-Note: this is internal API, and will be removed in a future version.
-
 -}
 type alias Visitor context =
     Implementation context -> context -> ( List Error, context )

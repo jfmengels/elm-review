@@ -2,7 +2,6 @@ module Lint exposing
     ( Rule, Severity(..)
     , lintSource
     , lint, visitExpression
-    , parseSource
     )
 
 {-| A linter for Elm.
@@ -43,11 +42,6 @@ To run the rules on a source code and get a list of errors:
 # Rule creation functions
 
 @docs lint, visitExpression
-
-
-# Internal
-
-@docs parseSource
 
 -}
 
