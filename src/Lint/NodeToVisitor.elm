@@ -1,10 +1,14 @@
-module Lint.NodeToVisitor exposing (declarationsIntoVisitors, expressionToVisitors)
+module Lint.NodeToVisitor exposing (createVisitorsForFile, expressionToVisitors)
 
 import Elm.Syntax.Declaration exposing (Declaration(..))
 import Elm.Syntax.Expression exposing (Expression(..), Function, FunctionImplementation, LetDeclaration(..))
+import Elm.Syntax.File exposing (File)
+import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Infix exposing (InfixDirection(..))
+import Elm.Syntax.Module exposing (Module)
 import Elm.Syntax.Node exposing (Node, value)
-import Lint.Rule exposing (Direction(..), Visitor, evaluateExpression, finalEvaluation)
+import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
+import Lint.Rule exposing (Direction(..), Visitor, evaluateDeclaration, evaluateExpression, evaluateImport, evaluateModuleDefinition, evaluateTypeAnnotation, finalEvaluation)
 
 
 createExitAndEnterWithChildren : (Direction -> nodeType -> Visitor context) -> nodeType -> List (Visitor context) -> List (Visitor context)
@@ -21,9 +25,29 @@ moduleVisitor rule context =
     finalEvaluation rule context
 
 
+moduleDefinitionVisitor : Node Module -> Visitor context
+moduleDefinitionVisitor node rule context =
+    evaluateModuleDefinition rule context node
+
+
+importVisitor : Node Import -> Visitor context
+importVisitor node rule context =
+    evaluateImport rule context node
+
+
 expressionVisitor : Direction -> Node Expression -> Visitor context
 expressionVisitor direction node rule context =
     evaluateExpression rule context direction node
+
+
+declarationVisitor : Direction -> Node Declaration -> Visitor context
+declarationVisitor direction node rule context =
+    evaluateDeclaration rule context direction node
+
+
+typeAnnotationVisitor : Direction -> Node TypeAnnotation -> Visitor context
+typeAnnotationVisitor direction node rule context =
+    evaluateTypeAnnotation rule context direction node
 
 
 functionToExpression : Function -> Node Expression
@@ -71,6 +95,9 @@ expressionToVisitors node =
                 ParenthesizedExpression expr ->
                     [ expr ]
 
+                Operator name ->
+                    []
+
                 OperatorApplication operator direction left right ->
                     case direction of
                         Left ->
@@ -109,6 +136,9 @@ expressionToVisitors node =
                     expressions
 
                 -- TODO Implement the rest
+                PrefixOperator name ->
+                    []
+
                 _ ->
                     []
 
@@ -118,24 +148,58 @@ expressionToVisitors node =
     createExitAndEnterWithChildren expressionVisitor node childrenVisitors
 
 
-declarationToVisitors : Declaration -> List (Visitor context)
-declarationToVisitors declaration =
+typeAnnotationToVisitor : Node TypeAnnotation -> List (Visitor context)
+typeAnnotationToVisitor node =
     let
         childrenVisitors =
-            case declaration of
+            case value node of
+                GenericType _ ->
+                    []
+
+                _ ->
+                    []
+    in
+    createExitAndEnterWithChildren typeAnnotationVisitor node childrenVisitors
+
+
+declarationToVisitors : Node Declaration -> List (Visitor context)
+declarationToVisitors node =
+    let
+        childrenVisitors =
+            case value node of
                 FunctionDeclaration function ->
                     functionToExpression function |> expressionToVisitors
 
                 -- TODO Implement the rest
+                CustomTypeDeclaration { constructors } ->
+                    constructors
+                        |> List.concatMap (value >> .arguments)
+                        |> List.concatMap typeAnnotationToVisitor
+
                 _ ->
                     []
     in
-    -- createExitAndEnterWithChildren statementVisitor declaration childrenVisitors
-    childrenVisitors
+    createExitAndEnterWithChildren declarationVisitor node childrenVisitors
 
 
 declarationsIntoVisitors : List (Node Declaration) -> List (Visitor context)
 declarationsIntoVisitors declarations =
-    declarations
-        |> List.concatMap (value >> declarationToVisitors)
-        |> (\allVisitors -> List.append allVisitors [ moduleVisitor ])
+    List.concatMap declarationToVisitors declarations
+
+
+importsIntoVisitors : List (Node Import) -> List (Visitor context)
+importsIntoVisitors imports =
+    List.map importVisitor imports
+
+
+moduleDefinitionIntoVisitor : Node Module -> Visitor context
+moduleDefinitionIntoVisitor moduleNode =
+    moduleDefinitionVisitor moduleNode
+
+
+createVisitorsForFile : File -> List (Visitor context)
+createVisitorsForFile file =
+    [ moduleDefinitionIntoVisitor file.moduleDefinition ]
+        ++ importsIntoVisitors file.imports
+        ++ declarationsIntoVisitors file.declarations
+        ++ [ moduleVisitor ]

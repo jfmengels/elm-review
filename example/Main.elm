@@ -9,6 +9,7 @@ import Html.Events exposing (onInput)
 import Lint exposing (Rule, Severity(..), lintSource)
 import Lint.Error exposing (Error)
 import Lint.Rule.NoDebug
+import Lint.Rule.NoUnusedVariables
 import Result exposing (Result)
 
 
@@ -19,6 +20,7 @@ type Msg
 config : List ( Severity, Rule )
 config =
     [ ( Critical, Lint.Rule.NoDebug.rule )
+    , ( Critical, Lint.Rule.NoUnusedVariables.rule )
 
     -- , ( Critical, Lint.Rule.DefaultPatternPosition.rule { position = Lint.Rule.DefaultPatternPosition.Last } )
     -- , ( Critical, Lint.Rule.NoConstantCondition.rule )
@@ -27,7 +29,6 @@ config =
     -- , ( Critical, Lint.Rule.NoImportingEverything.rule { exceptions = [ "Html" ] } )
     -- , ( Critical, Lint.Rule.NoNestedLet.rule )
     -- , ( Critical, Lint.Rule.NoUnannotatedFunction.rule )
-    -- , ( Critical, Lint.Rule.NoUnusedVariables.rule )
     -- , ( Critical, Lint.Rule.NoUselessIf.rule )
     -- , ( Critical, Lint.Rule.NoUselessPatternMatching.rule )
     -- , ( Warning, Lint.Rule.NoWarningComments.rule )

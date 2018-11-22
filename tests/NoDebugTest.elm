@@ -5,7 +5,7 @@ import Lint exposing (Rule)
 import Lint.Error exposing (Error)
 import Lint.Rule exposing (LintResult)
 import Lint.Rule.NoDebug exposing (rule)
-import Test exposing (Test, describe, only, test)
+import Test exposing (Test, describe, test)
 import TestUtil exposing (expectErrors, ruleTester)
 
 

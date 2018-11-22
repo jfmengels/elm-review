@@ -51,7 +51,7 @@ import Elm.Syntax.Expression exposing (Expression)
 import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Node exposing (Node)
 import Lint.Error exposing (Error)
-import Lint.NodeToVisitor exposing (declarationsIntoVisitors, expressionToVisitors)
+import Lint.NodeToVisitor exposing (createVisitorsForFile, expressionToVisitors)
 import Lint.Rule exposing (Direction, Implementation, Visitor, initialContext)
 
 
@@ -127,8 +127,7 @@ parseSource source =
 -}
 lint : File -> Implementation context -> List Error
 lint file rule =
-    file.declarations
-        |> declarationsIntoVisitors
+    createVisitorsForFile file
         |> lintWithVisitors rule
 
 

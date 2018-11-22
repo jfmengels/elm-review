@@ -2,7 +2,7 @@ module Lint.Rule exposing
     ( Direction(..)
     , Implementation, createRule
     , Visitor, LintResult
-    , evaluateExpression, finalEvaluation, initialContext
+    , evaluateDeclaration, evaluateExpression, evaluateImport, evaluateModuleDefinition, evaluateTypeAnnotation, finalEvaluation, initialContext
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -24,9 +24,13 @@ module Lint.Rule exposing
 
 -}
 
+import Elm.Syntax.Declaration exposing (Declaration)
 import Elm.Syntax.Expression exposing (Expression)
 import Elm.Syntax.File exposing (File)
+import Elm.Syntax.Import exposing (Import)
+import Elm.Syntax.Module exposing (Module)
 import Elm.Syntax.Node exposing (Node)
+import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation)
 import Lint.Error exposing (Error)
 
 
@@ -85,7 +89,11 @@ type Implementation context
 
 
 type alias Visitors context =
-    { visitExpression : context -> Direction -> Node Expression -> ( List Error, context )
+    { visitModuleDefinition : context -> Node Module -> ( List Error, context )
+    , visitImport : context -> Node Import -> ( List Error, context )
+    , visitExpression : context -> Direction -> Node Expression -> ( List Error, context )
+    , visitDeclaration : context -> Direction -> Node Declaration -> ( List Error, context )
+    , visitTypeAnnotation : context -> Direction -> Node TypeAnnotation -> ( List Error, context )
     , visitEnd : context -> ( List Error, context )
     }
 
@@ -96,7 +104,11 @@ createRule initContext createVisitors =
         { initContext = initContext
         , visitors =
             createVisitors
-                { visitExpression = \ctx direction node -> ( [], ctx )
+                { visitModuleDefinition = \ctx node -> ( [], ctx )
+                , visitImport = \ctx node -> ( [], ctx )
+                , visitExpression = \ctx direction node -> ( [], ctx )
+                , visitDeclaration = \ctx direction node -> ( [], ctx )
+                , visitTypeAnnotation = \ctx direction node -> ( [], ctx )
                 , visitEnd = \ctx -> ( [], ctx )
                 }
         }
@@ -107,9 +119,29 @@ initialContext (Implementation { initContext }) =
     initContext
 
 
+evaluateModuleDefinition : Implementation context -> context -> Node Module -> ( List Error, context )
+evaluateModuleDefinition (Implementation { visitors }) =
+    visitors.visitModuleDefinition
+
+
+evaluateImport : Implementation context -> context -> Node Import -> ( List Error, context )
+evaluateImport (Implementation { visitors }) =
+    visitors.visitImport
+
+
 evaluateExpression : Implementation context -> context -> Direction -> Node Expression -> ( List Error, context )
 evaluateExpression (Implementation { visitors }) =
     visitors.visitExpression
+
+
+evaluateDeclaration : Implementation context -> context -> Direction -> Node Declaration -> ( List Error, context )
+evaluateDeclaration (Implementation { visitors }) =
+    visitors.visitDeclaration
+
+
+evaluateTypeAnnotation : Implementation context -> context -> Direction -> Node TypeAnnotation -> ( List Error, context )
+evaluateTypeAnnotation (Implementation { visitors }) =
+    visitors.visitTypeAnnotation
 
 
 finalEvaluation : Implementation context -> context -> ( List Error, context )
