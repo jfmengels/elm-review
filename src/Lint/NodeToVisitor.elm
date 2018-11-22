@@ -135,11 +135,25 @@ expressionToVisitors node =
                 TupledExpression expressions ->
                     expressions
 
-                -- TODO Implement the rest
                 PrefixOperator name ->
                     []
 
-                _ ->
+                Hex _ ->
+                    []
+
+                Negation expr ->
+                    [ expr ]
+
+                CharLiteral _ ->
+                    []
+
+                RecordAccess expr property ->
+                    [ expr ]
+
+                RecordAccessFunction name ->
+                    []
+
+                GLSLExpression expr ->
                     []
 
         childrenVisitors =
@@ -170,13 +184,21 @@ declarationToVisitors node =
                 FunctionDeclaration function ->
                     functionToExpression function |> expressionToVisitors
 
-                -- TODO Implement the rest
                 CustomTypeDeclaration { constructors } ->
                     constructors
                         |> List.concatMap (value >> .arguments)
                         |> List.concatMap typeAnnotationToVisitor
 
-                _ ->
+                AliasDeclaration { typeAnnotation } ->
+                    typeAnnotationToVisitor typeAnnotation
+
+                Destructuring pattern expr ->
+                    expressionToVisitors expr
+
+                PortDeclaration _ ->
+                    []
+
+                InfixDeclaration _ ->
                     []
     in
     createExitAndEnterWithChildren declarationVisitor node childrenVisitors
