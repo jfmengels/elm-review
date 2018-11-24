@@ -2,7 +2,7 @@ module Lint.Rule exposing
     ( Direction(..)
     , Implementation, createRule
     , Visitor, LintResult
-    , evaluateDeclaration, evaluateExpression, evaluateImport, evaluateModuleDefinition, evaluateTypeAnnotation, finalEvaluation, initialContext
+    , evaluateDeclaration, evaluateExpression, evaluateImport, evaluateModuleDefinition, finalEvaluation, initialContext
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -93,7 +93,6 @@ type alias Visitors context =
     , visitImport : context -> Node Import -> ( List Error, context )
     , visitExpression : context -> Direction -> Node Expression -> ( List Error, context )
     , visitDeclaration : context -> Direction -> Node Declaration -> ( List Error, context )
-    , visitTypeAnnotation : context -> Direction -> Node TypeAnnotation -> ( List Error, context )
     , visitEnd : context -> ( List Error, context )
     }
 
@@ -108,7 +107,6 @@ createRule initContext createVisitors =
                 , visitImport = \ctx node -> ( [], ctx )
                 , visitExpression = \ctx direction node -> ( [], ctx )
                 , visitDeclaration = \ctx direction node -> ( [], ctx )
-                , visitTypeAnnotation = \ctx direction node -> ( [], ctx )
                 , visitEnd = \ctx -> ( [], ctx )
                 }
         }
@@ -137,11 +135,6 @@ evaluateExpression (Implementation { visitors }) =
 evaluateDeclaration : Implementation context -> context -> Direction -> Node Declaration -> ( List Error, context )
 evaluateDeclaration (Implementation { visitors }) =
     visitors.visitDeclaration
-
-
-evaluateTypeAnnotation : Implementation context -> context -> Direction -> Node TypeAnnotation -> ( List Error, context )
-evaluateTypeAnnotation (Implementation { visitors }) =
-    visitors.visitTypeAnnotation
 
 
 finalEvaluation : Implementation context -> context -> ( List Error, context )

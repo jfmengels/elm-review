@@ -8,7 +8,7 @@ import Elm.Syntax.Infix exposing (InfixDirection(..))
 import Elm.Syntax.Module exposing (Module)
 import Elm.Syntax.Node exposing (Node, value)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
-import Lint.Rule exposing (Direction(..), Visitor, evaluateDeclaration, evaluateExpression, evaluateImport, evaluateModuleDefinition, evaluateTypeAnnotation, finalEvaluation)
+import Lint.Rule exposing (Direction(..), Visitor, evaluateDeclaration, evaluateExpression, evaluateImport, evaluateModuleDefinition, finalEvaluation)
 
 
 createExitAndEnterWithChildren : (Direction -> nodeType -> Visitor context) -> nodeType -> List (Visitor context) -> List (Visitor context)
@@ -43,11 +43,6 @@ expressionVisitor direction node rule context =
 declarationVisitor : Direction -> Node Declaration -> Visitor context
 declarationVisitor direction node rule context =
     evaluateDeclaration rule context direction node
-
-
-typeAnnotationVisitor : Direction -> Node TypeAnnotation -> Visitor context
-typeAnnotationVisitor direction node rule context =
-    evaluateTypeAnnotation rule context direction node
 
 
 functionToExpression : Function -> Node Expression
@@ -162,20 +157,6 @@ expressionToVisitors node =
     createExitAndEnterWithChildren expressionVisitor node childrenVisitors
 
 
-typeAnnotationToVisitor : Node TypeAnnotation -> List (Visitor context)
-typeAnnotationToVisitor node =
-    let
-        childrenVisitors =
-            case value node of
-                GenericType _ ->
-                    []
-
-                _ ->
-                    []
-    in
-    createExitAndEnterWithChildren typeAnnotationVisitor node childrenVisitors
-
-
 declarationToVisitors : Node Declaration -> List (Visitor context)
 declarationToVisitors node =
     let
@@ -184,13 +165,11 @@ declarationToVisitors node =
                 FunctionDeclaration function ->
                     functionToExpression function |> expressionToVisitors
 
-                CustomTypeDeclaration { constructors } ->
-                    constructors
-                        |> List.concatMap (value >> .arguments)
-                        |> List.concatMap typeAnnotationToVisitor
+                CustomTypeDeclaration _ ->
+                    []
 
                 AliasDeclaration { typeAnnotation } ->
-                    typeAnnotationToVisitor typeAnnotation
+                    []
 
                 Destructuring pattern expr ->
                     expressionToVisitors expr
