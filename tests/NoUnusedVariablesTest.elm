@@ -266,20 +266,18 @@ a = 1 </> 2"""
 import Parser exposing ((</>))
 a = (</>) 2"""
                 |> expectErrors []
-
-    -- ##################################################################################################
-    -- , test "should report unused opaque types" <|
-    --     \() ->
-    --         testRule """module A exposing (a)
-    -- type A = A Int"""
-    --             |> expectErrors [ error "Variable `A` is not used" (location 2 6 7) ]
-    -- , test "should not report used opaque types" <|
-    --     \() ->
-    --         testRule """module A exposing (a)
-    -- type A = A Int
-    -- a : A
-    -- a = 1"""
-    --             |> expectErrors [ error "Variable `A` is not used" (location 2 6 7) ]
+    , test "should report unused opaque types" <|
+        \() ->
+            testRule """module A exposing (a)
+type A = A Int"""
+                |> expectErrors [ error "Variable `A` is not used" (location 2 6 7) ]
+    , test "should not report used opaque types" <|
+        \() ->
+            testRule """module A exposing (a)
+type A = A Int
+a : A
+a = 1"""
+                |> expectErrors []
     ]
 
 
