@@ -49,16 +49,19 @@ rule input =
     lint input implementation
 
 
-type Value
+type VariableType
     = Variable
     | ImportedModule
+    | ImportedVariable
+    | ImportedType
+    | ImportedOperator
     | ModuleAlias
     | Type
     | Port
 
 
 type alias Scope =
-    { declared : Dict String ( Value, Range )
+    { declared : Dict String ( VariableType, Range )
     , used : Set String
     }
 
@@ -74,7 +77,7 @@ emptyScope =
     Scope Dict.empty Set.empty
 
 
-error : Value -> Range -> String -> Error
+error : VariableType -> Range -> String -> Error
 error variableType range_ name =
     Error
         "NoUnusedVariables"
@@ -82,7 +85,7 @@ error variableType range_ name =
         range_
 
 
-variableTypeToString : Value -> String
+variableTypeToString : VariableType -> String
 variableTypeToString value =
     case value of
         Variable ->
@@ -90,6 +93,15 @@ variableTypeToString value =
 
         ImportedModule ->
             "Imported module"
+
+        ImportedVariable ->
+            "Imported variable"
+
+        ImportedType ->
+            "Imported type"
+
+        ImportedOperator ->
+            "Imported operator"
 
         ModuleAlias ->
             "Module alias"
@@ -101,13 +113,22 @@ variableTypeToString value =
             "Port"
 
 
-variableTypeWarning : Value -> String
+variableTypeWarning : VariableType -> String
 variableTypeWarning value =
     case value of
         Variable ->
             ""
 
         ImportedModule ->
+            ""
+
+        ImportedVariable ->
+            ""
+
+        ImportedType ->
+            ""
+
+        ImportedOperator ->
             ""
 
         ModuleAlias ->
@@ -202,7 +223,7 @@ visitImport ctx node =
         Just declaredImports ->
             ( []
             , List.foldl
-                (\( range, name ) context -> register Variable range name context)
+                (\( variableType, range, name ) context -> register variableType range name context)
                 ctx
                 (collectFromExposing declaredImports)
             )
@@ -324,7 +345,7 @@ registerFunction function ctx =
     register Variable (range declaration.name) (value declaration.name) ctx
 
 
-collectFromExposing : Exposing -> List ( Range, String )
+collectFromExposing : Exposing -> List ( VariableType, Range, String )
 collectFromExposing exposing_ =
     case exposing_ of
         All _ ->
@@ -335,13 +356,13 @@ collectFromExposing exposing_ =
                 (\node ->
                     case value node of
                         FunctionExpose name ->
-                            Just ( range node, name )
+                            Just ( ImportedVariable, range node, name )
 
                         InfixExpose name ->
-                            Just ( range node, name )
+                            Just ( ImportedOperator, range node, name )
 
                         TypeOrAliasExpose name ->
-                            Just ( range node, name )
+                            Just ( ImportedType, range node, name )
 
                         TypeExpose { name, open } ->
                             case open of
@@ -349,7 +370,7 @@ collectFromExposing exposing_ =
                                     Nothing
 
                                 Nothing ->
-                                    Just ( range node, name )
+                                    Just ( ImportedType, range node, name )
                 )
                 list
 
@@ -393,7 +414,7 @@ collectNamesFromTypeAnnotation node =
             []
 
 
-register : Value -> Range -> String -> Context -> Context
+register : VariableType -> Range -> String -> Context -> Context
 register variableType range name ctx =
     let
         scopes =

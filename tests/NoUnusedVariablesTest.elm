@@ -154,15 +154,15 @@ a n = 1"""
         \() ->
             testRule """module A exposing (b)
 import Foo exposing (a)"""
-                |> expectErrors [ error "Variable `a` is not used" (location 2 22 23) ]
+                |> expectErrors [ error "Imported variable `a` is not used" (location 2 22 23) ]
     , test "should report unused imported functions (multiple imports)" <|
         \() ->
             testRule """module A exposing (d)
 import Foo exposing (C, a, b)"""
                 |> expectErrors
-                    [ error "Variable `C` is not used" (location 2 22 23)
-                    , error "Variable `a` is not used" (location 2 25 26)
-                    , error "Variable `b` is not used" (location 2 28 29)
+                    [ error "Imported type `C` is not used" (location 2 22 23)
+                    , error "Imported variable `a` is not used" (location 2 25 26)
+                    , error "Imported variable `b` is not used" (location 2 28 29)
                     ]
 
     -- Needs to be improved, every case should create a new scope stack
@@ -254,7 +254,7 @@ a str = {c = str}"""
         \() ->
             testRule """module A exposing (a)
 import Parser exposing ((</>))"""
-                |> expectErrors [ error "Variable `</>` is not used" (location 2 25 30) ]
+                |> expectErrors [ error "Imported operator `</>` is not used" (location 2 25 30) ]
     , test "should not report used operator (infix)" <|
         \() ->
             testRule """module A exposing (a)
