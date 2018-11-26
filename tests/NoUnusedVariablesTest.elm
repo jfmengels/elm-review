@@ -278,6 +278,44 @@ type A = A Int
 a : A
 a = 1"""
                 |> expectErrors []
+    , test "should report unused import" <|
+        \() ->
+            testRule """module A exposing (a)
+import Html"""
+                |> expectErrors [ error "Variable `Html` is not used" (location 2 8 12) ]
+    , test "should report unused import (multiples segments)" <|
+        \() ->
+            testRule """module A exposing (a)
+import Html.Styled.Attributes"""
+                |> expectErrors [ error "Variable `Html.Styled.Attributes` is not used" (location 2 8 30) ]
+    , test "should not report import if it exposes all (should be improved by detecting if any exposed value is used)" <|
+        \() ->
+            testRule """module A exposing (a)
+import Html.Styled.Attributes exposing (..)"""
+                |> expectErrors []
+    , test "should report unused variable even if a homonym from a module is used" <|
+        \() ->
+            testRule """module A exposing (a)
+href = 1
+a = Html.Styled.Attributes.href"""
+                |> expectErrors [ error "Variable `href` is not used" (location 2 1 5) ]
+    , test "should not report used import (function access)" <|
+        \() ->
+            testRule """module A exposing (a)
+import Html.Styled.Attributes
+a = Html.Styled.Attributes.href"""
+                |> expectErrors []
+    , test "should not report unused import if it is aliased" <|
+        \() ->
+            testRule """module A exposing (a)
+import Html.Styled.Attributes as Html
+a = Html.href"""
+                |> expectErrors []
+    , test "should report unused import alias" <|
+        \() ->
+            testRule """module A exposing (a)
+import Html.Styled.Attributes as Html"""
+                |> expectErrors [ error "Variable `Html` is not used" (location 2 34 38) ]
     ]
 
 
