@@ -49,8 +49,15 @@ rule input =
     lint input implementation
 
 
+type Value
+    = Variable
+    | ImportedModule
+    | ModuleAlias
+    | Type
+
+
 type alias Scope =
-    { declared : Dict String Range
+    { declared : Dict String ( Value, Range )
     , used : Set String
     }
 
@@ -66,9 +73,28 @@ emptyScope =
     Scope Dict.empty Set.empty
 
 
-error : Range -> String -> Error
-error range_ name =
-    Error "NoUnusedVariables" ("Variable `" ++ name ++ "` is not used") range_
+error : Value -> Range -> String -> Error
+error variableType range_ name =
+    Error
+        "NoUnusedVariables"
+        (variableTypeToString variableType ++ " `" ++ name ++ "` is not used")
+        range_
+
+
+variableTypeToString : Value -> String
+variableTypeToString value =
+    case value of
+        Variable ->
+            "Variable"
+
+        ImportedModule ->
+            "Imported module"
+
+        ModuleAlias ->
+            "Module alias"
+
+        Type ->
+            "Type"
 
 
 initialContext : Context
@@ -134,11 +160,17 @@ visitImport ctx node =
     case Maybe.map value exposed of
         Nothing ->
             let
-                moduleName =
-                    Maybe.withDefault (value node |> .moduleName) (value node |> .moduleAlias)
+                ( variableType, moduleName ) =
+                    case value node |> .moduleAlias of
+                        Just moduleAlias ->
+                            ( ModuleAlias, moduleAlias )
+
+                        Nothing ->
+                            ( ImportedModule, value node |> .moduleName )
             in
             ( []
             , register
+                variableType
                 (range moduleName)
                 (value moduleName |> getModuleName)
                 ctx
@@ -147,7 +179,7 @@ visitImport ctx node =
         Just declaredImports ->
             ( []
             , List.foldl
-                (\( range, name ) context -> register range name context)
+                (\( range, name ) context -> register Variable range name context)
                 ctx
                 (collectFromExposing declaredImports)
             )
@@ -216,16 +248,16 @@ visitDeclaration ctx direction node =
 
                 newContext =
                     ctx
-                        |> register (range declaration.name) (value declaration.name)
+                        |> register Variable (range declaration.name) (value declaration.name)
                         |> markAllAsUsed namesUsedInSignature
             in
             ( [], newContext )
 
         ( Enter, CustomTypeDeclaration { name } ) ->
-            ( [], register (range name) (value name) ctx )
+            ( [], register Type (range name) (value name) ctx )
 
         ( Enter, AliasDeclaration { name } ) ->
-            ( [], register (range name) (value name) ctx )
+            ( [], register Type (range name) (value name) ctx )
 
         _ ->
             ( [], ctx )
@@ -253,7 +285,7 @@ registerFunction function ctx =
         declaration =
             value function.declaration
     in
-    register (range declaration.name) (value declaration.name) ctx
+    register Variable (range declaration.name) (value declaration.name) ctx
 
 
 collectFromExposing : Exposing -> List ( Range, String )
@@ -316,13 +348,13 @@ collectNamesFromTypeAnnotation node =
             []
 
 
-register : Range -> String -> Context -> Context
-register range name ctx =
+register : Value -> Range -> String -> Context -> Context
+register variableType range name ctx =
     let
         scopes =
             mapNonemptyHead
                 (\scope ->
-                    { scope | declared = Dict.insert name range scope.declared }
+                    { scope | declared = Dict.insert name ( variableType, range ) scope.declared }
                 )
                 ctx.scopes
     in
@@ -362,7 +394,7 @@ makeReport { declared, used } =
         errors =
             Dict.filter (\key _ -> not <| Set.member key used) declared
                 |> Dict.toList
-                |> List.map (\( key, range ) -> error range key)
+                |> List.map (\( key, ( variableType, range ) ) -> error variableType range key)
     in
     ( errors, nonUsedVars )
 

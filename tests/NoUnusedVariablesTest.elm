@@ -179,12 +179,12 @@ a = case thing of
         \() ->
             testRule """module A exposing (a)
 type A = B | C"""
-                |> expectErrors [ error "Variable `A` is not used" (location 2 6 7) ]
+                |> expectErrors [ error "Type `A` is not used" (location 2 6 7) ]
     , test "should report unused type aliases declarations" <|
         \() ->
             testRule """module A exposing (a)
 type alias A = { a : B }"""
-                |> expectErrors [ error "Variable `A` is not used" (location 2 12 13) ]
+                |> expectErrors [ error "Type `A` is not used" (location 2 12 13) ]
     , test "should not report type used in a signature" <|
         \() ->
             testRule """module A exposing (a)
@@ -271,7 +271,7 @@ a = (</>) 2"""
         \() ->
             testRule """module A exposing (a)
 type A = A Int"""
-                |> expectErrors [ error "Variable `A` is not used" (location 2 6 7) ]
+                |> expectErrors [ error "Type `A` is not used" (location 2 6 7) ]
     , test "should not report used opaque types" <|
         \() ->
             testRule """module A exposing (a)
@@ -283,12 +283,12 @@ a = 1"""
         \() ->
             testRule """module A exposing (a)
 import Html"""
-                |> expectErrors [ error "Variable `Html` is not used" (location 2 8 12) ]
+                |> expectErrors [ error "Imported module `Html` is not used" (location 2 8 12) ]
     , test "should report unused import (multiples segments)" <|
         \() ->
             testRule """module A exposing (a)
 import Html.Styled.Attributes"""
-                |> expectErrors [ error "Variable `Html.Styled.Attributes` is not used" (location 2 8 30) ]
+                |> expectErrors [ error "Imported module `Html.Styled.Attributes` is not used" (location 2 8 30) ]
     , test "should not report import if it exposes all (should be improved by detecting if any exposed value is used)" <|
         \() ->
             testRule """module A exposing (a)
@@ -316,7 +316,7 @@ a = Html.href"""
         \() ->
             testRule """module A exposing (a)
 import Html.Styled.Attributes as Html"""
-                |> expectErrors [ error "Variable `Html` is not used" (location 2 34 38) ]
+                |> expectErrors [ error "Module alias `Html` is not used" (location 2 34 38) ]
     , test "should not report import that exposes a used exposed type" <|
         \() ->
             testRule """module A exposing (a)
