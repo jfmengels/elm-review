@@ -331,6 +331,30 @@ import B exposing (C(..))
 a : D
 a = 1"""
                 |> expectErrors []
+    , test "should not report types that are used in ports" <|
+        \() ->
+            testRule """module A exposing (output, input)
+import Json.Decode
+import Json.Encode
+port output : Json.Encode.Value -> Cmd msg
+port input : (Json.Decode.Value -> msg) -> Sub msg"""
+                |> expectErrors []
+    , test "should report unused ports (ingoing)" <|
+        \() ->
+            testRule """module A exposing (a)
+import Json.Decode
+port input : (Json.Decode.Value -> msg) -> Sub msg"""
+                |> expectErrors
+                    [ error "Port `input` is not used (Warning: Removing this port may break your application if it is used in the JS code)" (location 3 6 11)
+                    ]
+    , test "should report unused ports (outgoing)" <|
+        \() ->
+            testRule """module A exposing (a)
+import Json.Encode
+port output : Json.Encode.Value -> Cmd msg"""
+                |> expectErrors
+                    [ error "Port `output` is not used (Warning: Removing this port may break your application if it is used in the JS code)" (location 3 6 12)
+                    ]
     ]
 
 

@@ -54,6 +54,7 @@ type Value
     | ImportedModule
     | ModuleAlias
     | Type
+    | Port
 
 
 type alias Scope =
@@ -77,7 +78,7 @@ error : Value -> Range -> String -> Error
 error variableType range_ name =
     Error
         "NoUnusedVariables"
-        (variableTypeToString variableType ++ " `" ++ name ++ "` is not used")
+        (variableTypeToString variableType ++ " `" ++ name ++ "` is not used" ++ variableTypeWarning variableType)
         range_
 
 
@@ -95,6 +96,28 @@ variableTypeToString value =
 
         Type ->
             "Type"
+
+        Port ->
+            "Port"
+
+
+variableTypeWarning : Value -> String
+variableTypeWarning value =
+    case value of
+        Variable ->
+            ""
+
+        ImportedModule ->
+            ""
+
+        ModuleAlias ->
+            ""
+
+        Type ->
+            ""
+
+        Port ->
+            " (Warning: Removing this port may break your application if it is used in the JS code)"
 
 
 initialContext : Context
@@ -259,7 +282,20 @@ visitDeclaration ctx direction node =
         ( Enter, AliasDeclaration { name } ) ->
             ( [], register Type (range name) (value name) ctx )
 
-        _ ->
+        ( Enter, PortDeclaration { name, typeAnnotation } ) ->
+            ( []
+            , ctx
+                |> markAllAsUsed (collectNamesFromTypeAnnotation typeAnnotation)
+                |> register Port (range name) (value name)
+            )
+
+        ( Enter, InfixDeclaration _ ) ->
+            ( [], ctx )
+
+        ( Enter, Destructuring _ _ ) ->
+            ( [], ctx )
+
+        ( Exit, _ ) ->
             ( [], ctx )
 
 
@@ -327,9 +363,12 @@ collectNamesFromTypeAnnotation node =
         Typed nameNode params ->
             let
                 name =
-                    nameNode
-                        |> value
-                        |> Tuple.second
+                    case value nameNode of
+                        ( [], str ) ->
+                            str
+
+                        ( moduleName, _ ) ->
+                            getModuleName moduleName
             in
             name :: List.concatMap collectNamesFromTypeAnnotation params
 
@@ -344,7 +383,13 @@ collectNamesFromTypeAnnotation node =
                 |> List.map (value >> Tuple.second)
                 |> List.concatMap collectNamesFromTypeAnnotation
 
-        _ ->
+        Tupled list ->
+            List.concatMap collectNamesFromTypeAnnotation list
+
+        GenericType _ ->
+            []
+
+        Unit ->
             []
 
 
