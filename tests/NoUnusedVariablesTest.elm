@@ -160,7 +160,8 @@ import Foo exposing (a)"""
             testRule """module A exposing (d)
 import Foo exposing (C, a, b)"""
                 |> expectErrors
-                    [ error "Variable `a` is not used" (location 2 25 26)
+                    [ error "Variable `C` is not used" (location 2 22 23)
+                    , error "Variable `a` is not used" (location 2 25 26)
                     , error "Variable `b` is not used" (location 2 28 29)
                     ]
 
@@ -316,6 +317,20 @@ a = Html.href"""
             testRule """module A exposing (a)
 import Html.Styled.Attributes as Html"""
                 |> expectErrors [ error "Variable `Html` is not used" (location 2 34 38) ]
+    , test "should not report import that exposes a used exposed type" <|
+        \() ->
+            testRule """module A exposing (a)
+import B exposing (C(..))
+a : C
+a = 1"""
+                |> expectErrors []
+    , test "should not report import that exposes an unused exposed type (but whose subtype is potentially used)" <|
+        \() ->
+            testRule """module A exposing (a)
+import B exposing (C(..))
+a : D
+a = 1"""
+                |> expectErrors []
     ]
 
 

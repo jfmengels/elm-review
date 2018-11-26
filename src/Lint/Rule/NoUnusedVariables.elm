@@ -58,7 +58,6 @@ type alias Scope =
 type alias Context =
     { scopes : Nonempty Scope
     , exposesEverything : Bool
-    , imports : Dict String Range
     }
 
 
@@ -76,7 +75,6 @@ initialContext : Context
 initialContext =
     { scopes = Nonempty.fromElement emptyScope
     , exposesEverything = False
-    , imports = Dict.empty
     }
 
 
@@ -132,38 +130,27 @@ visitImport ctx node =
             node
                 |> value
                 |> .exposingList
-
-        declaredImports =
-            exposed
-                |> Maybe.map (value >> collectFromExposing)
-                |> Maybe.withDefault []
-
-        moduleName =
-            Maybe.withDefault (value node |> .moduleName) (value node |> .moduleAlias)
     in
     case Maybe.map value exposed of
-        Just (All _) ->
-            -- Do not attempt to report an import that exposes all
-            ( [], ctx )
+        Nothing ->
+            let
+                moduleName =
+                    Maybe.withDefault (value node |> .moduleName) (value node |> .moduleAlias)
+            in
+            ( []
+            , register
+                (range moduleName)
+                (value moduleName |> getModuleName)
+                ctx
+            )
 
-        _ ->
-            if List.isEmpty declaredImports then
-                -- Only register the module name
-                ( []
-                , register
-                    (range moduleName)
-                    (value moduleName |> getModuleName)
-                    ctx
-                )
-
-            else
-                -- Only register the exposed variables
-                ( []
-                , List.foldl
-                    (\( range, name ) context -> register range name context)
-                    ctx
-                    declaredImports
-                )
+        Just declaredImports ->
+            ( []
+            , List.foldl
+                (\( range, name ) context -> register range name context)
+                ctx
+                (collectFromExposing declaredImports)
+            )
 
 
 visitExpression : Context -> Direction -> Node Expression -> ( List Error, Context )
@@ -254,7 +241,8 @@ visitEnd ctx =
             else
                 ctx.scopes
                     |> Nonempty.head
-                    |> makeReportRoot ctx.imports
+                    |> makeReport
+                    |> Tuple.first
     in
     ( errors, ctx )
 
@@ -284,8 +272,16 @@ collectFromExposing exposing_ =
                         InfixExpose name ->
                             Just ( range node, name )
 
-                        _ ->
-                            Nothing
+                        TypeOrAliasExpose name ->
+                            Just ( range node, name )
+
+                        TypeExpose { name, open } ->
+                            case open of
+                                Just openRange ->
+                                    Nothing
+
+                                Nothing ->
+                                    Just ( range node, name )
                 )
                 list
 
@@ -369,22 +365,6 @@ makeReport { declared, used } =
                 |> List.map (\( key, range ) -> error range key)
     in
     ( errors, nonUsedVars )
-
-
-makeReportRoot : Dict String Range -> Scope -> List Error
-makeReportRoot imports { declared, used } =
-    let
-        nonUsedVariablesErrors =
-            Dict.filter (\key _ -> not <| Set.member key used) declared
-                |> Dict.toList
-                |> List.map (\( key, range ) -> error range key)
-
-        nonUsedImportErrors =
-            Dict.filter (\key _ -> not <| Set.member key used) imports
-                |> Dict.toList
-                |> List.map (\( key, range ) -> error range key)
-    in
-    nonUsedImportErrors ++ nonUsedVariablesErrors
 
 
 mapNonemptyHead : (a -> a) -> Nonempty a -> Nonempty a
