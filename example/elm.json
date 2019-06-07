@@ -10,6 +10,8 @@
             "elm/browser": "1.0.1",
             "elm/core": "1.0.0",
             "elm/html": "1.0.0",
+            "elm/regex": "1.0.0",
+            "elm-community/list-extra": "8.2.0",
             "mgold/elm-nonempty-list": "4.0.0",
             "stil4m/elm-syntax": "7.0.2"
         },
@@ -21,7 +23,6 @@
             "elm/url": "1.0.0",
             "elm/virtual-dom": "1.0.2",
             "elm-community/json-extra": "4.0.0",
-            "elm-community/list-extra": "8.1.0",
             "rtfeldman/elm-hex": "1.0.0",
             "rtfeldman/elm-iso8601-date-strings": "1.1.2",
             "stil4m/structured-writer": "1.0.2"

@@ -8,6 +8,7 @@ import Html.Attributes exposing (class, id, style)
 import Html.Events exposing (onInput)
 import Lint exposing (Rule, Severity(..), lintSource)
 import Lint.Error exposing (Error)
+import Lint.Rule.DefaultPatternPosition
 import Lint.Rule.NoDebug
 import Lint.Rule.NoImportingEverything
 import Lint.Rule.NoUnusedVariables
@@ -23,8 +24,8 @@ config =
     [ ( Critical, Lint.Rule.NoDebug.rule )
     , ( Critical, Lint.Rule.NoUnusedVariables.rule )
     , ( Critical, Lint.Rule.NoImportingEverything.rule { exceptions = [ "Html" ] } )
+    , ( Critical, Lint.Rule.DefaultPatternPosition.rule { position = Lint.Rule.DefaultPatternPosition.Last } )
 
-    -- , ( Critical, Lint.Rule.DefaultPatternPosition.rule { position = Lint.Rule.DefaultPatternPosition.Last } )
     -- , ( Critical, Lint.Rule.NoConstantCondition.rule )
     -- , ( Critical, Lint.Rule.NoDuplicateImports.rule )
     -- , ( Critical, Lint.Rule.NoExposingEverything.rule )
