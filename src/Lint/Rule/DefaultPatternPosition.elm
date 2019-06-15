@@ -86,8 +86,8 @@ type alias Configuration =
 {-| Enforce the default pattern to always appear first or last.
 -}
 rule : Configuration -> Rule
-rule config input =
-    lint input (implementation config)
+rule config =
+    lint (implementation config)
 
 
 implementation : Configuration -> Rule.Implementation Context

@@ -45,8 +45,8 @@ functions and types are unknown to them.
 
 -}
 rule : Configuration -> Rule
-rule config input =
-    lint input (implementation config)
+rule config =
+    lint (implementation config)
 
 
 implementation : Configuration -> Implementation Context

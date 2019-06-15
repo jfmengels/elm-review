@@ -45,8 +45,8 @@ import Set exposing (Set)
 
 -}
 rule : Rule
-rule input =
-    lint input implementation
+rule =
+    lint implementation
 
 
 type VariableType

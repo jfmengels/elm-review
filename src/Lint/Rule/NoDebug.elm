@@ -49,8 +49,8 @@ type alias Context =
 
 -}
 rule : Rule
-rule input =
-    lint input implementation
+rule =
+    lint implementation
 
 
 implementation : Rule.Implementation Context

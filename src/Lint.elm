@@ -125,8 +125,8 @@ parseSource source =
         }
 
 -}
-lint : File -> Implementation context -> List Error
-lint file rule =
+lint : Implementation context -> File -> List Error
+lint rule file =
     createVisitorsForFile file
         |> lintWithVisitors rule
 
