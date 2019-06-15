@@ -315,20 +315,16 @@ declarationVisitor ctx direction node =
             ( [], ctx )
 
 
-finalEvaluation : Context -> ( List Error, Context )
+finalEvaluation : Context -> List Error
 finalEvaluation ctx =
-    let
-        errors =
-            if ctx.exposesEverything then
-                []
+    if ctx.exposesEverything then
+        []
 
-            else
-                ctx.scopes
-                    |> Nonempty.head
-                    |> makeReport
-                    |> Tuple.first
-    in
-    ( errors, ctx )
+    else
+        ctx.scopes
+            |> Nonempty.head
+            |> makeReport
+            |> Tuple.first
 
 
 registerFunction : Function -> Context -> Context

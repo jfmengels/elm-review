@@ -22,7 +22,7 @@ createExitAndEnterWithChildren toVisitor node children =
 
 moduleVisitor : Visitor context
 moduleVisitor rule context =
-    finalEvaluation rule context
+    ( finalEvaluation rule context, context )
 
 
 moduleDefinitionVisitor : Node Module -> Visitor context

@@ -95,7 +95,7 @@ type Implementation context
         , importVisitor : context -> Node Import -> ( List Error, context )
         , expressionVisitor : context -> Direction -> Node Expression -> ( List Error, context )
         , declarationVisitor : context -> Direction -> Node Declaration -> ( List Error, context )
-        , finalEvaluationFn : context -> ( List Error, context )
+        , finalEvaluationFn : context -> List Error
         }
 
 
@@ -111,7 +111,7 @@ create initContext =
         , importVisitor = \ctx node -> ( [], ctx )
         , expressionVisitor = \ctx direction node -> ( [], ctx )
         , declarationVisitor = \ctx direction node -> ( [], ctx )
-        , finalEvaluationFn = \ctx -> ( [], ctx )
+        , finalEvaluationFn = \ctx -> []
         }
 
 
@@ -135,7 +135,7 @@ withDeclarationVisitor visitor (Implementation impl) =
     Implementation { impl | declarationVisitor = visitor }
 
 
-withFinalEvaluation : (context -> ( List Error, context )) -> Implementation context -> Implementation context
+withFinalEvaluation : (context -> List Error) -> Implementation context -> Implementation context
 withFinalEvaluation visitor (Implementation impl) =
     Implementation { impl | finalEvaluationFn = visitor }
 
@@ -165,7 +165,7 @@ evaluateDeclaration (Implementation impl) =
     impl.declarationVisitor
 
 
-finalEvaluation : Implementation context -> context -> ( List Error, context )
+finalEvaluation : Implementation context -> context -> List Error
 finalEvaluation (Implementation impl) =
     impl.finalEvaluationFn
 
