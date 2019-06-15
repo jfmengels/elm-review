@@ -32,7 +32,7 @@ import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
 import Lint exposing (Rule, lint)
 import Lint.Error exposing (Error)
-import Lint.Rule exposing (Direction(..), Implementation, createRule)
+import Lint.Rule as Rule
 import List.Nonempty as Nonempty exposing (Nonempty)
 import Set exposing (Set)
 
@@ -148,19 +148,14 @@ initialContext =
     }
 
 
-implementation : Implementation Context
+implementation : Rule.Implementation Context
 implementation =
-    createRule
-        initialContext
-        (\v ->
-            { v
-                | visitModuleDefinition = visitModuleDefinition
-                , visitImport = visitImport
-                , visitDeclaration = visitDeclaration
-                , visitExpression = visitExpression
-                , visitEnd = visitEnd
-            }
-        )
+    Rule.create initialContext
+        |> Rule.withModuleDefinitionVisitor visitModuleDefinition
+        |> Rule.withImportVisitor visitImport
+        |> Rule.withExpressionVisitor visitExpression
+        |> Rule.withDeclarationVisitor visitDeclaration
+        |> Rule.withEndVisitor visitEnd
 
 
 visitModuleDefinition : Context -> Node Module -> ( List Error, Context )
@@ -229,22 +224,22 @@ visitImport ctx node =
             )
 
 
-visitExpression : Context -> Direction -> Node Expression -> ( List Error, Context )
+visitExpression : Context -> Rule.Direction -> Node Expression -> ( List Error, Context )
 visitExpression ctx direction node =
     case ( direction, value node ) of
-        ( Enter, FunctionOrValue [] name ) ->
+        ( Rule.Enter, FunctionOrValue [] name ) ->
             ( [], markAsUsed name ctx )
 
-        ( Enter, FunctionOrValue moduleName name ) ->
+        ( Rule.Enter, FunctionOrValue moduleName name ) ->
             ( [], markAsUsed (getModuleName moduleName) ctx )
 
-        ( Enter, OperatorApplication name _ _ _ ) ->
+        ( Rule.Enter, OperatorApplication name _ _ _ ) ->
             ( [], markAsUsed name ctx )
 
-        ( Enter, PrefixOperator name ) ->
+        ( Rule.Enter, PrefixOperator name ) ->
             ( [], markAsUsed name ctx )
 
-        ( Enter, LetExpression { declarations } ) ->
+        ( Rule.Enter, LetExpression { declarations } ) ->
             let
                 newContext =
                     List.foldl
@@ -261,7 +256,7 @@ visitExpression ctx direction node =
             in
             ( [], newContext )
 
-        ( Exit, LetExpression _ ) ->
+        ( Rule.Exit, LetExpression _ ) ->
             let
                 ( errors, remainingUsed ) =
                     makeReport (Nonempty.head ctx.scopes)
@@ -277,10 +272,10 @@ visitExpression ctx direction node =
             ( [], ctx )
 
 
-visitDeclaration : Context -> Direction -> Node Declaration -> ( List Error, Context )
+visitDeclaration : Context -> Rule.Direction -> Node Declaration -> ( List Error, Context )
 visitDeclaration ctx direction node =
     case ( direction, value node ) of
-        ( Enter, FunctionDeclaration function ) ->
+        ( Rule.Enter, FunctionDeclaration function ) ->
             let
                 declaration =
                     value function.declaration
@@ -297,26 +292,26 @@ visitDeclaration ctx direction node =
             in
             ( [], newContext )
 
-        ( Enter, CustomTypeDeclaration { name } ) ->
+        ( Rule.Enter, CustomTypeDeclaration { name } ) ->
             ( [], register Type (range name) (value name) ctx )
 
-        ( Enter, AliasDeclaration { name } ) ->
+        ( Rule.Enter, AliasDeclaration { name } ) ->
             ( [], register Type (range name) (value name) ctx )
 
-        ( Enter, PortDeclaration { name, typeAnnotation } ) ->
+        ( Rule.Enter, PortDeclaration { name, typeAnnotation } ) ->
             ( []
             , ctx
                 |> markAllAsUsed (collectNamesFromTypeAnnotation typeAnnotation)
                 |> register Port (range name) (value name)
             )
 
-        ( Enter, InfixDeclaration _ ) ->
+        ( Rule.Enter, InfixDeclaration _ ) ->
             ( [], ctx )
 
-        ( Enter, Destructuring _ _ ) ->
+        ( Rule.Enter, Destructuring _ _ ) ->
             ( [], ctx )
 
-        ( Exit, _ ) ->
+        ( Rule.Exit, _ ) ->
             ( [], ctx )
 
 

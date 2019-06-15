@@ -22,7 +22,7 @@ import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Lint exposing (Rule, lint)
 import Lint.Error exposing (Error)
-import Lint.Rule exposing (Implementation, createRule)
+import Lint.Rule as Rule exposing (Implementation)
 import Lint.Util as Util
 
 
@@ -51,9 +51,8 @@ rule config input =
 
 implementation : Configuration -> Implementation Context
 implementation config =
-    createRule
-        ()
-        (\v -> { v | visitImport = visitImport config })
+    Rule.create ()
+        |> Rule.withImportVisitor (visitImport config)
 
 
 error : Range -> String -> Error

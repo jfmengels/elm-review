@@ -34,11 +34,11 @@ import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Node exposing (Node, range, value)
 import Lint exposing (Rule, lint)
 import Lint.Error exposing (Error)
-import Lint.Rule exposing (Direction(..), Implementation, createRule)
+import Lint.Rule as Rule
 
 
 type alias Context =
-    {}
+    ()
 
 
 {-| Forbid the use of `Debug` before it goes into production.
@@ -53,11 +53,10 @@ rule input =
     lint input implementation
 
 
-implementation : Implementation Context
+implementation : Rule.Implementation Context
 implementation =
-    createRule
-        Context
-        (\v -> { v | visitExpression = visitExpression })
+    Rule.create ()
+        |> Rule.withExpressionVisitor visitExpression
 
 
 error : Node a -> Error
@@ -65,10 +64,10 @@ error node =
     Error "NoDebug" "Forbidden use of Debug" (range node)
 
 
-visitExpression : Context -> Direction -> Node Expression -> ( List Error, Context )
+visitExpression : Context -> Rule.Direction -> Node Expression -> ( List Error, Context )
 visitExpression ctx direction node =
     case ( direction, value node ) of
-        ( Enter, FunctionOrValue moduleName fnName ) ->
+        ( Rule.Enter, FunctionOrValue moduleName fnName ) ->
             if List.member "Debug" moduleName then
                 ( [ error node ], ctx )
 

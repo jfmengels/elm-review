@@ -60,13 +60,13 @@ import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Pattern exposing (Pattern(..))
 import Lint exposing (Rule, lint)
 import Lint.Error exposing (Error)
-import Lint.Rule exposing (Direction(..), Implementation, createRule)
+import Lint.Rule as Rule
 import List.Extra exposing (findIndex)
 import Regex
 
 
 type alias Context =
-    {}
+    ()
 
 
 {-| Configures whether the default pattern should appear first or last.
@@ -90,11 +90,10 @@ rule config input =
     lint input (implementation config)
 
 
-implementation : Configuration -> Implementation Context
+implementation : Configuration -> Rule.Implementation Context
 implementation configuration =
-    createRule
-        {}
-        (\v -> { v | visitExpression = visitExpression configuration })
+    Rule.create ()
+        |> Rule.withExpressionVisitor (visitExpression configuration)
 
 
 error : Node a -> String -> Error
@@ -133,10 +132,10 @@ findDefaultPattern patterns =
         |> findIndex isDefaultPattern
 
 
-visitExpression : Configuration -> Context -> Direction -> Node Expression -> ( List Error, Context )
+visitExpression : Configuration -> Context -> Rule.Direction -> Node Expression -> ( List Error, Context )
 visitExpression config ctx direction node =
     case ( direction, Node.value node ) of
-        ( Enter, CaseExpression { cases } ) ->
+        ( Rule.Enter, CaseExpression { cases } ) ->
             case findDefaultPattern cases of
                 Nothing ->
                     ( [], ctx )
