@@ -172,8 +172,11 @@ expressionVisitor rule expression =
 
 visitAndAccumulate : Implementation context -> Visitor context -> ( List Error, context ) -> ( List Error, context )
 visitAndAccumulate rule visitor ( errors, ctx ) =
-    visitor rule ctx
-        |> Tuple.mapFirst (\errors_ -> errors ++ errors_)
+    let
+        ( newErrors, newContext ) =
+            visitor rule ctx
+    in
+    ( List.reverse newErrors ++ errors, newContext )
 
 
 lintWithVisitors : Implementation context -> List (Visitor context) -> List Error
@@ -181,3 +184,4 @@ lintWithVisitors rule visitors =
     visitors
         |> List.foldl (visitAndAccumulate rule) ( [], Rule.initialContext rule )
         |> Tuple.first
+        |> List.reverse
