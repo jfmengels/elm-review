@@ -151,15 +151,15 @@ initialContext =
 implementation : Rule.Implementation Context
 implementation =
     Rule.create initialContext
-        |> Rule.withModuleDefinitionVisitor visitModuleDefinition
-        |> Rule.withImportVisitor visitImport
-        |> Rule.withExpressionVisitor visitExpression
-        |> Rule.withDeclarationVisitor visitDeclaration
-        |> Rule.withEndVisitor visitEnd
+        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
+        |> Rule.withImportVisitor importVisitor
+        |> Rule.withExpressionVisitor expressionVisitor
+        |> Rule.withDeclarationVisitor declarationVisitor
+        |> Rule.withFinalEvaluation finalEvaluation
 
 
-visitModuleDefinition : Context -> Node Module -> ( List Error, Context )
-visitModuleDefinition ctx moduleNode =
+moduleDefinitionVisitor : Context -> Node Module -> ( List Error, Context )
+moduleDefinitionVisitor ctx moduleNode =
     case Module.exposingList (value moduleNode) of
         All _ ->
             ( [], { ctx | exposesEverything = True } )
@@ -188,8 +188,8 @@ visitModuleDefinition ctx moduleNode =
             ( [], markAllAsUsed names ctx )
 
 
-visitImport : Context -> Node Import -> ( List Error, Context )
-visitImport ctx node =
+importVisitor : Context -> Node Import -> ( List Error, Context )
+importVisitor ctx node =
     let
         exposed =
             node
@@ -224,8 +224,8 @@ visitImport ctx node =
             )
 
 
-visitExpression : Context -> Rule.Direction -> Node Expression -> ( List Error, Context )
-visitExpression ctx direction node =
+expressionVisitor : Context -> Rule.Direction -> Node Expression -> ( List Error, Context )
+expressionVisitor ctx direction node =
     case ( direction, value node ) of
         ( Rule.Enter, FunctionOrValue [] name ) ->
             ( [], markAsUsed name ctx )
@@ -272,8 +272,8 @@ visitExpression ctx direction node =
             ( [], ctx )
 
 
-visitDeclaration : Context -> Rule.Direction -> Node Declaration -> ( List Error, Context )
-visitDeclaration ctx direction node =
+declarationVisitor : Context -> Rule.Direction -> Node Declaration -> ( List Error, Context )
+declarationVisitor ctx direction node =
     case ( direction, value node ) of
         ( Rule.Enter, FunctionDeclaration function ) ->
             let
@@ -315,8 +315,8 @@ visitDeclaration ctx direction node =
             ( [], ctx )
 
 
-visitEnd : Context -> ( List Error, Context )
-visitEnd ctx =
+finalEvaluation : Context -> ( List Error, Context )
+finalEvaluation ctx =
     let
         errors =
             if ctx.exposesEverything then

@@ -1,7 +1,7 @@
 module Lint.Rule exposing
     ( Direction(..)
     , Implementation, create
-    , withModuleDefinitionVisitor, withImportVisitor, withExpressionVisitor, withDeclarationVisitor, withEndVisitor
+    , withModuleDefinitionVisitor, withImportVisitor, withExpressionVisitor, withDeclarationVisitor, withFinalEvaluation
     , Visitor, LintResult
     , evaluateDeclaration, evaluateExpression, evaluateImport, evaluateModuleDefinition, finalEvaluation, initialContext
     )
@@ -17,7 +17,7 @@ module Lint.Rule exposing
 # Writing rules
 
 @docs Implementation, create
-@docs withModuleDefinitionVisitor, withImportVisitor, withExpressionVisitor, withDeclarationVisitor, withEndVisitor
+@docs withModuleDefinitionVisitor, withImportVisitor, withExpressionVisitor, withDeclarationVisitor, withFinalEvaluation
 
 
 # Internal types
@@ -95,7 +95,7 @@ type Implementation context
         , importVisitor : context -> Node Import -> ( List Error, context )
         , expressionVisitor : context -> Direction -> Node Expression -> ( List Error, context )
         , declarationVisitor : context -> Direction -> Node Declaration -> ( List Error, context )
-        , endVisitor : context -> ( List Error, context )
+        , finalEvaluationFn : context -> ( List Error, context )
         }
 
 
@@ -111,7 +111,7 @@ create initContext =
         , importVisitor = \ctx node -> ( [], ctx )
         , expressionVisitor = \ctx direction node -> ( [], ctx )
         , declarationVisitor = \ctx direction node -> ( [], ctx )
-        , endVisitor = \ctx -> ( [], ctx )
+        , finalEvaluationFn = \ctx -> ( [], ctx )
         }
 
 
@@ -135,9 +135,9 @@ withDeclarationVisitor visitor (Implementation impl) =
     Implementation { impl | declarationVisitor = visitor }
 
 
-withEndVisitor : (context -> ( List Error, context )) -> Implementation context -> Implementation context
-withEndVisitor visitor (Implementation impl) =
-    Implementation { impl | endVisitor = visitor }
+withFinalEvaluation : (context -> ( List Error, context )) -> Implementation context -> Implementation context
+withFinalEvaluation visitor (Implementation impl) =
+    Implementation { impl | finalEvaluationFn = visitor }
 
 
 initialContext : Implementation context -> context
@@ -167,7 +167,7 @@ evaluateDeclaration (Implementation impl) =
 
 finalEvaluation : Implementation context -> context -> ( List Error, context )
 finalEvaluation (Implementation impl) =
-    impl.endVisitor
+    impl.finalEvaluationFn
 
 
 {-| Shortcut to the result of a lint rule

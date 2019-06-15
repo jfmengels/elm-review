@@ -93,7 +93,7 @@ rule config input =
 implementation : Configuration -> Rule.Implementation Context
 implementation configuration =
     Rule.create ()
-        |> Rule.withExpressionVisitor (visitExpression configuration)
+        |> Rule.withExpressionVisitor (expressionVisitor configuration)
 
 
 error : Node a -> String -> Error
@@ -132,8 +132,8 @@ findDefaultPattern patterns =
         |> findIndex isDefaultPattern
 
 
-visitExpression : Configuration -> Context -> Rule.Direction -> Node Expression -> ( List Error, Context )
-visitExpression config ctx direction node =
+expressionVisitor : Configuration -> Context -> Rule.Direction -> Node Expression -> ( List Error, Context )
+expressionVisitor config ctx direction node =
     case ( direction, Node.value node ) of
         ( Rule.Enter, CaseExpression { cases } ) ->
             case findDefaultPattern cases of

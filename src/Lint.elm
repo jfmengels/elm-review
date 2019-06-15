@@ -1,7 +1,7 @@
 module Lint exposing
     ( Rule, Severity(..)
     , lintSource
-    , lint, visitExpression
+    , lint, expressionVisitor
     )
 
 {-| A linter for Elm.
@@ -41,7 +41,7 @@ To run the rules on a source code and get a list of errors:
 
 # Rule creation functions
 
-@docs lint, visitExpression
+@docs lint, expressionVisitor
 
 -}
 
@@ -119,7 +119,7 @@ parseSource source =
     implementation : Implementation Context
     implementation =
         { typeFn = doNothing
-        , visitExpression = visitExpression
+        , expressionVisitor = expressionVisitor
         , visitEnd = \ctx -> ( [], ctx )
         , initialContext = Context
         }
@@ -134,11 +134,11 @@ lint file rule =
 {-| Visit an expression using a sub rule implementation. The use of this function is not encouraged, but it can make
 part of the implementation of complex rules much easier. It gives back a list of errors and a context.
 
-    visitExpression : Context -> Direction Expression -> ( List Lint.Error.Error, Context )
-    visitExpression ctx node =
+    expressionVisitor : Context -> Direction Expression -> ( List Lint.Error.Error, Context )
+    expressionVisitor ctx node =
         case node of
             Enter (Case expr patterns) ->
-                visitExpression subimplementation expr
+                expressionVisitor subimplementation expr
 
             _ ->
                 ( [], ctx )
@@ -147,14 +147,14 @@ part of the implementation of complex rules much easier. It gives back a list of
     subimplementation =
         { statementFn = doNothing
         , typeFn = doNothing
-        , visitExpression = subvisitExpression
+        , expressionVisitor = subvisitExpression
         , visitEnd = \ctx -> ( [], ctx )
         , initialContext = Subcontext
         }
 
 -}
-visitExpression : Implementation context -> Node Expression -> ( List Error, context )
-visitExpression rule expression =
+expressionVisitor : Implementation context -> Node Expression -> ( List Error, context )
+expressionVisitor rule expression =
     expressionToVisitors expression
         |> List.foldl (visitAndAccumulate rule) ( [], initialContext rule )
 

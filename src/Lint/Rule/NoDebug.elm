@@ -56,7 +56,7 @@ rule input =
 implementation : Rule.Implementation Context
 implementation =
     Rule.create ()
-        |> Rule.withExpressionVisitor visitExpression
+        |> Rule.withExpressionVisitor expressionVisitor
 
 
 error : Node a -> Error
@@ -64,8 +64,8 @@ error node =
     Error "NoDebug" "Forbidden use of Debug" (range node)
 
 
-visitExpression : Context -> Rule.Direction -> Node Expression -> ( List Error, Context )
-visitExpression ctx direction node =
+expressionVisitor : Context -> Rule.Direction -> Node Expression -> ( List Error, Context )
+expressionVisitor ctx direction node =
     case ( direction, value node ) of
         ( Rule.Enter, FunctionOrValue moduleName fnName ) ->
             if List.member "Debug" moduleName then

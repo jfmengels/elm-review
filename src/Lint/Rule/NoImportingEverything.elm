@@ -52,7 +52,7 @@ rule config input =
 implementation : Configuration -> Implementation Context
 implementation config =
     Rule.create ()
-        |> Rule.withImportVisitor (visitImport config)
+        |> Rule.withImportVisitor (importVisitor config)
 
 
 error : Range -> String -> Error
@@ -60,8 +60,8 @@ error range name =
     Error "NoImportingEverything" ("Do not expose everything from " ++ name) range
 
 
-visitImport : Configuration -> Context -> Node Import -> ( List Error, Context )
-visitImport config context node =
+importVisitor : Configuration -> Context -> Node Import -> ( List Error, Context )
+importVisitor config context node =
     let
         { moduleName, exposingList } =
             Node.value node
