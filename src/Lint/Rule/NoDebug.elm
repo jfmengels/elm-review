@@ -50,7 +50,9 @@ type alias Context =
 -}
 rule : Rule
 rule =
-    lint implementation
+    Lint.createRule
+        "NoDebug"
+        (lint implementation)
 
 
 implementation : Rule.Implementation Context

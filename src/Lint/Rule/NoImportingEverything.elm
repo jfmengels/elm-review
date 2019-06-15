@@ -46,7 +46,9 @@ functions and types are unknown to them.
 -}
 rule : Configuration -> Rule
 rule config =
-    lint (implementation config)
+    Lint.createRule
+        "NoImportingEverything"
+        (lint (implementation config))
 
 
 implementation : Configuration -> Implementation Context

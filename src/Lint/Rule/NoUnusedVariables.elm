@@ -46,7 +46,9 @@ import Set exposing (Set)
 -}
 rule : Rule
 rule =
-    lint implementation
+    Lint.createRule
+        "NoUnusedVariables"
+        (lint implementation)
 
 
 type VariableType

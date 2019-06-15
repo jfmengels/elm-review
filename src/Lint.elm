@@ -2,6 +2,7 @@ module Lint exposing
     ( Rule, Severity(..)
     , lintSource
     , lint, expressionVisitor
+    , createRule
     )
 
 {-| A linter for Elm.
@@ -58,7 +59,16 @@ import Lint.Rule exposing (Direction, Implementation, Visitor, initialContext)
 {-| Shortcut to a lint rule
 -}
 type alias Rule =
-    File -> List Error
+    { name : String
+    , analyze : File -> List Error
+    }
+
+
+createRule : String -> (File -> List Error) -> Rule
+createRule name analyze =
+    { name = name
+    , analyze = analyze
+    }
 
 
 {-| Severity associated to a rule.
@@ -94,7 +104,7 @@ lintSource rules source =
 
 lintSourceWithRule : File -> ( Severity, Rule ) -> List ( Severity, Error )
 lintSourceWithRule file ( severity, rule ) =
-    rule file
+    rule.analyze file
         |> List.map (\b -> ( severity, b ))
 
 

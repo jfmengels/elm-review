@@ -87,7 +87,9 @@ type alias Configuration =
 -}
 rule : Configuration -> Rule
 rule config =
-    lint (implementation config)
+    Lint.createRule
+        "DefaultPatternPosition"
+        (lint (implementation config))
 
 
 implementation : Configuration -> Rule.Implementation Context
