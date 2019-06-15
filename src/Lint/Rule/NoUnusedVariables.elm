@@ -31,7 +31,7 @@ import Elm.Syntax.Node exposing (Node, range, value)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
 import Lint exposing (Rule, lint)
-import Lint.Error exposing (Error)
+import Lint.Error as Error exposing (Error)
 import Lint.Rule as Rule
 import List.Nonempty as Nonempty exposing (Nonempty)
 import Set exposing (Set)
@@ -81,8 +81,7 @@ emptyScope =
 
 error : VariableType -> Range -> String -> Error
 error variableType range_ name =
-    Error
-        "NoUnusedVariables"
+    Error.create
         (variableTypeToString variableType ++ " `" ++ name ++ "` is not used" ++ variableTypeWarning variableType)
         range_
 

@@ -33,7 +33,7 @@ module Lint.Rule.NoDebug exposing (rule)
 import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Node exposing (Node, range, value)
 import Lint exposing (Rule, lint)
-import Lint.Error exposing (Error)
+import Lint.Error as Error exposing (Error)
 import Lint.Rule as Rule
 
 
@@ -63,7 +63,7 @@ implementation =
 
 error : Node a -> Error
 error node =
-    Error "NoDebug" "Forbidden use of Debug" (range node)
+    Error.create "Forbidden use of Debug" (range node)
 
 
 expressionVisitor : Context -> Rule.Direction -> Node Expression -> ( List Error, Context )

@@ -51,9 +51,10 @@ import Elm.Processing exposing (addFile, init, process)
 import Elm.Syntax.Expression exposing (Expression)
 import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Node exposing (Node)
-import Lint.Error exposing (Error)
+import Lint.Error as Error exposing (Error)
 import Lint.NodeToVisitor exposing (createVisitorsForFile, expressionToVisitors)
-import Lint.Rule exposing (Direction, Implementation, Visitor, initialContext)
+import Lint.Rule as Rule exposing (Direction, Implementation, Visitor)
+import Lint.RuleError as RuleError exposing (RuleError)
 
 
 {-| Shortcut to a lint rule
@@ -90,7 +91,7 @@ type Severity
         lintSource rules source
 
 -}
-lintSource : List ( Severity, Rule ) -> String -> Result (List String) (List ( Severity, Error ))
+lintSource : List ( Severity, Rule ) -> String -> Result (List String) (List ( Severity, RuleError ))
 lintSource rules source =
     source
         |> parseSource
@@ -102,10 +103,10 @@ lintSource rules source =
             )
 
 
-lintSourceWithRule : File -> ( Severity, Rule ) -> List ( Severity, Error )
+lintSourceWithRule : File -> ( Severity, Rule ) -> List ( Severity, RuleError )
 lintSourceWithRule file ( severity, rule ) =
     rule.analyze file
-        |> List.map (\b -> ( severity, b ))
+        |> List.map (\error -> ( severity, RuleError.fromError rule.name error ))
 
 
 {-| Parse source code into a AST
@@ -166,7 +167,7 @@ part of the implementation of complex rules much easier. It gives back a list of
 expressionVisitor : Implementation context -> Node Expression -> ( List Error, context )
 expressionVisitor rule expression =
     expressionToVisitors expression
-        |> List.foldl (visitAndAccumulate rule) ( [], initialContext rule )
+        |> List.foldl (visitAndAccumulate rule) ( [], Rule.initialContext rule )
 
 
 visitAndAccumulate : Implementation context -> Visitor context -> ( List Error, context ) -> ( List Error, context )
@@ -178,5 +179,5 @@ visitAndAccumulate rule visitor ( errors, ctx ) =
 lintWithVisitors : Implementation context -> List (Visitor context) -> List Error
 lintWithVisitors rule visitors =
     visitors
-        |> List.foldl (visitAndAccumulate rule) ( [], initialContext rule )
+        |> List.foldl (visitAndAccumulate rule) ( [], Rule.initialContext rule )
         |> Tuple.first

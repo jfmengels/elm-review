@@ -59,7 +59,7 @@ import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Pattern exposing (Pattern(..))
 import Lint exposing (Rule, lint)
-import Lint.Error exposing (Error)
+import Lint.Error as Error exposing (Error)
 import Lint.Rule as Rule
 import List.Extra exposing (findIndex)
 import Regex
@@ -100,10 +100,7 @@ implementation configuration =
 
 error : Node a -> String -> Error
 error node message =
-    Error
-        "DefaultPatternPosition"
-        message
-        (Node.range node)
+    Error.create message (Node.range node)
 
 
 

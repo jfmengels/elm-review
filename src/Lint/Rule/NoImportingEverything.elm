@@ -21,7 +21,7 @@ import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Lint exposing (Rule, lint)
-import Lint.Error exposing (Error)
+import Lint.Error as Error exposing (Error)
 import Lint.Rule as Rule exposing (Implementation)
 import Lint.Util as Util
 
@@ -59,7 +59,7 @@ implementation config =
 
 error : Range -> String -> Error
 error range name =
-    Error "NoImportingEverything" ("Do not expose everything from " ++ name) range
+    Error.create ("Do not expose everything from " ++ name) range
 
 
 importVisitor : Configuration -> Context -> Node Import -> ( List Error, Context )

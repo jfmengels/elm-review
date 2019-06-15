@@ -7,11 +7,11 @@ import Html exposing (..)
 import Html.Attributes exposing (class, id, style)
 import Html.Events exposing (onInput)
 import Lint exposing (Rule, Severity(..), lintSource)
-import Lint.Error exposing (Error)
 import Lint.Rule.DefaultPatternPosition
 import Lint.Rule.NoDebug
 import Lint.Rule.NoImportingEverything
 import Lint.Rule.NoUnusedVariables
+import Lint.RuleError exposing (RuleError)
 import Result exposing (Result)
 
 
@@ -61,15 +61,15 @@ update action model =
             m
 
 
-errorToString : Error -> String
-errorToString { message, range } =
-    message ++ " (line " ++ String.fromInt range.start.row ++ ", column " ++ String.fromInt range.start.column ++ ")"
+errorToString : RuleError -> String
+errorToString { rule, message, range } =
+    rule ++ ": " ++ message ++ " (line " ++ String.fromInt range.start.row ++ ", column " ++ String.fromInt range.start.column ++ ")"
 
 
 lint : String -> Html Msg
 lint source =
     let
-        lintResult : Result (List String) (List ( Severity, Error ))
+        lintResult : Result (List String) (List ( Severity, RuleError ))
         lintResult =
             lintSource config source
 

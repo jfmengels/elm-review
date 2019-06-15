@@ -2,7 +2,7 @@ module NoImportingEverythingTest exposing (all)
 
 import Elm.Syntax.Range exposing (Location, Range)
 import Lint exposing (Rule)
-import Lint.Error exposing (Error)
+import Lint.Error as Error exposing (Error)
 import Lint.Rule exposing (LintResult)
 import Lint.Rule.NoImportingEverything exposing (Configuration, rule)
 import Test exposing (Test, describe, test)
@@ -16,7 +16,7 @@ testRule options =
 
 error : String -> Error
 error message =
-    Error "NoImportingEverything" message (location ( 0, 0 ) ( 0, 0 ))
+    Error.create message (location ( 0, 0 ) ( 0, 0 ))
 
 
 tests : List Test

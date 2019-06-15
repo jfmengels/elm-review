@@ -3,14 +3,14 @@ module TestUtil exposing (expectErrors, expectErrorsWithoutRange, location, rule
 import Elm.Syntax.Range exposing (Range)
 import Expect
 import Lint exposing (Rule, Severity(..), lintSource)
-import Lint.Error exposing (Error)
+import Lint.Error as Error exposing (Error)
 import Lint.Rule exposing (LintResult)
 
 
-ruleTester : Rule -> String -> LintResult
+ruleTester : Rule -> String -> Result (List String) (List Error)
 ruleTester rule str =
     lintSource [ ( Critical, rule ) ] str
-        |> Result.map (List.map (\( severity, error ) -> error))
+        |> Result.map (List.map (\( severity, { message, range } ) -> Error.create message range))
 
 
 expectErrors : List Error -> LintResult -> Expect.Expectation
@@ -31,13 +31,13 @@ expectErrorsWithoutRange expectedErrors result =
 
         Ok errors ->
             Expect.equal
-                (withoutRange expectedErrors)
-                (withoutRange errors)
+                (errorMessages expectedErrors)
+                (errorMessages errors)
 
 
-withoutRange : List Error -> List { rule : String, message : String }
-withoutRange errors =
-    List.map (\{ rule, message } -> { rule = rule, message = message }) errors
+errorMessages : List Error -> List String
+errorMessages errors =
+    List.map Error.message errors
 
 
 location : ( Int, Int ) -> ( Int, Int ) -> Range

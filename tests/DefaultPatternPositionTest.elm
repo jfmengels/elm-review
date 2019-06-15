@@ -2,7 +2,7 @@ module DefaultPatternPositionTest exposing (all)
 
 import Elm.Syntax.Range exposing (Location, Range)
 import Lint exposing (Rule)
-import Lint.Error exposing (Error)
+import Lint.Error as Error exposing (Error)
 import Lint.Rule exposing (LintResult)
 import Lint.Rule.DefaultPatternPosition exposing (Configuration, PatternPosition(..), rule)
 import Test exposing (Test, describe, test)
@@ -16,8 +16,7 @@ testRule options =
 
 error : String -> Error
 error position =
-    Error
-        "DefaultPatternPosition"
+    Error.create
         ("Expected default pattern to appear " ++ position ++ " in the list of patterns")
         (location ( 0, 0 ) ( 0, 0 ))
 
