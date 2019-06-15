@@ -2,8 +2,8 @@ module Lint.Rule exposing
     ( Direction(..)
     , Implementation, create
     , withModuleDefinitionVisitor, withImportVisitor, withExpressionVisitor, withDeclarationVisitor, withFinalEvaluation
-    , Visitor, LintResult
     , evaluateDeclaration, evaluateExpression, evaluateImport, evaluateModuleDefinition, finalEvaluation, initialContext
+    , Visitor, LintResult
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -18,6 +18,11 @@ module Lint.Rule exposing
 
 @docs Implementation, create
 @docs withModuleDefinitionVisitor, withImportVisitor, withExpressionVisitor, withDeclarationVisitor, withFinalEvaluation
+
+
+# ACCESS
+
+@docs evaluateDeclaration, evaluateExpression, evaluateImport, evaluateModuleDefinition, finalEvaluation, initialContext
 
 
 # Internal types
@@ -90,7 +95,7 @@ type Direction
 -}
 type Implementation context
     = Implementation
-        { initContext : context
+        { initialContext : context
         , moduleDefinitionVisitor : context -> Node Module -> ( List Error, context )
         , importVisitor : context -> Node Import -> ( List Error, context )
         , expressionVisitor : context -> Direction -> Node Expression -> ( List Error, context )
@@ -104,9 +109,9 @@ type Implementation context
 
 
 create : context -> Implementation context
-create initContext =
+create initialContext_ =
     Implementation
-        { initContext = initContext
+        { initialContext = initialContext_
         , moduleDefinitionVisitor = \ctx node -> ( [], ctx )
         , importVisitor = \ctx node -> ( [], ctx )
         , expressionVisitor = \ctx direction node -> ( [], ctx )
@@ -140,9 +145,13 @@ withFinalEvaluation visitor (Implementation impl) =
     Implementation { impl | finalEvaluationFn = visitor }
 
 
+
+-- ACCESS
+
+
 initialContext : Implementation context -> context
-initialContext (Implementation { initContext }) =
-    initContext
+initialContext (Implementation impl) =
+    impl.initialContext
 
 
 evaluateModuleDefinition : Implementation context -> context -> Node Module -> ( List Error, context )
