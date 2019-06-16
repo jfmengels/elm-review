@@ -1,4 +1,4 @@
-module TestUtil exposing (expectErrors, expectErrorsWithoutRange, location, ruleTester)
+module TestUtil exposing (errorWithoutRange, expectErrors, expectErrorsWithoutRange, location, ruleTester)
 
 import Elm.Syntax.Range exposing (Range)
 import Expect
@@ -38,6 +38,11 @@ expectErrorsWithoutRange expectedErrors result =
 errorMessages : List Error -> List String
 errorMessages errors =
     List.map Error.message errors
+
+
+errorWithoutRange : String -> Error
+errorWithoutRange message =
+    Error.create message (location ( 0, 0 ) ( 0, 0 ))
 
 
 location : ( Int, Int ) -> ( Int, Int ) -> Range
