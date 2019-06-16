@@ -26,6 +26,7 @@ These are the rules that are built-in and available for you to choose from.
 - **NoConstantCondition** - Forbid the use of expressions in an If condition whose value are always the same.
 - **NoDebug** - Forbid the use of `Debug` before it goes into production.
 - **NoDuplicateImports** - Forbid importing the same module several times in a file.
+- **NoExtraBooleanComparison** - Forbid extraneous comparisons with booleans, like `(isAdmin user) == True`.
 - **NoExposingEverything** - Forbid exporting everything in your modules `module Main exposing (..)`, to make your module explicit in what it exposes.
 - **NoImportingEverything** - Forbid importing everything from your module. This can especially be confusing to newcomers when the exposed functions and types are unknown to them.
 - **NoNestedLet** - Forbid nesting let expressions directly.

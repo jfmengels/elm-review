@@ -9,6 +9,7 @@ import Html.Events exposing (onInput)
 import Lint exposing (Rule, Severity(..), lintSource)
 import Lint.Rule.DefaultPatternPosition
 import Lint.Rule.NoDebug
+import Lint.Rule.NoExtraBooleanComparison
 import Lint.Rule.NoImportingEverything
 import Lint.Rule.NoUnusedVariables
 import Lint.RuleError exposing (RuleError)
@@ -25,6 +26,7 @@ config =
     , ( Critical, Lint.Rule.NoUnusedVariables.rule )
     , ( Critical, Lint.Rule.NoImportingEverything.rule { exceptions = [ "Html" ] } )
     , ( Critical, Lint.Rule.DefaultPatternPosition.rule { position = Lint.Rule.DefaultPatternPosition.Last } )
+    , ( Critical, Lint.Rule.NoExtraBooleanComparison.rule )
 
     -- , ( Critical, Lint.Rule.NoConstantCondition.rule )
     -- , ( Critical, Lint.Rule.NoDuplicateImports.rule )
