@@ -1,6 +1,8 @@
 module Lint.Rule exposing
-    ( Implementation, create
+    ( Implementation
+    , create, createSimple
     , withModuleDefinitionVisitor, withImportVisitor, withExpressionVisitor, withDeclarationVisitor, withFinalEvaluation
+    , withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleExpressionVisitor, withSimpleDeclarationVisitor
     , evaluateDeclaration, evaluateExpression, evaluateImport, evaluateModuleDefinition, finalEvaluation, initialContext
     , Visitor, LintResult
     )
@@ -8,10 +10,16 @@ module Lint.Rule exposing
 {-| This module contains functions that are used for writing rules.
 
 
+# Definition
+
+@docs Implementation
+
+
 # Writing rules
 
-@docs Implementation, create
+@docs create, createSimple
 @docs withModuleDefinitionVisitor, withImportVisitor, withExpressionVisitor, withDeclarationVisitor, withFinalEvaluation
+@docs withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleExpressionVisitor, withSimpleDeclarationVisitor
 
 
 # ACCESS
@@ -32,7 +40,7 @@ import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Module exposing (Module)
 import Elm.Syntax.Node exposing (Node)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation)
-import Lint.Direction exposing (Direction)
+import Lint.Direction as Direction exposing (Direction)
 import Lint.Error exposing (Error)
 
 
@@ -75,17 +83,18 @@ type Implementation context
 
 
 -- RULE CONSTRUCTOR AND BUILDERS
+-- RULES WITH ANALYSES
 
 
 create : context -> Implementation context
 create initialContext_ =
     Implementation
         { initialContext = initialContext_
-        , moduleDefinitionVisitor = \ctx node -> ( [], ctx )
-        , importVisitor = \ctx node -> ( [], ctx )
-        , expressionVisitor = \ctx direction node -> ( [], ctx )
-        , declarationVisitor = \ctx direction node -> ( [], ctx )
-        , finalEvaluationFn = \ctx -> []
+        , moduleDefinitionVisitor = \context node -> ( [], context )
+        , importVisitor = \context node -> ( [], context )
+        , expressionVisitor = \context direction node -> ( [], context )
+        , declarationVisitor = \context direction node -> ( [], context )
+        , finalEvaluationFn = \context -> []
         }
 
 
@@ -112,6 +121,55 @@ withDeclarationVisitor visitor (Implementation impl) =
 withFinalEvaluation : (context -> List Error) -> Implementation context -> Implementation context
 withFinalEvaluation visitor (Implementation impl) =
     Implementation { impl | finalEvaluationFn = visitor }
+
+
+
+-- RULES WITHOUT ANALYSIS
+
+
+createSimple : Implementation ()
+createSimple =
+    create ()
+
+
+withSimpleModuleDefinitionVisitor : (Node Module -> List Error) -> Implementation context -> Implementation context
+withSimpleModuleDefinitionVisitor visitor (Implementation impl) =
+    Implementation { impl | moduleDefinitionVisitor = \context node -> ( visitor node, context ) }
+
+
+withSimpleImportVisitor : (Node Import -> List Error) -> Implementation context -> Implementation context
+withSimpleImportVisitor visitor (Implementation impl) =
+    Implementation { impl | importVisitor = \context node -> ( visitor node, context ) }
+
+
+withSimpleExpressionVisitor : (Node Expression -> List Error) -> Implementation context -> Implementation context
+withSimpleExpressionVisitor visitor (Implementation impl) =
+    Implementation
+        { impl
+            | expressionVisitor =
+                \context direction node ->
+                    case direction of
+                        Direction.Enter ->
+                            ( visitor node, context )
+
+                        Direction.Exit ->
+                            ( [], context )
+        }
+
+
+withSimpleDeclarationVisitor : (Node Declaration -> List Error) -> Implementation context -> Implementation context
+withSimpleDeclarationVisitor visitor (Implementation impl) =
+    Implementation
+        { impl
+            | declarationVisitor =
+                \context direction node ->
+                    case direction of
+                        Direction.Enter ->
+                            ( visitor node, context )
+
+                        Direction.Exit ->
+                            ( [], context )
+        }
 
 
 

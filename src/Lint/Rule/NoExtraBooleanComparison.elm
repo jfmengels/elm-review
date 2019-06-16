@@ -30,16 +30,11 @@ module Lint.Rule.NoExtraBooleanComparison exposing (rule)
 
 -}
 
-import Elm.Syntax.Expression exposing (Expression(..))
+import Elm.Syntax.Expression as Expression exposing (Expression(..))
 import Elm.Syntax.Node as Node exposing (Node)
 import Lint exposing (Rule, lint)
-import Lint.Direction as Direction exposing (Direction)
 import Lint.Error as Error exposing (Error)
 import Lint.Rule as Rule
-
-
-type alias Context =
-    ()
 
 
 {-| Forbid the use of `Debug` before it goes into production.
@@ -56,10 +51,10 @@ rule =
         (lint implementation)
 
 
-implementation : Rule.Implementation Context
+implementation : Rule.Implementation ()
 implementation =
-    Rule.create ()
-        |> Rule.withExpressionVisitor expressionVisitor
+    Rule.createSimple
+        |> Rule.withSimpleExpressionVisitor expressionVisitor
 
 
 error : String -> Node a -> Error
@@ -69,18 +64,18 @@ error comparedValue node =
         (Node.range node)
 
 
-expressionVisitor : Context -> Direction -> Node Expression -> ( List Error, Context )
-expressionVisitor context direction node =
-    case ( direction, Node.value node ) of
-        ( Direction.Enter, Elm.Syntax.Expression.OperatorApplication operator _ left right ) ->
+expressionVisitor : Node Expression -> List Error
+expressionVisitor node =
+    case Node.value node of
+        Expression.OperatorApplication operator _ left right ->
             if isEqualityOperator operator then
-                ( List.filterMap isTrueOrFalse [ left, right ], context )
+                List.filterMap isTrueOrFalse [ left, right ]
 
             else
-                ( [], context )
+                []
 
         _ ->
-            ( [], context )
+            []
 
 
 isEqualityOperator : String -> Bool

@@ -59,15 +59,10 @@ import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Pattern exposing (Pattern(..))
 import Lint exposing (Rule, lint)
-import Lint.Direction as Direction exposing (Direction)
 import Lint.Error as Error exposing (Error)
 import Lint.Rule as Rule
 import List.Extra exposing (findIndex)
 import Regex
-
-
-type alias Context =
-    ()
 
 
 {-| Configures whether the default pattern should appear first or last.
@@ -93,10 +88,10 @@ rule config =
         (lint (implementation config))
 
 
-implementation : Configuration -> Rule.Implementation Context
+implementation : Configuration -> Rule.Implementation ()
 implementation configuration =
-    Rule.create ()
-        |> Rule.withExpressionVisitor (expressionVisitor configuration)
+    Rule.createSimple
+        |> Rule.withSimpleExpressionVisitor (expressionVisitor configuration)
 
 
 error : Node a -> String -> Error
@@ -132,29 +127,29 @@ findDefaultPattern patterns =
         |> findIndex isDefaultPattern
 
 
-expressionVisitor : Configuration -> Context -> Direction -> Node Expression -> ( List Error, Context )
-expressionVisitor config ctx direction node =
-    case ( direction, Node.value node ) of
-        ( Direction.Enter, CaseExpression { cases } ) ->
+expressionVisitor : Configuration -> Node Expression -> List Error
+expressionVisitor config node =
+    case Node.value node of
+        CaseExpression { cases } ->
             case findDefaultPattern cases of
                 Nothing ->
-                    ( [], ctx )
+                    []
 
                 Just index ->
                     case config.position of
                         First ->
                             if index /= 0 then
-                                ( [ error node "Expected default pattern to appear first in the list of patterns" ], ctx )
+                                [ error node "Expected default pattern to appear first in the list of patterns" ]
 
                             else
-                                ( [], ctx )
+                                []
 
                         Last ->
                             if index /= List.length cases - 1 then
-                                ( [ error node "Expected default pattern to appear last in the list of patterns" ], ctx )
+                                [ error node "Expected default pattern to appear last in the list of patterns" ]
 
                             else
-                                ( [], ctx )
+                                []
 
         _ ->
-            ( [], ctx )
+            []

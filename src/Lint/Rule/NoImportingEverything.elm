@@ -26,10 +26,6 @@ import Lint.Rule as Rule exposing (Implementation)
 import Lint.Util as Util
 
 
-type alias Context =
-    ()
-
-
 {-| Configuration for the rule.
 -}
 type alias Configuration =
@@ -51,10 +47,10 @@ rule config =
         (lint (implementation config))
 
 
-implementation : Configuration -> Implementation Context
+implementation : Configuration -> Implementation ()
 implementation config =
-    Rule.create ()
-        |> Rule.withImportVisitor (importVisitor config)
+    Rule.createSimple
+        |> Rule.withSimpleImportVisitor (importVisitor config)
 
 
 error : Range -> String -> Error
@@ -62,8 +58,8 @@ error range name =
     Error.create ("Do not expose everything from " ++ name) range
 
 
-importVisitor : Configuration -> Context -> Node Import -> ( List Error, Context )
-importVisitor config context node =
+importVisitor : Configuration -> Node Import -> List Error
+importVisitor config node =
     let
         { moduleName, exposingList } =
             Node.value node
@@ -73,12 +69,12 @@ importVisitor config context node =
             Util.moduleName moduleName
     in
     if List.member name config.exceptions then
-        ( [], context )
+        []
 
     else
         case exposingList |> Maybe.map Node.value of
             Just (Exposing.All range) ->
-                ( [ error range name ], context )
+                [ error range name ]
 
             _ ->
-                ( [], context )
+                []

@@ -161,10 +161,10 @@ implementation =
 
 
 moduleDefinitionVisitor : Context -> Node Module -> ( List Error, Context )
-moduleDefinitionVisitor ctx moduleNode =
+moduleDefinitionVisitor context moduleNode =
     case Module.exposingList (value moduleNode) of
         All _ ->
-            ( [], { ctx | exposesEverything = True } )
+            ( [], { context | exposesEverything = True } )
 
         Explicit list ->
             let
@@ -187,11 +187,11 @@ moduleDefinitionVisitor ctx moduleNode =
                         )
                         list
             in
-            ( [], markAllAsUsed names ctx )
+            ( [], markAllAsUsed names context )
 
 
 importVisitor : Context -> Node Import -> ( List Error, Context )
-importVisitor ctx node =
+importVisitor context node =
     let
         exposed =
             node
@@ -214,46 +214,46 @@ importVisitor ctx node =
                 variableType
                 (range moduleName)
                 (value moduleName |> getModuleName)
-                ctx
+                context
             )
 
         Just declaredImports ->
             ( []
             , List.foldl
-                (\( variableType, range, name ) context -> register variableType range name context)
-                ctx
+                (\( variableType, range, name ) context_ -> register variableType range name context_)
+                context
                 (collectFromExposing declaredImports)
             )
 
 
 expressionVisitor : Context -> Direction -> Node Expression -> ( List Error, Context )
-expressionVisitor ctx direction node =
+expressionVisitor context direction node =
     case ( direction, value node ) of
         ( Direction.Enter, FunctionOrValue [] name ) ->
-            ( [], markAsUsed name ctx )
+            ( [], markAsUsed name context )
 
         ( Direction.Enter, FunctionOrValue moduleName name ) ->
-            ( [], markAsUsed (getModuleName moduleName) ctx )
+            ( [], markAsUsed (getModuleName moduleName) context )
 
         ( Direction.Enter, OperatorApplication name _ _ _ ) ->
-            ( [], markAsUsed name ctx )
+            ( [], markAsUsed name context )
 
         ( Direction.Enter, PrefixOperator name ) ->
-            ( [], markAsUsed name ctx )
+            ( [], markAsUsed name context )
 
         ( Direction.Enter, LetExpression { declarations } ) ->
             let
                 newContext =
                     List.foldl
-                        (\declaration context ->
+                        (\declaration context_ ->
                             case value declaration of
                                 LetFunction function ->
-                                    registerFunction function context
+                                    registerFunction function context_
 
                                 LetDestructuring pattern _ ->
-                                    context
+                                    context_
                         )
-                        { ctx | scopes = Nonempty.cons emptyScope ctx.scopes }
+                        { context | scopes = Nonempty.cons emptyScope context.scopes }
                         declarations
             in
             ( [], newContext )
@@ -261,21 +261,21 @@ expressionVisitor ctx direction node =
         ( Direction.Exit, LetExpression _ ) ->
             let
                 ( errors, remainingUsed ) =
-                    makeReport (Nonempty.head ctx.scopes)
+                    makeReport (Nonempty.head context.scopes)
 
-                ctxWithPoppedScope =
-                    { ctx | scopes = Nonempty.pop ctx.scopes }
+                contextWithPoppedScope =
+                    { context | scopes = Nonempty.pop context.scopes }
             in
             ( errors
-            , markAllAsUsed remainingUsed ctxWithPoppedScope
+            , markAllAsUsed remainingUsed contextWithPoppedScope
             )
 
         _ ->
-            ( [], ctx )
+            ( [], context )
 
 
 declarationVisitor : Context -> Direction -> Node Declaration -> ( List Error, Context )
-declarationVisitor ctx direction node =
+declarationVisitor context direction node =
     case ( direction, value node ) of
         ( Direction.Enter, FunctionDeclaration function ) ->
             let
@@ -288,54 +288,54 @@ declarationVisitor ctx direction node =
                         |> Maybe.withDefault []
 
                 newContext =
-                    ctx
+                    context
                         |> register Variable (range declaration.name) (value declaration.name)
                         |> markAllAsUsed namesUsedInSignature
             in
             ( [], newContext )
 
         ( Direction.Enter, CustomTypeDeclaration { name } ) ->
-            ( [], register Type (range name) (value name) ctx )
+            ( [], register Type (range name) (value name) context )
 
         ( Direction.Enter, AliasDeclaration { name } ) ->
-            ( [], register Type (range name) (value name) ctx )
+            ( [], register Type (range name) (value name) context )
 
         ( Direction.Enter, PortDeclaration { name, typeAnnotation } ) ->
             ( []
-            , ctx
+            , context
                 |> markAllAsUsed (collectNamesFromTypeAnnotation typeAnnotation)
                 |> register Port (range name) (value name)
             )
 
         ( Direction.Enter, InfixDeclaration _ ) ->
-            ( [], ctx )
+            ( [], context )
 
         ( Direction.Enter, Destructuring _ _ ) ->
-            ( [], ctx )
+            ( [], context )
 
         ( Direction.Exit, _ ) ->
-            ( [], ctx )
+            ( [], context )
 
 
 finalEvaluation : Context -> List Error
-finalEvaluation ctx =
-    if ctx.exposesEverything then
+finalEvaluation context =
+    if context.exposesEverything then
         []
 
     else
-        ctx.scopes
+        context.scopes
             |> Nonempty.head
             |> makeReport
             |> Tuple.first
 
 
 registerFunction : Function -> Context -> Context
-registerFunction function ctx =
+registerFunction function context =
     let
         declaration =
             value function.declaration
     in
-    register Variable (range declaration.name) (value declaration.name) ctx
+    register Variable (range declaration.name) (value declaration.name) context
 
 
 collectFromExposing : Exposing -> List ( VariableType, Range, String )
@@ -408,34 +408,34 @@ collectNamesFromTypeAnnotation node =
 
 
 register : VariableType -> Range -> String -> Context -> Context
-register variableType range name ctx =
+register variableType range name context =
     let
         scopes =
             mapNonemptyHead
                 (\scope ->
                     { scope | declared = Dict.insert name ( variableType, range ) scope.declared }
                 )
-                ctx.scopes
+                context.scopes
     in
-    { ctx | scopes = scopes }
+    { context | scopes = scopes }
 
 
 markAllAsUsed : List String -> Context -> Context
-markAllAsUsed names ctx =
-    List.foldl markAsUsed ctx names
+markAllAsUsed names context =
+    List.foldl markAsUsed context names
 
 
 markAsUsed : String -> Context -> Context
-markAsUsed name ctx =
+markAsUsed name context =
     let
         scopes =
             mapNonemptyHead
                 (\scope ->
                     { scope | used = Set.insert name scope.used }
                 )
-                ctx.scopes
+                context.scopes
     in
-    { ctx | scopes = scopes }
+    { context | scopes = scopes }
 
 
 getModuleName : List String -> String
