@@ -59,6 +59,7 @@ import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Pattern exposing (Pattern(..))
 import Lint exposing (Rule, lint)
+import Lint.Direction as Direction exposing (Direction)
 import Lint.Error as Error exposing (Error)
 import Lint.Rule as Rule
 import List.Extra exposing (findIndex)
@@ -131,10 +132,10 @@ findDefaultPattern patterns =
         |> findIndex isDefaultPattern
 
 
-expressionVisitor : Configuration -> Context -> Rule.Direction -> Node Expression -> ( List Error, Context )
+expressionVisitor : Configuration -> Context -> Direction -> Node Expression -> ( List Error, Context )
 expressionVisitor config ctx direction node =
     case ( direction, Node.value node ) of
-        ( Rule.Enter, CaseExpression { cases } ) ->
+        ( Direction.Enter, CaseExpression { cases } ) ->
             case findDefaultPattern cases of
                 Nothing ->
                     ( [], ctx )

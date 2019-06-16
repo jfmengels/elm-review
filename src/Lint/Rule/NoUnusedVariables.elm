@@ -31,6 +31,7 @@ import Elm.Syntax.Node exposing (Node, range, value)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
 import Lint exposing (Rule, lint)
+import Lint.Direction as Direction exposing (Direction)
 import Lint.Error as Error exposing (Error)
 import Lint.Rule as Rule
 import List.Nonempty as Nonempty exposing (Nonempty)
@@ -225,22 +226,22 @@ importVisitor ctx node =
             )
 
 
-expressionVisitor : Context -> Rule.Direction -> Node Expression -> ( List Error, Context )
+expressionVisitor : Context -> Direction -> Node Expression -> ( List Error, Context )
 expressionVisitor ctx direction node =
     case ( direction, value node ) of
-        ( Rule.Enter, FunctionOrValue [] name ) ->
+        ( Direction.Enter, FunctionOrValue [] name ) ->
             ( [], markAsUsed name ctx )
 
-        ( Rule.Enter, FunctionOrValue moduleName name ) ->
+        ( Direction.Enter, FunctionOrValue moduleName name ) ->
             ( [], markAsUsed (getModuleName moduleName) ctx )
 
-        ( Rule.Enter, OperatorApplication name _ _ _ ) ->
+        ( Direction.Enter, OperatorApplication name _ _ _ ) ->
             ( [], markAsUsed name ctx )
 
-        ( Rule.Enter, PrefixOperator name ) ->
+        ( Direction.Enter, PrefixOperator name ) ->
             ( [], markAsUsed name ctx )
 
-        ( Rule.Enter, LetExpression { declarations } ) ->
+        ( Direction.Enter, LetExpression { declarations } ) ->
             let
                 newContext =
                     List.foldl
@@ -257,7 +258,7 @@ expressionVisitor ctx direction node =
             in
             ( [], newContext )
 
-        ( Rule.Exit, LetExpression _ ) ->
+        ( Direction.Exit, LetExpression _ ) ->
             let
                 ( errors, remainingUsed ) =
                     makeReport (Nonempty.head ctx.scopes)
@@ -273,10 +274,10 @@ expressionVisitor ctx direction node =
             ( [], ctx )
 
 
-declarationVisitor : Context -> Rule.Direction -> Node Declaration -> ( List Error, Context )
+declarationVisitor : Context -> Direction -> Node Declaration -> ( List Error, Context )
 declarationVisitor ctx direction node =
     case ( direction, value node ) of
-        ( Rule.Enter, FunctionDeclaration function ) ->
+        ( Direction.Enter, FunctionDeclaration function ) ->
             let
                 declaration =
                     value function.declaration
@@ -293,26 +294,26 @@ declarationVisitor ctx direction node =
             in
             ( [], newContext )
 
-        ( Rule.Enter, CustomTypeDeclaration { name } ) ->
+        ( Direction.Enter, CustomTypeDeclaration { name } ) ->
             ( [], register Type (range name) (value name) ctx )
 
-        ( Rule.Enter, AliasDeclaration { name } ) ->
+        ( Direction.Enter, AliasDeclaration { name } ) ->
             ( [], register Type (range name) (value name) ctx )
 
-        ( Rule.Enter, PortDeclaration { name, typeAnnotation } ) ->
+        ( Direction.Enter, PortDeclaration { name, typeAnnotation } ) ->
             ( []
             , ctx
                 |> markAllAsUsed (collectNamesFromTypeAnnotation typeAnnotation)
                 |> register Port (range name) (value name)
             )
 
-        ( Rule.Enter, InfixDeclaration _ ) ->
+        ( Direction.Enter, InfixDeclaration _ ) ->
             ( [], ctx )
 
-        ( Rule.Enter, Destructuring _ _ ) ->
+        ( Direction.Enter, Destructuring _ _ ) ->
             ( [], ctx )
 
-        ( Rule.Exit, _ ) ->
+        ( Direction.Exit, _ ) ->
             ( [], ctx )
 
 

@@ -8,15 +8,16 @@ import Elm.Syntax.Infix exposing (InfixDirection(..))
 import Elm.Syntax.Module exposing (Module)
 import Elm.Syntax.Node exposing (Node, value)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
-import Lint.Rule exposing (Direction(..), Visitor, evaluateDeclaration, evaluateExpression, evaluateImport, evaluateModuleDefinition, finalEvaluation)
+import Lint.Direction as Direction exposing (Direction)
+import Lint.Rule exposing (Visitor, evaluateDeclaration, evaluateExpression, evaluateImport, evaluateModuleDefinition, finalEvaluation)
 
 
 createExitAndEnterWithChildren : (Direction -> nodeType -> Visitor context) -> nodeType -> List (Visitor context) -> List (Visitor context)
 createExitAndEnterWithChildren toVisitor node children =
     List.concat
-        [ [ toVisitor Enter node ]
+        [ [ toVisitor Direction.Enter node ]
         , children
-        , [ toVisitor Exit node ]
+        , [ toVisitor Direction.Exit node ]
         ]
 
 

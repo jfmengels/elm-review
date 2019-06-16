@@ -51,9 +51,10 @@ import Elm.Processing exposing (addFile, init, process)
 import Elm.Syntax.Expression exposing (Expression)
 import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Node exposing (Node)
+import Lint.Direction exposing (Direction)
 import Lint.Error as Error exposing (Error)
 import Lint.NodeToVisitor exposing (createVisitorsForFile, expressionToVisitors)
-import Lint.Rule as Rule exposing (Direction, Implementation, Visitor)
+import Lint.Rule as Rule exposing (Implementation, Visitor)
 import Lint.RuleError as RuleError exposing (RuleError)
 
 

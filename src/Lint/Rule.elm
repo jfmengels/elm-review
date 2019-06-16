@@ -1,17 +1,11 @@
 module Lint.Rule exposing
-    ( Direction(..)
-    , Implementation, create
+    ( Implementation, create
     , withModuleDefinitionVisitor, withImportVisitor, withExpressionVisitor, withDeclarationVisitor, withFinalEvaluation
     , evaluateDeclaration, evaluateExpression, evaluateImport, evaluateModuleDefinition, finalEvaluation, initialContext
     , Visitor, LintResult
     )
 
 {-| This module contains functions that are used for writing rules.
-
-
-# Elementary types
-
-@docs Direction
 
 
 # Writing rules
@@ -38,33 +32,8 @@ import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Module exposing (Module)
 import Elm.Syntax.Node exposing (Node)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation)
+import Lint.Direction exposing (Direction)
 import Lint.Error exposing (Error)
-
-
-{-| When visiting the AST, nodes are visited twice:
-
-  - on Enter, before the children of the node will be visited
-
-  - on Exit, after the children of the node have been visited
-
-    expression : Context -> Direction -> Node -> ( List Error, Context )
-    expression ctx node =
-    case node of
-    Enter (Variable names) ->
-    ( [], markVariableAsUsed ctx names )
-
-              -- Find variables declared in `let .. in ..` expression
-              Enter (Let declarations body) ->
-                  ( [], registerVariables ctx declarations )
-
-              -- When exiting the `let .. in ..` expression, report the variables that were not used.
-              Exit (Let _ _) ->
-                  ( unusedVariables ctx |> List.map createError, ctx )
-
--}
-type Direction
-    = Enter
-    | Exit
 
 
 {-| A Implementation is the implementation of a rule. It is a record that contains:
