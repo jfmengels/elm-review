@@ -20,9 +20,8 @@ import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
-import Lint exposing (Rule, lint)
 import Lint.Error as Error exposing (Error)
-import Lint.Rule as Rule exposing (Implementation)
+import Lint.Rule2 as Rule exposing (Rule)
 import Lint.Util as Util
 
 
@@ -42,15 +41,9 @@ functions and types are unknown to them.
 -}
 rule : Configuration -> Rule
 rule config =
-    Lint.createRule
-        "NoImportingEverything"
-        (lint (implementation config))
-
-
-implementation : Configuration -> Implementation ()
-implementation config =
-    Rule.createSimple
+    Rule.newRuleSchema "NoImportingEverything"
         |> Rule.withSimpleImportVisitor (importVisitor config)
+        |> Rule.fromSchema
 
 
 error : Range -> String -> Error

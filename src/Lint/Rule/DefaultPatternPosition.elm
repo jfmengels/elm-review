@@ -58,9 +58,8 @@ module Lint.Rule.DefaultPatternPosition exposing (rule, Configuration, PatternPo
 import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Pattern exposing (Pattern(..))
-import Lint exposing (Rule, lint)
 import Lint.Error as Error exposing (Error)
-import Lint.Rule as Rule
+import Lint.Rule2 as Rule exposing (Rule)
 import List.Extra exposing (findIndex)
 import Regex
 
@@ -83,15 +82,9 @@ type alias Configuration =
 -}
 rule : Configuration -> Rule
 rule config =
-    Lint.createRule
-        "DefaultPatternPosition"
-        (lint (implementation config))
-
-
-implementation : Configuration -> Rule.Implementation ()
-implementation configuration =
-    Rule.createSimple
-        |> Rule.withSimpleExpressionVisitor (expressionVisitor configuration)
+    Rule.newRuleSchema "DefaultPatternPosition"
+        |> Rule.withSimpleExpressionVisitor (expressionVisitor config)
+        |> Rule.fromSchema
 
 
 error : Node a -> String -> Error

@@ -30,10 +30,9 @@ import Elm.Syntax.Module as Module exposing (Module(..))
 import Elm.Syntax.Node exposing (Node, range, value)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
-import Lint exposing (Rule, lint)
 import Lint.Direction as Direction exposing (Direction)
 import Lint.Error as Error exposing (Error)
-import Lint.Rule as Rule
+import Lint.Rule2 as Rule exposing (Rule)
 import List.Nonempty as Nonempty exposing (Nonempty)
 import Set exposing (Set)
 
@@ -47,9 +46,26 @@ import Set exposing (Set)
 -}
 rule : Rule
 rule =
-    Lint.createRule
-        "NoUnusedVariables"
-        (lint implementation)
+    Rule.newRuleSchema "NoUnusedVariables"
+        |> Rule.withInitialContext initialContext
+        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
+        |> Rule.withImportVisitor importVisitor
+        |> Rule.withExpressionVisitor expressionVisitor
+        |> Rule.withDeclarationVisitor declarationVisitor
+        |> Rule.withFinalEvaluation finalEvaluation
+        |> Rule.fromSchema
+
+
+type alias Context =
+    { scopes : Nonempty Scope
+    , exposesEverything : Bool
+    }
+
+
+type alias Scope =
+    { declared : Dict String ( VariableType, Range )
+    , used : Set String
+    }
 
 
 type VariableType
@@ -63,15 +79,10 @@ type VariableType
     | Port
 
 
-type alias Scope =
-    { declared : Dict String ( VariableType, Range )
-    , used : Set String
-    }
-
-
-type alias Context =
-    { scopes : Nonempty Scope
-    , exposesEverything : Bool
+initialContext : Context
+initialContext =
+    { scopes = Nonempty.fromElement emptyScope
+    , exposesEverything = False
     }
 
 
@@ -143,25 +154,8 @@ variableTypeWarning value =
             " (Warning: Removing this port may break your application if it is used in the JS code)"
 
 
-initialContext : Context
-initialContext =
-    { scopes = Nonempty.fromElement emptyScope
-    , exposesEverything = False
-    }
-
-
-implementation : Rule.Implementation Context
-implementation =
-    Rule.create initialContext
-        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-        |> Rule.withImportVisitor importVisitor
-        |> Rule.withExpressionVisitor expressionVisitor
-        |> Rule.withDeclarationVisitor declarationVisitor
-        |> Rule.withFinalEvaluation finalEvaluation
-
-
-moduleDefinitionVisitor : Context -> Node Module -> ( List Error, Context )
-moduleDefinitionVisitor context moduleNode =
+moduleDefinitionVisitor : Node Module -> Context -> ( List Error, Context )
+moduleDefinitionVisitor moduleNode context =
     case Module.exposingList (value moduleNode) of
         All _ ->
             ( [], { context | exposesEverything = True } )
@@ -190,8 +184,8 @@ moduleDefinitionVisitor context moduleNode =
             ( [], markAllAsUsed names context )
 
 
-importVisitor : Context -> Node Import -> ( List Error, Context )
-importVisitor context node =
+importVisitor : Node Import -> Context -> ( List Error, Context )
+importVisitor node context =
     let
         exposed =
             node
@@ -226,8 +220,8 @@ importVisitor context node =
             )
 
 
-expressionVisitor : Context -> Direction -> Node Expression -> ( List Error, Context )
-expressionVisitor context direction node =
+expressionVisitor : Node Expression -> Direction -> Context -> ( List Error, Context )
+expressionVisitor node direction context =
     case ( direction, value node ) of
         ( Direction.Enter, FunctionOrValue [] name ) ->
             ( [], markAsUsed name context )
@@ -274,8 +268,8 @@ expressionVisitor context direction node =
             ( [], context )
 
 
-declarationVisitor : Context -> Direction -> Node Declaration -> ( List Error, Context )
-declarationVisitor context direction node =
+declarationVisitor : Node Declaration -> Direction -> Context -> ( List Error, Context )
+declarationVisitor node direction context =
     case ( direction, value node ) of
         ( Direction.Enter, FunctionDeclaration function ) ->
             let
@@ -446,10 +440,12 @@ getModuleName name =
 makeReport : Scope -> ( List Error, List String )
 makeReport { declared, used } =
     let
+        nonUsedVars : List String
         nonUsedVars =
             Set.diff used (Set.fromList <| Dict.keys declared)
                 |> Set.toList
 
+        errors : List Error
         errors =
             Dict.filter (\key _ -> not <| Set.member key used) declared
                 |> Dict.toList

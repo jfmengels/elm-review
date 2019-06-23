@@ -32,9 +32,8 @@ module Lint.Rule.NoExtraBooleanComparison exposing (rule)
 
 import Elm.Syntax.Expression as Expression exposing (Expression(..))
 import Elm.Syntax.Node as Node exposing (Node)
-import Lint exposing (Rule, lint)
 import Lint.Error as Error exposing (Error)
-import Lint.Rule as Rule
+import Lint.Rule2 as Rule exposing (Rule)
 
 
 {-| Forbid the use of `Debug` before it goes into production.
@@ -46,15 +45,9 @@ import Lint.Rule as Rule
 -}
 rule : Rule
 rule =
-    Lint.createRule
-        "NoExtraBooleanComparison"
-        (lint implementation)
-
-
-implementation : Rule.Implementation ()
-implementation =
-    Rule.createSimple
+    Rule.newRuleSchema "NoExtraBooleanComparison"
         |> Rule.withSimpleExpressionVisitor expressionVisitor
+        |> Rule.fromSchema
 
 
 error : String -> Node a -> Error

@@ -147,9 +147,9 @@ import Foo exposing (a)"""
             testRule """module A exposing (d)
 import Foo exposing (C, a, b)"""
                 |> TestUtil.expectErrors
-                    [ Error.create "Imported type `C` is not used" (TestUtil.location ( 2, 22 ) ( 2, 23 ))
+                    [ Error.create "Imported variable `b` is not used" (TestUtil.location ( 2, 28 ) ( 2, 29 ))
                     , Error.create "Imported variable `a` is not used" (TestUtil.location ( 2, 25 ) ( 2, 26 ))
-                    , Error.create "Imported variable `b` is not used" (TestUtil.location ( 2, 28 ) ( 2, 29 ))
+                    , Error.create "Imported type `C` is not used" (TestUtil.location ( 2, 22 ) ( 2, 23 ))
                     ]
 
     -- Needs to be improved, every case should create a new scope stack
