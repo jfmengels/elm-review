@@ -2,8 +2,7 @@ module NoUnusedVariablesTest exposing (all)
 
 import Elm.Syntax.Range exposing (Location, Range)
 import Lint exposing (Rule)
-import Lint.Error as Error exposing (Error)
-import Lint.Rule exposing (LintResult)
+import Lint.Error as Error exposing (Error, LintResult)
 import Lint.Rule.NoUnusedVariables exposing (rule)
 import Test exposing (Test, describe, test)
 import TestUtil

@@ -4,7 +4,7 @@ module Lint.Rule exposing
     , withModuleDefinitionVisitor, withImportVisitor, withExpressionVisitor, withDeclarationVisitor, withFinalEvaluation
     , withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleExpressionVisitor, withSimpleDeclarationVisitor
     , evaluateDeclaration, evaluateExpression, evaluateImport, evaluateModuleDefinition, finalEvaluation, initialContext
-    , Visitor, LintResult
+    , Visitor
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -29,7 +29,7 @@ module Lint.Rule exposing
 
 # Internal types
 
-@docs Visitor, LintResult
+@docs Visitor
 
 -}
 
@@ -204,12 +204,6 @@ evaluateDeclaration (Implementation impl) =
 finalEvaluation : Implementation context -> context -> List Error
 finalEvaluation (Implementation impl) =
     impl.finalEvaluationFn
-
-
-{-| Shortcut to the result of a lint rule
--}
-type alias LintResult =
-    Result (List String) (List Error)
 
 
 {-| Shorthand for a function that takes a rule's implementation, a context and returns ( List Lint.Error.Error, context ).
