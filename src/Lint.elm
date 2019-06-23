@@ -1,8 +1,6 @@
 module Lint exposing
     ( Rule, Severity(..)
     , lintSource
-    , lint, expressionVisitor
-    , createRule
     )
 
 {-| A linter for Elm.
@@ -35,14 +33,9 @@ To run the rules on a source code and get a list of errors:
 @docs Rule, Severity
 
 
-# Implementation
+# Linting
 
 @docs lintSource
-
-
-# Rule creation functions
-
-@docs lint, expressionVisitor
 
 -}
 
@@ -53,8 +46,6 @@ import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Node exposing (Node)
 import Lint.Direction exposing (Direction)
 import Lint.Error as Error exposing (Error)
-import Lint.NodeToVisitor exposing (createVisitorsForFile, expressionToVisitors)
-import Lint.Rule as Rule exposing (Implementation, Visitor)
 import Lint.RuleError as RuleError exposing (RuleError)
 
 
@@ -120,69 +111,3 @@ parseSource source =
         |> Result.mapError (\error -> [ "Parsing error" ])
         -- TODO Add all files to have more context https://package.elm-lang.org/packages/stil4m/elm-syntax/7.0.2/Elm-Processing
         |> Result.map (process init)
-
-
-{-| Lints source code using a given rule implementation, and gives back a list of errors that were found.
-
-    rule : Rule
-    rule input =
-        lint input implementation
-
-    implementation : Implementation Context
-    implementation =
-        { typeFn = doNothing
-        , expressionVisitor = expressionVisitor
-        , visitEnd = \ctx -> ( [], ctx )
-        , initialContext = Context
-        }
-
--}
-lint : Implementation context -> File -> List Error
-lint rule file =
-    createVisitorsForFile file
-        |> lintWithVisitors rule
-
-
-{-| Visit an expression using a sub rule implementation. The use of this function is not encouraged, but it can make
-part of the implementation of complex rules much easier. It gives back a list of errors and a context.
-
-    expressionVisitor : Context -> Direction Expression -> ( List Lint.Error.Error, Context )
-    expressionVisitor ctx node =
-        case node of
-            Enter (Case expr patterns) ->
-                expressionVisitor subimplementation expr
-
-            _ ->
-                ( [], ctx )
-
-    subimplementation : Implementation Subcontext
-    subimplementation =
-        { statementFn = doNothing
-        , typeFn = doNothing
-        , expressionVisitor = subvisitExpression
-        , visitEnd = \ctx -> ( [], ctx )
-        , initialContext = Subcontext
-        }
-
--}
-expressionVisitor : Implementation context -> Node Expression -> ( List Error, context )
-expressionVisitor rule expression =
-    expressionToVisitors expression
-        |> List.foldl (visitAndAccumulate rule) ( [], Rule.initialContext rule )
-
-
-visitAndAccumulate : Implementation context -> Visitor context -> ( List Error, context ) -> ( List Error, context )
-visitAndAccumulate rule visitor ( errors, ctx ) =
-    let
-        ( newErrors, newContext ) =
-            visitor rule ctx
-    in
-    ( List.reverse newErrors ++ errors, newContext )
-
-
-lintWithVisitors : Implementation context -> List (Visitor context) -> List Error
-lintWithVisitors rule visitors =
-    visitors
-        |> List.foldl (visitAndAccumulate rule) ( [], Rule.initialContext rule )
-        |> Tuple.first
-        |> List.reverse
