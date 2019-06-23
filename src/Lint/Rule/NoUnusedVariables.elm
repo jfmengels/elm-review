@@ -32,7 +32,7 @@ import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
 import Lint.Direction as Direction exposing (Direction)
 import Lint.Error as Error exposing (Error)
-import Lint.Rule2 as Rule exposing (Rule)
+import Lint.Rule as Rule exposing (Rule)
 import List.Nonempty as Nonempty exposing (Nonempty)
 import Set exposing (Set)
 

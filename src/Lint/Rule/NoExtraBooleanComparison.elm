@@ -33,7 +33,7 @@ module Lint.Rule.NoExtraBooleanComparison exposing (rule)
 import Elm.Syntax.Expression as Expression exposing (Expression(..))
 import Elm.Syntax.Node as Node exposing (Node)
 import Lint.Error as Error exposing (Error)
-import Lint.Rule2 as Rule exposing (Rule)
+import Lint.Rule as Rule exposing (Rule)
 
 
 {-| Forbid the use of `Debug` before it goes into production.

@@ -1,4 +1,4 @@
-module Lint.Rule2 exposing
+module Lint.Rule exposing
     ( Rule, Schema
     , newRuleSchema, fromSchema
     , withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleExpressionVisitor, withSimpleDeclarationVisitor
@@ -27,12 +27,10 @@ import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Module exposing (Module)
 import Elm.Syntax.Node exposing (Node)
-import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation)
 import Lint.Direction as Direction exposing (Direction)
 import Lint.Error exposing (Error)
-import Lint.Internal.Accumulate exposing (accumulate, accumulateList)
+import Lint.Internal.Accumulate exposing (accumulateList)
 import Lint.Internal.DeclarationVisitor as DeclarationVisitor
-import Lint.Internal.ExpressionVisitor as ExpressionVisitor
 
 
 {-| Shortcut to a lint rule

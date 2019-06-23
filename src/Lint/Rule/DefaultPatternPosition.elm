@@ -59,7 +59,7 @@ import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Pattern exposing (Pattern(..))
 import Lint.Error as Error exposing (Error)
-import Lint.Rule2 as Rule exposing (Rule)
+import Lint.Rule as Rule exposing (Rule)
 import List.Extra exposing (findIndex)
 import Regex
 

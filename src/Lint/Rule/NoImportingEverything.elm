@@ -21,7 +21,7 @@ import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Lint.Error as Error exposing (Error)
-import Lint.Rule2 as Rule exposing (Rule)
+import Lint.Rule as Rule exposing (Rule)
 import Lint.Util as Util
 
 

@@ -33,7 +33,7 @@ module Lint.Rule.NoDebug exposing (rule)
 import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Node exposing (Node, range, value)
 import Lint.Error as Error exposing (Error)
-import Lint.Rule2 as Rule exposing (Rule)
+import Lint.Rule as Rule exposing (Rule)
 
 
 {-| Forbid the use of `Debug` before it goes into production.
