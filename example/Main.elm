@@ -112,17 +112,22 @@ view model =
     div [ id "wrapper" ]
         [ div [ id "left" ]
             [ p [ class "title" ] [ text "Source code" ]
-            , textarea
-                [ id "input"
-                , onInput SourceCodeHasBeenEdited
-                , style "height" "500px"
-                , style "width" "500px"
+            , div
+                [ style "display" "flex"
+                , style "flex-direction" "row"
                 ]
-                [ text model.sourceCode ]
-            , div []
-                [ p [ class "title" ] [ text "Linting errors" ]
-                , ul [ id "lint" ]
-                    (lintErrors model)
+                [ textarea
+                    [ id "input"
+                    , onInput SourceCodeHasBeenEdited
+                    , style "height" "500px"
+                    , style "width" "60%"
+                    ]
+                    [ text model.sourceCode ]
+                , div [ style "margin-left" "2rem" ]
+                    [ p [ class "title" ] [ text "Linting errors" ]
+                    , ul [ id "lint" ]
+                        (lintErrors model)
+                    ]
                 ]
             ]
         ]
