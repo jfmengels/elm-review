@@ -8,12 +8,12 @@ import Lint.Error exposing (Error)
 import Lint.Internal.Accumulate exposing (accumulate, accumulateList)
 
 
-visit : (Direction -> Node Expression -> context -> ( List Error, context )) -> Node Expression -> context -> ( List Error, context )
+visit : (Node Expression -> Direction -> context -> ( List Error, context )) -> Node Expression -> context -> ( List Error, context )
 visit visitor node context =
     context
-        |> visitor Direction.Enter node
+        |> visitor node Direction.Enter
         |> accumulateList (visit visitor) (children node)
-        |> accumulate (visitor Direction.Exit node)
+        |> accumulate (visitor node Direction.Exit)
 
 
 children : Node Expression -> List (Node Expression)

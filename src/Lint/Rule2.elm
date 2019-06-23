@@ -60,8 +60,8 @@ type Schema context
         , initialContext : context
         , moduleDefinitionVisitor : Node Module -> context -> ( List Error, context )
         , importVisitor : Node Import -> context -> ( List Error, context )
-        , expressionVisitor : Direction -> Node Expression -> context -> ( List Error, context )
-        , declarationVisitor : Direction -> Node Declaration -> context -> ( List Error, context )
+        , expressionVisitor : Node Expression -> Direction -> context -> ( List Error, context )
+        , declarationVisitor : Node Declaration -> Direction -> context -> ( List Error, context )
         , finalEvaluationFn : context -> List Error
         }
 
@@ -114,8 +114,8 @@ withInitialContext initialContext_ (Schema schema) =
         , initialContext = initialContext_
         , moduleDefinitionVisitor = \node context -> ( [], context )
         , importVisitor = \node context -> ( [], context )
-        , expressionVisitor = \direction node context -> ( [], context )
-        , declarationVisitor = \direction node context -> ( [], context )
+        , expressionVisitor = \node direction context -> ( [], context )
+        , declarationVisitor = \node direction context -> ( [], context )
         , finalEvaluationFn = \context -> []
         }
 
@@ -135,7 +135,7 @@ withSimpleExpressionVisitor visitor (Schema schema) =
     Schema
         { schema
             | expressionVisitor =
-                \direction node context ->
+                \node direction context ->
                     case direction of
                         Direction.Enter ->
                             ( visitor node, context )
@@ -150,7 +150,7 @@ withSimpleDeclarationVisitor visitor (Schema schema) =
     Schema
         { schema
             | declarationVisitor =
-                \direction node context ->
+                \node direction context ->
                     case direction of
                         Direction.Enter ->
                             ( visitor node, context )
@@ -170,12 +170,12 @@ withImportVisitor visitor (Schema schema) =
     Schema { schema | importVisitor = visitor }
 
 
-withExpressionVisitor : (Direction -> Node Expression -> context -> ( List Error, context )) -> Schema context -> Schema context
+withExpressionVisitor : (Node Expression -> Direction -> context -> ( List Error, context )) -> Schema context -> Schema context
 withExpressionVisitor visitor (Schema schema) =
     Schema { schema | expressionVisitor = visitor }
 
 
-withDeclarationVisitor : (Direction -> Node Declaration -> context -> ( List Error, context )) -> Schema context -> Schema context
+withDeclarationVisitor : (Node Declaration -> Direction -> context -> ( List Error, context )) -> Schema context -> Schema context
 withDeclarationVisitor visitor (Schema schema) =
     Schema { schema | declarationVisitor = visitor }
 

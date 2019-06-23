@@ -10,16 +10,16 @@ import Lint.Internal.ExpressionVisitor as ExpressionVisitor
 
 
 visit :
-    (Direction -> Node Declaration -> context -> ( List Error, context ))
-    -> (Direction -> Node Expression -> context -> ( List Error, context ))
+    (Node Declaration -> Direction -> context -> ( List Error, context ))
+    -> (Node Expression -> Direction -> context -> ( List Error, context ))
     -> Node Declaration
     -> context
     -> ( List Error, context )
 visit declarationVisitor expressionVisitor node context =
     context
-        |> declarationVisitor Direction.Enter node
+        |> declarationVisitor node Direction.Enter
         |> accumulateList (ExpressionVisitor.visit expressionVisitor) (expressionChildren node)
-        |> accumulate (declarationVisitor Direction.Exit node)
+        |> accumulate (declarationVisitor node Direction.Exit)
 
 
 expressionChildren : Node Declaration -> List (Node Expression)
