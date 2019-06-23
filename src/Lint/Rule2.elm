@@ -59,10 +59,10 @@ type Rule2 context
     = Rule2
         { name : String
         , initialContext : context
-        , moduleDefinitionVisitor : context -> Node Module -> ( List Error, context )
-        , importVisitor : context -> Node Import -> ( List Error, context )
-        , expressionVisitor : context -> Direction -> Node Expression -> ( List Error, context )
-        , declarationVisitor : context -> Direction -> Node Declaration -> ( List Error, context )
+        , moduleDefinitionVisitor : Node Module -> context -> ( List Error, context )
+        , importVisitor : Node Import -> context -> ( List Error, context )
+        , expressionVisitor : Direction -> Node Expression -> context -> ( List Error, context )
+        , declarationVisitor : Direction -> Node Declaration -> context -> ( List Error, context )
         , finalEvaluationFn : context -> List Error
         }
 
@@ -74,10 +74,10 @@ newRuleSchema name =
     Rule2
         { name = name
         , initialContext = ()
-        , moduleDefinitionVisitor = \context node -> ( [], context )
-        , importVisitor = \context node -> ( [], context )
-        , expressionVisitor = \context direction node -> ( [], context )
-        , declarationVisitor = \context direction node -> ( [], context )
+        , moduleDefinitionVisitor = \node context -> ( [], context )
+        , importVisitor = \node context -> ( [], context )
+        , expressionVisitor = \direction node context -> ( [], context )
+        , declarationVisitor = \direction node context -> ( [], context )
         , finalEvaluationFn = \context -> []
         }
 
@@ -92,30 +92,30 @@ withInitialContext initialContext_ (Rule2 rule) =
     Rule2
         { name = rule.name
         , initialContext = initialContext_
-        , moduleDefinitionVisitor = \context node -> ( [], context )
-        , importVisitor = \context node -> ( [], context )
-        , expressionVisitor = \context direction node -> ( [], context )
-        , declarationVisitor = \context direction node -> ( [], context )
+        , moduleDefinitionVisitor = \node context -> ( [], context )
+        , importVisitor = \node context -> ( [], context )
+        , expressionVisitor = \direction node context -> ( [], context )
+        , declarationVisitor = \direction node context -> ( [], context )
         , finalEvaluationFn = \context -> []
         }
 
 
-withModuleDefinitionVisitor : (context -> Node Module -> ( List Error, context )) -> Rule2 context -> Rule2 context
+withModuleDefinitionVisitor : (Node Module -> context -> ( List Error, context )) -> Rule2 context -> Rule2 context
 withModuleDefinitionVisitor visitor (Rule2 rule) =
     Rule2 { rule | moduleDefinitionVisitor = visitor }
 
 
-withImportVisitor : (context -> Node Import -> ( List Error, context )) -> Rule2 context -> Rule2 context
+withImportVisitor : (Node Import -> context -> ( List Error, context )) -> Rule2 context -> Rule2 context
 withImportVisitor visitor (Rule2 rule) =
     Rule2 { rule | importVisitor = visitor }
 
 
-withExpressionVisitor : (context -> Direction -> Node Expression -> ( List Error, context )) -> Rule2 context -> Rule2 context
+withExpressionVisitor : (Direction -> Node Expression -> context -> ( List Error, context )) -> Rule2 context -> Rule2 context
 withExpressionVisitor visitor (Rule2 rule) =
     Rule2 { rule | expressionVisitor = visitor }
 
 
-withDeclarationVisitor : (context -> Direction -> Node Declaration -> ( List Error, context )) -> Rule2 context -> Rule2 context
+withDeclarationVisitor : (Direction -> Node Declaration -> context -> ( List Error, context )) -> Rule2 context -> Rule2 context
 withDeclarationVisitor visitor (Rule2 rule) =
     Rule2 { rule | declarationVisitor = visitor }
 
@@ -131,12 +131,12 @@ withFinalEvaluation visitor (Rule2 rule) =
 
 withSimpleModuleDefinitionVisitor : (Node Module -> List Error) -> Rule2 context -> Rule2 context
 withSimpleModuleDefinitionVisitor visitor (Rule2 rule) =
-    Rule2 { rule | moduleDefinitionVisitor = \context node -> ( visitor node, context ) }
+    Rule2 { rule | moduleDefinitionVisitor = \node context -> ( visitor node, context ) }
 
 
 withSimpleImportVisitor : (Node Import -> List Error) -> Rule2 context -> Rule2 context
 withSimpleImportVisitor visitor (Rule2 rule) =
-    Rule2 { rule | importVisitor = \context node -> ( visitor node, context ) }
+    Rule2 { rule | importVisitor = \node context -> ( visitor node, context ) }
 
 
 withSimpleExpressionVisitor : (Node Expression -> List Error) -> Rule2 context -> Rule2 context
@@ -144,7 +144,7 @@ withSimpleExpressionVisitor visitor (Rule2 rule) =
     Rule2
         { rule
             | expressionVisitor =
-                \context direction node ->
+                \direction node context ->
                     case direction of
                         Direction.Enter ->
                             ( visitor node, context )
@@ -159,7 +159,7 @@ withSimpleDeclarationVisitor visitor (Rule2 rule) =
     Rule2
         { rule
             | declarationVisitor =
-                \context direction node ->
+                \direction node context ->
                     case direction of
                         Direction.Enter ->
                             ( visitor node, context )
@@ -170,8 +170,6 @@ withSimpleDeclarationVisitor visitor (Rule2 rule) =
 
 
 
--- RULE CONSTRUCTOR AND BUILDERS
--- RULES WITH ANALYSES
 -- ACCESS
 
 
@@ -180,22 +178,22 @@ initialContext (Rule2 rule) =
     rule.initialContext
 
 
-evaluateModuleDefinition : Rule2 context -> context -> Node Module -> ( List Error, context )
+evaluateModuleDefinition : Rule2 context -> Node Module -> context -> ( List Error, context )
 evaluateModuleDefinition (Rule2 rule) =
     rule.moduleDefinitionVisitor
 
 
-evaluateImport : Rule2 context -> context -> Node Import -> ( List Error, context )
+evaluateImport : Rule2 context -> Node Import -> context -> ( List Error, context )
 evaluateImport (Rule2 rule) =
     rule.importVisitor
 
 
-evaluateExpression : Rule2 context -> context -> Direction -> Node Expression -> ( List Error, context )
+evaluateExpression : Rule2 context -> Direction -> Node Expression -> context -> ( List Error, context )
 evaluateExpression (Rule2 rule) =
     rule.expressionVisitor
 
 
-evaluateDeclaration : Rule2 context -> context -> Direction -> Node Declaration -> ( List Error, context )
+evaluateDeclaration : Rule2 context -> Direction -> Node Declaration -> context -> ( List Error, context )
 evaluateDeclaration (Rule2 rule) =
     rule.declarationVisitor
 
