@@ -17,7 +17,7 @@ import Result exposing (Result)
 
 
 type Msg
-    = Replace String
+    = SourceCodeHasBeenEdited String
 
 
 config : List ( Severity, Rule )
@@ -42,25 +42,43 @@ config =
     ]
 
 
-init : String
+init : Model
 init =
-    """module Main exposing (f)
+    let
+        sourceCode : String
+        sourceCode =
+            """module Main exposing (f)
 
 import Html.Events exposing (..)
 import Html exposing (..)
+import NotUsed
+import SomeModule exposing (notUsed)
 
 f : Int -> Int
 f x = x Debug.log 1
 
 g n = n + 1
 """
+    in
+    { sourceCode = sourceCode
+    , lintResult = lintSource config sourceCode
+    }
 
 
-update : Msg -> String -> String
+type alias Model =
+    { sourceCode : String
+    , lintResult : Result (List String) (List ( Severity, RuleError ))
+    }
+
+
+update : Msg -> Model -> Model
 update action model =
     case action of
-        Replace m ->
-            m
+        SourceCodeHasBeenEdited sourceCode ->
+            { model
+                | sourceCode = sourceCode
+                , lintResult = lintSource config sourceCode
+            }
 
 
 errorToString : RuleError -> String
@@ -68,16 +86,12 @@ errorToString { rule, message, range } =
     rule ++ ": " ++ message ++ " (line " ++ String.fromInt range.start.row ++ ", column " ++ String.fromInt range.start.column ++ ")"
 
 
-lint : String -> Html Msg
-lint source =
+lintErrors : Model -> List (Html Msg)
+lintErrors model =
     let
-        lintResult : Result (List String) (List ( Severity, RuleError ))
-        lintResult =
-            lintSource config source
-
         messages : List String
         messages =
-            case lintResult of
+            case model.lintResult of
                 Err errors ->
                     errors
 
@@ -88,36 +102,33 @@ lint source =
                     else
                         List.map (Tuple.second >> errorToString) errors
     in
-    div []
-        (List.map
-            (\message -> p [] [ text message ])
-            messages
-        )
+    List.map
+        (\message -> li [] [ text message ])
+        messages
 
 
-view : String -> Html Msg
+view : Model -> Html Msg
 view model =
     div [ id "wrapper" ]
         [ div [ id "left" ]
             [ p [ class "title" ] [ text "Source code" ]
             , textarea
                 [ id "input"
-                , onInput Replace
+                , onInput SourceCodeHasBeenEdited
                 , style "height" "500px"
                 , style "width" "500px"
                 ]
-                [ text model ]
+                [ text model.sourceCode ]
             , div []
                 [ p [ class "title" ] [ text "Linting errors" ]
                 , ul [ id "lint" ]
-                    [ li [] [ lint model ]
-                    ]
+                    (lintErrors model)
                 ]
             ]
         ]
 
 
-main : Program () String Msg
+main : Program () Model Msg
 main =
     Browser.sandbox
         { init = init
