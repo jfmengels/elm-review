@@ -1,10 +1,8 @@
 module Lint.Rule2 exposing
-    ( Rule2
-    , newRuleSchema
+    ( Rule, Schema
+    , newRuleSchema, fromSchema
     , withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleExpressionVisitor, withSimpleDeclarationVisitor
-    , withModuleDefinitionVisitor, withImportVisitor, withExpressionVisitor, withDeclarationVisitor, withFinalEvaluation
-    , evaluateDeclaration, evaluateExpression, evaluateImport, evaluateModuleDefinition, finalEvaluation, initialContext
-    , Visitor2
+    , withInitialContext, withModuleDefinitionVisitor, withImportVisitor, withExpressionVisitor, withDeclarationVisitor, withFinalEvaluation
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -12,24 +10,14 @@ module Lint.Rule2 exposing
 
 # Definition
 
-@docs Rule2
+@docs Rule, Schema
 
 
 # Writing rules
 
-@docs newRuleSchema
+@docs newRuleSchema, fromSchema
 @docs withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleExpressionVisitor, withSimpleDeclarationVisitor
-@docs withModuleDefinitionVisitor, withImportVisitor, withExpressionVisitor, withDeclarationVisitor, withFinalEvaluation
-
-
-# ACCESS
-
-@docs evaluateDeclaration, evaluateExpression, evaluateImport, evaluateModuleDefinition, finalEvaluation, initialContext
-
-
-# Internal types
-
-@docs Visitor
+@docs withInitialContext, withModuleDefinitionVisitor, withImportVisitor, withExpressionVisitor, withDeclarationVisitor, withFinalEvaluation
 
 -}
 
@@ -42,6 +30,17 @@ import Elm.Syntax.Node exposing (Node)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation)
 import Lint.Direction as Direction exposing (Direction)
 import Lint.Error exposing (Error)
+import Lint.Internal.Accumulate exposing (accumulate, accumulateList)
+import Lint.Internal.DeclarationVisitor as DeclarationVisitor
+import Lint.Internal.ExpressionVisitor as ExpressionVisitor
+
+
+{-| Shortcut to a lint rule
+-}
+type alias Rule =
+    { name : String
+    , analyze : File -> List Error
+    }
 
 
 {-| Represents a `rule` that will be enforced.
@@ -55,8 +54,8 @@ import Lint.Error exposing (Error)
                 |> Rule.fromSchema
 
 -}
-type Rule2 context
-    = Rule2
+type Schema context
+    = Schema
         { name : String
         , initialContext : context
         , moduleDefinitionVisitor : Node Module -> context -> ( List Error, context )
@@ -69,9 +68,9 @@ type Rule2 context
 
 {-| Creates a new schema for a rule. Will require calling `fromSchema` to create a usable `Rule`.
 -}
-newRuleSchema : String -> Rule2 ()
+newRuleSchema : String -> Schema ()
 newRuleSchema name =
-    Rule2
+    Schema
         { name = name
         , initialContext = ()
         , moduleDefinitionVisitor = \node context -> ( [], context )
@@ -82,15 +81,36 @@ newRuleSchema name =
         }
 
 
+fromSchema : Schema context -> Rule
+fromSchema (Schema schema) =
+    { name = schema.name
+    , analyze =
+        \file ->
+            schema.initialContext
+                |> schema.moduleDefinitionVisitor file.moduleDefinition
+                |> accumulateList schema.importVisitor file.imports
+                |> accumulateList (DeclarationVisitor.visit schema.declarationVisitor schema.expressionVisitor) file.declarations
+                |> makeFinalEvaluation schema.finalEvaluationFn
+                |> List.reverse
+    }
 
--- TODO
--- fromSchema : Rule2 () -> ...
+
+{-| Concatenate the errors of the previous step and of the last step.
+-}
+makeFinalEvaluation : (context -> List Error) -> ( List Error, context ) -> List Error
+makeFinalEvaluation finalEvaluationFn ( previousErrors, previousContext ) =
+    finalEvaluationFn previousContext
+        ++ previousErrors
 
 
-withInitialContext : context -> Rule2 () -> Rule2 context
-withInitialContext initialContext_ (Rule2 rule) =
-    Rule2
-        { name = rule.name
+
+-- RULES WITH ANALYSIS
+
+
+withInitialContext : context -> Schema () -> Schema context
+withInitialContext initialContext_ (Schema schema) =
+    Schema
+        { name = schema.name
         , initialContext = initialContext_
         , moduleDefinitionVisitor = \node context -> ( [], context )
         , importVisitor = \node context -> ( [], context )
@@ -100,49 +120,20 @@ withInitialContext initialContext_ (Rule2 rule) =
         }
 
 
-withModuleDefinitionVisitor : (Node Module -> context -> ( List Error, context )) -> Rule2 context -> Rule2 context
-withModuleDefinitionVisitor visitor (Rule2 rule) =
-    Rule2 { rule | moduleDefinitionVisitor = visitor }
+withSimpleModuleDefinitionVisitor : (Node Module -> List Error) -> Schema context -> Schema context
+withSimpleModuleDefinitionVisitor visitor (Schema schema) =
+    Schema { schema | moduleDefinitionVisitor = \node context -> ( visitor node, context ) }
 
 
-withImportVisitor : (Node Import -> context -> ( List Error, context )) -> Rule2 context -> Rule2 context
-withImportVisitor visitor (Rule2 rule) =
-    Rule2 { rule | importVisitor = visitor }
+withSimpleImportVisitor : (Node Import -> List Error) -> Schema context -> Schema context
+withSimpleImportVisitor visitor (Schema schema) =
+    Schema { schema | importVisitor = \node context -> ( visitor node, context ) }
 
 
-withExpressionVisitor : (Direction -> Node Expression -> context -> ( List Error, context )) -> Rule2 context -> Rule2 context
-withExpressionVisitor visitor (Rule2 rule) =
-    Rule2 { rule | expressionVisitor = visitor }
-
-
-withDeclarationVisitor : (Direction -> Node Declaration -> context -> ( List Error, context )) -> Rule2 context -> Rule2 context
-withDeclarationVisitor visitor (Rule2 rule) =
-    Rule2 { rule | declarationVisitor = visitor }
-
-
-withFinalEvaluation : (context -> List Error) -> Rule2 context -> Rule2 context
-withFinalEvaluation visitor (Rule2 rule) =
-    Rule2 { rule | finalEvaluationFn = visitor }
-
-
-
--- RULES WITHOUT ANALYSIS
-
-
-withSimpleModuleDefinitionVisitor : (Node Module -> List Error) -> Rule2 context -> Rule2 context
-withSimpleModuleDefinitionVisitor visitor (Rule2 rule) =
-    Rule2 { rule | moduleDefinitionVisitor = \node context -> ( visitor node, context ) }
-
-
-withSimpleImportVisitor : (Node Import -> List Error) -> Rule2 context -> Rule2 context
-withSimpleImportVisitor visitor (Rule2 rule) =
-    Rule2 { rule | importVisitor = \node context -> ( visitor node, context ) }
-
-
-withSimpleExpressionVisitor : (Node Expression -> List Error) -> Rule2 context -> Rule2 context
-withSimpleExpressionVisitor visitor (Rule2 rule) =
-    Rule2
-        { rule
+withSimpleExpressionVisitor : (Node Expression -> List Error) -> Schema context -> Schema context
+withSimpleExpressionVisitor visitor (Schema schema) =
+    Schema
+        { schema
             | expressionVisitor =
                 \direction node context ->
                     case direction of
@@ -154,10 +145,10 @@ withSimpleExpressionVisitor visitor (Rule2 rule) =
         }
 
 
-withSimpleDeclarationVisitor : (Node Declaration -> List Error) -> Rule2 context -> Rule2 context
-withSimpleDeclarationVisitor visitor (Rule2 rule) =
-    Rule2
-        { rule
+withSimpleDeclarationVisitor : (Node Declaration -> List Error) -> Schema context -> Schema context
+withSimpleDeclarationVisitor visitor (Schema schema) =
+    Schema
+        { schema
             | declarationVisitor =
                 \direction node context ->
                     case direction of
@@ -169,42 +160,26 @@ withSimpleDeclarationVisitor visitor (Rule2 rule) =
         }
 
 
-
--- ACCESS
-
-
-initialContext : Rule2 context -> context
-initialContext (Rule2 rule) =
-    rule.initialContext
+withModuleDefinitionVisitor : (Node Module -> context -> ( List Error, context )) -> Schema context -> Schema context
+withModuleDefinitionVisitor visitor (Schema schema) =
+    Schema { schema | moduleDefinitionVisitor = visitor }
 
 
-evaluateModuleDefinition : Rule2 context -> Node Module -> context -> ( List Error, context )
-evaluateModuleDefinition (Rule2 rule) =
-    rule.moduleDefinitionVisitor
+withImportVisitor : (Node Import -> context -> ( List Error, context )) -> Schema context -> Schema context
+withImportVisitor visitor (Schema schema) =
+    Schema { schema | importVisitor = visitor }
 
 
-evaluateImport : Rule2 context -> Node Import -> context -> ( List Error, context )
-evaluateImport (Rule2 rule) =
-    rule.importVisitor
+withExpressionVisitor : (Direction -> Node Expression -> context -> ( List Error, context )) -> Schema context -> Schema context
+withExpressionVisitor visitor (Schema schema) =
+    Schema { schema | expressionVisitor = visitor }
 
 
-evaluateExpression : Rule2 context -> Direction -> Node Expression -> context -> ( List Error, context )
-evaluateExpression (Rule2 rule) =
-    rule.expressionVisitor
+withDeclarationVisitor : (Direction -> Node Declaration -> context -> ( List Error, context )) -> Schema context -> Schema context
+withDeclarationVisitor visitor (Schema schema) =
+    Schema { schema | declarationVisitor = visitor }
 
 
-evaluateDeclaration : Rule2 context -> Direction -> Node Declaration -> context -> ( List Error, context )
-evaluateDeclaration (Rule2 rule) =
-    rule.declarationVisitor
-
-
-finalEvaluation : Rule2 context -> context -> List Error
-finalEvaluation (Rule2 rule) =
-    rule.finalEvaluationFn
-
-
-{-| Shorthand for a function that takes a rule's implementation, a context and returns ( List Lint.Error.Error, context ).
-A Visitor represents a node and calls the appropriate function for the given node type.
--}
-type alias Visitor2 context =
-    Rule2 context -> context -> ( List Error, context )
+withFinalEvaluation : (context -> List Error) -> Schema context -> Schema context
+withFinalEvaluation visitor (Schema schema) =
+    Schema { schema | finalEvaluationFn = visitor }

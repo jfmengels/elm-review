@@ -7,22 +7,18 @@ import Lint.Direction as Direction exposing (Direction)
 import Lint.Error exposing (Error)
 import Lint.Internal.Accumulate exposing (accumulate, accumulateList)
 import Lint.Internal.ExpressionVisitor as ExpressionVisitor
-import Lint.Rule2 as Rule exposing (Rule2)
 
 
-visit : Rule2 context -> Node Declaration -> context -> ( List Error, context )
-visit rule node context =
-    let
-        declarationVisitor : Direction -> Node Declaration -> context -> ( List Error, context )
-        declarationVisitor =
-            Rule.evaluateDeclaration rule
-
-        expressionVisitor : Node Expression -> context -> ( List Error, context )
-        expressionVisitor =
-            ExpressionVisitor.visit (Rule.evaluateExpression rule)
-    in
-    declarationVisitor Direction.Enter node context
-        |> accumulateList expressionVisitor (expressionChildren node)
+visit :
+    (Direction -> Node Declaration -> context -> ( List Error, context ))
+    -> (Direction -> Node Expression -> context -> ( List Error, context ))
+    -> Node Declaration
+    -> context
+    -> ( List Error, context )
+visit declarationVisitor expressionVisitor node context =
+    context
+        |> declarationVisitor Direction.Enter node
+        |> accumulateList (ExpressionVisitor.visit expressionVisitor) (expressionChildren node)
         |> accumulate (declarationVisitor Direction.Exit node)
 
 
