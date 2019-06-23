@@ -1,7 +1,5 @@
 module Main exposing (main)
 
--- Rules
-
 import Browser
 import Html exposing (..)
 import Html.Attributes exposing (class, id, style)
@@ -13,11 +11,10 @@ import Lint.Rule.NoExtraBooleanComparison
 import Lint.Rule.NoImportingEverything
 import Lint.Rule.NoUnusedVariables
 import Lint.RuleError exposing (RuleError)
-import Result exposing (Result)
 
 
-type Msg
-    = UserEditedSourceCode String
+
+-- LINT CONFIGURATION
 
 
 config : List ( Severity, Rule )
@@ -40,6 +37,16 @@ config =
     -- , ( Critical, Lint.Rule.SimplifyPropertyAccess.rule )
     -- , ( Critical, Lint.Rule.ElmTest.NoDuplicateTestBodies.rule )
     ]
+
+
+
+-- MODEL
+
+
+type alias Model =
+    { sourceCode : String
+    , lintResult : Result (List String) (List ( Severity, RuleError ))
+    }
 
 
 init : Model
@@ -65,10 +72,12 @@ g n = n + 1
     }
 
 
-type alias Model =
-    { sourceCode : String
-    , lintResult : Result (List String) (List ( Severity, RuleError ))
-    }
+
+-- UPDATE
+
+
+type Msg
+    = UserEditedSourceCode String
 
 
 update : Msg -> Model -> Model
@@ -81,30 +90,8 @@ update action model =
             }
 
 
-errorToString : RuleError -> String
-errorToString { rule, message, range } =
-    rule ++ ": " ++ message ++ " (line " ++ String.fromInt range.start.row ++ ", column " ++ String.fromInt range.start.column ++ ")"
 
-
-lintErrors : Model -> List (Html Msg)
-lintErrors model =
-    let
-        messages : List String
-        messages =
-            case model.lintResult of
-                Err errors ->
-                    errors
-
-                Ok errors ->
-                    if List.isEmpty errors then
-                        [ "No errors." ]
-
-                    else
-                        List.map (Tuple.second >> errorToString) errors
-    in
-    List.map
-        (\message -> li [] [ text message ])
-        messages
+-- VIEW
 
 
 view : Model -> Html Msg
@@ -131,6 +118,37 @@ view model =
                 ]
             ]
         ]
+
+
+lintErrors : Model -> List (Html Msg)
+lintErrors model =
+    let
+        messages : List String
+        messages =
+            case model.lintResult of
+                Err errors ->
+                    errors
+
+                Ok errors ->
+                    if List.isEmpty errors then
+                        [ "No errors." ]
+
+                    else
+                        List.map (Tuple.second >> errorToString) errors
+    in
+    List.map
+        (\message -> li [] [ text message ])
+        messages
+
+
+errorToString : RuleError -> String
+errorToString { rule, message, range } =
+    let
+        location : String
+        location =
+            "(line " ++ String.fromInt range.start.row ++ ", column " ++ String.fromInt range.start.column ++ ")"
+    in
+    rule ++ ": " ++ message ++ " " ++ location
 
 
 main : Program () Model Msg
