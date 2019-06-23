@@ -17,7 +17,7 @@ import Result exposing (Result)
 
 
 type Msg
-    = SourceCodeHasBeenEdited String
+    = UserEditedSourceCode String
 
 
 config : List ( Severity, Rule )
@@ -74,7 +74,7 @@ type alias Model =
 update : Msg -> Model -> Model
 update action model =
     case action of
-        SourceCodeHasBeenEdited sourceCode ->
+        UserEditedSourceCode sourceCode ->
             { model
                 | sourceCode = sourceCode
                 , lintResult = lintSource config sourceCode
@@ -118,7 +118,7 @@ view model =
                 ]
                 [ textarea
                     [ id "input"
-                    , onInput SourceCodeHasBeenEdited
+                    , onInput UserEditedSourceCode
                     , style "height" "500px"
                     , style "width" "60%"
                     ]
