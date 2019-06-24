@@ -66,7 +66,8 @@ Configuration is done via an Elm file. Note that this is an experiment, as loadi
 module LintConfig exposing (config)
 
 import Lint exposing (Severity(..))
-import Lint.Rule.DefaultPatternPosition
+import Lint.Rule exposing (Rule)
+import Lint.Rule.DefaultPatternPosition as DefaultPatternPosition
 import Lint.Rule.NoUnusedVariables
 import Lint.Rule.NoDebug
 import Lint.Rule.NoExtraBooleanComparison
@@ -75,7 +76,7 @@ import Lint.Rule.NoImportingEverything
 
 config : List ( Severity, Rule )
 config =
-    [ ( Critical, Lint.Rule.DefaultPatternPosition.rule { position = Lint.Rule.DefaultPatternPosition.Last } )
+    [ ( Critical, DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeLast )
     , ( Critical, Lint.Rule.NoExtraBooleanComparison.rule )
     , ( Critical, Lint.Rule.NoUnusedVariables.rule )
     , ( Warning, Lint.Rule.NoDebug.rule )
@@ -107,7 +108,7 @@ import Lint.Rule as Rule exposing (Rule)
 
 rule : Rule
 rule =
-    Rule.newRuleSchema "NoCoreHtml"
+    Rule.newSchema "NoCoreHtml"
         |> Rule.withSimpleImportVisitor importVisitor
         |> Rule.fromSchema
 
@@ -135,6 +136,8 @@ Then add the rule in your configuration:
 ```elm
 module LintConfig exposing (config)
 
+import Lint exposing (Severity(..))
+import Lint.Rule exposing (Rule)
 import NoCoreHtml
 
 

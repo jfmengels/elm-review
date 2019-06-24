@@ -1,14 +1,16 @@
-module Lint.Rule.DefaultPatternPosition exposing (rule, Configuration, PatternPosition(..))
+module Lint.Rule.DefaultPatternPosition exposing (rule, PatternPosition(..))
 
 {-|
 
-@docs rule, Configuration, PatternPosition
+@docs rule, PatternPosition
 
 
 # Fail
 
+    import Lint.Rules.DefaultPatternPosition as DefaultPatternPosition
+
     rules =
-        [ DefaultPatternPosition.rule { position = Lint.Rules.DefaultPatternPosition.Last }
+        [ DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeLast
         ]
 
     case value of
@@ -19,7 +21,7 @@ module Lint.Rule.DefaultPatternPosition exposing (rule, Configuration, PatternPo
     -- --------------------
 
     rules =
-        [ DefaultPatternPosition.rule { position = Lint.Rules.DefaultPatternPosition.First }
+        [ DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeFirst
         ]
 
     case value of
@@ -31,7 +33,7 @@ module Lint.Rule.DefaultPatternPosition exposing (rule, Configuration, PatternPo
 # Success
 
     rules =
-        [ DefaultPatternPosition.rule { position = Lint.Rules.DefaultPatternPosition.Last }
+        [ DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeLast
         ]
 
     case value of
@@ -46,7 +48,7 @@ module Lint.Rule.DefaultPatternPosition exposing (rule, Configuration, PatternPo
     -- --------------------
 
     rules =
-        [ DefaultPatternPosition.rule { position = Lint.Rules.DefaultPatternPosition.First }
+        [ DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeFirst
         ]
 
     case value of
@@ -67,40 +69,22 @@ import Regex
 {-| Configures whether the default pattern should appear first or last.
 -}
 type PatternPosition
-    = First
-    | Last
-
-
-{-| Configuration for the rule.
--}
-type alias Configuration =
-    { position : PatternPosition
-    }
+    = ShouldBeFirst
+    | ShouldBeLast
 
 
 {-| Enforce the default pattern to always appear first or last.
 -}
-rule : Configuration -> Rule
-rule config =
+rule : PatternPosition -> Rule
+rule patternPosition =
     Rule.newRuleSchema "DefaultPatternPosition"
-        |> Rule.withSimpleExpressionVisitor (expressionVisitor config)
+        |> Rule.withSimpleExpressionVisitor (expressionVisitor patternPosition)
         |> Rule.fromSchema
 
 
 error : Node a -> String -> Error
 error node message =
     Error.create message (Node.range node)
-
-
-
-{- TODO Share isVariable this in a util file, already defined in NoUselessPatternMatching -}
-
-
-isVariable : String -> Bool
-isVariable =
-    Regex.fromString "^[_a-z][\\w\\d]*$"
-        |> Maybe.withDefault Regex.never
-        |> Regex.contains
 
 
 isDefaultPattern : Pattern -> Bool
@@ -120,8 +104,8 @@ findDefaultPattern patterns =
         |> findIndex isDefaultPattern
 
 
-expressionVisitor : Configuration -> Node Expression -> List Error
-expressionVisitor config node =
+expressionVisitor : PatternPosition -> Node Expression -> List Error
+expressionVisitor patternPosition node =
     case Node.value node of
         CaseExpression { cases } ->
             case findDefaultPattern cases of
@@ -129,15 +113,15 @@ expressionVisitor config node =
                     []
 
                 Just index ->
-                    case config.position of
-                        First ->
+                    case patternPosition of
+                        ShouldBeFirst ->
                             if index /= 0 then
                                 [ error node "Expected default pattern to appear first in the list of patterns" ]
 
                             else
                                 []
 
-                        Last ->
+                        ShouldBeLast ->
                             if index /= List.length cases - 1 then
                                 [ error node "Expected default pattern to appear last in the list of patterns" ]
 
