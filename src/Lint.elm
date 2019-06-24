@@ -3,29 +3,7 @@ module Lint exposing
     , lintSource
     )
 
-{-| A linter for Elm.
-
-See Lint.Rules for available rules.
-To define the rules you wish to use:
-
-    rules =
-        [ Lint.Rules.NoDebug.rule
-        , Lint.Rules.NoUnusedVariables
-        ]
-
-To run the rules on a source code and get a list of errors:
-
-    lint : String -> List String
-    lint source =
-        let
-            errors =
-                List.concatMap (\rule -> rule source) rules
-        in
-        if List.isEmpty errors then
-            [ "No errors." ]
-
-        else
-            List.map (\err -> err.rule ++ ": " ++ err.message) errors
+{-| Module to configure your linting configuration and run it on a source file.
 
 
 # Configuration
@@ -40,21 +18,17 @@ To run the rules on a source code and get a list of errors:
 -}
 
 import Elm.Parser as Parser
-import Elm.Processing exposing (addFile, init, process)
-import Elm.Syntax.Expression exposing (Expression)
+import Elm.Processing exposing (init, process)
 import Elm.Syntax.File exposing (File)
-import Elm.Syntax.Node exposing (Node)
-import Lint.Direction exposing (Direction)
-import Lint.Error as Error exposing (Error)
 import Lint.Rule as Rule exposing (Rule)
 import Lint.RuleError as RuleError exposing (RuleError)
 
 
-{-| Severity associated to a rule.
+{-| When configuring `elm-lint` and adding the rules you want to enforce, you need to associate a `Severity` level to each rule.
 
-  - Critical: Transgressions reported by the rule will make the linting process fail.
-  - Warning: Transgressions reported by the rule will not make the linting process fail.
-  - Disabled: Rule will not be enforced.
+  - `Critical` - The rule is enforced and any patterns that the rule finds will be reported. The (yet non-existent) `elm-lint` CLI will fail with an error code if anything gets reported.
+  - `Warning` - The rule is enforced and any patterns that the rule finds will be reported. But the (yet non-existent) `elm-lint` CLI will not fail with an error code even if something gets reported.
+  - `Disabled` - The associated rule is not enforced and nothing will get reported for this rule.
 
 -}
 type Severity
@@ -65,17 +39,23 @@ type Severity
 
 {-| Lints a file and gives back the errors raised by the given rules.
 
-    errors =
-        lintSource rules source
+    config : List ( Severity, Rule )
+    config =
+        [ ( Warning, Lint.Rule.NoDebug.rule )
+        , ( Critical, Lint.Rule.NoUnusedVariables.rule )
+        ]
+
+    result =
+        lintSource config sourceCode
 
 -}
 lintSource : List ( Severity, Rule ) -> String -> Result (List String) (List ( Severity, RuleError ))
-lintSource rules source =
+lintSource config source =
     source
         |> parseSource
         |> Result.map
             (\statements ->
-                rules
+                config
                     |> List.concatMap
                         (lintSourceWithRule statements)
             )
