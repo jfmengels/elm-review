@@ -109,5 +109,5 @@ parseSource source =
         |> Parser.parse
         -- TODO Improve parsing error handling
         |> Result.mapError (\error -> [ "Parsing error" ])
-        -- TODO Add all files to have more context https://package.elm-lang.org/packages/stil4m/elm-syntax/7.0.2/Elm-Processing
+        -- TODO Add all files to have more context https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Processing
         |> Result.map (process init)
