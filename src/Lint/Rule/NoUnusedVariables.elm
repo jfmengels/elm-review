@@ -46,7 +46,7 @@ import Set exposing (Set)
 -}
 rule : Rule
 rule =
-    Rule.newRuleSchema "NoUnusedVariables"
+    Rule.newSchema "NoUnusedVariables"
         |> Rule.withInitialContext initialContext
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withImportVisitor importVisitor

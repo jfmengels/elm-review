@@ -45,7 +45,7 @@ import Lint.Rule as Rule exposing (Rule)
 -}
 rule : Rule
 rule =
-    Rule.newRuleSchema "NoExtraBooleanComparison"
+    Rule.newSchema "NoExtraBooleanComparison"
         |> Rule.withSimpleExpressionVisitor expressionVisitor
         |> Rule.fromSchema
 

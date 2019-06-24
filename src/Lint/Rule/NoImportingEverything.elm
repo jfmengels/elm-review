@@ -41,7 +41,7 @@ functions and types are unknown to them.
 -}
 rule : Configuration -> Rule
 rule config =
-    Rule.newRuleSchema "NoImportingEverything"
+    Rule.newSchema "NoImportingEverything"
         |> Rule.withSimpleImportVisitor (importVisitor config)
         |> Rule.fromSchema
 

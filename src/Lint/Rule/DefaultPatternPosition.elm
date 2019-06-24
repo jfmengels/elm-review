@@ -77,7 +77,7 @@ type PatternPosition
 -}
 rule : PatternPosition -> Rule
 rule patternPosition =
-    Rule.newRuleSchema "DefaultPatternPosition"
+    Rule.newSchema "DefaultPatternPosition"
         |> Rule.withSimpleExpressionVisitor (expressionVisitor patternPosition)
         |> Rule.fromSchema
 

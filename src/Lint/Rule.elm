@@ -1,6 +1,6 @@
 module Lint.Rule exposing
     ( Rule, Schema
-    , newRuleSchema, fromSchema
+    , newSchema, fromSchema
     , withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleExpressionVisitor, withSimpleDeclarationVisitor
     , withInitialContext, withModuleDefinitionVisitor, withImportVisitor, withExpressionVisitor, withDeclarationVisitor, withFinalEvaluation
     )
@@ -15,7 +15,7 @@ module Lint.Rule exposing
 
 # Writing rules
 
-@docs newRuleSchema, fromSchema
+@docs newSchema, fromSchema
 @docs withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleExpressionVisitor, withSimpleDeclarationVisitor
 @docs withInitialContext, withModuleDefinitionVisitor, withImportVisitor, withExpressionVisitor, withDeclarationVisitor, withFinalEvaluation
 
@@ -47,7 +47,7 @@ type alias Rule =
 
         rule : Rule
         rule =
-            Rule.newRuleSchema "NoDebug"
+            Rule.newSchema "NoDebug"
                 |> Rule.withExpressionVisitor expressionVisitor
                 |> Rule.fromSchema
 
@@ -65,9 +65,18 @@ type Schema context
 
 
 {-| Creates a new schema for a rule. Will require calling `fromSchema` to create a usable `Rule`.
+
+        import Lint.Rule as Rule
+
+        rule : Rule
+        rule =
+                |> Rule.withExpressionVisitor expressionVisitor
+            Rule.newSchema "NoDebug"
+                |> Rule.fromSchema
+
 -}
-newRuleSchema : String -> Schema ()
-newRuleSchema name =
+newSchema : String -> Schema ()
+newSchema name =
     Schema
         { name = name
         , initialContext = ()

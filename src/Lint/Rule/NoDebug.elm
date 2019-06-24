@@ -45,7 +45,7 @@ import Lint.Rule as Rule exposing (Rule)
 -}
 rule : Rule
 rule =
-    Rule.newRuleSchema "NoDebug"
+    Rule.newSchema "NoDebug"
         |> Rule.withSimpleExpressionVisitor expressionVisitor
         |> Rule.fromSchema
 
