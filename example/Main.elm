@@ -4,7 +4,8 @@ import Browser
 import Html exposing (..)
 import Html.Attributes exposing (class, id, style)
 import Html.Events exposing (onInput)
-import Lint exposing (Rule, Severity(..), lintSource)
+import Lint exposing (Severity(..), lintSource)
+import Lint.Rule exposing (Rule)
 import Lint.Rule.DefaultPatternPosition as DefaultPatternPosition
 import Lint.Rule.NoDebug
 import Lint.Rule.NoExtraBooleanComparison

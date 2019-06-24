@@ -1,5 +1,5 @@
 module Lint exposing
-    ( Rule, Severity(..)
+    ( Severity(..)
     , lintSource
     )
 
@@ -30,7 +30,7 @@ To run the rules on a source code and get a list of errors:
 
 # Configuration
 
-@docs Rule, Severity
+@docs Severity
 
 
 # Linting
@@ -46,22 +46,8 @@ import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Node exposing (Node)
 import Lint.Direction exposing (Direction)
 import Lint.Error as Error exposing (Error)
+import Lint.Rule exposing (Rule)
 import Lint.RuleError as RuleError exposing (RuleError)
-
-
-{-| Shortcut to a lint rule
--}
-type alias Rule =
-    { name : String
-    , analyze : File -> List Error
-    }
-
-
-createRule : String -> (File -> List Error) -> Rule
-createRule name analyze =
-    { name = name
-    , analyze = analyze
-    }
 
 
 {-| Severity associated to a rule.

@@ -2,8 +2,9 @@ module TestUtil exposing (errorWithoutRange, expectErrors, expectErrorsWithoutRa
 
 import Elm.Syntax.Range exposing (Range)
 import Expect
-import Lint exposing (Rule, Severity(..), lintSource)
+import Lint exposing (Severity(..), lintSource)
 import Lint.Error as Error exposing (Error, LintResult)
+import Lint.Rule exposing (Rule)
 
 
 ruleTester : Rule -> String -> Result (List String) (List Error)
