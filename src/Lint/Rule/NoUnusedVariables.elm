@@ -27,7 +27,7 @@ import Elm.Syntax.Exposing exposing (Exposing(..), TopLevelExpose(..))
 import Elm.Syntax.Expression exposing (Expression(..), Function, LetDeclaration(..))
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Module as Module exposing (Module(..))
-import Elm.Syntax.Node exposing (Node, range, value)
+import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
 import Lint.Direction as Direction exposing (Direction)
@@ -156,7 +156,7 @@ variableTypeWarning value =
 
 moduleDefinitionVisitor : Node Module -> Context -> ( List Error, Context )
 moduleDefinitionVisitor moduleNode context =
-    case Module.exposingList (value moduleNode) of
+    case Module.exposingList (Node.value moduleNode) of
         All _ ->
             ( [], { context | exposesEverything = True } )
 
@@ -165,7 +165,7 @@ moduleDefinitionVisitor moduleNode context =
                 names =
                     List.filterMap
                         (\node ->
-                            case value node of
+                            case Node.value node of
                                 FunctionExpose name ->
                                     Just name
 
@@ -189,25 +189,25 @@ importVisitor node context =
     let
         exposed =
             node
-                |> value
+                |> Node.value
                 |> .exposingList
     in
-    case Maybe.map value exposed of
+    case Maybe.map Node.value exposed of
         Nothing ->
             let
                 ( variableType, moduleName ) =
-                    case value node |> .moduleAlias of
+                    case Node.value node |> .moduleAlias of
                         Just moduleAlias ->
                             ( ModuleAlias, moduleAlias )
 
                         Nothing ->
-                            ( ImportedModule, value node |> .moduleName )
+                            ( ImportedModule, Node.value node |> .moduleName )
             in
             ( []
             , register
                 variableType
-                (range moduleName)
-                (value moduleName |> getModuleName)
+                (Node.range moduleName)
+                (Node.value moduleName |> getModuleName)
                 context
             )
 
@@ -222,7 +222,7 @@ importVisitor node context =
 
 expressionVisitor : Node Expression -> Direction -> Context -> ( List Error, Context )
 expressionVisitor node direction context =
-    case ( direction, value node ) of
+    case ( direction, Node.value node ) of
         ( Direction.Enter, FunctionOrValue [] name ) ->
             ( [], markAsUsed name context )
 
@@ -240,7 +240,7 @@ expressionVisitor node direction context =
                 newContext =
                     List.foldl
                         (\declaration context_ ->
-                            case value declaration of
+                            case Node.value declaration of
                                 LetFunction function ->
                                     registerFunction function context_
 
@@ -270,35 +270,35 @@ expressionVisitor node direction context =
 
 declarationVisitor : Node Declaration -> Direction -> Context -> ( List Error, Context )
 declarationVisitor node direction context =
-    case ( direction, value node ) of
+    case ( direction, Node.value node ) of
         ( Direction.Enter, FunctionDeclaration function ) ->
             let
                 declaration =
-                    value function.declaration
+                    Node.value function.declaration
 
                 namesUsedInSignature =
                     function.signature
-                        |> Maybe.map (value >> .typeAnnotation >> collectNamesFromTypeAnnotation)
+                        |> Maybe.map (Node.value >> .typeAnnotation >> collectNamesFromTypeAnnotation)
                         |> Maybe.withDefault []
 
                 newContext =
                     context
-                        |> register Variable (range declaration.name) (value declaration.name)
+                        |> register Variable (Node.range declaration.name) (Node.value declaration.name)
                         |> markAllAsUsed namesUsedInSignature
             in
             ( [], newContext )
 
         ( Direction.Enter, CustomTypeDeclaration { name } ) ->
-            ( [], register Type (range name) (value name) context )
+            ( [], register Type (Node.range name) (Node.value name) context )
 
         ( Direction.Enter, AliasDeclaration { name } ) ->
-            ( [], register Type (range name) (value name) context )
+            ( [], register Type (Node.range name) (Node.value name) context )
 
         ( Direction.Enter, PortDeclaration { name, typeAnnotation } ) ->
             ( []
             , context
                 |> markAllAsUsed (collectNamesFromTypeAnnotation typeAnnotation)
-                |> register Port (range name) (value name)
+                |> register Port (Node.range name) (Node.value name)
             )
 
         ( Direction.Enter, InfixDeclaration _ ) ->
@@ -327,9 +327,9 @@ registerFunction : Function -> Context -> Context
 registerFunction function context =
     let
         declaration =
-            value function.declaration
+            Node.value function.declaration
     in
-    register Variable (range declaration.name) (value declaration.name) context
+    register Variable (Node.range declaration.name) (Node.value declaration.name) context
 
 
 collectFromExposing : Exposing -> List ( VariableType, Range, String )
@@ -341,15 +341,15 @@ collectFromExposing exposing_ =
         Explicit list ->
             List.filterMap
                 (\node ->
-                    case value node of
+                    case Node.value node of
                         FunctionExpose name ->
-                            Just ( ImportedVariable, range node, name )
+                            Just ( ImportedVariable, Node.range node, name )
 
                         InfixExpose name ->
-                            Just ( ImportedOperator, range node, name )
+                            Just ( ImportedOperator, Node.range node, name )
 
                         TypeOrAliasExpose name ->
-                            Just ( ImportedType, range node, name )
+                            Just ( ImportedType, Node.range node, name )
 
                         TypeExpose { name, open } ->
                             case open of
@@ -357,21 +357,21 @@ collectFromExposing exposing_ =
                                     Nothing
 
                                 Nothing ->
-                                    Just ( ImportedType, range node, name )
+                                    Just ( ImportedType, Node.range node, name )
                 )
                 list
 
 
 collectNamesFromTypeAnnotation : Node TypeAnnotation -> List String
 collectNamesFromTypeAnnotation node =
-    case value node of
+    case Node.value node of
         FunctionTypeAnnotation a b ->
             collectNamesFromTypeAnnotation a ++ collectNamesFromTypeAnnotation b
 
         Typed nameNode params ->
             let
                 name =
-                    case value nameNode of
+                    case Node.value nameNode of
                         ( [], str ) ->
                             str
 
@@ -382,13 +382,13 @@ collectNamesFromTypeAnnotation node =
 
         Record list ->
             list
-                |> List.map (value >> Tuple.second)
+                |> List.map (Node.value >> Tuple.second)
                 |> List.concatMap collectNamesFromTypeAnnotation
 
         GenericRecord name list ->
             list
-                |> value
-                |> List.map (value >> Tuple.second)
+                |> Node.value
+                |> List.map (Node.value >> Tuple.second)
                 |> List.concatMap collectNamesFromTypeAnnotation
 
         Tupled list ->
