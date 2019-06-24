@@ -3,6 +3,7 @@ module Lint.Rule exposing
     , newSchema, fromSchema
     , withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleExpressionVisitor, withSimpleDeclarationVisitor
     , withInitialContext, withModuleDefinitionVisitor, withImportVisitor, withExpressionVisitor, withDeclarationVisitor, withFinalEvaluation
+    , name, analyzer
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -18,6 +19,11 @@ module Lint.Rule exposing
 @docs newSchema, fromSchema
 @docs withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleExpressionVisitor, withSimpleDeclarationVisitor
 @docs withInitialContext, withModuleDefinitionVisitor, withImportVisitor, withExpressionVisitor, withDeclarationVisitor, withFinalEvaluation
+
+
+# ACCESS
+
+@docs name, analyzer
 
 -}
 
@@ -35,10 +41,11 @@ import Lint.Internal.DeclarationVisitor as DeclarationVisitor
 
 {-| Shortcut to a lint rule
 -}
-type alias Rule =
-    { name : String
-    , analyze : File -> List Error
-    }
+type Rule
+    = Rule
+        { name : String
+        , analyzer : File -> List Error
+        }
 
 
 {-| Represents a `rule` that will be enforced.
@@ -76,9 +83,9 @@ type Schema context
 
 -}
 newSchema : String -> Schema ()
-newSchema name =
+newSchema name_ =
     Schema
-        { name = name
+        { name = name_
         , initialContext = ()
         , moduleDefinitionVisitor = \node context -> ( [], context )
         , importVisitor = \node context -> ( [], context )
@@ -90,16 +97,17 @@ newSchema name =
 
 fromSchema : Schema context -> Rule
 fromSchema (Schema schema) =
-    { name = schema.name
-    , analyze =
-        \file ->
-            schema.initialContext
-                |> schema.moduleDefinitionVisitor file.moduleDefinition
-                |> accumulateList schema.importVisitor file.imports
-                |> accumulateList (DeclarationVisitor.visit schema.declarationVisitor schema.expressionVisitor) file.declarations
-                |> makeFinalEvaluation schema.finalEvaluationFn
-                |> List.reverse
-    }
+    Rule
+        { name = schema.name
+        , analyzer =
+            \file ->
+                schema.initialContext
+                    |> schema.moduleDefinitionVisitor file.moduleDefinition
+                    |> accumulateList schema.importVisitor file.imports
+                    |> accumulateList (DeclarationVisitor.visit schema.declarationVisitor schema.expressionVisitor) file.declarations
+                    |> makeFinalEvaluation schema.finalEvaluationFn
+                    |> List.reverse
+        }
 
 
 {-| Concatenate the errors of the previous step and of the last step.
@@ -190,3 +198,17 @@ withDeclarationVisitor visitor (Schema schema) =
 withFinalEvaluation : (context -> List Error) -> Schema context -> Schema context
 withFinalEvaluation visitor (Schema schema) =
     Schema { schema | finalEvaluationFn = visitor }
+
+
+
+-- ACCESS
+
+
+name : Rule -> String
+name (Rule rule) =
+    rule.name
+
+
+analyzer : Rule -> (File -> List Error)
+analyzer (Rule rule) =
+    rule.analyzer

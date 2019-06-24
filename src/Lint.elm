@@ -46,7 +46,7 @@ import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Node exposing (Node)
 import Lint.Direction exposing (Direction)
 import Lint.Error as Error exposing (Error)
-import Lint.Rule exposing (Rule)
+import Lint.Rule as Rule exposing (Rule)
 import Lint.RuleError as RuleError exposing (RuleError)
 
 
@@ -83,8 +83,8 @@ lintSource rules source =
 
 lintSourceWithRule : File -> ( Severity, Rule ) -> List ( Severity, RuleError )
 lintSourceWithRule file ( severity, rule ) =
-    rule.analyze file
-        |> List.map (\error -> ( severity, RuleError.fromError rule.name error ))
+    Rule.analyzer rule file
+        |> List.map (\error -> ( severity, RuleError.fromError (Rule.name rule) error ))
 
 
 {-| Parse source code into a AST
