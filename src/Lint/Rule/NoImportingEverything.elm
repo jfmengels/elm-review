@@ -34,8 +34,8 @@ type alias Configuration =
 {-| Forbid importing everything from your module. This can especially be confusing to newcomers when the exposed
 functions and types are unknown to them.
 
-    rules =
-        [ NoImportingEverything.rule { exceptions = [ "Html" ] }
+    config =
+        [ ( Critical, NoImportingEverything.rule { exceptions = [ "Html" ] }
         ]
 
 -}

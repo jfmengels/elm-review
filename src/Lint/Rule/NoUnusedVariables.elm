@@ -39,8 +39,8 @@ import Set exposing (Set)
 
 {-| Reports variables that are declared but never used.
 
-    rules =
-        [ NoUnusedVariables.rule
+    config =
+        [ ( Critical, NoUnusedVariables.rule )
         ]
 
 -}

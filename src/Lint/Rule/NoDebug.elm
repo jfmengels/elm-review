@@ -38,8 +38,8 @@ import Lint.Rule as Rule exposing (Rule)
 
 {-| Forbid the use of `Debug` before it goes into production.
 
-    rules =
-        [ NoDebug.rule
+    config =
+        [ ( Critical, NoDebug.rule )
         ]
 
 -}

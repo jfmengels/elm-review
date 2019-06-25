@@ -38,8 +38,8 @@ import Lint.Rule as Rule exposing (Rule)
 
 {-| Forbid the use of `Debug` before it goes into production.
 
-    rules =
-        [ NoExtraBooleanComparison.rule
+    config =
+        [ ( Critical, NoExtraBooleanComparison.rule )
         ]
 
 -}

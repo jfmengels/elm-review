@@ -9,8 +9,8 @@ module Lint.Rule.DefaultPatternPosition exposing (rule, PatternPosition(..))
 
     import Lint.Rules.DefaultPatternPosition as DefaultPatternPosition
 
-    rules =
-        [ DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeLast
+    config =
+        [ ( Critical, DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeLast )
         ]
 
     case value of
@@ -20,8 +20,9 @@ module Lint.Rule.DefaultPatternPosition exposing (rule, PatternPosition(..))
 
     -- --------------------
 
-    rules =
-        [ DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeFirst
+
+    config =
+        [ ( Critical, DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeFirst )
         ]
 
     case value of
@@ -32,8 +33,8 @@ module Lint.Rule.DefaultPatternPosition exposing (rule, PatternPosition(..))
 
 # Success
 
-    rules =
-        [ DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeLast
+    config =
+        [ ( Critical, DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeLast )
         ]
 
     case value of
@@ -47,8 +48,8 @@ module Lint.Rule.DefaultPatternPosition exposing (rule, PatternPosition(..))
 
     -- --------------------
 
-    rules =
-        [ DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeFirst
+    config =
+        [ ( Critical, DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeFirst )
         ]
 
     case value of
