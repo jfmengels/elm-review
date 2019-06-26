@@ -30,9 +30,8 @@ import Elm.Syntax.Module as Module exposing (Module(..))
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
-import Lint.Direction as Direction exposing (Direction)
 import Lint.Error as Error exposing (Error)
-import Lint.Rule as Rule exposing (Rule)
+import Lint.Rule as Rule exposing (Direction, Rule)
 import List.Nonempty as Nonempty exposing (Nonempty)
 import Set exposing (Set)
 
@@ -223,19 +222,19 @@ importVisitor node context =
 expressionVisitor : Node Expression -> Direction -> Context -> ( List Error, Context )
 expressionVisitor node direction context =
     case ( direction, Node.value node ) of
-        ( Direction.Enter, FunctionOrValue [] name ) ->
+        ( Rule.OnEnter, FunctionOrValue [] name ) ->
             ( [], markAsUsed name context )
 
-        ( Direction.Enter, FunctionOrValue moduleName name ) ->
+        ( Rule.OnEnter, FunctionOrValue moduleName name ) ->
             ( [], markAsUsed (getModuleName moduleName) context )
 
-        ( Direction.Enter, OperatorApplication name _ _ _ ) ->
+        ( Rule.OnEnter, OperatorApplication name _ _ _ ) ->
             ( [], markAsUsed name context )
 
-        ( Direction.Enter, PrefixOperator name ) ->
+        ( Rule.OnEnter, PrefixOperator name ) ->
             ( [], markAsUsed name context )
 
-        ( Direction.Enter, LetExpression { declarations } ) ->
+        ( Rule.OnEnter, LetExpression { declarations } ) ->
             let
                 newContext =
                     List.foldl
@@ -252,7 +251,7 @@ expressionVisitor node direction context =
             in
             ( [], newContext )
 
-        ( Direction.Exit, LetExpression _ ) ->
+        ( Rule.OnExit, LetExpression _ ) ->
             let
                 ( errors, remainingUsed ) =
                     makeReport (Nonempty.head context.scopes)
@@ -271,7 +270,7 @@ expressionVisitor node direction context =
 declarationVisitor : Node Declaration -> Direction -> Context -> ( List Error, Context )
 declarationVisitor node direction context =
     case ( direction, Node.value node ) of
-        ( Direction.Enter, FunctionDeclaration function ) ->
+        ( Rule.OnEnter, FunctionDeclaration function ) ->
             let
                 declaration =
                     Node.value function.declaration
@@ -288,26 +287,26 @@ declarationVisitor node direction context =
             in
             ( [], newContext )
 
-        ( Direction.Enter, CustomTypeDeclaration { name } ) ->
+        ( Rule.OnEnter, CustomTypeDeclaration { name } ) ->
             ( [], register Type (Node.range name) (Node.value name) context )
 
-        ( Direction.Enter, AliasDeclaration { name } ) ->
+        ( Rule.OnEnter, AliasDeclaration { name } ) ->
             ( [], register Type (Node.range name) (Node.value name) context )
 
-        ( Direction.Enter, PortDeclaration { name, typeAnnotation } ) ->
+        ( Rule.OnEnter, PortDeclaration { name, typeAnnotation } ) ->
             ( []
             , context
                 |> markAllAsUsed (collectNamesFromTypeAnnotation typeAnnotation)
                 |> register Port (Node.range name) (Node.value name)
             )
 
-        ( Direction.Enter, InfixDeclaration _ ) ->
+        ( Rule.OnEnter, InfixDeclaration _ ) ->
             ( [], context )
 
-        ( Direction.Enter, Destructuring _ _ ) ->
+        ( Rule.OnEnter, Destructuring _ _ ) ->
             ( [], context )
 
-        ( Direction.Exit, _ ) ->
+        ( Rule.OnExit, _ ) ->
             ( [], context )
 
 

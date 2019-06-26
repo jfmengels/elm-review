@@ -2,7 +2,7 @@ module Lint.Rule exposing
     ( Rule, Schema
     , newSchema, fromSchema
     , withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
-    , withInitialContext, withModuleDefinitionVisitor, withImportVisitor, withDeclarationVisitor, withExpressionVisitor, withFinalEvaluation
+    , withInitialContext, withModuleDefinitionVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withExpressionVisitor, withFinalEvaluation
     , name, analyzer
     )
 
@@ -22,7 +22,7 @@ TODO Explain that and why people need to look at the documentation for elm-synta
 
 @docs newSchema, fromSchema
 @docs withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
-@docs withInitialContext, withModuleDefinitionVisitor, withImportVisitor, withDeclarationVisitor, withExpressionVisitor, withFinalEvaluation
+@docs withInitialContext, withModuleDefinitionVisitor, withImportVisitor, Direction, withDeclarationVisitor, withExpressionVisitor, withFinalEvaluation
 
 
 # ACCESS
@@ -31,16 +31,15 @@ TODO Explain that and why people need to look at the documentation for elm-synta
 
 -}
 
-import Elm.Syntax.Declaration exposing (Declaration)
-import Elm.Syntax.Expression exposing (Expression)
+import Elm.Syntax.Declaration exposing (Declaration(..))
+import Elm.Syntax.Expression exposing (Expression(..), Function, LetDeclaration(..))
 import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Import exposing (Import)
+import Elm.Syntax.Infix exposing (InfixDirection(..))
 import Elm.Syntax.Module exposing (Module)
-import Elm.Syntax.Node exposing (Node)
-import Lint.Direction as Direction exposing (Direction)
+import Elm.Syntax.Node as Node exposing (Node)
 import Lint.Error exposing (Error)
-import Lint.Internal.Accumulate exposing (accumulateList)
-import Lint.Internal.DeclarationVisitor as DeclarationVisitor
+import Lint.Internal.Accumulate exposing (accumulate, accumulateList)
 
 
 {-| Represents a construct able to analyze a `File` and report unwanted patterns.
@@ -74,6 +73,38 @@ type Schema context
         , declarationVisitor : Node Declaration -> Direction -> context -> ( List Error, context )
         , finalEvaluationFn : context -> List Error
         }
+
+
+{-| Represents whether a Node is being traversed before having seen it's children (`OnEnter`ing the Node), or after (`OnExit`ing the Node).
+
+When visiting the AST, nodes are visited twice: once on `OnEnter`, before the
+children of the node will be visited, and once on `OnExit`, after the children of
+the node have been visited.
+
+In most cases, you'll only want to handle the `OnEnter` case, but in some cases,
+you'll want to visit a `Node` after having seen it's children. For instance, if
+you're trying to detect the unused variables defined inside of a `let in` expression,
+you'll want to collect the declaration of variables, note which ones are used,
+and at the end of the block, report the ones that weren't used.
+
+    expressionVisitor : Context -> Direction -> Node Expression -> ( List Error, Context )
+    expressionVisitor context direction node =
+        case ( direction, node ) of
+            ( Rule.OnEnter, Expression.FunctionOrValue moduleName name ) ->
+                ( [], markVariableAsUsed context name )
+
+            -- Find variables declared in `let in` expression
+            ( Rule.OnEnter, LetExpression letBlock ) ->
+                ( [], registerVariables context letBlock )
+
+            -- When exiting the `let in expression, report the variables that were not used.
+            ( Rule.OnExit, LetExpression _ ) ->
+                ( unusedVariables context |> List.map createError, context )
+
+-}
+type Direction
+    = OnEnter
+    | OnExit
 
 
 {-| Creates a new schema for a rule. Will require calling [`fromSchema`](#fromSchema)
@@ -130,7 +161,7 @@ fromSchema (Schema schema) =
                 schema.initialContext
                     |> schema.moduleDefinitionVisitor file.moduleDefinition
                     |> accumulateList schema.importVisitor file.imports
-                    |> accumulateList (DeclarationVisitor.visit schema.declarationVisitor schema.expressionVisitor) file.declarations
+                    |> accumulateList (visitDeclaration schema.declarationVisitor schema.expressionVisitor) file.declarations
                     |> makeFinalEvaluation schema.finalEvaluationFn
                     |> List.reverse
         }
@@ -257,7 +288,7 @@ annotation.
                 []
 
 Note: `withSimpleDeclarationVisitor` is a simplified version of [`withDeclarationVisitor`](#withDeclarationVisitor),
-which isn't passed a `Direction` (it will only be called on `Direction.Enter`) and a `context` and doesn't return a context. You can use `withSimpleDeclarationVisitor` even if you use "non-simple with\*" functions.
+which isn't passed a [`Direction`](#Direction) (it will only be called `OnEnter`ing the node) and a `context` and doesn't return a context. You can use `withSimpleDeclarationVisitor` even if you use "non-simple with\*" functions.
 
 -}
 withSimpleDeclarationVisitor : (Node Declaration -> List Error) -> Schema context -> Schema context
@@ -267,10 +298,10 @@ withSimpleDeclarationVisitor visitor (Schema schema) =
             | declarationVisitor =
                 \node direction context ->
                     case direction of
-                        Direction.Enter ->
+                        OnEnter ->
                             ( visitor node, context )
 
-                        Direction.Exit ->
+                        OnExit ->
                             ( [], context )
         }
 
@@ -308,7 +339,7 @@ The following example forbids using the Debug module.
                 []
 
 Note: `withSimpleExpressionVisitor` is a simplified version of [`withExpressionVisitor`](#withExpressionVisitor),
-which isn't passed a `Direction` (it will only be called on `Direction.Enter`) and a `context` and doesn't return a context. You can use `withSimpleExpressionVisitor` even if you use "non-simple with\*" functions.
+which isn't passed a [`Direction`](#Direction) (it will only be called `OnEnter`ing the node) and a `context` and doesn't return a context. You can use `withSimpleExpressionVisitor` even if you use "non-simple with\*" functions.
 
 -}
 withSimpleExpressionVisitor : (Node Expression -> List Error) -> Schema context -> Schema context
@@ -318,10 +349,10 @@ withSimpleExpressionVisitor visitor (Schema schema) =
             | expressionVisitor =
                 \node direction context ->
                     case direction of
-                        Direction.Enter ->
+                        OnEnter ->
                             ( visitor node, context )
 
-                        Direction.Exit ->
+                        OnExit ->
                             ( [], context )
         }
 
@@ -362,9 +393,8 @@ module name is `Lint.Rule.NoSomethingElse`).
     import Elm.Syntax.Expression exposing (Expression(..))
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Direction as Direction exposing (Direction)
     import Lint.Error as Error exposing (Error)
-    import Lint.Rule as Rule exposing (Rule)
+    import Lint.Rule as Rule exposing (Direction, Rule)
     import List.Extra
 
     type alias Context =
@@ -394,7 +424,7 @@ module name is `Lint.Rule.NoSomethingElse`).
     expressionVisitor : Node Expression -> Direction -> Context -> ( List Error, Context )
     expressionVisitor node direction context =
         case ( direction, Node.value node ) of
-            ( Direction.Enter, Application (function :: ruleNameNode :: _) ) ->
+            ( Rule.OnEnter, Application (function :: ruleNameNode :: _) ) ->
                 case ( Node.value function, Node.value ruleNameNode ) of
                     ( FunctionOrValue [ "Rule" ] "newSchema", Literal ruleName ) ->
                         if Just ruleName /= context then
@@ -451,9 +481,8 @@ by a configuration which could look like `( Critical, NoDebugExceptInSomeModules
     import Elm.Syntax.Expression exposing (Expression(..))
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Direction as Direction exposing (Direction)
     import Lint.Error as Error exposing (Error)
-    import Lint.Rule as Rule exposing (Rule)
+    import Lint.Rule as Rule exposing (Direction, Rule)
 
     type Context
         = DebugIsAllowed
@@ -479,10 +508,10 @@ by a configuration which could look like `( Critical, NoDebugExceptInSomeModules
     expressionVisitor : Node Expression -> Direction -> Context -> ( List Error, Context )
     expressionVisitor node direction context =
         case ( direction, context ) of
-            ( Direction.Enter, DebugIsAllowed ) ->
+            ( Rule.OnEnter, DebugIsAllowed ) ->
                 ( [], context )
 
-            ( Direction.Enter, DebugIsForbidden ) ->
+            ( Rule.OnEnter, DebugIsForbidden ) ->
                 case Node.value node of
                     FunctionOrValue moduleName fnName ->
                         if List.member "Debug" moduleName then
@@ -582,9 +611,8 @@ annotation.
     import Elm.Syntax.Exposing as Exposing
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Direction as Direction exposing (Direction)
     import Lint.Error as Error exposing (Error)
-    import Lint.Rule as Rule exposing (Rule)
+    import Lint.Rule as Rule exposing (Direction, Rule)
 
     type ExposedFunctions
         = All
@@ -619,7 +647,7 @@ annotation.
     declarationVisitor : Node Declaration -> Direction -> ExposedFunctions -> ( List Error, ExposedFunctions )
     declarationVisitor node direction context =
         case ( direction, Node.value node ) of
-            ( Direction.Enter, FunctionDeclaration { documentation, declaration } ) ->
+            ( Rule.OnEnter, FunctionDeclaration { documentation, declaration } ) ->
                 let
                     functionName : String
                     functionName =
@@ -667,9 +695,8 @@ module Main exposing (Context(..), expressionVisitor, importVisitor, rule)
     import Elm.Syntax.Expression exposing (Expression(..))
     import Elm.Syntax.Import exposing (Import)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Direction as Direction exposing (Direction)
     import Lint.Error as Error exposing (Error)
-    import Lint.Rule as Rule exposing (Rule)
+    import Lint.Rule as Rule exposing (Direction, Rule)
 
     type Context
         = DebugLogWasNotImported
@@ -717,7 +744,7 @@ module Main exposing (Context(..), expressionVisitor, importVisitor, rule)
 
             DebugLogWasImported ->
                 case ( direction, Node.value node ) of
-                    ( Direction.Enter, FunctionOrValue [] "log" ) ->
+                    ( Rule.OnEnter, FunctionOrValue [] "log" ) ->
                         ( [ Error.create "Forbidden use of Debug.log" (Node.range node) ], context )
 
                     _ ->
@@ -795,3 +822,151 @@ name (Rule rule) =
 analyzer : Rule -> (File -> List Error)
 analyzer (Rule rule) =
     rule.analyzer
+
+
+
+-- TREE TRAVERSAL
+
+
+visitDeclaration :
+    (Node Declaration -> Direction -> context -> ( List Error, context ))
+    -> (Node Expression -> Direction -> context -> ( List Error, context ))
+    -> Node Declaration
+    -> context
+    -> ( List Error, context )
+visitDeclaration declarationVisitor expressionVisitor node context =
+    context
+        |> declarationVisitor node OnEnter
+        |> accumulateList (visitExpression expressionVisitor) (expressionsInDeclaration node)
+        |> accumulate (declarationVisitor node OnExit)
+
+
+expressionsInDeclaration : Node Declaration -> List (Node Expression)
+expressionsInDeclaration node =
+    case Node.value node of
+        FunctionDeclaration function ->
+            [ functionToExpression function ]
+
+        CustomTypeDeclaration _ ->
+            []
+
+        AliasDeclaration { typeAnnotation } ->
+            []
+
+        Destructuring pattern expr ->
+            [ expr ]
+
+        PortDeclaration _ ->
+            []
+
+        InfixDeclaration _ ->
+            []
+
+
+visitExpression : (Node Expression -> Direction -> context -> ( List Error, context )) -> Node Expression -> context -> ( List Error, context )
+visitExpression visitor node context =
+    context
+        |> visitor node OnEnter
+        |> accumulateList (visitExpression visitor) (expressionChildren node)
+        |> accumulate (visitor node OnExit)
+
+
+expressionChildren : Node Expression -> List (Node Expression)
+expressionChildren node =
+    case Node.value node of
+        Application expressions ->
+            expressions
+
+        Literal _ ->
+            []
+
+        Integer _ ->
+            []
+
+        Floatable _ ->
+            []
+
+        UnitExpr ->
+            []
+
+        ListExpr elements ->
+            elements
+
+        FunctionOrValue _ _ ->
+            []
+
+        RecordExpr fields ->
+            List.map (Node.value >> (\( _, expr ) -> expr)) fields
+
+        RecordUpdateExpression _ setters ->
+            List.map (Node.value >> (\( field, expr ) -> expr)) setters
+
+        ParenthesizedExpression expr ->
+            [ expr ]
+
+        Operator _ ->
+            []
+
+        OperatorApplication operator direction left right ->
+            case direction of
+                Left ->
+                    [ left, right ]
+
+                Right ->
+                    [ right, left ]
+
+                Non ->
+                    [ left, right ]
+
+        IfBlock cond then_ else_ ->
+            [ cond, then_, else_ ]
+
+        LetExpression { expression, declarations } ->
+            List.map
+                (\declaration ->
+                    case Node.value declaration of
+                        LetFunction function ->
+                            functionToExpression function
+
+                        LetDestructuring pattern expr ->
+                            expr
+                )
+                declarations
+                ++ [ expression ]
+
+        CaseExpression { expression, cases } ->
+            [ expression ]
+                ++ List.map (\( pattern, caseExpression ) -> caseExpression) cases
+
+        LambdaExpression { args, expression } ->
+            [ expression ]
+
+        TupledExpression expressions ->
+            expressions
+
+        PrefixOperator _ ->
+            []
+
+        Hex _ ->
+            []
+
+        Negation expr ->
+            [ expr ]
+
+        CharLiteral _ ->
+            []
+
+        RecordAccess expr property ->
+            [ expr ]
+
+        RecordAccessFunction _ ->
+            []
+
+        GLSLExpression expr ->
+            []
+
+
+functionToExpression : Function -> Node Expression
+functionToExpression function =
+    Node.value function.declaration
+        |> .expression

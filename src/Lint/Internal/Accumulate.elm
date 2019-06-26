@@ -1,7 +1,6 @@
 module Lint.Internal.Accumulate exposing (accumulate, accumulateList)
 
 import Elm.Syntax.Node exposing (Node)
-import Lint.Direction as Direction exposing (Direction)
 import Lint.Error exposing (Error)
 
 
