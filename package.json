@@ -8,7 +8,8 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "elm-test"
+    "test": "elm-test",
+    "test:watch": "npm run test -s -- --watch"
   },
   "repository": {
     "type": "git",
