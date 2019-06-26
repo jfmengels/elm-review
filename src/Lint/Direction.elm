@@ -10,7 +10,10 @@ module Lint.Direction exposing (Direction(..))
 -}
 
 
-{-| When visiting the AST, nodes are visited twice: once on `Enter`, before the
+{-| Represents whether a Node is being traversed before having seen it's children
+(`Enter`ing the Node), or after (`Exit`ing the Node).
+
+When visiting the AST, nodes are visited twice: once on `Enter`, before the
 children of the node will be visited, and once on `Exit`, after the children of
 the node have been visited.
 
@@ -23,8 +26,8 @@ and at the end of the block, report the ones that weren't used.
     expressionVisitor : Context -> Direction -> Node Expression -> ( List Error, Context )
     expressionVisitor context direction node =
         case ( direction, node ) of
-            ( Direction., Expression.FunctionOrValue moduleName name ) ->
-            ( [], markVariableAsUsed context name )
+            ( Direction.Enter, Expression.FunctionOrValue moduleName name ) ->
+                ( [], markVariableAsUsed context name )
 
             -- Find variables declared in `let in` expression
             ( Direction.Enter, LetExpression letBlock ) ->
