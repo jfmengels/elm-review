@@ -1,4 +1,14 @@
-module TestUtil exposing (LintResult, errorWithoutRange, expectErrors, expectErrorsWithoutRange, location, ruleTester)
+module Lint.Test exposing (LintResult, errorWithoutRange, expectErrors, expectErrorsWithoutRange, location, ruleTester)
+
+{-| Module that helps you test your linting rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest).
+
+TODO Add instructions and examples
+
+TODO Add helpful tips
+
+TODO Rework API, we can do something much nicer than this
+
+-}
 
 import Elm.Syntax.Range exposing (Range)
 import Expect
@@ -7,7 +17,7 @@ import Lint.Error as Error exposing (Error)
 import Lint.Rule exposing (Rule)
 
 
-{-| Result of a lint rule being applied on a string containing Elm code.
+{-| Alias for the result of a lint rule being applied on a string containing Elm code.
 -}
 type alias LintResult =
     Result (List String) (List Error)
