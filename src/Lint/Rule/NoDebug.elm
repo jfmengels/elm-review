@@ -32,8 +32,7 @@ module Lint.Rule.NoDebug exposing (rule)
 
 import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Node as Node exposing (Node)
-import Lint.Error as Error exposing (Error)
-import Lint.Rule as Rule exposing (Rule)
+import Lint.Rule as Rule exposing (Error, Rule)
 
 
 {-| Forbid the use of `Debug` before it goes into production.
@@ -52,7 +51,7 @@ rule =
 
 error : Node a -> Error
 error node =
-    Error.create "Forbidden use of Debug" (Node.range node)
+    Rule.error "Forbidden use of Debug" (Node.range node)
 
 
 expressionVisitor : Node Expression -> List Error

@@ -1,11 +1,10 @@
 module NoImportingEverythingTest exposing (all)
 
 import Elm.Syntax.Range exposing (Location, Range)
-import Lint.Error as Error exposing (Error)
-import Lint.Rule exposing (Rule)
+import Lint.Rule as Rule exposing (Error, Rule)
 import Lint.Rule.NoImportingEverything exposing (Configuration, rule)
-import Test exposing (Test, describe, test)
 import Lint.Test exposing (LintResult)
+import Test exposing (Test, describe, test)
 
 
 testRule : Configuration -> String -> LintResult

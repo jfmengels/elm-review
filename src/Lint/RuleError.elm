@@ -9,7 +9,7 @@ module Lint.RuleError exposing (RuleError, fromError)
 -}
 
 import Elm.Syntax.Range exposing (Range)
-import Lint.Error as Error exposing (Error)
+import Lint.Rule as Rule exposing (Error)
 
 
 type alias RuleError =
@@ -22,6 +22,6 @@ type alias RuleError =
 fromError : String -> Error -> RuleError
 fromError rule error =
     { rule = rule
-    , message = Error.message error
-    , range = Error.range error
+    , message = Rule.errorMessage error
+    , range = Rule.errorRange error
     }

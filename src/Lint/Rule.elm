@@ -3,6 +3,7 @@ module Lint.Rule exposing
     , newSchema, fromSchema
     , withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
     , withInitialContext, withModuleDefinitionVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withExpressionVisitor, withFinalEvaluation
+    , Error, error, errorMessage, errorRange
     , name, analyzer
     )
 
@@ -20,9 +21,17 @@ TODO Explain that and why people need to look at the documentation for elm-synta
 
 # Writing rules
 
+
+## Creating a linting rule
+
 @docs newSchema, fromSchema
 @docs withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
 @docs withInitialContext, withModuleDefinitionVisitor, withImportVisitor, Direction, withDeclarationVisitor, withExpressionVisitor, withFinalEvaluation
+
+
+## Errors
+
+@docs Error, error, errorMessage, errorRange
 
 
 # ACCESS
@@ -38,8 +47,7 @@ import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Infix exposing (InfixDirection(..))
 import Elm.Syntax.Module exposing (Module)
 import Elm.Syntax.Node as Node exposing (Node)
-import Lint.Error exposing (Error)
-import Lint.Internal.Accumulate exposing (accumulate, accumulateList)
+import Elm.Syntax.Range exposing (Range)
 
 
 {-| Represents a construct able to analyze a `File` and report unwanted patterns.
@@ -181,8 +189,7 @@ The following example forbids having `_` in any part of a module name.
 
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Error as Error exposing (Error)
-    import Lint.Rule as Rule exposing (Rule)
+    import Lint.Rule as Rule exposing (Error, Rule)
 
     rule : Rule
     rule =
@@ -193,7 +200,7 @@ The following example forbids having `_` in any part of a module name.
     moduleDefinitionVisitor : Node Module -> List Error
     moduleDefinitionVisitor node =
         if List.any (String.contains "") (Node.value node |> Module.moduleName) then
-            [ Error.create "Do not use `_` in a module name" (Node.range node) ]
+            [ Rule.error "Do not use `_` in a module name" (Node.range node) ]
 
         else
             []
@@ -214,8 +221,7 @@ The following example forbids using the core Html package and suggests using
 
     import Elm.Syntax.Import exposing (Import)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Error as Error exposing (Error)
-    import Lint.Rule as Rule exposing (Rule)
+    import Lint.Rule as Rule exposing (Error, Rule)
 
     rule : Rule
     rule =
@@ -235,7 +241,7 @@ The following example forbids using the core Html package and suggests using
         in
         case moduleName of
             [ "Html" ] ->
-                [ Error.create "Use `elm-css` or `elm-ui` instead of the core HTML package." (Node.range node) ]
+                [ Rule.error "Use `elm-css` or `elm-ui` instead of the core HTML package." (Node.range node) ]
 
             _ ->
                 []
@@ -259,8 +265,7 @@ annotation.
 
     import Elm.Syntax.Declaration exposing (Declaration(..))
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Error as Error exposing (Error)
-    import Lint.Rule as Rule exposing (Rule)
+    import Lint.Rule as Rule exposing (Error, Rule)
 
     rule : Rule
     rule =
@@ -282,7 +287,7 @@ annotation.
                             functionName =
                                 declaration |> Node.value |> .name |> Node.value
                         in
-                        [ Error.create ("Missing type annotation for `" ++ functionName ++ "`.") (Node.range node) ]
+                        [ Rule.error ("Missing type annotation for `" ++ functionName ++ "`.") (Node.range node) ]
 
             _ ->
                 []
@@ -316,8 +321,7 @@ The following example forbids using the Debug module.
 
     import Elm.Syntax.Expression exposing (Expression(..))
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Error as Error exposing (Error)
-    import Lint.Rule as Rule exposing (Rule)
+    import Lint.Rule as Rule exposing (Error, Rule)
 
     rule : Rule
     rule =
@@ -330,7 +334,7 @@ The following example forbids using the Debug module.
         case Node.value node of
             FunctionOrValue moduleName fnName ->
                 if List.member "Debug" moduleName then
-                    [ Error.create "Forbidden use of Debug" (Node.range node) ]
+                    [ Rule.error "Forbidden use of Debug" (Node.range node) ]
 
                 else
                     []
@@ -393,8 +397,7 @@ module name is `Lint.Rule.NoSomethingElse`).
     import Elm.Syntax.Expression exposing (Expression(..))
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Error as Error exposing (Error)
-    import Lint.Rule as Rule exposing (Direction, Rule)
+    import Lint.Rule as Rule exposing (Direction, Error, Rule)
     import List.Extra
 
     type alias Context =
@@ -438,7 +441,7 @@ module name is `Lint.Rule.NoSomethingElse`).
                                         Nothing ->
                                             ""
                             in
-                            ( [ Error.create
+                            ( [ Rule.error
                                     ("Rule name should be the same as the module name" ++ suggestedName)
                                     (Node.range ruleNameNode)
                               ]
@@ -481,8 +484,7 @@ by a configuration which could look like `( Critical, NoDebugExceptInSomeModules
     import Elm.Syntax.Expression exposing (Expression(..))
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Error as Error exposing (Error)
-    import Lint.Rule as Rule exposing (Direction, Rule)
+    import Lint.Rule as Rule exposing (Direction, Error, Rule)
 
     type Context
         = DebugIsAllowed
@@ -515,7 +517,7 @@ by a configuration which could look like `( Critical, NoDebugExceptInSomeModules
                 case Node.value node of
                     FunctionOrValue moduleName fnName ->
                         if List.member "Debug" moduleName then
-                            ( [ Error.create "Forbidden use of Debug" (Node.range node) ], context )
+                            ( [ Rule.error "Forbidden use of Debug" (Node.range node) ], context )
 
                         else
                             ( [], context )
@@ -545,8 +547,7 @@ The following example forbids importing both `Element` (`elm-ui`) and
 
     import Elm.Syntax.Import exposing (Import)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Error as Error exposing (Error)
-    import Lint.Rule as Rule exposing (Rule)
+    import Lint.Rule as Rule exposing (Error, Rule)
 
     type alias Context =
         { elmUiWasImported : Bool
@@ -565,23 +566,23 @@ The following example forbids importing both `Element` (`elm-ui`) and
         case Node.value node |> .moduleName |> Node.value of
             [ "Element" ] ->
                 if context.elmCssWasImported then
-                    ( [ Error.create "Do not use both `elm-ui` and `elm-css`" (Node.range node) ]
+                    ( [ Rule.error "Do not use both `elm-ui` and `elm-css`" (Node.range node) ]
                     , { context | elmUiWasImported = True }
                     )
 
                 else
-                    ( [ Error.create "Do not use both `elm-ui` and `elm-css`" (Node.range node) ]
+                    ( [ Rule.error "Do not use both `elm-ui` and `elm-css`" (Node.range node) ]
                     , { context | elmUiWasImported = True }
                     )
 
             [ "Html", "Styled" ] ->
                 if context.elmUiWasImported then
-                    ( [ Error.create "Do not use both `elm-ui` and `elm-css`" (Node.range node) ]
+                    ( [ Rule.error "Do not use both `elm-ui` and `elm-css`" (Node.range node) ]
                     , { context | elmCssWasImported = True }
                     )
 
                 else
-                    ( [ Error.create "Do not use both `elm-ui` and `elm-css`" (Node.range node) ]
+                    ( [ Rule.error "Do not use both `elm-ui` and `elm-css`" (Node.range node) ]
                     , { context | elmCssWasImported = True }
                     )
 
@@ -611,8 +612,7 @@ annotation.
     import Elm.Syntax.Exposing as Exposing
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Error as Error exposing (Error)
-    import Lint.Rule as Rule exposing (Direction, Rule)
+    import Lint.Rule as Rule exposing (Direction, Error, Rule)
 
     type ExposedFunctions
         = All
@@ -654,7 +654,7 @@ annotation.
                         Node.value declaration |> .name |> Node.value
                 in
                 if documentation == Nothing && isExposed context functionName then
-                    ( [ Error.create "Exposed function is missing a type annotation" (Node.range node) ], context )
+                    ( [ Rule.error "Exposed function is missing a type annotation" (Node.range node) ], context )
 
                 else
                     ( [], context )
@@ -695,8 +695,7 @@ module Main exposing (Context(..), expressionVisitor, importVisitor, rule)
     import Elm.Syntax.Expression exposing (Expression(..))
     import Elm.Syntax.Import exposing (Import)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Error as Error exposing (Error)
-    import Lint.Rule as Rule exposing (Direction, Rule)
+    import Lint.Rule as Rule exposing (Direction, Error, Rule)
 
     type Context
         = DebugLogWasNotImported
@@ -745,7 +744,7 @@ module Main exposing (Context(..), expressionVisitor, importVisitor, rule)
             DebugLogWasImported ->
                 case ( direction, Node.value node ) of
                     ( Rule.OnEnter, FunctionOrValue [] "log" ) ->
-                        ( [ Error.create "Forbidden use of Debug.log" (Node.range node) ], context )
+                        ( [ Rule.error "Forbidden use of Debug.log" (Node.range node) ], context )
 
                     _ ->
                         ( [], context )
@@ -773,8 +772,7 @@ for [`withImportVisitor`](#withImportVisitor), but using `withFinalEvaluation`.
     import Elm.Syntax.Import exposing (Import)
     import Elm.Syntax.Node as Node exposing (Node)
     import Elm.Syntax.Range exposing (Range)
-    import Lint.Error as Error exposing (Error)
-    import Lint.Rule as Rule exposing (Rule)
+    import Lint.Rule as Rule exposing (Error, Rule)
 
     type alias Context =
         Dict (List String) Range
@@ -795,7 +793,7 @@ for [`withImportVisitor`](#withImportVisitor), but using `withFinalEvaluation`.
     finalEvaluation context =
         case ( Dict.get [ "Element" ] context, Dict.get [ "Html", "Styled" ] context ) of
             ( Just elmUiRange, Just _ ) ->
-                [ Error.create "Do not use both `elm-ui` and `elm-css`" elmUiRange ]
+                [ Rule.error "Do not use both `elm-ui` and `elm-css`" elmUiRange ]
 
             _ ->
                 []
@@ -804,6 +802,52 @@ for [`withImportVisitor`](#withImportVisitor), but using `withFinalEvaluation`.
 withFinalEvaluation : (context -> List Error) -> Schema context -> Schema context
 withFinalEvaluation visitor (Schema schema) =
     Schema { schema | finalEvaluationFn = visitor }
+
+
+
+-- ERRORS
+
+
+{-| Represents an error found by a rule.
+-}
+type Error
+    = Error
+        { message : String
+        , range : Range
+        }
+
+
+{-| Creates an [`Error`](#Error). Use it when you find a pattern that the rule should forbid.
+It takes the message you want to display to the user, and a [Range](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range),
+which is the location where the error should be shown (under which to put the squiggly lines in an editor).
+In most cases, you can get it using [`Node.range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#range).
+
+    error : Node a -> Error
+    error node =
+        Rule.error "Forbidden use of Debug" (Node.range node)
+
+-}
+error : String -> Range -> Error
+error message range =
+    Error
+        { message = message
+        , range = range
+        }
+
+
+{-| Get the error message of an [`Error`](#Error).
+-}
+errorMessage : Error -> String
+errorMessage (Error err) =
+    err.message
+
+
+{-| Get the [Range](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range)
+of an [`Error`](#Error).
+-}
+errorRange : Error -> Range
+errorRange (Error err) =
+    err.range
 
 
 
@@ -970,3 +1014,22 @@ functionToExpression : Function -> Node Expression
 functionToExpression function =
     Node.value function.declaration
         |> .expression
+
+
+accumulateList : (Node a -> context -> ( List Error, context )) -> List (Node a) -> ( List Error, context ) -> ( List Error, context )
+accumulateList visitor nodes ( previousErrors, previousContext ) =
+    List.foldl
+        (\node -> accumulate (visitor node))
+        ( previousErrors, previousContext )
+        nodes
+
+
+{-| Concatenate the errors of the previous step and of the last step, and take the last step's context.
+-}
+accumulate : (context -> ( List Error, context )) -> ( List Error, context ) -> ( List Error, context )
+accumulate visitor ( previousErrors, previousContext ) =
+    let
+        ( newErrors, newContext ) =
+            visitor previousContext
+    in
+    ( newErrors ++ previousErrors, newContext )

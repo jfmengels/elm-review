@@ -14,7 +14,7 @@ module Lint.Rule.DefaultPatternPosition exposing (rule, PatternPosition(..))
         ]
 
     case value of
-      -- LintError, this pattern should appear last
+      -- Error: "Expected default pattern to appear last in the list of patterns"
       _ -> result
       Foo -> bar
 
@@ -27,7 +27,7 @@ module Lint.Rule.DefaultPatternPosition exposing (rule, PatternPosition(..))
 
     case value of
       Foo -> bar
-      -- LintError, this pattern should appear first
+      -- Error: Expected default pattern to appear first in the list of patterns
       _ -> result
 
 
@@ -61,8 +61,7 @@ module Lint.Rule.DefaultPatternPosition exposing (rule, PatternPosition(..))
 import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Pattern exposing (Pattern(..))
-import Lint.Error as Error exposing (Error)
-import Lint.Rule as Rule exposing (Rule)
+import Lint.Rule as Rule exposing (Error, Rule)
 import List.Extra exposing (findIndex)
 import Regex
 
@@ -85,7 +84,7 @@ rule patternPosition =
 
 error : Node a -> String -> Error
 error node message =
-    Error.create message (Node.range node)
+    Rule.error message (Node.range node)
 
 
 isDefaultPattern : Pattern -> Bool

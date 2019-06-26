@@ -20,8 +20,7 @@ import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
-import Lint.Error as Error exposing (Error)
-import Lint.Rule as Rule exposing (Rule)
+import Lint.Rule as Rule exposing (Error, Rule)
 import Lint.Util as Util
 
 
@@ -48,7 +47,7 @@ rule config =
 
 error : Range -> String -> Error
 error range name =
-    Error.create ("Do not expose everything from " ++ name) range
+    Rule.error ("Do not expose everything from " ++ name) range
 
 
 importVisitor : Configuration -> Node Import -> List Error

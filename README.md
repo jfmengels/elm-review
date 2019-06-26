@@ -102,8 +102,7 @@ module NoCoreHtml exposing (rule)
 
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Node as Node exposing (Node)
-import Lint.Error as Error exposing (Error)
-import Lint.Rule as Rule exposing (Rule)
+import Lint.Rule as Rule exposing (Error, Rule)
 
 
 rule : Rule
@@ -125,7 +124,7 @@ importVisitor node =
     in
     case moduleName of
         [ "Html" ] ->
-            [ Error.create "Use `elm-css` or `elm-ui` instead of the core HTML package." (Node.range node) ]
+            [ Rule.error "Use `elm-css` or `elm-ui` instead of the core HTML package." (Node.range node) ]
 
         _ ->
             []

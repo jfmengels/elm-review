@@ -32,8 +32,7 @@ module Lint.Rule.NoExtraBooleanComparison exposing (rule)
 
 import Elm.Syntax.Expression as Expression exposing (Expression(..))
 import Elm.Syntax.Node as Node exposing (Node)
-import Lint.Error as Error exposing (Error)
-import Lint.Rule as Rule exposing (Rule)
+import Lint.Rule as Rule exposing (Error, Rule)
 
 
 {-| Forbid the use of `Debug` before it goes into production.
@@ -52,7 +51,7 @@ rule =
 
 error : String -> Node a -> Error
 error comparedValue node =
-    Error.create
+    Rule.error
         ("Unnecessary comparison with `" ++ comparedValue ++ "`")
         (Node.range node)
 

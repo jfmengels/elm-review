@@ -1,8 +1,7 @@
 module NoDebugTest exposing (all)
 
 import Elm.Syntax.Range exposing (Location, Range)
-import Lint.Error as Error exposing (Error)
-import Lint.Rule exposing (Rule)
+import Lint.Rule as Rule exposing (Error, Rule)
 import Lint.Rule.NoDebug exposing (rule)
 import Lint.Test exposing (LintResult)
 import Test exposing (Test, describe, test)
@@ -17,7 +16,7 @@ testRule string =
 
 error : Range -> Error
 error range =
-    Error.create "Forbidden use of Debug" range
+    Rule.error "Forbidden use of Debug" range
 
 
 tests : List Test

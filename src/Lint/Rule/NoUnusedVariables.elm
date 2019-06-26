@@ -30,8 +30,7 @@ import Elm.Syntax.Module as Module exposing (Module(..))
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
-import Lint.Error as Error exposing (Error)
-import Lint.Rule as Rule exposing (Direction, Rule)
+import Lint.Rule as Rule exposing (Direction, Error, Rule)
 import List.Nonempty as Nonempty exposing (Nonempty)
 import Set exposing (Set)
 
@@ -92,7 +91,7 @@ emptyScope =
 
 error : VariableType -> Range -> String -> Error
 error variableType range_ name =
-    Error.create
+    Rule.error
         (variableTypeToString variableType ++ " `" ++ name ++ "` is not used" ++ variableTypeWarning variableType)
         range_
 

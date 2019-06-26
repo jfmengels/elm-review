@@ -13,8 +13,7 @@ TODO Rework API, we can do something much nicer than this
 import Elm.Syntax.Range exposing (Range)
 import Expect
 import Lint exposing (Severity(..), lintSource)
-import Lint.Error as Error exposing (Error)
-import Lint.Rule exposing (Rule)
+import Lint.Rule as Rule exposing (Error, Rule)
 
 
 {-| Alias for the result of a lint rule being applied on a string containing Elm code.
@@ -26,7 +25,7 @@ type alias LintResult =
 ruleTester : Rule -> String -> Result (List String) (List Error)
 ruleTester rule str =
     lintSource [ ( Critical, rule ) ] str
-        |> Result.map (List.map (\( severity, { message, range } ) -> Error.create message range))
+        |> Result.map (List.map (\( severity, { message, range } ) -> Rule.error message range))
 
 
 expectErrors : List Error -> LintResult -> Expect.Expectation
@@ -53,12 +52,12 @@ expectErrorsWithoutRange expectedErrors result =
 
 errorMessages : List Error -> List String
 errorMessages errors =
-    List.map Error.message errors
+    List.map Rule.errorMessage errors
 
 
 errorWithoutRange : String -> Error
 errorWithoutRange message =
-    Error.create message (location ( 0, 0 ) ( 0, 0 ))
+    Rule.error message (location ( 0, 0 ) ( 0, 0 ))
 
 
 location : ( Int, Int ) -> ( Int, Int ) -> Range
