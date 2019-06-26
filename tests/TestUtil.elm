@@ -1,10 +1,16 @@
-module TestUtil exposing (errorWithoutRange, expectErrors, expectErrorsWithoutRange, location, ruleTester)
+module TestUtil exposing (LintResult, errorWithoutRange, expectErrors, expectErrorsWithoutRange, location, ruleTester)
 
 import Elm.Syntax.Range exposing (Range)
 import Expect
 import Lint exposing (Severity(..), lintSource)
-import Lint.Error as Error exposing (Error, LintResult)
+import Lint.Error as Error exposing (Error)
 import Lint.Rule exposing (Rule)
+
+
+{-| Result of a lint rule being applied on a string containing Elm code.
+-}
+type alias LintResult =
+    Result (List String) (List Error)
 
 
 ruleTester : Rule -> String -> Result (List String) (List Error)

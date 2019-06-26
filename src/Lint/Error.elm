@@ -1,5 +1,5 @@
 module Lint.Error exposing
-    ( Error, LintResult
+    ( Error
     , create
     , message, range
     )
@@ -13,7 +13,7 @@ module Lint.Error exposing
 
 # Definition
 
-@docs Error, LintResult
+@docs Error
 
 
 # CONSTRUCTOR
@@ -39,12 +39,6 @@ type Error
         { message : String
         , range : Range
         }
-
-
-{-| Shortcut to the result of a lint rule
--}
-type alias LintResult =
-    Result (List String) (List Error)
 
 
 
