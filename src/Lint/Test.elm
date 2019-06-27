@@ -10,8 +10,9 @@ TODO Rework API, we can do something much nicer than this
 
 -}
 
+import Array exposing (Array)
 import Elm.Syntax.Range exposing (Range)
-import Expect
+import Expect exposing (Expectation)
 import Lint exposing (Severity(..), lintSource)
 import Lint.Rule as Rule exposing (Error, Rule)
 
@@ -53,7 +54,7 @@ run rule str =
         |> Result.map (List.map (\( severity, { message, range } ) -> Rule.error message range))
 
 
-expectErrors : List Error -> LintResult -> Expect.Expectation
+expectErrors : List Error -> LintResult -> Expectation
 expectErrors expectedErrors result =
     case result of
         Err errors ->
@@ -63,7 +64,7 @@ expectErrors expectedErrors result =
             Expect.equal expectedErrors errors
 
 
-expectErrorsWithoutRange : List Error -> LintResult -> Expect.Expectation
+expectErrorsWithoutRange : List Error -> LintResult -> Expectation
 expectErrorsWithoutRange expectedErrors result =
     case result of
         Err errors ->
