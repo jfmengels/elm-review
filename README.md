@@ -18,13 +18,15 @@ This packages offers a few rules that you can pick and configure to improve your
 
 When solving a problem, a good API is a usually a better solution than writing a linter rule. But in some cases, even if you've written a good API, nothing prevents teammates or yourself from falling in the same unwanted patterns as before, especially when dealing with primitive values or constructs.
 
-When introducing `elm-lint` or new rules to your project and team, you should probably discuss it with them first. It is easy to think that some patterns are always better and want to enforce them, where in reality some edge cases exist where they aren't wanted. Also, people don't usually like it when seemingly arbitrary rules are imposed on them, especially if it relates to code style, so be sure to talk with them and explain the rationale.
+When introducing `elm-lint` or new rules to your project and team, you should discuss it with them first. It is easy to think that some patterns are always better and want to enforce them, where in reality some edge cases exist where they aren't wanted. Also, people don't usually like it when seemingly arbitrary rules are imposed on them, especially if it relates to code style, so be sure to talk with them and explain the rationale.
 
 ## Project aim and status
 
 At the moment, this is a toy project where I experiment to try the best way to write linter rules for Elm. It's potential strength and aim, compared to [elm-analyse](https://github.com/stil4m/elm-analyse), which is the solution you'd want to use if you were looking for an Elm linter, is to be able to write your own rules.
 
-I'd love to be able to use it myself on Elm projects and maybe to see it adopted by the community, but I don't have the energy to start this endeavor by myself. For this to be usable outside of the example demo (linked below), it would require at least a CLI that loads all files from a project and returns a list of errors (which [elm-analyse](https://github.com/stil4m/elm-analyse) does).
+I'd love to be able to use it myself on Elm projects and maybe to see it adopted by the community, but I would prefer that the efforts from this project be merged with the ones of [elm-analyse](https://github.com/stil4m/elm-analyse), so
+
+There is not yet a CLI to run `elm-lint` on your project. In the meantime, you can use the demo linked to below.
 
 ## Try it
 
