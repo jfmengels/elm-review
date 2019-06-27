@@ -9,7 +9,7 @@ import Test exposing (Test, describe, test)
 
 testRule : String -> LintResult
 testRule =
-    Lint.Test.ruleTester rule
+    Lint.Test.run rule
 
 
 tests : List Test

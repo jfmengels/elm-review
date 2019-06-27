@@ -11,7 +11,7 @@ testRule : String -> LintResult
 testRule string =
     "module A exposing (..)\n\n"
         ++ string
-        |> Lint.Test.ruleTester rule
+        |> Lint.Test.run rule
 
 
 error : Range -> Error

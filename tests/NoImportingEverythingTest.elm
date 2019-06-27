@@ -9,7 +9,7 @@ import Test exposing (Test, describe, test)
 
 testRule : Configuration -> String -> LintResult
 testRule options =
-    Lint.Test.ruleTester (rule options)
+    Lint.Test.run (rule options)
 
 
 error : String -> Error

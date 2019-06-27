@@ -9,7 +9,7 @@ import Test exposing (Test, describe, test)
 
 testRule : PatternPosition -> String -> LintResult
 testRule patternPosition =
-    Lint.Test.ruleTester (rule patternPosition)
+    Lint.Test.run (rule patternPosition)
 
 
 error : String -> Error
