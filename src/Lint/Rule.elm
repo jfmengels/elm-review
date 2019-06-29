@@ -559,8 +559,8 @@ by a configuration which could look like `( Critical, NoDebugExceptInSomeModules
             ( _, _ ) ->
                 ( [], context )
 
-Note: If you do not need to collect data in this visitor, you may wish to use the
-simpler [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor).
+Tip: If you do not need to collect data in this visitor, you may wish to use the
+simpler [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisito functionr).
 
 -}
 withModuleDefinitionVisitor : (Node Module -> context -> ( List Error, context )) -> Schema configurationState context -> Schema Configured context
@@ -622,8 +622,8 @@ The following example forbids importing both `Element` (`elm-ui`) and
 
 This example was written in a different way in the example for [`withFinalEvaluation`](#withFinalEvaluation).
 
-Note: If you do not need to collect or use the `context` in this visitor, you may wish to use the
-simpler [`withSimpleImportVisitor`](#withSimpleImportVisitor).
+Tip: If you do not need to collect or use the `context` in this visitor, you may wish to use the
+simpler [`withSimpleImportVisitor`](#withSimpleImportVisitor) function.
 
 -}
 withImportVisitor : (Node Import -> context -> ( List Error, context )) -> Schema configurationState context -> Schema Configured context
@@ -702,8 +702,8 @@ annotation.
             OnlySome exposedList ->
                 List.member name exposedList
 
-Note: If you do not need to collect or use the `context` in this visitor, you may wish to use the
-simpler [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor).
+Tip: If you do not need to collect or use the `context` in this visitor, you may wish to use the
+simpler [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) function.
 
 -}
 withDeclarationVisitor : (Node Declaration -> Direction -> context -> ( List Error, context )) -> Schema configurationState context -> Schema Configured context
@@ -780,8 +780,8 @@ module Main exposing (Context(..), expressionVisitor, importVisitor, rule)
                     _ ->
                         ( [], context )
 
-Note: If you do not need to collect or use the `context` in this visitor, you may wish to use the
-simpler [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor).
+Tip: If you do not need to collect or use the `context` in this visitor, you may wish to use the
+simpler [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) function.
 
 -}
 withExpressionVisitor : (Node Expression -> Direction -> context -> ( List Error, context )) -> Schema configurationState context -> Schema Configured context
