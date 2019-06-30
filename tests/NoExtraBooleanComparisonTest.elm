@@ -37,7 +37,7 @@ d = if n >= 1 then 1 else 2
                 |> Lint.Test2.expectErrors
                     [ Lint.Test2.error
                         { message = "Unnecessary comparison with `True`"
-                        , under = " True "
+                        , under = "b == True"
                         }
                     ]
     , test "should report condition with `True == expr`" <|
@@ -46,7 +46,7 @@ d = if n >= 1 then 1 else 2
                 |> Lint.Test2.expectErrors
                     [ Lint.Test2.error
                         { message = "Unnecessary comparison with `True`"
-                        , under = " True "
+                        , under = "True == b"
                         }
                     ]
     , test "should report condition with `expr == False`" <|
@@ -55,7 +55,7 @@ d = if n >= 1 then 1 else 2
                 |> Lint.Test2.expectErrors
                     [ Lint.Test2.error
                         { message = "Unnecessary comparison with `False`"
-                        , under = " False "
+                        , under = "b == False"
                         }
                     ]
     , test "should report condition with `False == expr`" <|
@@ -64,7 +64,7 @@ d = if n >= 1 then 1 else 2
                 |> Lint.Test2.expectErrors
                     [ Lint.Test2.error
                         { message = "Unnecessary comparison with `False`"
-                        , under = " False "
+                        , under = "False == b"
                         }
                     ]
     , test "should report condition with `expr /= True`" <|
@@ -73,7 +73,7 @@ d = if n >= 1 then 1 else 2
                 |> Lint.Test2.expectErrors
                     [ Lint.Test2.error
                         { message = "Unnecessary comparison with `True`"
-                        , under = " True "
+                        , under = "b /= True"
                         }
                     ]
     , test "should report condition with `True /= expr`" <|
@@ -82,7 +82,7 @@ d = if n >= 1 then 1 else 2
                 |> Lint.Test2.expectErrors
                     [ Lint.Test2.error
                         { message = "Unnecessary comparison with `True`"
-                        , under = " True "
+                        , under = "True /= b"
                         }
                     ]
     , test "should report condition with `expr /= False`" <|
@@ -91,7 +91,7 @@ d = if n >= 1 then 1 else 2
                 |> Lint.Test2.expectErrors
                     [ Lint.Test2.error
                         { message = "Unnecessary comparison with `False`"
-                        , under = " False "
+                        , under = "b /= False"
                         }
                     ]
     , test "should report condition with `False /= expr`" <|
@@ -100,7 +100,7 @@ d = if n >= 1 then 1 else 2
                 |> Lint.Test2.expectErrors
                     [ Lint.Test2.error
                         { message = "Unnecessary comparison with `False`"
-                        , under = " False "
+                        , under = "False /= b"
                         }
                     ]
     ]
