@@ -1,15 +1,13 @@
 module NoUnusedVariablesTest exposing (all)
 
-import Elm.Syntax.Range exposing (Location, Range)
-import Lint.Rule as Rule exposing (Error, Rule)
 import Lint.Rule.NoUnusedVariables exposing (rule)
-import Lint.Test exposing (LintResult)
+import Lint.Test2 exposing (LintResult)
 import Test exposing (Test, describe, test)
 
 
 testRule : String -> LintResult
 testRule =
-    Lint.Test.run rule
+    Lint.Test2.run rule
 
 
 tests : List Test
@@ -18,100 +16,142 @@ tests =
         \() ->
             testRule """module A exposing (a)
 a = 1"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should not report used top-level variables" <|
         \() ->
             testRule """module A exposing (b)
 a n = 1
 b = a 1"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should report unused top-level variables" <|
         \() ->
             testRule """module A exposing (b)
 a = 1"""
-                |> Lint.Test.expectErrors [ Rule.error "Variable `a` is not used" (Lint.Test.location ( 2, 1 ) ( 2, 2 )) ]
+                |> Lint.Test2.expectErrors
+                    [ Lint.Test2.error
+                        { message = "Variable `a` is not used"
+                        , under = "a"
+                        }
+                    ]
     , test "should report unused top-level variables even if they are annotated" <|
         \() ->
             testRule """module A exposing (b)
 a: Int
 a = 1"""
-                |> Lint.Test.expectErrors [ Rule.error "Variable `a` is not used" (Lint.Test.location ( 3, 1 ) ( 3, 2 )) ]
+                |> Lint.Test2.expectErrors
+                    [ Lint.Test2.error
+                        { message = "Variable `a` is not used"
+                        , under = "a"
+                        }
+                        |> Lint.Test2.atExactly { start = { row = 3, column = 1 }, end = { row = 3, column = 2 } }
+                    ]
     , test "should not report unused top-level variables if everything is exposed" <|
         \() ->
             testRule """module A exposing (..)
 a n = 1
 b = a 1"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should not report unused top-level variables that are exposed by name" <|
         \() ->
             testRule """module A exposing (a, b)
 a = 1
 b = 2"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should not report unused top-level variables that are exposed by name, but report others" <|
         \() ->
             testRule """module A exposing (a, b)
 a = 1
 b = 2
 c = 3"""
-                |> Lint.Test.expectErrors [ Rule.error "Variable `c` is not used" (Lint.Test.location ( 4, 1 ) ( 4, 2 )) ]
+                |> Lint.Test2.expectErrors
+                    [ Lint.Test2.error
+                        { message = "Variable `c` is not used"
+                        , under = "c"
+                        }
+                    ]
     , test "should not report unused top-level variables if everything is exposed (port module)" <|
         \() ->
             testRule """port module A exposing (..)
 a n = 1
 b = a 1"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should not report unused top-level variables that are exposed by name (port module)" <|
         \() ->
             testRule """port module A exposing (a, b)
 a = 1
 b = 2"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should not report unused top-level variables that are exposed by name, but report others (port module)" <|
         \() ->
             testRule """port module A exposing (a, b)
 a = 1
 b = 2
 c = 3"""
-                |> Lint.Test.expectErrors [ Rule.error "Variable `c` is not used" (Lint.Test.location ( 4, 1 ) ( 4, 2 )) ]
+                |> Lint.Test2.expectErrors
+                    [ Lint.Test2.error
+                        { message = "Variable `c` is not used"
+                        , under = "c"
+                        }
+                    ]
     , test "should report unused variables from let declarations" <|
         \() ->
             testRule """module A exposing (a)
 a = let b = 1
     in 2"""
-                |> Lint.Test.expectErrors [ Rule.error "Variable `b` is not used" (Lint.Test.location ( 2, 9 ) ( 2, 10 )) ]
+                |> Lint.Test2.expectErrors
+                    [ Lint.Test2.error
+                        { message = "Variable `b` is not used"
+                        , under = "b"
+                        }
+                    ]
     , test "should report unused variables from let even if they are exposed by name" <|
         \() ->
             testRule """module A exposing (a, b)
 a = let b = 1
     in 2"""
-                |> Lint.Test.expectErrors [ Rule.error "Variable `b` is not used" (Lint.Test.location ( 2, 9 ) ( 2, 10 )) ]
+                |> Lint.Test2.expectErrors
+                    [ Lint.Test2.error
+                        { message = "Variable `b` is not used"
+                        , under = "b"
+                        }
+                        |> Lint.Test2.atExactly { start = { row = 2, column = 9 }, end = { row = 2, column = 10 } }
+                    ]
     , test "should report unused functions from let even if they are exposed by name" <|
         \() ->
             testRule """module A exposing (a)
 a = let b param = 1
     in 2"""
-                |> Lint.Test.expectErrors [ Rule.error "Variable `b` is not used" (Lint.Test.location ( 2, 9 ) ( 2, 10 )) ]
+                |> Lint.Test2.expectErrors
+                    [ Lint.Test2.error
+                        { message = "Variable `b` is not used"
+                        , under = "b"
+                        }
+                    ]
     , test "should report unused variables from let even if everything is exposed" <|
         \() ->
             testRule """module A exposing (..)
 a = let b = 1
     in 2"""
-                |> Lint.Test.expectErrors [ Rule.error "Variable `b` is not used" (Lint.Test.location ( 2, 9 ) ( 2, 10 )) ]
+                |> Lint.Test2.expectErrors
+                    [ Lint.Test2.error
+                        { message = "Variable `b` is not used"
+                        , under = "b"
+                        }
+                    ]
     , test "should not report top-level variables used inside a let expression" <|
         \() ->
             testRule """module A exposing (a)
 b = 1
 a = let c = 1
     in b + c"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should not report top-level variables used inside let declarations" <|
         \() ->
             testRule """module A exposing (a)
 b = 1
 a = let c = b
     in c"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should not report top-level variables used in nested lets" <|
         \() ->
             testRule """module A exposing (a)
@@ -124,199 +164,270 @@ a = let
             b + c + e
     in
       d"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should not report variables from let declarations that are used in the expression" <|
         \() ->
             testRule """module A exposing (a)
 a = let c = 1
     in c"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should not report unused function parameters" <|
         \() ->
             testRule """module A exposing (a)
 a n = 1"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should report unused imported functions" <|
         \() ->
             testRule """module A exposing (b)
 import Foo exposing (a)"""
-                |> Lint.Test.expectErrors [ Rule.error "Imported variable `a` is not used" (Lint.Test.location ( 2, 22 ) ( 2, 23 )) ]
+                |> Lint.Test2.expectErrors
+                    [ Lint.Test2.error
+                        { message = "Imported variable `a` is not used"
+                        , under = "a"
+                        }
+                    ]
     , test "should report unused imported functions (multiple imports)" <|
         \() ->
             testRule """module A exposing (d)
 import Foo exposing (C, a, b)"""
-                |> Lint.Test.expectErrors
-                    [ Rule.error "Imported variable `b` is not used" (Lint.Test.location ( 2, 28 ) ( 2, 29 ))
-                    , Rule.error "Imported variable `a` is not used" (Lint.Test.location ( 2, 25 ) ( 2, 26 ))
-                    , Rule.error "Imported type `C` is not used" (Lint.Test.location ( 2, 22 ) ( 2, 23 ))
+                |> Lint.Test2.expectErrors
+                    [ Lint.Test2.error
+                        { message = "Imported variable `b` is not used"
+                        , under = "b"
+                        }
+                    , Lint.Test2.error
+                        { message = "Imported variable `a` is not used"
+                        , under = "a"
+                        }
+                    , Lint.Test2.error
+                        { message = "Imported type `C` is not used"
+                        , under = "C"
+                        }
                     ]
 
-    -- Needs to be improved, every case should create a new scope stack
+    -- TODO Needs to be improved, every case should create a new scope stack
     -- Right now, every parameter is considered used, which is not great
     , test "should not report unused pattern matching parameters" <|
         \() ->
             testRule """module A exposing (a)
 a = case thing of
     Foo b c -> []"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
 
     -- Should B and C be reported if they are not used? Probably.
     , test "should report unused custom type declarations" <|
         \() ->
             testRule """module A exposing (a)
 type A = B | C"""
-                |> Lint.Test.expectErrors [ Rule.error "Type `A` is not used" (Lint.Test.location ( 2, 6 ) ( 2, 7 )) ]
+                |> Lint.Test2.expectErrors
+                    [ Lint.Test2.error
+                        { message = "Type `A` is not used"
+                        , under = "A"
+                        }
+                        |> Lint.Test2.atExactly { start = { row = 2, column = 6 }, end = { row = 2, column = 7 } }
+                    ]
     , test "should report unused type aliases declarations" <|
         \() ->
             testRule """module A exposing (a)
 type alias A = { a : B }"""
-                |> Lint.Test.expectErrors [ Rule.error "Type `A` is not used" (Lint.Test.location ( 2, 12 ) ( 2, 13 )) ]
+                |> Lint.Test2.expectErrors
+                    [ Lint.Test2.error
+                        { message = "Type `A` is not used"
+                        , under = "A"
+                        }
+                        |> Lint.Test2.atExactly { start = { row = 2, column = 12 }, end = { row = 2, column = 13 } }
+                    ]
     , test "should not report type used in a signature" <|
         \() ->
             testRule """module A exposing (a)
 type alias A = { a : B }
 a : A
 a = {a = 1}"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should not report type used in a signature with multiple arguments" <|
         \() ->
             testRule """module A exposing (a)
 type alias A = { a : B }
 a : String -> A
 a str = {a = str}"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should not report type used in a signature with parameterized types (as generic type)" <|
         \() ->
             testRule """module A exposing (a)
 type alias A = { a : B }
 a : A B
 a = []"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should not report type used in a signature with parameterized types (as parameter)" <|
         \() ->
             testRule """module A exposing (a)
 type alias A = { a : B }
 a : List A
 a = []"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should not report type used in a signature with a record" <|
         \() ->
             testRule """module A exposing (a)
 type alias A = { a : B }
 a : { c: A }
 a str = {c = str}"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should not report type used in a signature with a generic record" <|
         \() ->
             testRule """module A exposing (a)
 type alias A = { a : B }
 a : { r | c: A }
 a str = {c = str}"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should not report type if it's exposed" <|
         \() ->
             testRule """module A exposing (A)
 type A a = B a"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should not report custom type if it's exposed with its sub-types" <|
         \() ->
             testRule """module A exposing (A(..))
 type A = B | C | D"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should report unused variable even if it's present in a generic type" <|
         \() ->
             testRule """module A exposing (A)
 a = 1
 type A a = B a"""
-                |> Lint.Test.expectErrors [ Rule.error "Variable `a` is not used" (Lint.Test.location ( 2, 1 ) ( 2, 2 )) ]
+                |> Lint.Test2.expectErrors
+                    [ Lint.Test2.error
+                        { message = "Variable `a` is not used"
+                        , under = "a"
+                        }
+                        |> Lint.Test2.atExactly { start = { row = 2, column = 1 }, end = { row = 2, column = 2 } }
+                    ]
     , test "should report unused variable even if it's present in a generic record type" <|
         \() ->
             testRule """module A exposing (a)
 r = 1
 a : { r | c: A }
 a str = {c = str}"""
-                |> Lint.Test.expectErrors [ Rule.error "Variable `r` is not used" (Lint.Test.location ( 2, 1 ) ( 2, 2 )) ]
+                |> Lint.Test2.expectErrors
+                    [ Lint.Test2.error
+                        { message = "Variable `r` is not used"
+                        , under = "r"
+                        }
+                        |> Lint.Test2.atExactly { start = { row = 2, column = 1 }, end = { row = 2, column = 2 } }
+                    ]
     , test "should report unused operator import" <|
         \() ->
             testRule """module A exposing (a)
 import Parser exposing ((</>))"""
-                |> Lint.Test.expectErrors [ Rule.error "Imported operator `</>` is not used" (Lint.Test.location ( 2, 25 ) ( 2, 30 )) ]
+                |> Lint.Test2.expectErrors
+                    [ Lint.Test2.error
+                        { message = "Imported operator `</>` is not used"
+                        , under = "(</>)"
+                        }
+                    ]
     , test "should not report used operator (infix)" <|
         \() ->
             testRule """module A exposing (a)
 import Parser exposing ((</>))
 a = 1 </> 2"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should not report used operator (prefix)" <|
         \() ->
             testRule """module A exposing (a)
 import Parser exposing ((</>))
 a = (</>) 2"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should report unused opaque types" <|
         \() ->
             testRule """module A exposing (a)
 type A = A Int"""
-                |> Lint.Test.expectErrors [ Rule.error "Type `A` is not used" (Lint.Test.location ( 2, 6 ) ( 2, 7 )) ]
+                |> Lint.Test2.expectErrors
+                    [ Lint.Test2.error
+                        { message = "Type `A` is not used"
+                        , under = "A"
+                        }
+                        |> Lint.Test2.atExactly { start = { row = 2, column = 6 }, end = { row = 2, column = 7 } }
+                    ]
     , test "should not report used opaque types" <|
         \() ->
             testRule """module A exposing (a)
 type A = A Int
 a : A
 a = 1"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should report unused import" <|
         \() ->
             testRule """module A exposing (a)
 import Html"""
-                |> Lint.Test.expectErrors [ Rule.error "Imported module `Html` is not used" (Lint.Test.location ( 2, 8 ) ( 2, 12 )) ]
+                |> Lint.Test2.expectErrors
+                    [ Lint.Test2.error
+                        { message = "Imported module `Html` is not used"
+                        , under = "Html"
+                        }
+                    ]
     , test "should report unused import (multiples segments)" <|
         \() ->
             testRule """module A exposing (a)
 import Html.Styled.Attributes"""
-                |> Lint.Test.expectErrors [ Rule.error "Imported module `Html.Styled.Attributes` is not used" (Lint.Test.location ( 2, 8 ) ( 2, 30 )) ]
+                |> Lint.Test2.expectErrors
+                    [ Lint.Test2.error
+                        { message = "Imported module `Html.Styled.Attributes` is not used"
+                        , under = "Html.Styled.Attributes"
+                        }
+                    ]
     , test "should not report import if it exposes all (should be improved by detecting if any exposed value is used)" <|
         \() ->
             testRule """module A exposing (a)
 import Html.Styled.Attributes exposing (..)"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should report unused variable even if a homonym from a module is used" <|
         \() ->
             testRule """module A exposing (a)
 href = 1
 a = Html.Styled.Attributes.href"""
-                |> Lint.Test.expectErrors [ Rule.error "Variable `href` is not used" (Lint.Test.location ( 2, 1 ) ( 2, 5 )) ]
+                |> Lint.Test2.expectErrors
+                    [ Lint.Test2.error
+                        { message = "Variable `href` is not used"
+                        , under = "href"
+                        }
+                        |> Lint.Test2.atExactly { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
+                    ]
     , test "should not report used import (function access)" <|
         \() ->
             testRule """module A exposing (a)
 import Html.Styled.Attributes
 a = Html.Styled.Attributes.href"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should not report unused import if it is aliased" <|
         \() ->
             testRule """module A exposing (a)
 import Html.Styled.Attributes as Html
 a = Html.href"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should report unused import alias" <|
         \() ->
             testRule """module A exposing (a)
 import Html.Styled.Attributes as Html"""
-                |> Lint.Test.expectErrors [ Rule.error "Module alias `Html` is not used" (Lint.Test.location ( 2, 34 ) ( 2, 38 )) ]
+                |> Lint.Test2.expectErrors
+                    [ Lint.Test2.error
+                        { message = "Module alias `Html` is not used"
+                        , under = "Html"
+                        }
+                        |> Lint.Test2.atExactly { start = { row = 2, column = 34 }, end = { row = 2, column = 38 } }
+                    ]
     , test "should not report import that exposes a used exposed type" <|
         \() ->
             testRule """module A exposing (a)
 import B exposing (C(..))
 a : C
 a = 1"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should not report import that exposes an unused exposed type (but whose subtype is potentially used)" <|
         \() ->
             testRule """module A exposing (a)
 import B exposing (C(..))
 a : D
 a = 1"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should not report types that are used in ports" <|
         \() ->
             testRule """module A exposing (output, input)
@@ -324,22 +435,28 @@ import Json.Decode
 import Json.Encode
 port output : Json.Encode.Value -> Cmd msg
 port input : (Json.Decode.Value -> msg) -> Sub msg"""
-                |> Lint.Test.expectErrors []
+                |> Lint.Test2.expectNoErrors
     , test "should report unused ports (ingoing)" <|
         \() ->
             testRule """module A exposing (a)
 import Json.Decode
 port input : (Json.Decode.Value -> msg) -> Sub msg"""
-                |> Lint.Test.expectErrors
-                    [ Rule.error "Port `input` is not used (Warning: Removing this port may break your application if it is used in the JS code)" (Lint.Test.location ( 3, 6 ) ( 3, 11 ))
+                |> Lint.Test2.expectErrors
+                    [ Lint.Test2.error
+                        { message = "Port `input` is not used (Warning: Removing this port may break your application if it is used in the JS code)"
+                        , under = "input"
+                        }
                     ]
     , test "should report unused ports (outgoing)" <|
         \() ->
             testRule """module A exposing (a)
 import Json.Encode
 port output : Json.Encode.Value -> Cmd msg"""
-                |> Lint.Test.expectErrors
-                    [ Rule.error "Port `output` is not used (Warning: Removing this port may break your application if it is used in the JS code)" (Lint.Test.location ( 3, 6 ) ( 3, 12 ))
+                |> Lint.Test2.expectErrors
+                    [ Lint.Test2.error
+                        { message = "Port `output` is not used (Warning: Removing this port may break your application if it is used in the JS code)"
+                        , under = "output"
+                        }
                     ]
     ]
 
