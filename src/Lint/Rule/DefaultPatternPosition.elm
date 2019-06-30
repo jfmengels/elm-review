@@ -97,11 +97,26 @@ isDefaultPattern pattern =
             False
 
 
-findDefaultPattern : List ( Node Pattern, Node Expression ) -> Maybe Int
+findDefaultPattern : List ( Node Pattern, Node Expression ) -> Maybe ( Int, Node Pattern )
 findDefaultPattern patterns =
-    patterns
-        |> List.map (Tuple.first >> Node.value)
-        |> findIndex isDefaultPattern
+    findWithIndex
+        (Node.value >> isDefaultPattern)
+        (List.map Tuple.first patterns)
+
+
+findWithIndex : (a -> Bool) -> List a -> Maybe ( Int, a )
+findWithIndex isMatch list =
+    case list of
+        [] ->
+            Nothing
+
+        elem :: rest ->
+            if isMatch elem then
+                Just ( 0, elem )
+
+            else
+                findWithIndex isMatch rest
+                    |> Maybe.map (\( index, elem_ ) -> ( index + 1, elem_ ))
 
 
 expressionVisitor : PatternPosition -> Node Expression -> List Error
@@ -112,18 +127,18 @@ expressionVisitor patternPosition node =
                 Nothing ->
                     []
 
-                Just index ->
+                Just ( index, patternNode ) ->
                     case patternPosition of
                         ShouldBeFirst ->
                             if index /= 0 then
-                                [ error node "Expected default pattern to appear first in the list of patterns" ]
+                                [ error patternNode "Expected default pattern to appear first in the list of patterns" ]
 
                             else
                                 []
 
                         ShouldBeLast ->
                             if index /= List.length cases - 1 then
-                                [ error node "Expected default pattern to appear last in the list of patterns" ]
+                                [ error patternNode "Expected default pattern to appear last in the list of patterns" ]
 
                             else
                                 []
