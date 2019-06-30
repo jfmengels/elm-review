@@ -22,7 +22,10 @@
   },
   "homepage": "https://github.com/jfmengels/elm-lint#readme",
   "dependencies": {
-    "elm": "^0.19.0-bugfix2",
-    "elm-format": "^0.8.1"
+    "elm": "^0.19.0-no-deps"
+  },
+  "devDependencies": {
+    "elm-format": "^0.8.1",
+    "elm-test": "^0.19.0-rev6"
   }
 }
