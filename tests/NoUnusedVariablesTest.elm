@@ -306,6 +306,30 @@ type alias A = { a : B }
 a : { r | c: A }
 a str = {c = str}"""
                 |> Lint.Test.expectNoErrors
+    , test "should not report type used in a custom type constructor definition" <|
+        \() ->
+            testRule """module A exposing (ExposedType)
+type A = B | C
+
+type ExposedType = Something A
+"""
+                |> Lint.Test.expectNoErrors
+    , test "should not report type used in a type alias field" <|
+        \() ->
+            testRule """module A exposing (ExposedType)
+type A = B | C
+
+type alias ExposedType = { a : A }
+"""
+                |> Lint.Test.expectNoErrors
+    , test "should not report type used in a type alias field's arguments " <|
+        \() ->
+            testRule """module A exposing (ExposedType)
+type A = B | C
+
+type alias ExposedType = { a : Maybe A }
+"""
+                |> Lint.Test.expectNoErrors
     , test "should not report type if it's exposed" <|
         \() ->
             testRule """module A exposing (A)

@@ -289,11 +289,26 @@ declarationVisitor node direction context =
             in
             ( [], newContext )
 
-        ( Rule.OnEnter, CustomTypeDeclaration { name } ) ->
-            ( [], register Type (Node.range name) (Node.value name) context )
+        ( Rule.OnEnter, CustomTypeDeclaration { name, constructors } ) ->
+            let
+                variablesFromConstructorArguments : List String
+                variablesFromConstructorArguments =
+                    constructors
+                        |> List.concatMap (Node.value >> .arguments)
+                        |> List.concatMap collectNamesFromTypeAnnotation
+            in
+            ( []
+            , context
+                |> register Type (Node.range name) (Node.value name)
+                |> markAllAsUsed variablesFromConstructorArguments
+            )
 
-        ( Rule.OnEnter, AliasDeclaration { name } ) ->
-            ( [], register Type (Node.range name) (Node.value name) context )
+        ( Rule.OnEnter, AliasDeclaration { name, typeAnnotation } ) ->
+            ( []
+            , context
+                |> register Type (Node.range name) (Node.value name)
+                |> markAllAsUsed (collectNamesFromTypeAnnotation typeAnnotation)
+            )
 
         ( Rule.OnEnter, PortDeclaration { name, typeAnnotation } ) ->
             ( []
