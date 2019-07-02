@@ -24,7 +24,7 @@ module Lint.Rule.NoUnusedVariables exposing (rule)
 import Dict exposing (Dict)
 import Elm.Syntax.Declaration exposing (Declaration(..))
 import Elm.Syntax.Exposing exposing (Exposing(..), TopLevelExpose(..))
-import Elm.Syntax.Expression exposing (Expression(..), Function, LetDeclaration(..))
+import Elm.Syntax.Expression exposing (Expression(..), Function, FunctionImplementation, LetDeclaration(..))
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Module as Module exposing (Module(..))
 import Elm.Syntax.Node as Node exposing (Node)
@@ -235,6 +235,7 @@ expressionVisitor node direction context =
 
         ( Rule.OnEnter, LetExpression { declarations } ) ->
             let
+                newContext : Context
                 newContext =
                     List.foldl
                         (\declaration context_ ->
@@ -342,10 +343,22 @@ finalEvaluation context =
 registerFunction : Function -> Context -> Context
 registerFunction function context =
     let
+        declaration : FunctionImplementation
         declaration =
             Node.value function.declaration
+
+        namesUsedInSignature : List String
+        namesUsedInSignature =
+            case Maybe.map Node.value function.signature of
+                Just signature ->
+                    collectNamesFromTypeAnnotation signature.typeAnnotation
+
+                Nothing ->
+                    []
     in
-    register Variable (Node.range declaration.name) (Node.value declaration.name) context
+    context
+        |> register Variable (Node.range declaration.name) (Node.value declaration.name)
+        |> markAllAsUsed namesUsedInSignature
 
 
 collectFromExposing : Exposing -> List ( VariableType, Range, String )

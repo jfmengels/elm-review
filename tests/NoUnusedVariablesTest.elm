@@ -309,9 +309,21 @@ a str = {c = str}"""
     , test "should not report type used in a custom type constructor definition" <|
         \() ->
             testRule """module A exposing (ExposedType)
-type A = B | C
+type A = B
 
 type ExposedType = Something A
+"""
+                |> Lint.Test.expectNoErrors
+    , test "should not report type used in type signature inside a let-in" <|
+        \() ->
+            testRule """module A exposing (a)
+type A = A
+
+a = let
+      b : A
+      b = 1
+    in
+    b
 """
                 |> Lint.Test.expectNoErrors
     , test "should not report type used in a type alias field" <|
