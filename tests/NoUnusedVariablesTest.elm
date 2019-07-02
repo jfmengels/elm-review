@@ -165,6 +165,33 @@ a = let
     in
       d"""
                 |> Lint.Test.expectNoErrors
+    , test "should not report variables used in a record update expression's value to be updated" <|
+        \() ->
+            testRule """module A exposing (a)
+b = { c = 1 }
+a = { b | c = 3 }"""
+                |> Lint.Test.expectNoErrors
+    , test "should not report variables used in a record update expression's updates" <|
+        \() ->
+            testRule """module A exposing (a)
+b = { y = 1, z = 1 }
+d = 3
+e = 3
+a = { b | y = d, z = e }"""
+                |> Lint.Test.expectNoErrors
+    , test "should report variables even if they appear as keys of a record update expression's updates" <|
+        \() ->
+            testRule """module A exposing (a)
+b = { z = 1, c = 2 }
+c = 1
+a = { b | c = 3 }"""
+                |> Lint.Test.expectErrors
+                    [ Lint.Test.error
+                        { message = "Variable `c` is not used"
+                        , under = "c"
+                        }
+                        |> Lint.Test.atExactly { start = { row = 3, column = 1 }, end = { row = 3, column = 2 } }
+                    ]
     , test "should not report variables from let declarations that are used in the expression" <|
         \() ->
             testRule """module A exposing (a)

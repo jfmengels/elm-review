@@ -250,6 +250,9 @@ expressionVisitor node direction context =
             in
             ( [], newContext )
 
+        ( Rule.OnExit, RecordUpdateExpression expr _ ) ->
+            ( [], markAsUsed (Node.value expr) context )
+
         ( Rule.OnExit, LetExpression _ ) ->
             let
                 ( errors, remainingUsed ) =
