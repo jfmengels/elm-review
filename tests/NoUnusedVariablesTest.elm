@@ -231,9 +231,6 @@ import Foo exposing (C, a, b)"""
                         , under = "b"
                         }
                     ]
-
-    -- TODO Needs to be improved, every case should create a new scope stack
-    -- Right now, every parameter is considered used, which is not great
     , test "should not report unused pattern matching parameters" <|
         \() ->
             testRule """module A exposing (a)
