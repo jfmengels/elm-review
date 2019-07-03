@@ -37,14 +37,8 @@ config model =
     -- , ( Critical, Lint.Rule.SimplifyPropertyAccess.rule )
     -- , ( Critical, Lint.Rule.ElmTest.NoDuplicateTestBodies.rule )
     ]
-        |> List.filterMap
-            (\( bool, ruleAndConfig ) ->
-                if bool then
-                    Just ruleAndConfig
-
-                else
-                    Nothing
-            )
+        |> List.filter Tuple.first
+        |> List.map Tuple.second
 
 
 
@@ -60,6 +54,7 @@ type alias Model =
     , defaultPatternPositionEnabled : Bool
     , defaultPatternPositionPattern : PatternPosition
     , noExtraBooleanComparisonEnabled : Bool
+    , showConfigurationAsText : Bool
     }
 
 
@@ -91,6 +86,7 @@ g n = n + 1
             , defaultPatternPositionEnabled = True
             , defaultPatternPositionPattern = DefaultPatternPosition.ShouldBeLast
             , noExtraBooleanComparisonEnabled = True
+            , showConfigurationAsText = False
             }
     in
     { tmpModel | lintResult = lintSource (config tmpModel) sourceCode }
@@ -108,6 +104,7 @@ type Msg
     | UserToggledDefaultPatternPositionRule
     | UserToggledNoExtraBooleanComparisonRule
     | UserChangedDefaultPatternSetting PatternPosition
+    | UserToggledConfigurationAsText
 
 
 update : Msg -> Model -> Model
@@ -143,6 +140,9 @@ update action model =
             { model | noExtraBooleanComparisonEnabled = not model.noExtraBooleanComparisonEnabled }
                 |> rerunLinting
 
+        UserToggledConfigurationAsText ->
+            { model | showConfigurationAsText = not model.showConfigurationAsText }
+
 
 rerunLinting : Model -> Model
 rerunLinting model =
@@ -171,6 +171,7 @@ view model =
                     [ text model.sourceCode ]
                 , div [ Attr.style "margin-left" "2rem" ]
                     [ viewConfigurationPanel model
+                    , viewConfigurationAsText model
                     , p [ Attr.class "title" ] [ text "Linting errors" ]
                     , ul [ Attr.id "lint" ]
                         (lintErrors model)
@@ -209,6 +210,102 @@ viewConfigurationPanel model =
             , viewCheckbox UserToggledNoExtraBooleanComparisonRule "NoExtraBooleanComparison" model.noExtraBooleanComparisonEnabled
             ]
         ]
+
+
+viewConfigurationAsText : Model -> Html Msg
+viewConfigurationAsText model =
+    if model.showConfigurationAsText then
+        div
+            [ Attr.style "display" "flex"
+            , Attr.style "flex-direction" "column"
+            ]
+            [ button
+                [ Attr.style "margin-top" "2rem"
+                , Events.onClick UserToggledConfigurationAsText
+                ]
+                [ text "Hide configuration as Elm code" ]
+            , textarea
+                [ Events.onInput UserEditedSourceCode
+                , Attr.style "height" "300px"
+                , Attr.style "width" "100%"
+                ]
+                [ text <| configurationAsText model ]
+            ]
+
+    else
+        button
+            [ Attr.style "margin-top" "2rem"
+            , Events.onClick UserToggledConfigurationAsText
+            ]
+            [ text "Show configuration as Elm code" ]
+
+
+configurationAsText : Model -> String
+configurationAsText model =
+    let
+        rules : List { import_ : String, configExpression : String }
+        rules =
+            [ ( model.noDebugEnabled
+              , { import_ = "Lint.Rule.NoDebug"
+                , configExpression = "Lint.Rule.NoDebug.rule"
+                }
+              )
+            , ( model.noUnusedVariablesEnabled
+              , { import_ = "Lint.Rule.NoUnusedVariables"
+                , configExpression = "Lint.Rule.NoUnusedVariables.rule"
+                }
+              )
+            , ( model.noImportingEverythingEnabled
+              , { import_ = "Lint.Rule.NoImportingEverything"
+                , configExpression = "Lint.Rule.NoImportingEverything.rule { exceptions = [] }"
+                }
+              )
+            , ( model.defaultPatternPositionEnabled
+              , { import_ = "Lint.Rule.DefaultPatternPosition as DefaultPatternPosition"
+                , configExpression =
+                    "DefaultPatternPosition.rule DefaultPatternPosition."
+                        ++ (case model.defaultPatternPositionPattern of
+                                DefaultPatternPosition.ShouldBeFirst ->
+                                    "ShouldBeFirst"
+
+                                DefaultPatternPosition.ShouldBeLast ->
+                                    "ShouldBeLast"
+                           )
+                }
+              )
+            , ( model.noExtraBooleanComparisonEnabled
+              , { import_ = "Lint.Rule.NoExtraBooleanComparison"
+                , configExpression = "Lint.Rule.NoExtraBooleanComparison.rule"
+                }
+              )
+            ]
+                |> List.filter Tuple.first
+                |> List.map Tuple.second
+
+        importStatements : String
+        importStatements =
+            rules
+                |> List.map (\{ import_ } -> "import " ++ import_)
+                |> String.join "\n"
+
+        configExpressions : String
+        configExpressions =
+            rules
+                |> List.map (\{ configExpression } -> " ( Critical, " ++ configExpression ++ " )")
+                |> String.join "\n    ,"
+    in
+    """module LintConfig exposing (config)
+
+import Lint exposing (Severity(..))
+import Lint.Rule exposing (Rule)
+""" ++ importStatements ++ """
+
+
+config : List ( Severity, Rule )
+config =
+    [""" ++ configExpressions ++ """
+    ]
+"""
 
 
 viewCheckbox : Msg -> String -> Bool -> Html Msg
