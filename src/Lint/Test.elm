@@ -160,6 +160,10 @@ Assert which errors are reported using [`error`](#error). The test will fail if
 a different number of errors than expected are reported, or if the message or the
 location is incorrect.
 
+The errors should be in the order of where they appear in the source code. An error
+at the start of the source code should appear earlier in the list than
+an error at the end of the source code.
+
     import Lint.Test exposing (LintResult)
     import Test exposing (Test, describe, test)
     import The.Rule.You.Want.To.Test exposing (rule)

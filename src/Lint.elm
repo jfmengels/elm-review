@@ -70,9 +70,9 @@ lintSource config source =
         |> parseSource
         |> Result.map
             (\statements ->
-                List.concatMap
-                    (lintSourceWithRule statements)
-                    config
+                config
+                    |> List.concatMap (lintSourceWithRule statements)
+                    |> List.sortWith compareErrorPositions
             )
 
 
@@ -80,6 +80,53 @@ lintSourceWithRule : File -> ( Severity, Rule ) -> List ( Severity, LintError )
 lintSourceWithRule file ( severity, rule ) =
     Rule.analyzer rule file
         |> List.map (\error -> ( severity, errorToRuleError Nothing rule error ))
+
+
+compareErrorPositions : ( Severity, LintError ) -> ( Severity, LintError ) -> Order
+compareErrorPositions ( _, a ) ( _, b ) =
+    compareRange a.range b.range
+
+
+compareRange : Range -> Range -> Order
+compareRange a b =
+    if a.start.row < b.start.row then
+        LT
+
+    else if a.start.row > b.start.row then
+        GT
+
+    else
+    -- Start row is the same from here on
+    if
+        a.start.column < b.start.column
+    then
+        LT
+
+    else if a.start.column > b.start.column then
+        GT
+
+    else
+    -- Start row and column are the same from here on
+    if
+        a.end.row < b.end.row
+    then
+        LT
+
+    else if a.end.row > b.end.row then
+        GT
+
+    else
+    -- Start row and column, and end row are the same from here on
+    if
+        a.end.column < b.end.column
+    then
+        LT
+
+    else if a.end.column > b.end.column then
+        GT
+
+    else
+        EQ
 
 
 errorToRuleError : Maybe String -> Rule -> Rule.Error -> LintError

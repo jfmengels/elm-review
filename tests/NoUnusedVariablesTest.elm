@@ -219,16 +219,16 @@ import Foo exposing (a)"""
 import Foo exposing (C, a, b)"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
-                        { message = "Imported variable `b` is not used"
-                        , under = "b"
+                        { message = "Imported type `C` is not used"
+                        , under = "C"
                         }
                     , Lint.Test.error
                         { message = "Imported variable `a` is not used"
                         , under = "a"
                         }
                     , Lint.Test.error
-                        { message = "Imported type `C` is not used"
-                        , under = "C"
+                        { message = "Imported variable `b` is not used"
+                        , under = "b"
                         }
                     ]
 
