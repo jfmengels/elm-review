@@ -1,6 +1,6 @@
 module Lint exposing
     ( Severity(..)
-    , lintSource
+    , LintError, lintSource
     )
 
 {-| Module to configure your linting configuration and run it on a source file.
@@ -13,15 +13,15 @@ module Lint exposing
 
 # Linting
 
-@docs lintSource
+@docs LintError, lintSource
 
 -}
 
 import Elm.Parser as Parser
 import Elm.Processing exposing (init, process)
 import Elm.Syntax.File exposing (File)
+import Elm.Syntax.Range exposing (Range)
 import Lint.Rule as Rule exposing (Rule)
-import Lint.RuleError as RuleError exposing (RuleError)
 
 
 {-| When configuring `elm-lint` and adding the rules you want to enforce, you need to associate a `Severity` level to each rule.
@@ -37,6 +37,21 @@ type Severity
     | Critical
 
 
+{-| Represents an error in a file found by a rule.
+
+Note: This should not be confused with `Error` from the `Lint.Rule` module.
+`Lint.LintError` is created from `Lint.Rule.Error` but contains additional information
+like the name of the rule that emitted it and the file name.
+
+-}
+type alias LintError =
+    { file : Maybe String
+    , ruleName : String
+    , message : String
+    , range : Range
+    }
+
+
 {-| Lints a file and gives back the errors raised by the given rules.
 
     config : List ( Severity, Rule )
@@ -49,22 +64,31 @@ type Severity
         lintSource config sourceCode
 
 -}
-lintSource : List ( Severity, Rule ) -> String -> Result (List String) (List ( Severity, RuleError ))
+lintSource : List ( Severity, Rule ) -> String -> Result (List String) (List ( Severity, LintError ))
 lintSource config source =
     source
         |> parseSource
         |> Result.map
             (\statements ->
-                config
-                    |> List.concatMap
-                        (lintSourceWithRule statements)
+                List.concatMap
+                    (lintSourceWithRule statements)
+                    config
             )
 
 
-lintSourceWithRule : File -> ( Severity, Rule ) -> List ( Severity, RuleError )
+lintSourceWithRule : File -> ( Severity, Rule ) -> List ( Severity, LintError )
 lintSourceWithRule file ( severity, rule ) =
     Rule.analyzer rule file
-        |> List.map (\error -> ( severity, RuleError.fromError (Rule.name rule) error ))
+        |> List.map (\error -> ( severity, errorToRuleError Nothing rule error ))
+
+
+errorToRuleError : Maybe String -> Rule -> Rule.Error -> LintError
+errorToRuleError file rule error =
+    { file = file
+    , ruleName = Rule.name rule
+    , message = Rule.errorMessage error
+    , range = Rule.errorRange error
+    }
 
 
 {-| Parse source code into a AST

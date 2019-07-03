@@ -4,14 +4,13 @@ import Browser
 import Html exposing (..)
 import Html.Attributes exposing (class, id, style)
 import Html.Events exposing (onInput)
-import Lint exposing (Severity(..), lintSource)
+import Lint exposing (LintError, Severity(..), lintSource)
 import Lint.Rule exposing (Rule)
 import Lint.Rule.DefaultPatternPosition as DefaultPatternPosition
 import Lint.Rule.NoDebug
 import Lint.Rule.NoExtraBooleanComparison
 import Lint.Rule.NoImportingEverything
 import Lint.Rule.NoUnusedVariables
-import Lint.RuleError exposing (RuleError)
 
 
 
@@ -46,7 +45,7 @@ config =
 
 type alias Model =
     { sourceCode : String
-    , lintResult : Result (List String) (List ( Severity, RuleError ))
+    , lintResult : Result (List String) (List ( Severity, LintError ))
     }
 
 
@@ -142,14 +141,14 @@ lintErrors model =
         messages
 
 
-errorToString : RuleError -> String
-errorToString { rule, message, range } =
+errorToString : LintError -> String
+errorToString { ruleName, message, range } =
     let
         location : String
         location =
             "(line " ++ String.fromInt range.start.row ++ ", column " ++ String.fromInt range.start.column ++ ")"
     in
-    rule ++ ": " ++ message ++ " " ++ location
+    ruleName ++ ": " ++ message ++ " " ++ location
 
 
 main : Program () Model Msg

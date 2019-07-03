@@ -840,6 +840,11 @@ withFinalEvaluation visitor (Schema schema) =
 
 
 {-| Represents an error found by a rule.
+
+Note: This should not be confused with `LintError` from the `Lint` module.
+`Lint.LintError` is created from `Lint.Rule.Error` but contains additional information
+like the name of the rule that emitted it and the file name.
+
 -}
 type Error
     = Error
