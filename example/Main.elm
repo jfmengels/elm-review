@@ -2,11 +2,11 @@ module Main exposing (main)
 
 import Browser
 import Html exposing (..)
-import Html.Attributes exposing (class, id, style)
-import Html.Events exposing (onInput)
+import Html.Attributes as Attr
+import Html.Events as Events
 import Lint exposing (LintError, Severity(..), lintSource)
 import Lint.Rule exposing (Rule)
-import Lint.Rule.DefaultPatternPosition as DefaultPatternPosition
+import Lint.Rule.DefaultPatternPosition as DefaultPatternPosition exposing (PatternPosition)
 import Lint.Rule.NoDebug
 import Lint.Rule.NoExtraBooleanComparison
 import Lint.Rule.NoImportingEverything
@@ -17,13 +17,13 @@ import Lint.Rule.NoUnusedVariables
 -- LINT CONFIGURATION
 
 
-config : List ( Severity, Rule )
-config =
-    [ ( Critical, Lint.Rule.NoDebug.rule )
-    , ( Critical, Lint.Rule.NoUnusedVariables.rule )
-    , ( Critical, Lint.Rule.NoImportingEverything.rule { exceptions = [ "Html" ] } )
-    , ( Critical, DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeLast )
-    , ( Critical, Lint.Rule.NoExtraBooleanComparison.rule )
+config : Model -> List ( Severity, Rule )
+config model =
+    [ ( model.noDebugEnabled, ( Critical, Lint.Rule.NoDebug.rule ) )
+    , ( model.noUnusedVariablesEnabled, ( Critical, Lint.Rule.NoUnusedVariables.rule ) )
+    , ( model.noImportingEverythingEnabled, ( Critical, Lint.Rule.NoImportingEverything.rule { exceptions = [ "Html" ] } ) )
+    , ( model.defaultPatternPositionEnabled, ( Critical, DefaultPatternPosition.rule model.defaultPatternPositionPattern ) )
+    , ( model.noExtraBooleanComparisonEnabled, ( Critical, Lint.Rule.NoExtraBooleanComparison.rule ) )
 
     -- , ( Critical, Lint.Rule.NoConstantCondition.rule )
     -- , ( Critical, Lint.Rule.NoDuplicateImports.rule )
@@ -37,6 +37,14 @@ config =
     -- , ( Critical, Lint.Rule.SimplifyPropertyAccess.rule )
     -- , ( Critical, Lint.Rule.ElmTest.NoDuplicateTestBodies.rule )
     ]
+        |> List.filterMap
+            (\( bool, ruleAndConfig ) ->
+                if bool then
+                    Just ruleAndConfig
+
+                else
+                    Nothing
+            )
 
 
 
@@ -46,6 +54,12 @@ config =
 type alias Model =
     { sourceCode : String
     , lintResult : Result (List String) (List ( Severity, LintError ))
+    , noDebugEnabled : Bool
+    , noUnusedVariablesEnabled : Bool
+    , noImportingEverythingEnabled : Bool
+    , defaultPatternPositionEnabled : Bool
+    , defaultPatternPositionPattern : PatternPosition
+    , noExtraBooleanComparisonEnabled : Bool
     }
 
 
@@ -66,10 +80,20 @@ f x = x Debug.log 1
 
 g n = n + 1
 """
+
+        tmpModel : Model
+        tmpModel =
+            { sourceCode = sourceCode
+            , lintResult = Result.Ok []
+            , noDebugEnabled = True
+            , noUnusedVariablesEnabled = True
+            , noImportingEverythingEnabled = True
+            , defaultPatternPositionEnabled = True
+            , defaultPatternPositionPattern = DefaultPatternPosition.ShouldBeLast
+            , noExtraBooleanComparisonEnabled = True
+            }
     in
-    { sourceCode = sourceCode
-    , lintResult = lintSource config sourceCode
-    }
+    { tmpModel | lintResult = lintSource (config tmpModel) sourceCode }
 
 
 
@@ -78,6 +102,12 @@ g n = n + 1
 
 type Msg
     = UserEditedSourceCode String
+    | UserToggledNoDebugRule
+    | UserToggledNoUnusedVariablesRule
+    | UserToggledNoImportingEverythingRule
+    | UserToggledDefaultPatternPositionRule
+    | UserToggledNoExtraBooleanComparisonRule
+    | UserChangedDefaultPatternSetting PatternPosition
 
 
 update : Msg -> Model -> Model
@@ -86,8 +116,37 @@ update action model =
         UserEditedSourceCode sourceCode ->
             { model
                 | sourceCode = sourceCode
-                , lintResult = lintSource config sourceCode
+                , lintResult = lintSource (config model) sourceCode
             }
+
+        UserToggledNoDebugRule ->
+            { model | noDebugEnabled = not model.noDebugEnabled }
+                |> rerunLinting
+
+        UserToggledNoUnusedVariablesRule ->
+            { model | noUnusedVariablesEnabled = not model.noUnusedVariablesEnabled }
+                |> rerunLinting
+
+        UserToggledNoImportingEverythingRule ->
+            { model | noImportingEverythingEnabled = not model.noImportingEverythingEnabled }
+                |> rerunLinting
+
+        UserToggledDefaultPatternPositionRule ->
+            { model | defaultPatternPositionEnabled = not model.defaultPatternPositionEnabled }
+                |> rerunLinting
+
+        UserChangedDefaultPatternSetting patternPosition ->
+            { model | defaultPatternPositionPattern = patternPosition }
+                |> rerunLinting
+
+        UserToggledNoExtraBooleanComparisonRule ->
+            { model | noExtraBooleanComparisonEnabled = not model.noExtraBooleanComparisonEnabled }
+                |> rerunLinting
+
+
+rerunLinting : Model -> Model
+rerunLinting model =
+    { model | lintResult = lintSource (config model) model.sourceCode }
 
 
 
@@ -96,27 +155,90 @@ update action model =
 
 view : Model -> Html Msg
 view model =
-    div [ id "wrapper" ]
-        [ div [ id "left" ]
-            [ p [ class "title" ] [ text "Source code" ]
+    div [ Attr.id "wrapper" ]
+        [ div [ Attr.id "left" ]
+            [ p [ Attr.class "title" ] [ text "Source code" ]
             , div
-                [ style "display" "flex"
-                , style "flex-direction" "row"
+                [ Attr.style "display" "flex"
+                , Attr.style "flex-direction" "row"
                 ]
                 [ textarea
-                    [ id "input"
-                    , onInput UserEditedSourceCode
-                    , style "height" "500px"
-                    , style "width" "60%"
+                    [ Attr.id "input"
+                    , Events.onInput UserEditedSourceCode
+                    , Attr.style "height" "500px"
+                    , Attr.style "width" "60%"
                     ]
                     [ text model.sourceCode ]
-                , div [ style "margin-left" "2rem" ]
-                    [ p [ class "title" ] [ text "Linting errors" ]
-                    , ul [ id "lint" ]
+                , div [ Attr.style "margin-left" "2rem" ]
+                    [ viewConfigurationPanel model
+                    , p [ Attr.class "title" ] [ text "Linting errors" ]
+                    , ul [ Attr.id "lint" ]
                         (lintErrors model)
                     ]
                 ]
             ]
+        ]
+
+
+viewConfigurationPanel : Model -> Html Msg
+viewConfigurationPanel model =
+    div []
+        [ p [ Attr.class "title" ] [ text "Configuration" ]
+        , div
+            [ Attr.style "display" "flex"
+            , Attr.style "flex-direction" "column"
+            ]
+            [ viewCheckbox UserToggledNoDebugRule "NoDebug" model.noDebugEnabled
+            , viewCheckbox UserToggledNoUnusedVariablesRule "NoUnusedVariables" model.noUnusedVariablesEnabled
+            , viewCheckbox UserToggledNoImportingEverythingRule "NoImportingEverything" model.noImportingEverythingEnabled
+            , form [ Attr.action "" ]
+                [ viewCheckbox UserToggledDefaultPatternPositionRule "DefaultPatternPosition" model.defaultPatternPositionEnabled
+                , viewRadioButton
+                    UserChangedDefaultPatternSetting
+                    DefaultPatternPosition.ShouldBeLast
+                    "Should be last"
+                    model.defaultPatternPositionEnabled
+                    model.defaultPatternPositionPattern
+                , viewRadioButton
+                    UserChangedDefaultPatternSetting
+                    DefaultPatternPosition.ShouldBeFirst
+                    "Should be first"
+                    model.defaultPatternPositionEnabled
+                    model.defaultPatternPositionPattern
+                ]
+            , viewCheckbox UserToggledNoExtraBooleanComparisonRule "NoExtraBooleanComparison" model.noExtraBooleanComparisonEnabled
+            ]
+        ]
+
+
+viewCheckbox : Msg -> String -> Bool -> Html Msg
+viewCheckbox onClick name checked =
+    label
+        []
+        [ input
+            [ Attr.type_ "checkbox"
+            , Attr.checked checked
+            , Events.onClick onClick
+            ]
+            []
+        , text name
+        ]
+
+
+viewRadioButton : (PatternPosition -> Msg) -> PatternPosition -> String -> Bool -> PatternPosition -> Html Msg
+viewRadioButton onClick patternPosition name enabled selectedPatternPosition =
+    label
+        []
+        [ input
+            [ Attr.type_ "radio"
+            , Attr.checked (patternPosition == selectedPatternPosition)
+            , Events.onClick (onClick patternPosition)
+            , Attr.disabled <| not enabled
+            , Attr.name name
+            , Attr.value name
+            ]
+            []
+        , text name
         ]
 
 
