@@ -1,60 +1,87 @@
 module Lint.Rule.DefaultPatternPosition exposing (rule, PatternPosition(..))
 
-{-|
-
-@docs rule, PatternPosition
+{-| Enforce the default pattern to always appear first or last.
 
 
-# Fail
+## Fail
 
     import Lint.Rules.DefaultPatternPosition as DefaultPatternPosition
 
     config =
-        [ ( Critical, DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeLast )
+        [ ( Critical
+          , DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeLast
+          )
         ]
 
-    case value of
-      -- Error: "Expected default pattern to appear last in the list of patterns"
-      _ -> result
-      Foo -> bar
+    a =
+        case value of
+            -- Error: "Expected default pattern to appear last in the list of patterns"
+            _ ->
+                result
+
+            Foo ->
+                bar
+
+    ----------------------
+    config =
+        [ ( Critical
+          , DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeFirst
+          )
+        ]
+
+    a =
+        case value of
+            Foo ->
+                bar
+
+            -- Error: Expected default pattern to appear first in the list of patterns
+            _ ->
+                result
+
+
+## Success
+
+    config =
+        [ ( Critical
+          , DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeLast
+          )
+        ]
+
+    a =
+        case value of
+            Foo ->
+                bar
+
+            _ ->
+                result
+    a =
+        case value of
+            -- No default pattern
+            Foo ->
+                bar
+
+            Bar ->
+                foo
 
     -- --------------------
-
-
     config =
-        [ ( Critical, DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeFirst )
+        [ ( Critical
+          , DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeFirst
+          )
         ]
 
-    case value of
-      Foo -> bar
-      -- Error: Expected default pattern to appear first in the list of patterns
-      _ -> result
+    a =
+        case value of
+            _ ->
+                result
+
+            Foo ->
+                bar
 
 
-# Success
+# Rule and configuration
 
-    config =
-        [ ( Critical, DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeLast )
-        ]
-
-    case value of
-      Foo -> bar
-      _ -> result
-
-    case value of
-      -- No default pattern
-      Foo -> bar
-      Bar -> foo
-
-    -- --------------------
-
-    config =
-        [ ( Critical, DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeFirst )
-        ]
-
-    case value of
-      _ -> result
-      Foo -> bar
+@docs rule, PatternPosition
 
 -}
 

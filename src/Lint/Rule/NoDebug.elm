@@ -1,11 +1,9 @@
 module Lint.Rule.NoDebug exposing (rule)
 
-{-|
-
-@docs rule
+{-| Forbid the use of `Debug` before it goes into production or fails in the CI.
 
 
-# Fail
+## Fail
 
     if Debug.log "condition" condition then
         a
@@ -20,13 +18,18 @@ module Lint.Rule.NoDebug exposing (rule)
         value
 
 
-# Success
+## Success
 
     if condition then
         a
 
     else
         b
+
+
+# Rule
+
+@docs rule
 
 -}
 
@@ -35,7 +38,7 @@ import Elm.Syntax.Node as Node exposing (Node)
 import Lint.Rule as Rule exposing (Error, Rule)
 
 
-{-| Forbid the use of `Debug` before it goes into production.
+{-| Forbid the use of `Debug` before it goes into production or fails in the CI.
 
     config =
         [ ( Critical, NoDebug.rule )

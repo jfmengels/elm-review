@@ -1,18 +1,22 @@
 module Lint.Rule.NoImportingEverything exposing (rule, Configuration)
 
-{-|
+{-| Forbid importing everything from your module. This can especially be confusing to newcomers when the exposed
+functions and types are unknown to them.
 
-@docs rule, Configuration
 
-
-# Fail
+## Fail
 
     import Html exposing (..)
 
 
-# Success
+## Success
 
     import Html exposing (div, p, textarea)
+
+
+# Rule and configuration
+
+@docs rule, Configuration
 
 -}
 

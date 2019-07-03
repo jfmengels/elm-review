@@ -1,12 +1,11 @@
 module Lint.Rule.NoUnusedVariables exposing (rule)
 
-{-|
-
-@docs rule
+{-| Forbid variables or types that are declared or imported but never used.
 
 
-# Fail
+## Fail
 
+    -- module A exposing (a)
     a n =
         n + 1
 
@@ -14,10 +13,16 @@ module Lint.Rule.NoUnusedVariables exposing (rule)
         a 2
 
 
-# Success
+## Success
 
+    -- module A exposing (a)
     a n =
         n + 1
+
+
+# Rule
+
+@docs rule
 
 -}
 
@@ -35,7 +40,7 @@ import List.Nonempty as Nonempty exposing (Nonempty)
 import Set exposing (Set)
 
 
-{-| Reports variables that are declared but never used.
+{-| Forbid variables or types that are declared or imported but never used.
 
     config =
         [ ( Critical, NoUnusedVariables.rule )

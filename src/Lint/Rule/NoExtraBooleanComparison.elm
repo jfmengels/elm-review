@@ -1,32 +1,41 @@
 module Lint.Rule.NoExtraBooleanComparison exposing (rule)
 
-{-|
+{-| Forbid the use of boolean comparisons that can be simplified.
+
+
+## Fail
+
+    if someBooleanValue == True then
+        a
+
+    else
+        b
+
+    if someBooleanValue == False then
+        a
+
+    else
+        b
+
+
+## Success
+
+    if someBooleanValue then
+        a
+
+    else
+        b
+
+    if not someBooleanValue then
+        a
+
+    else
+        b
+
+
+# Rule
 
 @docs rule
-
-
-# Fail
-
-    if Debug.log "condition" condition then
-        a
-
-    else
-        b
-
-    if condition then
-        Debug.crash "Nooo!"
-
-    else
-        value
-
-
-# Success
-
-    if condition then
-        a
-
-    else
-        b
 
 -}
 
@@ -35,7 +44,7 @@ import Elm.Syntax.Node as Node exposing (Node)
 import Lint.Rule as Rule exposing (Error, Rule)
 
 
-{-| Forbid the use of `Debug` before it goes into production.
+{-| Forbid the use of boolean comparisons that can be simplified.
 
     config =
         [ ( Critical, NoExtraBooleanComparison.rule )
