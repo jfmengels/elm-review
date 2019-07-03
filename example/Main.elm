@@ -51,6 +51,7 @@ type alias Model =
     , noDebugEnabled : Bool
     , noUnusedVariablesEnabled : Bool
     , noImportingEverythingEnabled : Bool
+    , noImportingEverythingExceptions : List String
     , defaultPatternPositionEnabled : Bool
     , defaultPatternPositionPattern : PatternPosition
     , noExtraBooleanComparisonEnabled : Bool
@@ -83,6 +84,7 @@ g n = n + 1
             , noDebugEnabled = True
             , noUnusedVariablesEnabled = True
             , noImportingEverythingEnabled = True
+            , noImportingEverythingExceptions = [ "Html", "Html.Attributes" ]
             , defaultPatternPositionEnabled = True
             , defaultPatternPositionPattern = DefaultPatternPosition.ShouldBeLast
             , noExtraBooleanComparisonEnabled = True
