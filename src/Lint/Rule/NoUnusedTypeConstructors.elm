@@ -48,14 +48,11 @@ if it is not used anywhere in the project.
 import Dict exposing (Dict)
 import Elm.Syntax.Declaration exposing (Declaration(..))
 import Elm.Syntax.Exposing exposing (Exposing(..), TopLevelExpose(..))
-import Elm.Syntax.Expression exposing (Expression(..), Function, FunctionImplementation, LetDeclaration(..))
-import Elm.Syntax.Import exposing (Import)
+import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Module as Module exposing (Module(..))
 import Elm.Syntax.Node as Node exposing (Node)
-import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
 import Lint.Rule as Rule exposing (Direction, Error, Rule)
-import List.Nonempty as Nonempty exposing (Nonempty)
 import Set exposing (Set)
 
 
@@ -194,17 +191,6 @@ finalEvaluation context =
 
     else
         context.declaredTypesWithConstructors
-            |> Dict.filter (\name node -> not <| Set.member name context.usedFunctionOrValues)
+            |> Dict.filter (\name _ -> not <| Set.member name context.usedFunctionOrValues)
             |> Dict.toList
             |> List.map (\( _, node ) -> error node)
-
-
-
--- if context.exposesEverything then
---     []
---
--- else
---     context.scopes
---         |> Nonempty.head
---         |> makeReport
---         |> Tuple.first

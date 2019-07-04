@@ -89,8 +89,6 @@ import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Pattern exposing (Pattern(..))
 import Lint.Rule as Rule exposing (Error, Rule)
-import List.Extra exposing (findIndex)
-import Regex
 
 
 {-| Configures whether the default pattern should appear first or last.

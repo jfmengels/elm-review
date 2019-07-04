@@ -59,7 +59,6 @@ import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
 import Lint exposing (Severity(..), lintSource)
 import Lint.Rule as Rule exposing (Error, Rule)
-import List.Extra
 
 
 {-| The result of running a rule on a `String` containing source code.

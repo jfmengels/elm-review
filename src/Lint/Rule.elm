@@ -1015,8 +1015,8 @@ expressionChildren node =
                 ++ [ expression ]
 
         CaseExpression { expression, cases } ->
-            [ expression ]
-                ++ List.map (\( pattern, caseExpression ) -> caseExpression) cases
+            expression
+                :: List.map (\( pattern, caseExpression ) -> caseExpression) cases
 
         LambdaExpression { args, expression } ->
             [ expression ]
