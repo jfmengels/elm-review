@@ -492,14 +492,14 @@ positionAsRange (SourceCode sourceCode) under position =
     }
 
 
+errorToString : Error -> String
+errorToString error_ =
+    "- \"" ++ Rule.errorMessage error_ ++ "\" at " ++ rangeAsString (Rule.errorRange error_)
+
+
 rangeAsString : Range -> String
 rangeAsString { start, end } =
     "{ start = { row = " ++ String.fromInt start.row ++ ", column = " ++ String.fromInt start.column ++ " }, end = { row = " ++ String.fromInt end.row ++ ", column = " ++ String.fromInt end.column ++ " } }"
-
-
-errorToString : Error -> String
-errorToString error_ =
-    "- \"" ++ Rule.errorMessage error_ ++ "\" at " ++ Debug.toString (Rule.errorRange error_)
 
 
 notEnoughErrors : ExpectedError -> List ExpectedError -> String
