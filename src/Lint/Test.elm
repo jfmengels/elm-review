@@ -513,8 +513,13 @@ notEnoughErrors expected restOfExpectedErrors =
         ++ String.fromInt numberOfErrors
         ++ " more "
         ++ pluralizeErrors numberOfErrors
-        ++ ":\n"
+        ++ ":\n\n"
         ++ (List.map expectedErrorToString (expected :: restOfExpectedErrors) |> String.join "\n")
+
+
+wrapInQuotes : String -> String
+wrapInQuotes string =
+    "\"" ++ string ++ "\""
 
 
 tooManyErrors : Error -> List Error -> String
@@ -567,4 +572,4 @@ pluralizeErrors n =
 
 expectedErrorToString : ExpectedError -> String
 expectedErrorToString (ExpectedError expectedError) =
-    "- " ++ expectedError.message
+    "- " ++ wrapInQuotes expectedError.message
