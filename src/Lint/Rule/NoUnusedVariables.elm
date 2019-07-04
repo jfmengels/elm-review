@@ -62,6 +62,7 @@ rule =
 type alias Context =
     { scopes : Nonempty Scope
     , exposesEverything : Bool
+    , constructorNameToTypeName : Dict String String
     }
 
 
@@ -86,6 +87,7 @@ initialContext : Context
 initialContext =
     { scopes = Nonempty.fromElement emptyScope
     , exposesEverything = False
+    , constructorNameToTypeName = Dict.empty
     }
 
 
@@ -190,12 +192,14 @@ moduleDefinitionVisitor moduleNode context =
 importVisitor : Node Import -> Context -> ( List Error, Context )
 importVisitor node context =
     let
+        exposed : Maybe Exposing
         exposed =
             node
                 |> Node.value
                 |> .exposingList
+                |> Maybe.map Node.value
     in
-    case Maybe.map Node.value exposed of
+    case exposed of
         Nothing ->
             let
                 ( variableType, moduleName ) =
@@ -280,17 +284,20 @@ declarationVisitor node direction context =
     case ( direction, Node.value node ) of
         ( Rule.OnEnter, FunctionDeclaration function ) ->
             let
-                declaration =
+                functionImplementation : FunctionImplementation
+                functionImplementation =
                     Node.value function.declaration
 
+                namesUsedInSignature : List String
                 namesUsedInSignature =
                     function.signature
                         |> Maybe.map (Node.value >> .typeAnnotation >> collectNamesFromTypeAnnotation)
                         |> Maybe.withDefault []
 
+                newContext : Context
                 newContext =
                     context
-                        |> register Variable (Node.range declaration.name) (Node.value declaration.name)
+                        |> register Variable (Node.range functionImplementation.name) (Node.value functionImplementation.name)
                         |> markAllAsUsed namesUsedInSignature
             in
             ( [], newContext )
@@ -302,9 +309,20 @@ declarationVisitor node direction context =
                     constructors
                         |> List.concatMap (Node.value >> .arguments)
                         |> List.concatMap collectNamesFromTypeAnnotation
+
+                typeName : String
+                typeName =
+                    Node.value name
+
+                constructorsForType : Dict String String
+                constructorsForType =
+                    constructors
+                        |> List.map (Node.value >> .name >> Node.value)
+                        |> List.map (\constructorName -> ( constructorName, typeName ))
+                        |> Dict.fromList
             in
             ( []
-            , context
+            , { context | constructorNameToTypeName = Dict.union constructorsForType context.constructorNameToTypeName }
                 |> register Type (Node.range name) (Node.value name)
                 |> markAllAsUsed variablesFromConstructorArguments
             )
@@ -339,8 +357,23 @@ finalEvaluation context =
         []
 
     else
-        context.scopes
-            |> Nonempty.head
+        let
+            rootScope : Scope
+            rootScope =
+                Nonempty.head context.scopes
+
+            namesOfCustomTypesUsedByCallingAConstructor : Set String
+            namesOfCustomTypesUsedByCallingAConstructor =
+                context.constructorNameToTypeName
+                    |> Dict.filter (\usedName _ -> Set.member usedName rootScope.used)
+                    |> Dict.values
+                    |> Set.fromList
+
+            newRootScope : Scope
+            newRootScope =
+                { rootScope | used = Set.union namesOfCustomTypesUsedByCallingAConstructor rootScope.used }
+        in
+        newRootScope
             |> makeReport
             |> Tuple.first
 
@@ -404,6 +437,7 @@ collectNamesFromTypeAnnotation node =
 
         Typed nameNode params ->
             let
+                name : String
                 name =
                     case Node.value nameNode of
                         ( [], str ) ->
@@ -438,6 +472,7 @@ collectNamesFromTypeAnnotation node =
 register : VariableType -> Range -> String -> Context -> Context
 register variableType range name context =
     let
+        scopes : Nonempty Scope
         scopes =
             mapNonemptyHead
                 (\scope ->
@@ -456,6 +491,7 @@ markAllAsUsed names context =
 markAsUsed : String -> Context -> Context
 markAsUsed name context =
     let
+        scopes : Nonempty Scope
         scopes =
             mapNonemptyHead
                 (\scope ->
@@ -491,6 +527,7 @@ makeReport { declared, used } =
 mapNonemptyHead : (a -> a) -> Nonempty a -> Nonempty a
 mapNonemptyHead fn nonempty =
     let
+        newHead : a
         newHead =
             fn (Nonempty.head nonempty)
     in

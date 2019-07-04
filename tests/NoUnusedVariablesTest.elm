@@ -311,6 +311,22 @@ type A = B
 type ExposedType = Something A
 """
                 |> Lint.Test.expectNoErrors
+    , test "should not report a type of which a constructor is used" <|
+        \() ->
+            testRule """module A exposing (b)
+type A = B | C | D
+
+b = B
+"""
+                |> Lint.Test.expectNoErrors
+    , test "should not report a type of which a constructor is used even if it was defined afterwards" <|
+        \() ->
+            testRule """module A exposing (b)
+b = B
+
+type A = B | C | D
+"""
+                |> Lint.Test.expectNoErrors
     , test "should not report type used in type signature inside a let-in" <|
         \() ->
             testRule """module A exposing (a)
