@@ -228,6 +228,31 @@ a = Foo.Debug.log 1
 b = Debug.Foo.log 1
             """
                 |> Lint.Test.expectNoErrors
+    , test "should report the import of the Debug module" <|
+        \() ->
+            testRule "import Debug"
+                |> Lint.Test.expectErrors
+                    [ Lint.Test.error
+                        { message = message
+                        , under = "Debug"
+                        }
+                    ]
+    , test "should report the import of the Debug module (with exposing of some things)" <|
+        \() ->
+            testRule "import Debug exposing (log)"
+                |> Lint.Test.expectErrors
+                    [ Lint.Test.error
+                        { message = message
+                        , under = "Debug"
+                        }
+                    ]
+    , test "should not report imports of modules containing Debug but that is not Debug" <|
+        \() ->
+            testRule """
+import Foo.Debug
+import Debug.Foo
+            """
+                |> Lint.Test.expectNoErrors
     ]
 
 

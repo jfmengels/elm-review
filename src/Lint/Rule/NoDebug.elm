@@ -34,6 +34,7 @@ module Lint.Rule.NoDebug exposing (rule)
 -}
 
 import Elm.Syntax.Expression exposing (Expression(..))
+import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Node as Node exposing (Node)
 import Lint.Rule as Rule exposing (Error, Rule)
 
@@ -48,6 +49,7 @@ import Lint.Rule as Rule exposing (Error, Rule)
 rule : Rule
 rule =
     Rule.newSchema "NoDebug"
+        |> Rule.withSimpleImportVisitor importVisitor
         |> Rule.withSimpleExpressionVisitor expressionVisitor
         |> Rule.fromSchema
 
@@ -55,6 +57,20 @@ rule =
 error : Node a -> Error
 error node =
     Rule.error "Forbidden use of Debug" (Node.range node)
+
+
+importVisitor : Node Import -> List Error
+importVisitor node =
+    let
+        moduleNameNode : Node (List String)
+        moduleNameNode =
+            node |> Node.value |> .moduleName
+    in
+    if Node.value moduleNameNode == [ "Debug" ] then
+        [ error moduleNameNode ]
+
+    else
+        []
 
 
 expressionVisitor : Node Expression -> List Error
