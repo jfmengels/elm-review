@@ -221,6 +221,13 @@ a = let b = c
                         , under = "Debug.log"
                         }
                     ]
+    , test "should not report calls from a module containing Debug but that is not Debug" <|
+        \() ->
+            testRule """
+a = Foo.Debug.log 1
+b = Debug.Foo.log 1
+            """
+                |> Lint.Test.expectNoErrors
     ]
 
 

@@ -61,7 +61,7 @@ expressionVisitor : Node Expression -> List Error
 expressionVisitor node =
     case Node.value node of
         FunctionOrValue moduleName fnName ->
-            if List.member "Debug" moduleName then
+            if moduleName == [ "Debug" ] then
                 [ error node ]
 
             else
