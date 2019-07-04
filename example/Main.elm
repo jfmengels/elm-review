@@ -10,6 +10,7 @@ import Lint.Rule.DefaultPatternPosition as DefaultPatternPosition exposing (Patt
 import Lint.Rule.NoDebug
 import Lint.Rule.NoExtraBooleanComparison
 import Lint.Rule.NoImportingEverything
+import Lint.Rule.NoUnusedTypeConstructors
 import Lint.Rule.NoUnusedVariables
 
 
@@ -24,6 +25,7 @@ config model =
     , ( model.noImportingEverythingEnabled, ( Critical, Lint.Rule.NoImportingEverything.rule { exceptions = [ "Html" ] } ) )
     , ( model.defaultPatternPositionEnabled, ( Critical, DefaultPatternPosition.rule model.defaultPatternPositionPattern ) )
     , ( model.noExtraBooleanComparisonEnabled, ( Critical, Lint.Rule.NoExtraBooleanComparison.rule ) )
+    , ( model.noUnusedTypeConstructorsEnabled, ( Critical, Lint.Rule.NoUnusedTypeConstructors.rule ) )
 
     -- , ( Critical, Lint.Rule.NoConstantCondition.rule )
     -- , ( Critical, Lint.Rule.NoDuplicateImports.rule )
@@ -55,6 +57,7 @@ type alias Model =
     , defaultPatternPositionEnabled : Bool
     , defaultPatternPositionPattern : PatternPosition
     , noExtraBooleanComparisonEnabled : Bool
+    , noUnusedTypeConstructorsEnabled : Bool
     , showConfigurationAsText : Bool
     }
 
@@ -88,6 +91,7 @@ g n = n + 1
             , defaultPatternPositionEnabled = True
             , defaultPatternPositionPattern = DefaultPatternPosition.ShouldBeLast
             , noExtraBooleanComparisonEnabled = True
+            , noUnusedTypeConstructorsEnabled = True
             , showConfigurationAsText = False
             }
     in
@@ -105,6 +109,7 @@ type Msg
     | UserToggledNoImportingEverythingRule
     | UserToggledDefaultPatternPositionRule
     | UserToggledNoExtraBooleanComparisonRule
+    | UserToggledNoUnusedTypeConstructorsRule
     | UserChangedDefaultPatternSetting PatternPosition
     | UserToggledConfigurationAsText
 
@@ -140,6 +145,10 @@ update action model =
 
         UserToggledNoExtraBooleanComparisonRule ->
             { model | noExtraBooleanComparisonEnabled = not model.noExtraBooleanComparisonEnabled }
+                |> rerunLinting
+
+        UserToggledNoUnusedTypeConstructorsRule ->
+            { model | noUnusedTypeConstructorsEnabled = not model.noUnusedTypeConstructorsEnabled }
                 |> rerunLinting
 
         UserToggledConfigurationAsText ->
@@ -210,6 +219,7 @@ viewConfigurationPanel model =
                     model.defaultPatternPositionPattern
                 ]
             , viewCheckbox UserToggledNoExtraBooleanComparisonRule "NoExtraBooleanComparison" model.noExtraBooleanComparisonEnabled
+            , viewCheckbox UserToggledNoUnusedTypeConstructorsRule "NoUnusedTypeConstructors" model.noUnusedTypeConstructorsEnabled
             ]
         ]
 
@@ -278,6 +288,11 @@ configurationAsText model =
             , ( model.noExtraBooleanComparisonEnabled
               , { import_ = "Lint.Rule.NoExtraBooleanComparison"
                 , configExpression = "Lint.Rule.NoExtraBooleanComparison.rule"
+                }
+              )
+            , ( model.noUnusedTypeConstructorsEnabled
+              , { import_ = "Lint.Rule.NoUnusedTypeConstructors"
+                , configExpression = "Lint.Rule.NoUnusedTypeConstructors.rule"
                 }
               )
             ]

@@ -46,6 +46,7 @@ These are the rules that are built-in and available for you to choose from.
 - **NoExtraBooleanComparison** - Forbid extraneous comparisons with booleans, like `(isAdmin user) == True`.
 - **NoImportingEverything** - Forbid importing everything from your module. This can especially be confusing to newcomers when the exposed functions and types are unknown to them.
 - **NoUnusedVariables** - Reports variables that are declared but never used.
+- **NoUnusedTypeConstructors** - Reports type constructors that are declared but never used.
 
 The following is a list of rules that were temporarily removed when changing the AST implementation, and which can potentially be re-added later.
 - **NoExposingEverything** - Forbid exporting everything in your modules `module Main exposing (..)`, to make your module explicit in what it exposes.
@@ -70,10 +71,11 @@ module LintConfig exposing (config)
 import Lint exposing (Severity(..))
 import Lint.Rule exposing (Rule)
 import Lint.Rule.DefaultPatternPosition as DefaultPatternPosition
-import Lint.Rule.NoUnusedVariables
 import Lint.Rule.NoDebug
 import Lint.Rule.NoExtraBooleanComparison
 import Lint.Rule.NoImportingEverything
+import Lint.Rule.NoUnusedTypeConstructors
+import Lint.Rule.NoUnusedVariables
 
 
 config : List ( Severity, Rule )
@@ -81,6 +83,7 @@ config =
     [ ( Critical, DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeLast )
     , ( Critical, Lint.Rule.NoExtraBooleanComparison.rule )
     , ( Critical, Lint.Rule.NoUnusedVariables.rule )
+    , ( Critical, Lint.Rule.NoUnusedTypeConstructors.rule )
     , ( Warning, Lint.Rule.NoDebug.rule )
     , ( Critical, Lint.Rule.NoDuplicateImports.rule )
     , ( Critical, Lint.Rule.NoImportingEverything.rule { exceptions = [ "Html" ] } )

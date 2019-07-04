@@ -11,6 +11,7 @@
         "Lint.Rule.NoDebug",
         "Lint.Rule.NoExtraBooleanComparison",
         "Lint.Rule.NoImportingEverything",
+        "Lint.Rule.NoUnusedTypeConstructors",
         "Lint.Rule.NoUnusedVariables",
         "Lint.Test"
     ],
