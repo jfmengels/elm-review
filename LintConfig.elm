@@ -1,40 +1,24 @@
 module LintConfig exposing (config)
 
-import Lint.Rule exposing (Rule, Severity(..))
+-- Do not rename the module or the exposed function.
+-- `elm-lint` will look for these.
+
+import Lint exposing (Severity(..))
+import Lint.Rule exposing (Rule)
 import Lint.Rule.DefaultPatternPosition as DefaultPatternPosition
-import Lint.Rule.ElmTest.NoDuplicateTestBodies
-import Lint.Rule.NoConstantCondition
 import Lint.Rule.NoDebug
-import Lint.Rule.NoDuplicateImports
-import Lint.Rule.NoExposingEverything
 import Lint.Rule.NoExtraBooleanComparison
 import Lint.Rule.NoImportingEverything
-import Lint.Rule.NoNestedLet
-import Lint.Rule.NoUnannotatedFunction
+import Lint.Rule.NoUnusedTypeConstructors
 import Lint.Rule.NoUnusedVariables
-import Lint.Rule.NoUselessIf
-import Lint.Rule.NoUselessPatternMatching
-import Lint.Rule.NoWarningComments
-import Lint.Rule.SimplifyPiping
-import Lint.Rule.SimplifyPropertyAccess
 
 
 config : List ( Severity, Rule )
 config =
     [ ( Critical, DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeLast )
-    , ( Critical, Lint.Rule.NoExtraBooleanComparison.rule )
-    , ( Critical, Lint.Rule.NoConstantCondition.rule )
     , ( Critical, Lint.Rule.NoDebug.rule )
-    , ( Critical, Lint.Rule.NoDuplicateImports.rule )
-    , ( Critical, Lint.Rule.NoExposingEverything.rule )
-    , ( Critical, Lint.Rule.NoImportingEverything.rule { exceptions = [ "Html", "Ast.Expression", "Ast.Statement" ] } )
-    , ( Critical, Lint.Rule.NoNestedLet.rule )
-    , ( Critical, Lint.Rule.NoUnannotatedFunction.rule )
+    , ( Critical, Lint.Rule.NoExtraBooleanComparison.rule )
+    , ( Critical, Lint.Rule.NoImportingEverything.rule { exceptions = [] } )
     , ( Critical, Lint.Rule.NoUnusedVariables.rule )
-    , ( Critical, Lint.Rule.NoUselessIf.rule )
-    , ( Critical, Lint.Rule.NoUselessPatternMatching.rule )
-    , ( Warning, Lint.Rule.NoWarningComments.rule )
-    , ( Critical, Lint.Rule.SimplifyPiping.rule )
-    , ( Critical, Lint.Rule.SimplifyPropertyAccess.rule )
-    , ( Critical, Lint.Rule.ElmTest.NoDuplicateTestBodies.rule )
+    , ( Critical, Lint.Rule.NoUnusedTypeConstructors.rule )
     ]
