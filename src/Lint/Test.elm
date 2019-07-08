@@ -59,6 +59,7 @@ import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
 import Lint exposing (Severity(..), lintSource)
 import Lint.Rule as Rule exposing (Error, Rule)
+import List.Extra
 
 
 {-| The result of running a rule on a `String` containing source code.
@@ -433,7 +434,7 @@ under the following code:
 
   """ ++ formatSourceCode under ++ """
 
-and I found it. But there are multiple occurrences for this piece of code, and the exact location you specified is not the one I found. I was expecting the error at:
+and I found it, but the exact location you specified is not the one I found. I was expecting the error at:
 
   """ ++ rangeAsString range ++ """
 
@@ -478,15 +479,44 @@ positionAsRange (SourceCode sourceCode) under position =
         startRow : Int
         startRow =
             List.length linesBeforeAndIncludingPosition
+
+        startColumn : Int
+        startColumn =
+            linesBeforeAndIncludingPosition
+                |> List.Extra.last
+                |> Maybe.withDefault ""
+                |> String.length
+                |> (+) 1
+
+        linesInUnder : List String
+        linesInUnder =
+            String.lines under
+
+        endRow : Int
+        endRow =
+            startRow + List.length linesInUnder - 1
+
+        endColumn : Int
+        endColumn =
+            if startRow == endRow then
+                startColumn + String.length under
+
+            else
+                linesInUnder
+                    |> Debug.log "linesInUnder"
+                    |> List.Extra.last
+                    |> Debug.log "last"
+                    |> Maybe.withDefault ""
+                    |> String.length
+                    |> (+) 1
     in
-    -- TODO Get these values right
     { start =
         { row = startRow
-        , column = -1
+        , column = startColumn
         }
     , end =
-        { row = startRow + (under |> String.indexes "\n" |> List.length)
-        , column = under |> String.indexes "\n" |> List.length
+        { row = endRow
+        , column = endColumn
         }
     }
 
