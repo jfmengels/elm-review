@@ -41,7 +41,6 @@ Do remember that `elm-lint` is supposed to be run after the Elm compiler has val
 
 These are the rules that are built-in and available for you to choose from.
 
-- **DefaultPatternPosition** - Enforce the default pattern to always appear first or last.
 - **NoDebug** - Forbid the use of `Debug` before it goes into production.
 - **NoExtraBooleanComparison** - Forbid extraneous comparisons with booleans, like `(isAdmin user) == True`.
 - **NoImportingEverything** - Forbid importing everything from your module. This can especially be confusing to newcomers when the exposed functions and types are unknown to them.
@@ -70,7 +69,6 @@ module LintConfig exposing (config)
 
 import Lint exposing (Severity(..))
 import Lint.Rule exposing (Rule)
-import Lint.Rule.DefaultPatternPosition as DefaultPatternPosition
 import Lint.Rule.NoDebug
 import Lint.Rule.NoExtraBooleanComparison
 import Lint.Rule.NoImportingEverything
@@ -80,12 +78,10 @@ import Lint.Rule.NoUnusedVariables
 
 config : List ( Severity, Rule )
 config =
-    [ ( Critical, DefaultPatternPosition.rule DefaultPatternPosition.ShouldBeLast )
-    , ( Critical, Lint.Rule.NoExtraBooleanComparison.rule )
+    [ ( Critical, Lint.Rule.NoExtraBooleanComparison.rule )
     , ( Critical, Lint.Rule.NoUnusedVariables.rule )
     , ( Critical, Lint.Rule.NoUnusedTypeConstructors.rule )
     , ( Warning, Lint.Rule.NoDebug.rule )
-    , ( Critical, Lint.Rule.NoDuplicateImports.rule )
     , ( Critical, Lint.Rule.NoImportingEverything.rule { exceptions = [ "Html" ] } )
     ]
 ```

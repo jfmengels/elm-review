@@ -6,7 +6,6 @@ import Html.Attributes as Attr
 import Html.Events as Events
 import Lint exposing (LintError, Severity(..), lintSource)
 import Lint.Rule exposing (Rule)
-import Lint.Rule.DefaultPatternPosition as DefaultPatternPosition exposing (PatternPosition)
 import Lint.Rule.NoDebug
 import Lint.Rule.NoExtraBooleanComparison
 import Lint.Rule.NoImportingEverything
@@ -23,7 +22,6 @@ config model =
     [ ( model.noDebugEnabled, ( Critical, Lint.Rule.NoDebug.rule ) )
     , ( model.noUnusedVariablesEnabled, ( Critical, Lint.Rule.NoUnusedVariables.rule ) )
     , ( model.noImportingEverythingEnabled, ( Critical, Lint.Rule.NoImportingEverything.rule { exceptions = [ "Html" ] } ) )
-    , ( model.defaultPatternPositionEnabled, ( Critical, DefaultPatternPosition.rule model.defaultPatternPositionPattern ) )
     , ( model.noExtraBooleanComparisonEnabled, ( Critical, Lint.Rule.NoExtraBooleanComparison.rule ) )
     , ( model.noUnusedTypeConstructorsEnabled, ( Critical, Lint.Rule.NoUnusedTypeConstructors.rule ) )
 
@@ -54,8 +52,6 @@ type alias Model =
     , noUnusedVariablesEnabled : Bool
     , noImportingEverythingEnabled : Bool
     , noImportingEverythingExceptions : List String
-    , defaultPatternPositionEnabled : Bool
-    , defaultPatternPositionPattern : PatternPosition
     , noExtraBooleanComparisonEnabled : Bool
     , noUnusedTypeConstructorsEnabled : Bool
     , showConfigurationAsText : Bool
@@ -88,8 +84,6 @@ g n = n + 1
             , noUnusedVariablesEnabled = True
             , noImportingEverythingEnabled = True
             , noImportingEverythingExceptions = [ "Html", "Html.Attributes" ]
-            , defaultPatternPositionEnabled = True
-            , defaultPatternPositionPattern = DefaultPatternPosition.ShouldBeLast
             , noExtraBooleanComparisonEnabled = True
             , noUnusedTypeConstructorsEnabled = True
             , showConfigurationAsText = False
@@ -107,10 +101,8 @@ type Msg
     | UserToggledNoDebugRule
     | UserToggledNoUnusedVariablesRule
     | UserToggledNoImportingEverythingRule
-    | UserToggledDefaultPatternPositionRule
     | UserToggledNoExtraBooleanComparisonRule
     | UserToggledNoUnusedTypeConstructorsRule
-    | UserChangedDefaultPatternSetting PatternPosition
     | UserToggledConfigurationAsText
 
 
@@ -133,14 +125,6 @@ update action model =
 
         UserToggledNoImportingEverythingRule ->
             { model | noImportingEverythingEnabled = not model.noImportingEverythingEnabled }
-                |> rerunLinting
-
-        UserToggledDefaultPatternPositionRule ->
-            { model | defaultPatternPositionEnabled = not model.defaultPatternPositionEnabled }
-                |> rerunLinting
-
-        UserChangedDefaultPatternSetting patternPosition ->
-            { model | defaultPatternPositionPattern = patternPosition }
                 |> rerunLinting
 
         UserToggledNoExtraBooleanComparisonRule ->
@@ -203,21 +187,6 @@ viewConfigurationPanel model =
             [ viewCheckbox UserToggledNoDebugRule "NoDebug" model.noDebugEnabled
             , viewCheckbox UserToggledNoUnusedVariablesRule "NoUnusedVariables" model.noUnusedVariablesEnabled
             , viewCheckbox UserToggledNoImportingEverythingRule "NoImportingEverything" model.noImportingEverythingEnabled
-            , form [ Attr.action "" ]
-                [ viewCheckbox UserToggledDefaultPatternPositionRule "DefaultPatternPosition" model.defaultPatternPositionEnabled
-                , viewRadioButton
-                    UserChangedDefaultPatternSetting
-                    DefaultPatternPosition.ShouldBeLast
-                    "Should be last"
-                    model.defaultPatternPositionEnabled
-                    model.defaultPatternPositionPattern
-                , viewRadioButton
-                    UserChangedDefaultPatternSetting
-                    DefaultPatternPosition.ShouldBeFirst
-                    "Should be first"
-                    model.defaultPatternPositionEnabled
-                    model.defaultPatternPositionPattern
-                ]
             , viewCheckbox UserToggledNoExtraBooleanComparisonRule "NoExtraBooleanComparison" model.noExtraBooleanComparisonEnabled
             , viewCheckbox UserToggledNoUnusedTypeConstructorsRule "NoUnusedTypeConstructors" model.noUnusedTypeConstructorsEnabled
             ]
@@ -272,19 +241,6 @@ configurationAsText model =
                 , configExpression = "Lint.Rule.NoImportingEverything.rule { exceptions = [] }"
                 }
               )
-            , ( model.defaultPatternPositionEnabled
-              , { import_ = "Lint.Rule.DefaultPatternPosition as DefaultPatternPosition"
-                , configExpression =
-                    "DefaultPatternPosition.rule DefaultPatternPosition."
-                        ++ (case model.defaultPatternPositionPattern of
-                                DefaultPatternPosition.ShouldBeFirst ->
-                                    "ShouldBeFirst"
-
-                                DefaultPatternPosition.ShouldBeLast ->
-                                    "ShouldBeLast"
-                           )
-                }
-              )
             , ( model.noExtraBooleanComparisonEnabled
               , { import_ = "Lint.Rule.NoExtraBooleanComparison"
                 , configExpression = "Lint.Rule.NoExtraBooleanComparison.rule"
@@ -333,23 +289,6 @@ viewCheckbox onClick name checked =
             [ Attr.type_ "checkbox"
             , Attr.checked checked
             , Events.onClick onClick
-            ]
-            []
-        , text name
-        ]
-
-
-viewRadioButton : (PatternPosition -> Msg) -> PatternPosition -> String -> Bool -> PatternPosition -> Html Msg
-viewRadioButton onClick patternPosition name enabled selectedPatternPosition =
-    label
-        []
-        [ input
-            [ Attr.type_ "radio"
-            , Attr.checked (patternPosition == selectedPatternPosition)
-            , Events.onClick (onClick patternPosition)
-            , Attr.disabled <| not enabled
-            , Attr.name name
-            , Attr.value name
             ]
             []
         , text name
