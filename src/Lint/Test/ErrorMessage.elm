@@ -40,23 +40,30 @@ type alias SourceCode =
 
 didNotExpectErrors : List Error -> String
 didNotExpectErrors errors =
-    """I expected no errors but found:
+    """DID NOT EXPECT ERRORS
+
+I expected no errors but found:
 
   """ ++ (List.map errorToString errors |> String.join "\n  ")
 
 
 parsingFailure : String
 parsingFailure =
-    """I could not parse the test source code, because it was not syntactically valid Elm code.
+    """TEST SOURCE CODE PARSING ERROR
 
-Maybe you forgot to add the module definition at the top, like:
+I could not parse the test source code, because it was not
+syntactically valid Elm code.
+
+Hint: Maybe you forgot to add the module definition at the top, like:
 
   `module A exposing (..)`"""
 
 
 messageMismatch : ExpectedErrorData -> Error -> String
 messageMismatch expectedError error_ =
-    """I was looking for the error with the following message:
+    """UNEXPECTED ERROR MESSAGE
+
+I was looking for the error with the following message:
 
   `""" ++ expectedError.message ++ """`
 
@@ -67,7 +74,9 @@ but I found the following error message:
 
 underMismatch : Error -> { under : String, codeAtLocation : String } -> String
 underMismatch error_ { under, codeAtLocation } =
-    """I found an error with the following message:
+    """UNEXPECTED ERROR LOCATION
+
+I found an error with the following message:
 
   `""" ++ Rule.errorMessage error_ ++ """`
 
@@ -79,12 +88,15 @@ when I was expecting it under:
 
   """ ++ formatSourceCode under ++ """
 
-Hint: Maybe you're passing the `Range` of a wrong node when calling `Rule.error`"""
+Hint: Maybe you're passing the `Range` of a wrong node when
+calling `Rule.error`"""
 
 
 wrongLocation : Error -> Range -> String -> String
 wrongLocation error_ range under =
-    """I was looking for the error with the following message:
+    """UNEXPECTED ERROR LOCATION
+
+I was looking for the error with the following message:
 
   `""" ++ Rule.errorMessage error_ ++ """`
 
@@ -183,11 +195,10 @@ expectedMoreErrors missingExpectedErrors =
         numberOfErrors =
             List.length missingExpectedErrors
     in
-    "I expected to see "
-        ++ String.fromInt numberOfErrors
-        ++ " more "
-        ++ pluralizeErrors numberOfErrors
-        ++ ":\n\n"
+    """RULE REPORTED LESS ERRORS THAN EXPECTED
+
+I expected to see """
+        ++ (String.fromInt numberOfErrors ++ " more " ++ pluralizeErrors numberOfErrors ++ ":\n\n")
         ++ (missingExpectedErrors
                 |> List.map expectedErrorToString
                 |> String.join "\n"
@@ -206,11 +217,10 @@ tooManyErrors extraErrors =
         numberOfErrors =
             List.length extraErrors
     in
-    "I found "
-        ++ String.fromInt numberOfErrors
-        ++ " "
-        ++ pluralizeErrors numberOfErrors
-        ++ " too many:\n\n"
+    """RULE REPORTED MORE ERRORS THAN EXPECTED
+
+I found """
+        ++ (String.fromInt numberOfErrors ++ " " ++ pluralizeErrors numberOfErrors ++ " too many:\n\n")
         ++ (extraErrors
                 |> List.map errorToString
                 |> String.join "\n"
@@ -219,7 +229,9 @@ tooManyErrors extraErrors =
 
 locationIsAmbiguousInSourceCode : SourceCode -> Error -> String -> List Int -> String
 locationIsAmbiguousInSourceCode sourceCode error_ under occurrencesInSourceCode =
-    """Your test passes, but where the message appears is ambiguous.
+    """AMBIGUOUS ERROR LOCATION
+
+Your test passes, but where the message appears is ambiguous.
 
 You are looking for the following error message:
 
@@ -237,7 +249,9 @@ Tip: I found them at:
 
 impossibleState : String
 impossibleState =
-    "Oh no! I'm in an impossible state. I found an error at a location that I could not find back. Please let me know and give me an SSCCE (http://sscce.org/) here: https://github.com/jfmengels/elm-lint/issues."
+    """ELM-LINT IMPOSSIBLE STATE
+
+Oh no! I'm in an impossible state. I found an error at a location that I could not find back. Please let me know and give me an SSCCE (http://sscce.org/) here: https://github.com/jfmengels/elm-lint/issues."""
 
 
 pluralizeErrors : Int -> String

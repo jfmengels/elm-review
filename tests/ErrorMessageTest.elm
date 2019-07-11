@@ -26,9 +26,12 @@ parsingFailureTest =
         \() ->
             ErrorMessage.parsingFailure
                 |> Expect.equal (String.trim """
-I could not parse the test source code, because it was not syntactically valid Elm code.
+TEST SOURCE CODE PARSING ERROR
 
-Maybe you forgot to add the module definition at the top, like:
+I could not parse the test source code, because it was not
+syntactically valid Elm code.
+
+Hint: Maybe you forgot to add the module definition at the top, like:
 
   `module A exposing (..)`""")
 
@@ -46,6 +49,8 @@ didNotExpectErrorsTest =
             in
             ErrorMessage.didNotExpectErrors errors
                 |> Expect.equal (String.trim """
+DID NOT EXPECT ERRORS
+
 I expected no errors but found:
 
   - "Some error" at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
@@ -70,6 +75,8 @@ messageMismatchTest =
             in
             ErrorMessage.messageMismatch expectedError error
                 |> Expect.equal (String.trim """
+UNEXPECTED ERROR MESSAGE
+
 I was looking for the error with the following message:
 
   `Forbidden use of Debug`
@@ -95,6 +102,8 @@ underMismatchTest =
                     , codeAtLocation = "abcd = 1"
                     }
                     |> Expect.equal (String.trim """
+UNEXPECTED ERROR LOCATION
+
 I found an error with the following message:
 
   `Some error`
@@ -107,7 +116,8 @@ when I was expecting it under:
 
   `abcd`
 
-Hint: Maybe you're passing the `Range` of a wrong node when calling `Rule.error`""")
+Hint: Maybe you're passing the `Range` of a wrong node when
+calling `Rule.error`""")
         , test "with multi-line extracts" <|
             \() ->
                 let
@@ -121,6 +131,8 @@ Hint: Maybe you're passing the `Range` of a wrong node when calling `Rule.error`
                     , codeAtLocation = "abcd =\n  1"
                     }
                     |> Expect.equal (String.trim """
+UNEXPECTED ERROR LOCATION
+
 I found an error with the following message:
 
   `Some other error`
@@ -140,7 +152,8 @@ when I was expecting it under:
       + 2
   ```
 
-Hint: Maybe you're passing the `Range` of a wrong node when calling `Rule.error`""")
+Hint: Maybe you're passing the `Range` of a wrong node when
+calling `Rule.error`""")
         ]
 
 
@@ -161,6 +174,8 @@ wrongLocationTest =
                     { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
                     "abcd"
                     |> Expect.equal (String.trim """
+UNEXPECTED ERROR LOCATION
+
 I was looking for the error with the following message:
 
   `Some error`
@@ -191,6 +206,8 @@ but I found it at:
                     { start = { row = 2, column = 1 }, end = { row = 3, column = 3 } }
                     "abcd =\n  1"
                     |> Expect.equal (String.trim """
+UNEXPECTED ERROR LOCATION
+
 I was looking for the error with the following message:
 
   `Some other error`
@@ -230,6 +247,8 @@ expectedMoreErrorsTest =
             in
             ErrorMessage.expectedMoreErrors missingErrors
                 |> Expect.equal (String.trim """
+RULE REPORTED LESS ERRORS THAN EXPECTED
+
 I expected to see 2 more errors:
 
 - "Forbidden use of Debug"
@@ -252,6 +271,8 @@ tooManyErrorsTest =
                 in
                 ErrorMessage.tooManyErrors extraErrors
                     |> Expect.equal (String.trim """
+RULE REPORTED MORE ERRORS THAN EXPECTED
+
 I found 1 error too many:
 
 - "Forbidden use of Debug" at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
@@ -271,6 +292,8 @@ I found 1 error too many:
                 in
                 ErrorMessage.tooManyErrors extraErrors
                     |> Expect.equal (String.trim """
+RULE REPORTED MORE ERRORS THAN EXPECTED
+
 I found 2 errors too many:
 
 - "Forbidden use of Debug" at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
@@ -305,6 +328,8 @@ locationIsAmbiguousInSourceCodeTest =
                     under
                     (String.indexes under sourceCode)
                     |> Expect.equal (String.trim """
+AMBIGUOUS ERROR LOCATION
+
 Your test passes, but where the message appears is ambiguous.
 
 You are looking for the following error message:
@@ -344,6 +369,8 @@ Tip: I found them at:
                     under
                     (String.indexes under sourceCode)
                     |> Expect.equal (String.trim """
+AMBIGUOUS ERROR LOCATION
+
 Your test passes, but where the message appears is ambiguous.
 
 You are looking for the following error message:
