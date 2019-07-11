@@ -1,7 +1,7 @@
 module ErrorMessageTest exposing (all)
 
 import Elm.Syntax.Range exposing (Range)
-import Expect
+import Expect exposing (Expectation)
 import Lint.Rule as Rule exposing (Error)
 import Lint.Test.ErrorMessage as ErrorMessage exposing (ExpectedErrorData)
 import Test exposing (Test, describe, test)
@@ -20,12 +20,29 @@ all =
         ]
 
 
+expectMessageEqual : String -> String -> Expectation
+expectMessageEqual expectedMessage =
+    Expect.all
+        [ Expect.equal <| String.trim expectedMessage
+        , \receivedMessage ->
+            Expect.all
+                (String.lines receivedMessage
+                    |> List.map
+                        (\line () ->
+                            (String.length line <= 76)
+                                |> Expect.true ("Message has line longer than 76 characters:\n\n" ++ line)
+                        )
+                )
+                ()
+        ]
+
+
 parsingFailureTest : Test
 parsingFailureTest =
     test "parsingFailure" <|
         \() ->
             ErrorMessage.parsingFailure
-                |> Expect.equal (String.trim """
+                |> expectMessageEqual """
 TEST SOURCE CODE PARSING ERROR
 
 I could not parse the test source code, because it was not
@@ -33,7 +50,7 @@ syntactically valid Elm code.
 
 Hint: Maybe you forgot to add the module definition at the top, like:
 
-  `module A exposing (..)`""")
+  `module A exposing (..)`"""
 
 
 didNotExpectErrorsTest : Test
@@ -48,14 +65,16 @@ didNotExpectErrorsTest =
                     ]
             in
             ErrorMessage.didNotExpectErrors errors
-                |> Expect.equal (String.trim """
+                |> expectMessageEqual """
 DID NOT EXPECT ERRORS
 
 I expected no errors but found:
 
-  - "Some error" at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
-  - "Some other error" at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
-""")
+  - "Some error"
+    at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
+  - "Some other error"
+    at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
+"""
 
 
 messageMismatchTest : Test
@@ -74,7 +93,7 @@ messageMismatchTest =
                     Rule.error "Forbidden use of Debu" dummyRange
             in
             ErrorMessage.messageMismatch expectedError error
-                |> Expect.equal (String.trim """
+                |> expectMessageEqual """
 UNEXPECTED ERROR MESSAGE
 
 I was looking for the error with the following message:
@@ -83,7 +102,7 @@ I was looking for the error with the following message:
 
 but I found the following error message:
 
-  `Forbidden use of Debu`""")
+  `Forbidden use of Debu`"""
 
 
 underMismatchTest : Test
@@ -101,7 +120,7 @@ underMismatchTest =
                     { under = "abcd"
                     , codeAtLocation = "abcd = 1"
                     }
-                    |> Expect.equal (String.trim """
+                    |> expectMessageEqual """
 UNEXPECTED ERROR LOCATION
 
 I found an error with the following message:
@@ -117,7 +136,7 @@ when I was expecting it under:
   `abcd`
 
 Hint: Maybe you're passing the `Range` of a wrong node when
-calling `Rule.error`""")
+calling `Rule.error`"""
         , test "with multi-line extracts" <|
             \() ->
                 let
@@ -130,7 +149,7 @@ calling `Rule.error`""")
                     { under = "abcd =\n  1\n  + 2"
                     , codeAtLocation = "abcd =\n  1"
                     }
-                    |> Expect.equal (String.trim """
+                    |> expectMessageEqual """
 UNEXPECTED ERROR LOCATION
 
 I found an error with the following message:
@@ -153,7 +172,7 @@ when I was expecting it under:
   ```
 
 Hint: Maybe you're passing the `Range` of a wrong node when
-calling `Rule.error`""")
+calling `Rule.error`"""
         ]
 
 
@@ -173,7 +192,7 @@ wrongLocationTest =
                     error
                     { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
                     "abcd"
-                    |> Expect.equal (String.trim """
+                    |> expectMessageEqual """
 UNEXPECTED ERROR LOCATION
 
 I was looking for the error with the following message:
@@ -184,14 +203,16 @@ under the following code:
 
   `abcd`
 
-and I found it, but the exact location you specified is not the one I found. I was expecting the error at:
+and I found it, but the exact location you specified is not the one I found.
+
+I was expecting the error at:
 
   { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
 
 but I found it at:
 
   { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
-""")
+"""
         , test "with multi-line extracts" <|
             \() ->
                 let
@@ -205,7 +226,7 @@ but I found it at:
                     error
                     { start = { row = 2, column = 1 }, end = { row = 3, column = 3 } }
                     "abcd =\n  1"
-                    |> Expect.equal (String.trim """
+                    |> expectMessageEqual """
 UNEXPECTED ERROR LOCATION
 
 I was looking for the error with the following message:
@@ -219,14 +240,16 @@ under the following code:
       1
   ```
 
-and I found it, but the exact location you specified is not the one I found. I was expecting the error at:
+and I found it, but the exact location you specified is not the one I found.
+
+I was expecting the error at:
 
   { start = { row = 2, column = 1 }, end = { row = 3, column = 3 } }
 
 but I found it at:
 
   { start = { row = 4, column = 1 }, end = { row = 5, column = 3 } }
-""")
+"""
         ]
 
 
@@ -246,14 +269,14 @@ expectedMoreErrorsTest =
                     ]
             in
             ErrorMessage.expectedMoreErrors missingErrors
-                |> Expect.equal (String.trim """
+                |> expectMessageEqual """
 RULE REPORTED LESS ERRORS THAN EXPECTED
 
 I expected to see 2 more errors:
 
 - "Forbidden use of Debug"
 - "Forbidden use of Debug"
-""")
+"""
 
 
 tooManyErrorsTest : Test
@@ -270,13 +293,14 @@ tooManyErrorsTest =
                         ]
                 in
                 ErrorMessage.tooManyErrors extraErrors
-                    |> Expect.equal (String.trim """
+                    |> expectMessageEqual """
 RULE REPORTED MORE ERRORS THAN EXPECTED
 
 I found 1 error too many:
 
-- "Forbidden use of Debug" at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
-""")
+- "Forbidden use of Debug"
+    at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
+"""
         , test "with multiple extra errors" <|
             \() ->
                 let
@@ -291,14 +315,16 @@ I found 1 error too many:
                         ]
                 in
                 ErrorMessage.tooManyErrors extraErrors
-                    |> Expect.equal (String.trim """
+                    |> expectMessageEqual """
 RULE REPORTED MORE ERRORS THAN EXPECTED
 
 I found 2 errors too many:
 
-- "Forbidden use of Debug" at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
-- "Forbidden use of Debug" at { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
-""")
+- "Forbidden use of Debug"
+    at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
+- "Forbidden use of Debug"
+    at { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
+"""
         ]
 
 
@@ -327,7 +353,7 @@ locationIsAmbiguousInSourceCodeTest =
                     error
                     under
                     (String.indexes under sourceCode)
-                    |> Expect.equal (String.trim """
+                    |> expectMessageEqual """
 AMBIGUOUS ERROR LOCATION
 
 Your test passes, but where the message appears is ambiguous.
@@ -340,12 +366,13 @@ and expecting to see it under:
 
   `abcd`
 
-I found 2 locations where that code appeared. Please use `Lint.Rule.atExactly` to make the part you were targetting unambiguous.
+I found 2 locations where that code appeared. Please
+use `Lint.Rule.atExactly` to make the part you were targetting unambiguous.
 
 Tip: I found them at:
   - { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
   - { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
-""")
+"""
         , test "with multi-line extracts" <|
             \() ->
                 let
@@ -368,7 +395,7 @@ Tip: I found them at:
                     error
                     under
                     (String.indexes under sourceCode)
-                    |> Expect.equal (String.trim """
+                    |> expectMessageEqual """
 AMBIGUOUS ERROR LOCATION
 
 Your test passes, but where the message appears is ambiguous.
@@ -384,13 +411,14 @@ and expecting to see it under:
       1
   ```
 
-I found 3 locations where that code appeared. Please use `Lint.Rule.atExactly` to make the part you were targetting unambiguous.
+I found 3 locations where that code appeared. Please
+use `Lint.Rule.atExactly` to make the part you were targetting unambiguous.
 
 Tip: I found them at:
   - { start = { row = 2, column = 1 }, end = { row = 3, column = 4 } }
   - { start = { row = 4, column = 1 }, end = { row = 5, column = 4 } }
   - { start = { row = 6, column = 1 }, end = { row = 7, column = 4 } }
-""")
+"""
         ]
 
 

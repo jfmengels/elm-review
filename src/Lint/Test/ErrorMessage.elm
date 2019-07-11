@@ -104,7 +104,9 @@ under the following code:
 
   """ ++ formatSourceCode under ++ """
 
-and I found it, but the exact location you specified is not the one I found. I was expecting the error at:
+and I found it, but the exact location you specified is not the one I found.
+
+I was expecting the error at:
 
   """ ++ rangeAsString range ++ """
 
@@ -180,7 +182,7 @@ positionAsRange sourceCode under position =
 
 errorToString : Error -> String
 errorToString error_ =
-    "- \"" ++ Rule.errorMessage error_ ++ "\" at " ++ rangeAsString (Rule.errorRange error_)
+    "- \"" ++ Rule.errorMessage error_ ++ "\"\n    at " ++ rangeAsString (Rule.errorRange error_)
 
 
 rangeAsString : Range -> String
@@ -241,7 +243,8 @@ and expecting to see it under:
 
   """ ++ formatSourceCode under ++ """
 
-I found """ ++ String.fromInt (List.length occurrencesInSourceCode) ++ """ locations where that code appeared. Please use `Lint.Rule.atExactly` to make the part you were targetting unambiguous.
+I found """ ++ String.fromInt (List.length occurrencesInSourceCode) ++ """ locations where that code appeared. Please
+use `Lint.Rule.atExactly` to make the part you were targetting unambiguous.
 
 Tip: I found them at:
 """ ++ listOccurrencesAsLocations sourceCode under occurrencesInSourceCode
