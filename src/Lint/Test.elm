@@ -149,9 +149,8 @@ expectNoErrors lintResult =
             Expect.fail ErrorMessage.parsingFailure
 
         SuccessfulRun _ errors ->
-            Expect.true
-                (ErrorMessage.didNotExpectErrors errors)
-                (List.isEmpty errors)
+            List.isEmpty errors
+                |> Expect.true (ErrorMessage.didNotExpectErrors errors)
 
 
 {-| Assert that the rule reported some errors, by specifying which one.
@@ -327,9 +326,8 @@ checkIfLocationIsAmbiguousInSourceCode sourceCode error_ under =
         occurrencesInSourceCode =
             String.indexes under sourceCode
     in
-    Expect.true
-        (ErrorMessage.locationIsAmbiguousInSourceCode sourceCode error_ under occurrencesInSourceCode)
-        (List.length occurrencesInSourceCode == 1)
+    (List.length occurrencesInSourceCode == 1)
+        |> Expect.true (ErrorMessage.locationIsAmbiguousInSourceCode sourceCode error_ under occurrencesInSourceCode)
 
 
 
@@ -350,7 +348,8 @@ checkErrorsMatch codeInspector expectedErrors errors =
             [ always Expect.pass ]
 
         ( expected :: restOfExpectedErrors, error_ :: restOfErrors ) ->
-            checkErrorMatch codeInspector expected error_ :: checkErrorsMatch codeInspector restOfExpectedErrors restOfErrors
+            checkErrorMatch codeInspector expected error_
+                :: checkErrorsMatch codeInspector restOfExpectedErrors restOfErrors
 
         ( expected :: restOfExpectedErrors, [] ) ->
             [ always <| Expect.fail <| ErrorMessage.expectedMoreErrors <| List.map extractExpectedErrorData (expected :: restOfExpectedErrors) ]
@@ -362,13 +361,13 @@ checkErrorsMatch codeInspector expectedErrors errors =
 checkErrorMatch : CodeInspector -> ExpectedError -> Error -> (() -> Expectation)
 checkErrorMatch codeInspector ((ExpectedError expectedError_) as expectedError) error_ =
     Expect.all
-        [ \_ ->
-            (expectedError_.message == Rule.errorMessage error_)
-                |> Expect.true
-                    (ErrorMessage.messageMismatch
-                        (extractExpectedErrorData expectedError)
-                        error_
-                    )
+        [ (expectedError_.message == Rule.errorMessage error_)
+            |> Expect.true
+                (ErrorMessage.messageMismatch
+                    (extractExpectedErrorData expectedError)
+                    error_
+                )
+            |> always
         , checkMessageAppearsUnder codeInspector error_ expectedError
         ]
 
@@ -380,27 +379,26 @@ checkMessageAppearsUnder codeInspector error_ (ExpectedError expectedError) =
             case expectedError.under of
                 Under under ->
                     Expect.all
-                        [ always <|
-                            Expect.true
-                                (ErrorMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
-                                (codeAtLocation == under)
-                        , always <| codeInspector.checkIfLocationIsAmbiguous error_ under
+                        [ (codeAtLocation == under)
+                            |> Expect.true (ErrorMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
+                            |> always
+                        , codeInspector.checkIfLocationIsAmbiguous error_ under
+                            |> always
                         ]
 
                 UnderExactly under range ->
                     Expect.all
-                        [ always <|
-                            Expect.true
-                                (ErrorMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
-                                (codeAtLocation == under)
-                        , always <|
-                            Expect.true
-                                (ErrorMessage.wrongLocation error_ range under)
-                                (Rule.errorRange error_ == range)
+                        [ (codeAtLocation == under)
+                            |> Expect.true (ErrorMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
+                            |> always
+                        , (Rule.errorRange error_ == range)
+                            |> Expect.true (ErrorMessage.wrongLocation error_ range under)
+                            |> always
                         ]
 
         Nothing ->
-            always <| Expect.fail ErrorMessage.impossibleState
+            Expect.fail ErrorMessage.impossibleState
+                |> always
 
 
 extractExpectedErrorData : ExpectedError -> ErrorMessage.ExpectedErrorData
