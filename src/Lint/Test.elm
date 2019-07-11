@@ -59,7 +59,7 @@ import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
 import Lint exposing (Severity(..), lintSource)
 import Lint.Rule as Rule exposing (Error, Rule)
-import List.Extra
+import Lint.Test.ErrorMessage as ErrorMessage
 
 
 {-| The result of running a rule on a `String` containing source code.
@@ -89,8 +89,8 @@ type Under
     | UnderExactly String Range
 
 
-type SourceCode
-    = SourceCode String
+type alias SourceCode =
+    String
 
 
 {-| Run a `Rule` on a `String` containing source code. You can then use
@@ -110,8 +110,8 @@ run rule sourceCode =
     case lintSource [ ( Critical, rule ) ] sourceCode of
         Ok errors ->
             SuccessfulRun
-                { getCodeAtLocation = getCodeAtLocationInSourceCode (SourceCode sourceCode)
-                , checkIfLocationIsAmbiguous = checkIfLocationIsAmbiguousInSourceCode (SourceCode sourceCode)
+                { getCodeAtLocation = getCodeAtLocationInSourceCode sourceCode
+                , checkIfLocationIsAmbiguous = checkIfLocationIsAmbiguousInSourceCode sourceCode
                 }
                 (List.map (\( _, error_ ) -> Rule.error error_.message error_.range) errors)
 
@@ -119,7 +119,7 @@ run rule sourceCode =
             ParseFailure
 
 
-{-| Assert that the rule reprted no errors. Note, this is equivalent to using [`expectErrors`](#expectErrors)
+{-| Assert that the rule reported no errors. Note, this is equivalent to using [`expectErrors`](#expectErrors)
 like `expectErrors []`.
 
     import Lint.Test exposing (LintResult)
@@ -146,15 +146,15 @@ expectNoErrors : LintResult -> Expectation
 expectNoErrors lintResult =
     case lintResult of
         ParseFailure ->
-            Expect.fail parsingErrorMessage
+            Expect.fail ErrorMessage.parsingFailure
 
         SuccessfulRun _ errors ->
             Expect.true
-                ("I expected no errors but found:\n\n" ++ (List.map errorToString errors |> String.join "\n"))
+                (ErrorMessage.didNotExpectErrors errors)
                 (List.isEmpty errors)
 
 
-{-| Assert that the rule reprted some errors, by specifying which one.
+{-| Assert that the rule reported some errors, by specifying which one.
 
 Assert which errors are reported using [`error`](#error). The test will fail if
 a different number of errors than expected are reported, or if the message or the
@@ -193,7 +193,7 @@ expectErrors : List ExpectedError -> LintResult -> Expectation
 expectErrors expectedErrors lintResult =
     case lintResult of
         ParseFailure ->
-            Expect.fail parsingErrorMessage
+            Expect.fail ErrorMessage.parsingFailure
 
         SuccessfulRun codeInspector errors ->
             checkAllErrorsMatch codeInspector expectedErrors errors
@@ -235,16 +235,6 @@ error input =
         }
 
 
-getUnder : ExpectedError -> String
-getUnder (ExpectedError expectedError) =
-    case expectedError.under of
-        Under str ->
-            str
-
-        UnderExactly str _ ->
-            str
-
-
 {-| Precise the exact position where the error should be shown to the user. This
 is only necessary when the `under` field is ambiguous.
 
@@ -283,60 +273,18 @@ atExactly range ((ExpectedError expectedError_) as expectedError) =
     ExpectedError { expectedError_ | under = UnderExactly (getUnder expectedError) range }
 
 
-checkAllErrorsMatch : CodeInspector -> List ExpectedError -> List Error -> Expectation
-checkAllErrorsMatch codeInspector expectedErrors errors =
-    checkErrorsMatch codeInspector expectedErrors errors
-        |> List.reverse
-        |> (\expectations -> Expect.all expectations ())
+getUnder : ExpectedError -> String
+getUnder (ExpectedError expectedError) =
+    case expectedError.under of
+        Under str ->
+            str
 
-
-checkErrorsMatch : CodeInspector -> List ExpectedError -> List Error -> List (() -> Expectation)
-checkErrorsMatch codeInspector expectedErrors errors =
-    case ( expectedErrors, errors ) of
-        ( [], [] ) ->
-            [ always Expect.pass ]
-
-        ( expected :: restOfExpectedErrors, error_ :: restOfErrors ) ->
-            checkErrorMatch codeInspector expected error_ :: checkErrorsMatch codeInspector restOfExpectedErrors restOfErrors
-
-        ( expected :: restOfExpectedErrors, [] ) ->
-            [ always <| Expect.fail <| notEnoughErrors expected restOfExpectedErrors ]
-
-        ( [], error_ :: restOfErrors ) ->
-            [ always <| Expect.fail <| tooManyErrors error_ restOfErrors ]
-
-
-checkErrorMatch : CodeInspector -> ExpectedError -> Error -> (() -> Expectation)
-checkErrorMatch codeInspector ((ExpectedError expectedError_) as expectedError) error_ =
-    Expect.all
-        [ always <| Expect.true (messageMismatchError expectedError error_) (expectedError_.message == Rule.errorMessage error_)
-        , checkMessageAppearsUnder codeInspector error_ expectedError
-        ]
-
-
-checkMessageAppearsUnder : CodeInspector -> Error -> ExpectedError -> (() -> Expectation)
-checkMessageAppearsUnder codeInspector error_ (ExpectedError expectedError) =
-    case codeInspector.getCodeAtLocation (Rule.errorRange error_) of
-        Just codeAtLocation ->
-            case expectedError.under of
-                Under under ->
-                    Expect.all
-                        [ always <| Expect.true (underMismatchError error_ under codeAtLocation) (codeAtLocation == under)
-                        , always <| codeInspector.checkIfLocationIsAmbiguous error_ under
-                        ]
-
-                UnderExactly under range ->
-                    Expect.all
-                        [ always <| Expect.true (underMismatchError error_ under codeAtLocation) (codeAtLocation == under)
-                        , always <| Expect.true (wrongLocationError error_ range under) (Rule.errorRange error_ == range)
-                        ]
-
-        Nothing ->
-            always <| Expect.fail impossibleStateError
+        UnderExactly str _ ->
+            str
 
 
 getCodeAtLocationInSourceCode : SourceCode -> Range -> Maybe String
-getCodeAtLocationInSourceCode (SourceCode sourceCode) =
+getCodeAtLocationInSourceCode sourceCode =
     let
         lines : Array String
         lines =
@@ -372,233 +320,91 @@ getCodeAtLocationInSourceCode (SourceCode sourceCode) =
                 |> Just
 
 
-formatSourceCode : String -> String
-formatSourceCode string =
-    let
-        lines =
-            String.lines string
-    in
-    if List.length lines == 1 then
-        "`" ++ string ++ "`"
-
-    else
-        lines
-            |> List.map (\str -> "    " ++ str)
-            |> String.join "\n"
-            |> (\str -> "\n\n```\n" ++ str ++ "\n```")
-
-
 checkIfLocationIsAmbiguousInSourceCode : SourceCode -> Error -> String -> Expectation
-checkIfLocationIsAmbiguousInSourceCode ((SourceCode sourceCodeContent) as sourceCode) error_ under =
+checkIfLocationIsAmbiguousInSourceCode sourceCode error_ under =
     let
         occurrencesInSourceCode : List Int
         occurrencesInSourceCode =
-            String.indexes under sourceCodeContent
+            String.indexes under sourceCode
     in
     Expect.true
-        (locationIsAmbiguousInSourceCodeError sourceCode error_ under occurrencesInSourceCode)
+        (ErrorMessage.locationIsAmbiguousInSourceCode sourceCode error_ under occurrencesInSourceCode)
         (List.length occurrencesInSourceCode == 1)
 
 
 
--- ERROR MESSAGES
+-- RUNNING THE CHECKS
 
 
-parsingErrorMessage : String
-parsingErrorMessage =
-    """I could not parse the test source code, because it was not syntactically valid Elm code.
-
-Maybe you forgot to add the module definition at the top, like:
-
-  module A exposing (..)"""
+checkAllErrorsMatch : CodeInspector -> List ExpectedError -> List Error -> Expectation
+checkAllErrorsMatch codeInspector expectedErrors errors =
+    checkErrorsMatch codeInspector expectedErrors errors
+        |> List.reverse
+        |> (\expectations -> Expect.all expectations ())
 
 
-messageMismatchError : ExpectedError -> Error -> String
-messageMismatchError (ExpectedError expectedError) error_ =
-    """I was looking for the error with the following message:
+checkErrorsMatch : CodeInspector -> List ExpectedError -> List Error -> List (() -> Expectation)
+checkErrorsMatch codeInspector expectedErrors errors =
+    case ( expectedErrors, errors ) of
+        ( [], [] ) ->
+            [ always Expect.pass ]
 
-  `""" ++ expectedError.message ++ """`
+        ( expected :: restOfExpectedErrors, error_ :: restOfErrors ) ->
+            checkErrorMatch codeInspector expected error_ :: checkErrorsMatch codeInspector restOfExpectedErrors restOfErrors
 
-but I found the following error message:
+        ( expected :: restOfExpectedErrors, [] ) ->
+            [ always <| Expect.fail <| ErrorMessage.expectedMoreErrors <| List.map extractExpectedErrorData (expected :: restOfExpectedErrors) ]
 
-  `""" ++ Rule.errorMessage error_ ++ "`"
-
-
-wrongLocationError : Error -> Range -> String -> String
-wrongLocationError error_ range under =
-    """I was looking for the error with the following message:
-
-  `""" ++ Rule.errorMessage error_ ++ """`
-
-under the following code:
-
-  """ ++ formatSourceCode under ++ """
-
-and I found it, but the exact location you specified is not the one I found. I was expecting the error at:
-
-  """ ++ rangeAsString range ++ """
-
-but I found it at:
-
-  """ ++ rangeAsString (Rule.errorRange error_)
+        ( [], error_ :: restOfErrors ) ->
+            [ always <| Expect.fail <| ErrorMessage.tooManyErrors (error_ :: restOfErrors) ]
 
 
-underMismatchError : Error -> String -> String -> String
-underMismatchError error_ under codeAtLocation =
-    """I found an error with the right message, but at the wrong location:
-
-Message: `""" ++ Rule.errorMessage error_ ++ """`
-
-I saw it under: """ ++ formatSourceCode codeAtLocation ++ """
-
-But I expected to see it under: """ ++ formatSourceCode under
-
-
-listOccurrencesAsLocations : SourceCode -> String -> List Int -> String
-listOccurrencesAsLocations sourceCode under occurrences =
-    occurrences
-        |> List.map
-            (\occurrence ->
-                occurrence
-                    |> positionAsRange sourceCode under
-                    |> rangeAsString
-                    |> (++) "  - "
-            )
-        |> String.join "\n"
+checkErrorMatch : CodeInspector -> ExpectedError -> Error -> (() -> Expectation)
+checkErrorMatch codeInspector ((ExpectedError expectedError_) as expectedError) error_ =
+    Expect.all
+        [ \_ ->
+            (expectedError_.message == Rule.errorMessage error_)
+                |> Expect.true
+                    (ErrorMessage.messageMismatch
+                        (extractExpectedErrorData expectedError)
+                        error_
+                    )
+        , checkMessageAppearsUnder codeInspector error_ expectedError
+        ]
 
 
-positionAsRange : SourceCode -> String -> Int -> Range
-positionAsRange (SourceCode sourceCode) under position =
-    let
-        linesBeforeAndIncludingPosition : List String
-        linesBeforeAndIncludingPosition =
-            sourceCode
-                |> String.slice 0 position
-                |> String.lines
+checkMessageAppearsUnder : CodeInspector -> Error -> ExpectedError -> (() -> Expectation)
+checkMessageAppearsUnder codeInspector error_ (ExpectedError expectedError) =
+    case codeInspector.getCodeAtLocation (Rule.errorRange error_) of
+        Just codeAtLocation ->
+            case expectedError.under of
+                Under under ->
+                    Expect.all
+                        [ always <|
+                            Expect.true
+                                (ErrorMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
+                                (codeAtLocation == under)
+                        , always <| codeInspector.checkIfLocationIsAmbiguous error_ under
+                        ]
 
-        startRow : Int
-        startRow =
-            List.length linesBeforeAndIncludingPosition
+                UnderExactly under range ->
+                    Expect.all
+                        [ always <|
+                            Expect.true
+                                (ErrorMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
+                                (codeAtLocation == under)
+                        , always <|
+                            Expect.true
+                                (ErrorMessage.wrongLocation error_ range under)
+                                (Rule.errorRange error_ == range)
+                        ]
 
-        startColumn : Int
-        startColumn =
-            linesBeforeAndIncludingPosition
-                |> List.Extra.last
-                |> Maybe.withDefault ""
-                |> String.length
-                |> (+) 1
+        Nothing ->
+            always <| Expect.fail ErrorMessage.impossibleState
 
-        linesInUnder : List String
-        linesInUnder =
-            String.lines under
 
-        endRow : Int
-        endRow =
-            startRow + List.length linesInUnder - 1
-
-        endColumn : Int
-        endColumn =
-            if startRow == endRow then
-                startColumn + String.length under
-
-            else
-                linesInUnder
-                    |> Debug.log "linesInUnder"
-                    |> List.Extra.last
-                    |> Debug.log "last"
-                    |> Maybe.withDefault ""
-                    |> String.length
-                    |> (+) 1
-    in
-    { start =
-        { row = startRow
-        , column = startColumn
-        }
-    , end =
-        { row = endRow
-        , column = endColumn
-        }
+extractExpectedErrorData : ExpectedError -> ErrorMessage.ExpectedErrorData
+extractExpectedErrorData ((ExpectedError expectedErrorContent) as expectedError) =
+    { message = expectedErrorContent.message
+    , under = getUnder expectedError
     }
-
-
-errorToString : Error -> String
-errorToString error_ =
-    "- \"" ++ Rule.errorMessage error_ ++ "\" at " ++ rangeAsString (Rule.errorRange error_)
-
-
-rangeAsString : Range -> String
-rangeAsString { start, end } =
-    "{ start = { row = " ++ String.fromInt start.row ++ ", column = " ++ String.fromInt start.column ++ " }, end = { row = " ++ String.fromInt end.row ++ ", column = " ++ String.fromInt end.column ++ " } }"
-
-
-notEnoughErrors : ExpectedError -> List ExpectedError -> String
-notEnoughErrors expected restOfExpectedErrors =
-    let
-        numberOfErrors : Int
-        numberOfErrors =
-            List.length restOfExpectedErrors + 1
-    in
-    "I expected to see "
-        ++ String.fromInt numberOfErrors
-        ++ " more "
-        ++ pluralizeErrors numberOfErrors
-        ++ ":\n\n"
-        ++ (List.map expectedErrorToString (expected :: restOfExpectedErrors) |> String.join "\n")
-
-
-wrapInQuotes : String -> String
-wrapInQuotes string =
-    "\"" ++ string ++ "\""
-
-
-tooManyErrors : Error -> List Error -> String
-tooManyErrors error_ restOfErrors =
-    let
-        numberOfErrors : Int
-        numberOfErrors =
-            List.length restOfErrors + 1
-    in
-    "I found "
-        ++ String.fromInt numberOfErrors
-        ++ " "
-        ++ pluralizeErrors numberOfErrors
-        ++ " too many:\n"
-        ++ (List.map errorToString (error_ :: restOfErrors) |> String.join "\n")
-
-
-locationIsAmbiguousInSourceCodeError : SourceCode -> Error -> String -> List Int -> String
-locationIsAmbiguousInSourceCodeError sourceCode error_ under occurrencesInSourceCode =
-    """Your test passes, but where the message appears is ambiguous.
-
-You are looking for the following error message:
-
-`""" ++ Rule.errorMessage error_ ++ """`
-
-and expecting to see it under:
-
-""" ++ formatSourceCode under ++ """
-
-I found """ ++ String.fromInt (List.length occurrencesInSourceCode) ++ """ locations where that code appeared. Please use `Lint.Rule.atExactly` to make the part you were targetting unambiguous.
-
-Tip: I found them at:
-""" ++ listOccurrencesAsLocations sourceCode under occurrencesInSourceCode
-
-
-impossibleStateError : String
-impossibleStateError =
-    "Oh no! I'm in an impossible state. I found an error at a location that I could not find back. Please let me know and give me an SSCCE (http://sscce.org/) here: https://github.com/jfmengels/elm-lint/issues."
-
-
-pluralizeErrors : Int -> String
-pluralizeErrors n =
-    case n of
-        1 ->
-            "error"
-
-        _ ->
-            "errors"
-
-
-expectedErrorToString : ExpectedError -> String
-expectedErrorToString (ExpectedError expectedError) =
-    "- " ++ wrapInQuotes expectedError.message

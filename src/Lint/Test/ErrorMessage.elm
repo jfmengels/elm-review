@@ -1,0 +1,270 @@
+module Lint.Test.ErrorMessage exposing
+    ( ExpectedErrorData
+    , parsingFailure, messageMismatch, wrongLocation, didNotExpectErrors
+    , underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode
+    , impossibleState
+    )
+
+{-| Error messages for the `Lint.Test` module.
+
+
+# Error messages
+
+@docs ExpectedErrorData
+@docs parsingFailure, messageMismatch, wrongLocation, didNotExpectErrors
+@docs underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode
+@docs impossibleState
+
+-}
+
+import Elm.Syntax.Range exposing (Range)
+import Lint.Rule as Rule exposing (Error, Rule)
+import List.Extra
+
+
+{-| An expectation for an error. Use [`error`](#error) to create one.
+-}
+type alias ExpectedErrorData =
+    { message : String
+    , under : String
+    }
+
+
+type alias SourceCode =
+    String
+
+
+
+-- ERROR MESSAGES
+
+
+didNotExpectErrors : List Error -> String
+didNotExpectErrors errors =
+    """I expected no errors but found:
+
+  """ ++ (List.map errorToString errors |> String.join "\n  ")
+
+
+parsingFailure : String
+parsingFailure =
+    """I could not parse the test source code, because it was not syntactically valid Elm code.
+
+Maybe you forgot to add the module definition at the top, like:
+
+  `module A exposing (..)`"""
+
+
+messageMismatch : ExpectedErrorData -> Error -> String
+messageMismatch expectedError error_ =
+    """I was looking for the error with the following message:
+
+  `""" ++ expectedError.message ++ """`
+
+but I found the following error message:
+
+  `""" ++ Rule.errorMessage error_ ++ "`"
+
+
+underMismatch : Error -> { under : String, codeAtLocation : String } -> String
+underMismatch error_ { under, codeAtLocation } =
+    """I found an error with the following message:
+
+  `""" ++ Rule.errorMessage error_ ++ """`
+
+which I was expecting, but I found it under:
+
+  """ ++ formatSourceCode codeAtLocation ++ """
+
+when I was expecting it under:
+
+  """ ++ formatSourceCode under ++ """
+
+Hint: Maybe you're passing the `Range` of a wrong node when calling `Rule.error`"""
+
+
+wrongLocation : Error -> Range -> String -> String
+wrongLocation error_ range under =
+    """I was looking for the error with the following message:
+
+  `""" ++ Rule.errorMessage error_ ++ """`
+
+under the following code:
+
+  """ ++ formatSourceCode under ++ """
+
+and I found it, but the exact location you specified is not the one I found. I was expecting the error at:
+
+  """ ++ rangeAsString range ++ """
+
+but I found it at:
+
+  """ ++ rangeAsString (Rule.errorRange error_)
+
+
+listOccurrencesAsLocations : SourceCode -> String -> List Int -> String
+listOccurrencesAsLocations sourceCode under occurrences =
+    occurrences
+        |> List.map
+            (\occurrence ->
+                occurrence
+                    |> positionAsRange sourceCode under
+                    |> rangeAsString
+                    |> (++) "  - "
+            )
+        |> String.join "\n"
+
+
+positionAsRange : SourceCode -> String -> Int -> Range
+positionAsRange sourceCode under position =
+    let
+        linesBeforeAndIncludingPosition : List String
+        linesBeforeAndIncludingPosition =
+            sourceCode
+                |> String.slice 0 position
+                |> String.lines
+
+        startRow : Int
+        startRow =
+            List.length linesBeforeAndIncludingPosition
+
+        startColumn : Int
+        startColumn =
+            linesBeforeAndIncludingPosition
+                |> List.Extra.last
+                |> Maybe.withDefault ""
+                |> String.length
+                |> (+) 1
+
+        linesInUnder : List String
+        linesInUnder =
+            String.lines under
+
+        endRow : Int
+        endRow =
+            startRow + List.length linesInUnder - 1
+
+        endColumn : Int
+        endColumn =
+            if startRow == endRow then
+                startColumn + String.length under
+
+            else
+                linesInUnder
+                    |> List.Extra.last
+                    |> Maybe.withDefault ""
+                    |> String.length
+                    |> (+) 1
+    in
+    { start =
+        { row = startRow
+        , column = startColumn
+        }
+    , end =
+        { row = endRow
+        , column = endColumn
+        }
+    }
+
+
+errorToString : Error -> String
+errorToString error_ =
+    "- \"" ++ Rule.errorMessage error_ ++ "\" at " ++ rangeAsString (Rule.errorRange error_)
+
+
+rangeAsString : Range -> String
+rangeAsString { start, end } =
+    "{ start = { row = " ++ String.fromInt start.row ++ ", column = " ++ String.fromInt start.column ++ " }, end = { row = " ++ String.fromInt end.row ++ ", column = " ++ String.fromInt end.column ++ " } }"
+
+
+expectedMoreErrors : List ExpectedErrorData -> String
+expectedMoreErrors missingExpectedErrors =
+    let
+        numberOfErrors : Int
+        numberOfErrors =
+            List.length missingExpectedErrors
+    in
+    "I expected to see "
+        ++ String.fromInt numberOfErrors
+        ++ " more "
+        ++ pluralizeErrors numberOfErrors
+        ++ ":\n\n"
+        ++ (missingExpectedErrors
+                |> List.map expectedErrorToString
+                |> String.join "\n"
+           )
+
+
+wrapInQuotes : String -> String
+wrapInQuotes string =
+    "\"" ++ string ++ "\""
+
+
+tooManyErrors : List Error -> String
+tooManyErrors extraErrors =
+    let
+        numberOfErrors : Int
+        numberOfErrors =
+            List.length extraErrors
+    in
+    "I found "
+        ++ String.fromInt numberOfErrors
+        ++ " "
+        ++ pluralizeErrors numberOfErrors
+        ++ " too many:\n\n"
+        ++ (extraErrors
+                |> List.map errorToString
+                |> String.join "\n"
+           )
+
+
+locationIsAmbiguousInSourceCode : SourceCode -> Error -> String -> List Int -> String
+locationIsAmbiguousInSourceCode sourceCode error_ under occurrencesInSourceCode =
+    """Your test passes, but where the message appears is ambiguous.
+
+You are looking for the following error message:
+
+  `""" ++ Rule.errorMessage error_ ++ """`
+
+and expecting to see it under:
+
+  """ ++ formatSourceCode under ++ """
+
+I found """ ++ String.fromInt (List.length occurrencesInSourceCode) ++ """ locations where that code appeared. Please use `Lint.Rule.atExactly` to make the part you were targetting unambiguous.
+
+Tip: I found them at:
+""" ++ listOccurrencesAsLocations sourceCode under occurrencesInSourceCode
+
+
+impossibleState : String
+impossibleState =
+    "Oh no! I'm in an impossible state. I found an error at a location that I could not find back. Please let me know and give me an SSCCE (http://sscce.org/) here: https://github.com/jfmengels/elm-lint/issues."
+
+
+pluralizeErrors : Int -> String
+pluralizeErrors n =
+    if n == 1 then
+        "error"
+
+    else
+        "errors"
+
+
+expectedErrorToString : ExpectedErrorData -> String
+expectedErrorToString expectedError =
+    "- " ++ wrapInQuotes expectedError.message
+
+
+formatSourceCode : String -> String
+formatSourceCode string =
+    let
+        lines =
+            String.lines string
+    in
+    if List.length lines == 1 then
+        "`" ++ string ++ "`"
+
+    else
+        lines
+            |> List.map (\str -> "    " ++ str)
+            |> String.join "\n"
+            |> (\str -> "```\n" ++ str ++ "\n  ```")

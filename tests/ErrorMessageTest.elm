@@ -2,29 +2,29 @@ module ErrorMessageTest exposing (all)
 
 import Elm.Syntax.Range exposing (Range)
 import Expect
-import Lint.Internal.Test exposing (ExpectedError, LintResult)
 import Lint.Rule as Rule exposing (Error)
+import Lint.Test.ErrorMessage as ErrorMessage exposing (ExpectedErrorData)
 import Test exposing (Test, describe, test)
 
 
 all : Test
 all =
     describe "Test.ErrorMessage"
-        [ parsingErrorMessageTest
+        [ parsingFailureTest
         , didNotExpectErrorsTest
-        , messageMismatchErrorTest
-        , underMismatchErrorTest
-        , wrongLocationErrorTest
-        , notEnoughErrorsTest
+        , messageMismatchTest
+        , underMismatchTest
+        , wrongLocationTest
+        , expectedMoreErrorsTest
         , tooManyErrorsTest
         ]
 
 
-parsingErrorMessageTest : Test
-parsingErrorMessageTest =
-    test "parsingErrorMessage" <|
+parsingFailureTest : Test
+parsingFailureTest =
+    test "parsingFailure" <|
         \() ->
-            Lint.Internal.Test.parsingErrorMessage
+            ErrorMessage.parsingFailure
                 |> Expect.equal (String.trim """
 I could not parse the test source code, because it was not syntactically valid Elm code.
 
@@ -44,7 +44,7 @@ didNotExpectErrorsTest =
                     , Rule.error "Some other error" dummyRange
                     ]
             in
-            Lint.Internal.Test.didNotExpectErrors errors
+            ErrorMessage.didNotExpectErrors errors
                 |> Expect.equal (String.trim """
 I expected no errors but found:
 
@@ -53,23 +53,22 @@ I expected no errors but found:
 """)
 
 
-messageMismatchErrorTest : Test
-messageMismatchErrorTest =
-    test "messageMismatchError" <|
+messageMismatchTest : Test
+messageMismatchTest =
+    test "messageMismatch" <|
         \() ->
             let
-                expectedError : ExpectedError
+                expectedError : ExpectedErrorData
                 expectedError =
-                    Lint.Internal.Test.error
-                        { message = "Forbidden use of Debug"
-                        , under = "Debug.log"
-                        }
+                    { message = "Forbidden use of Debug"
+                    , under = "Debug.log"
+                    }
 
                 error : Error
                 error =
                     Rule.error "Forbidden use of Debu" dummyRange
             in
-            Lint.Internal.Test.messageMismatchError expectedError error
+            ErrorMessage.messageMismatch expectedError error
                 |> Expect.equal (String.trim """
 I was looking for the error with the following message:
 
@@ -80,9 +79,9 @@ but I found the following error message:
   `Forbidden use of Debu`""")
 
 
-underMismatchErrorTest : Test
-underMismatchErrorTest =
-    describe "underMismatchError"
+underMismatchTest : Test
+underMismatchTest =
+    describe "underMismatch"
         [ test "with single-line extracts" <|
             \() ->
                 let
@@ -90,7 +89,7 @@ underMismatchErrorTest =
                     error =
                         Rule.error "Some error" dummyRange
                 in
-                Lint.Internal.Test.underMismatchError
+                ErrorMessage.underMismatch
                     error
                     { under = "abcd"
                     , codeAtLocation = "abcd = 1"
@@ -116,7 +115,7 @@ Hint: Maybe you're passing the `Range` of a wrong node when calling `Rule.error`
                     error =
                         Rule.error "Some other error" dummyRange
                 in
-                Lint.Internal.Test.underMismatchError
+                ErrorMessage.underMismatch
                     error
                     { under = "abcd =\n  1\n  + 2"
                     , codeAtLocation = "abcd =\n  1"
@@ -145,9 +144,9 @@ Hint: Maybe you're passing the `Range` of a wrong node when calling `Rule.error`
         ]
 
 
-wrongLocationErrorTest : Test
-wrongLocationErrorTest =
-    describe "wrongLocationError"
+wrongLocationTest : Test
+wrongLocationTest =
+    describe "wrongLocation"
         [ test "with single-line extracts" <|
             \() ->
                 let
@@ -157,7 +156,7 @@ wrongLocationErrorTest =
                             "Some error"
                             { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
                 in
-                Lint.Internal.Test.wrongLocationError
+                ErrorMessage.wrongLocation
                     error
                     { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
                     "abcd"
@@ -187,7 +186,7 @@ but I found it at:
                             "Some other error"
                             { start = { row = 4, column = 1 }, end = { row = 5, column = 3 } }
                 in
-                Lint.Internal.Test.wrongLocationError
+                ErrorMessage.wrongLocation
                     error
                     { start = { row = 2, column = 1 }, end = { row = 3, column = 3 } }
                     "abcd =\n  1"
@@ -214,24 +213,22 @@ but I found it at:
         ]
 
 
-notEnoughErrorsTest : Test
-notEnoughErrorsTest =
-    test "notEnoughErrors" <|
+expectedMoreErrorsTest : Test
+expectedMoreErrorsTest =
+    test "expectedMoreErrors" <|
         \() ->
             let
-                missingErrors : List ExpectedError
+                missingErrors : List ExpectedErrorData
                 missingErrors =
-                    [ Lint.Internal.Test.error
-                        { message = "Forbidden use of Debug"
-                        , under = "Debug.log"
-                        }
-                    , Lint.Internal.Test.error
-                        { message = "Forbidden use of Debug"
-                        , under = "Debug.log"
-                        }
+                    [ { message = "Forbidden use of Debug"
+                      , under = "Debug.log"
+                      }
+                    , { message = "Forbidden use of Debug"
+                      , under = "Debug.log"
+                      }
                     ]
             in
-            Lint.Internal.Test.notEnoughErrors missingErrors
+            ErrorMessage.expectedMoreErrors missingErrors
                 |> Expect.equal (String.trim """
 I expected to see 2 more errors:
 
@@ -253,7 +250,7 @@ tooManyErrorsTest =
                             { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
                         ]
                 in
-                Lint.Internal.Test.tooManyErrors extraErrors
+                ErrorMessage.tooManyErrors extraErrors
                     |> Expect.equal (String.trim """
 I found 1 error too many:
 
@@ -272,7 +269,7 @@ I found 1 error too many:
                             { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
                         ]
                 in
-                Lint.Internal.Test.tooManyErrors extraErrors
+                ErrorMessage.tooManyErrors extraErrors
                     |> Expect.equal (String.trim """
 I found 2 errors too many:
 
@@ -282,9 +279,9 @@ I found 2 errors too many:
         ]
 
 
-locationIsAmbiguousInSourceCodeErrorTest : Test
-locationIsAmbiguousInSourceCodeErrorTest =
-    describe "locationIsAmbiguousInSourceCodeError"
+locationIsAmbiguousInSourceCodeTest : Test
+locationIsAmbiguousInSourceCodeTest =
+    describe "locationIsAmbiguousInSourceCode"
         [ test "with single-line extracts" <|
             \() ->
                 let
@@ -302,7 +299,7 @@ locationIsAmbiguousInSourceCodeErrorTest =
                             "Some error"
                             { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
                 in
-                Lint.Internal.Test.locationIsAmbiguousInSourceCodeError
+                ErrorMessage.locationIsAmbiguousInSourceCode
                     sourceCode
                     error
                     under
@@ -341,7 +338,7 @@ Tip: I found them at:
                             "Some other error"
                             { start = { row = 3, column = 1 }, end = { row = 4, column = 3 } }
                 in
-                Lint.Internal.Test.locationIsAmbiguousInSourceCodeError
+                ErrorMessage.locationIsAmbiguousInSourceCode
                     sourceCode
                     error
                     under
