@@ -17,6 +17,7 @@ all =
         , wrongLocationTest
         , expectedMoreErrorsTest
         , tooManyErrorsTest
+        , locationIsAmbiguousInSourceCodeTest
         ]
 
 
