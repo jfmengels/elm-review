@@ -3,7 +3,11 @@ module Lint.Rule.NoUnusedTypeConstructors exposing (rule)
 {-| Forbid having unused custom type constructors in a file.
 
 Note that this does not report a constructor if it's exposed in the module, even
-if it is not used anywhere in the project.
+if it is not used anywhere in the project. For a more accurate detection of
+unused constructors (and functions) accross your project, you might want to check
+out [elm-xref](https://github.com/zwilias/elm-xref). You may still want to use
+this rule in your config so that you get notified of unused constructors earlier
+in your editor, rather than when running your tests or [elm-xref](https://github.com/zwilias/elm-xref).
 
 
 ## Fail
