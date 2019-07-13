@@ -51,8 +51,7 @@ parsingFailure : String
 parsingFailure =
     """TEST SOURCE CODE PARSING ERROR
 
-I could not parse the test source code, because it was not
-syntactically valid Elm code.
+I could not parse the test source code, because it was not valid Elm code.
 
 Hint: Maybe you forgot to add the module definition at the top, like:
 
