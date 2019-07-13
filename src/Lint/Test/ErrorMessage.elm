@@ -44,7 +44,7 @@ didNotExpectErrors errors =
 
 I expected no errors but found:
 
-  """ ++ (List.map errorToString errors |> String.join "\n  ")
+""" ++ listErrorMessagesAndPositions errors
 
 
 parsingFailure : String
@@ -114,6 +114,85 @@ but I found it at:
   """ ++ rangeAsString (Rule.errorRange error_)
 
 
+expectedMoreErrors : List ExpectedErrorData -> String
+expectedMoreErrors missingExpectedErrors =
+    let
+        numberOfErrors : Int
+        numberOfErrors =
+            List.length missingExpectedErrors
+    in
+    """RULE REPORTED LESS ERRORS THAN EXPECTED
+
+I expected to see """
+        ++ (String.fromInt numberOfErrors ++ " more " ++ pluralizeErrors numberOfErrors ++ ":\n\n")
+        ++ (missingExpectedErrors
+                |> List.map expectedErrorToString
+                |> String.join "\n"
+           )
+
+
+tooManyErrors : List Error -> String
+tooManyErrors extraErrors =
+    let
+        numberOfErrors : Int
+        numberOfErrors =
+            List.length extraErrors
+    in
+    """RULE REPORTED MORE ERRORS THAN EXPECTED
+
+I found """
+        ++ (String.fromInt numberOfErrors ++ " " ++ pluralizeErrors numberOfErrors ++ " too many:\n\n")
+        ++ listErrorMessagesAndPositions extraErrors
+
+
+locationIsAmbiguousInSourceCode : SourceCode -> Error -> String -> List Int -> String
+locationIsAmbiguousInSourceCode sourceCode error_ under occurrencesInSourceCode =
+    """AMBIGUOUS ERROR LOCATION
+
+Your test passes, but where the message appears is ambiguous.
+
+You are looking for the following error message:
+
+  `""" ++ Rule.errorMessage error_ ++ """`
+
+and expecting to see it under:
+
+  """ ++ formatSourceCode under ++ """
+
+I found """ ++ String.fromInt (List.length occurrencesInSourceCode) ++ """ locations where that code appeared. Please
+use `Lint.Rule.atExactly` to make the part you were targetting unambiguous.
+
+Tip: I found them at:
+""" ++ listOccurrencesAsLocations sourceCode under occurrencesInSourceCode
+
+
+impossibleState : String
+impossibleState =
+    """ELM-LINT IMPOSSIBLE STATE
+
+Oh no! I'm in an impossible state. I found an error at a location that I could not find back. Please let me know and give me an SSCCE (http://sscce.org/) here: https://github.com/jfmengels/elm-lint/issues."""
+
+
+
+-- STYLIZING AND FORMATTING
+
+
+formatSourceCode : String -> String
+formatSourceCode string =
+    let
+        lines =
+            String.lines string
+    in
+    if List.length lines == 1 then
+        "`" ++ string ++ "`"
+
+    else
+        lines
+            |> List.map (\str -> "    " ++ str)
+            |> String.join "\n"
+            |> (\str -> "```\n" ++ str ++ "\n  ```")
+
+
 listOccurrencesAsLocations : SourceCode -> String -> List Int -> String
 listOccurrencesAsLocations sourceCode under occurrences =
     occurrences
@@ -179,81 +258,31 @@ positionAsRange sourceCode under position =
     }
 
 
-errorToString : Error -> String
-errorToString error_ =
-    "- \"" ++ Rule.errorMessage error_ ++ "\"\n    at " ++ rangeAsString (Rule.errorRange error_)
+listErrorMessagesAndPositions : List Error -> String
+listErrorMessagesAndPositions errors =
+    errors
+        |> List.map errorMessageAndPosition
+        |> String.join "\n"
+
+
+errorMessageAndPosition : Error -> String
+errorMessageAndPosition error_ =
+    "  - " ++ wrapInQuotes (Rule.errorMessage error_) ++ "\n    at " ++ rangeAsString (Rule.errorRange error_)
+
+
+expectedErrorToString : ExpectedErrorData -> String
+expectedErrorToString expectedError =
+    "  - " ++ wrapInQuotes expectedError.message
+
+
+wrapInQuotes : String -> String
+wrapInQuotes string =
+    "`" ++ string ++ "`"
 
 
 rangeAsString : Range -> String
 rangeAsString { start, end } =
     "{ start = { row = " ++ String.fromInt start.row ++ ", column = " ++ String.fromInt start.column ++ " }, end = { row = " ++ String.fromInt end.row ++ ", column = " ++ String.fromInt end.column ++ " } }"
-
-
-expectedMoreErrors : List ExpectedErrorData -> String
-expectedMoreErrors missingExpectedErrors =
-    let
-        numberOfErrors : Int
-        numberOfErrors =
-            List.length missingExpectedErrors
-    in
-    """RULE REPORTED LESS ERRORS THAN EXPECTED
-
-I expected to see """
-        ++ (String.fromInt numberOfErrors ++ " more " ++ pluralizeErrors numberOfErrors ++ ":\n\n")
-        ++ (missingExpectedErrors
-                |> List.map expectedErrorToString
-                |> String.join "\n"
-           )
-
-
-wrapInQuotes : String -> String
-wrapInQuotes string =
-    "\"" ++ string ++ "\""
-
-
-tooManyErrors : List Error -> String
-tooManyErrors extraErrors =
-    let
-        numberOfErrors : Int
-        numberOfErrors =
-            List.length extraErrors
-    in
-    """RULE REPORTED MORE ERRORS THAN EXPECTED
-
-I found """
-        ++ (String.fromInt numberOfErrors ++ " " ++ pluralizeErrors numberOfErrors ++ " too many:\n\n")
-        ++ (extraErrors
-                |> List.map errorToString
-                |> String.join "\n"
-           )
-
-
-locationIsAmbiguousInSourceCode : SourceCode -> Error -> String -> List Int -> String
-locationIsAmbiguousInSourceCode sourceCode error_ under occurrencesInSourceCode =
-    """AMBIGUOUS ERROR LOCATION
-
-Your test passes, but where the message appears is ambiguous.
-
-You are looking for the following error message:
-
-  `""" ++ Rule.errorMessage error_ ++ """`
-
-and expecting to see it under:
-
-  """ ++ formatSourceCode under ++ """
-
-I found """ ++ String.fromInt (List.length occurrencesInSourceCode) ++ """ locations where that code appeared. Please
-use `Lint.Rule.atExactly` to make the part you were targetting unambiguous.
-
-Tip: I found them at:
-""" ++ listOccurrencesAsLocations sourceCode under occurrencesInSourceCode
-
-
-impossibleState : String
-impossibleState =
-    """ELM-LINT IMPOSSIBLE STATE
-
-Oh no! I'm in an impossible state. I found an error at a location that I could not find back. Please let me know and give me an SSCCE (http://sscce.org/) here: https://github.com/jfmengels/elm-lint/issues."""
 
 
 pluralizeErrors : Int -> String
@@ -263,24 +292,3 @@ pluralizeErrors n =
 
     else
         "errors"
-
-
-expectedErrorToString : ExpectedErrorData -> String
-expectedErrorToString expectedError =
-    "- " ++ wrapInQuotes expectedError.message
-
-
-formatSourceCode : String -> String
-formatSourceCode string =
-    let
-        lines =
-            String.lines string
-    in
-    if List.length lines == 1 then
-        "`" ++ string ++ "`"
-
-    else
-        lines
-            |> List.map (\str -> "    " ++ str)
-            |> String.join "\n"
-            |> (\str -> "```\n" ++ str ++ "\n  ```")

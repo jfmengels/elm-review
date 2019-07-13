@@ -69,9 +69,9 @@ DID NOT EXPECT ERRORS
 
 I expected no errors but found:
 
-  - "Some error"
+  - `Some error`
     at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
-  - "Some other error"
+  - `Some other error`
     at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
 """
 
@@ -273,8 +273,8 @@ RULE REPORTED LESS ERRORS THAN EXPECTED
 
 I expected to see 2 more errors:
 
-- "Forbidden use of Debug"
-- "Forbidden use of Debug"
+  - `Forbidden use of Debug`
+  - `Forbidden use of Debug`
 """
 
 
@@ -297,7 +297,7 @@ RULE REPORTED MORE ERRORS THAN EXPECTED
 
 I found 1 error too many:
 
-- "Forbidden use of Debug"
+  - `Forbidden use of Debug`
     at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
 """
         , test "with multiple extra errors" <|
@@ -319,9 +319,9 @@ RULE REPORTED MORE ERRORS THAN EXPECTED
 
 I found 2 errors too many:
 
-- "Forbidden use of Debug"
+  - `Forbidden use of Debug`
     at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
-- "Forbidden use of Debug"
+  - `Forbidden use of Debug`
     at { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
 """
         ]
