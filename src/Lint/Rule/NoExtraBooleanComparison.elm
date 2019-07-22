@@ -50,6 +50,15 @@ import Lint.Rule as Rule exposing (Error, Rule)
     else
         b
 
+
+# When not to use this rule
+
+You should not use this rule if you
+
+  - prefer the explicitness of expressions like `value == True`
+  - dislike the use of the `not` function
+  - do not see the value in simplifying boolean comparisons
+
 -}
 rule : Rule
 rule =
