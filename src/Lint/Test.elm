@@ -28,7 +28,7 @@ module Lint.Test exposing
     a = Debug.log "some" "message\""""
                         |> Lint.Test.expectErrors
                             [ Lint.Test.error
-                                { message = "Forbidden use of Debug"
+                                { message = "Remove the use of `Debug` before shipping to production"
                                 , under = "Debug.log"
                                 }
                             ]
@@ -181,7 +181,7 @@ an error at the end of the source code.
     a = Debug.log "some" "message\""""
                         |> Lint.Test.expectErrors
                             [ Lint.Test.error
-                                { message = "Forbidden use of Debug"
+                                { message = "Remove the use of `Debug` before shipping to production"
                                 , under = "Debug.log"
                                 }
                             ]
@@ -215,7 +215,7 @@ lines will appear if the error appeared in an editor.
     a = Debug.log "some" "message\""""
                         |> Lint.Test.expectErrors
                             [ Lint.Test.error
-                                { message = "Forbidden use of Debug"
+                                { message = "Remove the use of `Debug` before shipping to production"
                                 , under = "Debug.log"
                                 }
                             ]

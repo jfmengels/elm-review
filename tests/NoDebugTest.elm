@@ -14,7 +14,7 @@ testRule string =
 
 message : String
 message =
-    "Forbidden use of Debug"
+    "Remove the use of `Debug` before shipping to production"
 
 
 tests : List Test

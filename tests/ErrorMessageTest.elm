@@ -84,13 +84,13 @@ messageMismatchTest =
             let
                 expectedError : ExpectedErrorData
                 expectedError =
-                    { message = "Forbidden use of Debug"
+                    { message = "Remove the use of `Debug` before shipping to production"
                     , under = "Debug.log"
                     }
 
                 error : Error
                 error =
-                    Rule.error "Forbidden use of Debu" dummyRange
+                    Rule.error "Some error message" dummyRange
             in
             ErrorMessage.messageMismatch expectedError error
                 |> expectMessageEqual """
@@ -98,11 +98,11 @@ UNEXPECTED ERROR MESSAGE
 
 I was looking for the error with the following message:
 
-  `Forbidden use of Debug`
+  `Remove the use of `Debug` before shipping to production`
 
 but I found the following error message:
 
-  `Forbidden use of Debu`"""
+  `Some error message`"""
 
 
 underMismatchTest : Test
@@ -260,10 +260,10 @@ expectedMoreErrorsTest =
             let
                 missingErrors : List ExpectedErrorData
                 missingErrors =
-                    [ { message = "Forbidden use of Debug"
+                    [ { message = "Remove the use of `Debug` before shipping to production"
                       , under = "Debug.log"
                       }
-                    , { message = "Forbidden use of Debug"
+                    , { message = "Remove the use of `Debug` before shipping to production"
                       , under = "Debug.log"
                       }
                     ]
@@ -274,8 +274,8 @@ RULE REPORTED LESS ERRORS THAN EXPECTED
 
 I expected to see 2 more errors:
 
-  - `Forbidden use of Debug`
-  - `Forbidden use of Debug`
+  - `Remove the use of `Debug` before shipping to production`
+  - `Remove the use of `Debug` before shipping to production`
 """
 
 
@@ -288,7 +288,7 @@ tooManyErrorsTest =
                     extraErrors : List Rule.Error
                     extraErrors =
                         [ Rule.error
-                            "Forbidden use of Debug"
+                            "Remove the use of `Debug` before shipping to production"
                             { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
                         ]
                 in
@@ -298,7 +298,7 @@ RULE REPORTED MORE ERRORS THAN EXPECTED
 
 I found 1 error too many:
 
-  - `Forbidden use of Debug`
+  - `Remove the use of `Debug` before shipping to production`
     at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
 """
         , test "with multiple extra errors" <|
@@ -307,10 +307,10 @@ I found 1 error too many:
                     extraErrors : List Rule.Error
                     extraErrors =
                         [ Rule.error
-                            "Forbidden use of Debug"
+                            "Remove the use of `Debug` before shipping to production"
                             { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
                         , Rule.error
-                            "Forbidden use of Debug"
+                            "Remove the use of `Debug` before shipping to production"
                             { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
                         ]
                 in
@@ -320,9 +320,9 @@ RULE REPORTED MORE ERRORS THAN EXPECTED
 
 I found 2 errors too many:
 
-  - `Forbidden use of Debug`
+  - `Remove the use of `Debug` before shipping to production`
     at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
-  - `Forbidden use of Debug`
+  - `Remove the use of `Debug` before shipping to production`
     at { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
 """
         ]

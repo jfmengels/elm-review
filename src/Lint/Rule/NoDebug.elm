@@ -56,7 +56,7 @@ rule =
 
 error : Node a -> Error
 error node =
-    Rule.error "Forbidden use of Debug" (Node.range node)
+    Rule.error "Remove the use of `Debug` before shipping to production" (Node.range node)
 
 
 importVisitor : Node Import -> List Error

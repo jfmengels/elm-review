@@ -365,7 +365,7 @@ The following example forbids using the Debug module.
         case Node.value node of
             FunctionOrValue moduleName fnName ->
                 if List.member "Debug" moduleName then
-                    [ Rule.error "Forbidden use of Debug" (Node.range node) ]
+                    [ Rule.error "Remove the use of `Debug` before shipping to production" (Node.range node) ]
 
                 else
                     []
@@ -510,7 +510,7 @@ withInitialContext initialContext_ (Schema schema) =
 [module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`), collect data in the `context` and/or report patterns.
 
 The following example forbids the use of `Debug` except in some files, determined
-by a configuration which could look like `( Critical, NoDebugExceptInSomeModules.rule ["Some.Module"] )`
+by a configuration which could look like `( Critical, NoDebugExceptInSomeModules.rule [ "Some.Module" ] )`
 
     import Elm.Syntax.Expression exposing (Expression(..))
     import Elm.Syntax.Module as Module exposing (Module)
@@ -548,7 +548,7 @@ by a configuration which could look like `( Critical, NoDebugExceptInSomeModules
                 case Node.value node of
                     FunctionOrValue moduleName fnName ->
                         if List.member "Debug" moduleName then
-                            ( [ Rule.error "Forbidden use of Debug" (Node.range node) ], context )
+                            ( [ Rule.error "Remove the use of `Debug` before shipping to production" (Node.range node) ], context )
 
                         else
                             ( [], context )
@@ -775,7 +775,7 @@ module Main exposing (Context(..), expressionVisitor, importVisitor, rule)
             DebugLogWasImported ->
                 case ( direction, Node.value node ) of
                     ( Rule.OnEnter, FunctionOrValue [] "log" ) ->
-                        ( [ Rule.error "Forbidden use of Debug.log" (Node.range node) ], context )
+                        ( [ Rule.error "Remove the use of `Debug` before shipping to production.log" (Node.range node) ], context )
 
                     _ ->
                         ( [], context )
@@ -860,7 +860,7 @@ In most cases, you can get it using [`Node.range`](https://package.elm-lang.org/
 
     error : Node a -> Error
     error node =
-        Rule.error "Forbidden use of Debug" (Node.range node)
+        Rule.error "Remove the use of `Debug` before shipping to production" (Node.range node)
 
 -}
 error : String -> Range -> Error
