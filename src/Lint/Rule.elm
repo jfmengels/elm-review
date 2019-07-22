@@ -412,8 +412,8 @@ A few use examples:
   - You wish to report unused variables, so you need to register the declared and
     imported variables, and note when they get used.
   - You noticed plenty of bad or inconsistent uses of the `Html.button` function,
-    so you built a nice `Ui.Button` module. You now want to forbid all uses of
-    `Html.button`, except in the `Ui.Button` module.
+    so you built a nice `Button` module. You now want to forbid all uses of
+    `Html.button`, except in the `Button` module ([`See simplified example`](#withModuleDefinitionVisitor)).
 
 The `context` you choose needs to be of the same type for all visitors. In practice,
 it's similar to a `Model` for a rule.
@@ -509,8 +509,8 @@ withInitialContext initialContext_ (Schema schema) =
 {-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s
 [module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`), collect data in the `context` and/or report patterns.
 
-The following example forbids the use of `Debug` except in some files, determined
-by a configuration which could look like `( Critical, NoDebugExceptInSomeModules.rule [ "Some.Module" ] )`
+The following example forbids the use of `Html.button` except in the "Button" file.
+THe example is simplified to only forbid the use of the `Html.button` expression.
 
     import Elm.Syntax.Expression exposing (Expression(..))
     import Elm.Syntax.Module as Module exposing (Module)
@@ -518,40 +518,35 @@ by a configuration which could look like `( Critical, NoDebugExceptInSomeModules
     import Lint.Rule as Rule exposing (Direction, Error, Rule)
 
     type Context
-        = DebugIsAllowed
-        | DebugIsForbidden
+        = HtmlButtonIsAllowed
+        | HtmlButtonIsForbidden
 
-    rule : List String -> Rule
-    rule allowedModuleNames =
-        Rule.newSchema "NoDebugExceptInSomeModules"
-            |> Rule.withInitialContext DebugIsForbidden
-            |> Rule.withModuleDefinitionVisitor
-                (moduleDefinitionVisitor <| List.map (String.split ".") allowedModuleNames)
+    rule : Rule
+    rule =
+        Rule.newSchema "NoHtmlButton"
+            |> Rule.withInitialContext HtmlButtonIsForbidden
+            |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
             |> Rule.withExpressionVisitor expressionVisitor
             |> Rule.fromSchema
 
-    moduleDefinitionVisitor : List (List String) -> Node Module -> Context -> ( List Error, Context )
-    moduleDefinitionVisitor allowedModuleNames node context =
-        if List.member (Node.value node |> Module.moduleName) allowedModuleNames then
-            ( [], DebugIsAllowed )
+    moduleDefinitionVisitor : Node Module -> Context -> ( List Error, Context )
+    moduleDefinitionVisitor node context =
+        if (Node.value node |> Module.moduleName) == [ "Button" ] then
+            ( [], HtmlButtonIsAllowed )
 
         else
-            ( [], DebugIsForbidden )
+            ( [], HtmlButtonIsForbidden )
 
     expressionVisitor : Node Expression -> Direction -> Context -> ( List Error, Context )
     expressionVisitor node direction context =
         case ( direction, context ) of
-            ( Rule.OnEnter, DebugIsAllowed ) ->
+            ( Rule.OnEnter, HtmlButtonIsAllowed ) ->
                 ( [], context )
 
-            ( Rule.OnEnter, DebugIsForbidden ) ->
+            ( Rule.OnEnter, HtmlButtonIsForbidden ) ->
                 case Node.value node of
-                    FunctionOrValue moduleName fnName ->
-                        if List.member "Debug" moduleName then
-                            ( [ Rule.error "Remove the use of `Debug` before shipping to production" (Node.range node) ], context )
-
-                        else
-                            ( [], context )
+                    FunctionOrValue [ "Html" ] "button" ->
+                        ( [ Rule.error "Do not use `Html.button` directly. We've built a nice `Button` module that suits our needs better" (Node.range node) ], context )
 
                     _ ->
                         ( [], context )
@@ -560,7 +555,7 @@ by a configuration which could look like `( Critical, NoDebugExceptInSomeModules
                 ( [], context )
 
 Tip: If you do not need to collect data in this visitor, you may wish to use the
-simpler [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisito functionr).
+simpler [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) function).
 
 -}
 withModuleDefinitionVisitor : (Node Module -> context -> ( List Error, context )) -> Schema configurationState context -> Schema Configured context
