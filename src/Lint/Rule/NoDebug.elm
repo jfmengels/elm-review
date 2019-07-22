@@ -3,6 +3,25 @@ module Lint.Rule.NoDebug exposing (rule)
 {-| Forbid the use of `Debug` before it goes into production or fails in the CI.
 
 
+# Rule
+
+@docs rule
+
+-}
+
+import Elm.Syntax.Expression exposing (Expression(..))
+import Elm.Syntax.Import exposing (Import)
+import Elm.Syntax.Node as Node exposing (Node)
+import Lint.Rule as Rule exposing (Error, Rule)
+
+
+{-| Forbid the use of `Debug` before it goes into production or fails in the CI.
+
+    config =
+        [ ( Critical, NoDebug.rule )
+        ]
+
+
 ## Fail
 
     if Debug.log "condition" condition then
@@ -25,25 +44,6 @@ module Lint.Rule.NoDebug exposing (rule)
 
     else
         b
-
-
-# Rule
-
-@docs rule
-
--}
-
-import Elm.Syntax.Expression exposing (Expression(..))
-import Elm.Syntax.Import exposing (Import)
-import Elm.Syntax.Node as Node exposing (Node)
-import Lint.Rule as Rule exposing (Error, Rule)
-
-
-{-| Forbid the use of `Debug` before it goes into production or fails in the CI.
-
-    config =
-        [ ( Critical, NoDebug.rule )
-        ]
 
 -}
 rule : Rule

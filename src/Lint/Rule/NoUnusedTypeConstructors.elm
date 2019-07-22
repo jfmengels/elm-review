@@ -2,6 +2,33 @@ module Lint.Rule.NoUnusedTypeConstructors exposing (rule)
 
 {-| Forbid having unused custom type constructors in a file.
 
+
+# Rule
+
+@docs rule
+
+-}
+
+import Dict exposing (Dict)
+import Elm.Syntax.Declaration exposing (Declaration(..))
+import Elm.Syntax.Exposing exposing (Exposing(..), TopLevelExpose(..))
+import Elm.Syntax.Expression exposing (Expression(..))
+import Elm.Syntax.Module as Module exposing (Module(..))
+import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
+import Lint.Rule as Rule exposing (Direction, Error, Rule)
+import Set exposing (Set)
+
+
+{-| Forbid having unused custom type constructors in a file.
+
+Note that this does not report a constructor if it's exposed in the module, even
+if it is not used anywhere in the project.
+
+    config =
+        [ ( Critical, NoUnusedTypeConstructors.rule )
+        ]
+
 Note that this does not report a constructor if it's exposed in the module, even
 if it is not used anywhere in the project. For a more accurate detection of
 unused constructors (and functions) accross your project, you might want to check
@@ -41,33 +68,6 @@ in your editor, rather than when running your tests or [elm-xref](https://github
         = A
         | B
         | C
-
-
-# Rule
-
-@docs rule
-
--}
-
-import Dict exposing (Dict)
-import Elm.Syntax.Declaration exposing (Declaration(..))
-import Elm.Syntax.Exposing exposing (Exposing(..), TopLevelExpose(..))
-import Elm.Syntax.Expression exposing (Expression(..))
-import Elm.Syntax.Module as Module exposing (Module(..))
-import Elm.Syntax.Node as Node exposing (Node)
-import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
-import Lint.Rule as Rule exposing (Direction, Error, Rule)
-import Set exposing (Set)
-
-
-{-| Forbid having unused custom type constructors in a file.
-
-Note that this does not report a constructor if it's exposed in the module, even
-if it is not used anywhere in the project.
-
-    config =
-        [ ( Critical, NoUnusedTypeConstructors.rule )
-        ]
 
 -}
 rule : Rule

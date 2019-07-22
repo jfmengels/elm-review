@@ -3,23 +3,6 @@ module Lint.Rule.NoUnusedVariables exposing (rule)
 {-| Forbid variables or types that are declared or imported but never used.
 
 
-## Fail
-
-    -- module A exposing (a)
-    a n =
-        n + 1
-
-    b =
-        a 2
-
-
-## Success
-
-    -- module A exposing (a)
-    a n =
-        n + 1
-
-
 # Rule
 
 @docs rule
@@ -45,6 +28,23 @@ import Set exposing (Set)
     config =
         [ ( Critical, NoUnusedVariables.rule )
         ]
+
+
+## Fail
+
+    -- module A exposing (a)
+    a n =
+        n + 1
+
+    b =
+        a 2
+
+
+## Success
+
+    -- module A exposing (a)
+    a n =
+        n + 1
 
 -}
 rule : Rule

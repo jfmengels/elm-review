@@ -3,6 +3,24 @@ module Lint.Rule.NoExtraBooleanComparison exposing (rule)
 {-| Forbid the use of boolean comparisons that can be simplified.
 
 
+# Rule
+
+@docs rule
+
+-}
+
+import Elm.Syntax.Expression as Expression exposing (Expression(..))
+import Elm.Syntax.Node as Node exposing (Node)
+import Lint.Rule as Rule exposing (Error, Rule)
+
+
+{-| Forbid the use of boolean comparisons that can be simplified.
+
+    config =
+        [ ( Critical, NoExtraBooleanComparison.rule )
+        ]
+
+
 ## Fail
 
     if someBooleanValue == True then
@@ -31,24 +49,6 @@ module Lint.Rule.NoExtraBooleanComparison exposing (rule)
 
     else
         b
-
-
-# Rule
-
-@docs rule
-
--}
-
-import Elm.Syntax.Expression as Expression exposing (Expression(..))
-import Elm.Syntax.Node as Node exposing (Node)
-import Lint.Rule as Rule exposing (Error, Rule)
-
-
-{-| Forbid the use of boolean comparisons that can be simplified.
-
-    config =
-        [ ( Critical, NoExtraBooleanComparison.rule )
-        ]
 
 -}
 rule : Rule

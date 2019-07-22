@@ -4,16 +4,6 @@ module Lint.Rule.NoImportingEverything exposing (rule, Configuration)
 functions and types are unknown to them.
 
 
-## Fail
-
-    import Html exposing (..)
-
-
-## Success
-
-    import Html exposing (div, p, textarea)
-
-
 # Rule and configuration
 
 @docs rule, Configuration
@@ -38,8 +28,27 @@ type alias Configuration =
 functions and types are unknown to them.
 
     config =
-        [ ( Critical, NoImportingEverything.rule { exceptions = [ "Html" ] }
+        [ ( Critical, NoImportingEverything.rule { exceptions = [] }
         ]
+
+You can make exceptions for some modules by adding them to the `exceptions`
+field, like `{ exceptions = [ "Html", "Html.Attributes" ] }`. The name should be
+the exact name of the import. Allowing importing everything from `Html` will not
+allow the same thing for `Html.Events`, unless explicitly specified.
+
+
+## Fail
+
+    import Html exposing (..)
+
+
+## Success
+
+    -- ( Critical, NoImportingEverything.rule { exceptions = [] }
+    import Html exposing (div, p, textarea)
+
+    -- ( Critical, NoImportingEverything.rule { exceptions = [ "Html" ] }
+    import Html exposing (..)
 
 -}
 rule : Configuration -> Rule
