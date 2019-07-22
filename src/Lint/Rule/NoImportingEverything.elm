@@ -1,7 +1,6 @@
 module Lint.Rule.NoImportingEverything exposing (rule, Configuration)
 
-{-| Forbid importing everything from your module. This can especially be confusing to newcomers when the exposed
-functions and types are unknown to them.
+{-| Forbid importing everything from a module.
 
 
 # Rule and configuration
@@ -24,17 +23,22 @@ type alias Configuration =
     { exceptions : List String }
 
 
-{-| Forbid importing everything from your module. This can especially be confusing to newcomers when the exposed
-functions and types are unknown to them.
+{-| Forbid importing everything from a module. Doing so can be confusing,
+especially to newcomers when the exposed functions and types are unknown to them.
 
-    config =
-        [ ( Critical, NoImportingEverything.rule { exceptions = [] }
-        ]
+A preferred pattern is to import functions by name (`import Html exposing (div, span)`)
+or using qualified imports (`import Html`, then `Html.div`). If the module name
+is too long, don't forget that you can do qualified imports using an alias
+(`import Html.Attributes as Attr`).
 
 You can make exceptions for some modules by adding them to the `exceptions`
 field, like `{ exceptions = [ "Html", "Html.Attributes" ] }`. The name should be
 the exact name of the import. Allowing importing everything from `Html` will not
 allow the same thing for `Html.Events`, unless explicitly specified.
+
+    config =
+        [ ( Critical, NoImportingEverything.rule { exceptions = [] }
+        ]
 
 
 ## Fail
@@ -49,6 +53,12 @@ allow the same thing for `Html.Events`, unless explicitly specified.
 
     -- ( Critical, NoImportingEverything.rule { exceptions = [ "Html" ] }
     import Html exposing (..)
+
+
+# When not to use this rule
+
+If you prefer importing most of your modules using `exposing (..)`, then you
+should not use this rule.
 
 -}
 rule : Configuration -> Rule
