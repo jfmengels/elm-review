@@ -35,6 +35,40 @@ module Lint.Test exposing
             ]
 
 
+# Tips on testing
+
+
+## Use Test-Driven Development
+
+Writing a linting rules is a process that works really well with the Test-Driven
+Development process loop, which is:
+
+  - Before writing any code, write a failing test.
+  - Run the test and make sure that it is failing, otherwise you can't be
+    sure that the test is well-written.
+  - Write the simplest (almost stupid) code to make the test pass
+  - Run the tests again and make sure that the test is passing, and that you
+    didn't break any previous tests
+  - Optionally, refactor your code but be sure not to change the behavior of the
+    implementation. You should not support new things, as you want to write tests
+    for that first.
+  - (Then start over from step 1)
+
+
+## What should you test?
+
+You should test the scenarii where you expect the rule to report something. At
+the same time, you should also test when it shouldn't. I encourage writing tests
+to make sure that things that are similar to what you want to report are not
+reported.
+
+For instance, if you wish to report uses of variables named `foo`, write a test
+that ensures that the use of variables named differently does not get reported.
+
+Tests are pretty cheap, and it is probably better to have too many tests rather
+than too few tests.
+
+
 # Running tests
 
 @docs LintResult, run
@@ -43,14 +77,6 @@ module Lint.Test exposing
 # Making assertions
 
 @docs ExpectedError, expectErrors, expectNoErrors, error, atExactly
-
-
-# Tips on testing
-
-
-## What should you test?
-
-TODO Add helpful tips
 
 -}
 

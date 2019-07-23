@@ -9,8 +9,6 @@ module Lint.Rule exposing
 
 {-| This module contains functions that are used for writing rules.
 
-TODO Explain that and why people need to look at the documentation for elm-syntax.
-
 
 # Definition
 
@@ -22,10 +20,10 @@ TODO Explain that and why people need to look at the documentation for elm-synta
 
 ## How does it work?
 
-`elm-lint` turns the code of the analyzed file into an [Abstract Syntax Tree](https://en.wikipedia.org/wiki/Abstract_syntax_tree)
-(AST) using the [elm-syntax`package](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/).
+`elm-lint` turns the code of the analyzed file into an [Abstract Syntax Tree (AST)](https://en.wikipedia.org/wiki/Abstract_syntax_tree)
+using the [`elm-syntax` package](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/).
 An AST is a tree-like structure which represents your source code.
-Then,`elm-lint\` will traverse the nodes in the AST in the following pre-defined
+Then,`elm-lint` will traverse the nodes in the AST in the following pre-defined
 order, and call the visitor function associated to the type of node:
 
   - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
@@ -43,9 +41,33 @@ Evaluating a node means two things:
     I recommend using the "simple with\*" visitors if you don't need to collect
     data, as they are simpler to use
 
+`elm-lint` relies on the [`elm-syntax`package](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/),
+and all the node types you'll see will be coming from there. You are likely to
+need to have the documentation for that package open when writing a rule.
+
 There are plenty of examples in the documentation for each visitor function,
 and you can also look at the source code for existing rules to better grasp how
 rules work.
+
+
+## Tips on how to write a rule
+
+In the following section, you'll find all the functions needed to create a rule.
+Here are a few tips on how to do that efficiently:
+
+
+### Look at the documentation for [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/)
+
+`elm-lint` is heavily dependent on the types that [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/)
+provides. If you don't understand the AST it provides, you will have a hard time
+implementing the rule you wish to create.
+
+
+### Use Test-Driven Development
+
+This package comes with [`Lint.Test`](./Lint-Test), which works with [`elm-test`](https://github.com/elm-explorations/test).
+I recommend reading through [`the tips on testing`](./Lint-Test#tips-on-testing) before
+starting writing a rule.
 
 
 ## Creating a linting rule
