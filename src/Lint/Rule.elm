@@ -9,8 +9,6 @@ module Lint.Rule exposing
 
 {-| This module contains functions that are used for writing rules.
 
-TODO Explain how traversal works, and what an AST is.
-TODO Explain the order of traversal: moduleDefinition -> imports -> declarations + expressions -> final evaluation
 TODO Explain that and why people need to look at the documentation for elm-syntax.
 
 
@@ -20,6 +18,34 @@ TODO Explain that and why people need to look at the documentation for elm-synta
 
 
 # Writing rules
+
+
+## How does it work?
+
+`elm-lint` turns the code of the analyzed file into an [Abstract Syntax Tree](https://en.wikipedia.org/wiki/Abstract_syntax_tree)
+(AST) using the [elm-syntax`package](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/).
+An AST is a tree-like structure which represents your source code.
+Then,`elm-lint\` will traverse the nodes in the AST in the following pre-defined
+order, and call the visitor function associated to the type of node:
+
+  - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
+  - Each import statement, visited by [`withSimpleImportVisitor`](#withSimpleImportVisitor) and [`withImportVisitor`](#withImportVisitor)
+  - Each declaration statement, visited by [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) and [`withDeclarationVisitor`](#withDeclarationVisitor).
+    Before evaluating the next declaration, the expression contained in the declaration
+    will be visited recursively using by [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) and [`withExpressionVisitor`](#withExpressionVisitor)
+  - A final evaluation is made when the whole AST has been traversed, using [`withFinalEvaluation`](#withFinalEvaluation)
+
+Evaluating a node means two things:
+
+  - Detecting patterns and reporting errors
+  - Collecting data in a `context` to have more information available in a later
+    node evaluation. This is only available using "non-simple with\*" visitors.
+    I recommend using the "simple with\*" visitors if you don't need to collect
+    data, as they are simpler to use
+
+There are plenty of examples in the documentation for each visitor function,
+and you can also look at the source code for existing rules to better grasp how
+rules work.
 
 
 ## Creating a linting rule
