@@ -18,7 +18,7 @@ module Lint.Test.ErrorMessage exposing
 -}
 
 import Elm.Syntax.Range exposing (Range)
-import Lint.Rule as Rule exposing (Error, Rule)
+import Lint.Rule as Rule exposing (Error)
 import List.Extra
 
 
