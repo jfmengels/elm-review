@@ -151,24 +151,28 @@ config =
 
 ## Questions and comments you may have
 
-- Is there a way to disable a reported error only in some locations?
+### # Is there a way to disable a reported error only in some locations?
 
-There is none at the moment, but one may be added at a later time, probably in the form of a comment, as is done in [`ESLint`](https://eslint.org/docs/user-guide/configuring#disabling-rules-with-inline-comments). Please let me know if and when you need it.
+There is none at the moment, for two reasons:
+- The most practical way to locally disable a rule would probably be through comments, like [how `ESLint` does it](https://eslint.org/docs/user-guide/configuring#disabling-rules-with-inline-comments). But since [elm-format](https://github.com/avh4/elm-format) would move the comments around, this would require you to try and figure out how/where to place the comment, or the rule would need to be disabled for a bigger section of the code than wanted. Neither option provides a good experience.
+- The more I think about it, the more I think that if you need to make an exception to your rule somewhere, then maybe the rule is not worth enforcing in the first place, and that you should probably remove it from your configuration.
 
-- Is there a way to automatically fix the reported errors?
+It's a very all-or-nothing approach, but I prefer to start without the ability to disable rules, be convinced by good arguments and add it, rather than have it from the start with a not-so-great solution and have people write rules and add exceptions everywhere. Please let me know if and when you need it.
+
+### # Is there a way to automatically fix the reported errors?
 
 There is none at the moment. Maybe this will happen at a later time.
 
-- I have an idea for a rule, how can I get it integrated into `elm-lint`?
+### # I have an idea for a rule, how can I get it integrated into `elm-lint`?
 
 Please open an issue here so we can talk about it. Try to make your proposal look like [this](https://github.com/eslint/eslint/blob/master/templates/rule-proposal.md).
 
 You can also write your rule using the API provided in this package in a new package or in your project directly. There is no need to have it in `elm-lint` to use it.
 
-- I am writing my own rule, but some nodes are not visited / something is not working as expected.
+### # I am writing my own rule, but some nodes are not visited / something is not working as expected.
 
 I know about some missing pieces, and there are others that I don't know about as I haven't written any rules using those nodes. If something is not working, please open an issue.
 
-- I want to know more!
+### # I want to know more!
 
 I [presented](http://slides.com/jeroenengels/elm-lint) `elm-lint` a long time ago, before it was even remotely usable at the Paris Elm Meetup. Maybe it will teach you about it. Otherwise, just open an issue to ask your question or hit me on the [Elm Slack channel](https://elmlang.slack.com), my username is `jfmengels`.
