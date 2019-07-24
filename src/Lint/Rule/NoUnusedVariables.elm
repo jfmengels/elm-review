@@ -16,6 +16,7 @@ import Elm.Syntax.Expression exposing (Expression(..), Function, FunctionImpleme
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Module as Module exposing (Module(..))
 import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
 import Lint.Rule as Rule exposing (Direction, Error, Rule)
@@ -263,6 +264,20 @@ expressionVisitor node direction context =
         ( Rule.OnExit, RecordUpdateExpression expr _ ) ->
             ( [], markAsUsed (Node.value expr) context )
 
+        ( Rule.OnExit, CaseExpression { cases } ) ->
+            let
+                usedVariables : List String
+                usedVariables =
+                    List.concatMap
+                        (\( patternNode, expressionNode ) ->
+                            getUsedVariablesFromPattern patternNode
+                        )
+                        cases
+            in
+            ( []
+            , markAllAsUsed usedVariables context
+            )
+
         ( Rule.OnExit, LetExpression _ ) ->
             let
                 ( errors, remainingUsed ) =
@@ -277,6 +292,65 @@ expressionVisitor node direction context =
 
         _ ->
             ( [], context )
+
+
+getUsedVariablesFromPattern : Node Pattern -> List String
+getUsedVariablesFromPattern patternNode =
+    case Node.value patternNode of
+        Pattern.AllPattern ->
+            []
+
+        Pattern.UnitPattern ->
+            []
+
+        Pattern.CharPattern _ ->
+            []
+
+        Pattern.StringPattern _ ->
+            []
+
+        Pattern.IntPattern _ ->
+            []
+
+        Pattern.HexPattern _ ->
+            []
+
+        Pattern.FloatPattern _ ->
+            []
+
+        Pattern.TuplePattern patterns ->
+            List.concatMap getUsedVariablesFromPattern patterns
+
+        Pattern.RecordPattern _ ->
+            []
+
+        Pattern.UnConsPattern pattern1 pattern2 ->
+            List.concatMap getUsedVariablesFromPattern [ pattern1, pattern2 ]
+
+        Pattern.ListPattern patterns ->
+            List.concatMap getUsedVariablesFromPattern patterns
+
+        Pattern.VarPattern _ ->
+            []
+
+        Pattern.NamedPattern qualifiedNameRef patterns ->
+            let
+                usedVariable : String
+                usedVariable =
+                    case qualifiedNameRef.moduleName of
+                        [] ->
+                            qualifiedNameRef.name
+
+                        moduleName ->
+                            getModuleName moduleName
+            in
+            usedVariable :: List.concatMap getUsedVariablesFromPattern patterns
+
+        Pattern.AsPattern pattern alias_ ->
+            getUsedVariablesFromPattern pattern
+
+        Pattern.ParenthesizedPattern pattern ->
+            getUsedVariablesFromPattern pattern
 
 
 declarationVisitor : Node Declaration -> Direction -> Context -> ( List Error, Context )

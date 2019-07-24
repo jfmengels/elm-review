@@ -369,6 +369,44 @@ patternMatchingVariablesTests =
 a = case thing of
     Foo b c -> []"""
                 |> Lint.Test.expectNoErrors
+    , test "should not report unused variable when used as the expression in a case expression" <|
+        \() ->
+            testRule """module A exposing (a)
+b = 1
+a =
+    case b of
+        _ -> 2"""
+                |> Lint.Test.expectNoErrors
+    , test "should not report unused type when it is used in a pattern matching pattern" <|
+        \() ->
+            testRule """module A exposing (a)
+type Bar = Baz
+
+a =
+    case () of
+        Baz ->
+            []"""
+                |> Lint.Test.expectNoErrors
+    , test "should not report unused type when it is used in a pattern matching pattern (sub-pattern)" <|
+        \() ->
+            testRule """module A exposing (a)
+type Bar = Baz
+
+a =
+    case () of
+        Just (Baz range) ->
+            []"""
+                |> Lint.Test.expectNoErrors
+    , test "should not report unused import when a type from it is used in a pattern matching pattern" <|
+        \() ->
+            testRule """module A exposing (a)
+import Bar
+
+a =
+    case () of
+        Just (Bar.Baz range) ->
+            []"""
+                |> Lint.Test.expectNoErrors
     ]
 
 
