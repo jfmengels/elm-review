@@ -8,7 +8,7 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "elm-test",
+    "test": "elm-test && elm-xref",
     "test:watch": "npm run test -s -- --watch"
   },
   "repository": {
@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "elm-format": "^0.8.1",
-    "elm-test": "^0.19.0-rev6"
+    "elm-test": "^0.19.0-rev6",
+    "elm-xref": "^4.0.0"
   }
 }
