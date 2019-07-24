@@ -64,6 +64,8 @@ The following is a list of rules that were temporarily removed when changing the
 
 Configuration is done via an Elm file. Note that this is an experiment, as loading a configuration written in JSON, YAML or similar format is probably much faster to load than compiling the configuration using the Elm compiler. The benefit of having the configuration written in Elm, is having nicer error messages when there is a misconfiguration, potential auto-completion, and more explicit rule locations (no need for some magic to find the rules defined by a plugin for instance).
 
+Since the rule is written in Elm, the rules are publishable on the Elm package registry, and more Elm users should be able to write their own rule than if it was written in a different language like Haskell.
+
 ```elm
 module LintConfig exposing (config)
 
