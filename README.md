@@ -20,22 +20,13 @@ When solving a problem, a good API is a usually a better solution than writing a
 
 When introducing `elm-lint` or new rules to your project and team, you should discuss it with them first. It is easy to think that some patterns are always better and want to enforce them, where in reality some edge cases exist where they aren't wanted. Also, people don't usually like it when seemingly arbitrary rules are imposed on them, especially if it relates to code style, so be sure to talk with them and explain the rationale.
 
-## Project aim and status
-
-At the moment, this is a toy project where I experiment to try the best way to write linter rules for Elm. It's potential strength and aim, compared to [elm-analyse](https://github.com/stil4m/elm-analyse), which is the solution you'd want to use if you were looking for an Elm linter, is to be able to write your own rules.
-
-I'd love to be able to use it myself on Elm projects and maybe to see it adopted by the community, but I would prefer that the efforts from this project be merged with the ones of [elm-analyse](https://github.com/stil4m/elm-analyse), so
-
-There is not yet a CLI to run `elm-lint` on your project. In the meantime, you can use the demo linked to below.
-
 ## Try it
 
-The preferred method, if you have `Node.js` and `npm` installed, you can check out [`node-elm-lint`](https://github.com/jfmengels/node-elm-lint), which has instructions on. This will allow you to lint your whole project.
+The preferred method, if you have `Node.js` and `npm` installed, is to use [`node-elm-lint`](https://github.com/jfmengels/node-elm-lint), which has instructions on how to install it. This will allow you to lint your whole project.
 
-Also, you can try the unpolished online version [here](https://elm-lint.now.sh), where you can copy-paste your source code and see the linting errors.
+Also, you can try the online version [here](https://elm-lint.now.sh), where you can copy-paste your source code and see the linting errors.
 
 Do remember that `elm-lint` is supposed to be run after the Elm compiler has validated the code, and is thus very unhelpful if you have parsing errors.
-
 
 ## Rules
 
