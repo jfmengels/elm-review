@@ -1,7 +1,7 @@
 module Main exposing (main)
 
 import Browser
-import Html exposing (..)
+import Html exposing (Html, button, div, input, label, li, p, text, textarea, ul)
 import Html.Attributes as Attr
 import Html.Events as Events
 import Lint exposing (LintError, Severity(..), lintSource)
