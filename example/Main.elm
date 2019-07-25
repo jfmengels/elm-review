@@ -4,7 +4,7 @@ import Browser
 import Html exposing (Html, button, div, input, label, li, p, text, textarea, ul)
 import Html.Attributes as Attr
 import Html.Events as Events
-import Lint exposing (LintError, Severity(..), lintSource)
+import Lint exposing (LintError, lintSource)
 import Lint.Rule exposing (Rule)
 import Lint.Rule.NoDebug
 import Lint.Rule.NoExtraBooleanComparison
@@ -17,25 +17,25 @@ import Lint.Rule.NoUnusedVariables
 -- LINT CONFIGURATION
 
 
-config : Model -> List ( Severity, Rule )
+config : Model -> List Rule
 config model =
-    [ ( model.noDebugEnabled, ( Critical, Lint.Rule.NoDebug.rule ) )
-    , ( model.noUnusedVariablesEnabled, ( Critical, Lint.Rule.NoUnusedVariables.rule ) )
-    , ( model.noImportingEverythingEnabled, ( Critical, Lint.Rule.NoImportingEverything.rule { exceptions = [ "Html" ] } ) )
-    , ( model.noExtraBooleanComparisonEnabled, ( Critical, Lint.Rule.NoExtraBooleanComparison.rule ) )
-    , ( model.noUnusedTypeConstructorsEnabled, ( Critical, Lint.Rule.NoUnusedTypeConstructors.rule ) )
+    [ ( model.noDebugEnabled, Lint.Rule.NoDebug.rule )
+    , ( model.noUnusedVariablesEnabled, Lint.Rule.NoUnusedVariables.rule )
+    , ( model.noImportingEverythingEnabled, Lint.Rule.NoImportingEverything.rule { exceptions = [ "Html" ] } )
+    , ( model.noExtraBooleanComparisonEnabled, Lint.Rule.NoExtraBooleanComparison.rule )
+    , ( model.noUnusedTypeConstructorsEnabled, Lint.Rule.NoUnusedTypeConstructors.rule )
 
-    -- , ( Critical, Lint.Rule.NoConstantCondition.rule )
-    -- , ( Critical, Lint.Rule.NoDuplicateImports.rule )
-    -- , ( Critical, Lint.Rule.NoExposingEverything.rule )
-    -- , ( Critical, Lint.Rule.NoNestedLet.rule )
-    -- , ( Critical, Lint.Rule.NoUnannotatedFunction.rule )
-    -- , ( Critical, Lint.Rule.NoUselessIf.rule )
-    -- , ( Critical, Lint.Rule.NoUselessPatternMatching.rule )
-    -- , ( Warning, Lint.Rule.NoWarningComments.rule )
-    -- , ( Critical, Lint.Rule.SimplifyPiping.rule )
-    -- , ( Critical, Lint.Rule.SimplifyPropertyAccess.rule )
-    -- , ( Critical, Lint.Rule.ElmTest.NoDuplicateTestBodies.rule )
+    -- , Lint.Rule.NoConstantCondition.rule
+    -- , Lint.Rule.NoDuplicateImports.rule
+    -- , Lint.Rule.NoExposingEverything.rule
+    -- , Lint.Rule.NoNestedLet.rule
+    -- , Lint.Rule.NoUnannotatedFunction.rule
+    -- , Lint.Rule.NoUselessIf.rule
+    -- , Lint.Rule.NoUselessPatternMatching.rule
+    -- , Lint.Rule.NoWarningComments.rule
+    -- , Lint.Rule.SimplifyPiping.rule
+    -- , Lint.Rule.SimplifyPropertyAccess.rule
+    -- , Lint.Rule.ElmTest.NoDuplicateTestBodies.rule
     ]
         |> List.filter Tuple.first
         |> List.map Tuple.second
@@ -47,7 +47,7 @@ config model =
 
 type alias Model =
     { sourceCode : String
-    , lintResult : Result (List String) (List ( Severity, LintError ))
+    , lintResult : Result (List String) (List LintError)
     , noDebugEnabled : Bool
     , noUnusedVariablesEnabled : Bool
     , noImportingEverythingEnabled : Bool
@@ -264,17 +264,16 @@ configurationAsText model =
         configExpressions : String
         configExpressions =
             rules
-                |> List.map (\{ configExpression } -> " ( Critical, " ++ configExpression ++ " )")
+                |> List.map (\{ configExpression } -> " " ++ configExpression)
                 |> String.join "\n    ,"
     in
     """module LintConfig exposing (config)
 
-import Lint exposing (Severity(..))
 import Lint.Rule exposing (Rule)
 """ ++ importStatements ++ """
 
 
-config : List ( Severity, Rule )
+config : List Rule
 config =
     [""" ++ configExpressions ++ """
     ]
@@ -309,7 +308,7 @@ lintErrors model =
                         [ "No errors." ]
 
                     else
-                        List.map (Tuple.second >> errorToString) errors
+                        List.map errorToString errors
     in
     List.map
         (\message -> li [] [ text message ])

@@ -27,7 +27,7 @@ import Set exposing (Set)
 {-| Forbid variables or types that are declared or imported but never used.
 
     config =
-        [ ( Critical, NoUnusedVariables.rule )
+        [ NoUnusedVariables.rule
         ]
 
 

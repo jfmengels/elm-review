@@ -17,7 +17,7 @@ import Lint.Rule as Rule exposing (Error, Rule)
 {-| Forbid the use of boolean comparisons that can be simplified.
 
     config =
-        [ ( Critical, NoExtraBooleanComparison.rule )
+        [ NoExtraBooleanComparison.rule
         ]
 
 

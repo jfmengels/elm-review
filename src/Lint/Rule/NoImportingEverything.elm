@@ -37,7 +37,7 @@ the exact name of the import. Allowing importing everything from `Html` will not
 allow the same thing for `Html.Events`, unless explicitly specified.
 
     config =
-        [ ( Critical, NoImportingEverything.rule { exceptions = [] }
+        [ NoImportingEverything.rule { exceptions = [] }
         ]
 
 
@@ -48,10 +48,10 @@ allow the same thing for `Html.Events`, unless explicitly specified.
 
 ## Success
 
-    -- ( Critical, NoImportingEverything.rule { exceptions = [] }
+    -- NoImportingEverything.rule { exceptions = [] }
     import Html exposing (div, p, textarea)
 
-    -- ( Critical, NoImportingEverything.rule { exceptions = [ "Html" ] }
+    -- NoImportingEverything.rule { exceptions = [ "Html" ] }
     import Html exposing (..)
 
 

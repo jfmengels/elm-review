@@ -26,7 +26,7 @@ Note that this does not report a constructor if it's exposed in the module, even
 if it is not used anywhere in the project.
 
     config =
-        [ ( Critical, NoUnusedTypeConstructors.rule )
+        [ NoUnusedTypeConstructors.rule
         ]
 
 Note that this does not report a constructor if it's exposed in the module, even

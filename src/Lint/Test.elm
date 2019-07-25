@@ -83,7 +83,7 @@ than too few tests.
 import Array exposing (Array)
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
-import Lint exposing (Severity(..), lintSource)
+import Lint exposing (lintSource)
 import Lint.Rule as Rule exposing (Error, Rule)
 import Lint.Test.ErrorMessage as ErrorMessage
 
@@ -133,13 +133,13 @@ You can't just have an expression like `1 + 2`.
 -}
 run : Rule -> String -> LintResult
 run rule sourceCode =
-    case lintSource [ ( Critical, rule ) ] sourceCode of
+    case lintSource [ rule ] sourceCode of
         Ok errors ->
             SuccessfulRun
                 { getCodeAtLocation = getCodeAtLocationInSourceCode sourceCode
                 , checkIfLocationIsAmbiguous = checkIfLocationIsAmbiguousInSourceCode sourceCode
                 }
-                (List.map (\( _, error_ ) -> Rule.error error_.message error_.range) errors)
+                (List.map (\error_ -> Rule.error error_.message error_.range) errors)
 
         Err _ ->
             ParseFailure

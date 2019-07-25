@@ -61,7 +61,6 @@ Since the rule is written in Elm, the rules are publishable on the Elm package r
 ```elm
 module LintConfig exposing (config)
 
-import Lint exposing (Severity(..))
 import Lint.Rule exposing (Rule)
 import Lint.Rule.NoDebug
 import Lint.Rule.NoExtraBooleanComparison
@@ -70,21 +69,15 @@ import Lint.Rule.NoUnusedTypeConstructors
 import Lint.Rule.NoUnusedVariables
 
 
-config : List ( Severity, Rule )
+config : List Rule
 config =
-    [ ( Critical, Lint.Rule.NoExtraBooleanComparison.rule )
-    , ( Critical, Lint.Rule.NoUnusedVariables.rule )
-    , ( Critical, Lint.Rule.NoUnusedTypeConstructors.rule )
-    , ( Warning, Lint.Rule.NoDebug.rule )
-    , ( Critical, Lint.Rule.NoImportingEverything.rule { exceptions = [ "Html" ] } )
+    [ Lint.Rule.NoExtraBooleanComparison.rule
+    , Lint.Rule.NoUnusedVariables.rule
+    , Lint.Rule.NoUnusedTypeConstructors.rule
+    , Lint.Rule.NoDebug.rule
+    , Lint.Rule.NoImportingEverything.rule { exceptions = [ "Html" ] }
     ]
 ```
-
-For each rule, you need to associate a `Severity` level.
-- `Critical` - The rule is enforced and any patterns that the rule finds will be reported. The (yet non-existent) `elm-lint` CLI will fail with an error code if anything gets reported.
-- `Warning` - The rule is enforced and any patterns that the rule finds will be reported. But the (yet non-existent) `elm-lint` CLI will not fail with an error code even if something gets reported.
-- `Disabled` - The associated rule is not enforced and nothing will get reported for this rule.
-
 
 ## Write your own rule
 
@@ -130,14 +123,13 @@ Then add the rule in your configuration:
 ```elm
 module LintConfig exposing (config)
 
-import Lint exposing (Severity(..))
 import Lint.Rule exposing (Rule)
 import NoCoreHtml
 
 
-config : List ( Severity, Rule )
+config : List Rule
 config =
-    [ ( Critical, NoCoreHtml.rule )
+    [ NoCoreHtml.rule
     -- other rules...
     ]
 ```

@@ -18,7 +18,7 @@ import Lint.Rule as Rule exposing (Error, Rule)
 {-| Forbid the use of `Debug` before it goes into production or fails in the CI.
 
     config =
-        [ ( Critical, NoDebug.rule )
+        [ NoDebug.rule
         ]
 
 
