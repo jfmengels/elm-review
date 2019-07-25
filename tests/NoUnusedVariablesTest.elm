@@ -344,6 +344,19 @@ import Html.Styled.Attributes as Html"""
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 34 }, end = { row = 2, column = 38 } }
                     ]
+    , test "should report unused import alias even if it exposes a used type" <|
+        \() ->
+            testRule """module A exposing (a)
+import Html.Styled.Attributes as Html exposing (Attribute)
+a : Attribute
+a = ()"""
+                |> Lint.Test.expectErrors
+                    [ Lint.Test.error
+                        { message = "Module alias `Html` is not used"
+                        , under = "Html"
+                        }
+                        |> Lint.Test.atExactly { start = { row = 2, column = 34 }, end = { row = 2, column = 38 } }
+                    ]
     , test "should not report import that exposes a used exposed type" <|
         \() ->
             testRule """module A exposing (a)

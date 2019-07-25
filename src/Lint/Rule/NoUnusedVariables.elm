@@ -220,10 +220,24 @@ importVisitor node context =
             )
 
         Just declaredImports ->
+            let
+                contextWithoutImports : Context
+                contextWithoutImports =
+                    case Node.value node |> .moduleAlias of
+                        Just moduleAlias ->
+                            register
+                                ModuleAlias
+                                (Node.range moduleAlias)
+                                (Node.value moduleAlias |> getModuleName)
+                                context
+
+                        Nothing ->
+                            context
+            in
             ( []
             , List.foldl
                 (\( variableType, range, name ) context_ -> register variableType range name context_)
-                context
+                contextWithoutImports
                 (collectFromExposing declaredImports)
             )
 
