@@ -31,18 +31,18 @@ topLevelVariablesTests : List Test
 topLevelVariablesTests =
     [ test "should not report exposed top-level variables" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 a = 1"""
                 |> Lint.Test.expectNoErrors
     , test "should not report used top-level variables" <|
         \() ->
-            testRule """module A exposing (b)
+            testRule """module SomeModule exposing (b)
 a n = 1
 b = a 1"""
                 |> Lint.Test.expectNoErrors
     , test "should report unused top-level variables" <|
         \() ->
-            testRule """module A exposing (b)
+            testRule """module SomeModule exposing (b)
 a = 1"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
@@ -52,7 +52,7 @@ a = 1"""
                     ]
     , test "should report unused top-level variables even if they are annotated" <|
         \() ->
-            testRule """module A exposing (b)
+            testRule """module SomeModule exposing (b)
 a: Int
 a = 1"""
                 |> Lint.Test.expectErrors
@@ -64,19 +64,19 @@ a = 1"""
                     ]
     , test "should not report unused top-level variables if everything is exposed" <|
         \() ->
-            testRule """module A exposing (..)
+            testRule """module SomeModule exposing (..)
 a n = 1
 b = a 1"""
                 |> Lint.Test.expectNoErrors
     , test "should not report unused top-level variables that are exposed by name" <|
         \() ->
-            testRule """module A exposing (a, b)
+            testRule """module SomeModule exposing (a, b)
 a = 1
 b = 2"""
                 |> Lint.Test.expectNoErrors
     , test "should not report unused top-level variables that are exposed by name, but report others" <|
         \() ->
-            testRule """module A exposing (a, b)
+            testRule """module SomeModule exposing (a, b)
 a = 1
 b = 2
 c = 3"""
@@ -88,19 +88,19 @@ c = 3"""
                     ]
     , test "should not report unused top-level variables if everything is exposed (port module)" <|
         \() ->
-            testRule """port module A exposing (..)
+            testRule """port module SomeModule exposing (..)
 a n = 1
 b = a 1"""
                 |> Lint.Test.expectNoErrors
     , test "should not report unused top-level variables that are exposed by name (port module)" <|
         \() ->
-            testRule """port module A exposing (a, b)
+            testRule """port module SomeModule exposing (a, b)
 a = 1
 b = 2"""
                 |> Lint.Test.expectNoErrors
     , test "should not report unused top-level variables that are exposed by name, but report others (port module)" <|
         \() ->
-            testRule """port module A exposing (a, b)
+            testRule """port module SomeModule exposing (a, b)
 a = 1
 b = 2
 c = 3"""
@@ -112,7 +112,7 @@ c = 3"""
                     ]
     , test "should report unused variable even if a homonym from a module is used" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 href = 1
 a = Html.Styled.Attributes.href"""
                 |> Lint.Test.expectErrors
@@ -129,7 +129,7 @@ letInTests : List Test
 letInTests =
     [ test "should report unused variables from let declarations" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 a = let b = 1
     in 2"""
                 |> Lint.Test.expectErrors
@@ -140,7 +140,7 @@ a = let b = 1
                     ]
     , test "should report unused variables from let even if they are exposed by name" <|
         \() ->
-            testRule """module A exposing (a, b)
+            testRule """module SomeModule exposing (a, b)
 a = let b = 1
     in 2"""
                 |> Lint.Test.expectErrors
@@ -152,7 +152,7 @@ a = let b = 1
                     ]
     , test "should report unused functions from let even if they are exposed by name" <|
         \() ->
-            testRule """module A exposing (a, b)
+            testRule """module SomeModule exposing (a, b)
 a = let b param = 1
     in 2"""
                 |> Lint.Test.expectErrors
@@ -164,7 +164,7 @@ a = let b param = 1
                     ]
     , test "should report unused variables from let even if everything is exposed" <|
         \() ->
-            testRule """module A exposing (..)
+            testRule """module SomeModule exposing (..)
 a = let b = 1
     in 2"""
                 |> Lint.Test.expectErrors
@@ -175,7 +175,7 @@ a = let b = 1
                     ]
     , test "should not report variables from let declarations that are used in the expression" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 a = let c = 1
     in c"""
                 |> Lint.Test.expectNoErrors
@@ -186,21 +186,21 @@ topLevelVariablesUsedInLetInTests : List Test
 topLevelVariablesUsedInLetInTests =
     [ test "should not report top-level variables used inside a let expression" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 b = 1
 a = let c = 1
 in b + c"""
                 |> Lint.Test.expectNoErrors
     , test "should not report top-level variables used inside let declarations" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 b = 1
 a = let c = b
 in c"""
                 |> Lint.Test.expectNoErrors
     , test "should not report top-level variables used in nested lets" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 b = 1
 a = let
   c = b
@@ -218,13 +218,13 @@ recordUpdateTests : List Test
 recordUpdateTests =
     [ test "should not report variables used in a record update expression's value to be updated" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 b = { c = 1 }
 a = { b | c = 3 }"""
                 |> Lint.Test.expectNoErrors
     , test "should not report variables used in a record update expression's updates" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 b = { y = 1, z = 1 }
 d = 3
 e = 3
@@ -232,7 +232,7 @@ a = { b | y = d, z = e }"""
                 |> Lint.Test.expectNoErrors
     , test "should report variables even if they appear as keys of a record update expression's updates" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 b = { z = 1, c = 2 }
 c = 1
 a = { b | c = 3 }"""
@@ -250,7 +250,7 @@ functionParameterTests : List Test
 functionParameterTests =
     [ test "should not report unused function parameters" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 a n = 1"""
                 |> Lint.Test.expectNoErrors
     ]
@@ -260,7 +260,7 @@ importTests : List Test
 importTests =
     [ test "should report unused imported functions" <|
         \() ->
-            testRule """module A exposing (b)
+            testRule """module SomeModule exposing (b)
 import Foo exposing (a)"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
@@ -270,7 +270,7 @@ import Foo exposing (a)"""
                     ]
     , test "should report unused imported functions (multiple imports)" <|
         \() ->
-            testRule """module A exposing (d)
+            testRule """module SomeModule exposing (d)
 import Foo exposing (C, a, b)"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
@@ -288,7 +288,7 @@ import Foo exposing (C, a, b)"""
                     ]
     , test "should report unused operator import" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 import Parser exposing ((</>))"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
@@ -298,7 +298,7 @@ import Parser exposing ((</>))"""
                     ]
     , test "should report unused import" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 import Html"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
@@ -308,7 +308,7 @@ import Html"""
                     ]
     , test "should report unused import (multiples segments)" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 import Html.Styled.Attributes"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
@@ -318,24 +318,24 @@ import Html.Styled.Attributes"""
                     ]
     , test "should not report import if it exposes all (should be improved by detecting if any exposed value is used)" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 import Html.Styled.Attributes exposing (..)"""
                 |> Lint.Test.expectNoErrors
     , test "should not report used import (function access)" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 import Html.Styled.Attributes
 a = Html.Styled.Attributes.href"""
                 |> Lint.Test.expectNoErrors
     , test "should not report unused import if it is aliased" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 import Html.Styled.Attributes as Html
 a = Html.href"""
                 |> Lint.Test.expectNoErrors
     , test "should report unused import alias" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 import Html.Styled.Attributes as Html"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
@@ -346,7 +346,7 @@ import Html.Styled.Attributes as Html"""
                     ]
     , test "should report unused import alias even if it exposes a used type" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 import Html.Styled.Attributes as Html exposing (Attribute)
 a : Attribute
 a = ()"""
@@ -359,7 +359,7 @@ a = ()"""
                     ]
     , test "should report unused import alias even if it is named like an exposed type" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 import Html.Styled as Html exposing (Html)
 a : Html
 a = ()"""
@@ -372,14 +372,14 @@ a = ()"""
                     ]
     , test "should not report import that exposes a used exposed type" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 import B exposing (C(..))
 a : C
 a = 1"""
                 |> Lint.Test.expectNoErrors
     , test "should not report import that exposes an unused exposed type (but whose subtype is potentially used)" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 import B exposing (C(..))
 a : D
 a = 1"""
@@ -391,13 +391,13 @@ patternMatchingVariablesTests : List Test
 patternMatchingVariablesTests =
     [ test "should not report unused pattern matching parameters" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 a = case thing of
     Foo b c -> []"""
                 |> Lint.Test.expectNoErrors
     , test "should not report unused variable when used as the expression in a case expression" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 b = 1
 a =
     case b of
@@ -405,7 +405,7 @@ a =
                 |> Lint.Test.expectNoErrors
     , test "should not report unused type when it is used in a pattern matching pattern" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 type Bar = Baz
 
 a =
@@ -415,7 +415,7 @@ a =
                 |> Lint.Test.expectNoErrors
     , test "should not report unused type when it is used in a pattern matching pattern (sub-pattern)" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 type Bar = Baz
 
 a =
@@ -425,7 +425,7 @@ a =
                 |> Lint.Test.expectNoErrors
     , test "should not report unused import when a type from it is used in a pattern matching pattern" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 import Bar
 
 a =
@@ -440,7 +440,7 @@ typeTests : List Test
 typeTests =
     [ test "should report unused custom type declarations" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 type A = B | C"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
@@ -452,12 +452,12 @@ type A = B | C"""
     , test "should not report unused custom type constructors" <|
         -- This is handled by the `NoUnusedTypeConstructors` rule
         \() ->
-            testRule """module A exposing (A)
+            testRule """module SomeModule exposing (A)
 type A = B | C"""
                 |> Lint.Test.expectNoErrors
     , test "should report unused type aliases declarations" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 type alias A = { a : B }"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
@@ -468,112 +468,112 @@ type alias A = { a : B }"""
                     ]
     , test "should not report type alias used in a signature" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 type alias A = { a : B }
 a : A
 a = {a = 1}"""
                 |> Lint.Test.expectNoErrors
     , test "should not report type alias used in a signature with multiple arguments" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 type alias A = { a : B }
 a : String -> A
 a str = {a = str}"""
                 |> Lint.Test.expectNoErrors
     , test "should not report custom type used in a signature" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 type A = B | C
 a : A
 a = {a = 1}"""
                 |> Lint.Test.expectNoErrors
     , test "should not report custom type used in a signature with multiple arguments" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 type A = B | C
 a : String -> A
 a str = {a = str}"""
                 |> Lint.Test.expectNoErrors
     , test "should not report parameterized custom type used in a signature" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 type CustomMaybe a = B a | C a
 a : CustomMaybe D
 a = []"""
                 |> Lint.Test.expectNoErrors
     , test "should not report type alias used in a signature with parameterized types (as parameter)" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 type alias A = { a : B }
 a : List A
 a = []"""
                 |> Lint.Test.expectNoErrors
     , test "should not report custom type used in a signature with parameterized types (as parameter)" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 type A = B | C
 a : List A
 a = []"""
                 |> Lint.Test.expectNoErrors
     , test "should not report type alias used in a signature with a record" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 type alias A = { a : B }
 a : { c: A }
 a str = {c = str}"""
                 |> Lint.Test.expectNoErrors
     , test "should not report custom type used in a signature with a record" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 type A = B | C
 a : { c: A }
 a str = {c = str}"""
                 |> Lint.Test.expectNoErrors
     , test "should not report type alias used in a signature with a generic record" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 type alias A = { a : B }
 a : { r | c: A }
 a str = {c = str}"""
                 |> Lint.Test.expectNoErrors
     , test "should not report custom type used in a signature with a generic record" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 type A = B | C
 a : { r | c: A }
 a str = {c = str}"""
                 |> Lint.Test.expectNoErrors
     , test "should not report type alias used in a custom type constructor definition" <|
         \() ->
-            testRule """module A exposing (ExposedType)
+            testRule """module SomeModule exposing (ExposedType)
 type alias A = { a : B }
 type ExposedType = Something A
 """
                 |> Lint.Test.expectNoErrors
     , test "should not report custom type used in a custom type constructor definition" <|
         \() ->
-            testRule """module A exposing (ExposedType)
+            testRule """module SomeModule exposing (ExposedType)
 type A = B
 type ExposedType = Something A
 """
                 |> Lint.Test.expectNoErrors
     , test "should not report custom type of which a constructor is used" <|
         \() ->
-            testRule """module A exposing (b)
+            testRule """module SomeModule exposing (b)
 type A = B | C | D
 b = B
 """
                 |> Lint.Test.expectNoErrors
     , test "should not report custom type of which a constructor is used even if it was defined afterwards" <|
         \() ->
-            testRule """module A exposing (b)
+            testRule """module SomeModule exposing (b)
 b = B
 type A = B | C | D
 """
                 |> Lint.Test.expectNoErrors
     , test "should not report type alias used in type signature inside a let..in" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 type alias A = { a : B }
 a = let
       b : A
@@ -584,7 +584,7 @@ a = let
                 |> Lint.Test.expectNoErrors
     , test "should not report custom type used in type signature inside a let..in" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 type A = A
 a = let
       b : A
@@ -595,50 +595,50 @@ a = let
                 |> Lint.Test.expectNoErrors
     , test "should not report type alias used in a type alias field" <|
         \() ->
-            testRule """module A exposing (ExposedType)
+            testRule """module SomeModule exposing (ExposedType)
 type alias A = { a : B }
 type alias ExposedType = { a : A }
 """
                 |> Lint.Test.expectNoErrors
     , test "should not report custom type used in a type alias field" <|
         \() ->
-            testRule """module A exposing (ExposedType)
+            testRule """module SomeModule exposing (ExposedType)
 type A = B | C
 type alias ExposedType = { a : A }
 """
                 |> Lint.Test.expectNoErrors
     , test "should not report type alias used in a type alias field's arguments " <|
         \() ->
-            testRule """module A exposing (ExposedType)
+            testRule """module SomeModule exposing (ExposedType)
 type alias A = { a : B }
 type alias ExposedType = { a : Maybe A }
 """
                 |> Lint.Test.expectNoErrors
     , test "should not report custom type used in a type alias field's arguments " <|
         \() ->
-            testRule """module A exposing (ExposedType)
+            testRule """module SomeModule exposing (ExposedType)
 type A = B | C
 type alias ExposedType = { a : Maybe A }
 """
                 |> Lint.Test.expectNoErrors
     , test "should not report type alias if it's exposed" <|
         \() ->
-            testRule """module A exposing (A)
+            testRule """module SomeModule exposing (A)
 type alias A = { a : B }"""
                 |> Lint.Test.expectNoErrors
     , test "should not report custom type if it's exposed" <|
         \() ->
-            testRule """module A exposing (A)
+            testRule """module SomeModule exposing (A)
 type A a = B a"""
                 |> Lint.Test.expectNoErrors
     , test "should not report custom type if it's exposed with its sub-types" <|
         \() ->
-            testRule """module A exposing (A(..))
+            testRule """module SomeModule exposing (A(..))
 type A = B | C | D"""
                 |> Lint.Test.expectNoErrors
     , test "should report unused variable even if it's named like a custom type parameter" <|
         \() ->
-            testRule """module A exposing (A)
+            testRule """module SomeModule exposing (A)
 a = 1
 type A a = B a"""
                 |> Lint.Test.expectErrors
@@ -650,7 +650,7 @@ type A a = B a"""
                     ]
     , test "should report unused variable even if it's present in a generic record type" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 r = 1
 a : { r | c: A }
 a str = {c = str}"""
@@ -668,7 +668,7 @@ opaqueTypeTests : List Test
 opaqueTypeTests =
     [ test "should report unused opaque types" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 type A = A Int"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
@@ -679,7 +679,7 @@ type A = A Int"""
                     ]
     , test "should not report used opaque types" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 type A = A Int
 a : A
 a = 1"""
@@ -691,13 +691,13 @@ operatorTests : List Test
 operatorTests =
     [ test "should not report used operator (infix)" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 import Parser exposing ((</>))
 a = 1 </> 2"""
                 |> Lint.Test.expectNoErrors
     , test "should not report used operator (prefix)" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 import Parser exposing ((</>))
 a = (</>) 2"""
                 |> Lint.Test.expectNoErrors
@@ -708,7 +708,7 @@ portTests : List Test
 portTests =
     [ test "should not report types that are used in ports" <|
         \() ->
-            testRule """module A exposing (output, input)
+            testRule """module SomeModule exposing (output, input)
 import Json.Decode
 import Json.Encode
 port output : Json.Encode.Value -> Cmd msg
@@ -716,7 +716,7 @@ port input : (Json.Decode.Value -> msg) -> Sub msg"""
                 |> Lint.Test.expectNoErrors
     , test "should report unused ports (ingoing)" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 import Json.Decode
 port input : (Json.Decode.Value -> msg) -> Sub msg"""
                 |> Lint.Test.expectErrors
@@ -727,7 +727,7 @@ port input : (Json.Decode.Value -> msg) -> Sub msg"""
                     ]
     , test "should report unused ports (outgoing)" <|
         \() ->
-            testRule """module A exposing (a)
+            testRule """module SomeModule exposing (a)
 import Json.Encode
 port output : Json.Encode.Value -> Cmd msg"""
                 |> Lint.Test.expectErrors
