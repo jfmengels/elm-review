@@ -12,12 +12,14 @@
         "Lint.Rule.NoImportingEverything",
         "Lint.Rule.NoUnusedTypeConstructors",
         "Lint.Rule.NoUnusedVariables",
+        "Lint.Project",
         "Lint.Fix",
         "Lint.Test"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
         "elm/core": "1.0.2 <= v < 2.0.0",
+        "elm/project-metadata-utils": "1.0.0 <= v < 2.0.0",
         "elm-explorations/test": "1.2.2 <= v < 2.0.0",
         "stil4m/elm-syntax": "7.1.0 <= v < 8.0.0"
     },

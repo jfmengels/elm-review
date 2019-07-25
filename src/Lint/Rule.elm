@@ -2,7 +2,7 @@ module Lint.Rule exposing
     ( Rule, Schema
     , newSchema, fromSchema
     , withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
-    , withInitialContext, withModuleDefinitionVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withExpressionVisitor, withFinalEvaluation
+    , withInitialContext, withProjectVisitor, withModuleDefinitionVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withExpressionVisitor, withFinalEvaluation
     , withFixes
     , Error, error, errorMessage, errorDetails, errorRange, errorFixes
     , name, analyzer
@@ -156,7 +156,7 @@ patterns you would want to forbid, but that are not handled by the example.
 
 ## Builder functions with context
 
-@docs withInitialContext, withModuleDefinitionVisitor, withImportVisitor, Direction, withDeclarationVisitor, withExpressionVisitor, withFinalEvaluation
+@docs withInitialContext, withProjectVisitor, withModuleDefinitionVisitor, withImportVisitor, Direction, withDeclarationVisitor, withExpressionVisitor, withFinalEvaluation
 
 
 ## Automatic fixing
@@ -184,6 +184,7 @@ import Elm.Syntax.Module exposing (Module)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Lint.Fix exposing (Fix)
+import Lint.Project exposing (Project)
 
 
 {-| Represents a construct able to analyze a `File` and report unwanted patterns.
@@ -234,6 +235,7 @@ type
     = Schema
         { name : String
         , initialContext : context
+        , projectVisitor : Project -> context -> context
         , moduleDefinitionVisitor : Node Module -> context -> ( List Error, context )
         , importVisitor : Node Import -> context -> ( List Error, context )
         , expressionVisitor : Node Expression -> Direction -> context -> ( List Error, context )
@@ -309,6 +311,7 @@ newSchema name_ =
     Schema
         { name = name_
         , initialContext = ()
+        , projectVisitor = \project context -> context
         , moduleDefinitionVisitor = \node context -> ( [], context )
         , importVisitor = \node context -> ( [], context )
         , expressionVisitor = \direction node context -> ( [], context )
@@ -654,12 +657,93 @@ withInitialContext initialContext_ (Schema schema) =
     Schema
         { name = schema.name
         , initialContext = initialContext_
+        , projectVisitor = \project context -> context
         , moduleDefinitionVisitor = \node context -> ( [], context )
         , importVisitor = \node context -> ( [], context )
         , expressionVisitor = \node direction context -> ( [], context )
         , declarationVisitor = \node direction context -> ( [], context )
         , finalEvaluationFn = \context -> []
         }
+
+
+
+-- TODO Is having both withInitialContext and withProjectVisitor redundant?
+-- Since withProjectVisitor doesn't really need an initial context and can set
+-- one up itself.
+-- Maybe have one or the other, using phantom types?
+
+
+{-| Add a visitor to the [`Schema`](#Schema) which will visit the project's known
+information, such as the contents of the `elm.json` file.
+[module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`), collect data in the `context` and/or report patterns.
+
+The following example forbids the use of `Html.button` except in the "Button" file.
+THe example is simplified to only forbid the use of the `Html.button` expression.
+
+    import Elm.Module
+    import Elm.Project
+    import Elm.Syntax.Module as Module exposing (Module)
+    import Elm.Syntax.Node as Node exposing (Node)
+    import Lint.Project as Project exposing (Project)
+    import Lint.Rule as Rule exposing (Error, Rule)
+
+    type alias Context =
+        Maybe Elm.Project.Project
+
+    rule : Rule
+    rule =
+        Rule.newSchema "DoNoExposeInternalModules"
+            |> Rule.withInitialContext Nothing
+            |> Rule.withProjectVisitor projectVisitor
+            |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
+            |> Rule.fromSchema
+
+    projectVisitor : Project -> Context -> Context
+    projectVisitor project context =
+        Project.elmJson project
+
+    moduleDefinitionVisitor : Node Module -> Context -> ( List Error, Context )
+    moduleDefinitionVisitor node context =
+        let
+            moduleName : List String
+            moduleName =
+                Node.value node |> Module.moduleName
+        in
+        if List.member "Internal" moduleName then
+            case context of
+                Just (Elm.Project.Package { exposed }) ->
+                    let
+                        exposedModules : List String
+                        exposedModules =
+                            case exposed of
+                                Elm.Project.ExposedList names ->
+                                    names
+                                        |> List.map Elm.Module.toString
+
+                                Elm.Project.ExposedDict fakeDict ->
+                                    fakeDict
+                                        |> List.concatMap Tuple.second
+                                        |> List.map Elm.Module.toString
+                    in
+                    if List.member (String.join "." moduleName) exposedModules then
+                        ( [ Rule.error "Do not expose modules in `Internal` as part of the public API" (Node.range node) ], context )
+
+                    else
+                        ( [], context )
+
+                Just (Elm.Project.Application _) ->
+                    ( [], context )
+
+                Nothing ->
+                    ( [], context )
+
+        else
+            ( [], context )
+
+-}
+withProjectVisitor : (Project -> context -> context) -> Schema configurationState context -> Schema configurationState context
+withProjectVisitor visitor (Schema schema) =
+    Schema { schema | projectVisitor = visitor }
 
 
 {-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s
