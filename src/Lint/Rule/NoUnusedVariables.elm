@@ -64,6 +64,8 @@ type alias Context =
     { scopes : Nonempty Scope
     , exposesEverything : Bool
     , constructorNameToTypeName : Dict String String
+    , declaredModules : Dict String ( VariableType, Range )
+    , usedModules : Set String
     }
 
 
@@ -89,12 +91,16 @@ initialContext =
     { scopes = Nonempty.fromElement emptyScope
     , exposesEverything = False
     , constructorNameToTypeName = Dict.empty
+    , declaredModules = Dict.empty
+    , usedModules = Set.empty
     }
 
 
 emptyScope : Scope
 emptyScope =
-    Scope Dict.empty Set.empty
+    { declared = Dict.empty
+    , used = Set.empty
+    }
 
 
 error : VariableType -> Range -> String -> Error
@@ -249,7 +255,7 @@ expressionVisitor node direction context =
             ( [], markAsUsed name context )
 
         ( Rule.OnEnter, FunctionOrValue moduleName name ) ->
-            ( [], markAsUsed (getModuleName moduleName) context )
+            ( [], markModuleAsUsed (getModuleName moduleName) context )
 
         ( Rule.OnEnter, OperatorApplication name _ _ _ ) ->
             ( [], markAsUsed name context )
@@ -280,16 +286,17 @@ expressionVisitor node direction context =
 
         ( Rule.OnExit, CaseExpression { cases } ) ->
             let
-                usedVariables : List String
+                usedVariables : { types : List String, modules : List String }
                 usedVariables =
-                    List.concatMap
-                        (\( patternNode, expressionNode ) ->
-                            getUsedVariablesFromPattern patternNode
-                        )
-                        cases
+                    cases
+                        |> List.map
+                            (\( patternNode, expressionNode ) ->
+                                getUsedVariablesFromPattern patternNode
+                            )
+                        |> foldUsedTypesAndModules
             in
             ( []
-            , markAllAsUsed usedVariables context
+            , markUsedTypesAndModules usedVariables context
             )
 
         ( Rule.OnExit, LetExpression _ ) ->
@@ -308,8 +315,15 @@ expressionVisitor node direction context =
             ( [], context )
 
 
-getUsedVariablesFromPattern : Node Pattern -> List String
+getUsedVariablesFromPattern : Node Pattern -> { types : List String, modules : List String }
 getUsedVariablesFromPattern patternNode =
+    { types = getUsedTypesFromPattern patternNode
+    , modules = getUsedModulesFromPattern patternNode
+    }
+
+
+getUsedTypesFromPattern : Node Pattern -> List String
+getUsedTypesFromPattern patternNode =
     case Node.value patternNode of
         Pattern.AllPattern ->
             []
@@ -333,38 +347,97 @@ getUsedVariablesFromPattern patternNode =
             []
 
         Pattern.TuplePattern patterns ->
-            List.concatMap getUsedVariablesFromPattern patterns
+            List.concatMap getUsedTypesFromPattern patterns
 
         Pattern.RecordPattern _ ->
             []
 
         Pattern.UnConsPattern pattern1 pattern2 ->
-            List.concatMap getUsedVariablesFromPattern [ pattern1, pattern2 ]
+            List.concatMap getUsedTypesFromPattern [ pattern1, pattern2 ]
 
         Pattern.ListPattern patterns ->
-            List.concatMap getUsedVariablesFromPattern patterns
+            List.concatMap getUsedTypesFromPattern patterns
 
         Pattern.VarPattern _ ->
             []
 
         Pattern.NamedPattern qualifiedNameRef patterns ->
             let
-                usedVariable : String
+                usedVariable : List String
                 usedVariable =
                     case qualifiedNameRef.moduleName of
                         [] ->
-                            qualifiedNameRef.name
+                            [ qualifiedNameRef.name ]
 
                         moduleName ->
-                            getModuleName moduleName
+                            []
             in
-            usedVariable :: List.concatMap getUsedVariablesFromPattern patterns
+            usedVariable ++ List.concatMap getUsedTypesFromPattern patterns
 
         Pattern.AsPattern pattern alias_ ->
-            getUsedVariablesFromPattern pattern
+            getUsedTypesFromPattern pattern
 
         Pattern.ParenthesizedPattern pattern ->
-            getUsedVariablesFromPattern pattern
+            getUsedTypesFromPattern pattern
+
+
+getUsedModulesFromPattern : Node Pattern -> List String
+getUsedModulesFromPattern patternNode =
+    case Node.value patternNode of
+        Pattern.AllPattern ->
+            []
+
+        Pattern.UnitPattern ->
+            []
+
+        Pattern.CharPattern _ ->
+            []
+
+        Pattern.StringPattern _ ->
+            []
+
+        Pattern.IntPattern _ ->
+            []
+
+        Pattern.HexPattern _ ->
+            []
+
+        Pattern.FloatPattern _ ->
+            []
+
+        Pattern.TuplePattern patterns ->
+            List.concatMap getUsedModulesFromPattern patterns
+
+        Pattern.RecordPattern _ ->
+            []
+
+        Pattern.UnConsPattern pattern1 pattern2 ->
+            List.concatMap getUsedModulesFromPattern [ pattern1, pattern2 ]
+
+        Pattern.ListPattern patterns ->
+            List.concatMap getUsedModulesFromPattern patterns
+
+        Pattern.VarPattern _ ->
+            []
+
+        Pattern.NamedPattern qualifiedNameRef patterns ->
+            let
+                usedVariable : List String
+                usedVariable =
+                    case qualifiedNameRef.moduleName of
+                        [] ->
+                            []
+
+                        moduleName ->
+                            [ getModuleName moduleName ]
+            in
+            usedVariable ++ List.concatMap getUsedModulesFromPattern patterns
+
+        Pattern.AsPattern pattern alias_ ->
+            getUsedModulesFromPattern pattern
+
+        Pattern.ParenthesizedPattern pattern ->
+            getUsedModulesFromPattern pattern
 
 
 declarationVisitor : Node Declaration -> Direction -> Context -> ( List Error, Context )
@@ -376,27 +449,28 @@ declarationVisitor node direction context =
                 functionImplementation =
                     Node.value function.declaration
 
-                namesUsedInSignature : List String
+                namesUsedInSignature : { types : List String, modules : List String }
                 namesUsedInSignature =
                     function.signature
                         |> Maybe.map (Node.value >> .typeAnnotation >> collectNamesFromTypeAnnotation)
-                        |> Maybe.withDefault []
+                        |> Maybe.withDefault { types = [], modules = [] }
 
                 newContext : Context
                 newContext =
                     context
                         |> register Variable (Node.range functionImplementation.name) (Node.value functionImplementation.name)
-                        |> markAllAsUsed namesUsedInSignature
+                        |> markUsedTypesAndModules namesUsedInSignature
             in
             ( [], newContext )
 
         ( Rule.OnEnter, CustomTypeDeclaration { name, constructors } ) ->
             let
-                variablesFromConstructorArguments : List String
+                variablesFromConstructorArguments : { types : List String, modules : List String }
                 variablesFromConstructorArguments =
                     constructors
                         |> List.concatMap (Node.value >> .arguments)
-                        |> List.concatMap collectNamesFromTypeAnnotation
+                        |> List.map collectNamesFromTypeAnnotation
+                        |> foldUsedTypesAndModules
 
                 typeName : String
                 typeName =
@@ -412,20 +486,30 @@ declarationVisitor node direction context =
             ( []
             , { context | constructorNameToTypeName = Dict.union constructorsForType context.constructorNameToTypeName }
                 |> register Type (Node.range name) (Node.value name)
-                |> markAllAsUsed variablesFromConstructorArguments
+                |> markUsedTypesAndModules variablesFromConstructorArguments
             )
 
         ( Rule.OnEnter, AliasDeclaration { name, typeAnnotation } ) ->
+            let
+                namesUsedInTypeAnnotation : { types : List String, modules : List String }
+                namesUsedInTypeAnnotation =
+                    collectNamesFromTypeAnnotation typeAnnotation
+            in
             ( []
             , context
                 |> register Type (Node.range name) (Node.value name)
-                |> markAllAsUsed (collectNamesFromTypeAnnotation typeAnnotation)
+                |> markUsedTypesAndModules namesUsedInTypeAnnotation
             )
 
         ( Rule.OnEnter, PortDeclaration { name, typeAnnotation } ) ->
+            let
+                namesUsedInTypeAnnotation : { types : List String, modules : List String }
+                namesUsedInTypeAnnotation =
+                    collectNamesFromTypeAnnotation typeAnnotation
+            in
             ( []
             , context
-                |> markAllAsUsed (collectNamesFromTypeAnnotation typeAnnotation)
+                |> markUsedTypesAndModules namesUsedInTypeAnnotation
                 |> register Port (Node.range name) (Node.value name)
             )
 
@@ -437,6 +521,18 @@ declarationVisitor node direction context =
 
         ( Rule.OnExit, _ ) ->
             ( [], context )
+
+
+foldUsedTypesAndModules : List { types : List String, modules : List String } -> { types : List String, modules : List String }
+foldUsedTypesAndModules =
+    List.foldl (\a b -> { types = a.types ++ b.types, modules = a.modules ++ b.modules }) { types = [], modules = [] }
+
+
+markUsedTypesAndModules : { types : List String, modules : List String } -> Context -> Context
+markUsedTypesAndModules { types, modules } context =
+    context
+        |> markAllAsUsed types
+        |> markAllModulesAsUsed modules
 
 
 finalEvaluation : Context -> List Error
@@ -460,10 +556,20 @@ finalEvaluation context =
             newRootScope : Scope
             newRootScope =
                 { rootScope | used = Set.union namesOfCustomTypesUsedByCallingAConstructor rootScope.used }
+
+            moduleErrors : List Error
+            moduleErrors =
+                context.declaredModules
+                    |> Dict.filter (\key _ -> not <| Set.member key context.usedModules)
+                    |> Dict.toList
+                    |> List.map (\( key, ( variableType, range ) ) -> error variableType range key)
         in
-        newRootScope
-            |> makeReport
-            |> Tuple.first
+        List.concat
+            [ newRootScope
+                |> makeReport
+                |> Tuple.first
+            , moduleErrors
+            ]
 
 
 registerFunction : Function -> Context -> Context
@@ -473,18 +579,18 @@ registerFunction function context =
         declaration =
             Node.value function.declaration
 
-        namesUsedInSignature : List String
+        namesUsedInSignature : { types : List String, modules : List String }
         namesUsedInSignature =
             case Maybe.map Node.value function.signature of
                 Just signature ->
                     collectNamesFromTypeAnnotation signature.typeAnnotation
 
                 Nothing ->
-                    []
+                    { types = [], modules = [] }
     in
     context
         |> register Variable (Node.range declaration.name) (Node.value declaration.name)
-        |> markAllAsUsed namesUsedInSignature
+        |> markUsedTypesAndModules namesUsedInSignature
 
 
 collectFromExposing : Exposing -> List ( VariableType, Range, String )
@@ -517,38 +623,85 @@ collectFromExposing exposing_ =
                 list
 
 
-collectNamesFromTypeAnnotation : Node TypeAnnotation -> List String
+collectNamesFromTypeAnnotation : Node TypeAnnotation -> { types : List String, modules : List String }
 collectNamesFromTypeAnnotation node =
+    { types = collectTypesFromTypeAnnotation node
+    , modules = collectModuleNamesFromTypeAnnotation node
+    }
+
+
+collectTypesFromTypeAnnotation : Node TypeAnnotation -> List String
+collectTypesFromTypeAnnotation node =
     case Node.value node of
         FunctionTypeAnnotation a b ->
-            collectNamesFromTypeAnnotation a ++ collectNamesFromTypeAnnotation b
+            collectTypesFromTypeAnnotation a ++ collectTypesFromTypeAnnotation b
 
         Typed nameNode params ->
             let
-                name : String
+                name : List String
                 name =
                     case Node.value nameNode of
                         ( [], str ) ->
-                            str
+                            [ str ]
 
                         ( moduleName, _ ) ->
-                            getModuleName moduleName
+                            []
             in
-            name :: List.concatMap collectNamesFromTypeAnnotation params
+            name ++ List.concatMap collectTypesFromTypeAnnotation params
 
         Record list ->
             list
                 |> List.map (Node.value >> Tuple.second)
-                |> List.concatMap collectNamesFromTypeAnnotation
+                |> List.concatMap collectTypesFromTypeAnnotation
 
         GenericRecord name list ->
             list
                 |> Node.value
                 |> List.map (Node.value >> Tuple.second)
-                |> List.concatMap collectNamesFromTypeAnnotation
+                |> List.concatMap collectTypesFromTypeAnnotation
 
         Tupled list ->
-            List.concatMap collectNamesFromTypeAnnotation list
+            List.concatMap collectTypesFromTypeAnnotation list
+
+        GenericType _ ->
+            []
+
+        Unit ->
+            []
+
+
+collectModuleNamesFromTypeAnnotation : Node TypeAnnotation -> List String
+collectModuleNamesFromTypeAnnotation node =
+    case Node.value node of
+        FunctionTypeAnnotation a b ->
+            collectModuleNamesFromTypeAnnotation a ++ collectModuleNamesFromTypeAnnotation b
+
+        Typed nameNode params ->
+            let
+                name : List String
+                name =
+                    case Node.value nameNode of
+                        ( [], str ) ->
+                            []
+
+                        ( moduleName, _ ) ->
+                            [ getModuleName moduleName ]
+            in
+            name ++ List.concatMap collectModuleNamesFromTypeAnnotation params
+
+        Record list ->
+            list
+                |> List.map (Node.value >> Tuple.second)
+                |> List.concatMap collectModuleNamesFromTypeAnnotation
+
+        GenericRecord name list ->
+            list
+                |> Node.value
+                |> List.map (Node.value >> Tuple.second)
+                |> List.concatMap collectModuleNamesFromTypeAnnotation
+
+        Tupled list ->
+            List.concatMap collectModuleNamesFromTypeAnnotation list
 
         GenericType _ ->
             []
@@ -559,16 +712,20 @@ collectNamesFromTypeAnnotation node =
 
 register : VariableType -> Range -> String -> Context -> Context
 register variableType range name context =
-    let
-        scopes : Nonempty Scope
-        scopes =
-            mapNonemptyHead
-                (\scope ->
-                    { scope | declared = Dict.insert name ( variableType, range ) scope.declared }
-                )
-                context.scopes
-    in
-    { context | scopes = scopes }
+    if variableType == ImportedModule || variableType == ModuleAlias then
+        { context | declaredModules = Dict.insert name ( variableType, range ) context.declaredModules }
+
+    else
+        let
+            scopes : Nonempty Scope
+            scopes =
+                mapNonemptyHead
+                    (\scope ->
+                        { scope | declared = Dict.insert name ( variableType, range ) scope.declared }
+                    )
+                    context.scopes
+        in
+        { context | scopes = scopes }
 
 
 markAllAsUsed : List String -> Context -> Context
@@ -588,6 +745,16 @@ markAsUsed name context =
                 context.scopes
     in
     { context | scopes = scopes }
+
+
+markAllModulesAsUsed : List String -> Context -> Context
+markAllModulesAsUsed names context =
+    { context | usedModules = Set.union (Set.fromList names) context.usedModules }
+
+
+markModuleAsUsed : String -> Context -> Context
+markModuleAsUsed name context =
+    { context | usedModules = Set.insert name context.usedModules }
 
 
 getModuleName : List String -> String

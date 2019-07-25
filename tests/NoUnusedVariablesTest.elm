@@ -357,6 +357,19 @@ a = ()"""
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 34 }, end = { row = 2, column = 38 } }
                     ]
+    , test "should report unused import alias even if it is named like an exposed type" <|
+        \() ->
+            testRule """module A exposing (a)
+import Html.Styled as Html exposing (Html)
+a : Html
+a = ()"""
+                |> Lint.Test.expectErrors
+                    [ Lint.Test.error
+                        { message = "Module alias `Html` is not used"
+                        , under = "Html"
+                        }
+                        |> Lint.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 27 } }
+                    ]
     , test "should not report import that exposes a used exposed type" <|
         \() ->
             testRule """module A exposing (a)
