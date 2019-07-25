@@ -15,6 +15,7 @@ This packages offers a few rules that you can pick and configure to improve your
   - When using the [core HTML package](https://package.elm-lang.org/packages/elm/html/latest/), you may style your tags using the [style function](https://package.elm-lang.org/packages/elm/html/latest/Html-Attributes#style). When using [elm-css](https://package.elm-lang.org/packages/rtfeldman/elm-css), you probably want to avoid using that function (or the core HTML package altogether) and can write a rule for it.
 - You published a library in the Elm package registry, and notice some pitfalls that users can fall in, that all your research for a better API do not prevent. You can then publish a separate package (or even in the same package) with rules preventing those pitfalls, should the user use `elm-lint` in their project.
 - You often notice that strings in your codebase contain very common typos, or bad use of punctuation (like a missing space after `;`).
+- You have one module in your codebase which centralizes some data used accross the application (the paths to all the images, a list of all the available colors, ...), but you keep finding new definitions of that data accross the codebase.
 
 When solving a problem, a good API is a usually a better solution than writing a linter rule. But in some cases, even if you've written a good API, nothing prevents teammates or yourself from falling in the same unwanted patterns as before, especially when dealing with primitive values or constructs.
 
