@@ -24,6 +24,7 @@ import Elm.Syntax.Module exposing (Module(..))
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Lint.Fix exposing (Fix)
+import Lint.Project exposing (Project)
 import Lint.Rule as Rule exposing (Rule)
 import Lint.Util as Util
 
@@ -58,17 +59,21 @@ type Error
         , Lint.Rule.NoUnusedVariables.rule
         ]
 
+    project : Project
+    project =
+        Project.new
+
     errors : List Error
     errors =
-        lint config sourceCode
+        lint config project sourceCode
 
 -}
-lint : List Rule -> { path : String, source : String } -> List Error
-lint config { path, source } =
+lint : List Rule -> Project -> { path : String, source : String } -> List Error
+lint config project { path, source } =
     case parseSource source of
         Ok file ->
             config
-                |> List.concatMap (lintWithRule path file)
+                |> List.concatMap (lintWithRule project path file)
                 |> List.sortWith compareErrorPositions
 
         Err _ ->
@@ -86,9 +91,9 @@ lint config { path, source } =
             ]
 
 
-lintWithRule : String -> File -> Rule -> List Error
-lintWithRule path file rule =
-    Rule.analyzer rule file
+lintWithRule : Project -> String -> File -> Rule -> List Error
+lintWithRule project path file rule =
+    Rule.analyzer rule project file
         |> List.map (ruleErrorToLintError (moduleName file) rule)
 
 

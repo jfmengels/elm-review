@@ -193,7 +193,7 @@ See [`newSchema`](#newSchema), and [`fromSchema`](#fromSchema) for how to create
 type Rule
     = Rule
         { name : String
-        , analyzer : File -> List Error
+        , analyzer : Project -> File -> List Error
         }
 
 
@@ -327,8 +327,9 @@ fromSchema (Schema schema) =
     Rule
         { name = schema.name
         , analyzer =
-            \file ->
+            \project file ->
                 schema.initialContext
+                    |> schema.projectVisitor project
                     |> schema.moduleDefinitionVisitor file.moduleDefinition
                     |> accumulateList schema.importVisitor file.imports
                     |> accumulateList (visitDeclaration schema.declarationVisitor schema.expressionVisitor) file.declarations
@@ -1232,7 +1233,7 @@ name (Rule rule) =
 
 {-| Get the analyzer function of a [`Rule`](#Rule).
 -}
-analyzer : Rule -> (File -> List Error)
+analyzer : Rule -> (Project -> File -> List Error)
 analyzer (Rule rule) =
     rule.analyzer
 

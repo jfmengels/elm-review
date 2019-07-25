@@ -102,6 +102,7 @@ import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
 import Lint
 import Lint.Fix as Fix
+import Lint.Project as Project
 import Lint.Rule as Rule exposing (Error, Rule)
 import Lint.Test.ErrorMessage as ErrorMessage
 
@@ -157,7 +158,7 @@ run rule source =
     let
         errors : List Lint.Error
         errors =
-            Lint.lint [ rule ] { path = "TestContent.elm", source = source }
+            Lint.lint [ rule ] Project.new { path = "TestContent.elm", source = source }
     in
     case List.head errors |> Maybe.map Lint.errorMessage of
         Just "TestContent.elm is not a correct Elm file" ->
