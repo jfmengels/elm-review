@@ -42,17 +42,60 @@ and you can also look at the source code for existing rules to better grasp how
 rules work.
 
 
-## Strategies for writing rules effectively
+# What makes a good rule
+
+A linting rule is an automated communication tool which sends messages to
+developers who have written patterns your rule wishes to prevent. As all
+communication, the message is important.
 
 
-### Use Test-Driven Development
+## A good rule name
+
+The name of the rule (`NoUnusedVariables`, `NoDebug`, ...) should try to convey
+really quickly what kind of pattern we're dealing with. Ideally, a user who
+encounters this pattern for the first time could guess the problem just from the
+name. And a user who encountered it several times should know how to fix the
+problem just from the name too.
+
+I recommend having the name of the file containing the rule be the same as the
+rule name. This will make it easier to find the module in the your project or
+the packages website when trying to get more information.
+
+
+## A helpful error message
+
+The error message should give more information about the problem. It can give
+the rationale as to what the problem is, why this pattern is forbidden, and
+suggest a solution or a better alternative
+
+
+## Good rule documentation
+
+The rule documentation should give the same information as what you would see in
+the error message.
+
+If published in a package, the rule documentation should explain when not to
+enable the rule in the user's lint configuration. For instance, for a rule that
+makes sure that a package is publishable by ensuring that all docs are valid,
+the rule might say something along the lines of "If you are writing an
+application, then you should not use this rule.".
+
+Additionally, it could give a few examples of patterns that will be reported and
+of patterns that will not be reported, so that users can have a better grasp of
+what to expect.
+
+
+# Strategies for writing rules effectively
+
+
+## Use Test-Driven Development
 
 This package comes with [`Lint.Test`](./Lint-Test), which works with [`elm-test`](https://github.com/elm-explorations/test).
 I recommend reading through [`the strategies for effective testing`](./Lint-Test#strategies-for-effective-testing) before
 starting writing a rule.
 
 
-### Look at the documentation for [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/)
+## Look at the documentation for [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/)
 
 `elm-lint` is heavily dependent on the types that [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/)
 provides. If you don't understand the AST it provides, you will have a hard time
