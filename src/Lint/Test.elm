@@ -35,7 +35,7 @@ module Lint.Test exposing
             ]
 
 
-# Tips on testing
+# Strategies for effective testing
 
 
 ## Use Test-Driven Development
@@ -50,9 +50,10 @@ Development process loop, which is:
   - Run the tests again and make sure that the test is passing, and that you
     didn't break any previous tests
   - Optionally, refactor your code but be sure not to change the behavior of the
-    implementation. You should not support new things, as you want to write tests
-    for that first.
-  - (Then start over from step 1)
+    implementation. You should not add support for new patterns, as you will
+    want to write tests for that first.
+  - (Then start over from step 1 until you've handled all the cases you wished
+    to handle)
 
 
 ## What should you test?
@@ -65,8 +66,9 @@ reported.
 For instance, if you wish to report uses of variables named `foo`, write a test
 that ensures that the use of variables named differently does not get reported.
 
-Tests are pretty cheap, and it is probably better to have too many tests rather
-than too few tests.
+Tests are pretty cheap, and in the case of linting rules, it is probably better
+to have too many tests rather than too few, since the behavior of a rule rarely
+changes drastically.
 
 
 # Running tests

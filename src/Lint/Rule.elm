@@ -10,21 +10,13 @@ module Lint.Rule exposing
 {-| This module contains functions that are used for writing rules.
 
 
-# Definition
-
-@docs Rule, Schema
-
-
-# Writing rules
-
-
-## How does it work?
+# How does it work?
 
 `elm-lint` turns the code of the analyzed file into an [Abstract Syntax Tree (AST)](https://en.wikipedia.org/wiki/Abstract_syntax_tree)
 using the [`elm-syntax` package](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/).
 An AST is a tree-like structure which represents your source code.
-Then,`elm-lint` will traverse the nodes in the AST in the following pre-defined
-order, and call the visitor function associated to the type of node:
+Then, `elm-lint` will traverse the nodes in the AST in the following order, and
+call the visitor function associated to the type of node:
 
   - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
   - Each import statement, visited by [`withSimpleImportVisitor`](#withSimpleImportVisitor) and [`withImportVisitor`](#withImportVisitor)
@@ -50,10 +42,14 @@ and you can also look at the source code for existing rules to better grasp how
 rules work.
 
 
-## Tips on how to write a rule
+## Strategies for writing rules effectively
 
-In the following section, you'll find all the functions needed to create a rule.
-Here are a few tips on how to do that efficiently:
+
+### Use Test-Driven Development
+
+This package comes with [`Lint.Test`](./Lint-Test), which works with [`elm-test`](https://github.com/elm-explorations/test).
+I recommend reading through [`the strategies for effective testing`](./Lint-Test#strategies-for-effective-testing) before
+starting writing a rule.
 
 
 ### Look at the documentation for [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/)
@@ -63,17 +59,26 @@ provides. If you don't understand the AST it provides, you will have a hard time
 implementing the rule you wish to create.
 
 
-### Use Test-Driven Development
-
-This package comes with [`Lint.Test`](./Lint-Test), which works with [`elm-test`](https://github.com/elm-explorations/test).
-I recommend reading through [`the tips on testing`](./Lint-Test#tips-on-testing) before
-starting writing a rule.
+# Writing a Rule
 
 
-## Creating a linting rule
+## Definition
+
+@docs Rule, Schema
+
+
+## Creating a Rule
 
 @docs newSchema, fromSchema
+
+
+## Builder functions without context
+
 @docs withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
+
+
+## Builder functions with context
+
 @docs withInitialContext, withModuleDefinitionVisitor, withImportVisitor, Direction, withDeclarationVisitor, withExpressionVisitor, withFinalEvaluation
 
 
@@ -832,7 +837,7 @@ This example was written in a different way in the example for [`withFinalEvalua
 
 The following example forbids importing both `Element` (`elm-ui`) and
 `Html.Styled` (`elm-css`). Note that this is the same one written in the example
-for [`withImportVisitor`](#withImportVisitor), but using `withFinalEvaluation`.
+for [`withImportVisitor`](#withImportVisitor), but using [`withFinalEvaluation`](#withFinalEvaluation).
 
     import Dict as Dict exposing (Dict)
     import Elm.Syntax.Import exposing (Import)
@@ -874,11 +879,12 @@ withFinalEvaluation visitor (Schema schema) =
 -- ERRORS
 
 
-{-| Represents an error found by a rule.
+{-| Represents an error found by a [`Rule`](#Rule).
 
-Note: This should not be confused with `LintError` from the `Lint` module.
-`Lint.LintError` is created from `Lint.Rule.Error` but contains additional information
-like the name of the rule that emitted it and the file name.
+Note: This should not be confused with [`LintError`](./Lint#LintError) from the
+[`Lint`](./Lint) module. [`Lint.LintError`](./Lint#LintError) is created from
+this module's [`Error`](#Error) but contains additional information like the
+name of the rule that emitted it and the file name.
 
 -}
 type Error
@@ -889,7 +895,7 @@ type Error
 
 
 {-| Creates an [`Error`](#Error). Use it when you find a pattern that the rule should forbid.
-It takes the message you want to display to the user, and a [Range](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range),
+It takes the message you want to display to the user, and a [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range),
 which is the location where the error should be shown (under which to put the squiggly lines in an editor).
 In most cases, you can get it using [`Node.range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#range).
 
@@ -913,7 +919,7 @@ errorMessage (Error err) =
     err.message
 
 
-{-| Get the [Range](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range)
+{-| Get the [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range)
 of an [`Error`](#Error).
 -}
 errorRange : Error -> Range
