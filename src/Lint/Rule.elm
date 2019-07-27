@@ -319,7 +319,12 @@ The following example forbids having `_` in any part of a module name.
     moduleDefinitionVisitor : Node Module -> List Error
     moduleDefinitionVisitor node =
         if List.any (String.contains "") (Node.value node |> Module.moduleName) then
-            [ Rule.error "Do not use `_` in a module name" (Node.range node) ]
+            [ Rule.error
+                { message = "Do not use `_` in a module name"
+                , details = [ "By convention, Elm modules names use Pascal case (like `MyModuleName`). Please rename your module using this format." ]
+                }
+                (Node.range node)
+            ]
 
         else
             []
@@ -336,7 +341,7 @@ withSimpleModuleDefinitionVisitor visitor (Schema schema) =
 {-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s [import statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Import) (`import Html as H exposing (div)`) in order of their definition and report patterns.
 
 The following example forbids using the core Html package and suggests using
-`elm-css` or `elm-ui` instead.
+`elm-css` instead.
 
     import Elm.Syntax.Import exposing (Import)
     import Elm.Syntax.Node as Node exposing (Node)
@@ -360,7 +365,15 @@ The following example forbids using the core Html package and suggests using
         in
         case moduleName of
             [ "Html" ] ->
-                [ Rule.error "Use `elm-css` or `elm-ui` instead of the core HTML package." (Node.range node) ]
+                [ Rule.error
+                    { message = "Use `elm-css` instead of the core HTML package."
+                    , details =
+                        [ "At fruits.com, we chose to use the `elm-css` package (https://package.elm-lang.org/packages/rtfeldman/elm-css/latest/Css) to build our HTML and CSS rather than the core Html package. To keep things simple, we think it's best to not mix these different libraries."
+                        , "The API is very similar, but instead of using the `Html` module, use the `Html.Styled`. CSS is then defined using the Html.Styled.Attributes.css function (https://package.elm-lang.org/packages/rtfeldman/elm-css/latest/Html-Styled-Attributes#css)."
+                        ]
+                    }
+                    (Node.range node)
+                ]
 
             _ ->
                 []
@@ -406,7 +419,15 @@ annotation.
                             functionName =
                                 declaration |> Node.value |> .name |> Node.value
                         in
-                        [ Rule.error ("Missing type annotation for `" ++ functionName ++ "`.") (Node.range node) ]
+                        [ Rule.error
+                            { message = "Missing type annotation for `" ++ functionName ++ "`"
+                            , details =
+                                [ "Type annotations are very helpful for people who read your code. It can give a lot of information without having to read the contents of the function. When encountering problems, the compiler will also give much more precise and helpful information to help you solve the problem."
+                                , "To add a type annotation, add a line like `" functionName ++ " : ()`, and replace the `()` by the type of the function. If you don't replace `()`, the compiler should give you a suggestion of what the type should be."
+                                ]
+                            }
+                            (Node.range node)
+                        ]
 
             _ ->
                 []
@@ -453,7 +474,12 @@ The following example forbids using the Debug module.
         case Node.value node of
             FunctionOrValue moduleName fnName ->
                 if List.member "Debug" moduleName then
-                    [ Rule.error "Remove the use of `Debug` before shipping to production" (Node.range node) ]
+                    [ Rule.error
+                        { message = "Remove the use of `Debug` before shipping to production"
+                        , details = [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing it's use before committing and attempting to push to production." ]
+                        }
+                        (Node.range node)
+                    ]
 
                 else
                     []
@@ -561,7 +587,9 @@ module name is `Lint.Rule.NoSomethingElse`).
                                             ""
                             in
                             ( [ Rule.error
-                                    ("Rule name should be the same as the module name" ++ suggestedName)
+                                    { message = "Rule name should be the same as the module name" ++ suggestedName
+                                    , details = [ "This makes it easier to find the documentation for a rule or to find the rule in the configuration." ]
+                                    }
                                     (Node.range ruleNameNode)
                               ]
                             , context
@@ -634,7 +662,14 @@ THe example is simplified to only forbid the use of the `Html.button` expression
             ( Rule.OnEnter, HtmlButtonIsForbidden ) ->
                 case Node.value node of
                     FunctionOrValue [ "Html" ] "button" ->
-                        ( [ Rule.error "Do not use `Html.button` directly. We've built a nice `Button` module that suits our needs better" (Node.range node) ], context )
+                        ( [ Rule.error
+                                { message = "Do not use `Html.button` directly""
+                                , details = [ "At fruits.com, we've built a nice `Button` module that suits our needs better. Using this module instead of `Html.button` ensures we have a consistent button experience accross the website." ]
+                                }
+                                (Node.range node)
+                          ]
+                        , context
+                        )
 
                     _ ->
                         ( [], context )
@@ -675,28 +710,36 @@ The following example forbids importing both `Element` (`elm-ui`) and
             |> Rule.withImportVisitor importVisitor
             |> Rule.fromSchema
 
+    error : Node Import -> Error
+    error node =
+        Rule.error
+            { message = "Do not use both `elm-ui` and `elm-css`"
+            , details = [ "At fruits.com, we use `elm-ui` in the dashboard application, and `elm-css` in the rest of the code. We want to use `elm-ui` in our new projects, but in projects using `elm-css`, we don't want to use both libraries to keep things simple." ]
+            }
+            (Node.range node)
+
     importVisitor : Node Import -> Context -> ( List Error, Context )
     importVisitor node context =
         case Node.value node |> .moduleName |> Node.value of
             [ "Element" ] ->
                 if context.elmCssWasImported then
-                    ( [ Rule.error "Do not use both `elm-ui` and `elm-css`" (Node.range node) ]
+                    ( [ error node ]
                     , { context | elmUiWasImported = True }
                     )
 
                 else
-                    ( [ Rule.error "Do not use both `elm-ui` and `elm-css`" (Node.range node) ]
+                    ( [ error node ]
                     , { context | elmUiWasImported = True }
                     )
 
             [ "Html", "Styled" ] ->
                 if context.elmUiWasImported then
-                    ( [ Rule.error "Do not use both `elm-ui` and `elm-css`" (Node.range node) ]
+                    ( [ error node ]
                     , { context | elmCssWasImported = True }
                     )
 
                 else
-                    ( [ Rule.error "Do not use both `elm-ui` and `elm-css`" (Node.range node) ]
+                    ( [ error node ]
                     , { context | elmCssWasImported = True }
                     )
 
@@ -719,8 +762,8 @@ withImportVisitor visitor (Schema schema) =
 (`someVar = add 1 2`, `type Bool = True | False`, `port output : Json.Encode.Value -> Cmd msg`),
 collect data and/or report patterns. The declarations will be visited in the order of their definition.
 
-The following example forbids declaring a function or a value without a type
-annotation.
+The following example forbids exposing a function or a value without it having a
+type annotation.
 
     import Elm.Syntax.Declaration exposing (Declaration(..))
     import Elm.Syntax.Exposing as Exposing
@@ -768,7 +811,17 @@ annotation.
                         Node.value declaration |> .name |> Node.value
                 in
                 if documentation == Nothing && isExposed context functionName then
-                    ( [ Rule.error "Exposed function is missing a type annotation" (Node.range node) ], context )
+                    ( [ Rule.error
+                            { message = "Exposed function " ++ functionName ++ " is missing a type annotation"
+                            , details =
+                                [ "Type annotations are very helpful for people who use the module. It can give a lot of information without having to read the contents of the function."
+                                , "To add a type annotation, add a line like `" functionName ++ " : ()`, and replace the `()` by the type of the function. If you don't replace `()`, the compiler should give you a suggestion of what the type should be."
+                                ]
+                            }
+                            (Node.range node)
+                      ]
+                    , context
+                    )
 
                 else
                     ( [], context )
@@ -858,7 +911,14 @@ module Main exposing (Context(..), expressionVisitor, importVisitor, rule)
             DebugLogWasImported ->
                 case ( direction, Node.value node ) of
                     ( Rule.OnEnter, FunctionOrValue [] "log" ) ->
-                        ( [ Rule.error "Remove the use of `Debug` before shipping to production.log" (Node.range node) ], context )
+                        ( [ Rule.error
+                                { message = "Remove the use of `Debug` before shipping to production"
+                                , details = [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing it's use before committing and attempting to push to production." ]
+                                }
+                                (Node.range node)
+                          ]
+                        , context
+                        )
 
                     _ ->
                         ( [], context )
@@ -907,7 +967,12 @@ for [`withImportVisitor`](#withImportVisitor), but using [`withFinalEvaluation`]
     finalEvaluation context =
         case ( Dict.get [ "Element" ] context, Dict.get [ "Html", "Styled" ] context ) of
             ( Just elmUiRange, Just _ ) ->
-                [ Rule.error "Do not use both `elm-ui` and `elm-css`" elmUiRange ]
+                [ Rule.error
+                    { message = "Do not use both `elm-ui` and `elm-css`"
+                    , details = [ "At fruits.com, we use `elm-ui` in the dashboard application, and `elm-css` in the rest of the code. We want to use `elm-ui` in our new projects, but in projects using `elm-css`, we don't want to use both libraries to keep things simple." ]
+                    }
+                    elmUiRange
+                ]
 
             _ ->
                 []
@@ -947,7 +1012,7 @@ In most cases, you can get it using [`Node.range`](https://package.elm-lang.org/
     error node =
         Rule.error
             { message = "Remove the use of `Debug` before shipping to production"
-            , details = "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing it's use before committing and attempting to push to production."
+            , details = [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing it's use before committing and attempting to push to production." ]
             }
             (Node.range node)
 

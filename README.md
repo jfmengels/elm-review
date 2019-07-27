@@ -83,36 +83,37 @@ config =
 
 You can write your own rule using this package's API and [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest). Check out the [`Lint.Rule`](./Lint-Rule) module for more instructions.
 
-Here's an example of a rule that forbids using the `Html` module, and suggests using `elm-css` or `elm-ui` instead.
+Here's an example of a rule that prevents a typo in a string that was made too often at your company.
 
 ```elm
-module NoCoreHtml exposing (rule)
+module NoStringWithMisspelledCompanyName exposing (rule)
 
-import Elm.Syntax.Import exposing (Import)
+import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Node as Node exposing (Node)
 import Lint.Rule as Rule exposing (Error, Rule)
 
 
 rule : Rule
 rule =
-    Rule.newSchema "NoCoreHtml"
-        |> Rule.withSimpleImportVisitor importVisitor
+    Rule.newSchema "NoStringWithMisspelledCompanyName"
+        |> Rule.withSimpleExpressionVisitor expressionVisitor
         |> Rule.fromSchema
 
 
-importVisitor : Node Import -> List Error
-importVisitor node =
-    let
-        moduleName : List String
-        moduleName =
-            node
-                |> Node.value
-                |> .moduleName
-                |> Node.value
-    in
-    case moduleName of
-        [ "Html" ] ->
-            [ Rule.error "Use `elm-css` or `elm-ui` instead of the core HTML package." (Node.range node) ]
+expressionVisitor : Node Expression -> List Error
+expressionVisitor node =
+    case Node.value node of
+        Literal str ->
+            if String.contains "frits.com" str then
+                [ Rule.error
+                    { message = "Replace `frits.com` by `fruits.com`"
+                    , details = [ "This typo has been made and noticed by users too many times. Our company is `fruits.com`, not `frits.com`." ]
+                    }
+                    (Node.range node)
+                ]
+
+            else
+                []
 
         _ ->
             []
@@ -124,12 +125,12 @@ Then add the rule in your configuration:
 module LintConfig exposing (config)
 
 import Lint.Rule exposing (Rule)
-import NoCoreHtml
+import NoStringWithMisspelledCompanyName
 
 
 config : List Rule
 config =
-    [ NoCoreHtml.rule
+    [ NoStringWithMisspelledCompanyName.rule
     -- other rules...
     ]
 ```
