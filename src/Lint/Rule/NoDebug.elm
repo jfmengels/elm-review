@@ -1,6 +1,6 @@
 module Lint.Rule.NoDebug exposing (rule)
 
-{-| Forbid the use of `Debug` before it goes into production or fails in the CI.
+{-| Forbid the use of the [`Debug`](https://package.elm-lang.org/packages/elm/core/latest/Debug) module before it goes into production or fails in the CI.
 
 
 # Rule
@@ -15,7 +15,7 @@ import Elm.Syntax.Node as Node exposing (Node)
 import Lint.Rule as Rule exposing (Error, Rule)
 
 
-{-| Forbid the use of `Debug` before it goes into production or fails in the CI.
+{-| Forbid the use of the [`Debug`](https://package.elm-lang.org/packages/elm/core/latest/Debug) module before it goes into production or fails in the CI.
 
     config =
         [ NoDebug.rule
@@ -44,6 +44,19 @@ import Lint.Rule as Rule exposing (Error, Rule)
 
     else
         b
+
+
+# When (not) to use this rule
+
+You should use this rule if you're developing a package meant to be published,
+or an application that is put into production, and wish to know about the use of
+the [`Debug`](https://package.elm-lang.org/packages/elm/core/latest/Debug)
+module before committing your changes.
+
+You should not use this rule if you are developing an application that is not
+put into production, and you do not care about having stray debug logs or
+runtime exceptions caused by [`Debug.todo`](https://package.elm-lang.org/packages/elm/core/latest/Debug#todo),
+and you do not ship to production.
 
 -}
 rule : Rule
