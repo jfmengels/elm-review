@@ -10,6 +10,11 @@ testRule =
     Lint.Test.run rule
 
 
+details : List String
+details =
+    [ "Since it is not being used, I recommend removing it. It should make the code clearer to read for other people." ]
+
+
 all : Test
 all =
     describe "NoUnusedVariables"
@@ -47,6 +52,7 @@ a = 1"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Variable `a` is not used"
+                        , details = details
                         , under = "a"
                         }
                     ]
@@ -58,6 +64,7 @@ a = 1"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Variable `a` is not used"
+                        , details = details
                         , under = "a"
                         }
                         |> Lint.Test.atExactly { start = { row = 3, column = 1 }, end = { row = 3, column = 2 } }
@@ -83,6 +90,7 @@ c = 3"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Variable `c` is not used"
+                        , details = details
                         , under = "c"
                         }
                     ]
@@ -107,6 +115,7 @@ c = 3"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Variable `c` is not used"
+                        , details = details
                         , under = "c"
                         }
                     ]
@@ -118,6 +127,7 @@ a = Html.Styled.Attributes.href"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Variable `href` is not used"
+                        , details = details
                         , under = "href"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
@@ -135,6 +145,7 @@ a = let b = 1
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Variable `b` is not used"
+                        , details = details
                         , under = "b"
                         }
                     ]
@@ -146,6 +157,7 @@ a = let b = 1
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Variable `b` is not used"
+                        , details = details
                         , under = "b"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 9 }, end = { row = 2, column = 10 } }
@@ -158,6 +170,7 @@ a = let b param = 1
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Variable `b` is not used"
+                        , details = details
                         , under = "b"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 9 }, end = { row = 2, column = 10 } }
@@ -170,6 +183,7 @@ a = let b = 1
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Variable `b` is not used"
+                        , details = details
                         , under = "b"
                         }
                     ]
@@ -239,6 +253,7 @@ a = { b | c = 3 }"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Variable `c` is not used"
+                        , details = details
                         , under = "c"
                         }
                         |> Lint.Test.atExactly { start = { row = 3, column = 1 }, end = { row = 3, column = 2 } }
@@ -265,6 +280,7 @@ import Foo exposing (a)"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Imported variable `a` is not used"
+                        , details = details
                         , under = "a"
                         }
                     ]
@@ -275,14 +291,17 @@ import Foo exposing (C, a, b)"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Imported type `C` is not used"
+                        , details = details
                         , under = "C"
                         }
                     , Lint.Test.error
                         { message = "Imported variable `a` is not used"
+                        , details = details
                         , under = "a"
                         }
                     , Lint.Test.error
                         { message = "Imported variable `b` is not used"
+                        , details = details
                         , under = "b"
                         }
                     ]
@@ -293,6 +312,7 @@ import Parser exposing ((</>))"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Imported operator `</>` is not used"
+                        , details = details
                         , under = "(</>)"
                         }
                     ]
@@ -303,6 +323,7 @@ import Html"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Imported module `Html` is not used"
+                        , details = details
                         , under = "Html"
                         }
                     ]
@@ -313,6 +334,7 @@ import Html.Styled.Attributes"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Imported module `Html.Styled.Attributes` is not used"
+                        , details = details
                         , under = "Html.Styled.Attributes"
                         }
                     ]
@@ -340,6 +362,7 @@ import Html.Styled.Attributes as Html"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Module alias `Html` is not used"
+                        , details = details
                         , under = "Html"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 34 }, end = { row = 2, column = 38 } }
@@ -353,6 +376,7 @@ a = ()"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Module alias `Html` is not used"
+                        , details = details
                         , under = "Html"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 34 }, end = { row = 2, column = 38 } }
@@ -366,6 +390,7 @@ a = ()"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Module alias `Html` is not used"
+                        , details = details
                         , under = "Html"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 27 } }
@@ -445,6 +470,7 @@ type A = B | C"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Type `A` is not used"
+                        , details = details
                         , under = "A"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 6 }, end = { row = 2, column = 7 } }
@@ -462,6 +488,7 @@ type alias A = { a : B }"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Type `A` is not used"
+                        , details = details
                         , under = "A"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 12 }, end = { row = 2, column = 13 } }
@@ -644,6 +671,7 @@ type A a = B a"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Variable `a` is not used"
+                        , details = details
                         , under = "a"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 1 }, end = { row = 2, column = 2 } }
@@ -657,6 +685,7 @@ a str = {c = str}"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Variable `r` is not used"
+                        , details = details
                         , under = "r"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 1 }, end = { row = 2, column = 2 } }
@@ -673,6 +702,7 @@ type A = A Int"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Type `A` is not used"
+                        , details = details
                         , under = "A"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 6 }, end = { row = 2, column = 7 } }
@@ -722,6 +752,7 @@ port input : (Json.Decode.Value -> msg) -> Sub msg"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Port `input` is not used (Warning: Removing this port may break your application if it is used in the JS code)"
+                        , details = details
                         , under = "input"
                         }
                     ]
@@ -733,6 +764,7 @@ port output : Json.Encode.Value -> Cmd msg"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Port `output` is not used (Warning: Removing this port may break your application if it is used in the JS code)"
+                        , details = details
                         , under = "output"
                         }
                     ]

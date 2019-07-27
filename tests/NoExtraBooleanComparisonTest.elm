@@ -37,6 +37,7 @@ d = if n >= 1 then 1 else 2
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Unnecessary comparison with `True`"
+                        , details = [ "You can simplify this expression by removing the `==` operator and the value `True`." ]
                         , under = "b == True"
                         }
                     ]
@@ -46,6 +47,7 @@ d = if n >= 1 then 1 else 2
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Unnecessary comparison with `True`"
+                        , details = [ "You can simplify this expression by removing the `==` operator and the value `True`." ]
                         , under = "True == b"
                         }
                     ]
@@ -55,6 +57,7 @@ d = if n >= 1 then 1 else 2
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Unnecessary comparison with `False`"
+                        , details = [ "You can simplify this expression by removing the `==` operator and the value `False`." ]
                         , under = "b == False"
                         }
                     ]
@@ -64,6 +67,7 @@ d = if n >= 1 then 1 else 2
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Unnecessary comparison with `False`"
+                        , details = [ "You can simplify this expression by removing the `==` operator and the value `False`." ]
                         , under = "False == b"
                         }
                     ]
@@ -73,6 +77,7 @@ d = if n >= 1 then 1 else 2
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Unnecessary comparison with `True`"
+                        , details = [ "You can simplify this expression by removing the `/=` operator and the value `True`." ]
                         , under = "b /= True"
                         }
                     ]
@@ -82,6 +87,7 @@ d = if n >= 1 then 1 else 2
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Unnecessary comparison with `True`"
+                        , details = [ "You can simplify this expression by removing the `/=` operator and the value `True`." ]
                         , under = "True /= b"
                         }
                     ]
@@ -91,6 +97,7 @@ d = if n >= 1 then 1 else 2
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Unnecessary comparison with `False`"
+                        , details = [ "You can simplify this expression by removing the `/=` operator and the value `False`." ]
                         , under = "b /= False"
                         }
                     ]
@@ -100,6 +107,7 @@ d = if n >= 1 then 1 else 2
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Unnecessary comparison with `False`"
+                        , details = [ "You can simplify this expression by removing the `/=` operator and the value `False`." ]
                         , under = "False /= b"
                         }
                     ]

@@ -17,6 +17,12 @@ message =
     "Remove the use of `Debug` before shipping to production"
 
 
+details : List String
+details =
+    [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing it's use before committing and attempting to push to production."
+    ]
+
+
 tests : List Test
 tests =
     [ test "should not report normal function calls" <|
@@ -35,6 +41,7 @@ d = debug.log n
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = message
+                        , details = details
                         , under = "Debug.log"
                         }
                     ]
@@ -44,6 +51,7 @@ d = debug.log n
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = message
+                        , details = details
                         , under = "Debug.log"
                         }
                     ]
@@ -56,11 +64,13 @@ b = Debug.log z
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = message
+                        , details = details
                         , under = "Debug.log"
                         }
                         |> Lint.Test.atExactly { start = { row = 4, column = 5 }, end = { row = 4, column = 14 } }
                     , Lint.Test.error
                         { message = message
+                        , details = details
                         , under = "Debug.log"
                         }
                         |> Lint.Test.atExactly { start = { row = 5, column = 5 }, end = { row = 5, column = 14 } }
@@ -71,6 +81,7 @@ b = Debug.log z
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = message
+                        , details = details
                         , under = "Debug.todo"
                         }
                     ]
@@ -80,6 +91,7 @@ b = Debug.log z
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = message
+                        , details = details
                         , under = "Debug.foo"
                         }
                     ]
@@ -89,6 +101,7 @@ b = Debug.log z
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = message
+                        , details = details
                         , under = "Debug.log"
                         }
                     ]
@@ -98,6 +111,7 @@ b = Debug.log z
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = message
+                        , details = details
                         , under = "Debug.log"
                         }
                     ]
@@ -107,6 +121,7 @@ b = Debug.log z
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = message
+                        , details = details
                         , under = "Debug.log"
                         }
                     ]
@@ -116,6 +131,7 @@ b = Debug.log z
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = message
+                        , details = details
                         , under = "Debug.log"
                         }
                     ]
@@ -125,6 +141,7 @@ b = Debug.log z
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = message
+                        , details = details
                         , under = "Debug.log"
                         }
                     ]
@@ -134,6 +151,7 @@ b = Debug.log z
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = message
+                        , details = details
                         , under = "Debug.log"
                         }
                     ]
@@ -143,6 +161,7 @@ b = Debug.log z
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = message
+                        , details = details
                         , under = "Debug.log"
                         }
                     ]
@@ -152,6 +171,7 @@ b = Debug.log z
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = message
+                        , details = details
                         , under = "Debug.log"
                         }
                     ]
@@ -161,6 +181,7 @@ b = Debug.log z
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = message
+                        , details = details
                         , under = "Debug.log"
                         }
                     ]
@@ -170,6 +191,7 @@ b = Debug.log z
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = message
+                        , details = details
                         , under = "Debug.log"
                         }
                     ]
@@ -182,6 +204,7 @@ a = case Debug.log a b of
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = message
+                        , details = details
                         , under = "Debug.log"
                         }
                     ]
@@ -194,6 +217,7 @@ a = case a of
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = message
+                        , details = details
                         , under = "Debug.log"
                         }
                     ]
@@ -206,6 +230,7 @@ a = let b = Debug.log a b
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = message
+                        , details = details
                         , under = "Debug.log"
                         }
                     ]
@@ -218,6 +243,7 @@ a = let b = c
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = message
+                        , details = details
                         , under = "Debug.log"
                         }
                     ]
@@ -234,6 +260,7 @@ b = Debug.Foo.log 1
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = message
+                        , details = details
                         , under = "Debug"
                         }
                     ]
@@ -243,6 +270,7 @@ b = Debug.Foo.log 1
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = message
+                        , details = details
                         , under = "Debug"
                         }
                     ]

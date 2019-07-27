@@ -10,6 +10,12 @@ testRule =
     Lint.Test.run rule
 
 
+details : List String
+details =
+    [ "Since it is not being used, I recommend removing it. It should make the code clearer to read for other people."
+    ]
+
+
 tests : List Test
 tests =
     [ test "should not report non-exposed variables" <|
@@ -43,10 +49,12 @@ type Foo = Bar | Baz"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Type constructor `Bar` is not used."
+                        , details = details
                         , under = "Bar"
                         }
                     , Lint.Test.error
                         { message = "Type constructor `Baz` is not used."
+                        , details = details
                         , under = "Baz"
                         }
                     ]
@@ -57,10 +65,12 @@ type Foo = Bar | Baz"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Type constructor `Bar` is not used."
+                        , details = details
                         , under = "Bar"
                         }
                     , Lint.Test.error
                         { message = "Type constructor `Baz` is not used."
+                        , details = details
                         , under = "Baz"
                         }
                     ]

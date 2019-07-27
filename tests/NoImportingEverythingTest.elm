@@ -10,6 +10,13 @@ testRule options =
     Lint.Test.run (rule options)
 
 
+details : List String
+details =
+    [ "Exposing `(..)` from a module means making all it's exposed functions and types available in the file's namespace. This makes it hard to tell which module a function or type comes from."
+    , "A preferred pattern is to import functions by name (`import Html exposing (div, span)`) or to use qualified imports (`import Html`, then `Html.div`). If the module name is too long, you can give an alias to the imported module (`import Html.Attributes as Attr`)."
+    ]
+
+
 tests : List Test
 tests =
     [ test "should not report imports that do not expose anything" <|
@@ -34,6 +41,7 @@ import Html exposing (..)"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Do not expose everything from Html"
+                        , details = details
                         , under = ".."
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 25 } }
@@ -46,6 +54,7 @@ import Html.App exposing (..)"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Do not expose everything from Html.App"
+                        , details = details
                         , under = ".."
                         }
                     ]
@@ -57,6 +66,7 @@ import Html.Foo.Bar exposing (..)"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Do not expose everything from Html.Foo.Bar"
+                        , details = details
                         , under = ".."
                         }
                     ]
@@ -86,6 +96,7 @@ import Html.Foo.Bar exposing (..)"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Do not expose everything from Html.Foo.Bar"
+                        , details = details
                         , under = ".."
                         }
                     ]
@@ -97,6 +108,7 @@ import Html exposing (..)"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Do not expose everything from Html"
+                        , details = details
                         , under = ".."
                         }
                     ]

@@ -108,6 +108,7 @@ type alias CodeInspector =
 type ExpectedError
     = ExpectedError
         { message : String
+        , details : List String
         , under : Under
         }
 
@@ -263,10 +264,11 @@ fail unless you use [`atExactly`](#atExactly) to remove any ambiguity of where t
 error should be used.
 
 -}
-error : { message : String, under : String } -> ExpectedError
+error : { message : String, details : List String, under : String } -> ExpectedError
 error input =
     ExpectedError
         { message = input.message
+        , details = input.details
         , under = Under input.under
         }
 
