@@ -31,7 +31,7 @@ import Lint.Rule as Rule exposing (Error, Rule)
         b
 
     if condition then
-        Debug.crash "Nooo!"
+        Debug.todo "Nooo!"
 
     else
         value

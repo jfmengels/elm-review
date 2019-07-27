@@ -65,13 +65,13 @@ b = Debug.log z
                         }
                         |> Lint.Test.atExactly { start = { row = 5, column = 5 }, end = { row = 5, column = 14 } }
                     ]
-    , test "should report Debug.crash calls" <|
+    , test "should report Debug.todo calls" <|
         \() ->
-            testRule "a = Debug.crash 1"
+            testRule "a = Debug.todo 1"
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = message
-                        , under = "Debug.crash"
+                        , under = "Debug.todo"
                         }
                     ]
     , test "should report any Debug method" <|
