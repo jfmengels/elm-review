@@ -1,6 +1,6 @@
 module Lint.Test.ErrorMessage exposing
     ( ExpectedErrorData
-    , parsingFailure, messageMismatch, wrongLocation, didNotExpectErrors
+    , parsingFailure, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
     , underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode
     , impossibleState
     )
@@ -11,7 +11,7 @@ module Lint.Test.ErrorMessage exposing
 # Error messages
 
 @docs ExpectedErrorData
-@docs parsingFailure, messageMismatch, wrongLocation, didNotExpectErrors
+@docs parsingFailure, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
 @docs underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode
 @docs impossibleState
 
@@ -26,6 +26,7 @@ import List.Extra
 -}
 type alias ExpectedErrorData =
     { message : String
+    , details : List String
     , under : String
     }
 
@@ -59,25 +60,25 @@ Hint: Maybe you forgot to add the module definition at the top, like:
 
 
 messageMismatch : ExpectedErrorData -> Error -> String
-messageMismatch expectedError error_ =
+messageMismatch expectedError error =
     """UNEXPECTED ERROR MESSAGE
 
 I was looking for the error with the following message:
 
-  `""" ++ expectedError.message ++ """`
+  """ ++ wrapInQuotes expectedError.message ++ """
 
 but I found the following error message:
 
-  `""" ++ Rule.errorMessage error_ ++ "`"
+  """ ++ wrapInQuotes (Rule.errorMessage error)
 
 
 underMismatch : Error -> { under : String, codeAtLocation : String } -> String
-underMismatch error_ { under, codeAtLocation } =
+underMismatch error { under, codeAtLocation } =
     """UNEXPECTED ERROR LOCATION
 
 I found an error with the following message:
 
-  `""" ++ Rule.errorMessage error_ ++ """`
+  """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
 which I was expecting, but I found it under:
 
@@ -91,13 +92,59 @@ Hint: Maybe you're passing the `Range` of a wrong node when
 calling `Rule.error`"""
 
 
+unexpectedDetails : List String -> Error -> String
+unexpectedDetails expectedDetails error =
+    """UNEXPECTED ERROR DETAILS
+
+I found an error with the following message:
+
+  """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
+
+which I was expecting, but its details were:
+
+  """ ++ formatDetails (Rule.errorDetails error) ++ """
+
+when I was expecting them to be:
+
+  """ ++ formatDetails expectedDetails
+
+
+emptyDetails : Error -> String
+emptyDetails error =
+    """EMPTY ERROR DETAILS
+
+I found an error with the following message:
+
+  """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
+
+but it's details were empty. I require having details as I believe they will
+help the user who encounters the problem.
+
+The details could:
+- explain what the problem is
+- give suggestions on how to solve the problem or alternatives"""
+
+
+formatDetails : List String -> String
+formatDetails details =
+    case details of
+        [ detail ] ->
+            wrapInQuotes detail
+
+        details_ ->
+            details_
+                |> List.map (\str -> "  " ++ str)
+                |> String.join "\n\n"
+                |> (\str -> "```\n" ++ str ++ "\n  ```")
+
+
 wrongLocation : Error -> Range -> String -> String
-wrongLocation error_ range under =
+wrongLocation error range under =
     """UNEXPECTED ERROR LOCATION
 
 I was looking for the error with the following message:
 
-  `""" ++ Rule.errorMessage error_ ++ """`
+  """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
 under the following code:
 
@@ -111,7 +158,7 @@ I was expecting the error at:
 
 but I found it at:
 
-  """ ++ rangeAsString (Rule.errorRange error_)
+  """ ++ rangeAsString (Rule.errorRange error)
 
 
 expectedMoreErrors : List ExpectedErrorData -> String
@@ -146,14 +193,14 @@ I found """
 
 
 locationIsAmbiguousInSourceCode : SourceCode -> Error -> String -> List Int -> String
-locationIsAmbiguousInSourceCode sourceCode error_ under occurrencesInSourceCode =
+locationIsAmbiguousInSourceCode sourceCode error under occurrencesInSourceCode =
     """AMBIGUOUS ERROR LOCATION
 
 Your test passes, but where the message appears is ambiguous.
 
 You are looking for the following error message:
 
-  `""" ++ Rule.errorMessage error_ ++ """`
+  """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
 and expecting to see it under:
 
@@ -266,8 +313,8 @@ listErrorMessagesAndPositions errors =
 
 
 errorMessageAndPosition : Error -> String
-errorMessageAndPosition error_ =
-    "  - " ++ wrapInQuotes (Rule.errorMessage error_) ++ "\n    at " ++ rangeAsString (Rule.errorRange error_)
+errorMessageAndPosition error =
+    "  - " ++ wrapInQuotes (Rule.errorMessage error) ++ "\n    at " ++ rangeAsString (Rule.errorRange error)
 
 
 expectedErrorToString : ExpectedErrorData -> String

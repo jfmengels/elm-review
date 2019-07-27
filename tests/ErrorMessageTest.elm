@@ -14,6 +14,8 @@ all =
         , didNotExpectErrorsTest
         , messageMismatchTest
         , underMismatchTest
+        , unexpectedDetailsTest
+        , emptyDetailsTest
         , wrongLocationTest
         , expectedMoreErrorsTest
         , tooManyErrorsTest
@@ -93,6 +95,7 @@ messageMismatchTest =
                 expectedError : ExpectedErrorData
                 expectedError =
                     { message = "Remove the use of `Debug` before shipping to production"
+                    , details = [ "Some details" ]
                     , under = "Debug.log"
                     }
 
@@ -196,6 +199,125 @@ calling `Rule.error`"""
         ]
 
 
+unexpectedDetailsTest : Test
+unexpectedDetailsTest =
+    describe "unexpectedDetails"
+        [ test "with single-line details" <|
+            \() ->
+                let
+                    expectedDetails : List String
+                    expectedDetails =
+                        [ "Some details" ]
+
+                    error : Error
+                    error =
+                        Rule.error
+                            { message = "Some error"
+                            , details = [ "Some other details" ]
+                            }
+                            dummyRange
+                in
+                ErrorMessage.unexpectedDetails
+                    expectedDetails
+                    error
+                    |> expectMessageEqual """
+UNEXPECTED ERROR DETAILS
+
+I found an error with the following message:
+
+  `Some error`
+
+which I was expecting, but its details were:
+
+  `Some other details`
+
+when I was expecting them to be:
+
+  `Some details`"""
+        , test "with multi-line details" <|
+            \() ->
+                let
+                    expectedDetails : List String
+                    expectedDetails =
+                        [ "Some"
+                        , "details"
+                        ]
+
+                    error : Error
+                    error =
+                        Rule.error
+                            { message = "Some other error"
+                            , details =
+                                [ "Some"
+                                , "other"
+                                , "details"
+                                ]
+                            }
+                            dummyRange
+                in
+                ErrorMessage.unexpectedDetails
+                    expectedDetails
+                    error
+                    |> expectMessageEqual """
+UNEXPECTED ERROR DETAILS
+
+I found an error with the following message:
+
+  `Some other error`
+
+which I was expecting, but its details were:
+
+  ```
+  Some
+
+  other
+
+  details
+  ```
+
+when I was expecting them to be:
+
+  ```
+  Some
+
+  details
+  ```
+"""
+        ]
+
+
+emptyDetailsTest : Test
+emptyDetailsTest =
+    describe "emptyDetails"
+        [ test "with single-line details" <|
+            \() ->
+                let
+                    error : Error
+                    error =
+                        Rule.error
+                            { message = "Some error"
+                            , details = [ "Some details" ]
+                            }
+                            dummyRange
+                in
+                ErrorMessage.emptyDetails
+                    error
+                    |> expectMessageEqual """
+EMPTY ERROR DETAILS
+
+I found an error with the following message:
+
+  `Some error`
+
+but it's details were empty. I require having details as I believe they will
+help the user who encounters the problem.
+
+The details could:
+- explain what the problem is
+- give suggestions on how to solve the problem or alternatives"""
+        ]
+
+
 wrongLocationTest : Test
 wrongLocationTest =
     describe "wrongLocation"
@@ -285,9 +407,11 @@ expectedMoreErrorsTest =
                 missingErrors : List ExpectedErrorData
                 missingErrors =
                     [ { message = "Remove the use of `Debug` before shipping to production"
+                      , details = [ "Some details" ]
                       , under = "Debug.log"
                       }
                     , { message = "Remove the use of `Debug` before shipping to production"
+                      , details = [ "Some details" ]
                       , under = "Debug.log"
                       }
                     ]

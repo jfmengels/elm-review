@@ -66,7 +66,7 @@ the packages website when trying to get more information.
 
 The error message should give more information about the problem. It can give
 the rationale as to what the problem is, why this pattern is forbidden, and
-suggest a solution or a better alternative
+suggest a solution or a better alternative.
 
 
 ## Good rule documentation

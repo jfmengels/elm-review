@@ -408,6 +408,7 @@ checkErrorMatch codeInspector ((ExpectedError expectedError_) as expectedError) 
                 )
             |> always
         , checkMessageAppearsUnder codeInspector error_ expectedError
+        , checkDetailsAreCorrect error_ expectedError
         ]
 
 
@@ -440,8 +441,21 @@ checkMessageAppearsUnder codeInspector error_ (ExpectedError expectedError) =
                 |> always
 
 
+checkDetailsAreCorrect : Error -> ExpectedError -> (() -> Expectation)
+checkDetailsAreCorrect error_ (ExpectedError expectedError) =
+    Expect.all
+        [ (not <| List.isEmpty <| Rule.errorDetails error_)
+            |> Expect.true (ErrorMessage.emptyDetails error_)
+            |> always
+        , (Rule.errorDetails error_ == expectedError.details)
+            |> Expect.true (ErrorMessage.unexpectedDetails expectedError.details error_)
+            |> always
+        ]
+
+
 extractExpectedErrorData : ExpectedError -> ErrorMessage.ExpectedErrorData
 extractExpectedErrorData ((ExpectedError expectedErrorContent) as expectedError) =
     { message = expectedErrorContent.message
+    , details = expectedErrorContent.details
     , under = getUnder expectedError
     }
