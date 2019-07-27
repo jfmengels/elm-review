@@ -106,7 +106,9 @@ emptyScope =
 error : VariableType -> Range -> String -> Error
 error variableType range_ name =
     Rule.error
-        (variableTypeToString variableType ++ " `" ++ name ++ "` is not used" ++ variableTypeWarning variableType)
+        { message = variableTypeToString variableType ++ " `" ++ name ++ "` is not used" ++ variableTypeWarning variableType
+        , details = [ "Since it is not being used, I recommend removing it. It should make the code clearer to read for other people." ]
+        }
         range_
 
 

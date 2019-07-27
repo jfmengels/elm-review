@@ -101,7 +101,9 @@ initialContext =
 error : Node String -> Error
 error node =
     Rule.error
-        ("Type constructor `" ++ Node.value node ++ "` is not used.")
+        { message = "Type constructor `" ++ Node.value node ++ "` is not used."
+        , details = [ "Since it is not being used, I recommend removing it. It should make the code clearer to read for other people." ]
+        }
         (Node.range node)
 
 

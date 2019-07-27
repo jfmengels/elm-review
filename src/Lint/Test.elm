@@ -141,7 +141,16 @@ run rule sourceCode =
                 { getCodeAtLocation = getCodeAtLocationInSourceCode sourceCode
                 , checkIfLocationIsAmbiguous = checkIfLocationIsAmbiguousInSourceCode sourceCode
                 }
-                (List.map (\error_ -> Rule.error error_.message error_.range) errors)
+                (List.map
+                    (\error_ ->
+                        Rule.error
+                            { message = error_.message
+                            , details = error_.details
+                            }
+                            error_.range
+                    )
+                    errors
+                )
 
         Err _ ->
             ParseFailure

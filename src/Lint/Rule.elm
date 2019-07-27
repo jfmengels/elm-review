@@ -3,7 +3,7 @@ module Lint.Rule exposing
     , newSchema, fromSchema
     , withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
     , withInitialContext, withModuleDefinitionVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withExpressionVisitor, withFinalEvaluation
-    , Error, error, errorMessage, errorRange
+    , Error, error, errorMessage, errorDetails, errorRange
     , name, analyzer
     )
 
@@ -127,7 +127,7 @@ implementing the rule you wish to create.
 
 ## Errors
 
-@docs Error, error, errorMessage, errorRange
+@docs Error, error, errorMessage, errorDetails, errorRange
 
 
 # ACCESS
@@ -933,6 +933,7 @@ name of the rule that emitted it and the file name.
 type Error
     = Error
         { message : String
+        , details : List String
         , range : Range
         }
 
@@ -944,13 +945,18 @@ In most cases, you can get it using [`Node.range`](https://package.elm-lang.org/
 
     error : Node a -> Error
     error node =
-        Rule.error "Remove the use of `Debug` before shipping to production" (Node.range node)
+        Rule.error
+            { message = "Remove the use of `Debug` before shipping to production"
+            , details = "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing it's use before committing and attempting to push to production."
+            }
+            (Node.range node)
 
 -}
-error : String -> Range -> Error
-error message range =
+error : { message : String, details : List String } -> Range -> Error
+error { message, details } range =
     Error
         { message = message
+        , details = details
         , range = range
         }
 
@@ -960,6 +966,13 @@ error message range =
 errorMessage : Error -> String
 errorMessage (Error err) =
     err.message
+
+
+{-| Get the error details of an [`Error`](#Error).
+-}
+errorDetails : Error -> List String
+errorDetails (Error err) =
+    err.details
 
 
 {-| Get the [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range)

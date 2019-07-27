@@ -27,6 +27,7 @@ type alias LintError =
     { file : Maybe String
     , ruleName : String
     , message : String
+    , details : List String
     , range : Range
     }
 
@@ -113,6 +114,7 @@ errorToRuleError file rule error =
     { file = file
     , ruleName = Rule.name rule
     , message = Rule.errorMessage error
+    , details = Rule.errorDetails error
     , range = Rule.errorRange error
     }
 

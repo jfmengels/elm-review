@@ -60,8 +60,16 @@ didNotExpectErrorsTest =
             let
                 errors : List Error
                 errors =
-                    [ Rule.error "Some error" dummyRange
-                    , Rule.error "Some other error" dummyRange
+                    [ Rule.error
+                        { message = "Some error"
+                        , details = [ "Some details" ]
+                        }
+                        dummyRange
+                    , Rule.error
+                        { message = "Some other error"
+                        , details = [ "Some other details" ]
+                        }
+                        dummyRange
                     ]
             in
             ErrorMessage.didNotExpectErrors errors
@@ -90,7 +98,11 @@ messageMismatchTest =
 
                 error : Error
                 error =
-                    Rule.error "Some error message" dummyRange
+                    Rule.error
+                        { message = "Some error"
+                        , details = [ "Some details" ]
+                        }
+                        dummyRange
             in
             ErrorMessage.messageMismatch expectedError error
                 |> expectMessageEqual """
@@ -102,7 +114,7 @@ I was looking for the error with the following message:
 
 but I found the following error message:
 
-  `Some error message`"""
+  `Some error`"""
 
 
 underMismatchTest : Test
@@ -113,7 +125,11 @@ underMismatchTest =
                 let
                     error : Error
                     error =
-                        Rule.error "Some error" dummyRange
+                        Rule.error
+                            { message = "Some error"
+                            , details = [ "Some details" ]
+                            }
+                            dummyRange
                 in
                 ErrorMessage.underMismatch
                     error
@@ -142,7 +158,11 @@ calling `Rule.error`"""
                 let
                     error : Error
                     error =
-                        Rule.error "Some other error" dummyRange
+                        Rule.error
+                            { message = "Some other error"
+                            , details = [ "Some other details" ]
+                            }
+                            dummyRange
                 in
                 ErrorMessage.underMismatch
                     error
@@ -185,7 +205,9 @@ wrongLocationTest =
                     error : Error
                     error =
                         Rule.error
-                            "Some error"
+                            { message = "Some error"
+                            , details = [ "Some details" ]
+                            }
                             { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
                 in
                 ErrorMessage.wrongLocation
@@ -219,7 +241,9 @@ but I found it at:
                     error : Error
                     error =
                         Rule.error
-                            "Some other error"
+                            { message = "Some other error"
+                            , details = [ "Some other details" ]
+                            }
                             { start = { row = 4, column = 1 }, end = { row = 5, column = 3 } }
                 in
                 ErrorMessage.wrongLocation
@@ -288,7 +312,9 @@ tooManyErrorsTest =
                     extraErrors : List Rule.Error
                     extraErrors =
                         [ Rule.error
-                            "Remove the use of `Debug` before shipping to production"
+                            { message = "Remove the use of `Debug` before shipping to production"
+                            , details = [ "Some details about Debug" ]
+                            }
                             { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
                         ]
                 in
@@ -307,10 +333,14 @@ I found 1 error too many:
                     extraErrors : List Rule.Error
                     extraErrors =
                         [ Rule.error
-                            "Remove the use of `Debug` before shipping to production"
+                            { message = "Remove the use of `Debug` before shipping to production"
+                            , details = [ "Some details about Debug" ]
+                            }
                             { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
                         , Rule.error
-                            "Remove the use of `Debug` before shipping to production"
+                            { message = "Remove the use of `Debug` before shipping to production"
+                            , details = [ "Some details about Debug" ]
+                            }
                             { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
                         ]
                 in
@@ -345,7 +375,9 @@ locationIsAmbiguousInSourceCodeTest =
                     error : Error
                     error =
                         Rule.error
-                            "Some error"
+                            { message = "Some error"
+                            , details = [ "Some details" ]
+                            }
                             { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
                 in
                 ErrorMessage.locationIsAmbiguousInSourceCode
@@ -387,7 +419,9 @@ Tip: I found them at:
                     error : Error
                     error =
                         Rule.error
-                            "Some other error"
+                            { message = "Some other error"
+                            , details = [ "Some other details" ]
+                            }
                             { start = { row = 3, column = 1 }, end = { row = 4, column = 3 } }
                 in
                 ErrorMessage.locationIsAmbiguousInSourceCode

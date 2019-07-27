@@ -67,10 +67,12 @@ rule =
         |> Rule.fromSchema
 
 
-error : Node a -> String -> Error
-error node comparedValue =
+error : Node a -> String -> String -> Error
+error node operator comparedValue =
     Rule.error
-        ("Unnecessary comparison with `" ++ comparedValue ++ "`")
+        { message = "Unnecessary comparison with `" ++ comparedValue ++ "`"
+        , details = [ "You can simplify this expression by removing the `" ++ operator ++ "` operator and the value `" ++ comparedValue ++ "`." ]
+        }
         (Node.range node)
 
 
@@ -80,7 +82,7 @@ expressionVisitor node =
         Expression.OperatorApplication operator _ left right ->
             if isEqualityOperator operator then
                 List.filterMap isTrueOrFalse [ left, right ]
-                    |> List.map (error node)
+                    |> List.map (error node operator)
 
             else
                 []
