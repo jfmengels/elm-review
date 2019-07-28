@@ -11,11 +11,10 @@ If you are familiar with [ESLint](http://eslint.org/) from JavaScript, this is p
 The idea is to improve your Elm source code base, after it passes compilation and [elm-format](https://github.com/avh4/elm-format) has been run on it.
 
 This packages offers a few rules that you can pick and configure to improve your code base, but you can also create your own rules, to enforce rules specific to your project or team. A few cases:
-- You noticed a bad pattern in your codebase, wrote a nice module to handle the pattern better, and want to prevent your team from writing that pattern from now on. You can then write a rule to detect that pattern and have it suggest using your module instead. If you don't, you need to communicate this well to all your
-  - When using the [core HTML package](https://package.elm-lang.org/packages/elm/html/latest/), you may style your tags using the [style function](https://package.elm-lang.org/packages/elm/html/latest/Html-Attributes#style). When using [elm-css](https://package.elm-lang.org/packages/rtfeldman/elm-css), you probably want to avoid using that function (or the core HTML package altogether) and can write a rule for it.
-- You published a library in the Elm package registry, and notice some pitfalls that users can fall in, that all your research for a better API do not prevent. You can then publish a separate package (or even in the same package) with rules preventing those pitfalls, should the user use `elm-lint` in their project.
+- You noticed a bad pattern in your codebase, wrote a nice module to handle the pattern better, and want to prevent your team from writing that pattern from now on. You can then write a rule to detect that pattern and have it suggest using your module instead. If you don't, you need to communicate this well to all your teammates, but there is no way to prevent the bad pattern from occurring again.
 - You often notice that strings in your codebase contain very common typos, or bad use of punctuation (like a missing space after `;`).
 - You have one module in your codebase which centralizes some data used accross the application (the paths to all the images, a list of all the available colors, ...), but you keep finding new definitions of that data accross the codebase.
+- You published a library in the Elm package registry, and notice some pitfalls that users can fall in, that all your research for a better API does not prevent. You can then publish a separate package with rules preventing those pitfalls, should the user use `elm-lint` in their project.
 
 When solving a problem, a good API is a usually a better solution than writing a linter rule. But in some cases, even if you've written a good API, nothing prevents teammates or yourself from falling in the same unwanted patterns as before, especially when dealing with primitive values or constructs.
 
@@ -26,8 +25,6 @@ When introducing `elm-lint` or new rules to your project and team, you should di
 The preferred method, if you have `Node.js` and `npm` installed, is to use [`node-elm-lint`](https://github.com/jfmengels/node-elm-lint), which has instructions on how to install it. This will allow you to lint your whole project.
 
 Also, you can try the online version [here](https://elm-lint.now.sh), where you can copy-paste your source code and see the linting errors.
-
-Do remember that `elm-lint` is supposed to be run after the Elm compiler has validated the code, and is thus very unhelpful if you have parsing errors.
 
 ## Rules
 
@@ -54,7 +51,7 @@ The following is a list of rules that were temporarily removed when changing the
 
 ## Configuration
 
-Configuration is done via an Elm file. Note that this is an experiment, as loading a configuration written in JSON, YAML or similar format is probably much faster to load than compiling the configuration using the Elm compiler. The benefit of having the configuration written in Elm, is having nicer error messages when there is a misconfiguration, potential auto-completion, and more explicit rule locations (no need for some magic to find the rules defined by a plugin for instance).
+Configuration is done via an Elm file. Note that this is an experiment, as loading a configuration written in JSON, YAML or similar format is probably much faster to load than compiling the configuration using the Elm compiler. The benefit of having the configuration written in Elm, is having nicer error messages when there is a misconfiguration, potential auto-completion, and more explicit rule locations (no need for some magic to find the rules defined by a package for instance).
 
 Since the rule is written in Elm, the rules are publishable on the Elm package registry, and more Elm users should be able to write their own rule than if it was written in a different language like Haskell.
 
