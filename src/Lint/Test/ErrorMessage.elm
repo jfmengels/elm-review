@@ -117,7 +117,7 @@ I found an error with the following message:
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
-but it's details were empty. I require having details as I believe they will
+but its details were empty. I require having details as I believe they will
 help the user who encounters the problem.
 
 The details could:

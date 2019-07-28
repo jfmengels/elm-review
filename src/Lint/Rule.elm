@@ -86,7 +86,7 @@ When creating an error, you need to specify under which section of the code this
 message appears. This is where you would see squiggly lines in your editor when
 you have linting or compiler errors.
 
-To make the error easier to spot, it's best to make this section as small as
+To make the error easier to spot, it is best to make this section as small as
 possible, as long as that makes sense. For instance, in a rule that would forbid
 `Debug.log`, you would the error to appear under `Debug.log`, not on the whole
 function which contains this piece of code.
@@ -225,14 +225,14 @@ type
         }
 
 
-{-| Represents whether a Node is being traversed before having seen it's children (`OnEnter`ing the Node), or after (`OnExit`ing the Node).
+{-| Represents whether a Node is being traversed before having seen its children (`OnEnter`ing the Node), or after (`OnExit`ing the Node).
 
 When visiting the AST, nodes are visited twice: once on `OnEnter`, before the
 children of the node will be visited, and once on `OnExit`, after the children of
 the node have been visited.
 
 In most cases, you'll only want to handle the `OnEnter` case, but in some cases,
-you'll want to visit a `Node` after having seen it's children. For instance, if
+you'll want to visit a `Node` after having seen its children. For instance, if
 you're trying to detect the unused variables defined inside of a `let in` expression,
 you'll want to collect the declaration of variables, note which ones are used,
 and at the end of the block, report the ones that weren't used.
@@ -391,7 +391,7 @@ The following example forbids using the core Html package and suggests using
                 [ Rule.error
                     { message = "Use `elm-css` instead of the core HTML package."
                     , details =
-                        [ "At fruits.com, we chose to use the `elm-css` package (https://package.elm-lang.org/packages/rtfeldman/elm-css/latest/Css) to build our HTML and CSS rather than the core Html package. To keep things simple, we think it's best to not mix these different libraries."
+                        [ "At fruits.com, we chose to use the `elm-css` package (https://package.elm-lang.org/packages/rtfeldman/elm-css/latest/Css) to build our HTML and CSS rather than the core Html package. To keep things simple, we think it is best to not mix these different libraries."
                         , "The API is very similar, but instead of using the `Html` module, use the `Html.Styled`. CSS is then defined using the Html.Styled.Attributes.css function (https://package.elm-lang.org/packages/rtfeldman/elm-css/latest/Html-Styled-Attributes#css)."
                         ]
                     }
@@ -477,7 +477,7 @@ withSimpleDeclarationVisitor visitor (Schema schema) =
 {-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s
 [expressions](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Expression)
 (`1`, `True`, `add 1 2`, `1 + 2`). The expressions are visited in pre-order
-depth-first search, meaning that an expression will be visited, then it's first
+depth-first search, meaning that an expression will be visited, then its first
 child, the first child's children (and so on), then the second child (and so on).
 
 The following example forbids using the Debug module.
@@ -499,7 +499,7 @@ The following example forbids using the Debug module.
                 if List.member "Debug" moduleName then
                     [ Rule.error
                         { message = "Remove the use of `Debug` before shipping to production"
-                        , details = [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing it's use before committing and attempting to push to production." ]
+                        , details = [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing its use before committing and attempting to push to production." ]
                         }
                         (Node.range node)
                     ]
@@ -553,7 +553,7 @@ A few use examples:
     `Html.button`, except in the `Button` module ([`See simplified example`](#withModuleDefinitionVisitor)).
 
 The `context` you choose needs to be of the same type for all visitors. In practice,
-it's similar to a `Model` for a rule.
+it is similar to a `Model` for a rule.
 
 The following example forbids calling `Rule.newSchema` with a name that is not
 the same as the module's name (forbidding `Rule.newSchema "NoSomething"` when the
@@ -874,10 +874,10 @@ withDeclarationVisitor visitor (Schema schema) =
 [expressions](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Expression)
 (`1`, `True`, `add 1 2`, `1 + 2`), collect data in the `context` and/or report patterns.
 The expressions are visited in pre-order depth-first search, meaning that an
-expression will be visited, then it's first child, the first child's children
+expression will be visited, then its first child, the first child's children
 (and so on), then the second child (and so on).
 
-The following example forbids the use of `Debug.log` even when it's imported like
+The following example forbids the use of `Debug.log` even when it is imported like
 `import Debug exposing (log)`.
 module Main exposing (Context(..), expressionVisitor, importVisitor, rule)
 
@@ -936,7 +936,7 @@ module Main exposing (Context(..), expressionVisitor, importVisitor, rule)
                     ( Rule.OnEnter, FunctionOrValue [] "log" ) ->
                         ( [ Rule.error
                                 { message = "Remove the use of `Debug` before shipping to production"
-                                , details = [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing it's use before committing and attempting to push to production." ]
+                                , details = [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing its use before committing and attempting to push to production." ]
                                 }
                                 (Node.range node)
                           ]
@@ -1039,7 +1039,7 @@ by the tests automatically.
     error node =
         Rule.error
             { message = "Remove the use of `Debug` before shipping to production"
-            , details = [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing it's use before committing and attempting to push to production." ]
+            , details = [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing its use before committing and attempting to push to production." ]
             }
             (Node.range node)
 

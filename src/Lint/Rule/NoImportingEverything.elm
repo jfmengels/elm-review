@@ -73,7 +73,7 @@ error range name =
     Rule.error
         { message = "Do not expose everything from " ++ name
         , details =
-            [ "Exposing `(..)` from a module means making all it's exposed functions and types available in the file's namespace. This makes it hard to tell which module a function or type comes from."
+            [ "Exposing `(..)` from a module means making all its exposed functions and types available in the file's namespace. This makes it hard to tell which module a function or type comes from."
             , "A preferred pattern is to import functions by name (`import Html exposing (div, span)`) or to use qualified imports (`import Html`, then `Html.div`). If the module name is too long, you can give an alias to the imported module (`import Html.Attributes as Attr`)."
             ]
         }

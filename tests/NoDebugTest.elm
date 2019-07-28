@@ -19,7 +19,7 @@ message =
 
 details : List String
 details =
-    [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing it's use before committing and attempting to push to production."
+    [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing its use before committing and attempting to push to production."
     ]
 
 

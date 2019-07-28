@@ -71,7 +71,7 @@ error : Node a -> Error
 error node =
     Rule.error
         { message = "Remove the use of `Debug` before shipping to production"
-        , details = [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing it's use before committing and attempting to push to production." ]
+        , details = [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing its use before committing and attempting to push to production." ]
         }
         (Node.range node)
 

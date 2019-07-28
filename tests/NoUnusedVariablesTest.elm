@@ -648,22 +648,22 @@ type A = B | C
 type alias ExposedType = { a : Maybe A }
 """
                 |> Lint.Test.expectNoErrors
-    , test "should not report type alias if it's exposed" <|
+    , test "should not report type alias if it is exposed" <|
         \() ->
             testRule """module SomeModule exposing (A)
 type alias A = { a : B }"""
                 |> Lint.Test.expectNoErrors
-    , test "should not report custom type if it's exposed" <|
+    , test "should not report custom type if it is exposed" <|
         \() ->
             testRule """module SomeModule exposing (A)
 type A a = B a"""
                 |> Lint.Test.expectNoErrors
-    , test "should not report custom type if it's exposed with its sub-types" <|
+    , test "should not report custom type if it is exposed with its sub-types" <|
         \() ->
             testRule """module SomeModule exposing (A(..))
 type A = B | C | D"""
                 |> Lint.Test.expectNoErrors
-    , test "should report unused variable even if it's named like a custom type parameter" <|
+    , test "should report unused variable even if it is named like a custom type parameter" <|
         \() ->
             testRule """module SomeModule exposing (A)
 a = 1
@@ -676,7 +676,7 @@ type A a = B a"""
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 1 }, end = { row = 2, column = 2 } }
                     ]
-    , test "should report unused variable even if it's present in a generic record type" <|
+    , test "should report unused variable even if it is present in a generic record type" <|
         \() ->
             testRule """module SomeModule exposing (a)
 r = 1
