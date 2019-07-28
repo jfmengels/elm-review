@@ -44,6 +44,9 @@ rules work.
 
 # What makes a good rule
 
+Apart from the rationale on [whether a rule should be written](./#when-to-write-or-enable-a-rule),
+here are a few tips on what makes a rule helpful.
+
 A linting rule is an automated communication tool which sends messages to
 developers who have written patterns your rule wishes to prevent. As all
 communication, the message is important.
@@ -58,7 +61,7 @@ name. And a user who encountered it several times should know how to fix the
 problem just from the name too.
 
 I recommend having the name of the file containing the rule be the same as the
-rule name. This will make it easier to find the module in the your project or
+rule name. This will make it easier to find the module in the project or on
 the packages website when trying to get more information.
 
 
@@ -73,8 +76,8 @@ into two parts:
     knows the rule probably knows that a function needs to be removed from the
     source code, and also knows which one.
   - The `details`: All the additional information that can be useful to the
-    user, such as the rationale behind forbidding the pattern, and suggesting a
-    solution or alternative.
+    user, such as the rationale behind forbidding the pattern, and suggestions
+    for a solution or alternative.
 
 When writing the error message that the user will see, try to make them be as
 helpful as the messages the compiler gives you when it encounters a problem.
@@ -126,6 +129,13 @@ implementing the rule you wish to create.
 
 
 # Writing a Rule
+
+**NOTE**: There are a lot of rule examples in the documentation of the functions
+below. They are only here to showcase how to write rules and how a function can
+be used. The rule examples are not necessarily good rules to enforce. See the
+[section on whether to write a rule](./#when-to-write-or-enable-a-rule) for more on that. Even if you think
+they are good ideas to enforce, they are often not complete, as there are other
+patterns you would want to forbid, but that are not handled by the example.
 
 
 ## Definition
