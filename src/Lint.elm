@@ -24,7 +24,7 @@ like the name of the rule that emitted it and the file name.
 
 -}
 type alias LintError =
-    { file : Maybe String
+    { file : String
     , ruleName : String
     , message : String
     , details : List String
@@ -40,26 +40,36 @@ type alias LintError =
         , Lint.Rule.NoUnusedVariables.rule
         ]
 
-    result =
+    errors : List LintError
+    errors =
         lintSource config sourceCode
 
 -}
-lintSource : List Rule -> String -> Result (List String) (List LintError)
-lintSource config source =
-    source
-        |> parseSource
-        |> Result.map
-            (\statements ->
-                config
-                    |> List.concatMap (lintSourceWithRule statements)
-                    |> List.sortWith compareErrorPositions
-            )
+lintSource : List Rule -> { fileName : String, source : String } -> List LintError
+lintSource config { fileName, source } =
+    case parseSource source of
+        Ok file ->
+            config
+                |> List.concatMap (lintSourceWithRule fileName file)
+                |> List.sortWith compareErrorPositions
+
+        Err _ ->
+            [ { file = fileName
+              , ruleName = "ParsingError"
+              , message = fileName ++ " is not a correct Elm file"
+              , details =
+                    [ "I could not understand the contents of this file, and this prevents me from analyzing it. It's highly likely that the contents of the file is not correct Elm code."
+                    , "Hint: Try running `elm make`. The compiler should give you better hints on how to resolve the problem."
+                    ]
+              , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
+              }
+            ]
 
 
-lintSourceWithRule : File -> Rule -> List LintError
-lintSourceWithRule file rule =
+lintSourceWithRule : String -> File -> Rule -> List LintError
+lintSourceWithRule fileName file rule =
     Rule.analyzer rule file
-        |> List.map (errorToRuleError Nothing rule)
+        |> List.map (ruleErrorToLintError fileName rule)
 
 
 compareErrorPositions : LintError -> LintError -> Order
@@ -109,8 +119,8 @@ compareRange a b =
         EQ
 
 
-errorToRuleError : Maybe String -> Rule -> Rule.Error -> LintError
-errorToRuleError file rule error =
+ruleErrorToLintError : String -> Rule -> Rule.Error -> LintError
+ruleErrorToLintError file rule error =
     { file = file
     , ruleName = Rule.name rule
     , message = Rule.errorMessage error
@@ -121,11 +131,9 @@ errorToRuleError file rule error =
 
 {-| Parse source code into a AST
 -}
-parseSource : String -> Result (List String) File
+parseSource : String -> Result String File
 parseSource source =
     source
         |> Parser.parse
-        -- TODO Improve parsing error handling
-        |> Result.mapError (\error -> [ "Parsing error" ])
-        -- TODO Add all files to have more context https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Processing
+        |> Result.mapError (\error -> "Parsing error")
         |> Result.map (process init)

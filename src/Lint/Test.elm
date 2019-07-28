@@ -135,14 +135,19 @@ You can't just have an expression like `1 + 2`.
 
 -}
 run : Rule -> String -> LintResult
-run rule sourceCode =
-    case lintSource [ rule ] sourceCode of
-        Ok errors ->
-            SuccessfulRun
-                { getCodeAtLocation = getCodeAtLocationInSourceCode sourceCode
-                , checkIfLocationIsAmbiguous = checkIfLocationIsAmbiguousInSourceCode sourceCode
-                }
-                (List.map
+run rule source =
+    let
+        errors : List Lint.LintError
+        errors =
+            lintSource [ rule ] { fileName = "TestContent.elm", source = source }
+    in
+    case List.head errors |> Maybe.map .message of
+        Just "TestContent.elm is not a correct Elm file" ->
+            ParseFailure
+
+        _ ->
+            errors
+                |> List.map
                     (\error_ ->
                         Rule.error
                             { message = error_.message
@@ -150,11 +155,10 @@ run rule sourceCode =
                             }
                             error_.range
                     )
-                    errors
-                )
-
-        Err _ ->
-            ParseFailure
+                |> SuccessfulRun
+                    { getCodeAtLocation = getCodeAtLocationInSourceCode source
+                    , checkIfLocationIsAmbiguous = checkIfLocationIsAmbiguousInSourceCode source
+                    }
 
 
 {-| Assert that the rule reported no errors. Note, this is equivalent to using [`expectErrors`](#expectErrors)

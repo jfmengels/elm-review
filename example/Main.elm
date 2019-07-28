@@ -49,7 +49,7 @@ config model =
 
 type alias Model =
     { sourceCode : String
-    , lintResult : Result (List String) (List LintError)
+    , lintErrors : List LintError
     , noDebugEnabled : Bool
     , noUnusedVariablesEnabled : Bool
     , noImportingEverythingEnabled : Bool
@@ -81,7 +81,7 @@ g n = n + 1
         tmpModel : Model
         tmpModel =
             { sourceCode = sourceCode
-            , lintResult = Result.Ok []
+            , lintErrors = []
             , noDebugEnabled = True
             , noUnusedVariablesEnabled = True
             , noImportingEverythingEnabled = True
@@ -91,7 +91,7 @@ g n = n + 1
             , showConfigurationAsText = False
             }
     in
-    { tmpModel | lintResult = lintSource (config tmpModel) sourceCode }
+    { tmpModel | lintErrors = lintSource (config tmpModel) { fileName = "", source = sourceCode } }
 
 
 
@@ -114,7 +114,7 @@ update action model =
         UserEditedSourceCode sourceCode ->
             { model
                 | sourceCode = sourceCode
-                , lintResult = lintSource (config model) sourceCode
+                , lintErrors = lintSource (config model) { fileName = "Source code", source = model.sourceCode }
             }
 
         UserToggledNoDebugRule ->
@@ -143,7 +143,11 @@ update action model =
 
 rerunLinting : Model -> Model
 rerunLinting model =
-    { model | lintResult = lintSource (config model) model.sourceCode }
+    { model
+        | lintErrors =
+            lintSource (config model)
+                { fileName = "Source code", source = model.sourceCode }
+    }
 
 
 
@@ -319,23 +323,17 @@ viewCheckbox onClick name checked =
 
 lintErrors : Model -> List Text
 lintErrors model =
-    case model.lintResult of
-        Err errors ->
-            errors
-                |> List.map Text.from
+    if List.isEmpty model.lintErrors then
+        [ Text.from "I found no linting errors.\nYou're all good!" ]
 
-        Ok errors ->
-            if List.isEmpty errors then
-                [ Text.from "I found no linting errors.\nYou're all good!" ]
-
-            else
-                Reporter.formatReport
-                    [ ( { name = "IN SOURCE CODE"
-                        , source = model.sourceCode
-                        }
-                      , errors
-                      )
-                    ]
+    else
+        Reporter.formatReport
+            [ ( { name = "Source code"
+                , source = model.sourceCode
+                }
+              , model.lintErrors
+              )
+            ]
 
 
 main : Program () Model Msg
