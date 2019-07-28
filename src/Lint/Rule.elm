@@ -62,11 +62,34 @@ rule name. This will make it easier to find the module in the your project or
 the packages website when trying to get more information.
 
 
-## A helpful error message
+## A helpful error message and details
 
-The error message should give more information about the problem. It can give
-the rationale as to what the problem is, why this pattern is forbidden, and
-suggest a solution or a better alternative.
+The error message should give more information about the problem. It is split
+into two parts:
+
+  - The `message`: A short sentence that describes the forbidden pattern. A user
+    that has encountered this error multiple times should know exactly what to do.
+    Example: "Function `foo` is never used". With this information, a user who
+    knows the rule probably knows that a function needs to be removed from the
+    source code, and also knows which one.
+  - The `details`: All the additional information that can be useful to the
+    user, such as the rationale behind forbidding the pattern, and suggesting a
+    solution or alternative.
+
+When writing the error message that the user will see, try to make them be as
+helpful as the messages the compiler gives you when it encounters a problem.
+
+
+## The smallest section of code that makes sense
+
+When creating an error, you need to specify under which section of the code this
+message appears. This is where you would see squiggly lines in your editor when
+you have linting or compiler errors.
+
+To make the error easier to spot, it's best to make this section as small as
+possible, as long as that makes sense. For instance, in a rule that would forbid
+`Debug.log`, you would the error to appear under `Debug.log`, not on the whole
+function which contains this piece of code.
 
 
 ## Good rule documentation
@@ -1004,9 +1027,13 @@ type Error
 
 
 {-| Creates an [`Error`](#Error). Use it when you find a pattern that the rule should forbid.
-It takes the message you want to display to the user, and a [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range),
+It takes the [message you want to display to the user](#a-helpful-error-message-and-details), and a [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range),
 which is the location where the error should be shown (under which to put the squiggly lines in an editor).
 In most cases, you can get it using [`Node.range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#range).
+
+The `details` is a list of strings, and each item will be visually separated
+when shown to the user. The details may not be empty, and this will be enforced
+by the tests automatically.
 
     error : Node a -> Error
     error node =
