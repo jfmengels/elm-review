@@ -147,7 +147,7 @@ all the nuisances.
 Linting rules are useful when something must never appear in the code. It gets
 much less useful when something should not appear only 99% of the time, as there
 is no good solution for handling exceptions (`elm-lint` doesn't offer an option
-for disabling a rule locally, see why [here](#-is-there-a-way-to-ignore-an-error-or-disable-a-rule-only-in-some-locations-)).
+for disabling a rule locally, see why [here](#is-there-a-way-to-ignore-an-error-or-disable-a-rule-only-in-some-locations-)).
 
 First of all, if you have never encountered a problem with some pattern before,
 then you probably don't need to forbid it. There are chances the problem will
@@ -190,33 +190,19 @@ When wondering whether to write or enable a rule, I suggest using this checklist
   often disturbing or simply unhelpful
 
 
-## Questions and comments you may have
-
-### # Is there a way to ignore an error or disable a rule only in some locations?
+## Is there a way to ignore an error or disable a rule only in some locations?
 
 There is none at the moment, for several reasons:
-- The most practical way to locally disable a rule would probably be through comments, like [how `ESLint` does it](https://eslint.org/docs/user-guide/configuring#disabling-rules-with-inline-comments). But since [elm-format](https://github.com/avh4/elm-format) would move the comments around, this would require you to try and figure out how/where to place the comment, or the rule would need to be disabled for a bigger section of the code than wanted. Neither option provides a good experience.
-- If there are some rules that you really want to enforce, and it's possible to ignore it, then you will want a second system to ensure those rules are never ignored.
-- When people encounter a linting error, quite often they will try to disable it by default, because they don't agree with the rule, or because they want to do later or not at all.
-The more I think about it, the more I think that if you need to make an exception to your rule somewhere, then maybe the rule is not worth enforcing in the first place, and that you should probably remove it from your configuration.
-- The more I think about it, the more I think that if you need to make an exception to your rule somewhere, then maybe the rule is not worth enforcing in the first place, and that you should probably remove it from your configuration.
+  - The most practical way to locally disable a rule would probably be through comments, like [how `ESLint` does it](https://eslint.org/docs/user-guide/configuring#disabling-rules-with-inline-comments). But since [elm-format](https://github.com/avh4/elm-format) would move the comments around, this would require you to try and figure out how/where to place the comment, or the rule would need to be disabled for a bigger section of the code than wanted. Neither option provides a good experience.
+  - If there are some rules that you really want to enforce, and it's possible to ignore it, then you will want a second system to ensure those rules are never ignored.
+  - When people encounter a linting error, quite often they will try to disable it by default, because they don't agree with the rule, or because they want to do later or not at all.
+  The more I think about it, the more I think that if you need to make an exception to your rule somewhere, then maybe the rule is not worth enforcing in the first place, and that you should probably remove it from your configuration.
+  - The more I think about it, the more I think that if you need to make an exception to your rule somewhere, then maybe the rule is not worth enforcing in the first place, and that you should probably remove it from your configuration.
 
 It's a very all-or-nothing approach, but I prefer to start without the ability to disable rules, be convinced by good arguments and add it, rather than have it from the start with a not-so-great solution and have people write rules and add exceptions everywhere. Please let me know if and when you need it. That said, I suggest not waiting for this option to arrive and instead reading [when to write or enable a rule in a configuration](#when-to-write-or-enable-a-rule)
 
-### # Is there a way to automatically fix the reported errors?
+## Is there a way to automatically fix the reported errors?
 
-There is none at the moment. Maybe this will happen at a later time.
-
-### # I have an idea for a rule, how can I get it integrated into `elm-lint`?
-
-Please open an issue here so we can talk about it. Try to make your proposal look like [this](https://github.com/eslint/eslint/blob/master/templates/rule-proposal.md).
-
-You can also write your rule using the API provided in this package in a new package or in your project directly. There is no need to have it in `elm-lint` to use it.
-
-### # I am writing my own rule, but some nodes are not visited / something is not working as expected.
-
-I know about some missing pieces, and there are others that I don't know about as I haven't written any rules using those nodes. If something is not working, please open an issue.
-
-### # I want to know more!
-
-I [presented](http://slides.com/jeroenengels/elm-lint) `elm-lint` a long time ago, before it was even remotely usable at the Paris Elm Meetup. Maybe it will teach you about it. Otherwise, just open an issue to ask your question or hit me on the [Elm Slack channel](https://elmlang.slack.com), my username is `jfmengels`.
+There is none at the moment, but this might be added a later time. That said, it
+is unlikely that all errors will be fixable, so there will always be a need for
+manual fixing for some rules.
