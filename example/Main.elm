@@ -1,7 +1,7 @@
 module Main exposing (main)
 
 import Browser
-import Html exposing (Html, button, div, input, label, li, p, text, textarea, ul)
+import Html exposing (Html, button, div, input, label, p, text, textarea)
 import Html.Attributes as Attr
 import Html.Events as Events
 import Lint exposing (LintError, lintSource)
@@ -11,6 +11,8 @@ import Lint.Rule.NoExtraBooleanComparison
 import Lint.Rule.NoImportingEverything
 import Lint.Rule.NoUnusedTypeConstructors
 import Lint.Rule.NoUnusedVariables
+import Reporter
+import Text exposing (Text)
 
 
 
@@ -157,19 +159,39 @@ view model =
                 [ Attr.style "display" "flex"
                 , Attr.style "flex-direction" "row"
                 ]
-                [ textarea
-                    [ Attr.id "input"
-                    , Events.onInput UserEditedSourceCode
-                    , Attr.style "height" "500px"
-                    , Attr.style "width" "60%"
+                [ div
+                    [ Attr.style "width" "60%"
                     ]
-                    [ text model.sourceCode ]
-                , div [ Attr.style "margin-left" "2rem" ]
+                    [ textarea
+                        [ Attr.id "input"
+                        , Events.onInput UserEditedSourceCode
+                        , Attr.style "width" "100%"
+                        , Attr.style "height" "500px"
+                        ]
+                        [ text model.sourceCode ]
+                    , div
+                        [ Attr.style "border-radius" "4px"
+                        , Attr.style "padding" "12px"
+                        , Attr.style "max-width" "100%"
+                        , Attr.style "width" "calc(100vw - 24px)"
+                        , Attr.style "overflow-x" "auto"
+                        , Attr.style "white-space" "pre"
+                        , Attr.style "color" "white"
+                        , Attr.style "font-family" "'Source Code Pro', monospace"
+                        , Attr.style "font-size" "12px"
+                        , Attr.style "background-color" "black"
+                        ]
+                        [ lintErrors model
+                            |> Text.view
+                        ]
+                    ]
+                , div
+                    [ Attr.style "margin-left" "2rem"
+                    , Attr.style "width" "40%"
+                    ]
                     [ viewConfigurationPanel model
                     , viewConfigurationAsText model
                     , p [ Attr.class "title" ] [ text "Linting errors" ]
-                    , ul [ Attr.id "lint" ]
-                        (lintErrors model)
                     ]
                 ]
             ]
@@ -199,6 +221,7 @@ viewConfigurationAsText model =
         div
             [ Attr.style "display" "flex"
             , Attr.style "flex-direction" "column"
+            , Attr.style "width" "100%"
             ]
             [ button
                 [ Attr.style "margin-top" "2rem"
@@ -294,35 +317,25 @@ viewCheckbox onClick name checked =
         ]
 
 
-lintErrors : Model -> List (Html Msg)
+lintErrors : Model -> List Text
 lintErrors model =
-    let
-        messages : List String
-        messages =
-            case model.lintResult of
-                Err errors ->
-                    errors
+    case model.lintResult of
+        Err errors ->
+            errors
+                |> List.map Text.from
 
-                Ok errors ->
-                    if List.isEmpty errors then
-                        [ "No errors." ]
+        Ok errors ->
+            if List.isEmpty errors then
+                [ Text.from "I found no linting errors.\nYou're all good!" ]
 
-                    else
-                        List.map errorToString errors
-    in
-    List.map
-        (\message -> li [] [ text message ])
-        messages
-
-
-errorToString : LintError -> String
-errorToString { ruleName, message, range } =
-    let
-        location : String
-        location =
-            "(line " ++ String.fromInt range.start.row ++ ", column " ++ String.fromInt range.start.column ++ ")"
-    in
-    ruleName ++ ": " ++ message ++ " " ++ location
+            else
+                Reporter.formatReport
+                    [ ( { name = "IN SOURCE CODE"
+                        , source = model.sourceCode
+                        }
+                      , errors
+                      )
+                    ]
 
 
 main : Program () Model Msg
