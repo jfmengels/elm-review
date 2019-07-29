@@ -2,17 +2,20 @@ module Reporter exposing (formatReport)
 
 import Array exposing (Array)
 import Elm.Syntax.Range exposing (Range)
+import File exposing (File)
 import Lint exposing (LintError)
 import Text exposing (Text)
 
 
-type alias File =
-    { name : String
-    , source : String
+type alias Error =
+    { ruleName : String
+    , message : String
+    , details : List String
+    , range : Range
     }
 
 
-formatReportForFileWithExtract : ( File, List LintError ) -> List Text
+formatReportForFileWithExtract : ( File, List Error ) -> List Text
 formatReportForFileWithExtract ( file, errors ) =
     let
         formattedErrors : List (List Text)
@@ -32,7 +35,7 @@ formatReportForFileWithExtract ( file, errors ) =
     header :: Text.from "\n\n" :: Text.join "\n\n\n" formattedErrors
 
 
-formatErrorWithExtract : File -> LintError -> List Text
+formatErrorWithExtract : File -> Error -> List Text
 formatErrorWithExtract file { ruleName, message, details, range } =
     let
         title : List Text
@@ -196,14 +199,54 @@ formatReport errors =
             [ Text.from "I found no linting errors.\nYou're all good!" ]
 
         False ->
-            let
-                fileReports : List Text
-                fileReports =
-                    errors
-                        |> List.map formatReportForFileWithExtract
-                        |> Text.join "\n\n\n\n"
-            in
-            [ fileReports
-            , [ Text.from <| "\n\n\n\n" ++ summary errors ]
-            ]
-                |> List.concat
+            List.concat
+                [ formatReports <| fromLintErrors errors
+                , [ Text.from <| "\n\n\n\n" ++ summary errors ]
+                ]
+
+
+formatReports : List ( File, List Error ) -> List Text
+formatReports errors =
+    case errors of
+        [] ->
+            []
+
+        [ error ] ->
+            formatReportForFileWithExtract error
+
+        (( fileA, error ) as a) :: (( fileB, _ ) as b) :: restOfErrors ->
+            List.concat
+                [ formatReportForFileWithExtract a
+                , [ fileSeparator fileA fileB ]
+                , formatReports (b :: restOfErrors)
+                ]
+
+
+fileSeparator : File -> File -> Text
+fileSeparator file1 file2 =
+    let
+        str : String
+        str =
+            "\n\n"
+                ++ String.padLeft 80 ' ' (file1.name ++ "  ↑    ")
+                ++ "\n====o======================================================================o===="
+                ++ "\n    ↓  "
+                ++ file2.name
+                ++ "\n\n\n"
+    in
+    Text.from str
+        |> Text.inRed
+
+
+fromLintErrors : List ( File, List LintError ) -> List ( File, List Error )
+fromLintErrors errors =
+    (List.map <| Tuple.mapSecond <| List.map fromLintError) errors
+
+
+fromLintError : LintError -> Error
+fromLintError error =
+    { ruleName = Lint.errorRuleName error
+    , message = Lint.errorMessage error
+    , details = Lint.errorDetails error
+    , range = Lint.errorRange error
+    }
