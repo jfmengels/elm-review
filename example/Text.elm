@@ -1,7 +1,7 @@
 module Text exposing
     ( Text
     , from
-    , inGreen, inRed
+    , inBlue, inRed
     , join
     , view
     )
@@ -29,7 +29,7 @@ module Text exposing
 
 # Modifiers
 
-@docs inGreen, inRed
+@docs inBlue, inRed
 
 
 # Working with lists
@@ -61,7 +61,7 @@ import Html.Attributes as Attr
 type Text
     = Text
         { str : String
-        , color : Maybe String
+        , color : Maybe ( Int, Int, Int )
         }
 
 
@@ -83,14 +83,14 @@ from value =
 -- MODIFIERS
 
 
-inGreen : Text -> Text
-inGreen (Text text) =
-    Text { text | color = Just "green" }
+inBlue : Text -> Text
+inBlue (Text text) =
+    Text { text | color = Just ( 51, 187, 200 ) }
 
 
 inRed : Text -> Text
 inRed (Text text) =
-    Text { text | color = Just "red" }
+    Text { text | color = Just ( 255, 0, 0 ) }
 
 
 
@@ -118,8 +118,8 @@ viewPart : Text -> Html msg
 viewPart (Text text) =
     Html.span
         [ case text.color of
-            Just color ->
-                Attr.style "color" color
+            Just ( red, green, blue ) ->
+                Attr.style "color" <| "rgb(" ++ String.fromInt red ++ "," ++ String.fromInt green ++ "," ++ String.fromInt blue ++ ")"
 
             Nothing ->
                 Attr.classList []
