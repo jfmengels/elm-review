@@ -1,4 +1,7 @@
-module Lint exposing (LintError, lintSource)
+module Lint exposing
+    ( LintError, lintSource
+    , errorFile, errorRuleName, errorMessage, errorDetails, errorRange
+    )
 
 {-| Module to configure your linting configuration and run it on a source file.
 
@@ -6,6 +9,11 @@ module Lint exposing (LintError, lintSource)
 # Linting
 
 @docs LintError, lintSource
+
+
+# Errors
+
+@docs errorFile, errorRuleName, errorMessage, errorDetails, errorRange
 
 -}
 
@@ -23,13 +31,18 @@ Note: This should not be confused with `Error` from the `Lint.Rule` module.
 like the name of the rule that emitted it and the file name.
 
 -}
-type alias LintError =
-    { file : String
-    , ruleName : String
-    , message : String
-    , details : List String
-    , range : Range
-    }
+type LintError
+    = LintError
+        { file : String
+        , ruleName : String
+        , message : String
+        , details : List String
+        , range : Range
+        }
+
+
+
+-- LINTING
 
 
 {-| Lints a file and gives back the errors raised by the given rules.
@@ -54,15 +67,16 @@ lintSource config { fileName, source } =
                 |> List.sortWith compareErrorPositions
 
         Err _ ->
-            [ { file = fileName
-              , ruleName = "ParsingError"
-              , message = fileName ++ " is not a correct Elm file"
-              , details =
+            [ LintError
+                { file = fileName
+                , ruleName = "ParsingError"
+                , message = fileName ++ " is not a correct Elm file"
+                , details =
                     [ "I could not understand the contents of this file, and this prevents me from analyzing it. It's highly likely that the contents of the file is not correct Elm code."
                     , "Hint: Try running `elm make`. The compiler should give you better hints on how to resolve the problem."
                     ]
-              , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
-              }
+                , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
+                }
             ]
 
 
@@ -73,7 +87,7 @@ lintSourceWithRule fileName file rule =
 
 
 compareErrorPositions : LintError -> LintError -> Order
-compareErrorPositions a b =
+compareErrorPositions (LintError a) (LintError b) =
     compareRange a.range b.range
 
 
@@ -121,12 +135,13 @@ compareRange a b =
 
 ruleErrorToLintError : String -> Rule -> Rule.Error -> LintError
 ruleErrorToLintError file rule error =
-    { file = file
-    , ruleName = Rule.name rule
-    , message = Rule.errorMessage error
-    , details = Rule.errorDetails error
-    , range = Rule.errorRange error
-    }
+    LintError
+        { file = file
+        , ruleName = Rule.name rule
+        , message = Rule.errorMessage error
+        , details = Rule.errorDetails error
+        , range = Rule.errorRange error
+        }
 
 
 {-| Parse source code into a AST
@@ -137,3 +152,42 @@ parseSource source =
         |> Parser.parse
         |> Result.mapError (\error -> "Parsing error")
         |> Result.map (process init)
+
+
+
+-- ERRORS
+
+
+{-| Get the file of an error.
+-}
+errorFile : LintError -> String
+errorFile (LintError error) =
+    error.file
+
+
+{-| Get the name of the rule of an error.
+-}
+errorRuleName : LintError -> String
+errorRuleName (LintError error) =
+    error.ruleName
+
+
+{-| Get the message of an error.
+-}
+errorMessage : LintError -> String
+errorMessage (LintError error) =
+    error.message
+
+
+{-| Get the details of an error.
+-}
+errorDetails : LintError -> List String
+errorDetails (LintError error) =
+    error.details
+
+
+{-| Get the range of an error.
+-}
+errorRange : LintError -> Range
+errorRange (LintError error) =
+    error.range
