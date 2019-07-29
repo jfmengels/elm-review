@@ -114,7 +114,7 @@ update action model =
         UserEditedSourceCode sourceCode ->
             { model
                 | sourceCode = sourceCode
-                , lintErrors = lintSource (config model) { fileName = "Source code", source = model.sourceCode }
+                , lintErrors = lintSource (config model) { fileName = "Source code", source = sourceCode }
             }
 
         UserToggledNoDebugRule ->
