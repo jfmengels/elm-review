@@ -58,19 +58,19 @@ type LintError
         lintSource config sourceCode
 
 -}
-lintSource : List Rule -> { fileName : String, source : String } -> List LintError
-lintSource config { fileName, source } =
+lintSource : List Rule -> { path : String, source : String } -> List LintError
+lintSource config { path, source } =
     case parseSource source of
         Ok file ->
             config
-                |> List.concatMap (lintSourceWithRule fileName file)
+                |> List.concatMap (lintSourceWithRule path file)
                 |> List.sortWith compareErrorPositions
 
         Err _ ->
             [ LintError
-                { file = fileName
+                { file = path
                 , ruleName = "ParsingError"
-                , message = fileName ++ " is not a correct Elm file"
+                , message = path ++ " is not a correct Elm file"
                 , details =
                     [ "I could not understand the contents of this file, and this prevents me from analyzing it. It's highly likely that the contents of the file is not correct Elm code."
                     , "Hint: Try running `elm make`. The compiler should give you better hints on how to resolve the problem."
@@ -81,9 +81,9 @@ lintSource config { fileName, source } =
 
 
 lintSourceWithRule : String -> File -> Rule -> List LintError
-lintSourceWithRule fileName file rule =
+lintSourceWithRule path file rule =
     Rule.analyzer rule file
-        |> List.map (ruleErrorToLintError fileName rule)
+        |> List.map (ruleErrorToLintError path rule)
 
 
 compareErrorPositions : LintError -> LintError -> Order

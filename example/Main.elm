@@ -61,21 +61,18 @@ f x = x Debug.log 1
 
 g n = n + 1
 """
-
-        tmpModel : Model
-        tmpModel =
-            { sourceCode = sourceCode
-            , lintErrors = []
-            , noDebugEnabled = True
-            , noUnusedVariablesEnabled = True
-            , noImportingEverythingEnabled = True
-            , noImportingEverythingExceptions = [ "Html", "Html.Attributes" ]
-            , noExtraBooleanComparisonEnabled = True
-            , noUnusedTypeConstructorsEnabled = True
-            , showConfigurationAsText = False
-            }
     in
-    { tmpModel | lintErrors = lintSource (config tmpModel) { fileName = "", source = sourceCode } }
+    { sourceCode = sourceCode
+    , lintErrors = []
+    , noDebugEnabled = True
+    , noUnusedVariablesEnabled = True
+    , noImportingEverythingEnabled = True
+    , noImportingEverythingExceptions = [ "Html", "Html.Attributes" ]
+    , noExtraBooleanComparisonEnabled = True
+    , noUnusedTypeConstructorsEnabled = True
+    , showConfigurationAsText = False
+    }
+        |> runLinting
 
 
 
@@ -124,42 +121,36 @@ update : Msg -> Model -> Model
 update action model =
     case action of
         UserEditedSourceCode sourceCode ->
-            { model
-                | sourceCode = sourceCode
-                , lintErrors = lintSource (config model) { fileName = "Source code", source = sourceCode }
-            }
+            { model | sourceCode = sourceCode }
+                |> runLinting
 
         UserToggledNoDebugRule ->
             { model | noDebugEnabled = not model.noDebugEnabled }
-                |> rerunLinting
+                |> runLinting
 
         UserToggledNoUnusedVariablesRule ->
             { model | noUnusedVariablesEnabled = not model.noUnusedVariablesEnabled }
-                |> rerunLinting
+                |> runLinting
 
         UserToggledNoImportingEverythingRule ->
             { model | noImportingEverythingEnabled = not model.noImportingEverythingEnabled }
-                |> rerunLinting
+                |> runLinting
 
         UserToggledNoExtraBooleanComparisonRule ->
             { model | noExtraBooleanComparisonEnabled = not model.noExtraBooleanComparisonEnabled }
-                |> rerunLinting
+                |> runLinting
 
         UserToggledNoUnusedTypeConstructorsRule ->
             { model | noUnusedTypeConstructorsEnabled = not model.noUnusedTypeConstructorsEnabled }
-                |> rerunLinting
+                |> runLinting
 
         UserToggledConfigurationAsText ->
             { model | showConfigurationAsText = not model.showConfigurationAsText }
 
 
-rerunLinting : Model -> Model
-rerunLinting model =
-    { model
-        | lintErrors =
-            lintSource (config model)
-                { fileName = "Source code", source = model.sourceCode }
-    }
+runLinting : Model -> Model
+runLinting model =
+    { model | lintErrors = lintSource (config model) (file model.sourceCode) }
 
 
 
@@ -365,9 +356,7 @@ lintErrors model =
         ]
 
     else
-        [ ( { name = "Source code"
-            , source = model.sourceCode
-            }
+        [ ( file model.sourceCode
           , model.lintErrors
                 |> List.map fromLintError
           )
@@ -382,3 +371,8 @@ fromLintError error =
     , details = Lint.errorDetails error
     , range = Lint.errorRange error
     }
+
+
+file : String -> { path : String, source : String }
+file source =
+    { path = "SOURCE CODE", source = source }
