@@ -1,6 +1,6 @@
 module Lint exposing
     ( LintError, lintSource
-    , errorFile, errorRuleName, errorMessage, errorDetails, errorRange
+    , errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange
     )
 
 {-| Module to configure your linting configuration and run it on a source file.
@@ -13,15 +13,18 @@ module Lint exposing
 
 # Errors
 
-@docs errorFile, errorRuleName, errorMessage, errorDetails, errorRange
+@docs errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange
 
 -}
 
 import Elm.Parser as Parser
 import Elm.Processing exposing (init, process)
 import Elm.Syntax.File exposing (File)
+import Elm.Syntax.Module exposing (Module(..))
+import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Lint.Rule as Rule exposing (Rule)
+import Lint.Util as Util
 
 
 {-| Represents an error in a file found by a rule.
@@ -33,7 +36,7 @@ like the name of the rule that emitted it and the file name.
 -}
 type LintError
     = LintError
-        { file : String
+        { moduleName : Maybe String
         , ruleName : String
         , message : String
         , details : List String
@@ -68,7 +71,7 @@ lintSource config { path, source } =
 
         Err _ ->
             [ LintError
-                { file = path
+                { moduleName = Nothing
                 , ruleName = "ParsingError"
                 , message = path ++ " is not a correct Elm file"
                 , details =
@@ -83,7 +86,25 @@ lintSource config { path, source } =
 lintSourceWithRule : String -> File -> Rule -> List LintError
 lintSourceWithRule path file rule =
     Rule.analyzer rule file
-        |> List.map (ruleErrorToLintError path rule)
+        |> List.map (ruleErrorToLintError (moduleName file) rule)
+
+
+moduleName : File -> String
+moduleName file =
+    let
+        moduleNameNode : Node (List String)
+        moduleNameNode =
+            case Node.value file.moduleDefinition of
+                NormalModule data ->
+                    data.moduleName
+
+                PortModule data ->
+                    data.moduleName
+
+                EffectModule data ->
+                    data.moduleName
+    in
+    Util.moduleName moduleNameNode
 
 
 compareErrorPositions : LintError -> LintError -> Order
@@ -134,9 +155,9 @@ compareRange a b =
 
 
 ruleErrorToLintError : String -> Rule -> Rule.Error -> LintError
-ruleErrorToLintError file rule error =
+ruleErrorToLintError moduleName_ rule error =
     LintError
-        { file = file
+        { moduleName = Just moduleName_
         , ruleName = Rule.name rule
         , message = Rule.errorMessage error
         , details = Rule.errorDetails error
@@ -158,11 +179,11 @@ parseSource source =
 -- ERRORS
 
 
-{-| Get the file of an error.
+{-| Get the name of the module for which the error occurred.
 -}
-errorFile : LintError -> String
-errorFile (LintError error) =
-    error.file
+errorModuleName : LintError -> Maybe String
+errorModuleName (LintError error) =
+    error.moduleName
 
 
 {-| Get the name of the rule of an error.
