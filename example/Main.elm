@@ -12,7 +12,6 @@ import Lint.Rule.NoImportingEverything
 import Lint.Rule.NoUnusedTypeConstructors
 import Lint.Rule.NoUnusedVariables
 import Reporter
-import Text exposing (Text)
 
 
 
@@ -185,8 +184,7 @@ view model =
                         , Attr.style "font-size" "12px"
                         , Attr.style "background-color" "black"
                         ]
-                        [ lintErrors model
-                            |> Text.view
+                        [ viewLintErrors model
                         ]
                     ]
                 , div
@@ -321,19 +319,56 @@ viewCheckbox onClick name checked =
         ]
 
 
-lintErrors : Model -> List Text
+viewLintErrors : Model -> Html msg
+viewLintErrors model =
+    lintErrors model
+        |> List.map viewPart
+        |> Html.div []
+
+
+viewPart : { str : String, color : Maybe ( Int, Int, Int ) } -> Html msg
+viewPart { str, color } =
+    Html.span
+        [ case color of
+            Just ( red, green, blue ) ->
+                Attr.style "color" <| "rgb(" ++ String.fromInt red ++ "," ++ String.fromInt green ++ "," ++ String.fromInt blue ++ ")"
+
+            Nothing ->
+                Attr.classList []
+        ]
+        (str
+            |> String.lines
+            |> List.map Html.text
+            |> List.intersperse (Html.br [] [])
+        )
+
+
+lintErrors : Model -> List { str : String, color : Maybe ( Int, Int, Int ) }
 lintErrors model =
     if List.isEmpty model.lintErrors then
-        [ Text.from "I found no linting errors.\nYou're all good!" ]
+        [ { str = "I found no linting errors.\nYou're all good!"
+          , color = Nothing
+          }
+        ]
 
     else
-        Reporter.formatReport
-            [ ( { name = "Source code"
-                , source = model.sourceCode
-                }
-              , model.lintErrors
-              )
-            ]
+        [ ( { name = "Source code"
+            , source = model.sourceCode
+            }
+          , model.lintErrors
+                |> List.map fromLintError
+          )
+        ]
+            |> Reporter.formatReport
+
+
+fromLintError : LintError -> Reporter.Error
+fromLintError error =
+    { ruleName = Lint.errorRuleName error
+    , message = Lint.errorMessage error
+    , details = Lint.errorDetails error
+    , range = Lint.errorRange error
+    }
 
 
 main : Program () Model Msg

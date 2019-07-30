@@ -1,8 +1,9 @@
 {
     "type": "application",
     "source-directories": [
+        ".",
         "../src",
-        "."
+        "../../elm-lint-reporter/src"
     ],
     "elm-version": "0.19.0",
     "dependencies": {
