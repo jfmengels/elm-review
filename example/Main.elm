@@ -15,31 +15,16 @@ import Reporter
 
 
 
--- LINT CONFIGURATION
+-- MAIN
 
 
-config : Model -> List Rule
-config model =
-    [ ( model.noDebugEnabled, Lint.Rule.NoDebug.rule )
-    , ( model.noUnusedVariablesEnabled, Lint.Rule.NoUnusedVariables.rule )
-    , ( model.noImportingEverythingEnabled, Lint.Rule.NoImportingEverything.rule { exceptions = [ "Html" ] } )
-    , ( model.noExtraBooleanComparisonEnabled, Lint.Rule.NoExtraBooleanComparison.rule )
-    , ( model.noUnusedTypeConstructorsEnabled, Lint.Rule.NoUnusedTypeConstructors.rule )
-
-    -- , Lint.Rule.NoConstantCondition.rule
-    -- , Lint.Rule.NoDuplicateImports.rule
-    -- , Lint.Rule.NoExposingEverything.rule
-    -- , Lint.Rule.NoNestedLet.rule
-    -- , Lint.Rule.NoUnannotatedFunction.rule
-    -- , Lint.Rule.NoUselessIf.rule
-    -- , Lint.Rule.NoUselessPatternMatching.rule
-    -- , Lint.Rule.NoWarningComments.rule
-    -- , Lint.Rule.SimplifyPiping.rule
-    -- , Lint.Rule.SimplifyPropertyAccess.rule
-    -- , Lint.Rule.ElmTest.NoDuplicateTestBodies.rule
-    ]
-        |> List.filter Tuple.first
-        |> List.map Tuple.second
+main : Program () Model Msg
+main =
+    Browser.sandbox
+        { init = init
+        , update = update
+        , view = view
+        }
 
 
 
@@ -91,6 +76,34 @@ g n = n + 1
             }
     in
     { tmpModel | lintErrors = lintSource (config tmpModel) { fileName = "", source = sourceCode } }
+
+
+
+-- LINT CONFIGURATION
+
+
+config : Model -> List Rule
+config model =
+    [ ( model.noDebugEnabled, Lint.Rule.NoDebug.rule )
+    , ( model.noUnusedVariablesEnabled, Lint.Rule.NoUnusedVariables.rule )
+    , ( model.noImportingEverythingEnabled, Lint.Rule.NoImportingEverything.rule { exceptions = [ "Html" ] } )
+    , ( model.noExtraBooleanComparisonEnabled, Lint.Rule.NoExtraBooleanComparison.rule )
+    , ( model.noUnusedTypeConstructorsEnabled, Lint.Rule.NoUnusedTypeConstructors.rule )
+
+    -- , Lint.Rule.NoConstantCondition.rule
+    -- , Lint.Rule.NoDuplicateImports.rule
+    -- , Lint.Rule.NoExposingEverything.rule
+    -- , Lint.Rule.NoNestedLet.rule
+    -- , Lint.Rule.NoUnannotatedFunction.rule
+    -- , Lint.Rule.NoUselessIf.rule
+    -- , Lint.Rule.NoUselessPatternMatching.rule
+    -- , Lint.Rule.NoWarningComments.rule
+    -- , Lint.Rule.SimplifyPiping.rule
+    -- , Lint.Rule.SimplifyPropertyAccess.rule
+    -- , Lint.Rule.ElmTest.NoDuplicateTestBodies.rule
+    ]
+        |> List.filter Tuple.first
+        |> List.map Tuple.second
 
 
 
@@ -369,12 +382,3 @@ fromLintError error =
     , details = Lint.errorDetails error
     , range = Lint.errorRange error
     }
-
-
-main : Program () Model Msg
-main =
-    Browser.sandbox
-        { init = init
-        , update = update
-        , view = view
-        }
