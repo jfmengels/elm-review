@@ -139,9 +139,9 @@ run rule source =
     let
         errors : List Lint.LintError
         errors =
-            lintSource [ rule ] { fileName = "TestContent.elm", source = source }
+            lintSource [ rule ] { path = "TestContent.elm", source = source }
     in
-    case List.head errors |> Maybe.map .message of
+    case List.head errors |> Maybe.map Lint.errorMessage of
         Just "TestContent.elm is not a correct Elm file" ->
             ParseFailure
 
@@ -150,10 +150,10 @@ run rule source =
                 |> List.map
                     (\error_ ->
                         Rule.error
-                            { message = error_.message
-                            , details = error_.details
+                            { message = Lint.errorMessage error_
+                            , details = Lint.errorDetails error_
                             }
-                            error_.range
+                            (Lint.errorRange error_)
                     )
                 |> SuccessfulRun
                     { getCodeAtLocation = getCodeAtLocationInSourceCode source
