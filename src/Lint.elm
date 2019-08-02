@@ -17,13 +17,13 @@ module Lint exposing
 
 -}
 
-import Array
 import Elm.Parser as Parser
 import Elm.Processing exposing (init, process)
 import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Module exposing (Module(..))
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
+import Lint.Fix as Fix
 import Lint.Rule as Rule exposing (Rule)
 import Lint.Util as Util
 
@@ -90,57 +90,6 @@ lintSourceWithRule : String -> File -> String -> Rule -> List LintError
 lintSourceWithRule path file source rule =
     Rule.analyzer rule file
         |> List.map (ruleErrorToLintError source (moduleName file) rule)
-
-
-removeRange : Range -> String -> String
-removeRange range source =
-    let
-        lines : List String
-        lines =
-            String.lines source
-
-        linesBefore : String
-        linesBefore =
-            lines
-                |> List.take (range.start.row - 1)
-                |> String.join "\n"
-
-        linesAfter : String
-        linesAfter =
-            lines
-                |> List.drop range.end.row
-                |> String.join "\n"
-
-        line : String
-        line =
-            getRowAtLine lines (range.start.row - 1)
-
-        lineBefore : String
-        lineBefore =
-            String.slice 0 (range.start.column - 1) line
-
-        lineAfter : String
-        lineAfter =
-            String.dropLeft (range.end.column - 1) line
-
-        newSource =
-            source
-    in
-    linesBefore ++ "\n" ++ lineBefore ++ lineAfter ++ "\n" ++ linesAfter
-
-
-getRowAtLine : List String -> Int -> String
-getRowAtLine lines rowIndex =
-    case lines |> Array.fromList |> Array.get rowIndex of
-        Just line ->
-            if String.trim line /= "" then
-                line
-
-            else
-                ""
-
-        Nothing ->
-            ""
 
 
 moduleName : File -> String
@@ -216,7 +165,10 @@ ruleErrorToLintError source moduleName_ rule error =
         , message = Rule.errorMessage error
         , details = Rule.errorDetails error
         , range = Rule.errorRange error
-        , fixedSource = Just <| removeRange (Rule.errorRange error) source
+        , fixedSource =
+            source
+                |> Fix.fix [ Fix.replaceRangeBy (Rule.errorRange error) "someName" ]
+                |> Just
         }
 
 
