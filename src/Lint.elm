@@ -1,6 +1,6 @@
 module Lint exposing
     ( LintError, lintSource
-    , errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange
+    , errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, fixedSource
     )
 
 {-| Module to configure your linting configuration and run it on a source file.
@@ -13,10 +13,11 @@ module Lint exposing
 
 # Errors
 
-@docs errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange
+@docs errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, fixedSource
 
 -}
 
+import Array
 import Elm.Parser as Parser
 import Elm.Processing exposing (init, process)
 import Elm.Syntax.File exposing (File)
@@ -41,6 +42,7 @@ type LintError
         , message : String
         , details : List String
         , range : Range
+        , fixedSource : Maybe String
         }
 
 
@@ -66,7 +68,7 @@ lintSource config { path, source } =
     case parseSource source of
         Ok file ->
             config
-                |> List.concatMap (lintSourceWithRule path file)
+                |> List.concatMap (lintSourceWithRule path file source)
                 |> List.sortWith compareErrorPositions
 
         Err _ ->
@@ -79,14 +81,66 @@ lintSource config { path, source } =
                     , "Hint: Try running `elm make`. The compiler should give you better hints on how to resolve the problem."
                     ]
                 , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
+                , fixedSource = Nothing
                 }
             ]
 
 
-lintSourceWithRule : String -> File -> Rule -> List LintError
-lintSourceWithRule path file rule =
+lintSourceWithRule : String -> File -> String -> Rule -> List LintError
+lintSourceWithRule path file source rule =
     Rule.analyzer rule file
-        |> List.map (ruleErrorToLintError (moduleName file) rule)
+        |> List.map (ruleErrorToLintError source (moduleName file) rule)
+
+
+removeRange : Range -> String -> String
+removeRange range source =
+    let
+        lines : List String
+        lines =
+            String.lines source
+
+        linesBefore : String
+        linesBefore =
+            lines
+                |> List.take (range.start.row - 1)
+                |> String.join "\n"
+
+        linesAfter : String
+        linesAfter =
+            lines
+                |> List.drop range.end.row
+                |> String.join "\n"
+
+        line : String
+        line =
+            getRowAtLine lines (range.start.row - 1)
+
+        lineBefore : String
+        lineBefore =
+            String.slice 0 (range.start.column - 1) line
+
+        lineAfter : String
+        lineAfter =
+            String.dropLeft (range.end.column - 1) line
+
+        newSource =
+            source
+    in
+    linesBefore ++ "\n" ++ lineBefore ++ lineAfter ++ "\n" ++ linesAfter
+
+
+getRowAtLine : List String -> Int -> String
+getRowAtLine lines rowIndex =
+    case lines |> Array.fromList |> Array.get rowIndex of
+        Just line ->
+            if String.trim line /= "" then
+                line
+
+            else
+                ""
+
+        Nothing ->
+            ""
 
 
 moduleName : File -> String
@@ -154,14 +208,15 @@ compareRange a b =
         EQ
 
 
-ruleErrorToLintError : String -> Rule -> Rule.Error -> LintError
-ruleErrorToLintError moduleName_ rule error =
+ruleErrorToLintError : String -> String -> Rule -> Rule.Error -> LintError
+ruleErrorToLintError source moduleName_ rule error =
     LintError
         { moduleName = Just moduleName_
         , ruleName = Rule.name rule
         , message = Rule.errorMessage error
         , details = Rule.errorDetails error
         , range = Rule.errorRange error
+        , fixedSource = Just <| removeRange (Rule.errorRange error) source
         }
 
 
@@ -212,3 +267,10 @@ errorDetails (LintError error) =
 errorRange : LintError -> Range
 errorRange (LintError error) =
     error.range
+
+
+{-| Get the result of the fix of a rule for an error.
+-}
+fixedSource : LintError -> Maybe String
+fixedSource (LintError error) =
+    error.fixedSource
