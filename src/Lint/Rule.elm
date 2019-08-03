@@ -3,7 +3,7 @@ module Lint.Rule exposing
     , newSchema, fromSchema
     , withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
     , withInitialContext, withModuleDefinitionVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withExpressionVisitor, withFinalEvaluation
-    , Error, error, errorMessage, errorDetails, errorRange
+    , Error, withFixes, error, errorMessage, errorDetails, errorRange, errorFixes
     , name, analyzer
     )
 
@@ -160,7 +160,7 @@ patterns you would want to forbid, but that are not handled by the example.
 
 ## Errors
 
-@docs Error, error, errorMessage, errorDetails, errorRange
+@docs Error, withFixes, error, errorMessage, errorDetails, errorRange, errorFixes
 
 
 # ACCESS
@@ -177,6 +177,7 @@ import Elm.Syntax.Infix exposing (InfixDirection(..))
 import Elm.Syntax.Module exposing (Module)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
+import Lint.Fix exposing (Fix)
 
 
 {-| Represents a construct able to analyze a `File` and report unwanted patterns.
@@ -1033,6 +1034,7 @@ type Error
         { message : String
         , details : List String
         , range : Range
+        , fixes : List Fix
         }
 
 
@@ -1060,7 +1062,33 @@ error { message, details } range =
         { message = message
         , details = details
         , range = range
+        , fixes = []
         }
+
+
+{-| Give a list of fixes to automatically fix the error.
+
+    import Lint.Fix as Fix
+
+    error : Node a -> Error
+    error node =
+        Rule.error
+            { message = "Remove the use of `Debug` before shipping to production"
+            , details = [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing its use before committing and attempting to push to production." ]
+            }
+            (Node.range node)
+            |> withFixes [ Fix.removeRange (Node.range node) ]
+
+Take a look at [`Lint.Fix`](./Lint-Fix) to know more on how to makes fixes.
+
+**Note**: Each fix applies on a location in the code, defined by a range. To avoid an
+unpredictable result, those ranges may not overlap. The order of the fixes does
+not matter.
+
+-}
+withFixes : List Fix -> Error -> Error
+withFixes fixes (Error err) =
+    Error { err | fixes = fixes }
 
 
 {-| Get the error message of an [`Error`](#Error).
@@ -1083,6 +1111,14 @@ of an [`Error`](#Error).
 errorRange : Error -> Range
 errorRange (Error err) =
     err.range
+
+
+{-| Get the [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range)
+of an [`Error`](#Error).
+-}
+errorFixes : Error -> List Fix
+errorFixes (Error err) =
+    err.fixes
 
 
 

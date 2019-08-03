@@ -167,7 +167,7 @@ ruleErrorToLintError source moduleName_ rule error =
         , range = Rule.errorRange error
         , fixedSource =
             source
-                |> Fix.fix [ Fix.replaceRangeBy (Rule.errorRange error) "someName" ]
+                |> Fix.fix (Rule.errorFixes error)
                 |> Just
         }
 
