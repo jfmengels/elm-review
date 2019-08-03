@@ -1034,7 +1034,7 @@ type Error
         { message : String
         , details : List String
         , range : Range
-        , fixes : List Fix
+        , fixes : Maybe (List Fix)
         }
 
 
@@ -1062,7 +1062,7 @@ error { message, details } range =
         { message = message
         , details = details
         , range = range
-        , fixes = []
+        , fixes = Nothing
         }
 
 
@@ -1088,7 +1088,7 @@ not matter.
 -}
 withFixes : List Fix -> Error -> Error
 withFixes fixes (Error err) =
-    Error { err | fixes = fixes }
+    Error { err | fixes = Just fixes }
 
 
 {-| Get the error message of an [`Error`](#Error).
@@ -1116,7 +1116,7 @@ errorRange (Error err) =
 {-| Get the [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range)
 of an [`Error`](#Error).
 -}
-errorFixes : Error -> List Fix
+errorFixes : Error -> Maybe (List Fix)
 errorFixes (Error err) =
     err.fixes
 

@@ -166,9 +166,8 @@ ruleErrorToLintError source moduleName_ rule error =
         , details = Rule.errorDetails error
         , range = Rule.errorRange error
         , fixedSource =
-            source
-                |> Fix.fix (Rule.errorFixes error)
-                |> Just
+            Rule.errorFixes error
+                |> Maybe.map (\fixes -> Fix.fix fixes source)
         }
 
 
