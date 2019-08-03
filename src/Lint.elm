@@ -42,7 +42,7 @@ type LintError
         , message : String
         , details : List String
         , range : Range
-        , fixedSource : Maybe String
+        , fixedSource : Maybe (() -> String)
         }
 
 
@@ -167,7 +167,7 @@ ruleErrorToLintError source moduleName_ rule error =
         , range = Rule.errorRange error
         , fixedSource =
             Rule.errorFixes error
-                |> Maybe.map (\fixes -> Fix.fix fixes source)
+                |> Maybe.map (\fixes () -> Fix.fix fixes source)
         }
 
 
@@ -222,6 +222,6 @@ errorRange (LintError error) =
 
 {-| Get the result of the fix of a rule for an error.
 -}
-fixedSource : LintError -> Maybe String
+fixedSource : LintError -> Maybe (() -> String)
 fixedSource (LintError error) =
     error.fixedSource
