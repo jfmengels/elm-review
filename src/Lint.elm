@@ -42,7 +42,7 @@ type LintError
         , message : String
         , details : List String
         , range : Range
-        , fixedSource : Maybe (() -> String)
+        , fixedSource : Maybe (() -> Fix.Result)
         }
 
 
@@ -222,6 +222,6 @@ errorRange (LintError error) =
 
 {-| Get the result of the fix of a rule for an error.
 -}
-fixedSource : LintError -> Maybe (() -> String)
+fixedSource : LintError -> Maybe (() -> Fix.Result)
 fixedSource (LintError error) =
     error.fixedSource

@@ -124,9 +124,9 @@ a = Debug.log "foo" 1
                         ]
                 in
                 Fix.fix fixes source
-                    |> Expect.equal """module A exposing (a)
+                    |> Expect.equal (Fix.Successful """module A exposing (a)
 a =  1
-"""
+""")
         , test "should apply a replacement on a single line" <|
             \() ->
                 let
@@ -145,9 +145,9 @@ some_var = 1
                         ]
                 in
                 Fix.fix fixes source
-                    |> Expect.equal """module A exposing (a)
+                    |> Expect.equal (Fix.Successful """module A exposing (a)
 someVar = 1
-"""
+""")
         , test "should insert something on a single line" <|
             \() ->
                 let
@@ -164,9 +164,9 @@ a = 1
                         ]
                 in
                 Fix.fix fixes source
-                    |> Expect.equal """module A exposing (a)
+                    |> Expect.equal (Fix.Successful """module A exposing (a)
 a = Debug.log "foo" 1
-"""
+""")
         , test "should apply multiple fixes regardless of the order" <|
             \() ->
                 let
@@ -190,14 +190,14 @@ a = 1
                 Expect.all
                     [ \() ->
                         Fix.fix fixes source
-                            |> Expect.equal """module A exposing (a)
+                            |> Expect.equal (Fix.Successful """module A exposing (a)
 someVar = Debug.log "foo" 1
-"""
+""")
                     , \() ->
                         Fix.fix (List.reverse fixes) source
-                            |> Expect.equal """module A exposing (a)
+                            |> Expect.equal (Fix.Successful """module A exposing (a)
 someVar = Debug.log "foo" 1
-"""
+""")
                     ]
                     ()
         , test "should apply a removal on multiple lines" <|
@@ -220,11 +220,11 @@ a = 1
                         ]
                 in
                 Fix.fix fixes source
-                    |> Expect.equal """module A exposing (someCode)
+                    |> Expect.equal (Fix.Successful """module A exposing (someCode)
 someCode = 2
 
 
-"""
+""")
         , test "should apply a replacement whose content is on multiple lines" <|
             \() ->
                 let
@@ -243,10 +243,10 @@ some_var = 1
                         ]
                 in
                 Fix.fix fixes source
-                    |> Expect.equal """module A exposing (a)
+                    |> Expect.equal (Fix.Successful """module A exposing (a)
 someVar =
   1
-"""
+""")
         , test "should apply a replacement on multiple lines" <|
             \() ->
                 let
@@ -266,9 +266,9 @@ some_var =
                         ]
                 in
                 Fix.fix fixes source
-                    |> Expect.equal """module A exposing (a)
+                    |> Expect.equal (Fix.Successful """module A exposing (a)
 someVar = 1
-"""
+""")
         , test "should apply a replacement on multiple lines with something on multiple lines" <|
             \() ->
                 let
@@ -288,10 +288,10 @@ some_var =
                         ]
                 in
                 Fix.fix fixes source
-                    |> Expect.equal """module A exposing (a)
+                    |> Expect.equal (Fix.Successful """module A exposing (a)
 foo =
   2
-"""
+""")
         , test "should apply an insertion on multiple lines" <|
             \() ->
                 let
@@ -311,12 +311,12 @@ a = 1
                         ]
                 in
                 Fix.fix fixes source
-                    |> Expect.equal """module A exposing (someCode)
+                    |> Expect.equal (Fix.Successful """module A exposing (someCode)
 someCode = 2
 
 b =
   2
 a : Int
 a = 1
-"""
+""")
         ]

@@ -1,8 +1,8 @@
 module Lint.Fix exposing
     ( Fix
     , removeRange, replaceRangeBy, insertAt
+    , Result(..), Problem(..), fix
     , mergeRanges
-    , fix
     )
 
 {-| Gives tools to make changes to the source code.
@@ -18,14 +18,14 @@ module Lint.Fix exposing
 @docs removeRange, replaceRangeBy, insertAt
 
 
+# Applying fixes
+
+@docs Result, Problem, fix
+
+
 # Utilitaries for working with ranges
 
 @docs mergeRanges
-
-
-# Applying fixes
-
-@docs fix
 
 -}
 
@@ -37,11 +37,19 @@ import Elm.Syntax.Range exposing (Range)
 -- DEFINITION
 
 
-{-| -}
 type Fix
     = Removal Range
     | Replacement Range String
     | InsertAt { row : Int, column : Int } String
+
+
+type Result
+    = Successful String
+    | Errored Problem
+
+
+type Problem
+    = Unchanged
 
 
 
@@ -73,12 +81,13 @@ insertAt =
 
 {-| Apply the changes on the source code.
 -}
-fix : List Fix -> String -> String
+fix : List Fix -> String -> Result
 fix fixes sourceCode =
     fixes
         |> List.sortBy (rangePosition >> negate)
         |> List.foldl applyFix (String.lines sourceCode)
         |> String.join "\n"
+        |> Successful
 
 
 rangePosition : Fix -> Int
