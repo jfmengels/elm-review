@@ -148,22 +148,16 @@ applyReplace range replacement lines =
         startLine : String
         startLine =
             getRowAtLine lines (range.start.row - 1)
-
-        startLineBefore : String
-        startLineBefore =
-            String.slice 0 (range.start.column - 1) startLine
+                |> String.slice 0 (range.start.column - 1)
 
         endLine : String
         endLine =
             getRowAtLine lines (range.end.row - 1)
-
-        endLineAfter : String
-        endLineAfter =
-            String.dropLeft (range.end.column - 1) endLine
+                |> String.dropLeft (range.end.column - 1)
     in
     List.concat
         [ linesBefore
-        , startLineBefore ++ replacement ++ endLineAfter |> String.lines
+        , startLine ++ replacement ++ endLine |> String.lines
         , linesAfter
         ]
 
