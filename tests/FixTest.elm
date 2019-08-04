@@ -1,7 +1,7 @@
 module FixTest exposing (all)
 
 import Elm.Syntax.Range exposing (Range)
-import Expect exposing (Expectation)
+import Expect
 import Lint.Fix as Fix
 import Test exposing (Test, describe, test)
 
@@ -122,12 +122,6 @@ a = Debug.log "foo" 1
                             , end = { row = 2, column = 20 }
                             }
                         ]
-
-                    expected : Range
-                    expected =
-                        { start = { row = 2, column = 10 }
-                        , end = { row = 22, column = 5 }
-                        }
                 in
                 Fix.fix fixes source
                     |> Expect.equal """module A exposing (a)
@@ -206,4 +200,123 @@ someVar = Debug.log "foo" 1
 """
                     ]
                     ()
+        , test "should apply a removal on multiple lines" <|
+            \() ->
+                let
+                    source : String
+                    source =
+                        """module A exposing (someCode)
+someCode = 2
+
+a : Int
+a = 1
+"""
+
+                    fixes =
+                        [ Fix.removeRange
+                            { start = { row = 4, column = 1 }
+                            , end = { row = 5, column = 6 }
+                            }
+                        ]
+                in
+                Fix.fix fixes source
+                    |> Expect.equal """module A exposing (someCode)
+someCode = 2
+
+
+"""
+        , test "should apply a replacement whose content is on multiple lines" <|
+            \() ->
+                let
+                    source : String
+                    source =
+                        """module A exposing (a)
+some_var = 1
+"""
+
+                    fixes =
+                        [ Fix.replaceRangeBy
+                            { start = { row = 2, column = 1 }
+                            , end = { row = 2, column = 13 }
+                            }
+                            "someVar =\n  1"
+                        ]
+                in
+                Fix.fix fixes source
+                    |> Expect.equal """module A exposing (a)
+someVar =
+  1
+"""
+        , test "should apply a replacement on multiple lines" <|
+            \() ->
+                let
+                    source : String
+                    source =
+                        """module A exposing (a)
+some_var =
+  1
+"""
+
+                    fixes =
+                        [ Fix.replaceRangeBy
+                            { start = { row = 2, column = 1 }
+                            , end = { row = 3, column = 4 }
+                            }
+                            "someVar = 1"
+                        ]
+                in
+                Fix.fix fixes source
+                    |> Expect.equal """module A exposing (a)
+someVar = 1
+"""
+        , test "should apply a replacement on multiple lines with something on multiple lines" <|
+            \() ->
+                let
+                    source : String
+                    source =
+                        """module A exposing (a)
+some_var =
+  1
+"""
+
+                    fixes =
+                        [ Fix.replaceRangeBy
+                            { start = { row = 2, column = 1 }
+                            , end = { row = 3, column = 4 }
+                            }
+                            "foo =\n  2"
+                        ]
+                in
+                Fix.fix fixes source
+                    |> Expect.equal """module A exposing (a)
+foo =
+  2
+"""
+        , test "should apply an insertion on multiple lines" <|
+            \() ->
+                let
+                    source : String
+                    source =
+                        """module A exposing (someCode)
+someCode = 2
+
+a : Int
+a = 1
+"""
+
+                    fixes =
+                        [ Fix.insertAt
+                            { row = 4, column = 1 }
+                            "b =\n  2\n"
+                        ]
+                in
+                Fix.fix fixes source
+                    |> Expect.equal """module A exposing (someCode)
+someCode = 2
+
+b =
+  2
+a : Int
+a = 1
+"""
         ]

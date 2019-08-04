@@ -178,6 +178,21 @@ applyFix fix_ source =
 
 applyReplace : Range -> String -> String -> String
 applyReplace range replacement source =
+    if range.start.row == range.end.row then
+        applySingleLineReplace
+            range
+            replacement
+            source
+
+    else
+        applyMultiLineReplace
+            range
+            replacement
+            source
+
+
+applySingleLineReplace : Range -> String -> String -> String
+applySingleLineReplace range replacement source =
     let
         lines : List String
         lines =
@@ -208,6 +223,44 @@ applyReplace range replacement source =
             String.dropLeft (range.end.column - 1) line
     in
     linesBefore ++ "\n" ++ lineBefore ++ replacement ++ lineAfter ++ "\n" ++ linesAfter
+
+
+applyMultiLineReplace : Range -> String -> String -> String
+applyMultiLineReplace range replacement source =
+    let
+        lines : List String
+        lines =
+            String.lines source
+
+        linesBefore : String
+        linesBefore =
+            lines
+                |> List.take (range.start.row - 1)
+                |> String.join "\n"
+
+        linesAfter : String
+        linesAfter =
+            lines
+                |> List.drop range.end.row
+                |> String.join "\n"
+
+        startLine : String
+        startLine =
+            getRowAtLine lines (range.start.row - 1)
+
+        startLineBefore : String
+        startLineBefore =
+            String.slice 0 (range.start.column - 1) startLine
+
+        endLine : String
+        endLine =
+            getRowAtLine lines (range.end.row - 1)
+
+        endLineAfter : String
+        endLineAfter =
+            String.dropLeft (range.end.column - 1) endLine
+    in
+    linesBefore ++ "\n" ++ startLineBefore ++ replacement ++ endLineAfter ++ "\n" ++ linesAfter
 
 
 getRowAtLine : List String -> Int -> String
