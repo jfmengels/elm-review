@@ -12,6 +12,7 @@
         "Lint.Rule.NoImportingEverything",
         "Lint.Rule.NoUnusedTypeConstructors",
         "Lint.Rule.NoUnusedVariables",
+        "Lint.Fix",
         "Lint.Test"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
