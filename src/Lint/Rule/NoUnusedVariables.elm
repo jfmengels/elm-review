@@ -15,7 +15,7 @@ import Elm.Syntax.Exposing exposing (Exposing(..), TopLevelExpose(..))
 import Elm.Syntax.Expression exposing (Expression(..), Function, FunctionImplementation, LetDeclaration(..))
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Module as Module exposing (Module(..))
-import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
@@ -199,8 +199,8 @@ variableTypeWarning value =
 
 
 moduleDefinitionVisitor : Node Module -> Context -> ( List Error, Context )
-moduleDefinitionVisitor moduleNode context =
-    case Module.exposingList (Node.value moduleNode) of
+moduleDefinitionVisitor (Node _ moduleNode) context =
+    case Module.exposingList moduleNode of
         All _ ->
             ( [], { context | exposesEverything = True } )
 
@@ -208,8 +208,8 @@ moduleDefinitionVisitor moduleNode context =
             let
                 names =
                     List.filterMap
-                        (\node ->
-                            case Node.value node of
+                        (\(Node _ node) ->
+                            case node of
                                 FunctionExpose name ->
                                     Just name
 
@@ -229,31 +229,23 @@ moduleDefinitionVisitor moduleNode context =
 
 
 importVisitor : Node Import -> Context -> ( List Error, Context )
-importVisitor node context =
-    let
-        exposed : Maybe Exposing
-        exposed =
-            node
-                |> Node.value
-                |> .exposingList
-                |> Maybe.map Node.value
-    in
-    case exposed of
+importVisitor (Node _ { exposingList, moduleAlias, moduleName }) context =
+    case Maybe.map Node.value exposingList of
         Nothing ->
             let
-                ( variableType, moduleName ) =
-                    case Node.value node |> .moduleAlias of
-                        Just moduleAlias ->
-                            ( ModuleAlias, moduleAlias )
+                ( variableType, Node nameNodeRange nameNodeValue ) =
+                    case moduleAlias of
+                        Just moduleAlias_ ->
+                            ( ModuleAlias, moduleAlias_ )
 
                         Nothing ->
-                            ( ImportedModule, Node.value node |> .moduleName )
+                            ( ImportedModule, moduleName )
             in
             ( []
             , register
                 variableType
-                (Node.range moduleName)
-                (Node.value moduleName |> getModuleName)
+                nameNodeRange
+                (getModuleName nameNodeValue)
                 context
             )
 
@@ -261,12 +253,12 @@ importVisitor node context =
             let
                 contextWithoutImports : Context
                 contextWithoutImports =
-                    case Node.value node |> .moduleAlias of
-                        Just moduleAlias ->
+                    case moduleAlias of
+                        Just (Node range value) ->
                             register
                                 ModuleAlias
-                                (Node.range moduleAlias)
-                                (Node.value moduleAlias |> getModuleName)
+                                range
+                                (getModuleName value)
                                 context
 
                         Nothing ->
