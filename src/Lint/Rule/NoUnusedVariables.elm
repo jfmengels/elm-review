@@ -621,26 +621,18 @@ registerFunction function context =
 
         functionRange : Range
         functionRange =
-            mergeRanges
-                (Node.range function.declaration)
-                (case function.signature of
-                    Just signature ->
-                        Node.range signature
+            case function.signature of
+                Just signature ->
+                    Fix.mergeRanges
+                        (Node.range function.declaration)
+                        (Node.range signature)
 
-                    Nothing ->
-                        Node.range function.declaration
-                )
+                Nothing ->
+                    Node.range function.declaration
     in
     context
         |> register (Variable functionRange) (Node.range declaration.name) (Node.value declaration.name)
         |> markUsedTypesAndModules namesUsedInSignature
-
-
-mergeRanges : Range -> Range -> Range
-mergeRanges r1 r2 =
-    -- TODO Inverse r1 and r2 if r2 comes before r1
-    -- TODO Move into a util file or something
-    { start = r1.start, end = r2.end }
 
 
 collectFromExposing : Exposing -> List ( VariableType, Range, String )

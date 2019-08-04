@@ -1,6 +1,7 @@
 module Lint.Fix exposing
     ( Fix
     , removeRange, replaceRangeBy, insertAt
+    , mergeRanges
     , fix
     )
 
@@ -15,6 +16,11 @@ module Lint.Fix exposing
 # Constructors
 
 @docs removeRange, replaceRangeBy, insertAt
+
+
+# Utilitaries for working with ranges
+
+@docs mergeRanges
 
 
 # Applying fixes
@@ -93,6 +99,66 @@ rangePosition fix_ =
     -- 1.000.000 characters long. Then, as long as ranges don't overlap,
     -- this should work fine.
     row * 1000000 + column
+
+
+
+-- UTILITARIES FOR WORKING WITH RANGES
+
+
+{-| Create a new range that starts at the start of the range that starts first,
+and ends at the end of the range that starts last. If the two ranges are distinct
+and there is code in between, that code will be included in the resulting range.
+
+    range : Range
+    range =
+        Fix.mergeRanges
+            (Node.range node1)
+            (Node.range node2)
+
+-}
+mergeRanges : Range -> Range -> Range
+mergeRanges a b =
+    let
+        start : { row : Int, column : Int }
+        start =
+            case comparePosition a.start b.start of
+                LT ->
+                    a.start
+
+                EQ ->
+                    a.start
+
+                GT ->
+                    b.start
+
+        end : { row : Int, column : Int }
+        end =
+            case comparePosition a.end b.end of
+                LT ->
+                    b.end
+
+                EQ ->
+                    b.end
+
+                GT ->
+                    a.end
+    in
+    { start = start, end = end }
+
+
+comparePosition : { row : Int, column : Int } -> { row : Int, column : Int } -> Order
+comparePosition a b =
+    let
+        order : Order
+        order =
+            compare a.row b.row
+    in
+    case order of
+        EQ ->
+            compare a.column b.column
+
+        _ ->
+            order
 
 
 applyFix : Fix -> String -> String
