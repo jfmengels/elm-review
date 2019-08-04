@@ -10,6 +10,7 @@ all : Test
 all =
     describe "Fix"
         [ mergeRangesTest
+        , fixTest
         ]
 
 
@@ -100,4 +101,76 @@ mergeRangesTest =
                             |> Expect.equal a
                     ]
                     ()
+        ]
+
+
+fixTest : Test
+fixTest =
+    describe "fix"
+        [ test "should apply a removal on a single line" <|
+            \() ->
+                let
+                    source : String
+                    source =
+                        """module A exposing (a)
+a = Debug.log "foo" 1
+"""
+
+                    fixes =
+                        [ Fix.removeRange
+                            { start = { row = 2, column = 5 }
+                            , end = { row = 2, column = 20 }
+                            }
+                        ]
+
+                    expected : Range
+                    expected =
+                        { start = { row = 2, column = 10 }
+                        , end = { row = 22, column = 5 }
+                        }
+                in
+                Fix.fix fixes source
+                    |> Expect.equal """module A exposing (a)
+a =  1
+"""
+        , test "should apply a replacement on a single line" <|
+            \() ->
+                let
+                    source : String
+                    source =
+                        """module A exposing (a)
+some_var = 1
+"""
+
+                    fixes =
+                        [ Fix.replaceRangeBy
+                            { start = { row = 2, column = 1 }
+                            , end = { row = 2, column = 9 }
+                            }
+                            "someVar"
+                        ]
+                in
+                Fix.fix fixes source
+                    |> Expect.equal """module A exposing (a)
+someVar = 1
+"""
+        , test "should insert something on a single line" <|
+            \() ->
+                let
+                    source : String
+                    source =
+                        """module A exposing (a)
+a = 1
+"""
+
+                    fixes =
+                        [ Fix.insertAt
+                            { row = 2, column = 5 }
+                            """Debug.log "foo" """
+                        ]
+                in
+                Fix.fix fixes source
+                    |> Expect.equal """module A exposing (a)
+a = Debug.log "foo" 1
+"""
         ]
