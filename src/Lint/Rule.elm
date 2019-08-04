@@ -1081,6 +1081,10 @@ error { message, details } range =
 
 Take a look at [`Lint.Fix`](./Lint-Fix) to know more on how to makes fixes.
 
+If you pass `withFixes` an empty list, the error will be considered as having no
+automatic fix available. ALso, calling `withFixes` several times on an error will
+overwrite the previous fixes.
+
 **Note**: Each fix applies on a location in the code, defined by a range. To avoid an
 unpredictable result, those ranges may not overlap. The order of the fixes does
 not matter.

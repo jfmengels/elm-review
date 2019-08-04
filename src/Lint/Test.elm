@@ -1,6 +1,6 @@
 module Lint.Test exposing
     ( LintResult, run
-    , ExpectedError, expectErrors, expectNoErrors, error, atExactly
+    , ExpectedError, expectErrors, expectNoErrors, error, atExactly, whenFixed
     )
 
 {-| Module that helps you test your linting rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest).
@@ -78,7 +78,7 @@ changes drastically.
 
 # Making assertions
 
-@docs ExpectedError, expectErrors, expectNoErrors, error, atExactly
+@docs ExpectedError, expectErrors, expectNoErrors, error, atExactly, whenFixed
 
 -}
 
@@ -86,6 +86,7 @@ import Array exposing (Array)
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
 import Lint exposing (lintSource)
+import Lint.Fix as Fix
 import Lint.Rule as Rule exposing (Error, Rule)
 import Lint.Test.ErrorMessage as ErrorMessage
 
@@ -98,7 +99,8 @@ type LintResult
 
 
 type alias CodeInspector =
-    { getCodeAtLocation : Range -> Maybe String
+    { source : String
+    , getCodeAtLocation : Range -> Maybe String
     , checkIfLocationIsAmbiguous : Error -> String -> Expectation
     }
 
@@ -110,6 +112,7 @@ type ExpectedError
         { message : String
         , details : List String
         , under : Under
+        , fixedSource : Maybe String
         }
 
 
@@ -154,9 +157,11 @@ run rule source =
                             , details = Lint.errorDetails error_
                             }
                             (Lint.errorRange error_)
+                            |> Rule.withFixes (Lint.fixes error_ |> Maybe.withDefault [])
                     )
                 |> SuccessfulRun
-                    { getCodeAtLocation = getCodeAtLocationInSourceCode source
+                    { source = source
+                    , getCodeAtLocation = getCodeAtLocationInSourceCode source
                     , checkIfLocationIsAmbiguous = checkIfLocationIsAmbiguousInSourceCode source
                     }
 
@@ -274,6 +279,7 @@ error input =
         { message = input.message
         , details = input.details
         , under = Under input.under
+        , fixedSource = Nothing
         }
 
 
@@ -313,6 +319,11 @@ of `atExactly`, so you do not have to bother writing this hard to write argument
 atExactly : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> ExpectedError -> ExpectedError
 atExactly range ((ExpectedError expectedError_) as expectedError) =
     ExpectedError { expectedError_ | under = UnderExactly (getUnder expectedError) range }
+
+
+whenFixed : String -> ExpectedError -> ExpectedError
+whenFixed fixedSource ((ExpectedError expectedError_) as expectedError) =
+    ExpectedError { expectedError_ | fixedSource = Just fixedSource }
 
 
 getUnder : ExpectedError -> String
@@ -413,6 +424,7 @@ checkErrorMatch codeInspector ((ExpectedError expectedError_) as expectedError) 
             |> always
         , checkMessageAppearsUnder codeInspector error_ expectedError
         , checkDetailsAreCorrect error_ expectedError
+        , always <| checkFixesAreCorrect codeInspector error_ expectedError
         ]
 
 
@@ -455,6 +467,30 @@ checkDetailsAreCorrect error_ (ExpectedError expectedError) =
             |> Expect.true (ErrorMessage.unexpectedDetails expectedError.details error_)
             |> always
         ]
+
+
+checkFixesAreCorrect : CodeInspector -> Error -> ExpectedError -> Expectation
+checkFixesAreCorrect codeInspector error_ ((ExpectedError expectedError_) as expectedError) =
+    case ( expectedError_.fixedSource, Rule.errorFixes error_ ) of
+        ( Nothing, Nothing ) ->
+            Expect.pass
+
+        ( Just expectedFixedSource, Nothing ) ->
+            ErrorMessage.missingFixes (extractExpectedErrorData expectedError)
+                |> Expect.fail
+
+        ( Nothing, Just fixes ) ->
+            ErrorMessage.unexpectedFixes error_
+                |> Expect.fail
+
+        ( Just expectedFixedSource, Just fixes ) ->
+            case Fix.fix fixes codeInspector.source of
+                Fix.Successful fixedSource ->
+                    (fixedSource == expectedFixedSource)
+                        |> Expect.true (ErrorMessage.fixedCodeMismatch fixedSource expectedFixedSource error_)
+
+                Fix.Errored _ ->
+                    Expect.fail "Supplied fixes caused a problem"
 
 
 extractExpectedErrorData : ExpectedError -> ErrorMessage.ExpectedErrorData

@@ -48,19 +48,41 @@ b = a 1"""
     , test "should report unused top-level variables" <|
         \() ->
             testRule """module SomeModule exposing (b)
-a = 1"""
+b = 1
+a = 2"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Variable `a` is not used"
                         , details = details
                         , under = "a"
                         }
+                        |> Lint.Test.whenFixed """module SomeModule exposing (b)
+b = 1
+"""
+                    ]
+    , test "should report unused top-level variables with type annotation" <|
+        \() ->
+            testRule """module SomeModule exposing (b)
+b = 1
+a : Int
+a = 2"""
+                |> Lint.Test.expectErrors
+                    [ Lint.Test.error
+                        { message = "Variable `a` is not used"
+                        , details = details
+                        , under = "a"
+                        }
+                        |> Lint.Test.atExactly { start = { row = 4, column = 1 }, end = { row = 4, column = 2 } }
+                        |> Lint.Test.whenFixed """module SomeModule exposing (b)
+b = 1
+"""
                     ]
     , test "should report unused top-level variables even if they are annotated" <|
         \() ->
             testRule """module SomeModule exposing (b)
 a: Int
-a = 1"""
+a = 1
+b = 2"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Variable `a` is not used"
@@ -68,6 +90,9 @@ a = 1"""
                         , under = "a"
                         }
                         |> Lint.Test.atExactly { start = { row = 3, column = 1 }, end = { row = 3, column = 2 } }
+                        |> Lint.Test.whenFixed """module SomeModule exposing (b)
+
+b = 2"""
                     ]
     , test "should not report unused top-level variables if everything is exposed" <|
         \() ->
@@ -93,6 +118,10 @@ c = 3"""
                         , details = details
                         , under = "c"
                         }
+                        |> Lint.Test.whenFixed """module SomeModule exposing (a, b)
+a = 1
+b = 2
+"""
                     ]
     , test "should not report unused top-level variables if everything is exposed (port module)" <|
         \() ->
@@ -118,6 +147,10 @@ c = 3"""
                         , details = details
                         , under = "c"
                         }
+                        |> Lint.Test.whenFixed """port module SomeModule exposing (a, b)
+a = 1
+b = 2
+"""
                     ]
     , test "should report unused variable even if a homonym from a module is used" <|
         \() ->
@@ -131,6 +164,9 @@ a = Html.Styled.Attributes.href"""
                         , under = "href"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
+                        |> Lint.Test.whenFixed """module SomeModule exposing (a)
+
+a = Html.Styled.Attributes.href"""
                     ]
     ]
 
@@ -148,6 +184,7 @@ a = let b = 1
                         , details = details
                         , under = "b"
                         }
+                        |> Lint.Test.whenFixed "module SomeModule exposing (a)\na = let \n    in 2"
                     ]
     , test "should report unused variables from let even if they are exposed by name" <|
         \() ->
@@ -161,6 +198,7 @@ a = let b = 1
                         , under = "b"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 9 }, end = { row = 2, column = 10 } }
+                        |> Lint.Test.whenFixed "module SomeModule exposing (a, b)\na = let \n    in 2"
                     ]
     , test "should report unused functions from let even if they are exposed by name" <|
         \() ->
@@ -174,6 +212,7 @@ a = let b param = 1
                         , under = "b"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 9 }, end = { row = 2, column = 10 } }
+                        |> Lint.Test.whenFixed "module SomeModule exposing (a, b)\na = let \n    in 2"
                     ]
     , test "should report unused variables from let even if everything is exposed" <|
         \() ->
@@ -186,6 +225,7 @@ a = let b = 1
                         , details = details
                         , under = "b"
                         }
+                        |> Lint.Test.whenFixed "module SomeModule exposing (..)\na = let \n    in 2"
                     ]
     , test "should not report variables from let declarations that are used in the expression" <|
         \() ->
@@ -257,6 +297,10 @@ a = { b | c = 3 }"""
                         , under = "c"
                         }
                         |> Lint.Test.atExactly { start = { row = 3, column = 1 }, end = { row = 3, column = 2 } }
+                        |> Lint.Test.whenFixed """module SomeModule exposing (a)
+b = { z = 1, c = 2 }
+
+a = { b | c = 3 }"""
                     ]
     ]
 
@@ -675,6 +719,9 @@ type A a = B a"""
                         , under = "a"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 1 }, end = { row = 2, column = 2 } }
+                        |> Lint.Test.whenFixed """module SomeModule exposing (A)
+
+type A a = B a"""
                     ]
     , test "should report unused variable even if it is present in a generic record type" <|
         \() ->
@@ -689,6 +736,10 @@ a str = {c = str}"""
                         , under = "r"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 1 }, end = { row = 2, column = 2 } }
+                        |> Lint.Test.whenFixed """module SomeModule exposing (a)
+
+a : { r | c: A }
+a str = {c = str}"""
                     ]
     ]
 

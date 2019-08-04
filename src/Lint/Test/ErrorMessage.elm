@@ -2,6 +2,7 @@ module Lint.Test.ErrorMessage exposing
     ( ExpectedErrorData
     , parsingFailure, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
     , underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode
+    , missingFixes, unexpectedFixes, fixedCodeMismatch
     , impossibleState
     )
 
@@ -13,6 +14,7 @@ module Lint.Test.ErrorMessage exposing
 @docs ExpectedErrorData
 @docs parsingFailure, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
 @docs underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode
+@docs missingFixes, unexpectedFixes, fixedCodeMismatch
 @docs impossibleState
 
 -}
@@ -220,6 +222,53 @@ impossibleState =
 Oh no! I'm in an impossible state. I found an error at a location that I could not find back. Please let me know and give me an SSCCE (http://sscce.org/) here: https://github.com/jfmengels/elm-lint/issues."""
 
 
+missingFixes : ExpectedErrorData -> String
+missingFixes expectedError =
+    """MISSING FIXES
+
+I expected that the error with the following message
+
+  """ ++ wrapInQuotes expectedError.message ++ """
+
+would provide some fixes, but I didn't find any.
+
+Hint: It's probable that you either forgot to call `Rule.withFixes` on the
+error that you created, or that the list of provided fixes was empty."""
+
+
+unexpectedFixes : Error -> String
+unexpectedFixes error =
+    """UNEXPECTED FIXES
+
+I expected that the error with the following message
+
+  """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
+
+would not have any fixes, but it provided some.
+
+Hint: You may have forgotten to call `Lint.Test.whenFixed`
+It's probable that you either forgot to call `Rule.withFixes` on the
+error that you created, or that the list of provided fixes was empty."""
+
+
+fixedCodeMismatch : SourceCode -> SourceCode -> Error -> String
+fixedCodeMismatch resultingSourceCode expectedSourceCode error =
+    """FIXED CODE MISMATCH
+
+I found a different fixed source code than expected for the error with the
+following message:
+
+  """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
+
+I found the following result after the fixes have been applied:
+
+  """ ++ formatSourceCode resultingSourceCode ++ """
+
+but I was expecting:
+
+  """ ++ formatSourceCode expectedSourceCode
+
+
 
 -- STYLIZING AND FORMATTING
 
@@ -235,7 +284,14 @@ formatSourceCode string =
 
     else
         lines
-            |> List.map (\str -> "    " ++ str)
+            |> List.map
+                (\str ->
+                    if str == "" then
+                        ""
+
+                    else
+                        "    " ++ str
+                )
             |> String.join "\n"
             |> (\str -> "```\n" ++ str ++ "\n  ```")
 

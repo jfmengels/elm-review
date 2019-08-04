@@ -2,6 +2,7 @@ module ErrorMessageTest exposing (all)
 
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
+import Lint.Fix as Fix
 import Lint.Rule as Rule exposing (Error)
 import Lint.Test.ErrorMessage as ErrorMessage exposing (ExpectedErrorData)
 import Test exposing (Test, describe, test)
@@ -20,6 +21,9 @@ all =
         , expectedMoreErrorsTest
         , tooManyErrorsTest
         , locationIsAmbiguousInSourceCodeTest
+        , missingFixesTest
+        , unexpectedFixesTest
+        , fixedCodeMismatchTest
         ]
 
 
@@ -578,6 +582,119 @@ Tip: I found them at:
   - { start = { row = 6, column = 1 }, end = { row = 7, column = 4 } }
 """
         ]
+
+
+missingFixesTest : Test
+missingFixesTest =
+    test "missingFixes" <|
+        \() ->
+            let
+                expectedError : ExpectedErrorData
+                expectedError =
+                    { message = "Some error"
+                    , details = [ "Some details" ]
+                    , under = "Debug.log"
+                    }
+            in
+            ErrorMessage.missingFixes expectedError
+                |> expectMessageEqual """
+MISSING FIXES
+
+I expected that the error with the following message
+
+  `Some error`
+
+would provide some fixes, but I didn't find any.
+
+Hint: It's probable that you either forgot to call `Rule.withFixes` on the
+error that you created, or that the list of provided fixes was empty."""
+
+
+unexpectedFixesTest : Test
+unexpectedFixesTest =
+    test "unexpectedFixes" <|
+        \() ->
+            let
+                range : Range
+                range =
+                    { start = { row = 3, column = 1 }, end = { row = 4, column = 3 } }
+
+                error : Error
+                error =
+                    Rule.error
+                        { message = "Some error"
+                        , details = [ "Some details" ]
+                        }
+                        range
+                        |> Rule.withFixes [ Fix.removeRange range ]
+            in
+            ErrorMessage.unexpectedFixes error
+                |> expectMessageEqual """
+UNEXPECTED FIXES
+
+I expected that the error with the following message
+
+  `Some error`
+
+would not have any fixes, but it provided some.
+
+Hint: You may have forgotten to call `Lint.Test.whenFixed`
+It's probable that you either forgot to call `Rule.withFixes` on the
+error that you created, or that the list of provided fixes was empty."""
+
+
+fixedCodeMismatchTest : Test
+fixedCodeMismatchTest =
+    test "fixedCodeMismatch" <|
+        \() ->
+            let
+                sourceCode : String
+                sourceCode =
+                    """module A exposing (b)
+abcd =
+  1"""
+
+                expectedSourceCode : String
+                expectedSourceCode =
+                    """module A exposing (b)
+abcd =
+  2"""
+
+                error : Error
+                error =
+                    Rule.error
+                        { message = "Some error"
+                        , details = [ "Some details" ]
+                        }
+                        { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
+            in
+            ErrorMessage.fixedCodeMismatch
+                sourceCode
+                expectedSourceCode
+                error
+                |> expectMessageEqual """
+FIXED CODE MISMATCH
+
+I found a different fixed source code than expected for the error with the
+following message:
+
+  `Some error`
+
+I found the following result after the fixes have been applied:
+
+  ```
+    module A exposing (b)
+    abcd =
+      1
+  ```
+
+but I was expecting:
+
+  ```
+    module A exposing (b)
+    abcd =
+      2
+  ```"""
 
 
 dummyRange : Range
