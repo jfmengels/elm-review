@@ -19,7 +19,7 @@ import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
-import Lint.Fix as Fix
+import Lint.Fix as Fix exposing (Fix)
 import Lint.Rule as Rule exposing (Direction, Error, Rule)
 import List.Nonempty as Nonempty exposing (Nonempty)
 import Set exposing (Set)
@@ -106,39 +106,40 @@ emptyScope =
 
 error : VariableType -> Range -> String -> Error
 error variableType range_ name =
-    let
-        error_ : Error
-        error_ =
-            Rule.error
-                { message = variableTypeToString variableType ++ " `" ++ name ++ "` is not used" ++ variableTypeWarning variableType
-                , details = [ "Since it is not being used, I recommend removing it. It should make the code clearer to read for other people." ]
-                }
-                range_
-    in
+    Rule.error
+        { message = variableTypeToString variableType ++ " `" ++ name ++ "` is not used" ++ variableTypeWarning variableType
+        , details = [ "Since it is not being used, I recommend removing it. It should make the code clearer to read for other people." ]
+        }
+        range_
+        |> Rule.withFixes (fixes variableType)
+
+
+fixes : VariableType -> List Fix
+fixes variableType =
     case variableType of
         Variable range ->
-            Rule.withFixes [ Fix.removeRange range ] error_
+            [ Fix.removeRange range ]
 
         ImportedModule ->
-            error_
+            []
 
         ImportedVariable ->
-            error_
+            []
 
         ImportedType ->
-            error_
+            []
 
         ImportedOperator ->
-            error_
+            []
 
         ModuleAlias ->
-            error_
+            []
 
         Type ->
-            error_
+            []
 
         Port ->
-            error_
+            []
 
 
 variableTypeToString : VariableType -> String

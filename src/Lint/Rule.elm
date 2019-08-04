@@ -1088,7 +1088,11 @@ not matter.
 -}
 withFixes : List Fix -> Error -> Error
 withFixes fixes (Error err) =
-    Error { err | fixes = Just fixes }
+    if List.isEmpty fixes then
+        Error { err | fixes = Nothing }
+
+    else
+        Error { err | fixes = Just fixes }
 
 
 {-| Get the error message of an [`Error`](#Error).

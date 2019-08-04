@@ -1,6 +1,6 @@
 module Lint exposing
     ( LintError, lintSource
-    , errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, fixedSource
+    , errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, fixes
     )
 
 {-| Module to configure your linting configuration and run it on a source file.
@@ -13,7 +13,7 @@ module Lint exposing
 
 # Errors
 
-@docs errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, fixedSource
+@docs errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, fixes
 
 -}
 
@@ -23,7 +23,7 @@ import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Module exposing (Module(..))
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
-import Lint.Fix as Fix
+import Lint.Fix exposing (Fix)
 import Lint.Rule as Rule exposing (Rule)
 import Lint.Util as Util
 
@@ -42,7 +42,7 @@ type LintError
         , message : String
         , details : List String
         , range : Range
-        , fixedSource : Maybe (() -> Fix.Result)
+        , fixes : Maybe (List Fix)
         }
 
 
@@ -81,7 +81,7 @@ lintSource config { path, source } =
                     , "Hint: Try running `elm make`. The compiler should give you better hints on how to resolve the problem."
                     ]
                 , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
-                , fixedSource = Nothing
+                , fixes = Nothing
                 }
             ]
 
@@ -159,15 +159,14 @@ compareRange a b =
 
 ruleErrorToLintError : String -> String -> Rule -> Rule.Error -> LintError
 ruleErrorToLintError source moduleName_ rule error =
+    -- TODO Remove source here?
     LintError
         { moduleName = Just moduleName_
         , ruleName = Rule.name rule
         , message = Rule.errorMessage error
         , details = Rule.errorDetails error
         , range = Rule.errorRange error
-        , fixedSource =
-            Rule.errorFixes error
-                |> Maybe.map (\fixes () -> Fix.fix fixes source)
+        , fixes = Rule.errorFixes error
         }
 
 
@@ -220,8 +219,8 @@ errorRange (LintError error) =
     error.range
 
 
-{-| Get the result of the fix of a rule for an error.
+{-| Get the fixes for an error.
 -}
-fixedSource : LintError -> Maybe (() -> Fix.Result)
-fixedSource (LintError error) =
-    error.fixedSource
+fixes : LintError -> Maybe (List Fix)
+fixes (LintError error) =
+    error.fixes
