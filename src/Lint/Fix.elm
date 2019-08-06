@@ -37,38 +37,34 @@ import Elm.Syntax.Range exposing (Range)
 -- DEFINITION
 
 
+{-| Represents a patch that will be applied to a file's source code in order to
+automatically fix a linting error.
+-}
 type Fix
     = Removal Range
     | Replacement Range String
     | InsertAt { row : Int, column : Int } String
 
 
-type Result
-    = Successful String
-    | Errored Problem
-
-
-type Problem
-    = Unchanged
-
-
 
 -- CONSTRUCTORS
 
 
-{-| Remove the code at the given range.
+{-| Remove the code in between a range.
 -}
 removeRange : Range -> Fix
 removeRange =
     Removal
 
 
+{-| Replace the code in between a range by some other code.
+-}
 replaceRangeBy : Range -> String -> Fix
 replaceRangeBy =
     Replacement
 
 
-{-| Remove the code at the given range.
+{-| Insert some code at the given position.
 -}
 insertAt : { row : Int, column : Int } -> String -> Fix
 insertAt =
@@ -77,6 +73,20 @@ insertAt =
 
 
 -- APPLYING FIXES
+
+
+{-| Represents the result of having applied a list of fixes
+-}
+type Result
+    = Successful String
+    | Errored Problem
+
+
+{-| Represents a problem that may have occurred when attempting to apply a list
+of fixes.
+-}
+type Problem
+    = Unchanged
 
 
 {-| Apply the changes on the source code.

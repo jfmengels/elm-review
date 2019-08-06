@@ -293,25 +293,25 @@ is only necessary when the `under` field is ambiguous.
         describe "NoDebug"
             [ test "should report multiple Debug.log calls" <|
                 \() ->
-                    testRule """
-              a = Debug.log z
-              b = Debug.log z
-              """
+                    testRule """module A exposing (..)
+    a = Debug.log "foo" z
+    b = Debug.log "foo" z
+    """
                         |> Lint.Test.expectErrors
                             [ Lint.Test.error
-                                { message = message
+                                { message = "Remove the use of `Debug` before shipping to production"
                                 , under = "Debug.log"
                                 }
                                 |> Lint.Test.atExactly { start = { row = 4, column = 5 }, end = { row = 4, column = 14 } }
                             , Lint.Test.error
-                                { message = message
+                                { message = "Remove the use of `Debug` before shipping to production"
                                 , under = "Debug.log"
                                 }
                                 |> Lint.Test.atExactly { start = { row = 5, column = 5 }, end = { row = 5, column = 14 } }
                             ]
             ]
 
-Tip: By default, do not provide this field. If the test fails because there is some
+Tip: By default, do not use this function. If the test fails because there is some
 ambiguity, the test error will give you a recommendation of what to use as a parameter
 of `atExactly`, so you do not have to bother writing this hard to write argument.
 
@@ -321,6 +321,36 @@ atExactly range ((ExpectedError expectedError_) as expectedError) =
     ExpectedError { expectedError_ | under = UnderExactly (getUnder expectedError) range }
 
 
+{-| Create an expectation that the error provides fixes, meaning that it used
+the [`withFixes`](#withFixes) function) and an expectation of what the source
+code should be after the error's fixes have been applied.
+
+In the absence of `whenFixed`, the test will fail if the error provides fixes.
+In other words: If the error provides fixes, you need to use `withFixes`, and if
+it doesn't, you should not use `withFixes`.
+
+    tests : Test
+    tests =
+        describe "NoDebug"
+            [ test "should report multiple Debug.log calls" <|
+                \() ->
+                    testRule """module A exposing (..)
+    a = 1
+    b = Debug.log "foo" 2
+    """
+                        |> Lint.Test.expectErrors
+                            [ Lint.Test.error
+                                { message = "Remove the use of `Debug` before shipping to production"
+                                , under = "Debug.log"
+                                }
+                                |> Lint.Test.whenFixed """module SomeModule exposing (b)
+    a = 1
+    b = 2
+    """
+                            ]
+            ]
+
+-}
 whenFixed : String -> ExpectedError -> ExpectedError
 whenFixed fixedSource ((ExpectedError expectedError_) as expectedError) =
     ExpectedError { expectedError_ | fixedSource = Just fixedSource }
