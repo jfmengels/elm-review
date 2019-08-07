@@ -534,8 +534,8 @@ checkFixesAreCorrect codeInspector error_ ((ExpectedError expectedError_) as exp
                     (fixedSource == expectedFixedSource)
                         |> Expect.true (ErrorMessage.fixedCodeMismatch fixedSource expectedFixedSource error_)
 
-                Fix.Errored _ ->
-                    Expect.fail "Supplied fixes caused a problem"
+                Fix.Errored Fix.Unchanged ->
+                    Expect.fail <| ErrorMessage.unchangedSourceAfterFix error_
 
 
 extractExpectedErrorData : ExpectedError -> ErrorMessage.ExpectedErrorData

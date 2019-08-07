@@ -2,7 +2,7 @@ module Lint.Test.ErrorMessage exposing
     ( ExpectedErrorData
     , parsingFailure, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
     , underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode
-    , missingFixes, unexpectedFixes, fixedCodeMismatch
+    , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix
     , impossibleState
     )
 
@@ -14,7 +14,7 @@ module Lint.Test.ErrorMessage exposing
 @docs ExpectedErrorData
 @docs parsingFailure, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
 @docs underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode
-@docs missingFixes, unexpectedFixes, fixedCodeMismatch
+@docs missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix
 @docs impossibleState
 
 -}
@@ -91,7 +91,7 @@ when I was expecting it under:
   """ ++ formatSourceCode under ++ """
 
 Hint: Maybe you're passing the `Range` of a wrong node when
-calling `Rule.error`"""
+calling `Rule.error`."""
 
 
 unexpectedDetails : List String -> Error -> String
@@ -267,6 +267,25 @@ I found the following result after the fixes have been applied:
 but I was expecting:
 
   """ ++ formatSourceCode expectedSourceCode
+
+
+unchangedSourceAfterFix : Error -> String
+unchangedSourceAfterFix error =
+    """UNCHANGED SOURCE AFTER FIX
+
+I got something unexpected when applying the fixes provided by the error
+with the following message:
+
+  """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
+
+I expected the fix to make some changes to the source code, but it resulted
+in the same source code as before the fixes.
+
+This is problematic because I will tell the user that this rule provides an
+automatic fix, but I will have to disappoint them when I later find out it
+doesn't do anything.
+
+Hint: Maybe you inserted an empty string into the source code."""
 
 
 

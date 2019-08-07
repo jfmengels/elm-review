@@ -23,6 +23,7 @@ all =
         , locationIsAmbiguousInSourceCodeTest
         , missingFixesTest
         , unexpectedFixesTest
+        , unchangedSourceAfterFixTest
         , fixedCodeMismatchTest
         ]
 
@@ -159,7 +160,7 @@ when I was expecting it under:
   `abcd`
 
 Hint: Maybe you're passing the `Range` of a wrong node when
-calling `Rule.error`"""
+calling `Rule.error`."""
         , test "with multi-line extracts" <|
             \() ->
                 let
@@ -199,7 +200,7 @@ when I was expecting it under:
   ```
 
 Hint: Maybe you're passing the `Range` of a wrong node when
-calling `Rule.error`"""
+calling `Rule.error`."""
         ]
 
 
@@ -695,6 +696,38 @@ but I was expecting:
     abcd =
       2
   ```"""
+
+
+unchangedSourceAfterFixTest : Test
+unchangedSourceAfterFixTest =
+    test "unchangedSourceAfterFix" <|
+        \() ->
+            let
+                error : Error
+                error =
+                    Rule.error
+                        { message = "Some error"
+                        , details = [ "Some details" ]
+                        }
+                        { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
+            in
+            ErrorMessage.unchangedSourceAfterFix error
+                |> expectMessageEqual """
+UNCHANGED SOURCE AFTER FIX
+
+I got something unexpected when applying the fixes provided by the error
+with the following message:
+
+  `Some error`
+
+I expected the fix to make some changes to the source code, but it resulted
+in the same source code as before the fixes.
+
+This is problematic because I will tell the user that this rule provides an
+automatic fix, but I will have to disappoint them when I later find out it
+doesn't do anything.
+
+Hint: Maybe you inserted an empty string into the source code."""
 
 
 dummyRange : Range

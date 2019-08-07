@@ -319,4 +319,22 @@ b =
 a : Int
 a = 1
 """)
+        , test "should fail if the source code is the same after fixes" <|
+            \() ->
+                let
+                    source : String
+                    source =
+                        """module A exposing (someCode)
+someCode = 2
+
+a : Int
+a = 1
+"""
+
+                    fixes : List Fix.Fix
+                    fixes =
+                        [ Fix.insertAt { row = 4, column = 1 } "" ]
+                in
+                Fix.fix fixes source
+                    |> Expect.equal (Fix.Errored Fix.Unchanged)
         ]

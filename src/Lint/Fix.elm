@@ -93,11 +93,19 @@ type Problem
 -}
 fix : List Fix -> String -> Result
 fix fixes sourceCode =
-    fixes
-        |> List.sortBy (rangePosition >> negate)
-        |> List.foldl applyFix (String.lines sourceCode)
-        |> String.join "\n"
-        |> Successful
+    let
+        resultSourceCode : String
+        resultSourceCode =
+            fixes
+                |> List.sortBy (rangePosition >> negate)
+                |> List.foldl applyFix (String.lines sourceCode)
+                |> String.join "\n"
+    in
+    if sourceCode == resultSourceCode then
+        Errored Unchanged
+
+    else
+        Successful resultSourceCode
 
 
 rangePosition : Fix -> Int
