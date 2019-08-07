@@ -2,7 +2,7 @@ module Lint.Test.ErrorMessage exposing
     ( ExpectedErrorData
     , parsingFailure, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
     , underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode
-    , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix
+    , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix
     , impossibleState
     )
 
@@ -14,7 +14,7 @@ module Lint.Test.ErrorMessage exposing
 @docs ExpectedErrorData
 @docs parsingFailure, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
 @docs underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode
-@docs missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix
+@docs missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix
 @docs impossibleState
 
 -}
@@ -286,6 +286,27 @@ automatic fix, but I will have to disappoint them when I later find out it
 doesn't do anything.
 
 Hint: Maybe you inserted an empty string into the source code."""
+
+
+invalidSourceAfterFix : Error -> SourceCode -> String
+invalidSourceAfterFix error resultingSourceCode =
+    """INVALID SOURCE AFTER FIX
+
+I got something unexpected when applying the fixes provided by the error
+with the following message:
+
+  """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
+
+I was unable to parse the source code after applying the fixes. Here is
+the result of the automatic fixing:
+
+  """ ++ formatSourceCode resultingSourceCode ++ """
+
+This is problematic because fixes are meant to help the user, and applying
+this fix will give them more work to do. After the fix has been applied,
+the problem should be solved and the user should not have to think about it
+anymore. If a fix can not be applied fully, it should not be applied at
+all."""
 
 
 

@@ -537,6 +537,9 @@ checkFixesAreCorrect codeInspector error_ ((ExpectedError expectedError_) as exp
                 Fix.Errored Fix.Unchanged ->
                     Expect.fail <| ErrorMessage.unchangedSourceAfterFix error_
 
+                Fix.Errored (Fix.SourceCodeIsNotValid sourceCode) ->
+                    Expect.fail <| ErrorMessage.invalidSourceAfterFix error_ sourceCode
+
 
 extractExpectedErrorData : ExpectedError -> ErrorMessage.ExpectedErrorData
 extractExpectedErrorData ((ExpectedError expectedErrorContent) as expectedError) =

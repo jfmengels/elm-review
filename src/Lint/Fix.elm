@@ -30,6 +30,7 @@ module Lint.Fix exposing
 -}
 
 import Array
+import Elm.Parser
 import Elm.Syntax.Range exposing (Range)
 
 
@@ -87,6 +88,7 @@ of fixes.
 -}
 type Problem
     = Unchanged
+    | SourceCodeIsNotValid String
 
 
 {-| Apply the changes on the source code.
@@ -105,7 +107,12 @@ fix fixes sourceCode =
         Errored Unchanged
 
     else
-        Successful resultSourceCode
+        case Elm.Parser.parse resultSourceCode of
+            Err _ ->
+                Errored <| SourceCodeIsNotValid resultSourceCode
+
+            Ok _ ->
+                Successful resultSourceCode
 
 
 rangePosition : Fix -> Int

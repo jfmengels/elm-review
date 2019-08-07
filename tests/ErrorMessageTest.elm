@@ -23,8 +23,9 @@ all =
         , locationIsAmbiguousInSourceCodeTest
         , missingFixesTest
         , unexpectedFixesTest
-        , unchangedSourceAfterFixTest
         , fixedCodeMismatchTest
+        , unchangedSourceAfterFixTest
+        , invalidSourceAfterFixTest
         ]
 
 
@@ -728,6 +729,52 @@ automatic fix, but I will have to disappoint them when I later find out it
 doesn't do anything.
 
 Hint: Maybe you inserted an empty string into the source code."""
+
+
+invalidSourceAfterFixTest : Test
+invalidSourceAfterFixTest =
+    test "invalidSourceAfterFix" <|
+        \() ->
+            let
+                sourceCode : String
+                sourceCode =
+                    """ule A exposing (b)
+abcd =
+  1"""
+
+                error : Error
+                error =
+                    Rule.error
+                        { message = "Some error"
+                        , details = [ "Some details" ]
+                        }
+                        { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
+            in
+            ErrorMessage.invalidSourceAfterFix
+                error
+                sourceCode
+                |> expectMessageEqual """
+INVALID SOURCE AFTER FIX
+
+I got something unexpected when applying the fixes provided by the error
+with the following message:
+
+  `Some error`
+
+I was unable to parse the source code after applying the fixes. Here is
+the result of the automatic fixing:
+
+  ```
+    ule A exposing (b)
+    abcd =
+      1
+  ```
+
+This is problematic because fixes are meant to help the user, and applying
+this fix will give them more work to do. After the fix has been applied,
+the problem should be solved and the user should not have to think about it
+anymore. If a fix can not be applied fully, it should not be applied at
+all."""
 
 
 dummyRange : Range

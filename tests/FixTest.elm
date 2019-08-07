@@ -337,4 +337,21 @@ a = 1
                 in
                 Fix.fix fixes source
                     |> Expect.equal (Fix.Errored Fix.Unchanged)
+        , test "should fail if the source code is unparsable after fixes" <|
+            \() ->
+                let
+                    source : String
+                    source =
+                        """module A exposing (someCode)
+someCode = 2
+"""
+
+                    fixes : List Fix.Fix
+                    fixes =
+                        [ Fix.removeRange { start = { row = 1, column = 1 }, end = { row = 1, column = 4 } } ]
+                in
+                Fix.fix fixes source
+                    |> Expect.equal (Fix.Errored <| Fix.SourceCodeIsNotValid """ule A exposing (someCode)
+someCode = 2
+""")
         ]
