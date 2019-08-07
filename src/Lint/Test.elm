@@ -56,9 +56,24 @@ Development process loop, which is:
     to handle)
 
 
+## Have a good title
+
+A good test title explains
+
+  - what is tested - Probably the rule, but making it explicit
+    in a [`describe`](https://package.elm-lang.org/packages/elm-explorations/test/latest/Test#describe)
+    might improve your test report. Or maybe you are testing a sub-part of the rule,
+    and you can name it explictly.
+  - what should happen: (not) reporting an error, fix <something> by <doing something>, ...
+  - when: what is the situation that this test sets up?
+
+Ideally, by only reading through the test titles, someone else should be able to
+rewrite the rule you are testing.
+
+
 ## What should you test?
 
-You should test the scenarii where you expect the rule to report something. At
+You should test the scenarios where you expect the rule to report something. At
 the same time, you should also test when it shouldn't. I encourage writing tests
 to make sure that things that are similar to what you want to report are not
 reported.
