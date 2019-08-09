@@ -361,7 +361,7 @@ lintErrors model =
                 |> List.map fromLintError
           )
         ]
-            |> Reporter.formatReport
+            |> Reporter.formatReport False
 
 
 fromLintError : LintError -> Reporter.Error
@@ -371,6 +371,7 @@ fromLintError error =
     , message = Lint.errorMessage error
     , details = Lint.errorDetails error
     , range = Lint.errorRange error
+    , hasFix = Lint.fixes error /= Nothing
     }
 
 
