@@ -129,22 +129,22 @@ rangeUpUntilTest =
                 in
                 Fix.rangeUpUntil range position
                     |> Expect.equal expected
+        , test "should not change the range if the position is after the range" <|
+            \() ->
+                let
+                    range : Range
+                    range =
+                        { start = { row = 2, column = 10 }
+                        , end = { row = 4, column = 10 }
+                        }
 
-        -- , test "should not change the range if the position is after the range" <|
-        --     \() ->
-        --         let
-        --             range : Range
-        --             range =
-        --                 { start = { row = 2, column = 10 }
-        --                 , end = { row = 4, column = 10 }
-        --                 }
-        --
-        --             position : { row : Int, column : Int }
-        --             position =
-        --                 { row = 100, column = 100 }
-        --         in
-        --         Fix.rangeUpUntil range position
-        --             |> Expect.equal range
+                    position : { row : Int, column : Int }
+                    position =
+                        { row = 100, column = 100 }
+                in
+                Fix.rangeUpUntil range position
+                    |> Expect.equal range
+
         -- , test "should not change the range if the position is before the range" <|
         --     \() ->
         --         let

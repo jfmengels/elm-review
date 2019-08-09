@@ -117,18 +117,20 @@ fix fixes sourceCode =
 
 rangePosition : Fix -> Int
 rangePosition fix_ =
-    let
-        { row, column } =
-            case fix_ of
-                Replacement range replacement ->
-                    range.start
+    positionAsInt <|
+        case fix_ of
+            Replacement range replacement ->
+                range.start
 
-                Removal range ->
-                    range.start
+            Removal range ->
+                range.start
 
-                InsertAt position insertion ->
-                    position
-    in
+            InsertAt position insertion ->
+                position
+
+
+positionAsInt : { row : Int, column : Int } -> Int
+positionAsInt { row, column } =
     -- This is a quick and simple heuristic to be able to sort ranges.
     -- It is entirely based on the assumption that no line is longer than
     -- 1.000.000 characters long. Then, as long as ranges don't overlap,
@@ -267,4 +269,13 @@ then the range won't change.
 -}
 rangeUpUntil : Range -> { row : Int, column : Int } -> Range
 rangeUpUntil range position =
-    { range | end = position }
+    let
+        positionAsInt_ : Int
+        positionAsInt_ =
+            positionAsInt position
+    in
+    if positionAsInt range.start <= positionAsInt_ && positionAsInt range.end >= positionAsInt_ then
+        { range | end = position }
+
+    else
+        range
