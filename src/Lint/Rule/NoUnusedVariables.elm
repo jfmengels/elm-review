@@ -77,7 +77,8 @@ type alias Scope =
 
 
 type VariableType
-    = Variable Range
+    = TopLevelVariable Range
+    | LetVariable LetBlockContext Range
     | ImportedModule
     | ImportedVariable
     | ImportedType
@@ -85,6 +86,11 @@ type VariableType
     | ModuleAlias
     | Type
     | Port
+
+
+type LetBlockContext
+    = HasMultipleDeclarations
+    | HasNoOtherDeclarations Range
 
 
 initialContext : Context
@@ -117,8 +123,18 @@ error variableType range_ name =
 fixes : VariableType -> List Fix
 fixes variableType =
     case variableType of
-        Variable range ->
+        TopLevelVariable range ->
             [ Fix.removeRange range ]
+
+        LetVariable letBlockContext variableRange ->
+            case letBlockContext of
+                HasMultipleDeclarations ->
+                    [ Fix.removeRange variableRange ]
+
+                HasNoOtherDeclarations letDeclarationsRange ->
+                    -- If there are no other declarations in the let in block,
+                    -- we also need to remove the `let in` keywords.
+                    [ Fix.removeRange letDeclarationsRange ]
 
         ImportedModule ->
             []
@@ -145,8 +161,11 @@ fixes variableType =
 variableTypeToString : VariableType -> String
 variableTypeToString value =
     case value of
-        Variable _ ->
-            "Variable"
+        TopLevelVariable _ ->
+            "Top-level variable"
+
+        LetVariable _ _ ->
+            "`let in` variable"
 
         ImportedModule ->
             "Imported module"
@@ -173,7 +192,10 @@ variableTypeToString value =
 variableTypeWarning : VariableType -> String
 variableTypeWarning value =
     case value of
-        Variable _ ->
+        TopLevelVariable _ ->
+            ""
+
+        LetVariable _ _ ->
             ""
 
         ImportedModule ->
@@ -273,8 +295,8 @@ importVisitor (Node _ { exposingList, moduleAlias, moduleName }) context =
 
 
 expressionVisitor : Node Expression -> Direction -> Context -> ( List Error, Context )
-expressionVisitor node direction context =
-    case ( direction, Node.value node ) of
+expressionVisitor (Node range value) direction context =
+    case ( direction, value ) of
         ( Rule.OnEnter, FunctionOrValue [] name ) ->
             ( [], markAsUsed name context )
 
@@ -287,15 +309,23 @@ expressionVisitor node direction context =
         ( Rule.OnEnter, PrefixOperator name ) ->
             ( [], markAsUsed name context )
 
-        ( Rule.OnEnter, LetExpression { declarations } ) ->
+        ( Rule.OnEnter, LetExpression { declarations, expression } ) ->
             let
+                letBlockContext : LetBlockContext
+                letBlockContext =
+                    if List.length declarations == 1 then
+                        HasNoOtherDeclarations <| Fix.rangeUpUntil range (Node.range expression |> .start)
+
+                    else
+                        HasMultipleDeclarations
+
                 newContext : Context
                 newContext =
                     List.foldl
                         (\declaration context_ ->
                             case Node.value declaration of
                                 LetFunction function ->
-                                    registerFunction function context_
+                                    registerFunction letBlockContext function context_
 
                                 LetDestructuring pattern _ ->
                                     context_
@@ -482,7 +512,7 @@ declarationVisitor node direction context =
                 newContext : Context
                 newContext =
                     context
-                        |> register (Variable <| Node.range node) (Node.range functionImplementation.name) (Node.value functionImplementation.name)
+                        |> register (TopLevelVariable <| Node.range node) (Node.range functionImplementation.name) (Node.value functionImplementation.name)
                         |> markUsedTypesAndModules namesUsedInSignature
             in
             ( [], newContext )
@@ -596,8 +626,8 @@ finalEvaluation context =
             ]
 
 
-registerFunction : Function -> Context -> Context
-registerFunction function context =
+registerFunction : LetBlockContext -> Function -> Context -> Context
+registerFunction letBlockContext function context =
     let
         declaration : FunctionImplementation
         declaration =
@@ -624,7 +654,10 @@ registerFunction function context =
                     Node.range function.declaration
     in
     context
-        |> register (Variable functionRange) (Node.range declaration.name) (Node.value declaration.name)
+        |> register
+            (LetVariable letBlockContext functionRange)
+            (Node.range declaration.name)
+            (Node.value declaration.name)
         |> markUsedTypesAndModules namesUsedInSignature
 
 

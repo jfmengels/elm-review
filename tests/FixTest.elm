@@ -10,6 +10,7 @@ all : Test
 all =
     describe "Fix"
         [ mergeRangesTest
+        , rangeUpUntilTest
         , fixTest
         ]
 
@@ -101,6 +102,64 @@ mergeRangesTest =
                             |> Expect.equal a
                     ]
                     ()
+        ]
+
+
+rangeUpUntilTest : Test
+rangeUpUntilTest =
+    describe "rangeUpUntil"
+        [ test "should stop the range at the position if the position is in the range" <|
+            \() ->
+                let
+                    range : Range
+                    range =
+                        { start = { row = 2, column = 10 }
+                        , end = { row = 4, column = 10 }
+                        }
+
+                    position : { row : Int, column : Int }
+                    position =
+                        { row = 4, column = 3 }
+
+                    expected : Range
+                    expected =
+                        { start = { row = 2, column = 10 }
+                        , end = { row = 4, column = 3 }
+                        }
+                in
+                Fix.rangeUpUntil range position
+                    |> Expect.equal expected
+
+        -- , test "should not change the range if the position is after the range" <|
+        --     \() ->
+        --         let
+        --             range : Range
+        --             range =
+        --                 { start = { row = 2, column = 10 }
+        --                 , end = { row = 4, column = 10 }
+        --                 }
+        --
+        --             position : { row : Int, column : Int }
+        --             position =
+        --                 { row = 100, column = 100 }
+        --         in
+        --         Fix.rangeUpUntil range position
+        --             |> Expect.equal range
+        -- , test "should not change the range if the position is before the range" <|
+        --     \() ->
+        --         let
+        --             range : Range
+        --             range =
+        --                 { start = { row = 2, column = 10 }
+        --                 , end = { row = 4, column = 10 }
+        --                 }
+        --
+        --             position : { row : Int, column : Int }
+        --             position =
+        --                 { row = 1, column = 1 }
+        --         in
+        --         Fix.rangeUpUntil range position
+        --             |> Expect.equal range
         ]
 
 

@@ -52,7 +52,7 @@ b = 1
 a = 2"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
-                        { message = "Variable `a` is not used"
+                        { message = "Top-level variable `a` is not used"
                         , details = details
                         , under = "a"
                         }
@@ -68,7 +68,7 @@ a : Int
 a = 2"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
-                        { message = "Variable `a` is not used"
+                        { message = "Top-level variable `a` is not used"
                         , details = details
                         , under = "a"
                         }
@@ -85,7 +85,7 @@ a = 1
 b = 2"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
-                        { message = "Variable `a` is not used"
+                        { message = "Top-level variable `a` is not used"
                         , details = details
                         , under = "a"
                         }
@@ -114,7 +114,7 @@ b = 2
 c = 3"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
-                        { message = "Variable `c` is not used"
+                        { message = "Top-level variable `c` is not used"
                         , details = details
                         , under = "c"
                         }
@@ -143,7 +143,7 @@ b = 2
 c = 3"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
-                        { message = "Variable `c` is not used"
+                        { message = "Top-level variable `c` is not used"
                         , details = details
                         , under = "c"
                         }
@@ -159,7 +159,7 @@ href = 1
 a = Html.Styled.Attributes.href"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
-                        { message = "Variable `href` is not used"
+                        { message = "Top-level variable `href` is not used"
                         , details = details
                         , under = "href"
                         }
@@ -180,39 +180,42 @@ a = let b = 1
     in 2"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
-                        { message = "Variable `b` is not used"
+                        { message = "`let in` variable `b` is not used"
                         , details = details
                         , under = "b"
                         }
-                        |> Lint.Test.whenFixed "module SomeModule exposing (a)\na = let \n    in 2"
+                        |> Lint.Test.whenFixed """module SomeModule exposing (a)
+a = 2"""
                     ]
     , test "should report unused variables from let even if they are exposed by name" <|
         \() ->
             testRule """module SomeModule exposing (a, b)
 a = let b = 1
-    in 2"""
+        c = 2
+    in c"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
-                        { message = "Variable `b` is not used"
+                        { message = "`let in` variable `b` is not used"
                         , details = details
                         , under = "b"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 9 }, end = { row = 2, column = 10 } }
-                        |> Lint.Test.whenFixed "module SomeModule exposing (a, b)\na = let \n    in 2"
+                        |> Lint.Test.whenFixed "module SomeModule exposing (a, b)\na = let \n        c = 2\n    in c"
                     ]
-    , test "should report unused functions from let even if they are exposed by name" <|
+    , test "should report unused function from let even if they are exposed by name" <|
         \() ->
             testRule """module SomeModule exposing (a, b)
 a = let b param = 1
     in 2"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
-                        { message = "Variable `b` is not used"
+                        { message = "`let in` variable `b` is not used"
                         , details = details
                         , under = "b"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 9 }, end = { row = 2, column = 10 } }
-                        |> Lint.Test.whenFixed "module SomeModule exposing (a, b)\na = let \n    in 2"
+                        |> Lint.Test.whenFixed """module SomeModule exposing (a, b)
+a = 2"""
                     ]
     , test "should report unused variables from let even if everything is exposed" <|
         \() ->
@@ -221,11 +224,12 @@ a = let b = 1
     in 2"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
-                        { message = "Variable `b` is not used"
+                        { message = "`let in` variable `b` is not used"
                         , details = details
                         , under = "b"
                         }
-                        |> Lint.Test.whenFixed "module SomeModule exposing (..)\na = let \n    in 2"
+                        |> Lint.Test.whenFixed """module SomeModule exposing (..)
+a = 2"""
                     ]
     , test "should not report variables from let declarations that are used in the expression" <|
         \() ->
@@ -292,7 +296,7 @@ c = 1
 a = { b | c = 3 }"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
-                        { message = "Variable `c` is not used"
+                        { message = "Top-level variable `c` is not used"
                         , details = details
                         , under = "c"
                         }
@@ -714,7 +718,7 @@ a = 1
 type A a = B a"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
-                        { message = "Variable `a` is not used"
+                        { message = "Top-level variable `a` is not used"
                         , details = details
                         , under = "a"
                         }
@@ -731,7 +735,7 @@ a : { r | c: A }
 a str = {c = str}"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
-                        { message = "Variable `r` is not used"
+                        { message = "Top-level variable `r` is not used"
                         , details = details
                         , under = "r"
                         }

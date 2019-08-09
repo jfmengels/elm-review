@@ -2,7 +2,7 @@ module Lint.Fix exposing
     ( Fix
     , removeRange, replaceRangeBy, insertAt
     , Result(..), Problem(..), fix
-    , mergeRanges
+    , mergeRanges, rangeUpUntil
     )
 
 {-| Gives tools to make changes to the source code.
@@ -23,9 +23,9 @@ module Lint.Fix exposing
 @docs Result, Problem, fix
 
 
-# Utilitaries for working with ranges
+# Range manipulation
 
-@docs mergeRanges
+@docs mergeRanges, rangeUpUntil
 
 -}
 
@@ -211,7 +211,7 @@ getRowAtLine lines rowIndex =
 
 
 
--- UTILITARIES FOR WORKING WITH RANGES
+-- RANGE MANIPULATION
 
 
 {-| Create a new range that starts at the start of the range that starts first,
@@ -253,3 +253,18 @@ mergeRanges a b =
                     a.end
     in
     { start = start, end = end }
+
+
+{-| Make a range stop at a position. If the position is not inside the range,
+then the range won't change.
+
+    range : Range
+    range =
+        Fix.rangeUpUntil
+            (Node.range node)
+            (node |> Node.value |> .typeAnnotation |> Node.range |> .start)
+
+-}
+rangeUpUntil : Range -> { row : Int, column : Int } -> Range
+rangeUpUntil range position =
+    { range | end = position }
