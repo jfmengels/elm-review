@@ -371,7 +371,7 @@ fromLintError error =
     , message = Lint.errorMessage error
     , details = Lint.errorDetails error
     , range = Lint.errorRange error
-    , hasFix = Lint.fixes error /= Nothing
+    , hasFix = Lint.errorFixes error /= Nothing
     }
 
 

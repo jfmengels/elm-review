@@ -172,7 +172,7 @@ run rule source =
                             , details = Lint.errorDetails error_
                             }
                             (Lint.errorRange error_)
-                            |> Rule.withFixes (Lint.fixes error_ |> Maybe.withDefault [])
+                            |> Rule.withFixes (Lint.errorFixes error_ |> Maybe.withDefault [])
                     )
                 |> SuccessfulRun
                     { source = source

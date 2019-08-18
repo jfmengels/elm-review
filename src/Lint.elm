@@ -1,6 +1,6 @@
 module Lint exposing
     ( LintError, lintSource
-    , errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, fixes
+    , errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes
     )
 
 {-| Module to configure your linting configuration and run it on a source file.
@@ -13,7 +13,7 @@ module Lint exposing
 
 # Errors
 
-@docs errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, fixes
+@docs errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes
 
 -}
 
@@ -221,6 +221,6 @@ errorRange (LintError error) =
 
 {-| Get the fixes for an error.
 -}
-fixes : LintError -> Maybe (List Fix)
-fixes (LintError error) =
+errorFixes : LintError -> Maybe (List Fix)
+errorFixes (LintError error) =
     error.fixes
