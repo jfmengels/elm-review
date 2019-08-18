@@ -540,6 +540,9 @@ checkFixesAreCorrect codeInspector error_ ((ExpectedError expectedError_) as exp
                 Fix.Errored (Fix.SourceCodeIsNotValid sourceCode) ->
                     Expect.fail <| ErrorMessage.invalidSourceAfterFix error_ sourceCode
 
+                Fix.Errored Fix.HasCollisionsInFixRanges ->
+                    Expect.fail <| ErrorMessage.hasCollisionsInFixRanges error_
+
 
 extractExpectedErrorData : ExpectedError -> ErrorMessage.ExpectedErrorData
 extractExpectedErrorData ((ExpectedError expectedErrorContent) as expectedError) =

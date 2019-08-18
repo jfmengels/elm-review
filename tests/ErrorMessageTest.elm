@@ -26,6 +26,7 @@ all =
         , fixedCodeMismatchTest
         , unchangedSourceAfterFixTest
         , invalidSourceAfterFixTest
+        , hasCollisionsInFixRangesTest
         ]
 
 
@@ -775,6 +776,40 @@ this fix will give them more work to do. After the fix has been applied,
 the problem should be solved and the user should not have to think about it
 anymore. If a fix can not be applied fully, it should not be applied at
 all."""
+
+
+hasCollisionsInFixRangesTest : Test
+hasCollisionsInFixRangesTest =
+    test "hasCollisionsInFixRanges" <|
+        \() ->
+            let
+                error : Error
+                error =
+                    Rule.error
+                        { message = "Some error"
+                        , details = [ "Some details" ]
+                        }
+                        { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
+            in
+            ErrorMessage.hasCollisionsInFixRanges error
+                |> expectMessageEqual """
+FOUND COLLISIONS IN FIX RANGES
+
+I got something unexpected when applying the fixes provided by the error
+with the following message:
+
+  `Some error`
+
+I found that some fixes were targeting (partially or completely) the same
+section of code. The problem with that is that I can't determine which fix
+to apply first, and the result will be different and potentially invalid
+based on the order in which I apply these fixes.
+
+For this reason, I require that the ranges (for replacing and removing) and
+the positions (for inserting) of every fix to be mutually exclusive.
+
+Hint: Maybe you duplicated a fix, or you targetted the wrong node for one
+of your fixes."""
 
 
 dummyRange : Range

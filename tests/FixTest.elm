@@ -413,4 +413,52 @@ someCode = 2
                     |> Expect.equal (Fix.Errored <| Fix.SourceCodeIsNotValid """ule A exposing (someCode)
 someCode = 2
 """)
+        , test "should fail if the fixes' range overlap" <|
+            \() ->
+                let
+                    source : String
+                    source =
+                        """module A exposing (someCode)
+someCode = 2
+"""
+
+                    fixes : List Fix.Fix
+                    fixes =
+                        [ Fix.replaceRangeBy { start = { row = 10, column = 1 }, end = { row = 20, column = 1 } } ""
+                        , Fix.replaceRangeBy { start = { row = 15, column = 1 }, end = { row = 20, column = 1 } } ""
+                        ]
+                in
+                Expect.all
+                    [ \() ->
+                        Fix.fix fixes source
+                            |> Expect.equal (Fix.Errored Fix.HasCollisionsInFixRanges)
+                    , \() ->
+                        Fix.fix (List.reverse fixes) source
+                            |> Expect.equal (Fix.Errored Fix.HasCollisionsInFixRanges)
+                    ]
+                    ()
+        , test "should fail if an insertion fix is contained inside another fix's range" <|
+            \() ->
+                let
+                    source : String
+                    source =
+                        """module A exposing (someCode)
+someCode = 2
+                    """
+
+                    fixes : List Fix.Fix
+                    fixes =
+                        [ Fix.replaceRangeBy { start = { row = 10, column = 1 }, end = { row = 20, column = 1 } } ""
+                        , Fix.insertAt { row = 15, column = 1 } "foo"
+                        ]
+                in
+                Expect.all
+                    [ \() ->
+                        Fix.fix fixes source
+                            |> Expect.equal (Fix.Errored Fix.HasCollisionsInFixRanges)
+                    , \() ->
+                        Fix.fix (List.reverse fixes) source
+                            |> Expect.equal (Fix.Errored Fix.HasCollisionsInFixRanges)
+                    ]
+                    ()
         ]

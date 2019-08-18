@@ -32,6 +32,7 @@ module Lint.Fix exposing
 import Array
 import Elm.Parser
 import Elm.Syntax.Range exposing (Range)
+import List.Extra
 
 
 
@@ -89,30 +90,77 @@ of fixes.
 type Problem
     = Unchanged
     | SourceCodeIsNotValid String
+    | HasCollisionsInFixRanges
 
 
 {-| Apply the changes on the source code.
 -}
 fix : List Fix -> String -> Result
 fix fixes sourceCode =
-    let
-        resultSourceCode : String
-        resultSourceCode =
-            fixes
-                |> List.sortBy (rangePosition >> negate)
-                |> List.foldl applyFix (String.lines sourceCode)
-                |> String.join "\n"
-    in
-    if sourceCode == resultSourceCode then
-        Errored Unchanged
+    if containRangeCollisions fixes then
+        Errored HasCollisionsInFixRanges
 
     else
-        case Elm.Parser.parse resultSourceCode of
-            Err _ ->
-                Errored <| SourceCodeIsNotValid resultSourceCode
+        let
+            resultSourceCode : String
+            resultSourceCode =
+                fixes
+                    |> List.sortBy (rangePosition >> negate)
+                    |> List.foldl applyFix (String.lines sourceCode)
+                    |> String.join "\n"
+        in
+        if sourceCode == resultSourceCode then
+            Errored Unchanged
 
-            Ok _ ->
-                Successful resultSourceCode
+        else
+            case Elm.Parser.parse resultSourceCode of
+                Err _ ->
+                    Errored <| SourceCodeIsNotValid resultSourceCode
+
+                Ok _ ->
+                    Successful resultSourceCode
+
+
+containRangeCollisions : List Fix -> Bool
+containRangeCollisions fixes =
+    fixes
+        |> List.map getFixRange
+        |> List.Extra.uniquePairs
+        |> List.any (\( a, b ) -> collide a b)
+
+
+getFixRange : Fix -> Range
+getFixRange fix_ =
+    case fix_ of
+        Replacement range _ ->
+            range
+
+        Removal range ->
+            range
+
+        InsertAt position _ ->
+            { start = position, end = position }
+
+
+collide : Range -> Range -> Bool
+collide a b =
+    case comparePosition a.end b.start of
+        LT ->
+            False
+
+        EQ ->
+            False
+
+        GT ->
+            case comparePosition b.end a.start of
+                LT ->
+                    False
+
+                EQ ->
+                    False
+
+                GT ->
+                    True
 
 
 rangePosition : Fix -> Int

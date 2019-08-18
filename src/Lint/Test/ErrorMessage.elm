@@ -2,7 +2,7 @@ module Lint.Test.ErrorMessage exposing
     ( ExpectedErrorData
     , parsingFailure, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
     , underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode
-    , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix
+    , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
     , impossibleState
     )
 
@@ -14,7 +14,7 @@ module Lint.Test.ErrorMessage exposing
 @docs ExpectedErrorData
 @docs parsingFailure, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
 @docs underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode
-@docs missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix
+@docs missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
 @docs impossibleState
 
 -}
@@ -307,6 +307,27 @@ this fix will give them more work to do. After the fix has been applied,
 the problem should be solved and the user should not have to think about it
 anymore. If a fix can not be applied fully, it should not be applied at
 all."""
+
+
+hasCollisionsInFixRanges : Error -> String
+hasCollisionsInFixRanges error =
+    """FOUND COLLISIONS IN FIX RANGES
+
+I got something unexpected when applying the fixes provided by the error
+with the following message:
+
+  """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
+
+I found that some fixes were targeting (partially or completely) the same
+section of code. The problem with that is that I can't determine which fix
+to apply first, and the result will be different and potentially invalid
+based on the order in which I apply these fixes.
+
+For this reason, I require that the ranges (for replacing and removing) and
+the positions (for inserting) of every fix to be mutually exclusive.
+
+Hint: Maybe you duplicated a fix, or you targetted the wrong node for one
+of your fixes."""
 
 
 
