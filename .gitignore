@@ -3,3 +3,4 @@ example/elm.js
 *.log
 node_modules/
 example/index.html
+.coverage
