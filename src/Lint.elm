@@ -1,6 +1,6 @@
 module Lint exposing
-    ( LintError, lintSource
-    , errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes
+    ( lintSource
+    , LintError, errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes
     )
 
 {-| Module to configure your linting configuration and run it on a source file.
@@ -8,12 +8,12 @@ module Lint exposing
 
 # Linting
 
-@docs LintError, lintSource
+@docs lintSource
 
 
 # Errors
 
-@docs errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes
+@docs LintError, errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes
 
 -}
 
