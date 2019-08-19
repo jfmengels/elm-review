@@ -155,7 +155,7 @@ You can't just have an expression like `1 + 2`.
 run : Rule -> String -> LintResult
 run rule source =
     let
-        errors : List Lint.LintError
+        errors : List Lint.Error
         errors =
             Lint.lint [ rule ] { path = "TestContent.elm", source = source }
     in

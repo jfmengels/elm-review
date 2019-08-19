@@ -1,6 +1,6 @@
 module Lint exposing
     ( lint
-    , LintError, errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes
+    , Error, errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes
     )
 
 {-| Module to configure your linting configuration and run it on a source file.
@@ -13,7 +13,7 @@ module Lint exposing
 
 # Errors
 
-@docs LintError, errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes
+@docs Error, errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes
 
 -}
 
@@ -31,12 +31,12 @@ import Lint.Util as Util
 {-| Represents an error in a file found by a rule.
 
 Note: This should not be confused with `Error` from the `Lint.Rule` module.
-`Lint.LintError` is created from `Lint.Rule.Error` but contains additional information
+`Lint.Error` is created from `Lint.Rule.Error` but contains additional information
 like the name of the rule that emitted it and the file name.
 
 -}
-type LintError
-    = LintError
+type Error
+    = Error
         { moduleName : Maybe String
         , ruleName : String
         , message : String
@@ -58,12 +58,12 @@ type LintError
         , Lint.Rule.NoUnusedVariables.rule
         ]
 
-    errors : List LintError
+    errors : List Error
     errors =
         lint config sourceCode
 
 -}
-lint : List Rule -> { path : String, source : String } -> List LintError
+lint : List Rule -> { path : String, source : String } -> List Error
 lint config { path, source } =
     case parseSource source of
         Ok file ->
@@ -72,7 +72,7 @@ lint config { path, source } =
                 |> List.sortWith compareErrorPositions
 
         Err _ ->
-            [ LintError
+            [ Error
                 { moduleName = Nothing
                 , ruleName = "ParsingError"
                 , message = path ++ " is not a correct Elm file"
@@ -86,7 +86,7 @@ lint config { path, source } =
             ]
 
 
-lintWithRule : String -> File -> Rule -> List LintError
+lintWithRule : String -> File -> Rule -> List Error
 lintWithRule path file rule =
     Rule.analyzer rule file
         |> List.map (ruleErrorToLintError (moduleName file) rule)
@@ -110,8 +110,8 @@ moduleName file =
     Util.moduleName moduleNameNode
 
 
-compareErrorPositions : LintError -> LintError -> Order
-compareErrorPositions (LintError a) (LintError b) =
+compareErrorPositions : Error -> Error -> Order
+compareErrorPositions (Error a) (Error b) =
     compareRange a.range b.range
 
 
@@ -157,9 +157,9 @@ compareRange a b =
         EQ
 
 
-ruleErrorToLintError : String -> Rule -> Rule.Error -> LintError
+ruleErrorToLintError : String -> Rule -> Rule.Error -> Error
 ruleErrorToLintError moduleName_ rule error =
-    LintError
+    Error
         { moduleName = Just moduleName_
         , ruleName = Rule.name rule
         , message = Rule.errorMessage error
@@ -185,41 +185,41 @@ parseSource source =
 
 {-| Get the name of the module for which the error occurred.
 -}
-errorModuleName : LintError -> Maybe String
-errorModuleName (LintError error) =
+errorModuleName : Error -> Maybe String
+errorModuleName (Error error) =
     error.moduleName
 
 
 {-| Get the name of the rule of an error.
 -}
-errorRuleName : LintError -> String
-errorRuleName (LintError error) =
+errorRuleName : Error -> String
+errorRuleName (Error error) =
     error.ruleName
 
 
 {-| Get the message of an error.
 -}
-errorMessage : LintError -> String
-errorMessage (LintError error) =
+errorMessage : Error -> String
+errorMessage (Error error) =
     error.message
 
 
 {-| Get the details of an error.
 -}
-errorDetails : LintError -> List String
-errorDetails (LintError error) =
+errorDetails : Error -> List String
+errorDetails (Error error) =
     error.details
 
 
 {-| Get the range of an error.
 -}
-errorRange : LintError -> Range
-errorRange (LintError error) =
+errorRange : Error -> Range
+errorRange (Error error) =
     error.range
 
 
 {-| Get the fixes for an error.
 -}
-errorFixes : LintError -> Maybe (List Fix)
-errorFixes (LintError error) =
+errorFixes : Error -> Maybe (List Fix)
+errorFixes (Error error) =
     error.fixes

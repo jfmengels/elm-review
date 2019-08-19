@@ -4,7 +4,7 @@ import Browser
 import Html exposing (Html, button, div, input, label, p, text, textarea)
 import Html.Attributes as Attr
 import Html.Events as Events
-import Lint exposing (LintError)
+import Lint
 import Lint.Rule exposing (Rule)
 import Lint.Rule.NoDebug
 import Lint.Rule.NoExtraBooleanComparison
@@ -33,7 +33,7 @@ main =
 
 type alias Model =
     { sourceCode : String
-    , lintErrors : List LintError
+    , lintErrors : List Lint.Error
     , noDebugEnabled : Bool
     , noUnusedVariablesEnabled : Bool
     , noImportingEverythingEnabled : Bool
@@ -364,7 +364,7 @@ lintErrors model =
             |> Reporter.formatReport Reporter.Linting
 
 
-fromLintError : LintError -> Reporter.Error
+fromLintError : Lint.Error -> Reporter.Error
 fromLintError error =
     { moduleName = Lint.errorModuleName error
     , ruleName = Lint.errorRuleName error

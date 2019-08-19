@@ -1023,8 +1023,8 @@ withFinalEvaluation visitor (Schema schema) =
 
 {-| Represents an error found by a [`Rule`](#Rule).
 
-Note: This should not be confused with [`LintError`](./Lint#LintError) from the
-[`Lint`](./Lint) module. [`Lint.LintError`](./Lint#LintError) is created from
+Note: This should not be confused with [`Lint.Error`](./Lint#Error) from the
+[`Lint`](./Lint) module. [`Lint.Error`](./Lint#Error) is created from
 this module's [`Error`](#Error) but contains additional information like the
 name of the rule that emitted it and the file name.
 
