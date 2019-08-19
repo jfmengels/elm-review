@@ -1285,7 +1285,7 @@ expressionChildren node =
         RecordAccessFunction _ ->
             []
 
-        GLSLExpression expr ->
+        GLSLExpression _ ->
             []
 
 
