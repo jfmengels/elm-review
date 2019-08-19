@@ -1012,7 +1012,7 @@ for [`withImportVisitor`](#withImportVisitor), but using [`withFinalEvaluation`]
                 []
 
 -}
-withFinalEvaluation : (context -> List Error) -> Schema configurationState context -> Schema { hasAtLeastOneVisitor : () } context
+withFinalEvaluation : (context -> List Error) -> Schema { hasAtLeastOneVisitor : () } context -> Schema { hasAtLeastOneVisitor : () } context
 withFinalEvaluation visitor (Schema schema) =
     Schema { schema | finalEvaluationFn = visitor }
 
