@@ -1,5 +1,5 @@
 module Lint exposing
-    ( lintSource
+    ( lint
     , LintError, errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes
     )
 
@@ -8,7 +8,7 @@ module Lint exposing
 
 # Linting
 
-@docs lintSource
+@docs lint
 
 
 # Errors
@@ -60,15 +60,15 @@ type LintError
 
     errors : List LintError
     errors =
-        lintSource config sourceCode
+        lint config sourceCode
 
 -}
-lintSource : List Rule -> { path : String, source : String } -> List LintError
-lintSource config { path, source } =
+lint : List Rule -> { path : String, source : String } -> List LintError
+lint config { path, source } =
     case parseSource source of
         Ok file ->
             config
-                |> List.concatMap (lintSourceWithRule path file)
+                |> List.concatMap (lintWithRule path file)
                 |> List.sortWith compareErrorPositions
 
         Err _ ->
@@ -86,8 +86,8 @@ lintSource config { path, source } =
             ]
 
 
-lintSourceWithRule : String -> File -> Rule -> List LintError
-lintSourceWithRule path file rule =
+lintWithRule : String -> File -> Rule -> List LintError
+lintWithRule path file rule =
     Rule.analyzer rule file
         |> List.map (ruleErrorToLintError (moduleName file) rule)
 

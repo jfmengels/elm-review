@@ -100,7 +100,7 @@ changes drastically.
 import Array exposing (Array)
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
-import Lint exposing (lintSource)
+import Lint
 import Lint.Fix as Fix
 import Lint.Rule as Rule exposing (Error, Rule)
 import Lint.Test.ErrorMessage as ErrorMessage
@@ -157,7 +157,7 @@ run rule source =
     let
         errors : List Lint.LintError
         errors =
-            lintSource [ rule ] { path = "TestContent.elm", source = source }
+            Lint.lint [ rule ] { path = "TestContent.elm", source = source }
     in
     case List.head errors |> Maybe.map Lint.errorMessage of
         Just "TestContent.elm is not a correct Elm file" ->
