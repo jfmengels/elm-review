@@ -68,7 +68,7 @@ lintSource config { path, source } =
     case parseSource source of
         Ok file ->
             config
-                |> List.concatMap (lintSourceWithRule path file source)
+                |> List.concatMap (lintSourceWithRule path file)
                 |> List.sortWith compareErrorPositions
 
         Err _ ->
@@ -86,10 +86,10 @@ lintSource config { path, source } =
             ]
 
 
-lintSourceWithRule : String -> File -> String -> Rule -> List LintError
-lintSourceWithRule path file source rule =
+lintSourceWithRule : String -> File -> Rule -> List LintError
+lintSourceWithRule path file rule =
     Rule.analyzer rule file
-        |> List.map (ruleErrorToLintError source (moduleName file) rule)
+        |> List.map (ruleErrorToLintError (moduleName file) rule)
 
 
 moduleName : File -> String
@@ -157,9 +157,8 @@ compareRange a b =
         EQ
 
 
-ruleErrorToLintError : String -> String -> Rule -> Rule.Error -> LintError
-ruleErrorToLintError source moduleName_ rule error =
-    -- TODO Remove source here?
+ruleErrorToLintError : String -> Rule -> Rule.Error -> LintError
+ruleErrorToLintError moduleName_ rule error =
     LintError
         { moduleName = Just moduleName_
         , ruleName = Rule.name rule
