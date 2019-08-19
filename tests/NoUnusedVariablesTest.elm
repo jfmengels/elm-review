@@ -331,6 +331,8 @@ import Foo exposing (a)"""
                         , details = details
                         , under = "a"
                         }
+                        |> Lint.Test.whenFixed """module SomeModule exposing (b)
+import Foo """
                     ]
     , test "should report unused imported functions (multiple imports)" <|
         \() ->
@@ -342,16 +344,71 @@ import Foo exposing (C, a, b)"""
                         , details = details
                         , under = "C"
                         }
+                        |> Lint.Test.whenFixed """module SomeModule exposing (d)
+import Foo exposing (a, b)"""
                     , Lint.Test.error
                         { message = "Imported variable `a` is not used"
                         , details = details
                         , under = "a"
                         }
+                        |> Lint.Test.whenFixed """module SomeModule exposing (d)
+import Foo exposing (C, b)"""
                     , Lint.Test.error
                         { message = "Imported variable `b` is not used"
                         , details = details
                         , under = "b"
                         }
+                        |> Lint.Test.whenFixed """module SomeModule exposing (d)
+import Foo exposing (C, a)"""
+                    ]
+    , test "should report unused imported functions (multiple imports on several lines)" <|
+        \() ->
+            testRule """module SomeModule exposing (d)
+import Foo
+    exposing
+        ( C
+        , a
+        , b
+        )"""
+                |> Lint.Test.expectErrors
+                    [ Lint.Test.error
+                        { message = "Imported type `C` is not used"
+                        , details = details
+                        , under = "C\n  "
+                        }
+                        |> Lint.Test.whenFixed """module SomeModule exposing (d)
+import Foo
+    exposing
+        ( a
+        , b
+        )"""
+                    , Lint.Test.error
+                        { message = "Imported variable `a` is not used"
+                        , details = details
+                        , under = "a"
+                        }
+                        |> Lint.Test.whenFixed
+                            ("""module SomeModule exposing (d)
+import Foo
+    exposing
+        ( C
+"""
+                                ++ "        "
+                                ++ """
+        , b
+        )"""
+                            )
+                    , Lint.Test.error
+                        { message = "Imported variable `b` is not used"
+                        , details = details
+                        , under = "b"
+                        }
+                        |> Lint.Test.whenFixed """module SomeModule exposing (d)
+import Foo
+    exposing
+        ( C
+        , a
+        )"""
                     ]
     , test "should report unused operator import" <|
         \() ->
@@ -363,6 +420,8 @@ import Parser exposing ((</>))"""
                         , details = details
                         , under = "(</>)"
                         }
+                        |> Lint.Test.whenFixed """module SomeModule exposing (a)
+import Parser """
                     ]
     , test "should report unused import" <|
         \() ->
@@ -374,6 +433,7 @@ import Html"""
                         , details = details
                         , under = "Html"
                         }
+                        |> Lint.Test.whenFixed "module SomeModule exposing (a)\n"
                     ]
     , test "should report unused import (multiples segments)" <|
         \() ->
@@ -385,6 +445,7 @@ import Html.Styled.Attributes"""
                         , details = details
                         , under = "Html.Styled.Attributes"
                         }
+                        |> Lint.Test.whenFixed "module SomeModule exposing (a)\n"
                     ]
     , test "should not report import if it exposes all (should be improved by detecting if any exposed value is used)" <|
         \() ->
@@ -414,6 +475,8 @@ import Html.Styled.Attributes as Html"""
                         , under = "Html"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 34 }, end = { row = 2, column = 38 } }
+                        |> Lint.Test.whenFixed """module SomeModule exposing (a)
+import Html.Styled.Attributes"""
                     ]
     , test "should report unused import alias even if it exposes a used type" <|
         \() ->
@@ -428,6 +491,10 @@ a = ()"""
                         , under = "Html"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 34 }, end = { row = 2, column = 38 } }
+                        |> Lint.Test.whenFixed """module SomeModule exposing (a)
+import Html.Styled.Attributes exposing (Attribute)
+a : Attribute
+a = ()"""
                     ]
     , test "should report unused import alias even if it is named like an exposed type" <|
         \() ->
@@ -442,6 +509,10 @@ a = ()"""
                         , under = "Html"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 27 } }
+                        |> Lint.Test.whenFixed """module SomeModule exposing (a)
+import Html.Styled exposing (Html)
+a : Html
+a = ()"""
                     ]
     , test "should not report import that exposes a used exposed type" <|
         \() ->
@@ -514,7 +585,8 @@ typeTests =
     [ test "should report unused custom type declarations" <|
         \() ->
             testRule """module SomeModule exposing (a)
-type A = B | C"""
+type A = B | C
+a = 1"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Type `A` is not used"
@@ -522,6 +594,9 @@ type A = B | C"""
                         , under = "A"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 6 }, end = { row = 2, column = 7 } }
+                        |> Lint.Test.whenFixed """module SomeModule exposing (a)
+
+a = 1"""
                     ]
     , test "should not report unused custom type constructors" <|
         -- This is handled by the `NoUnusedTypeConstructors` rule
@@ -532,7 +607,8 @@ type A = B | C"""
     , test "should report unused type aliases declarations" <|
         \() ->
             testRule """module SomeModule exposing (a)
-type alias A = { a : B }"""
+type alias A = { a : B }
+a = 1"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Type `A` is not used"
@@ -540,6 +616,9 @@ type alias A = { a : B }"""
                         , under = "A"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 12 }, end = { row = 2, column = 13 } }
+                        |> Lint.Test.whenFixed """module SomeModule exposing (a)
+
+a = 1"""
                     ]
     , test "should not report type alias used in a signature" <|
         \() ->
@@ -753,7 +832,8 @@ opaqueTypeTests =
     [ test "should report unused opaque types" <|
         \() ->
             testRule """module SomeModule exposing (a)
-type A = A Int"""
+type A = A Int
+a = 1"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Type `A` is not used"
@@ -761,6 +841,9 @@ type A = A Int"""
                         , under = "A"
                         }
                         |> Lint.Test.atExactly { start = { row = 2, column = 6 }, end = { row = 2, column = 7 } }
+                        |> Lint.Test.whenFixed """module SomeModule exposing (a)
+
+a = 1"""
                     ]
     , test "should not report used opaque types" <|
         \() ->
@@ -793,34 +876,50 @@ portTests : List Test
 portTests =
     [ test "should not report types that are used in ports" <|
         \() ->
-            testRule """module SomeModule exposing (output, input)
+            testRule """port module SomeModule exposing (output, input)
 import Json.Decode
 import Json.Encode
 port output : Json.Encode.Value -> Cmd msg
 port input : (Json.Decode.Value -> msg) -> Sub msg"""
                 |> Lint.Test.expectNoErrors
+    , test "should not report used ports" <|
+        \() ->
+            testRule """port module SomeModule exposing (a, subscriptions)
+import Json.Decode
+port output : () -> Cmd msg
+port input : (Json.Decode.Value -> msg) -> Sub msg
+
+a = output ()
+subscriptions = input GotInput"""
+                |> Lint.Test.expectNoErrors
     , test "should report unused ports (ingoing)" <|
         \() ->
-            testRule """module SomeModule exposing (a)
-import Json.Decode
-port input : (Json.Decode.Value -> msg) -> Sub msg"""
+            testRule """port module SomeModule exposing (a)
+a = 1
+port input : (() -> msg) -> Sub msg"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Port `input` is not used (Warning: Removing this port may break your application if it is used in the JS code)"
                         , details = details
                         , under = "input"
                         }
+                        |> Lint.Test.whenFixed """port module SomeModule exposing (a)
+a = 1
+"""
                     ]
     , test "should report unused ports (outgoing)" <|
         \() ->
-            testRule """module SomeModule exposing (a)
-import Json.Encode
-port output : Json.Encode.Value -> Cmd msg"""
+            testRule """port module SomeModule exposing (a)
+a = 1
+port output : String -> Cmd msg"""
                 |> Lint.Test.expectErrors
                     [ Lint.Test.error
                         { message = "Port `output` is not used (Warning: Removing this port may break your application if it is used in the JS code)"
                         , details = details
                         , under = "output"
                         }
+                        |> Lint.Test.whenFixed """port module SomeModule exposing (a)
+a = 1
+"""
                     ]
     ]

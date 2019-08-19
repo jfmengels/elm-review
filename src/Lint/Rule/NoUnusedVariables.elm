@@ -19,7 +19,7 @@ import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
-import Lint.Fix as Fix exposing (Fix)
+import Lint.Fix as Fix
 import Lint.Rule as Rule exposing (Direction, Error, Rule)
 import List.Nonempty as Nonempty exposing (Nonempty)
 import Set exposing (Set)
@@ -65,24 +65,29 @@ type alias Context =
     { scopes : Nonempty Scope
     , exposesEverything : Bool
     , constructorNameToTypeName : Dict String String
-    , declaredModules : Dict String ( VariableType, Range )
+    , declaredModules : Dict String VariableInfo
     , usedModules : Set String
     }
 
 
 type alias Scope =
-    { declared : Dict String ( VariableType, Range )
+    { declared : Dict String VariableInfo
     , used : Set String
     }
 
 
+type alias VariableInfo =
+    { variableType : VariableType
+    , under : Range
+    , rangeToRemove : Range
+    }
+
+
 type VariableType
-    = TopLevelVariable Range
-    | LetVariable LetBlockContext Range
+    = TopLevelVariable
+    | LetVariable
     | ImportedModule
-    | ImportedVariable
-    | ImportedType
-    | ImportedOperator
+    | ImportedItem ImportType
     | ModuleAlias
     | Type
     | Port
@@ -91,6 +96,12 @@ type VariableType
 type LetBlockContext
     = HasMultipleDeclarations
     | HasNoOtherDeclarations Range
+
+
+type ImportType
+    = ImportedVariable
+    | ImportedType
+    | ImportedOperator
 
 
 initialContext : Context
@@ -110,73 +121,35 @@ emptyScope =
     }
 
 
-error : VariableType -> Range -> String -> Error
-error variableType range_ name =
+error : VariableInfo -> String -> Error
+error { variableType, under, rangeToRemove } name =
     Rule.error
         { message = variableTypeToString variableType ++ " `" ++ name ++ "` is not used" ++ variableTypeWarning variableType
         , details = [ "Since it is not being used, I recommend removing it. It should make the code clearer to read for other people." ]
         }
-        range_
-        |> Rule.withFixes (fixes variableType)
-
-
-fixes : VariableType -> List Fix
-fixes variableType =
-    case variableType of
-        TopLevelVariable range ->
-            [ Fix.removeRange range ]
-
-        LetVariable letBlockContext variableRange ->
-            case letBlockContext of
-                HasMultipleDeclarations ->
-                    [ Fix.removeRange variableRange ]
-
-                HasNoOtherDeclarations letDeclarationsRange ->
-                    -- If there are no other declarations in the let in block,
-                    -- we also need to remove the `let in` keywords.
-                    [ Fix.removeRange letDeclarationsRange ]
-
-        ImportedModule ->
-            []
-
-        ImportedVariable ->
-            []
-
-        ImportedType ->
-            []
-
-        ImportedOperator ->
-            []
-
-        ModuleAlias ->
-            []
-
-        Type ->
-            []
-
-        Port ->
-            []
+        under
+        |> Rule.withFixes [ Fix.removeRange rangeToRemove ]
 
 
 variableTypeToString : VariableType -> String
-variableTypeToString value =
-    case value of
-        TopLevelVariable _ ->
+variableTypeToString variableType =
+    case variableType of
+        TopLevelVariable ->
             "Top-level variable"
 
-        LetVariable _ _ ->
+        LetVariable ->
             "`let in` variable"
 
         ImportedModule ->
             "Imported module"
 
-        ImportedVariable ->
+        ImportedItem ImportedVariable ->
             "Imported variable"
 
-        ImportedType ->
+        ImportedItem ImportedType ->
             "Imported type"
 
-        ImportedOperator ->
+        ImportedItem ImportedOperator ->
             "Imported operator"
 
         ModuleAlias ->
@@ -192,22 +165,16 @@ variableTypeToString value =
 variableTypeWarning : VariableType -> String
 variableTypeWarning value =
     case value of
-        TopLevelVariable _ ->
+        TopLevelVariable ->
             ""
 
-        LetVariable _ _ ->
+        LetVariable ->
             ""
 
         ImportedModule ->
             ""
 
-        ImportedVariable ->
-            ""
-
-        ImportedType ->
-            ""
-
-        ImportedOperator ->
+        ImportedItem _ ->
             ""
 
         ModuleAlias ->
@@ -251,22 +218,21 @@ moduleDefinitionVisitor (Node _ moduleNode) context =
 
 
 importVisitor : Node Import -> Context -> ( List Error, Context )
-importVisitor (Node _ { exposingList, moduleAlias, moduleName }) context =
-    case Maybe.map Node.value exposingList of
+importVisitor ((Node range { exposingList, moduleAlias, moduleName }) as importNode) context =
+    case exposingList of
         Nothing ->
             let
-                ( variableType, Node nameNodeRange nameNodeValue ) =
+                ( variableType, Node nameNodeRange nameNodeValue, rangeToRemove ) =
                     case moduleAlias of
                         Just moduleAlias_ ->
-                            ( ModuleAlias, moduleAlias_ )
+                            ( ModuleAlias, moduleAlias_, moduleAliasRange importNode (Node.range moduleAlias_) )
 
                         Nothing ->
-                            ( ImportedModule, moduleName )
+                            ( ImportedModule, moduleName, range )
             in
             ( []
             , register
-                variableType
-                nameNodeRange
+                { variableType = variableType, under = nameNodeRange, rangeToRemove = rangeToRemove }
                 (getModuleName nameNodeValue)
                 context
             )
@@ -276,10 +242,12 @@ importVisitor (Node _ { exposingList, moduleAlias, moduleName }) context =
                 contextWithoutImports : Context
                 contextWithoutImports =
                     case moduleAlias of
-                        Just (Node range value) ->
+                        Just (Node moduleAliasRange_ value) ->
                             register
-                                ModuleAlias
-                                range
+                                { variableType = ModuleAlias
+                                , under = moduleAliasRange_
+                                , rangeToRemove = moduleAliasRange importNode moduleAliasRange_
+                                }
                                 (getModuleName value)
                                 context
 
@@ -288,10 +256,15 @@ importVisitor (Node _ { exposingList, moduleAlias, moduleName }) context =
             in
             ( []
             , List.foldl
-                (\( variableType, range, name ) context_ -> register variableType range name context_)
+                (\( name, variableInfo ) context_ -> register variableInfo name context_)
                 contextWithoutImports
                 (collectFromExposing declaredImports)
             )
+
+
+moduleAliasRange : Node Import -> Range -> Range
+moduleAliasRange (Node _ { moduleName }) range =
+    { range | start = (Node.range moduleName).end }
 
 
 expressionVisitor : Node Expression -> Direction -> Context -> ( List Error, Context )
@@ -512,7 +485,12 @@ declarationVisitor node direction context =
                 newContext : Context
                 newContext =
                     context
-                        |> register (TopLevelVariable <| Node.range node) (Node.range functionImplementation.name) (Node.value functionImplementation.name)
+                        |> register
+                            { variableType = TopLevelVariable
+                            , under = Node.range functionImplementation.name
+                            , rangeToRemove = Node.range node
+                            }
+                            (Node.value functionImplementation.name)
                         |> markUsedTypesAndModules namesUsedInSignature
             in
             ( [], newContext )
@@ -539,7 +517,12 @@ declarationVisitor node direction context =
             in
             ( []
             , { context | constructorNameToTypeName = Dict.union constructorsForType context.constructorNameToTypeName }
-                |> register Type (Node.range name) (Node.value name)
+                |> register
+                    { variableType = Type
+                    , under = Node.range name
+                    , rangeToRemove = Node.range node
+                    }
+                    (Node.value name)
                 |> markUsedTypesAndModules variablesFromConstructorArguments
             )
 
@@ -551,7 +534,12 @@ declarationVisitor node direction context =
             in
             ( []
             , context
-                |> register Type (Node.range name) (Node.value name)
+                |> register
+                    { variableType = Type
+                    , under = Node.range name
+                    , rangeToRemove = Node.range node
+                    }
+                    (Node.value name)
                 |> markUsedTypesAndModules namesUsedInTypeAnnotation
             )
 
@@ -564,7 +552,12 @@ declarationVisitor node direction context =
             ( []
             , context
                 |> markUsedTypesAndModules namesUsedInTypeAnnotation
-                |> register Port (Node.range name) (Node.value name)
+                |> register
+                    { variableType = Port
+                    , under = Node.range name
+                    , rangeToRemove = Node.range node
+                    }
+                    (Node.value name)
             )
 
         ( Rule.OnEnter, InfixDeclaration _ ) ->
@@ -616,7 +609,7 @@ finalEvaluation context =
                 context.declaredModules
                     |> Dict.filter (\key _ -> not <| Set.member key context.usedModules)
                     |> Dict.toList
-                    |> List.map (\( key, ( variableType, range ) ) -> error variableType range key)
+                    |> List.map (\( key, variableInfo ) -> error variableInfo key)
         in
         List.concat
             [ newRootScope
@@ -655,40 +648,86 @@ registerFunction letBlockContext function context =
     in
     context
         |> register
-            (LetVariable letBlockContext functionRange)
-            (Node.range declaration.name)
+            { variableType = LetVariable
+            , under = Node.range declaration.name
+            , rangeToRemove =
+                case letBlockContext of
+                    HasMultipleDeclarations ->
+                        functionRange
+
+                    HasNoOtherDeclarations letDeclarationsRange ->
+                        -- If there are no other declarations in the let in block,
+                        -- we also need to remove the `let in` keywords.
+                        letDeclarationsRange
+            }
             (Node.value declaration.name)
         |> markUsedTypesAndModules namesUsedInSignature
 
 
-collectFromExposing : Exposing -> List ( VariableType, Range, String )
-collectFromExposing exposing_ =
-    case exposing_ of
+collectFromExposing : Node Exposing -> List ( String, VariableInfo )
+collectFromExposing exposingNode =
+    case Node.value exposingNode of
         All _ ->
             []
 
         Explicit list ->
-            List.filterMap
-                (\node ->
-                    case Node.value node of
-                        FunctionExpose name ->
-                            Just ( ImportedVariable, Node.range node, name )
+            let
+                listWithPreviousRange : List (Maybe Range)
+                listWithPreviousRange =
+                    Nothing
+                        :: (list
+                                |> List.map (Node.range >> Just)
+                                |> List.take (List.length list - 1)
+                           )
 
-                        InfixExpose name ->
-                            Just ( ImportedOperator, Node.range node, name )
+                listWithNextRange : List Range
+                listWithNextRange =
+                    (list
+                        |> List.map Node.range
+                        |> List.drop 1
+                    )
+                        ++ [ { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } } ]
+            in
+            list
+                |> List.map3 (\prev next current -> ( prev, current, next )) listWithPreviousRange listWithNextRange
+                |> List.indexedMap
+                    (\index ( maybePreviousRange, Node range value, nextRange ) ->
+                        let
+                            rangeToRemove : Range
+                            rangeToRemove =
+                                if List.length list == 1 then
+                                    Node.range exposingNode
 
-                        TypeOrAliasExpose name ->
-                            Just ( ImportedType, Node.range node, name )
+                                else if index == 0 then
+                                    { range | end = nextRange.start }
 
-                        TypeExpose { name, open } ->
-                            case open of
-                                Just openRange ->
-                                    Nothing
+                                else
+                                    case maybePreviousRange of
+                                        Nothing ->
+                                            range
 
-                                Nothing ->
-                                    Just ( ImportedType, Node.range node, name )
-                )
-                list
+                                        Just previousRange ->
+                                            { range | start = previousRange.end }
+                        in
+                        case value of
+                            FunctionExpose name ->
+                                Just ( name, { variableType = ImportedItem ImportedVariable, under = range, rangeToRemove = rangeToRemove } )
+
+                            InfixExpose name ->
+                                Just ( name, { variableType = ImportedItem ImportedOperator, under = range, rangeToRemove = rangeToRemove } )
+
+                            TypeOrAliasExpose name ->
+                                Just ( name, { variableType = ImportedItem ImportedType, under = range, rangeToRemove = rangeToRemove } )
+
+                            TypeExpose { name, open } ->
+                                case open of
+                                    Just openRange ->
+                                        Nothing
+
+                                    Nothing ->
+                                        Just ( name, { variableType = ImportedItem ImportedType, under = range, rangeToRemove = rangeToRemove } )
+                    )
+                |> List.filterMap identity
 
 
 collectNamesFromTypeAnnotation : Node TypeAnnotation -> { types : List String, modules : List String }
@@ -778,22 +817,48 @@ collectModuleNamesFromTypeAnnotation node =
             []
 
 
-register : VariableType -> Range -> String -> Context -> Context
-register variableType range name context =
-    if variableType == ImportedModule || variableType == ModuleAlias then
-        { context | declaredModules = Dict.insert name ( variableType, range ) context.declaredModules }
+register : VariableInfo -> String -> Context -> Context
+register variableInfo name context =
+    case variableInfo.variableType of
+        TopLevelVariable ->
+            registerVariable variableInfo name context
 
-    else
-        let
-            scopes : Nonempty Scope
-            scopes =
-                mapNonemptyHead
-                    (\scope ->
-                        { scope | declared = Dict.insert name ( variableType, range ) scope.declared }
-                    )
-                    context.scopes
-        in
-        { context | scopes = scopes }
+        LetVariable ->
+            registerVariable variableInfo name context
+
+        ImportedModule ->
+            registerModule variableInfo name context
+
+        ImportedItem _ ->
+            registerVariable variableInfo name context
+
+        ModuleAlias ->
+            registerModule variableInfo name context
+
+        Type ->
+            registerVariable variableInfo name context
+
+        Port ->
+            registerVariable variableInfo name context
+
+
+registerModule : VariableInfo -> String -> Context -> Context
+registerModule variableInfo name context =
+    { context | declaredModules = Dict.insert name variableInfo context.declaredModules }
+
+
+registerVariable : VariableInfo -> String -> Context -> Context
+registerVariable variableInfo name context =
+    let
+        scopes : Nonempty Scope
+        scopes =
+            mapNonemptyHead
+                (\scope ->
+                    { scope | declared = Dict.insert name variableInfo scope.declared }
+                )
+                context.scopes
+    in
+    { context | scopes = scopes }
 
 
 markAllAsUsed : List String -> Context -> Context
@@ -842,7 +907,7 @@ makeReport { declared, used } =
         errors =
             Dict.filter (\key _ -> not <| Set.member key used) declared
                 |> Dict.toList
-                |> List.map (\( key, ( variableType, range ) ) -> error variableType range key)
+                |> List.map (\( key, variableInfo ) -> error variableInfo key)
     in
     ( errors, nonUsedVars )
 
