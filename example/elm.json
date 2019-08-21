@@ -12,6 +12,7 @@
             "elm/core": "1.0.2",
             "elm/html": "1.0.0",
             "elm-community/list-extra": "8.2.1",
+            "jinjor/elm-diff": "1.0.6",
             "mgold/elm-nonempty-list": "4.0.1",
             "stil4m/elm-syntax": "7.1.0"
         },

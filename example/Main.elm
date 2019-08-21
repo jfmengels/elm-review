@@ -330,12 +330,18 @@ viewLintErrors model =
         |> Html.div []
 
 
-viewPart : { str : String, color : Maybe ( Int, Int, Int ) } -> Html msg
-viewPart { str, color } =
+viewPart : Reporter.TextContent -> Html msg
+viewPart { str, color, backgroundColor } =
     Html.span
         [ case color of
             Just ( red, green, blue ) ->
                 Attr.style "color" <| "rgb(" ++ String.fromInt red ++ "," ++ String.fromInt green ++ "," ++ String.fromInt blue ++ ")"
+
+            Nothing ->
+                Attr.classList []
+        , case backgroundColor of
+            Just ( red, green, blue ) ->
+                Attr.style "background-color" <| "rgb(" ++ String.fromInt red ++ "," ++ String.fromInt green ++ "," ++ String.fromInt blue ++ ")"
 
             Nothing ->
                 Attr.classList []
@@ -347,11 +353,12 @@ viewPart { str, color } =
         )
 
 
-lintErrors : Model -> List { str : String, color : Maybe ( Int, Int, Int ) }
+lintErrors : Model -> List Reporter.TextContent
 lintErrors model =
     if List.isEmpty model.lintErrors then
         [ { str = "I found no linting errors.\nYou're all good!"
           , color = Nothing
+          , backgroundColor = Nothing
           }
         ]
 
