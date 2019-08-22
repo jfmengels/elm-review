@@ -26,7 +26,7 @@ module Lint.Fix exposing
 import Array
 import Elm.Parser
 import Elm.Syntax.Range exposing (Range)
-import List.Extra
+import ListExtra
 
 
 
@@ -119,7 +119,7 @@ containRangeCollisions : List Fix -> Bool
 containRangeCollisions fixes =
     fixes
         |> List.map getFixRange
-        |> List.Extra.uniquePairs
+        |> ListExtra.uniquePairs
         |> List.any (\( a, b ) -> collide a b)
 
 

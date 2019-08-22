@@ -21,7 +21,7 @@ module Lint.Test.ErrorMessage exposing
 
 import Elm.Syntax.Range exposing (Range)
 import Lint.Rule as Rule exposing (Error)
-import List.Extra
+import ListExtra
 
 
 {-| An expectation for an error. Use [`error`](#error) to create one.
@@ -395,7 +395,7 @@ positionAsRange sourceCode under position =
         startColumn : Int
         startColumn =
             linesBeforeAndIncludingPosition
-                |> List.Extra.last
+                |> ListExtra.last
                 |> Maybe.withDefault ""
                 |> String.length
                 |> (+) 1
@@ -415,7 +415,7 @@ positionAsRange sourceCode under position =
 
             else
                 linesInUnder
-                    |> List.Extra.last
+                    |> ListExtra.last
                     |> Maybe.withDefault ""
                     |> String.length
                     |> (+) 1

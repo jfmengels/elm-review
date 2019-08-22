@@ -18,7 +18,6 @@
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
         "elm/core": "1.0.2 <= v < 2.0.0",
-        "elm-community/list-extra": "8.2.1 <= v < 9.0.0",
         "elm-explorations/test": "1.2.2 <= v < 2.0.0",
         "mgold/elm-nonempty-list": "4.0.1 <= v < 5.0.0",
         "stil4m/elm-syntax": "7.1.0 <= v < 8.0.0"

@@ -583,7 +583,6 @@ module name is `Lint.Rule.NoSomethingElse`).
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
     import Lint.Rule as Rule exposing (Direction, Error, Rule)
-    import List.Extra
 
     type alias Context =
         -- Contains the module name's last part
@@ -605,7 +604,8 @@ module name is `Lint.Rule.NoSomethingElse`).
                 node
                     |> Node.value
                     |> Module.moduleName
-                    |> List.Extra.last
+                    |> List.reverse
+                    |> List.head
         in
         ( [], moduleLastName )
 
