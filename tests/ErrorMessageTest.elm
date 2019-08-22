@@ -641,9 +641,19 @@ I expected that the error with the following message
 
 would not have any fixes, but it provided some.
 
-Hint: You may have forgotten to call `Lint.Test.whenFixed`
-It's probable that you either forgot to call `Rule.withFixes` on the
-error that you created, or that the list of provided fixes was empty."""
+Because the error provides fixes, I require providing the expected result
+of the automatic fix. Otherwise, there is no way to know whether the fix
+will result in a correct and in the intended result.
+
+To fix this, you can call `Lint.Test.whenFixed` on your error:
+
+  Lint.Test.error
+      { message = "<message>"
+      , details = "<details>"
+      , under = "<under>"
+      }
+      |> Lint.Test.whenFixed "<source code>"
+"""
 
 
 fixedCodeMismatchTest : Test
