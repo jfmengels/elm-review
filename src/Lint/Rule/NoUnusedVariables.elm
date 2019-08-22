@@ -21,7 +21,7 @@ import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
 import Lint.Fix as Fix
 import Lint.Rule as Rule exposing (Direction, Error, Rule)
-import List.Nonempty as Nonempty exposing (Nonempty)
+import NonemptyList as Nonempty exposing (Nonempty)
 import Set exposing (Set)
 
 
@@ -852,7 +852,7 @@ registerVariable variableInfo name context =
     let
         scopes : Nonempty Scope
         scopes =
-            mapNonemptyHead
+            Nonempty.mapHead
                 (\scope ->
                     { scope | declared = Dict.insert name variableInfo scope.declared }
                 )
@@ -871,7 +871,7 @@ markAsUsed name context =
     let
         scopes : Nonempty Scope
         scopes =
-            mapNonemptyHead
+            Nonempty.mapHead
                 (\scope ->
                     { scope | used = Set.insert name scope.used }
                 )
@@ -910,16 +910,6 @@ makeReport { declared, used } =
                 |> List.map (\( key, variableInfo ) -> error variableInfo key)
     in
     ( errors, nonUsedVars )
-
-
-mapNonemptyHead : (a -> a) -> Nonempty a -> Nonempty a
-mapNonemptyHead fn nonempty =
-    let
-        newHead : a
-        newHead =
-            fn (Nonempty.head nonempty)
-    in
-    Nonempty.replaceHead newHead nonempty
 
 
 
