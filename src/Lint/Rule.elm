@@ -15,18 +15,20 @@ module Lint.Rule exposing
 # How does it work?
 
 `elm-lint` turns the code of the analyzed file into an [Abstract Syntax Tree (AST)](https://en.wikipedia.org/wiki/Abstract_syntax_tree)
-using the [`elm-syntax` package](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/).
-An AST is a tree-like structure which represents your source code.
-Then, `elm-lint` will traverse the nodes in the AST in the following order, and
-call the visitor function associated to the type of node:
+(a tree-like structure which represents your source code) using the
+[`elm-syntax` package](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/).
+Then, for each file and rule, it will give the details of your project (like the `elm.json` file) and the
+contents of the file to analyze to the rule. The order in which things get passed to the rule is the following:
 
-  - The `elm.json` file, visited by [`withElmJsonVisitor`](#withElmJsonVisitor) (can only collect data)
-  - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
-  - Each import statement, visited by [`withSimpleImportVisitor`](#withSimpleImportVisitor) and [`withImportVisitor`](#withImportVisitor)
-  - Each declaration statement, visited by [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) and [`withDeclarationVisitor`](#withDeclarationVisitor).
-    Before evaluating the next declaration, the expression contained in the declaration
-    will be visited recursively using by [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) and [`withExpressionVisitor`](#withExpressionVisitor)
-  - A final evaluation is made when the whole AST has been traversed, using [`withFinalEvaluation`](#withFinalEvaluation)
+  - Read project-related info (only collect data in these steps)
+      - The `elm.json` file, visited by [`withElmJsonVisitor`](#withElmJsonVisitor)
+  - Visit the file (in the following order)
+      - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
+      - Each import statement, visited by [`withSimpleImportVisitor`](#withSimpleImportVisitor) and [`withImportVisitor`](#withImportVisitor)
+      - Each declaration statement, visited by [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) and [`withDeclarationVisitor`](#withDeclarationVisitor).
+        Before evaluating the next declaration, the expression contained in the declaration
+        will be visited recursively using by [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) and [`withExpressionVisitor`](#withExpressionVisitor)
+      - A final evaluation is made when the whole AST has been traversed, using [`withFinalEvaluation`](#withFinalEvaluation)
 
 Evaluating a node means two things:
 
