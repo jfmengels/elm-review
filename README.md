@@ -55,28 +55,14 @@ You can get started with an empty configuration with the command line tool by ru
 reading the rest of this document, but especially the section on
 [when to enable a rule in your configuration](#when-to-write-or-enable-a-rule).
 
-## Rules
+`elm-lint` does not come with any built-in rules. You can read why [here](https://github.com/jfmengels/elm-lint/blob/master/documentation/design/no-built-in-rules.md). You can get rules from packages in the Elm package registry using
+the command line tool `elm-lint install authorName/dependencyName`.
 
-These are the rules that are built-in and available for you to choose from.
+This will add the dependency in your `test-dependencies`, along with your
+[`elm-test`](https://github.com/elm-explorations/test) dependencies.
 
-- **NoDebug** - Forbid the use of `Debug` before it goes into production.
-- **NoExtraBooleanComparison** - Forbid extraneous comparisons with booleans, like `(isAdmin user) == True`.
-- **NoImportingEverything** - Forbid importing everything from your module. This can especially be confusing to newcomers when the exposed functions and types are unknown to them.
-- **NoUnusedVariables** - Reports variables that are declared but never used.
-- **NoUnusedTypeConstructors** - Reports type constructors that are declared but never used.
-
-The following is a list of rules that were temporarily removed when changing the AST implementation, and which can potentially be re-added later.
-- **NoExposingEverything** - Forbid exporting everything in your modules `module Main exposing (..)`, to make your module explicit in what it exposes.
-- **NoConstantCondition** - Forbid the use of expressions in an If condition whose value are always the same.
-- **NoNestedLet** - Forbid nesting let expressions directly.
-- **NoUnannotatedFunction** - Ensure every top-level function declaration has a type annotation.
-- **NoUselessIf** - Reports when both paths of an If expression result will lead to the same value.
-- **NoUselessPatternMatching** - Reports case expressions that can be simplified. Either when all patterns will lead to the same value, or when a pattern will lead to the same value as the default pattern.
-- **NoWarningComments** - Detect comments containing words like `TODO`, `FIXME` and `XXX`.
-- **SimplifyPiping** - Simplify piped functions like `List.map f >> List.map g` to `List.map (f >> g)`
-- **SimplifyPropertyAccess** - Replace functions that only return the property of its parameter by an access function, like `(\x -> x.foo)` to `.foo`
-- **ElmTest.NoDuplicateTestBodies** - Forbid having multiple tests with the same bodies. Often a consequence of copy-pasting tests.
-
+You can also [write your own rules](#write-your-own-rule), as shown in the next
+section.
 
 ## Write your own rule
 
