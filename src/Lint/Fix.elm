@@ -1,7 +1,7 @@
 module Lint.Fix exposing
     ( Fix
     , removeRange, replaceRangeBy, insertAt
-    , Result(..), Problem(..), fix
+    , FixResult(..), Problem(..), fix
     , mergeRanges, rangeUpUntil
     )
 
@@ -20,7 +20,7 @@ module Lint.Fix exposing
 
 # Applying fixes
 
-@docs Result, Problem, fix
+@docs FixResult, Problem, fix
 
 
 # Range manipulation
@@ -77,9 +77,9 @@ insertAt =
 -- APPLYING FIXES
 
 
-{-| Represents the result of having applied a list of fixes
+{-| Represents the result of having applied a list of fixes to a source code.
 -}
-type Result
+type FixResult
     = Successful String
     | Errored Problem
 
@@ -95,7 +95,7 @@ type Problem
 
 {-| Apply the changes on the source code.
 -}
-fix : List Fix -> String -> Result
+fix : List Fix -> String -> FixResult
 fix fixes sourceCode =
     if containRangeCollisions fixes then
         Errored HasCollisionsInFixRanges
