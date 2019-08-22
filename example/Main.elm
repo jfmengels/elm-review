@@ -5,6 +5,7 @@ import Html exposing (Html, button, div, input, label, p, text, textarea)
 import Html.Attributes as Attr
 import Html.Events as Events
 import Lint
+import Lint.Project as Project
 import Lint.Rule exposing (Rule)
 import Lint.Rule.NoDebug
 import Lint.Rule.NoExtraBooleanComparison
@@ -150,7 +151,7 @@ update action model =
 
 runLinting : Model -> Model
 runLinting model =
-    { model | lintErrors = Lint.lint (config model) (file model.sourceCode) }
+    { model | lintErrors = Lint.lint (config model) Project.new (file model.sourceCode) }
 
 
 
