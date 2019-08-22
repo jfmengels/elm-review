@@ -1,5 +1,5 @@
 module Lint.Test exposing
-    ( LintResult, run
+    ( LintResult, run, runWithProjectData
     , ExpectedError, expectErrors, expectNoErrors, error, atExactly, whenFixed
     )
 
@@ -88,7 +88,7 @@ changes drastically.
 
 # Running tests
 
-@docs LintResult, run
+@docs LintResult, run, runWithProjectData
 
 
 # Making assertions
@@ -102,7 +102,7 @@ import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
 import Lint
 import Lint.Fix as Fix
-import Lint.Project as Project
+import Lint.Project as Project exposing (Project)
 import Lint.Rule as Rule exposing (Error, Rule)
 import Lint.Test.ErrorMessage as ErrorMessage
 
@@ -145,20 +145,74 @@ type alias SourceCode =
 [`expectNoErrors`](#expectNoErrors) or [`expectErrors`](#expectErrors) to assert
 the errors reported by the rule.
 
+    import Lint.Test exposing (LintResult)
+    import My.Rule exposing (rule)
+    import Test exposing (Test)
+
+    all : Test
+    all =
+        test "test title" <|
+            \() ->
+                Lint.Test.run rule """module SomeModule exposing (a)
+    a = 1"""
+                    |> Lint.Test.expectNoErrors
+
 The source code needs to be syntactically valid Elm code. If the code
 can't be parsed, the test will fail regardless of the expectations you set on it.
 
-Note that t be syntactically valid, you need at least a module declaration at the
+Note that to be syntactically valid, you need at least a module declaration at the
 top of the file (like `module A exposing (..)`) and one declaration (like `a = 1`).
 You can't just have an expression like `1 + 2`.
+
+Note: This is a simpler version of [`runWithProjectData`](#runWithProjectData).
+If your rule is interested in project related details, then you should use
+[`runWithProjectData`](#runWithProjectData) instead.
 
 -}
 run : Rule -> String -> LintResult
 run rule source =
+    runWithProjectData Project.new rule source
+
+
+{-| Run a `Rule` on a `String` containing source code, with data about the
+project loaded, such as the contents of `elm.json` file.
+
+    import Lint.Project as Project exposing (Project)
+    import Lint.Test exposing (LintResult)
+    import My.Rule exposing (rule)
+    import Test exposing (Test)
+
+    all : Test
+    all =
+        test "test title" <|
+            \() ->
+                let
+                    project : Project
+                    project =
+                        Project.new
+                            |> Project.withElmJson elmJsonToConstructManually
+                in
+                Lint.Test.run project rule """module SomeModule exposing (a)
+    a = 1"""
+                    |> Lint.Test.expectNoErrors
+
+The source code needs to be syntactically valid Elm code. If the code
+can't be parsed, the test will fail regardless of the expectations you set on it.
+
+Note that to be syntactically valid, you need at least a module declaration at the
+top of the file (like `module A exposing (..)`) and one declaration (like `a = 1`).
+You can't just have an expression like `1 + 2`.
+
+Note: This is a more complex version of [`run`](#run). If your rule is not
+interested in project related details, then you should use [`run`](#run) instead.
+
+-}
+runWithProjectData : Project -> Rule -> String -> LintResult
+runWithProjectData project rule source =
     let
         errors : List Lint.Error
         errors =
-            Lint.lint [ rule ] Project.new { path = "TestContent.elm", source = source }
+            Lint.lint [ rule ] project { path = "TestContent.elm", source = source }
     in
     case List.head errors |> Maybe.map Lint.errorMessage of
         Just "TestContent.elm is not a correct Elm file" ->
