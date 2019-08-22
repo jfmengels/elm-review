@@ -80,9 +80,12 @@ The following is a list of rules that were temporarily removed when changing the
 
 ## Write your own rule
 
-You can write your own rule using this package's API and [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest). Check out the [`Lint.Rule`](./Lint-Rule) module for more instructions.
+You can write your own rule using this package's API and
+[`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest).
+Check out the [`Lint.Rule`](./Lint-Rule) module for more instructions.
 
-Here's an example of a rule that prevents a typo in a string that was made too often at your company.
+Here's an example of a rule that prevents a typo in a string that was made too
+often at your company.
 
 ```elm
 module NoStringWithMisspelledCompanyName exposing (rule)
@@ -91,23 +94,29 @@ import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Node as Node exposing (Node)
 import Lint.Rule as Rule exposing (Error, Rule)
 
-
+-- Create a new rule
 rule : Rule
 rule =
+    -- Define the rule with the same name as the module it is defined in
     Rule.newSchema "NoStringWithMisspelledCompanyName"
+        -- Make it look at expressions
         |> Rule.withSimpleExpressionVisitor expressionVisitor
         |> Rule.fromSchema
 
-
+-- This function will visit all the expressions (like `1`, `"string"`, `foo bar`, `a + b`, ...)
+-- and report problems that it finds
 expressionVisitor : Node Expression -> List Error
 expressionVisitor node =
     case Node.value node of
+        -- It will look at string literals (like "a", """a""")
         Literal str ->
             if String.contains "frits.com" str then
+                -- Return a single error, describing the problem
                 [ Rule.error
                     { message = "Replace `frits.com` by `fruits.com`"
                     , details = [ "This typo has been made and noticed by users too many times. Our company is `fruits.com`, not `frits.com`." ]
                     }
+                    -- This is the location of the problem in the source code
                     (Node.range node)
                 ]
 
