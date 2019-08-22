@@ -1,6 +1,6 @@
 elm-stuff
-example/elm.js
+demo/elm.js
 *.log
 node_modules/
-example/index.html
+demo/index.html
 .coverage
