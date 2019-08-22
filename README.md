@@ -2,8 +2,7 @@
 
 ![](https://travis-ci.com/jfmengels/elm-lint.svg?branch=master)
 
-An [Elm](http://elm-lang.org/) linter written in Elm. Get your code from correct to better.
-You can learn about the API and the rules it provides on the [package documentation](http://package.elm-lang.org/packages/jfmengels/elm-lint).
+An [Elm](http://elm-lang.org/) linter written in Elm, to add additional guarantees to your project.
 
 ## What does `elm-lint` do?
 
