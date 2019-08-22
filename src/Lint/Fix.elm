@@ -2,7 +2,6 @@ module Lint.Fix exposing
     ( Fix
     , removeRange, replaceRangeBy, insertAt
     , FixResult(..), Problem(..), fix
-    , mergeRanges, rangeUpUntil
     )
 
 {-| Gives tools to make changes to the source code.
@@ -21,11 +20,6 @@ module Lint.Fix exposing
 # Applying fixes
 
 @docs FixResult, Problem, fix
-
-
-# Range manipulation
-
-@docs mergeRanges, rangeUpUntil
 
 -}
 
@@ -258,72 +252,3 @@ getRowAtLine lines rowIndex =
 
         Nothing ->
             ""
-
-
-
--- RANGE MANIPULATION
-
-
-{-| Create a new range that starts at the start of the range that starts first,
-and ends at the end of the range that starts last. If the two ranges are distinct
-and there is code in between, that code will be included in the resulting range.
-
-    range : Range
-    range =
-        Fix.mergeRanges
-            (Node.range node1)
-            (Node.range node2)
-
--}
-mergeRanges : Range -> Range -> Range
-mergeRanges a b =
-    let
-        start : { row : Int, column : Int }
-        start =
-            case comparePosition a.start b.start of
-                LT ->
-                    a.start
-
-                EQ ->
-                    a.start
-
-                GT ->
-                    b.start
-
-        end : { row : Int, column : Int }
-        end =
-            case comparePosition a.end b.end of
-                LT ->
-                    b.end
-
-                EQ ->
-                    b.end
-
-                GT ->
-                    a.end
-    in
-    { start = start, end = end }
-
-
-{-| Make a range stop at a position. If the position is not inside the range,
-then the range won't change.
-
-    range : Range
-    range =
-        Fix.rangeUpUntil
-            (Node.range node)
-            (node |> Node.value |> .typeAnnotation |> Node.range |> .start)
-
--}
-rangeUpUntil : Range -> { row : Int, column : Int } -> Range
-rangeUpUntil range position =
-    let
-        positionAsInt_ : Int
-        positionAsInt_ =
-            positionAsInt position
-    in
-    if positionAsInt range.start <= positionAsInt_ && positionAsInt range.end >= positionAsInt_ then
-        { range | end = position }
-
-    else
-        range

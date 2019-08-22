@@ -287,7 +287,7 @@ expressionVisitor (Node range value) direction context =
                 letBlockContext : LetBlockContext
                 letBlockContext =
                     if List.length declarations == 1 then
-                        HasNoOtherDeclarations <| Fix.rangeUpUntil range (Node.range expression |> .start)
+                        HasNoOtherDeclarations <| rangeUpUntil range (Node.range expression |> .start)
 
                     else
                         HasMultipleDeclarations
@@ -639,7 +639,7 @@ registerFunction letBlockContext function context =
         functionRange =
             case function.signature of
                 Just signature ->
-                    Fix.mergeRanges
+                    mergeRanges
                         (Node.range function.declaration)
                         (Node.range signature)
 
@@ -920,3 +920,96 @@ mapNonemptyHead fn nonempty =
             fn (Nonempty.head nonempty)
     in
     Nonempty.replaceHead newHead nonempty
+
+
+
+-- RANGE MANIPULATION
+
+
+{-| Create a new range that starts at the start of the range that starts first,
+and ends at the end of the range that starts last. If the two ranges are distinct
+and there is code in between, that code will be included in the resulting range.
+
+    range : Range
+    range =
+        Fix.mergeRanges
+            (Node.range node1)
+            (Node.range node2)
+
+-}
+mergeRanges : Range -> Range -> Range
+mergeRanges a b =
+    let
+        start : { row : Int, column : Int }
+        start =
+            case comparePosition a.start b.start of
+                LT ->
+                    a.start
+
+                EQ ->
+                    a.start
+
+                GT ->
+                    b.start
+
+        end : { row : Int, column : Int }
+        end =
+            case comparePosition a.end b.end of
+                LT ->
+                    b.end
+
+                EQ ->
+                    b.end
+
+                GT ->
+                    a.end
+    in
+    { start = start, end = end }
+
+
+{-| Make a range stop at a position. If the position is not inside the range,
+then the range won't change.
+
+    range : Range
+    range =
+        Fix.rangeUpUntil
+            (Node.range node)
+            (node |> Node.value |> .typeAnnotation |> Node.range |> .start)
+
+-}
+rangeUpUntil : Range -> { row : Int, column : Int } -> Range
+rangeUpUntil range position =
+    let
+        positionAsInt_ : Int
+        positionAsInt_ =
+            positionAsInt position
+    in
+    if positionAsInt range.start <= positionAsInt_ && positionAsInt range.end >= positionAsInt_ then
+        { range | end = position }
+
+    else
+        range
+
+
+positionAsInt : { row : Int, column : Int } -> Int
+positionAsInt { row, column } =
+    -- This is a quick and simple heuristic to be able to sort ranges.
+    -- It is entirely based on the assumption that no line is longer than
+    -- 1.000.000 characters long. Then, as long as ranges don't overlap,
+    -- this should work fine.
+    row * 1000000 + column
+
+
+comparePosition : { row : Int, column : Int } -> { row : Int, column : Int } -> Order
+comparePosition a b =
+    let
+        order : Order
+        order =
+            compare a.row b.row
+    in
+    case order of
+        EQ ->
+            compare a.column b.column
+
+        _ ->
+            order
