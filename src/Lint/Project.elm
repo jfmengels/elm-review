@@ -6,6 +6,10 @@ module Lint.Project exposing
 
 {-| Represents project-related data, that a rule can access to get more information.
 
+These will be accessible in rules with functions like [`Lint.Rule.withElmJsonVisitor`](./Lint-Rule#withElmJsonVisitor).
+This module is made to build all of the project-related data that we want
+rules to have access to, to later pass it to the [`Lint.lint`](./Lint#lint) function.
+
 
 # Definition
 
