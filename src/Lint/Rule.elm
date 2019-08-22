@@ -3,7 +3,8 @@ module Lint.Rule exposing
     , newSchema, fromSchema
     , withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
     , withInitialContext, withModuleDefinitionVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withExpressionVisitor, withFinalEvaluation
-    , Error, withFixes, error, errorMessage, errorDetails, errorRange, errorFixes
+    , withFixes
+    , Error, error, errorMessage, errorDetails, errorRange, errorFixes
     , name, analyzer
     )
 
@@ -158,9 +159,14 @@ patterns you would want to forbid, but that are not handled by the example.
 @docs withInitialContext, withModuleDefinitionVisitor, withImportVisitor, Direction, withDeclarationVisitor, withExpressionVisitor, withFinalEvaluation
 
 
+## Automatic fixing
+
+@docs withFixes
+
+
 ## Errors
 
-@docs Error, withFixes, error, errorMessage, errorDetails, errorRange, errorFixes
+@docs Error, error, errorMessage, errorDetails, errorRange, errorFixes
 
 
 # ACCESS
@@ -1082,7 +1088,7 @@ error { message, details } range =
 Take a look at [`Lint.Fix`](./Lint-Fix) to know more on how to makes fixes.
 
 If you pass `withFixes` an empty list, the error will be considered as having no
-automatic fix available. ALso, calling `withFixes` several times on an error will
+automatic fix available. Calling `withFixes` several times on an error will
 overwrite the previous fixes.
 
 **Note**: Each fix applies on a location in the code, defined by a range. To avoid an
