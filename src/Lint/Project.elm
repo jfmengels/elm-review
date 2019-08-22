@@ -23,8 +23,6 @@ module Lint.Project exposing
 
 -}
 
--- TODO rename this module to avoid collisions and ambiguity
-
 import Elm.Project
 
 

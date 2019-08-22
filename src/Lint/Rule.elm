@@ -2,7 +2,8 @@ module Lint.Rule exposing
     ( Rule, Schema
     , newSchema, fromSchema
     , withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
-    , withInitialContext, withProjectVisitor, withModuleDefinitionVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withExpressionVisitor, withFinalEvaluation
+    , withInitialContext, withModuleDefinitionVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withExpressionVisitor, withFinalEvaluation
+    , withElmJsonVisitor
     , withFixes
     , Error, error, errorMessage, errorDetails, errorRange, errorFixes
     , name, analyzer
@@ -19,6 +20,7 @@ An AST is a tree-like structure which represents your source code.
 Then, `elm-lint` will traverse the nodes in the AST in the following order, and
 call the visitor function associated to the type of node:
 
+  - The `elm.json` file, visited by [`withElmJsonVisitor`](#withElmJsonVisitor) (can only collect data)
   - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
   - Each import statement, visited by [`withSimpleImportVisitor`](#withSimpleImportVisitor) and [`withImportVisitor`](#withImportVisitor)
   - Each declaration statement, visited by [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) and [`withDeclarationVisitor`](#withDeclarationVisitor).
@@ -156,7 +158,12 @@ patterns you would want to forbid, but that are not handled by the example.
 
 ## Builder functions with context
 
-@docs withInitialContext, withProjectVisitor, withModuleDefinitionVisitor, withImportVisitor, Direction, withDeclarationVisitor, withExpressionVisitor, withFinalEvaluation
+@docs withInitialContext, withModuleDefinitionVisitor, withImportVisitor, Direction, withDeclarationVisitor, withExpressionVisitor, withFinalEvaluation
+
+
+## Builder functions to analyze the project's data
+
+@docs withElmJsonVisitor
 
 
 ## Automatic fixing
@@ -175,6 +182,7 @@ patterns you would want to forbid, but that are not handled by the example.
 
 -}
 
+import Elm.Project
 import Elm.Syntax.Declaration exposing (Declaration(..))
 import Elm.Syntax.Expression exposing (Expression(..), Function, LetDeclaration(..))
 import Elm.Syntax.File exposing (File)
@@ -235,7 +243,7 @@ type
     = Schema
         { name : String
         , initialContext : context
-        , projectVisitor : Project -> context -> context
+        , elmJsonVisitor : Maybe Elm.Project.Project -> context -> context
         , moduleDefinitionVisitor : Node Module -> context -> ( List Error, context )
         , importVisitor : Node Import -> context -> ( List Error, context )
         , expressionVisitor : Node Expression -> Direction -> context -> ( List Error, context )
@@ -311,7 +319,7 @@ newSchema name_ =
     Schema
         { name = name_
         , initialContext = ()
-        , projectVisitor = \project context -> context
+        , elmJsonVisitor = \elmJson context -> context
         , moduleDefinitionVisitor = \node context -> ( [], context )
         , importVisitor = \node context -> ( [], context )
         , expressionVisitor = \direction node context -> ( [], context )
@@ -329,7 +337,7 @@ fromSchema (Schema schema) =
         , analyzer =
             \project file ->
                 schema.initialContext
-                    |> schema.projectVisitor project
+                    |> schema.elmJsonVisitor (Lint.Project.elmJson project)
                     |> schema.moduleDefinitionVisitor file.moduleDefinition
                     |> accumulateList schema.importVisitor file.imports
                     |> accumulateList (visitDeclaration schema.declarationVisitor schema.expressionVisitor) file.declarations
@@ -658,7 +666,7 @@ withInitialContext initialContext_ (Schema schema) =
     Schema
         { name = schema.name
         , initialContext = initialContext_
-        , projectVisitor = \project context -> context
+        , elmJsonVisitor = \elmJson context -> context
         , moduleDefinitionVisitor = \node context -> ( [], context )
         , importVisitor = \node context -> ( [], context )
         , expressionVisitor = \node direction context -> ( [], context )
@@ -667,16 +675,9 @@ withInitialContext initialContext_ (Schema schema) =
         }
 
 
-
--- TODO Is having both withInitialContext and withProjectVisitor redundant?
--- Since withProjectVisitor doesn't really need an initial context and can set
--- one up itself.
--- Maybe have one or the other, using phantom types?
-
-
-{-| Add a visitor to the [`Schema`](#Schema) which will visit the project's known
-information, such as the contents of the `elm.json` file.
-[module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`), collect data in the `context` and/or report patterns.
+{-| Add a visitor to the [`Schema`](#Schema) which will visit the project's
+[`elm.json`](https://package.elm-lang.org/packages/elm/project-metadata-utils/latest/Elm-Project) file.
+information, such as the contents of the `elm.json` file, to collect data (`module SomeModuleName exposing (a, b)`), collect data in the `context` and/or report patterns.
 
 The following example forbids the use of `Html.button` except in the "Button" file.
 THe example is simplified to only forbid the use of the `Html.button` expression.
@@ -685,7 +686,6 @@ THe example is simplified to only forbid the use of the `Html.button` expression
     import Elm.Project
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Project as Project exposing (Project)
     import Lint.Rule as Rule exposing (Error, Rule)
 
     type alias Context =
@@ -695,13 +695,13 @@ THe example is simplified to only forbid the use of the `Html.button` expression
     rule =
         Rule.newSchema "DoNoExposeInternalModules"
             |> Rule.withInitialContext Nothing
-            |> Rule.withProjectVisitor projectVisitor
+            |> Rule.withElmJsonVisitor elmJsonVisitor
             |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
             |> Rule.fromSchema
 
-    projectVisitor : Project -> Context -> Context
-    projectVisitor project context =
-        Project.elmJson project
+    elmJsonVisitor : Maybe Elm.Project.Project -> Context -> Context
+    elmJsonVisitor elmJson context =
+        elmJson
 
     moduleDefinitionVisitor : Node Module -> Context -> ( List Error, Context )
     moduleDefinitionVisitor node context =
@@ -732,19 +732,16 @@ THe example is simplified to only forbid the use of the `Html.button` expression
                     else
                         ( [], context )
 
-                Just (Elm.Project.Application _) ->
-                    ( [], context )
-
-                Nothing ->
+                _ ->
                     ( [], context )
 
         else
             ( [], context )
 
 -}
-withProjectVisitor : (Project -> context -> context) -> Schema configurationState context -> Schema configurationState context
-withProjectVisitor visitor (Schema schema) =
-    Schema { schema | projectVisitor = visitor }
+withElmJsonVisitor : (Maybe Elm.Project.Project -> context -> context) -> Schema configurationState context -> Schema configurationState context
+withElmJsonVisitor visitor (Schema schema) =
+    Schema { schema | elmJsonVisitor = visitor }
 
 
 {-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s
