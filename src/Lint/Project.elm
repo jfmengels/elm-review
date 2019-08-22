@@ -1,5 +1,5 @@
 module Lint.Project exposing
-    ( Project
+    ( Project, ElmJson
     , elmJson
     , new, withElmJson
     )
@@ -9,7 +9,7 @@ module Lint.Project exposing
 
 # Definition
 
-@docs Project
+@docs Project, ElmJson
 
 
 # Access
@@ -34,7 +34,15 @@ import Elm.Project
 the `elm.json` file.
 -}
 type Project
-    = Project { elmJson : Maybe Elm.Project.Project }
+    = Project { elmJson : Maybe ElmJson }
+
+
+{-| Contents of the `elm.json` file. Alias to
+[`elm/project-metadata-utils`'s Project data structure](https://package.elm-lang.org/packages/elm/project-metadata-utils/latest/Elm-Project).
+-}
+type alias ElmJson =
+    -- TODO rename this module to avoid collisions and ambiguity
+    Elm.Project.Project
 
 
 
@@ -49,7 +57,7 @@ package, so you will need to install and use it to gain access to the
 information inside the `elm.json` file.
 
 -}
-elmJson : Project -> Maybe Elm.Project.Project
+elmJson : Project -> Maybe ElmJson
 elmJson (Project data) =
     data.elmJson
 
@@ -67,6 +75,6 @@ new =
 
 {-| Add the contents of the `elm.json` file to the project details.
 -}
-withElmJson : Elm.Project.Project -> Project -> Project
+withElmJson : ElmJson -> Project -> Project
 withElmJson elmJson_ (Project data) =
     Project { data | elmJson = Just elmJson_ }
