@@ -28,6 +28,33 @@ The preferred method, if you have `Node.js` and `npm` installed, is to use [`nod
 
 Also, you can try the online version [here](https://elm-lint.now.sh), where you can copy-paste your source code and see the linting errors.
 
+## Configuration
+
+Configuration is done via an Elm file. The benefit of having the configuration written in Elm, is having nicer error messages when there is a misconfiguration, potential auto-completion, and more explicit rule locations (no need for some magic to find the rules defined by a package for instance). Since the rules are written in Elm, they are publishable on the Elm package registry, and writing them should be more accessible than if it was written in a different language.
+
+
+```elm
+module LintConfig exposing (config)
+
+import Lint.Rule exposing (Rule)
+import Third.Party.Rule
+import My.Own.Custom.rule
+import Another.Rule
+
+
+config : List Rule
+config =
+    [ Third.Party.Rule.rule
+    , My.Own.Custom.rule
+    , Another.Rule.rule { ruleOptions = [] }
+    ]
+```
+
+You can get started with an empty configuration with the command line tool by running
+`elm-lint init`, which you can then add rules to. Before you do, I suggest
+reading the rest of this document, but especially the section on
+[when to enable a rule in your configuration](#when-to-write-or-enable-a-rule).
+
 ## Rules
 
 These are the rules that are built-in and available for you to choose from.
@@ -50,33 +77,6 @@ The following is a list of rules that were temporarily removed when changing the
 - **SimplifyPropertyAccess** - Replace functions that only return the property of its parameter by an access function, like `(\x -> x.foo)` to `.foo`
 - **ElmTest.NoDuplicateTestBodies** - Forbid having multiple tests with the same bodies. Often a consequence of copy-pasting tests.
 
-
-## Configuration
-
-Configuration is done via an Elm file. Note that this is an experiment, as loading a configuration written in JSON, YAML or similar format is probably much faster to load than compiling the configuration using the Elm compiler. The benefit of having the configuration written in Elm, is having nicer error messages when there is a misconfiguration, potential auto-completion, and more explicit rule locations (no need for some magic to find the rules defined by a package for instance).
-
-Since the rule is written in Elm, the rules are publishable on the Elm package registry, and more Elm users should be able to write their own rule than if it was written in a different language like Haskell.
-
-```elm
-module LintConfig exposing (config)
-
-import Lint.Rule exposing (Rule)
-import Lint.Rule.NoDebug
-import Lint.Rule.NoExtraBooleanComparison
-import Lint.Rule.NoImportingEverything
-import Lint.Rule.NoUnusedTypeConstructors
-import Lint.Rule.NoUnusedVariables
-
-
-config : List Rule
-config =
-    [ Lint.Rule.NoExtraBooleanComparison.rule
-    , Lint.Rule.NoUnusedVariables.rule
-    , Lint.Rule.NoUnusedTypeConstructors.rule
-    , Lint.Rule.NoDebug.rule
-    , Lint.Rule.NoImportingEverything.rule { exceptions = [ "Html" ] }
-    ]
-```
 
 ## Write your own rule
 
@@ -147,19 +147,23 @@ Linting rules are useful when something must never appear in the code. It gets
 much less useful when something should not appear only 99% of the time, as there
 is no good solution for handling exceptions (`elm-lint` doesn't offer an option
 for disabling a rule locally, see why [here](#is-there-a-way-to-ignore-an-error-or-disable-a-rule-only-in-some-locations-)).
+If you really need to make exceptions, they should be written in the rule itself
+or defined in the rule's parameters.
 
 First of all, if you have never encountered a problem with some pattern before,
 then you probably don't need to forbid it. There are chances the problem will
 never occur, and writing the rule is a waste of time. Or maybe when using it,
-you will find that the pattern is actually not so bad at all and there are
+you will find that the pattern is actually not so bad at all and that there are
 situations where using it is actually the best option.
 
-For rules that enforce a certain coding style, or even suggest simplifications
-to your code. I would ask you to raise the bar even higher, as I think it is
+For rules that enforce a certain **coding style**, or even suggest simplifications
+to your code, I would ask you to raise the bar even higher, as I think it is
 rarely applicable or better 100% of the time. A few examples:
   - I much prefer using `|>` over `<|`, and I think using the latter to pipe
-  functions over several lines is harder to read. Even if my teammates agree,
-  this prevents me from writing tests [the suggested way](https://github.com/elm-explorations/test#quick-start).
+  functions over several lines is harder to read. Even if using `|>` was indeed
+  better for most situations and even if my teammates agree, this would prevent
+  me from writing tests [the suggested way](https://github.com/elm-explorations/test#quick-start)
+  for instance.
   - If a record contains only one field, then I could suggest not using a record
   and use the field directly, which would make things much simpler. But using a
   record can have the advantage of being more explicit: `findFiles [] folder` is
@@ -192,13 +196,31 @@ When wondering whether to write or enable a rule, I suggest using this checklist
 ## Is there a way to ignore an error or disable a rule only in some locations?
 
 There is none at the moment, for several reasons:
-  - The most practical way to locally disable a rule would probably be through comments, like [how `ESLint` does it](https://eslint.org/docs/user-guide/configuring#disabling-rules-with-inline-comments). But since [elm-format](https://github.com/avh4/elm-format) would move the comments around, this would require you to try and figure out how/where to place the comment, or the rule would need to be disabled for a bigger section of the code than wanted. Neither option provides a good experience.
-  - If there are some rules that you really want to enforce, and it's possible to ignore it, then you will want a second system to ensure those rules are never ignored.
-  - When people encounter a linting error, quite often they will try to disable it by default, because they don't agree with the rule, or because they want to do later or not at all.
-  The more I think about it, the more I think that if you need to make an exception to your rule somewhere, then maybe the rule is not worth enforcing in the first place, and that you should probably remove it from your configuration.
-  - The more I think about it, the more I think that if you need to make an exception to your rule somewhere, then maybe the rule is not worth enforcing in the first place, and that you should probably remove it from your configuration.
+  - The most practical way to locally disable a rule would probably be through
+  comments, like [how `ESLint` does it](https://eslint.org/docs/user-guide/configuring#disabling-rules-with-inline-comments).
+  But since [elm-format](https://github.com/avh4/elm-format) would move the
+  comments around, this would require you to try and figure out how/where to
+  place the comment, or the rule would need to be disabled for a bigger section
+  of the code than wanted. Neither option provides a good experience.
+  - If there are some rules that you really want to enforce because you want to
+  create additional guarantees in your codebase, and it's possible to ignore it,
+  then you will want a second system to ensure those rules are never ignored.
+  - When people encounter a linting error, quite often they will try to disable
+  it by default, because they don't agree with the rule, or because they think
+  they will fix it later or not at all. Just like we learned with the compiler
+  errors, some problems require us to do some additional work for good reasons,
+  and I think this should apply to errors reported by `elm-lint` too. Obviously,
+  not being able to ignore a rule means that the bar to write or enable a rule
+  should be even higher.
+  - The more I think about it, the more I think that if you need to make an
+  exception to your rule somewhere, then maybe the rule is not worth enforcing
+  in the first place, and that you should probably remove it from your
+  configuration. Except for rules that try to enforce having a pattern allowed
+  only in certain locations (like a single file that contains all the color
+  definitions).
 
-It's a very all-or-nothing approach, but I prefer to start without the ability to disable rules, be convinced by good arguments and add it, rather than have it from the start with a not-so-great solution and have people write rules and add exceptions everywhere. Please let me know if and when you need it. That said, I suggest not waiting for this option to arrive and instead reading [when to write or enable a rule in a configuration](#when-to-write-or-enable-a-rule)
+I suggest (re-)reading [when to write or enable a rule in a configuration](#when-to-write-or-enable-a-rule)
+if you really need to ignore an error.
 
 ## Is there a way to automatically fix the reported errors?
 
