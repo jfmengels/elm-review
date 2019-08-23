@@ -2,11 +2,11 @@
 
 ![](https://travis-ci.com/jfmengels/elm-lint.svg?branch=master)
 
-An [Elm](http://elm-lang.org/) linter written in Elm, to add additional guarantees to your project.
+`elm-lint` lints [Elm](https://elm-lang.org/) source code, to add additional guarantees to your project.
 
 ## What does `elm-lint` do?
 
-`elm-lint` analyzes your Elm source code, and tries to recognize patterns that may be considered harmful or can be improved upon.
+`elm-lint` analyzes your [Elm](https://elm-lang.org/) source code, and tries to recognize patterns that may be considered harmful or can be improved upon.
 If you are familiar with [ESLint](http://eslint.org/) from JavaScript, this is pretty much the same idea.
 
 The idea is to improve your Elm source code base, after it passes compilation and [elm-format](https://github.com/avh4/elm-format) has been run on it.
