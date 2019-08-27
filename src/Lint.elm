@@ -55,8 +55,8 @@ type Error
 
     config : List Rule
     config =
-        [ Lint.Rule.NoDebug.rule
-        , Lint.Rule.NoUnusedVariables.rule
+        [ Some.Rule.rule
+        , Some.Other.Rule.rule
         ]
 
     project : Project

@@ -592,8 +592,7 @@ The following example forbids calling `Rule.newSchema` with a name that is not
 the same as the module's name (forbidding `Rule.newSchema "NoSomething"` when the
 module name is `Lint.Rule.NoSomethingElse`).
 
-    -- module Lint.Rule.NoDifferentNameForRuleAndModuleName exposing (rule)
-
+    module NoDifferentNameForRuleAndModuleName exposing (rule)
 
     import Elm.Syntax.Expression exposing (Expression(..))
     import Elm.Syntax.Module as Module exposing (Module)

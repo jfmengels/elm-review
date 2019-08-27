@@ -34,7 +34,8 @@ import Set exposing (Set)
 
 ## Fail
 
-    -- module A exposing (a)
+    module A exposing (a)
+
     a n =
         n + 1
 
@@ -44,7 +45,8 @@ import Set exposing (Set)
 
 ## Success
 
-    -- module A exposing (a)
+    module A exposing (a)
+
     a n =
         n + 1
 

@@ -36,7 +36,8 @@ in your editor, rather than when running your tests or [elm-xref](https://github
 
 ## Fail
 
-    -- module A exposing (a)
+    module A exposing (a)
+
     type MyType
         = UsedType
         | UnusedType -- Will get reported
@@ -47,7 +48,8 @@ in your editor, rather than when running your tests or [elm-xref](https://github
 
 ## Success
 
-    -- module A exposing (ExposedType(..))
+    module A exposing (ExposedType(..))
+
     type MyType
         = UsedType
 
@@ -60,7 +62,8 @@ in your editor, rather than when running your tests or [elm-xref](https://github
         | C
 
     -----------------------
-    -- module A exposing (..)
+    module A exposing (..)
+
     type ExposedType
         = A
         | B

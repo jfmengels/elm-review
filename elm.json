@@ -7,11 +7,6 @@
     "exposed-modules": [
         "Lint",
         "Lint.Rule",
-        "Lint.Rule.NoDebug",
-        "Lint.Rule.NoExtraBooleanComparison",
-        "Lint.Rule.NoImportingEverything",
-        "Lint.Rule.NoUnusedTypeConstructors",
-        "Lint.Rule.NoUnusedVariables",
         "Lint.Project",
         "Lint.Fix",
         "Lint.Test"
