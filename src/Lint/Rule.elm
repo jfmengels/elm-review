@@ -170,6 +170,8 @@ patterns you would want to forbid, but that are not handled by the example.
 
 ## Automatic fixing
 
+For more information on automatic fixing, read the documentation for [`Lint.Fix`](./Lint-Fix).
+
 @docs withFixes
 
 

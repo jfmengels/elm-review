@@ -215,9 +215,3 @@ There is none at the moment, for several reasons:
 
 I suggest (re-)reading [when to write or enable a rule in a configuration](#when-to-write-or-enable-a-rule)
 if you really need to ignore an error.
-
-## Is there a way to automatically fix the reported errors?
-
-There is none at the moment, but this might be added a later time. That said, it
-is unlikely that all errors will be fixable, so there will always be a need for
-manual fixing for some rules.
