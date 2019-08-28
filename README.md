@@ -176,6 +176,8 @@ users, otherwise this can frustrate and/or block them.
 
 When wondering whether to write or enable a rule, I suggest using this checklist:
   - I have had problems with the pattern I want to forbid
+  - I could not find a way to solve the problem by changing the API of the
+  problematic code or introducing a new API
   - If the rule exists, I have read its documentation and the section about when
   not to enable the rule, and it doesn't apply to my situation
   - I have thought very hard about what the corner cases could be and what kind
