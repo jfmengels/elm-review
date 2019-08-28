@@ -11,7 +11,7 @@ If you are familiar with [ESLint](http://eslint.org/) from JavaScript, this is p
 
 The idea is to improve your Elm source code base, after it passes compilation and [elm-format](https://github.com/avh4/elm-format) has been run on it.
 
-This packages offers a few rules that you can pick and configure to improve your code base, but you can also create your own rules, to enforce rules specific to your project or team. A few cases:
+You can configure your project to be analyzed by different "rules". You can find some in the Elm packages, or you can write your own rules to enforce rules specific to your project or team. A few use-cases:
 - You noticed a bad pattern in your codebase, wrote a nice module to handle the pattern better, and want to prevent your team from writing that pattern from now on. You can then write a rule to detect that pattern and have it suggest using your module instead. If you don't, you need to communicate this well to all your teammates, but there is no way to prevent the bad pattern from occurring again.
 - You often notice that strings in your codebase contain very common typos, or bad use of punctuation (like a missing space after `;`).
 - You have one module in your codebase which centralizes some data used accross the application (the paths to all the images, a list of all the available colors, ...), but you keep finding new definitions of that data accross the codebase.
