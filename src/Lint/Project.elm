@@ -45,7 +45,6 @@ type Project
 [`elm/project-metadata-utils`'s Project data structure](https://package.elm-lang.org/packages/elm/project-metadata-utils/latest/Elm-Project).
 -}
 type alias ElmJson =
-    -- TODO rename this module to avoid collisions and ambiguity
     Elm.Project.Project
 
 
