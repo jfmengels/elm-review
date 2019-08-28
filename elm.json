@@ -1,7 +1,7 @@
 {
     "type": "package",
     "name": "jfmengels/elm-lint",
-    "summary": "A linter for Elm. Get your code from correct to better.",
+    "summary": "An Elm source code linter, to add additional guarantees to your project.",
     "license": "BSD-3-Clause",
     "version": "4.0.0",
     "exposed-modules": [
