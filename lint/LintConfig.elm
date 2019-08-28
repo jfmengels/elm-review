@@ -9,19 +9,20 @@ To add packages that contain rules, add them to this lint project using
 
 -}
 
+-- import Lint.Rule.NoDebug
+-- import Lint.Rule.NoExtraBooleanComparison
+-- import Lint.Rule.NoImportingEverything
+
 import Lint.Rule exposing (Rule)
-import Lint.Rule.NoDebug
-import Lint.Rule.NoExtraBooleanComparison
-import Lint.Rule.NoImportingEverything
-import Lint.Rule.NoUnusedTypeConstructors
-import Lint.Rule.NoUnusedVariables
+import NoUnused.CustomTypeConstructors
+import NoUnused.Variables
 
 
 config : List Rule
 config =
-    [ Lint.Rule.NoDebug.rule
-    , Lint.Rule.NoExtraBooleanComparison.rule
-    , Lint.Rule.NoImportingEverything.rule { exceptions = [] }
-    , Lint.Rule.NoUnusedVariables.rule
-    , Lint.Rule.NoUnusedTypeConstructors.rule
+    [ -- Lint.Rule.NoDebug.rule
+      -- , Lint.Rule.NoExtraBooleanComparison.rule
+      -- , Lint.Rule.NoImportingEverything.rule { exceptions = [] }
+      NoUnused.Variables.rule
+    , NoUnused.CustomTypeConstructors.rule
     ]
