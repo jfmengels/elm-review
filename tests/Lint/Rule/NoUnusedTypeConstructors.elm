@@ -28,7 +28,7 @@ import Set exposing (Set)
 
 Note that this does not report a constructor if it is exposed in the module, even
 if it is not used anywhere in the project. For a more accurate detection of
-unused constructors (and functions) accross your project, you might want to check
+unused constructors (and functions) across your project, you might want to check
 out [elm-xref](https://github.com/zwilias/elm-xref). You may still want to use
 this rule in your config so that you get notified of unused constructors earlier
 in your editor, rather than when running your tests or [elm-xref](https://github.com/zwilias/elm-xref).

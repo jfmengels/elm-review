@@ -789,7 +789,7 @@ THe example is simplified to only forbid the use of the `Html.button` expression
                     FunctionOrValue [ "Html" ] "button" ->
                         ( [ Rule.error
                                 { message = "Do not use `Html.button` directly""
-                                , details = [ "At fruits.com, we've built a nice `Button` module that suits our needs better. Using this module instead of `Html.button` ensures we have a consistent button experience accross the website." ]
+                                , details = [ "At fruits.com, we've built a nice `Button` module that suits our needs better. Using this module instead of `Html.button` ensures we have a consistent button experience across the website." ]
                                 }
                                 (Node.range node)
                           ]
