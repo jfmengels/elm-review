@@ -50,8 +50,16 @@ init =
 import NotUsed
 import SomeModule exposing (notUsed)
 
-f : Int -> Int
-f x = Debug.log "x" x
+type SomeCustomType
+  = UsedConstructor
+  | NotUsedConstructor
+
+f : Int -> SomeCustomType
+f x =
+  let
+    _ = Debug.log "x" x
+  in
+  UsedConstructor
 
 g n = n + 1
 """
