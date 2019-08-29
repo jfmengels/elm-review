@@ -7,11 +7,9 @@ import Html.Events as Events
 import Lint
 import Lint.Project as Project
 import Lint.Rule exposing (Rule)
-import Lint.Rule.NoDebug
-import Lint.Rule.NoExtraBooleanComparison
-import Lint.Rule.NoImportingEverything
-import Lint.Rule.NoUnusedTypeConstructors
-import Lint.Rule.NoUnusedVariables
+import NoDebug
+import NoUnused.CustomTypeConstructors
+import NoUnused.Variables
 import Reporter
 
 
@@ -37,9 +35,6 @@ type alias Model =
     , lintErrors : List Lint.Error
     , noDebugEnabled : Bool
     , noUnusedVariablesEnabled : Bool
-    , noImportingEverythingEnabled : Bool
-    , noImportingEverythingExceptions : List String
-    , noExtraBooleanComparisonEnabled : Bool
     , noUnusedTypeConstructorsEnabled : Bool
     , showConfigurationAsText : Bool
     }
@@ -52,13 +47,11 @@ init =
         sourceCode =
             """module Main exposing (f)
 
-import Html.Events exposing (..)
-import Html exposing (..)
 import NotUsed
 import SomeModule exposing (notUsed)
 
 f : Int -> Int
-f x = x Debug.log 1
+f x = Debug.log "x" x
 
 g n = n + 1
 """
@@ -67,9 +60,6 @@ g n = n + 1
     , lintErrors = []
     , noDebugEnabled = True
     , noUnusedVariablesEnabled = True
-    , noImportingEverythingEnabled = True
-    , noImportingEverythingExceptions = [ "Html", "Html.Attributes" ]
-    , noExtraBooleanComparisonEnabled = True
     , noUnusedTypeConstructorsEnabled = True
     , showConfigurationAsText = False
     }
@@ -82,23 +72,9 @@ g n = n + 1
 
 config : Model -> List Rule
 config model =
-    [ ( model.noDebugEnabled, Lint.Rule.NoDebug.rule )
-    , ( model.noUnusedVariablesEnabled, Lint.Rule.NoUnusedVariables.rule )
-    , ( model.noImportingEverythingEnabled, Lint.Rule.NoImportingEverything.rule { exceptions = [ "Html" ] } )
-    , ( model.noExtraBooleanComparisonEnabled, Lint.Rule.NoExtraBooleanComparison.rule )
-    , ( model.noUnusedTypeConstructorsEnabled, Lint.Rule.NoUnusedTypeConstructors.rule )
-
-    -- , Lint.Rule.NoConstantCondition.rule
-    -- , Lint.Rule.NoDuplicateImports.rule
-    -- , Lint.Rule.NoExposingEverything.rule
-    -- , Lint.Rule.NoNestedLet.rule
-    -- , Lint.Rule.NoUnannotatedFunction.rule
-    -- , Lint.Rule.NoUselessIf.rule
-    -- , Lint.Rule.NoUselessPatternMatching.rule
-    -- , Lint.Rule.NoWarningComments.rule
-    -- , Lint.Rule.SimplifyPiping.rule
-    -- , Lint.Rule.SimplifyPropertyAccess.rule
-    -- , Lint.Rule.ElmTest.NoDuplicateTestBodies.rule
+    [ ( model.noDebugEnabled, NoDebug.rule )
+    , ( model.noUnusedVariablesEnabled, NoUnused.Variables.rule )
+    , ( model.noUnusedTypeConstructorsEnabled, NoUnused.CustomTypeConstructors.rule )
     ]
         |> List.filter Tuple.first
         |> List.map Tuple.second
@@ -112,8 +88,6 @@ type Msg
     = UserEditedSourceCode String
     | UserToggledNoDebugRule
     | UserToggledNoUnusedVariablesRule
-    | UserToggledNoImportingEverythingRule
-    | UserToggledNoExtraBooleanComparisonRule
     | UserToggledNoUnusedTypeConstructorsRule
     | UserToggledConfigurationAsText
 
@@ -131,14 +105,6 @@ update action model =
 
         UserToggledNoUnusedVariablesRule ->
             { model | noUnusedVariablesEnabled = not model.noUnusedVariablesEnabled }
-                |> runLinting
-
-        UserToggledNoImportingEverythingRule ->
-            { model | noImportingEverythingEnabled = not model.noImportingEverythingEnabled }
-                |> runLinting
-
-        UserToggledNoExtraBooleanComparisonRule ->
-            { model | noExtraBooleanComparisonEnabled = not model.noExtraBooleanComparisonEnabled }
                 |> runLinting
 
         UserToggledNoUnusedTypeConstructorsRule ->
@@ -215,8 +181,6 @@ viewConfigurationPanel model =
             ]
             [ viewCheckbox UserToggledNoDebugRule "NoDebug" model.noDebugEnabled
             , viewCheckbox UserToggledNoUnusedVariablesRule "NoUnusedVariables" model.noUnusedVariablesEnabled
-            , viewCheckbox UserToggledNoImportingEverythingRule "NoImportingEverything" model.noImportingEverythingEnabled
-            , viewCheckbox UserToggledNoExtraBooleanComparisonRule "NoExtraBooleanComparison" model.noExtraBooleanComparisonEnabled
             , viewCheckbox UserToggledNoUnusedTypeConstructorsRule "NoUnusedTypeConstructors" model.noUnusedTypeConstructorsEnabled
             ]
         ]
@@ -257,28 +221,18 @@ configurationAsText model =
         rules : List { import_ : String, configExpression : String }
         rules =
             [ ( model.noDebugEnabled
-              , { import_ = "Lint.Rule.NoDebug"
-                , configExpression = "Lint.Rule.NoDebug.rule"
+              , { import_ = "NoDebug"
+                , configExpression = "NoDebug.rule"
                 }
               )
             , ( model.noUnusedVariablesEnabled
-              , { import_ = "Lint.Rule.NoUnusedVariables"
-                , configExpression = "Lint.Rule.NoUnusedVariables.rule"
-                }
-              )
-            , ( model.noImportingEverythingEnabled
-              , { import_ = "Lint.Rule.NoImportingEverything"
-                , configExpression = "Lint.Rule.NoImportingEverything.rule { exceptions = [] }"
-                }
-              )
-            , ( model.noExtraBooleanComparisonEnabled
-              , { import_ = "Lint.Rule.NoExtraBooleanComparison"
-                , configExpression = "Lint.Rule.NoExtraBooleanComparison.rule"
+              , { import_ = "NoUnused.Variables"
+                , configExpression = "NoUnused.Variables.rule"
                 }
               )
             , ( model.noUnusedTypeConstructorsEnabled
-              , { import_ = "Lint.Rule.NoUnusedTypeConstructors"
-                , configExpression = "Lint.Rule.NoUnusedTypeConstructors.rule"
+              , { import_ = "NoUnused.CustomTypeConstructors"
+                , configExpression = "NoUnused.CustomTypeConstructors.rule"
                 }
               )
             ]
@@ -301,7 +255,6 @@ configurationAsText model =
 
 import Lint.Rule exposing (Rule)
 """ ++ importStatements ++ """
-
 
 config : List Rule
 config =
