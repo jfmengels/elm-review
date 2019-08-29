@@ -86,6 +86,13 @@ to have too many tests rather than too few, since the behavior of a rule rarely
 changes drastically.
 
 
+# Design goals
+
+If you are interested, you can read
+[the design goals](https://github.com/jfmengels/elm-lint/blob/master/documentation/design/test-module.md)
+for this module.
+
+
 # Running tests
 
 @docs LintResult, run, runWithProjectData
