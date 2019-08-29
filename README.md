@@ -4,6 +4,8 @@
 
 `elm-lint` lints [Elm](https://elm-lang.org/) source code, to add additional guarantees to your project.
 
+![elm-lint reporter output](https://github.com/jfmengels/elm-lint/blob/master/documentation/images/elm-lint-report.png?raw=true)
+
 ## What does `elm-lint` do?
 
 `elm-lint` analyzes your [Elm](https://elm-lang.org/) source code, and tries to recognize patterns that may be considered harmful or can be improved upon.
