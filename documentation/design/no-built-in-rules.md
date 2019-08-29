@@ -1,4 +1,4 @@
-# Why no built-in rules
+# Why there are no built-in rules in `elm-lint`
 
 `elm-lint` comes with no rules out of the box. It used to have some, but then I
 decided it was better to have them all extracted into different packages.
