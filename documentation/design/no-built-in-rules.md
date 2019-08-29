@@ -13,8 +13,6 @@ which linting configuration is not its concern, it's up to each user to decide
 carefully whether or not to enable it. `elm-lint` will just provide the tools to
 do so.
 
-Maybe some semi-official linting packages will emerge
-
 If there are no core rules, then there are also no technical distinctions
 between then and package rules. They all have access to the same tools, and
 there is no rule that can do more than an other could.
