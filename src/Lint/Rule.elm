@@ -329,8 +329,8 @@ newSchema name_ =
         , moduleDefinitionVisitor = \node context -> ( [], context )
         , importVisitor = \node context -> ( [], context )
         , declarationListVisitor = \declarationNodes context -> ( [], context )
-        , declarationVisitor = \direction node context -> ( [], context )
-        , expressionVisitor = \direction node context -> ( [], context )
+        , declarationVisitor = \node direction context -> ( [], context )
+        , expressionVisitor = \node direction context -> ( [], context )
         , finalEvaluationFn = \context -> []
         }
 
