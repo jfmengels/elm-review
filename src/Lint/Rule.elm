@@ -2,7 +2,7 @@ module Lint.Rule exposing
     ( Rule, Schema
     , newSchema, fromSchema
     , withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
-    , withInitialContext, withModuleDefinitionVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withExpressionVisitor, withFinalEvaluation
+    , withInitialContext, withModuleDefinitionVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalEvaluation
     , withElmJsonVisitor
     , withFixes
     , Error, error, errorMessage, errorDetails, errorRange, errorFixes
@@ -24,8 +24,9 @@ contents of the file to analyze to the rule. The order in which things get passe
       - The `elm.json` file, visited by [`withElmJsonVisitor`](#withElmJsonVisitor)
   - Visit the file (in the following order)
       - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
-      - Each import statement, visited by [`withSimpleImportVisitor`](#withSimpleImportVisitor) and [`withImportVisitor`](#withImportVisitor)
-      - Each declaration statement, visited by [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) and [`withDeclarationVisitor`](#withDeclarationVisitor).
+      - Each import, visited by [`withSimpleImportVisitor`](#withSimpleImportVisitor) and [`withImportVisitor`](#withImportVisitor)
+      - The list of declarations, visited by [`withDeclarationListVisitor`](#withDeclarationListVisitor).
+      - Each declaration, visited by [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) and [`withDeclarationVisitor`](#withDeclarationVisitor).
         Before evaluating the next declaration, the expression contained in the declaration
         will be visited recursively using by [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) and [`withExpressionVisitor`](#withExpressionVisitor)
       - A final evaluation is made when the whole AST has been traversed, using [`withFinalEvaluation`](#withFinalEvaluation)
@@ -160,7 +161,7 @@ patterns you would want to forbid, but that are not handled by the example.
 
 ## Builder functions with context
 
-@docs withInitialContext, withModuleDefinitionVisitor, withImportVisitor, Direction, withDeclarationVisitor, withExpressionVisitor, withFinalEvaluation
+@docs withInitialContext, withModuleDefinitionVisitor, withImportVisitor, Direction, withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalEvaluation
 
 
 ## Builder functions to analyze the project's data
@@ -250,8 +251,9 @@ type
         , elmJsonVisitor : Maybe Elm.Project.Project -> context -> context
         , moduleDefinitionVisitor : Node Module -> context -> ( List Error, context )
         , importVisitor : Node Import -> context -> ( List Error, context )
-        , expressionVisitor : Node Expression -> Direction -> context -> ( List Error, context )
+        , declarationListVisitor : List (Node Declaration) -> context -> ( List Error, context )
         , declarationVisitor : Node Declaration -> Direction -> context -> ( List Error, context )
+        , expressionVisitor : Node Expression -> Direction -> context -> ( List Error, context )
         , finalEvaluationFn : context -> List Error
         }
 
@@ -326,8 +328,9 @@ newSchema name_ =
         , elmJsonVisitor = \elmJson context -> context
         , moduleDefinitionVisitor = \node context -> ( [], context )
         , importVisitor = \node context -> ( [], context )
-        , expressionVisitor = \direction node context -> ( [], context )
+        , declarationListVisitor = \declarationNodes context -> ( [], context )
         , declarationVisitor = \direction node context -> ( [], context )
+        , expressionVisitor = \direction node context -> ( [], context )
         , finalEvaluationFn = \context -> []
         }
 
@@ -344,6 +347,7 @@ fromSchema (Schema schema) =
                     |> schema.elmJsonVisitor (Lint.Project.elmJson project)
                     |> schema.moduleDefinitionVisitor file.moduleDefinition
                     |> accumulateList schema.importVisitor file.imports
+                    |> accumulate (schema.declarationListVisitor file.declarations)
                     |> accumulateList (visitDeclaration schema.declarationVisitor schema.expressionVisitor) file.declarations
                     |> makeFinalEvaluation schema.finalEvaluationFn
                     |> List.reverse
@@ -672,8 +676,9 @@ withInitialContext initialContext_ (Schema schema) =
         , elmJsonVisitor = \elmJson context -> context
         , moduleDefinitionVisitor = \node context -> ( [], context )
         , importVisitor = \node context -> ( [], context )
-        , expressionVisitor = \node direction context -> ( [], context )
+        , declarationListVisitor = \declarationNodes context -> ( [], context )
         , declarationVisitor = \node direction context -> ( [], context )
+        , expressionVisitor = \node direction context -> ( [], context )
         , finalEvaluationFn = \context -> []
         }
 
@@ -970,6 +975,25 @@ simpler [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) function
 withDeclarationVisitor : (Node Declaration -> Direction -> context -> ( List Error, context )) -> Schema configurationState context -> Schema { hasAtLeastOneVisitor : () } context
 withDeclarationVisitor visitor (Schema schema) =
     Schema { schema | declarationVisitor = visitor }
+
+
+{-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s
+[declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Declaration)
+(`someVar = add 1 2`, `type Bool = True | False`, `port output : Json.Encode.Value -> Cmd msg`),
+collect data and/or report patterns.
+
+It is similar to [withDeclarationVisitor](#withDeclarationVisitor), but the
+visitor used with this function is called before the visitor added with
+[withDeclarationVisitor](#withDeclarationVisitor). You can use this visitor in
+order to look ahead and add the file's types and variables into your context,
+before visiting the contents of the file using [withDeclarationVisitor](#withDeclarationVisitor)
+and [withExpressionVisitor](#withExpressionVisitor). Otherwise, using
+[withDeclarationVisitor](#withDeclarationVisitor) is probably a simpler choice.
+
+-}
+withDeclarationListVisitor : (List (Node Declaration) -> context -> ( List Error, context )) -> Schema configurationState context -> Schema { hasAtLeastOneVisitor : () } context
+withDeclarationListVisitor visitor (Schema schema) =
+    Schema { schema | declarationListVisitor = visitor }
 
 
 {-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s
