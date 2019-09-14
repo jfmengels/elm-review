@@ -1085,8 +1085,6 @@ withExpressionVisitor visitor (Schema schema) =
 collected in the `context`. This can be useful if you can't or if it is hard to
 determine something as you traverse the file.
 
-This example was written in a different way in the example for [`withFinalEvaluation`](#withFinalEvaluation).
-
 The following example forbids importing both `Element` (`elm-ui`) and
 `Html.Styled` (`elm-css`). Note that this is the same one written in the example
 for [`withImportVisitor`](#withImportVisitor), but using [`withFinalEvaluation`](#withFinalEvaluation).
