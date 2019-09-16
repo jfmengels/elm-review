@@ -685,8 +685,7 @@ withInitialContext initialContext_ (Schema schema) =
 [`elm.json`](https://package.elm-lang.org/packages/elm/project-metadata-utils/latest/Elm-Project) file.
 information, such as the contents of the `elm.json` file, to collect data (`module SomeModuleName exposing (a, b)`), collect data in the `context` and/or report patterns.
 
-The following example forbids the use of `Html.button` except in the "Button" file.
-THe example is simplified to only forbid the use of the `Html.button` expression.
+The following example forbids exposing a file in an "Internal" directory in your `elm.json` file.
 
     import Elm.Module
     import Elm.Project
