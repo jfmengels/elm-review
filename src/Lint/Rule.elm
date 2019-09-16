@@ -596,8 +596,6 @@ The following example forbids calling `Rule.newSchema` with a name that is not
 the same as the module's name (forbidding `Rule.newSchema "NoSomething"` when the
 module name is `Lint.Rule.NoSomethingElse`).
 
-    module NoDifferentNameForRuleAndModuleName exposing (rule)
-
     import Elm.Syntax.Expression exposing (Expression(..))
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
@@ -1005,7 +1003,6 @@ expression will be visited, then its first child, the first child's children
 
 The following example forbids the use of `Debug.log` even when it is imported like
 `import Debug exposing (log)`.
-module Main exposing (Context(..), expressionVisitor, importVisitor, rule)
 
     import Elm.Syntax.Exposing as Exposing exposing (TopLevelExpose(..))
     import Elm.Syntax.Expression exposing (Expression(..))
