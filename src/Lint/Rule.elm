@@ -222,7 +222,7 @@ type Rule
 
 -}
 type
-    Schema configurationState context
+    Schema anything context
     -- `configurationState` is a phantom type used to forbid using `withInitialContext`
     -- after having defined some visitors already. For `withInitialContext` to
     -- work and due to the change in `context` type value, all visitors need to be
@@ -393,7 +393,7 @@ Note: `withSimpleModuleDefinitionVisitor` is a simplified version of [`withModul
 which isn't passed a `context` and doesn't return one. You can use `withSimpleModuleDefinitionVisitor` even if you use "non-simple with\*" functions.
 
 -}
-withSimpleModuleDefinitionVisitor : (Node Module -> List Error) -> Schema configurationState context -> Schema { hasAtLeastOneVisitor : () } context
+withSimpleModuleDefinitionVisitor : (Node Module -> List Error) -> Schema anything context -> Schema { hasAtLeastOneVisitor : () } context
 withSimpleModuleDefinitionVisitor visitor (Schema schema) =
     Schema { schema | moduleDefinitionVisitor = \node context -> ( visitor node, context ) }
 
@@ -442,7 +442,7 @@ Note: `withSimpleImportVisitor` is a simplified version of [`withImportVisitor`]
 which isn't passed a `context` and doesn't return one. You can use `withSimpleImportVisitor` even if you use "non-simple with\*" functions.
 
 -}
-withSimpleImportVisitor : (Node Import -> List Error) -> Schema configurationState context -> Schema { hasAtLeastOneVisitor : () } context
+withSimpleImportVisitor : (Node Import -> List Error) -> Schema anything context -> Schema { hasAtLeastOneVisitor : () } context
 withSimpleImportVisitor visitor (Schema schema) =
     Schema { schema | importVisitor = \node context -> ( visitor node, context ) }
 
@@ -496,7 +496,7 @@ Note: `withSimpleDeclarationVisitor` is a simplified version of [`withDeclaratio
 which isn't passed a [`Direction`](#Direction) (it will only be called `OnEnter`ing the node) and a `context` and doesn't return a context. You can use `withSimpleDeclarationVisitor` even if you use "non-simple with\*" functions.
 
 -}
-withSimpleDeclarationVisitor : (Node Declaration -> List Error) -> Schema configurationState context -> Schema { hasAtLeastOneVisitor : () } context
+withSimpleDeclarationVisitor : (Node Declaration -> List Error) -> Schema anything context -> Schema { hasAtLeastOneVisitor : () } context
 withSimpleDeclarationVisitor visitor (Schema schema) =
     Schema
         { schema
@@ -551,7 +551,7 @@ Note: `withSimpleExpressionVisitor` is a simplified version of [`withExpressionV
 which isn't passed a [`Direction`](#Direction) (it will only be called `OnEnter`ing the node) and a `context` and doesn't return a context. You can use `withSimpleExpressionVisitor` even if you use "non-simple with\*" functions.
 
 -}
-withSimpleExpressionVisitor : (Node Expression -> List Error) -> Schema configurationState context -> Schema { hasAtLeastOneVisitor : () } context
+withSimpleExpressionVisitor : (Node Expression -> List Error) -> Schema anything context -> Schema { hasAtLeastOneVisitor : () } context
 withSimpleExpressionVisitor visitor (Schema schema) =
     Schema
         { schema
@@ -745,7 +745,7 @@ THe example is simplified to only forbid the use of the `Html.button` expression
             ( [], context )
 
 -}
-withElmJsonVisitor : (Maybe Elm.Project.Project -> context -> context) -> Schema configurationState context -> Schema configurationState context
+withElmJsonVisitor : (Maybe Elm.Project.Project -> context -> context) -> Schema anything context -> Schema anything context
 withElmJsonVisitor visitor (Schema schema) =
     Schema { schema | elmJsonVisitor = visitor }
 
@@ -809,7 +809,7 @@ Tip: If you do not need to collect data in this visitor, you may wish to use the
 simpler [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) function).
 
 -}
-withModuleDefinitionVisitor : (Node Module -> context -> ( List Error, context )) -> Schema configurationState context -> Schema { hasAtLeastOneVisitor : () } context
+withModuleDefinitionVisitor : (Node Module -> context -> ( List Error, context )) -> Schema anything context -> Schema { hasAtLeastOneVisitor : () } context
 withModuleDefinitionVisitor visitor (Schema schema) =
     Schema { schema | moduleDefinitionVisitor = visitor }
 
@@ -880,7 +880,7 @@ Tip: If you do not need to collect or use the `context` in this visitor, you may
 simpler [`withSimpleImportVisitor`](#withSimpleImportVisitor) function.
 
 -}
-withImportVisitor : (Node Import -> context -> ( List Error, context )) -> Schema configurationState context -> Schema { hasAtLeastOneVisitor : () } context
+withImportVisitor : (Node Import -> context -> ( List Error, context )) -> Schema anything context -> Schema { hasAtLeastOneVisitor : () } context
 withImportVisitor visitor (Schema schema) =
     Schema { schema | importVisitor = visitor }
 
@@ -970,7 +970,7 @@ Tip: If you do not need to collect or use the `context` in this visitor, you may
 simpler [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) function.
 
 -}
-withDeclarationVisitor : (Node Declaration -> Direction -> context -> ( List Error, context )) -> Schema configurationState context -> Schema { hasAtLeastOneVisitor : () } context
+withDeclarationVisitor : (Node Declaration -> Direction -> context -> ( List Error, context )) -> Schema anything context -> Schema { hasAtLeastOneVisitor : () } context
 withDeclarationVisitor visitor (Schema schema) =
     Schema { schema | declarationVisitor = visitor }
 
@@ -989,7 +989,7 @@ and [withExpressionVisitor](#withExpressionVisitor). Otherwise, using
 [withDeclarationVisitor](#withDeclarationVisitor) is probably a simpler choice.
 
 -}
-withDeclarationListVisitor : (List (Node Declaration) -> context -> ( List Error, context )) -> Schema configurationState context -> Schema { hasAtLeastOneVisitor : () } context
+withDeclarationListVisitor : (List (Node Declaration) -> context -> ( List Error, context )) -> Schema anything context -> Schema { hasAtLeastOneVisitor : () } context
 withDeclarationListVisitor visitor (Schema schema) =
     Schema { schema | declarationListVisitor = visitor }
 
@@ -1073,7 +1073,7 @@ Tip: If you do not need to collect or use the `context` in this visitor, you may
 simpler [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) function.
 
 -}
-withExpressionVisitor : (Node Expression -> Direction -> context -> ( List Error, context )) -> Schema configurationState context -> Schema { hasAtLeastOneVisitor : () } context
+withExpressionVisitor : (Node Expression -> Direction -> context -> ( List Error, context )) -> Schema anything context -> Schema { hasAtLeastOneVisitor : () } context
 withExpressionVisitor visitor (Schema schema) =
     Schema { schema | expressionVisitor = visitor }
 
