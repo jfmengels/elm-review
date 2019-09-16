@@ -756,7 +756,7 @@ withElmJsonVisitor visitor (Schema schema) =
 [module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`), collect data in the `context` and/or report patterns.
 
 The following example forbids the use of `Html.button` except in the "Button" file.
-THe example is simplified to only forbid the use of the `Html.button` expression.
+The example is simplified to only forbid the use of the `Html.button` expression.
 
     import Elm.Syntax.Expression exposing (Expression(..))
     import Elm.Syntax.Module as Module exposing (Module)
@@ -793,7 +793,7 @@ THe example is simplified to only forbid the use of the `Html.button` expression
                 case Node.value node of
                     FunctionOrValue [ "Html" ] "button" ->
                         ( [ Rule.error
-                                { message = "Do not use `Html.button` directly""
+                                { message = "Do not use `Html.button` directly"
                                 , details = [ "At fruits.com, we've built a nice `Button` module that suits our needs better. Using this module instead of `Html.button` ensures we have a consistent button experience across the website." ]
                                 }
                                 (Node.range node)
