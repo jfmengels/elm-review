@@ -222,7 +222,7 @@ type Rule
 
 -}
 type
-    Schema anything context
+    Schema configurationState context
     -- `configurationState` is a phantom type used to forbid using `withInitialContext`
     -- after having defined some visitors already. For `withInitialContext` to
     -- work and due to the change in `context` type value, all visitors need to be
