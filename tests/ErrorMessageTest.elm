@@ -609,8 +609,8 @@ I expected that the error with the following message
 
 would provide some fixes, but I didn't find any.
 
-Hint: It's probable that you either forgot to call `Rule.withFixes` on the
-error that you created, or that the list of provided fixes was empty."""
+Hint: Maybe you forgot to call `Rule.withFixes` on the error that you
+created, or maybe the list of provided fixes was empty."""
 
 
 unexpectedFixesTest : Test
