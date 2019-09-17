@@ -29,7 +29,7 @@ This means that when the automatic fix is applied, the user should not have to
 think about the error anymore or have to do additional work. Imagine if the user
 applies a lot of automatic fixes all at once, we don't want them to have to
 remember having to do something, otherwise we may have just offloaded a lot of
-work that they may forget to do. In that case, it's better not to provide a fix
+work that they may forget to do. In that case, it is better not to provide a fix
 at all, so that they keep a reminder and the details of how to fix the problem.
 
 An automatic fix should resolve only the reported error, not try to fix other

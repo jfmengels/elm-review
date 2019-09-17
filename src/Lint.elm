@@ -82,7 +82,7 @@ lint config project { path, source } =
                 , ruleName = "ParsingError"
                 , message = path ++ " is not a correct Elm file"
                 , details =
-                    [ "I could not understand the contents of this file, and this prevents me from analyzing it. It's highly likely that the contents of the file is not correct Elm code."
+                    [ "I could not understand the contents of this file, and this prevents me from analyzing it. It is highly likely that the contents of the file is not correct Elm code."
                     , "Hint: Try running `elm make`. The compiler should give you better hints on how to resolve the problem."
                     ]
                 , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }

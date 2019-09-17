@@ -31,7 +31,7 @@ The error location is where you would see the squiggly lines in the report or in
 
 Not testing this means that the user is more likely to see the error at the wrong location, or on a too large section of code, making it a pain to have the error in the editor.
 
-This is usually a pain to test because it requires giving it a range (of the form `{ start : { row : Int, column : Int}, end : { row : Int, column : Int} }`) which you always get wrong the first time, because it's tedious to compute in your head, and because it starts with row and column 1, which is just very confusing for developers. Since you always get it wrong, you either just follow what the test suggests you instead, or don't test it at all (from my experience with ESLint, the location is very rarely tested).
+This is usually a pain to test because it requires giving it a range (of the form `{ start : { row : Int, column : Int}, end : { row : Int, column : Int} }`) which you always get wrong the first time, because it is tedious to compute in your head, and because it starts with row and column 1, which is just very confusing for developers. Since you always get it wrong, you either just follow what the test suggests you instead, or don't test it at all (from my experience with ESLint, the location is very rarely tested).
 `Lint.Test` tries to make this more helpful with the field `under`, where you specify the text at the location, instead of the position itself. This is mostly guessable by the developers, but is also much more readable when reading the test.
 
 ### Result of fixing

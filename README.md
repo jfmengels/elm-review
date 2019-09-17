@@ -201,7 +201,7 @@ There is none at the moment, for several reasons:
   place the comment, or the rule would need to be disabled for a bigger section
   of the code than wanted. Neither option provides a good experience.
   - If there are some rules that you really want to enforce because you want to
-  create additional guarantees in your codebase, and it's possible to ignore it,
+  create additional guarantees in your codebase, and it is possible to ignore it,
   then you will want a second system to ensure those rules are never ignored.
   - When people encounter a linting error, quite often they will try to disable
   it by default, because they don't agree with the rule, or because they think

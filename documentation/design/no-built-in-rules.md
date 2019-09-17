@@ -9,7 +9,7 @@ could be written can potentially be unwanted under certain circumstances, and
 can therefore hardly be enforced all the time without more consideration.
 
 `elm-lint` is plenty opinionated, but what counts as best practices in terms of
-which linting configuration is not its concern, it's up to each user to decide
+which linting configuration is not its concern, it is up to each user to decide
 carefully whether or not to enable it. `elm-lint` will just provide the tools to
 do so.
 
