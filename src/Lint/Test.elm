@@ -199,7 +199,7 @@ project loaded, such as the contents of `elm.json` file.
                         Project.new
                             |> Project.withElmJson elmJsonToConstructManually
                 in
-                Lint.Test.run project rule """module SomeModule exposing (a)
+                Lint.Test.runWithProjectData project rule """module SomeModule exposing (a)
     a = 1"""
                     |> Lint.Test.expectNoErrors
 
@@ -390,7 +390,7 @@ is only necessary when the `under` field is ambiguous.
 
 Tip: By default, do not use this function. If the test fails because there is some
 ambiguity, the test error will give you a recommendation of what to use as a parameter
-of `atExactly`, so you do not have to bother writing this hard to write argument.
+of `atExactly`, so you do not have to bother writing this hard-to-write argument yourself.
 
 -}
 atExactly : { start : { row : Int, column : Int }, end : { row : Int, column : Int } } -> ExpectedError -> ExpectedError
