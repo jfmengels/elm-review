@@ -56,11 +56,12 @@ You can get started with an empty configuration with the command line tool by ru
 reading the rest of this document, but especially the section on
 [when to enable a rule in your configuration](#when-to-write-or-enable-a-rule).
 
-`elm-lint` does not come with any built-in rules. You can read why [here](https://github.com/jfmengels/elm-lint/blob/master/documentation/design/no-built-in-rules.md). You can get rules from packages in the Elm package registry using
-the command line tool `elm-lint install authorName/dependencyName`.
+`elm-lint` does not come with any built-in rules. You can read why [here](https://github.com/jfmengels/elm-lint/blob/master/documentation/design/no-built-in-rules.md). You can get rules from packages in the Elm package registry by going to your lint directory and running `elm install` in your terminal.
 
-This will add the dependency in your `test-dependencies`, along with your
-[`elm-test`](https://github.com/elm-explorations/test) dependencies.
+```
+cd lint
+elm install authorName/dependencyName
+```
 
 You can also [write your own rules](#write-your-own-rule), as shown in the next
 section.
