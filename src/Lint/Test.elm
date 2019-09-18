@@ -3,7 +3,7 @@ module Lint.Test exposing
     , ExpectedError, expectErrors, expectNoErrors, error, atExactly, whenFixed
     )
 
-{-| Module that helps you test your linting rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest).
+{-| Module that helps you test your linting rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/).
 
     import Lint.Test exposing (LintResult)
     import Test exposing (Test, describe, test)

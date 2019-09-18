@@ -69,7 +69,7 @@ section.
 ## Write your own rule
 
 You can write your own rule using this package's API and
-[`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest).
+[`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/).
 Check out the [`Lint.Rule`](./Lint-Rule) module for more instructions.
 
 Here's an example of a rule that prevents a typo in a string that was made too
