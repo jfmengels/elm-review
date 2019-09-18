@@ -3,7 +3,7 @@
     "name": "jfmengels/elm-lint",
     "summary": "An Elm source code linter, to add additional guarantees to your project.",
     "license": "BSD-3-Clause",
-    "version": "4.1.0",
+    "version": "4.1.1",
     "exposed-modules": [
         "Lint",
         "Lint.Rule",
