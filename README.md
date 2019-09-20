@@ -13,7 +13,7 @@ If you are familiar with [ESLint](http://eslint.org/) from JavaScript, this is p
 
 The idea is to improve your Elm source code base, after it passes compilation and [elm-format](https://github.com/avh4/elm-format) has been run on it.
 
-You can configure your project to be analyzed by different "rules". You can find some in the Elm packages, or you can write your own rules to enforce rules specific to your project or team. A few use-cases:
+You can configure your project to be analyzed by different "rules". You can find [some in the Elm packages](https://klaftertief.github.io/elm-search/?q=Lint.Rule.Rule), or you can write your own rules to enforce rules specific to your project or team. A few use-cases:
 - You noticed a bad pattern in your codebase, wrote a nice module to handle the pattern better, and want to prevent your team from writing that pattern from now on. You can then write a rule to detect that pattern and have it suggest using your module instead. If you don't, you need to communicate this well to all your teammates, but there is no way to prevent the bad pattern from occurring again.
 - You often notice that strings in your codebase contain very common typos, or bad use of punctuation (like a missing space after `;`).
 - You have one module in your codebase which centralizes some data used across the application (the paths to all the images, a list of all the available colors, ...), but you keep finding new definitions of that data across the codebase.
@@ -56,11 +56,11 @@ You can get started with an empty configuration with the command line tool by ru
 reading the rest of this document, but especially the section on
 [when to enable a rule in your configuration](#when-to-write-or-enable-a-rule).
 
-`elm-lint` does not come with any built-in rules. You can read why [here](https://github.com/jfmengels/elm-lint/blob/master/documentation/design/no-built-in-rules.md). You can get rules from packages in the Elm package registry by going to your lint directory and running `elm install` in your terminal.
+`elm-lint` does not come with any built-in rules. You can read why [here](https://github.com/jfmengels/elm-lint/blob/master/documentation/design/no-built-in-rules.md). You can find rules in the Elm package registry by [using `elm-search` and searching for `Lint.Rule.Rule`](https://klaftertief.github.io/elm-search/?q=Lint.Rule.Rule), and use by going to your lint directory and running `elm install` in your terminal.
 
-```
-cd lint
-elm install authorName/dependencyName
+```bash
+cd lint/ # Go inside your lint configuration directory
+elm install authorName/packageName
 ```
 
 You can also [write your own rules](#write-your-own-rule), as shown in the next
