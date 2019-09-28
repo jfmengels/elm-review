@@ -1,17 +1,17 @@
-module Lint.Test exposing
-    ( LintResult, run, runWithProjectData
+module Review.Test exposing
+    ( ReviewResult, run, runWithProjectData
     , ExpectedError, expectErrors, expectNoErrors, error, atExactly, whenFixed
     )
 
-{-| Module that helps you test your linting rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/).
+{-| Module that helps you test your rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/).
 
-    import Lint.Test exposing (LintResult)
+    import Review.Test exposing (ReviewResult)
     import Test exposing (Test, describe, test)
     import The.Rule.You.Want.To.Test exposing (rule)
 
-    testRule : String -> LintResult
+    testRule : String -> ReviewResult
     testRule string =
-        Lint.Test.run rule string
+        Review.Test.run rule string
 
     -- In this example, the rule we're testing is `NoDebug`
     tests : Test
@@ -21,13 +21,13 @@ module Lint.Test exposing
                 \() ->
                     testRule """module A exposing (..)
     a = foo n"""
-                        |> Lint.Test.expectNoErrors
+                        |> Review.Test.expectNoErrors
             , test "should report Debug.log use" <|
                 \() ->
                     testRule """module A exposing (..)
     a = Debug.log "some" "message\""""
-                        |> Lint.Test.expectErrors
-                            [ Lint.Test.error
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
                                 { message = "Remove the use of `Debug` before shipping to production"
                                 , under = "Debug.log"
                                 }
@@ -40,7 +40,7 @@ module Lint.Test exposing
 
 ## Use Test-Driven Development
 
-Writing a linting rules is a process that works really well with the Test-Driven
+Writing a rule is a process that works really well with the Test-Driven
 Development process loop, which is:
 
   - Before writing any code, write a failing test.
@@ -81,21 +81,21 @@ reported.
 For instance, if you wish to report uses of variables named `foo`, write a test
 that ensures that the use of variables named differently does not get reported.
 
-Tests are pretty cheap, and in the case of linting rules, it is probably better
-to have too many tests rather than too few, since the behavior of a rule rarely
-changes drastically.
+Tests are pretty cheap, and in the case of rules, it is probably better to have
+too many tests rather than too few, since the behavior of a rule rarely changes
+drastically.
 
 
 # Design goals
 
 If you are interested, you can read
-[the design goals](https://github.com/jfmengels/elm-lint/blob/master/documentation/design/test-module.md)
+[the design goals](https://github.com/jfmengels/elm-review/blob/master/documentation/design/test-module.md)
 for this module.
 
 
 # Running tests
 
-@docs LintResult, run, runWithProjectData
+@docs ReviewResult, run, runWithProjectData
 
 
 # Making assertions
@@ -107,16 +107,16 @@ for this module.
 import Array exposing (Array)
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
-import Lint
-import Lint.Fix as Fix
-import Lint.Project as Project exposing (Project)
-import Lint.Rule as Rule exposing (Error, Rule)
-import Lint.Test.ErrorMessage as ErrorMessage
+import Review
+import Review.Fix as Fix
+import Review.Project as Project exposing (Project)
+import Review.Rule as Rule exposing (Error, Rule)
+import Review.Test.ErrorMessage as ErrorMessage
 
 
 {-| The result of running a rule on a `String` containing source code.
 -}
-type LintResult
+type ReviewResult
     = ParseFailure
     | SuccessfulRun CodeInspector (List Error)
 
@@ -152,17 +152,17 @@ type alias SourceCode =
 [`expectNoErrors`](#expectNoErrors) or [`expectErrors`](#expectErrors) to assert
 the errors reported by the rule.
 
-    import Lint.Test exposing (LintResult)
     import My.Rule exposing (rule)
+    import Review.Test exposing (ReviewResult)
     import Test exposing (Test)
 
     all : Test
     all =
         test "test title" <|
             \() ->
-                Lint.Test.run rule """module SomeModule exposing (a)
+                Review.Test.run rule """module SomeModule exposing (a)
     a = 1"""
-                    |> Lint.Test.expectNoErrors
+                    |> Review.Test.expectNoErrors
 
 The source code needs to be syntactically valid Elm code. If the code
 can't be parsed, the test will fail regardless of the expectations you set on it.
@@ -176,7 +176,7 @@ If your rule is interested in project related details, then you should use
 [`runWithProjectData`](#runWithProjectData) instead.
 
 -}
-run : Rule -> String -> LintResult
+run : Rule -> String -> ReviewResult
 run rule source =
     runWithProjectData Project.new rule source
 
@@ -184,9 +184,9 @@ run rule source =
 {-| Run a `Rule` on a `String` containing source code, with data about the
 project loaded, such as the contents of `elm.json` file.
 
-    import Lint.Project as Project exposing (Project)
-    import Lint.Test exposing (LintResult)
     import My.Rule exposing (rule)
+    import Review.Project as Project exposing (Project)
+    import Review.Test exposing (ReviewResult)
     import Test exposing (Test)
 
     all : Test
@@ -199,9 +199,9 @@ project loaded, such as the contents of `elm.json` file.
                         Project.new
                             |> Project.withElmJson elmJsonToConstructManually
                 in
-                Lint.Test.runWithProjectData project rule """module SomeModule exposing (a)
+                Review.Test.runWithProjectData project rule """module SomeModule exposing (a)
     a = 1"""
-                    |> Lint.Test.expectNoErrors
+                    |> Review.Test.expectNoErrors
 
 The source code needs to be syntactically valid Elm code. If the code
 can't be parsed, the test will fail regardless of the expectations you set on it.
@@ -214,14 +214,14 @@ Note: This is a more complex version of [`run`](#run). If your rule is not
 interested in project related details, then you should use [`run`](#run) instead.
 
 -}
-runWithProjectData : Project -> Rule -> String -> LintResult
+runWithProjectData : Project -> Rule -> String -> ReviewResult
 runWithProjectData project rule source =
     let
-        errors : List Lint.Error
+        errors : List Review.Error
         errors =
-            Lint.lint [ rule ] project { path = "TestContent.elm", source = source }
+            Review.review [ rule ] project { path = "TestContent.elm", source = source }
     in
-    case List.head errors |> Maybe.map Lint.errorMessage of
+    case List.head errors |> Maybe.map Review.errorMessage of
         Just "TestContent.elm is not a correct Elm file" ->
             ParseFailure
 
@@ -230,11 +230,11 @@ runWithProjectData project rule source =
                 |> List.map
                     (\error_ ->
                         Rule.error
-                            { message = Lint.errorMessage error_
-                            , details = Lint.errorDetails error_
+                            { message = Review.errorMessage error_
+                            , details = Review.errorDetails error_
                             }
-                            (Lint.errorRange error_)
-                            |> Rule.withFixes (Lint.errorFixes error_ |> Maybe.withDefault [])
+                            (Review.errorRange error_)
+                            |> Rule.withFixes (Review.errorFixes error_ |> Maybe.withDefault [])
                     )
                 |> SuccessfulRun
                     { source = source
@@ -246,13 +246,13 @@ runWithProjectData project rule source =
 {-| Assert that the rule reported no errors. Note, this is equivalent to using [`expectErrors`](#expectErrors)
 like `expectErrors []`.
 
-    import Lint.Test exposing (LintResult)
+    import Review.Test exposing (ReviewResult)
     import Test exposing (Test, describe, test)
     import The.Rule.You.Want.To.Test exposing (rule)
 
-    testRule : String -> LintResult
+    testRule : String -> ReviewResult
     testRule string =
-        Lint.Test.run rule string
+        Review.Test.run rule string
 
     -- In this example, the rule we're testing is `NoDebug`
     tests : Test
@@ -262,13 +262,13 @@ like `expectErrors []`.
                 \() ->
                     testRule """module A exposing (..)
     a = foo n"""
-                        |> Lint.Test.expectNoErrors
+                        |> Review.Test.expectNoErrors
             ]
 
 -}
-expectNoErrors : LintResult -> Expectation
-expectNoErrors lintResult =
-    case lintResult of
+expectNoErrors : ReviewResult -> Expectation
+expectNoErrors reviewResult =
+    case reviewResult of
         ParseFailure ->
             Expect.fail ErrorMessage.parsingFailure
 
@@ -287,13 +287,13 @@ The errors should be in the order of where they appear in the source code. An er
 at the start of the source code should appear earlier in the list than
 an error at the end of the source code.
 
-    import Lint.Test exposing (LintResult)
+    import Review.Test exposing (ReviewResult)
     import Test exposing (Test, describe, test)
     import The.Rule.You.Want.To.Test exposing (rule)
 
-    testRule : String -> LintResult
+    testRule : String -> ReviewResult
     testRule string =
-        Lint.Test.run rule string
+        Review.Test.run rule string
 
     -- In this example, the rule we're testing is `NoDebug`
     tests : Test
@@ -303,8 +303,8 @@ an error at the end of the source code.
                 \() ->
                     testRule """module A exposing (..)
     a = Debug.log "some" "message\""""
-                        |> Lint.Test.expectErrors
-                            [ Lint.Test.error
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
                                 { message = "Remove the use of `Debug` before shipping to production"
                                 , under = "Debug.log"
                                 }
@@ -312,9 +312,9 @@ an error at the end of the source code.
             ]
 
 -}
-expectErrors : List ExpectedError -> LintResult -> Expectation
-expectErrors expectedErrors lintResult =
-    case lintResult of
+expectErrors : List ExpectedError -> ReviewResult -> Expectation
+expectErrors expectedErrors reviewResult =
+    case reviewResult of
         ParseFailure ->
             Expect.fail ErrorMessage.parsingFailure
 
@@ -337,8 +337,8 @@ lines will appear if the error appeared in an editor.
                 \() ->
                     testRule """module A exposing (..)
     a = Debug.log "some" "message\""""
-                        |> Lint.Test.expectErrors
-                            [ Lint.Test.error
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
                                 { message = "Remove the use of `Debug` before shipping to production"
                                 , under = "Debug.log"
                                 }
@@ -374,17 +374,17 @@ is only necessary when the `under` field is ambiguous.
     a = Debug.log "foo" z
     b = Debug.log "foo" z
     """
-                        |> Lint.Test.expectErrors
-                            [ Lint.Test.error
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
                                 { message = "Remove the use of `Debug` before shipping to production"
                                 , under = "Debug.log"
                                 }
-                                |> Lint.Test.atExactly { start = { row = 4, column = 5 }, end = { row = 4, column = 14 } }
-                            , Lint.Test.error
+                                |> Review.Test.atExactly { start = { row = 4, column = 5 }, end = { row = 4, column = 14 } }
+                            , Review.Test.error
                                 { message = "Remove the use of `Debug` before shipping to production"
                                 , under = "Debug.log"
                                 }
-                                |> Lint.Test.atExactly { start = { row = 5, column = 5 }, end = { row = 5, column = 14 } }
+                                |> Review.Test.atExactly { start = { row = 5, column = 5 }, end = { row = 5, column = 14 } }
                             ]
             ]
 
@@ -415,12 +415,12 @@ it doesn't, you should not use `withFixes`.
     a = 1
     b = Debug.log "foo" 2
     """
-                        |> Lint.Test.expectErrors
-                            [ Lint.Test.error
+                        |> Review.Test.expectErrors
+                            [ Review.Test.error
                                 { message = "Remove the use of `Debug` before shipping to production"
                                 , under = "Debug.log"
                                 }
-                                |> Lint.Test.whenFixed """module SomeModule exposing (b)
+                                |> Review.Test.whenFixed """module SomeModule exposing (b)
     a = 1
     b = 2
     """

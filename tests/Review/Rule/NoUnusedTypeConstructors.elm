@@ -1,4 +1,4 @@
-module Lint.Rule.NoUnusedTypeConstructors exposing (rule)
+module Review.Rule.NoUnusedTypeConstructors exposing (rule)
 
 {-| Forbid having unused custom type constructors in a file.
 
@@ -16,7 +16,7 @@ import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Module as Module exposing (Module(..))
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
-import Lint.Rule as Rule exposing (Direction, Error, Rule)
+import Review.Rule as Rule exposing (Direction, Error, Rule)
 import Set exposing (Set)
 
 

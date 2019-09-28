@@ -4,13 +4,13 @@ import Browser
 import Html exposing (Html, button, div, input, label, p, text, textarea)
 import Html.Attributes as Attr
 import Html.Events as Events
-import Lint
-import Lint.Project as Project
-import Lint.Rule exposing (Rule)
 import NoDebug
 import NoUnused.CustomTypeConstructors
 import NoUnused.Variables
 import Reporter
+import Review
+import Review.Project as Project
+import Review.Rule exposing (Rule)
 
 
 
@@ -32,7 +32,7 @@ main =
 
 type alias Model =
     { sourceCode : String
-    , lintErrors : List Lint.Error
+    , reviewErrors : List Review.Error
     , noDebugEnabled : Bool
     , noUnusedVariablesEnabled : Bool
     , noUnusedTypeConstructorsEnabled : Bool
@@ -65,17 +65,17 @@ g n = n + 1
 """
     in
     { sourceCode = sourceCode
-    , lintErrors = []
+    , reviewErrors = []
     , noDebugEnabled = True
     , noUnusedVariablesEnabled = True
     , noUnusedTypeConstructorsEnabled = True
     , showConfigurationAsText = False
     }
-        |> runLinting
+        |> runReview
 
 
 
--- LINT CONFIGURATION
+-- REVIEW CONFIGURATION
 
 
 config : Model -> List Rule
@@ -105,27 +105,27 @@ update action model =
     case action of
         UserEditedSourceCode sourceCode ->
             { model | sourceCode = sourceCode }
-                |> runLinting
+                |> runReview
 
         UserToggledNoDebugRule ->
             { model | noDebugEnabled = not model.noDebugEnabled }
-                |> runLinting
+                |> runReview
 
         UserToggledNoUnusedVariablesRule ->
             { model | noUnusedVariablesEnabled = not model.noUnusedVariablesEnabled }
-                |> runLinting
+                |> runReview
 
         UserToggledNoUnusedTypeConstructorsRule ->
             { model | noUnusedTypeConstructorsEnabled = not model.noUnusedTypeConstructorsEnabled }
-                |> runLinting
+                |> runReview
 
         UserToggledConfigurationAsText ->
             { model | showConfigurationAsText = not model.showConfigurationAsText }
 
 
-runLinting : Model -> Model
-runLinting model =
-    { model | lintErrors = Lint.lint (config model) Project.new (file model.sourceCode) }
+runReview : Model -> Model
+runReview model =
+    { model | reviewErrors = Review.review (config model) Project.new (file model.sourceCode) }
 
 
 
@@ -163,7 +163,7 @@ view model =
                         , Attr.style "font-size" "12px"
                         , Attr.style "background-color" "black"
                         ]
-                        [ viewLintErrors model
+                        [ viewReviewErrors model
                         ]
                     ]
                 , div
@@ -172,7 +172,7 @@ view model =
                     ]
                     [ viewConfigurationPanel model
                     , viewConfigurationAsText model
-                    , p [ Attr.class "title" ] [ text "Linting errors" ]
+                    , p [ Attr.class "title" ] [ text "Review errors" ]
                     ]
                 ]
             ]
@@ -259,9 +259,9 @@ configurationAsText model =
                 |> List.map (\{ configExpression } -> " " ++ configExpression)
                 |> String.join "\n    ,"
     in
-    """module LintConfig exposing (config)
+    """module ReviewConfig exposing (config)
 
-import Lint.Rule exposing (Rule)
+import Review.Rule exposing (Rule)
 """ ++ importStatements ++ """
 
 config : List Rule
@@ -285,9 +285,9 @@ viewCheckbox onClick name checked =
         ]
 
 
-viewLintErrors : Model -> Html msg
-viewLintErrors model =
-    lintErrors model
+viewReviewErrors : Model -> Html msg
+viewReviewErrors model =
+    reviewErrors model
         |> List.map viewPart
         |> Html.div []
 
@@ -315,9 +315,9 @@ viewPart { str, color, backgroundColor } =
         )
 
 
-lintErrors : Model -> List Reporter.TextContent
-lintErrors model =
-    if List.isEmpty model.lintErrors then
+reviewErrors : Model -> List Reporter.TextContent
+reviewErrors model =
+    if List.isEmpty model.reviewErrors then
         [ { str = "I found no linting errors.\nYou're all good!"
           , color = Nothing
           , backgroundColor = Nothing
@@ -326,21 +326,21 @@ lintErrors model =
 
     else
         [ ( file model.sourceCode
-          , model.lintErrors
-                |> List.map fromLintError
+          , model.reviewErrors
+                |> List.map fromReviewError
           )
         ]
-            |> Reporter.formatReport Reporter.Linting
+            |> Reporter.formatReport Reporter.Reviewing
 
 
-fromLintError : Lint.Error -> Reporter.Error
-fromLintError error =
-    { moduleName = Lint.errorModuleName error
-    , ruleName = Lint.errorRuleName error
-    , message = Lint.errorMessage error
-    , details = Lint.errorDetails error
-    , range = Lint.errorRange error
-    , hasFix = Lint.errorFixes error /= Nothing
+fromReviewError : Review.Error -> Reporter.Error
+fromReviewError error =
+    { moduleName = Review.errorModuleName error
+    , ruleName = Review.errorRuleName error
+    , message = Review.errorMessage error
+    , details = Review.errorDetails error
+    , range = Review.errorRange error
+    , hasFix = Review.errorFixes error /= Nothing
     }
 
 

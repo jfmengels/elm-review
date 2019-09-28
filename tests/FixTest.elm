@@ -1,7 +1,7 @@
 module FixTest exposing (all)
 
 import Expect
-import Lint.Fix as Fix
+import Review.Fix as Fix
 import Test exposing (Test, describe, test)
 
 

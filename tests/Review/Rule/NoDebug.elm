@@ -1,4 +1,4 @@
-module Lint.Rule.NoDebug exposing (rule)
+module Review.Rule.NoDebug exposing (rule)
 
 {-| Forbid the use of the [`Debug`](https://package.elm-lang.org/packages/elm/core/latest/Debug) module before it goes into production or fails in the CI.
 
@@ -12,7 +12,7 @@ module Lint.Rule.NoDebug exposing (rule)
 import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Node as Node exposing (Node)
-import Lint.Rule as Rule exposing (Error, Rule)
+import Review.Rule as Rule exposing (Error, Rule)
 
 
 {-| Forbid the use of the [`Debug`](https://package.elm-lang.org/packages/elm/core/latest/Debug) module before it goes into production or fails in the CI.

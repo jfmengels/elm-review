@@ -5,11 +5,11 @@
     "license": "BSD-3-Clause",
     "version": "4.1.1",
     "exposed-modules": [
-        "Lint",
-        "Lint.Rule",
-        "Lint.Project",
-        "Lint.Fix",
-        "Lint.Test"
+        "Review",
+        "Review.Rule",
+        "Review.Project",
+        "Review.Fix",
+        "Review.Test"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {

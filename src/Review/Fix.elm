@@ -1,4 +1,4 @@
-module Lint.Fix exposing
+module Review.Fix exposing
     ( Fix
     , removeRange, replaceRangeBy, insertAt
     , FixResult(..), Problem(..), fix
@@ -6,11 +6,11 @@ module Lint.Fix exposing
 
 {-| Tools to write automatic error fixes.
 
-When creating a [`Lint.Rule.Error`](./Lint-Rule#Error), you can provide an automatic
-fix for the error using [`Lint.Rule.withFixes`](./Lint-Rule#withFixes) so that the
+When creating a [`Review.Rule.Error`](./Review-Rule#Error), you can provide an automatic
+fix for the error using [`Review.Rule.withFixes`](./Review-Rule#withFixes) so that the
 user doesn't need to fix the problem themselves.
 
-In the [CLI](https://github.com/jfmengels/node-elm-lint), the user can ask to
+In the [CLI](https://github.com/jfmengels/node-elm-review), the user can ask to
 fix the errors automatically, and in doing so, they will be presented by a fix
 which they can accept or refuse. If the fix gets refused, then the next fixable
 error will be presented. Otherwise, if the fix gets accepted, the file will be
@@ -34,7 +34,7 @@ at all, so that they keep a reminder and the details of how to fix the problem.
 
 An automatic fix should resolve only the reported error, not try to fix other
 potential errors. By only fixing one error at a time, the fix will be easier for
-the user to digest and understand. The file will be re-linted when the fix is
+the user to digest and understand. The file will be re-reviewed when the fix is
 applied, and then another error can fix that one.
 
 
@@ -136,7 +136,7 @@ import ListExtra
 
 
 {-| Represents (part of a) fix that will be applied to a file's source code in order to
-automatically fix a linting error.
+automatically fix a review error.
 -}
 type Fix
     = Removal Range

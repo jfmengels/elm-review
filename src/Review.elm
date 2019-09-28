@@ -1,14 +1,14 @@
-module Lint exposing
-    ( lint
+module Review exposing
+    ( review
     , Error, errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes
     )
 
-{-| Module to configure your linting configuration and run it on a source file.
+{-| Module to configure your review configuration and run it on a source file.
 
 
-# Linting
+# Reviewing
 
-@docs lint
+@docs review
 
 
 # Errors
@@ -23,16 +23,16 @@ import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Module exposing (Module(..))
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
-import Lint.Fix exposing (Fix)
-import Lint.Project exposing (Project)
-import Lint.Rule as Rule exposing (Rule)
-import Lint.Util as Util
+import Review.Fix exposing (Fix)
+import Review.Project exposing (Project)
+import Review.Rule as Rule exposing (Rule)
+import Review.Util as Util
 
 
 {-| Represents an error in a file found by a rule.
 
-Note: This should not be confused with `Error` from the `Lint.Rule` module.
-`Lint.Error` is created from `Lint.Rule.Error` but contains additional information
+Note: This should not be confused with `Error` from the `Review.Rule` module.
+`Review.Error` is created from `Review.Rule.Error` but contains additional information
 like the name of the rule that emitted it and the file name.
 
 -}
@@ -48,10 +48,10 @@ type Error
 
 
 
--- LINTING
+-- REVIEWING
 
 
-{-| Lints a file and gives back the errors raised by the given rules.
+{-| Review a file and gives back the errors raised by the given rules.
 
     config : List Rule
     config =
@@ -65,15 +65,15 @@ type Error
 
     errors : List Error
     errors =
-        lint config project sourceCode
+        review config project sourceCode
 
 -}
-lint : List Rule -> Project -> { path : String, source : String } -> List Error
-lint config project { path, source } =
+review : List Rule -> Project -> { path : String, source : String } -> List Error
+review config project { path, source } =
     case parseSource source of
         Ok file ->
             config
-                |> List.concatMap (lintWithRule project path file)
+                |> List.concatMap (reviewWithRule project path file)
                 |> List.sortWith compareErrorPositions
 
         Err _ ->
@@ -82,7 +82,7 @@ lint config project { path, source } =
                 , ruleName = "ParsingError"
                 , message = path ++ " is not a correct Elm file"
                 , details =
-                    [ "I could not understand the contents of this file, and this prevents me from analyzing it. It is highly likely that the contents of the file is not correct Elm code."
+                    [ "I could not understand the content of this file, and this prevents me from analyzing it. It is highly likely that the content of the file is not correct Elm code."
                     , "Hint: Try running `elm make`. The compiler should give you better hints on how to resolve the problem."
                     ]
                 , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
@@ -91,10 +91,10 @@ lint config project { path, source } =
             ]
 
 
-lintWithRule : Project -> String -> File -> Rule -> List Error
-lintWithRule project path file rule =
+reviewWithRule : Project -> String -> File -> Rule -> List Error
+reviewWithRule project path file rule =
     Rule.analyzer rule project file
-        |> List.map (ruleErrorToLintError (moduleName file) rule)
+        |> List.map (ruleErrorToReviewError (moduleName file) rule)
 
 
 moduleName : File -> String
@@ -162,8 +162,8 @@ compareRange a b =
         EQ
 
 
-ruleErrorToLintError : String -> Rule -> Rule.Error -> Error
-ruleErrorToLintError moduleName_ rule error =
+ruleErrorToReviewError : String -> Rule -> Rule.Error -> Error
+ruleErrorToReviewError moduleName_ rule error =
     Error
         { moduleName = Just moduleName_
         , ruleName = Rule.name rule

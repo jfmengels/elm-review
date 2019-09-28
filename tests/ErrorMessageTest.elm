@@ -2,9 +2,9 @@ module ErrorMessageTest exposing (all)
 
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
-import Lint.Fix as Fix
-import Lint.Rule as Rule exposing (Error)
-import Lint.Test.ErrorMessage as ErrorMessage exposing (ExpectedErrorData)
+import Review.Fix as Fix
+import Review.Rule as Rule exposing (Error)
+import Review.Test.ErrorMessage as ErrorMessage exposing (ExpectedErrorData)
 import Test exposing (Test, describe, test)
 
 
@@ -529,8 +529,8 @@ and expecting to see it under:
 
   `abcd`
 
-I found 2 locations where that code appeared. Please
-use `Lint.Rule.atExactly` to make the part you were targetting unambiguous.
+I found 2 locations where that code appeared. Please use
+`Review.Rule.atExactly` to make the part you were targetting unambiguous.
 
 Tip: I found them at:
   - { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
@@ -576,8 +576,8 @@ and expecting to see it under:
       1
   ```
 
-I found 3 locations where that code appeared. Please
-use `Lint.Rule.atExactly` to make the part you were targetting unambiguous.
+I found 3 locations where that code appeared. Please use
+`Review.Rule.atExactly` to make the part you were targetting unambiguous.
 
 Tip: I found them at:
   - { start = { row = 2, column = 1 }, end = { row = 3, column = 4 } }
@@ -645,14 +645,14 @@ Because the error provides fixes, I require providing the expected result
 of the automatic fix. Otherwise, there is no way to know whether the fix
 will result in a correct and in the intended result.
 
-To fix this, you can call `Lint.Test.whenFixed` on your error:
+To fix this, you can call `Review.Test.whenFixed` on your error:
 
-  Lint.Test.error
+  Review.Test.error
       { message = "<message>"
       , details = "<details>"
       , under = "<under>"
       }
-      |> Lint.Test.whenFixed "<source code>"
+      |> Review.Test.whenFixed "<source code>"
 """
 
 

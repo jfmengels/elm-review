@@ -1,4 +1,4 @@
-module Lint.Test.ErrorMessage exposing
+module Review.Test.ErrorMessage exposing
     ( ExpectedErrorData
     , parsingFailure, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
     , underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode
@@ -6,7 +6,7 @@ module Lint.Test.ErrorMessage exposing
     , impossibleState
     )
 
-{-| Error messages for the `Lint.Test` module.
+{-| Error messages for the `Review.Test` module.
 
 
 # Error messages
@@ -20,8 +20,8 @@ module Lint.Test.ErrorMessage exposing
 -}
 
 import Elm.Syntax.Range exposing (Range)
-import Lint.Rule as Rule exposing (Error)
 import ListExtra
+import Review.Rule as Rule exposing (Error)
 
 
 {-| An expectation for an error. Use [`error`](#error) to create one.
@@ -208,8 +208,8 @@ and expecting to see it under:
 
   """ ++ formatSourceCode under ++ """
 
-I found """ ++ String.fromInt (List.length occurrencesInSourceCode) ++ """ locations where that code appeared. Please
-use `Lint.Rule.atExactly` to make the part you were targetting unambiguous.
+I found """ ++ String.fromInt (List.length occurrencesInSourceCode) ++ """ locations where that code appeared. Please use
+`Review.Rule.atExactly` to make the part you were targetting unambiguous.
 
 Tip: I found them at:
 """ ++ listOccurrencesAsLocations sourceCode under occurrencesInSourceCode
@@ -217,9 +217,9 @@ Tip: I found them at:
 
 impossibleState : String
 impossibleState =
-    """ELM-LINT IMPOSSIBLE STATE
+    """ELM-REVIEW IMPOSSIBLE STATE
 
-Oh no! I'm in an impossible state. I found an error at a location that I could not find back. Please let me know and give me an SSCCE (http://sscce.org/) here: https://github.com/jfmengels/elm-lint/issues."""
+Oh no! I'm in an impossible state! I found an error at a location that I could not trace back. Please let me know and give me an SSCCE (http://sscce.org/) here: https://github.com/jfmengels/elm-review/issues."""
 
 
 missingFixes : ExpectedErrorData -> String
@@ -250,14 +250,14 @@ Because the error provides fixes, I require providing the expected result
 of the automatic fix. Otherwise, there is no way to know whether the fix
 will result in a correct and in the intended result.
 
-To fix this, you can call `Lint.Test.whenFixed` on your error:
+To fix this, you can call `Review.Test.whenFixed` on your error:
 
-  Lint.Test.error
+  Review.Test.error
       { message = "<message>"
       , details = "<details>"
       , under = "<under>"
       }
-      |> Lint.Test.whenFixed "<source code>\""""
+      |> Review.Test.whenFixed "<source code>\""""
 
 
 fixedCodeMismatch : SourceCode -> SourceCode -> Error -> String

@@ -1,4 +1,4 @@
-module Lint.Rule exposing
+module Review.Rule exposing
     ( Rule, Schema
     , newSchema, fromSchema
     , withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
@@ -14,7 +14,7 @@ module Lint.Rule exposing
 
 # How does it work?
 
-`elm-lint` turns the code of the analyzed file into an [Abstract Syntax Tree (AST)](https://en.wikipedia.org/wiki/Abstract_syntax_tree)
+`elm-review` turns the code of the analyzed file into an [Abstract Syntax Tree (AST)](https://en.wikipedia.org/wiki/Abstract_syntax_tree)
 (a tree-like structure which represents your source code) using the
 [`elm-syntax` package](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/).
 Then, for each file and rule, it will give the details of your project (like the `elm.json` file) and the
@@ -39,7 +39,7 @@ Evaluating a node means two things:
     I recommend using the "simple with\*" visitors if you don't need to collect
     data, as they are simpler to use
 
-`elm-lint` relies on the [`elm-syntax`package](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/),
+`elm-review` relies on the [`elm-syntax`package](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/),
 and all the node types you'll see will be coming from there. You are likely to
 need to have the documentation for that package open when writing a rule.
 
@@ -53,7 +53,7 @@ rules work.
 Apart from the rationale on [whether a rule should be written](./#when-to-write-or-enable-a-rule),
 here are a few tips on what makes a rule helpful.
 
-A linting rule is an automated communication tool which sends messages to
+A review rule is an automated communication tool which sends messages to
 developers who have written patterns your rule wishes to prevent. As all
 communication, the message is important.
 
@@ -93,7 +93,7 @@ helpful as the messages the compiler gives you when it encounters a problem.
 
 When creating an error, you need to specify under which section of the code this
 message appears. This is where you would see squiggly lines in your editor when
-you have linting or compiler errors.
+you have review or compiler errors.
 
 To make the error easier to spot, it is best to make this section as small as
 possible, as long as that makes sense. For instance, in a rule that would forbid
@@ -107,7 +107,7 @@ The rule documentation should give the same information as what you would see in
 the error message.
 
 If published in a package, the rule documentation should explain when not to
-enable the rule in the user's lint configuration. For instance, for a rule that
+enable the rule in the user's review configuration. For instance, for a rule that
 makes sure that a package is publishable by ensuring that all docs are valid,
 the rule might say something along the lines of "If you are writing an
 application, then you should not use this rule.".
@@ -122,14 +122,14 @@ what to expect.
 
 ## Use Test-Driven Development
 
-This package comes with [`Lint.Test`](./Lint-Test), which works with [`elm-test`](https://github.com/elm-explorations/test).
-I recommend reading through [`the strategies for effective testing`](./Lint-Test#strategies-for-effective-testing) before
+This package comes with [`Review.Test`](./Review-Test), which works with [`elm-test`](https://github.com/elm-explorations/test).
+I recommend reading through [`the strategies for effective testing`](./Review-Test#strategies-for-effective-testing) before
 starting writing a rule.
 
 
 ## Look at the documentation for [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/)
 
-`elm-lint` is heavily dependent on the types that [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/)
+`elm-review` is heavily dependent on the types that [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/)
 provides. If you don't understand the AST it provides, you will have a hard time
 implementing the rule you wish to create.
 
@@ -171,7 +171,7 @@ patterns you would want to forbid, but that are not handled by the example.
 
 ## Automatic fixing
 
-For more information on automatic fixing, read the documentation for [`Lint.Fix`](./Lint-Fix).
+For more information on automatic fixing, read the documentation for [`Review.Fix`](./Review-Fix).
 
 @docs withFixes
 
@@ -196,8 +196,8 @@ import Elm.Syntax.Infix exposing (InfixDirection(..))
 import Elm.Syntax.Module exposing (Module)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
-import Lint.Fix exposing (Fix)
-import Lint.Project exposing (Project)
+import Review.Fix exposing (Fix)
+import Review.Project exposing (Project)
 
 
 {-| Represents a construct able to analyze a `File` and report unwanted patterns.
@@ -212,7 +212,7 @@ type Rule
 
 {-| Represents a Schema for a [`Rule`](#Rule). Create one using [`newSchema`](#newSchema).
 
-    import Lint.Rule as Rule exposing (Rule)
+    import Review.Rule as Rule exposing (Rule)
 
     rule : Rule
     rule =
@@ -295,7 +295,7 @@ to create a usable [`Rule`](#Rule). Use "with\*" functions from this module, lik
 [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) or [`withSimpleImportVisitor`](#withSimpleImportVisitor)
 to make it report something.
 
-    import Lint.Rule as Rule exposing (Rule)
+    import Review.Rule as Rule exposing (Rule)
 
     rule : Rule
     rule =
@@ -309,7 +309,7 @@ take a look at [`withInitialContext`](#withInitialContext) and "with\*" function
 "Simple" in their name, like [`withExpressionVisitor`](#withExpressionVisitor),
 [`withImportVisitor`](#withImportVisitor) or [`withFinalEvaluation`](#withFinalEvaluation).
 
-    import Lint.Rule as Rule exposing (Rule)
+    import Review.Rule as Rule exposing (Rule)
 
     rule : Rule
     rule =
@@ -344,7 +344,7 @@ fromSchema (Schema schema) =
         , analyzer =
             \project file ->
                 schema.initialContext
-                    |> schema.elmJsonVisitor (Lint.Project.elmJson project)
+                    |> schema.elmJsonVisitor (Review.Project.elmJson project)
                     |> schema.moduleDefinitionVisitor file.moduleDefinition
                     |> accumulateList schema.importVisitor file.imports
                     |> accumulate (schema.declarationListVisitor file.declarations)
@@ -368,7 +368,7 @@ The following example forbids having `_` in any part of a module name.
 
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Rule as Rule exposing (Error, Rule)
+    import Review.Rule as Rule exposing (Error, Rule)
 
     rule : Rule
     rule =
@@ -405,7 +405,7 @@ The following example forbids using the core Html package and suggests using
 
     import Elm.Syntax.Import exposing (Import)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Rule as Rule exposing (Error, Rule)
+    import Review.Rule as Rule exposing (Error, Rule)
 
     rule : Rule
     rule =
@@ -457,7 +457,7 @@ annotation.
 
     import Elm.Syntax.Declaration exposing (Declaration(..))
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Rule as Rule exposing (Error, Rule)
+    import Review.Rule as Rule exposing (Error, Rule)
 
     rule : Rule
     rule =
@@ -521,7 +521,7 @@ The following example forbids using the Debug module.
 
     import Elm.Syntax.Expression exposing (Expression(..))
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Rule as Rule exposing (Error, Rule)
+    import Review.Rule as Rule exposing (Error, Rule)
 
     rule : Rule
     rule =
@@ -594,12 +594,12 @@ it is similar to a `Model` for a rule.
 
 The following example forbids calling `Rule.newSchema` with a name that is not
 the same as the module's name (forbidding `Rule.newSchema "NoSomething"` when the
-module name is `Lint.Rule.NoSomethingElse`).
+module name is `Review.Rule.NoSomethingElse`).
 
     import Elm.Syntax.Expression exposing (Expression(..))
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Rule as Rule exposing (Direction, Error, Rule)
+    import Review.Rule as Rule exposing (Direction, Error, Rule)
 
     type alias Context =
         -- Contains the module name's last part
@@ -691,7 +691,7 @@ The following example forbids exposing a file in an "Internal" directory in your
     import Elm.Project
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Rule as Rule exposing (Error, Rule)
+    import Review.Rule as Rule exposing (Error, Rule)
 
     type alias Context =
         Maybe Elm.Project.Project
@@ -758,7 +758,7 @@ The example is simplified to only forbid the use of the `Html.button` expression
     import Elm.Syntax.Expression exposing (Expression(..))
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Rule as Rule exposing (Direction, Error, Rule)
+    import Review.Rule as Rule exposing (Direction, Error, Rule)
 
     type Context
         = HtmlButtonIsAllowed
@@ -823,7 +823,7 @@ The following example forbids importing both `Element` (`elm-ui`) and
 
     import Elm.Syntax.Import exposing (Import)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Rule as Rule exposing (Error, Rule)
+    import Review.Rule as Rule exposing (Error, Rule)
 
     type alias Context =
         { elmUiWasImported : Bool
@@ -896,7 +896,7 @@ type annotation.
     import Elm.Syntax.Exposing as Exposing
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Rule as Rule exposing (Direction, Error, Rule)
+    import Review.Rule as Rule exposing (Direction, Error, Rule)
 
     type ExposedFunctions
         = All
@@ -1007,7 +1007,7 @@ The following example forbids the use of `Debug.log` even when it is imported li
     import Elm.Syntax.Expression exposing (Expression(..))
     import Elm.Syntax.Import exposing (Import)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Lint.Rule as Rule exposing (Direction, Error, Rule)
+    import Review.Rule as Rule exposing (Direction, Error, Rule)
 
     type Context
         = DebugLogWasNotImported
@@ -1089,7 +1089,7 @@ for [`withImportVisitor`](#withImportVisitor), but using [`withFinalEvaluation`]
     import Elm.Syntax.Import exposing (Import)
     import Elm.Syntax.Node as Node exposing (Node)
     import Elm.Syntax.Range exposing (Range)
-    import Lint.Rule as Rule exposing (Error, Rule)
+    import Review.Rule as Rule exposing (Error, Rule)
 
     type alias Context =
         Dict (List String) Range
@@ -1132,8 +1132,8 @@ withFinalEvaluation visitor (Schema schema) =
 
 {-| Represents an error found by a [`Rule`](#Rule).
 
-Note: This should not be confused with [`Lint.Error`](./Lint#Error) from the
-[`Lint`](./Lint) module. [`Lint.Error`](./Lint#Error) is created from
+Note: This should not be confused with [`Review.Error`](./Review#Error) from the
+[`Review`](./Review) module. [`Review.Error`](./Review#Error) is created from
 this module's [`Error`](#Error) but contains additional information like the
 name of the rule that emitted it and the file name.
 
@@ -1177,7 +1177,7 @@ error { message, details } range =
 
 {-| Give a list of fixes to automatically fix the error.
 
-    import Lint.Fix as Fix
+    import Review.Fix as Fix
 
     error : Node a -> Error
     error node =
@@ -1188,7 +1188,7 @@ error { message, details } range =
             (Node.range node)
             |> withFixes [ Fix.removeRange (Node.range node) ]
 
-Take a look at [`Lint.Fix`](./Lint-Fix) to know more on how to makes fixes.
+Take a look at [`Review.Fix`](./Review-Fix) to know more on how to makes fixes.
 
 If you pass `withFixes` an empty list, the error will be considered as having no
 automatic fix available. Calling `withFixes` several times on an error will

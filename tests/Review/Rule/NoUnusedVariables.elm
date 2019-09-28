@@ -1,4 +1,4 @@
-module Lint.Rule.NoUnusedVariables exposing (rule)
+module Review.Rule.NoUnusedVariables exposing (rule)
 
 {-| Forbid variables or types that are declared or imported but never used.
 
@@ -19,9 +19,9 @@ import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
-import Lint.Fix as Fix
-import Lint.Rule as Rule exposing (Direction, Error, Rule)
 import NonemptyList as Nonempty exposing (Nonempty)
+import Review.Fix as Fix
+import Review.Rule as Rule exposing (Direction, Error, Rule)
 import Set exposing (Set)
 
 

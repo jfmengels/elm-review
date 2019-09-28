@@ -1,4 +1,4 @@
-module Lint.Rule.NoExtraBooleanComparison exposing (rule)
+module Review.Rule.NoExtraBooleanComparison exposing (rule)
 
 {-| Forbid the use of boolean comparisons that can be simplified.
 
@@ -11,7 +11,7 @@ module Lint.Rule.NoExtraBooleanComparison exposing (rule)
 
 import Elm.Syntax.Expression as Expression exposing (Expression(..))
 import Elm.Syntax.Node as Node exposing (Node)
-import Lint.Rule as Rule exposing (Error, Rule)
+import Review.Rule as Rule exposing (Error, Rule)
 
 
 {-| Forbid the use of boolean comparisons that can be simplified.

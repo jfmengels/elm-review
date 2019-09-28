@@ -1,13 +1,13 @@
 module NoUnusedTypeConstructorsTest exposing (all)
 
-import Lint.Rule.NoUnusedTypeConstructors exposing (rule)
-import Lint.Test exposing (LintResult)
+import Review.Rule.NoUnusedTypeConstructors exposing (rule)
+import Review.Test exposing (ReviewResult)
 import Test exposing (Test, describe, test)
 
 
-testRule : String -> LintResult
+testRule : String -> ReviewResult
 testRule =
-    Lint.Test.run rule
+    Review.Test.run rule
 
 
 details : List String
@@ -22,37 +22,37 @@ tests =
         \() ->
             testRule """module A exposing (b)
 a = 1"""
-                |> Lint.Test.expectNoErrors
+                |> Review.Test.expectNoErrors
     , test "should not report used type constructors" <|
         \() ->
             testRule """module A exposing (b)
 type Foo = Bar | Baz
 a = Bar
 b = Baz"""
-                |> Lint.Test.expectNoErrors
+                |> Review.Test.expectNoErrors
     , test "should not report unused type constructors when module is exposing all" <|
         \() ->
             testRule """module A exposing (..)
 type Foo = Bar | Baz
 """
-                |> Lint.Test.expectNoErrors
+                |> Review.Test.expectNoErrors
     , test "should not report unused type constructors when module is exposing the constructors of that type" <|
         \() ->
             testRule """module A exposing (Foo(..))
 type Foo = Bar | Baz
 """
-                |> Lint.Test.expectNoErrors
+                |> Review.Test.expectNoErrors
     , test "should report unused type constructors" <|
         \() ->
             testRule """module A exposing (b)
 type Foo = Bar | Baz"""
-                |> Lint.Test.expectErrors
-                    [ Lint.Test.error
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
                         { message = "Type constructor `Bar` is not used."
                         , details = details
                         , under = "Bar"
                         }
-                    , Lint.Test.error
+                    , Review.Test.error
                         { message = "Type constructor `Baz` is not used."
                         , details = details
                         , under = "Baz"
@@ -62,13 +62,13 @@ type Foo = Bar | Baz"""
         \() ->
             testRule """module A exposing (Foo)
 type Foo = Bar | Baz"""
-                |> Lint.Test.expectErrors
-                    [ Lint.Test.error
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
                         { message = "Type constructor `Bar` is not used."
                         , details = details
                         , under = "Bar"
                         }
-                    , Lint.Test.error
+                    , Review.Test.error
                         { message = "Type constructor `Baz` is not used."
                         , details = details
                         , under = "Baz"

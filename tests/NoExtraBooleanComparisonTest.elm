@@ -1,15 +1,15 @@
 module NoExtraBooleanComparisonTest exposing (all)
 
-import Lint.Rule.NoExtraBooleanComparison exposing (rule)
-import Lint.Test exposing (LintResult)
+import Review.Rule.NoExtraBooleanComparison exposing (rule)
+import Review.Test exposing (ReviewResult)
 import Test exposing (Test, describe, test)
 
 
-testRule : String -> LintResult
+testRule : String -> ReviewResult
 testRule string =
     "module A exposing (..)\n\n"
         ++ string
-        |> Lint.Test.run rule
+        |> Review.Test.run rule
 
 
 tests : List Test
@@ -17,7 +17,7 @@ tests =
     [ test "should not report condition without an operator" <|
         \() ->
             testRule "a = if n then 1 else 2"
-                |> Lint.Test.expectNoErrors
+                |> Review.Test.expectNoErrors
     , test "should not report condition with integer operators" <|
         \() ->
             testRule """
@@ -26,16 +26,16 @@ b = if n <= 1 then 1 else 2
 c = if n > 1 then 1 else 2
 d = if n >= 1 then 1 else 2
 """
-                |> Lint.Test.expectNoErrors
+                |> Review.Test.expectNoErrors
     , test "should not report condition using `not`" <|
         \() ->
             testRule "a = if not n then 1 else 2"
-                |> Lint.Test.expectNoErrors
+                |> Review.Test.expectNoErrors
     , test "should report condition with `expr == True`" <|
         \() ->
             testRule "a = if b == True then 1 else 2"
-                |> Lint.Test.expectErrors
-                    [ Lint.Test.error
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
                         { message = "Unnecessary comparison with `True`"
                         , details = [ "You can simplify this expression by removing the `==` operator and the value `True`." ]
                         , under = "b == True"
@@ -44,8 +44,8 @@ d = if n >= 1 then 1 else 2
     , test "should report condition with `True == expr`" <|
         \() ->
             testRule "a = if True == b then 1 else 2"
-                |> Lint.Test.expectErrors
-                    [ Lint.Test.error
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
                         { message = "Unnecessary comparison with `True`"
                         , details = [ "You can simplify this expression by removing the `==` operator and the value `True`." ]
                         , under = "True == b"
@@ -54,8 +54,8 @@ d = if n >= 1 then 1 else 2
     , test "should report condition with `expr == False`" <|
         \() ->
             testRule "a = if b == False then 1 else 2"
-                |> Lint.Test.expectErrors
-                    [ Lint.Test.error
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
                         { message = "Unnecessary comparison with `False`"
                         , details = [ "You can simplify this expression by removing the `==` operator and the value `False`." ]
                         , under = "b == False"
@@ -64,8 +64,8 @@ d = if n >= 1 then 1 else 2
     , test "should report condition with `False == expr`" <|
         \() ->
             testRule "a = if False == b then 1 else 2"
-                |> Lint.Test.expectErrors
-                    [ Lint.Test.error
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
                         { message = "Unnecessary comparison with `False`"
                         , details = [ "You can simplify this expression by removing the `==` operator and the value `False`." ]
                         , under = "False == b"
@@ -74,8 +74,8 @@ d = if n >= 1 then 1 else 2
     , test "should report condition with `expr /= True`" <|
         \() ->
             testRule "a = if b /= True then 1 else 2"
-                |> Lint.Test.expectErrors
-                    [ Lint.Test.error
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
                         { message = "Unnecessary comparison with `True`"
                         , details = [ "You can simplify this expression by removing the `/=` operator and the value `True`." ]
                         , under = "b /= True"
@@ -84,8 +84,8 @@ d = if n >= 1 then 1 else 2
     , test "should report condition with `True /= expr`" <|
         \() ->
             testRule "a = if True /= b then 1 else 2"
-                |> Lint.Test.expectErrors
-                    [ Lint.Test.error
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
                         { message = "Unnecessary comparison with `True`"
                         , details = [ "You can simplify this expression by removing the `/=` operator and the value `True`." ]
                         , under = "True /= b"
@@ -94,8 +94,8 @@ d = if n >= 1 then 1 else 2
     , test "should report condition with `expr /= False`" <|
         \() ->
             testRule "a = if b /= False then 1 else 2"
-                |> Lint.Test.expectErrors
-                    [ Lint.Test.error
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
                         { message = "Unnecessary comparison with `False`"
                         , details = [ "You can simplify this expression by removing the `/=` operator and the value `False`." ]
                         , under = "b /= False"
@@ -104,8 +104,8 @@ d = if n >= 1 then 1 else 2
     , test "should report condition with `False /= expr`" <|
         \() ->
             testRule "a = if False /= b then 1 else 2"
-                |> Lint.Test.expectErrors
-                    [ Lint.Test.error
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
                         { message = "Unnecessary comparison with `False`"
                         , details = [ "You can simplify this expression by removing the `/=` operator and the value `False`." ]
                         , under = "False /= b"
