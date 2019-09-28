@@ -317,20 +317,12 @@ viewPart { str, color, backgroundColor } =
 
 reviewErrors : Model -> List Reporter.TextContent
 reviewErrors model =
-    if List.isEmpty model.reviewErrors then
-        [ { str = "I found no linting errors.\nYou're all good!"
-          , color = Nothing
-          , backgroundColor = Nothing
-          }
-        ]
-
-    else
+    Reporter.formatReport Reporter.Reviewing
         [ ( file model.sourceCode
           , model.reviewErrors
                 |> List.map fromReviewError
           )
         ]
-            |> Reporter.formatReport Reporter.Reviewing
 
 
 fromReviewError : Review.Error -> Reporter.Error
