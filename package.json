@@ -8,7 +8,7 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "elm make --docs=elm-stuff/docs.json && elm-format src/ --validate && elm-test && elm-review src/ tests/ demo/ review/ && elm-xref",
+    "test": "elm make --docs=elm-stuff/docs.json && elm-format src/ --validate && elm-test && elm-xref",
     "test:watch": "npm run test -s -- --watch"
   },
   "repository": {
@@ -25,7 +25,6 @@
     "elm": "^0.19.0-no-deps"
   },
   "devDependencies": {
-    "@jfmengels/elm-lint": "^1.0.0-beta.2",
     "elm-format": "^0.8.2",
     "elm-test": "^0.19.0-rev6",
     "elm-xref": "^4.0.0"
