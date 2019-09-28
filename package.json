@@ -1,7 +1,7 @@
 {
   "name": "elm-review",
   "version": "1.0.0",
-  "description": "An [Elm](http://elm-lang.org/) linter written in Elm. Get your code from correct to better. You can learn about the API and the rules it provides on the [package documentation](http://package.elm-lang.org/packages/jfmengels/elm-review).",
+  "description": "",
   "main": "index.js",
   "directories": {
     "example": "example",
