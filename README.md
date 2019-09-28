@@ -1,33 +1,42 @@
-# elm-lint
+# elm-review
 
-![](https://travis-ci.com/jfmengels/elm-lint.svg?branch=master)
+![](https://travis-ci.com/jfmengels/elm-review.svg?branch=master)
 
-`elm-lint` lints [Elm](https://elm-lang.org/) source code, to add additional guarantees to your project.
+`elm-review` analyzes [Elm](https://elm-lang.org/) source code, to add additional guarantees to your project.
 
-![elm-lint reporter output](https://github.com/jfmengels/elm-lint/blob/master/documentation/images/elm-lint-report.png?raw=true)
+![elm-review reporter output](https://github.com/jfmengels/elm-review/blob/master/documentation/images/elm-review-report.png?raw=true)
 
-## What does `elm-lint` do?
+## What does `elm-review` do?
 
-`elm-lint` analyzes your [Elm](https://elm-lang.org/) source code, and tries to recognize patterns that may be considered harmful or can be improved upon.
+`elm-review` analyzes your [Elm](https://elm-lang.org/) source code, and tries to recognize patterns that may be considered harmful or can be improved upon.
 If you are familiar with [ESLint](http://eslint.org/) from JavaScript, this is pretty much the same idea.
 
 The idea is to improve your Elm source code base, after it passes compilation and [elm-format](https://github.com/avh4/elm-format) has been run on it.
 
-You can configure your project to be analyzed by different "rules". You can find [some in the Elm packages](https://klaftertief.github.io/elm-search/?q=Lint.Rule.Rule), or you can write your own rules to enforce rules specific to your project or team. A few use-cases:
+You can configure your project to be analyzed by different "rules". You can find [some in the Elm packages](https://klaftertief.github.io/elm-search/?q=Review.Rule.Rule), or you can write your own rules to enforce rules specific to your project or team. A few use-cases:
 - You noticed a bad pattern in your codebase, wrote a nice module to handle the pattern better, and want to prevent your team from writing that pattern from now on. You can then write a rule to detect that pattern and have it suggest using your module instead. If you don't, you need to communicate this well to all your teammates, but there is no way to prevent the bad pattern from occurring again.
 - You often notice that strings in your codebase contain very common typos, or bad use of punctuation (like a missing space after `;`).
 - You have one module in your codebase which centralizes some data used across the application (the paths to all the images, a list of all the available colors, ...), but you keep finding new definitions of that data across the codebase.
-- You published a library in the Elm package registry, and notice some pitfalls that users can fall in, that all your research for a better API does not prevent. You can then publish a separate package with rules preventing those pitfalls, should the user use `elm-lint` in their project.
+- You published a library in the Elm package registry, and notice some pitfalls that users can fall in, that all your research for a better API does not prevent. You can then publish a separate package with rules preventing those pitfalls, should the user use `elm-review` in their project.
 
-When solving a problem, a good API is a usually a better solution than writing a linter rule. But in some cases, even if you've written a good API, nothing prevents teammates or yourself from falling in the same unwanted patterns as before, especially when dealing with primitive values or constructs.
+When solving a problem, a good API is a usually a better solution than writing a review rule. But in some cases, even if you've written a good API, nothing prevents teammates or yourself from falling in the same unwanted patterns as before, especially when dealing with primitive values or constructs.
 
-When introducing `elm-lint` or new rules to your project and team, you should discuss it with them first. It is easy to think that some patterns are always better and want to enforce them, where in reality some edge cases exist where they aren't wanted. Also, people don't usually like it when seemingly arbitrary rules are imposed on them, especially if it relates to code style, so be sure to talk with them and explain the rationale.
+When introducing `elm-review` or new rules to your project and team, you should discuss it with them first. It is easy to think that some patterns are always better and want to enforce them, where in reality some edge cases exist where they aren't wanted. Also, people don't usually like it when seemingly arbitrary rules are imposed on them, especially if it relates to code style, so be sure to talk with them and explain the rationale.
 
 ## Try it
 
-The preferred method, if you have `Node.js` and `npm` installed, is to use [`node-elm-lint`](https://github.com/jfmengels/node-elm-lint), which has instructions on how to install it. This will allow you to lint your whole project.
+The preferred method, if you have `Node.js` and `npm` installed, is to use [`elm-review`](https://github.com/jfmengels/node-elm-review).
 
-Also, you can try the online version [here](https://elm-lint.now.sh), where you can copy-paste your source code and see the linting errors.
+```bash
+# Save it to your package.json, if you use npm in your project.
+# This is the recommended way.
+npm install elm-review --save-dev
+
+# Install globally. This is not recommended.
+npm install -g elm-review
+```
+
+Also, you can try the online version [here](https://elm-review.now.sh), where you can copy-paste your source code and see the review errors.
 
 ## Configuration
 
@@ -35,9 +44,9 @@ Configuration is done via an Elm file. The benefit of having the configuration w
 
 
 ```elm
-module LintConfig exposing (config)
+module ReviewConfig exposing (config)
 
-import Lint.Rule exposing (Rule)
+import Review.Rule exposing (Rule)
 import Third.Party.Rule
 import My.Own.Custom.rule
 import Another.Rule
@@ -52,14 +61,14 @@ config =
 ```
 
 You can get started with an empty configuration with the command line tool by running
-`elm-lint init`, which you can then add rules to. Before you do, I suggest
+`elm-review init`, which you can then add rules to. Before you do, I suggest
 reading the rest of this document, but especially the section on
 [when to enable a rule in your configuration](#when-to-write-or-enable-a-rule).
 
-`elm-lint` does not come with any built-in rules. You can read why [here](https://github.com/jfmengels/elm-lint/blob/master/documentation/design/no-built-in-rules.md). You can find rules in the Elm package registry by [using `elm-search` and searching for `Lint.Rule.Rule`](https://klaftertief.github.io/elm-search/?q=Lint.Rule.Rule), and use by going to your lint directory and running `elm install` in your terminal.
+`elm-review` does not come with any built-in rules. You can read why [here](https://github.com/jfmengels/elm-review/blob/master/documentation/design/no-built-in-rules.md). You can find rules in the Elm package registry by [using `elm-search` and searching for `Review.Rule.Rule`](https://klaftertief.github.io/elm-search/?q=Review.Rule.Rule), and use by going to your review directory and running `elm install` in your terminal.
 
 ```bash
-cd lint/ # Go inside your lint configuration directory
+cd review/ # Go inside your review configuration directory
 elm install authorName/packageName
 ```
 
@@ -70,7 +79,7 @@ section.
 
 You can write your own rule using this package's API and
 [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/).
-Check out the [`Lint.Rule`](./Lint-Rule) module for more instructions.
+Check out the [`Review.Rule`](./Review-Rule) module for more instructions.
 
 Here's an example of a rule that prevents a typo in a string that was made too
 often at your company.
@@ -80,7 +89,7 @@ module NoStringWithMisspelledCompanyName exposing (rule)
 
 import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Node as Node exposing (Node)
-import Lint.Rule as Rule exposing (Error, Rule)
+import Review.Rule as Rule exposing (Error, Rule)
 
 -- Create a new rule
 rule : Rule
@@ -118,9 +127,9 @@ expressionVisitor node =
 Then add the rule in your configuration:
 
 ```elm
-module LintConfig exposing (config)
+module ReviewConfig exposing (config)
 
-import Lint.Rule exposing (Rule)
+import Review.Rule exposing (Rule)
 import NoStringWithMisspelledCompanyName
 
 
@@ -140,14 +149,14 @@ rule?" be "no". I think that the ratio that compares the rule's value to the
 nuisances it will cause should be very high, and it is often hard to foresee
 all the nuisances.
 
-Linting rules are useful when something must never appear in the code. It gets
+Review rules are useful when something must never appear in the code. It gets
 much less useful when something should not appear only 99% of the time, as there
-is no good solution for handling exceptions (`elm-lint` doesn't offer an option
+is no good solution for handling exceptions (`elm-review` doesn't offer an option
 for disabling a rule locally, see why [here](#is-there-a-way-to-ignore-an-error-or-disable-a-rule-only-in-some-locations-)).
 If you really need to make exceptions, they should be written in the rule itself
 or defined in the rule's parameters.
 
-First of all, if you have never encountered a problem with some pattern before,
+First of all, if you have never encountered a problem with a pattern before,
 then you probably don't need to forbid it. There are chances the problem will
 never occur, and writing the rule is a waste of time. Or maybe when using it,
 you will find that the pattern is actually not so bad at all and that there are
@@ -174,8 +183,8 @@ suggested way, probably making the code worse than before.
 
 Some rules might suggest using more advanced techniques to avoid some pitfalls,
 and this might make it harder for newcomers or beginners to get something done.
-When enabling this kind of rule, make sure that it is helpful enough to unblock
-users, otherwise this can frustrate and/or block them.
+When enabling this kind of rule, make sure that the message it gives is helpful
+enough to unblock users, otherwise this can frustrate and/or block them.
 
 When wondering whether to write or enable a rule, I suggest using this checklist:
   - I have had problems with the pattern I want to forbid
@@ -204,11 +213,11 @@ There is none at the moment, for several reasons:
   - If there are some rules that you really want to enforce because you want to
   create additional guarantees in your codebase, and it is possible to ignore it,
   then you will want a second system to ensure those rules are never ignored.
-  - When people encounter a linting error, quite often they will try to disable
+  - When people encounter a review error, quite often they will try to disable
   it by default, because they don't agree with the rule, or because they think
   they will fix it later or not at all. Just like we learned with the compiler
   errors, some problems require us to do some additional work for good reasons,
-  and I think this should apply to errors reported by `elm-lint` too. Obviously,
+  and I think this should apply to errors reported by `elm-review` too. Obviously,
   not being able to ignore a rule means that the bar to write or enable a rule
   should be even higher.
   - The more I think about it, the more I think that if you need to make an

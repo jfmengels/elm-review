@@ -1,26 +1,26 @@
 {
-  "name": "elm-lint",
+  "name": "elm-review",
   "version": "1.0.0",
-  "description": "An [Elm](http://elm-lang.org/) linter written in Elm. Get your code from correct to better. You can learn about the API and the rules it provides on the [package documentation](http://package.elm-lang.org/packages/jfmengels/elm-lint).",
+  "description": "An [Elm](http://elm-lang.org/) linter written in Elm. Get your code from correct to better. You can learn about the API and the rules it provides on the [package documentation](http://package.elm-lang.org/packages/jfmengels/elm-review).",
   "main": "index.js",
   "directories": {
     "example": "example",
     "test": "tests"
   },
   "scripts": {
-    "test": "elm make --docs=elm-stuff/docs.json && elm-format src/ --validate && elm-test && elm-lint src/ tests/ demo/ lint/ && elm-xref",
+    "test": "elm make --docs=elm-stuff/docs.json && elm-format src/ --validate && elm-test && elm-review src/ tests/ demo/ review/ && elm-xref",
     "test:watch": "npm run test -s -- --watch"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jfmengels/elm-lint.git"
+    "url": "git+https://github.com/jfmengels/elm-review.git"
   },
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/jfmengels/elm-lint/issues"
+    "url": "https://github.com/jfmengels/elm-review/issues"
   },
-  "homepage": "https://github.com/jfmengels/elm-lint#readme",
+  "homepage": "https://github.com/jfmengels/elm-review#readme",
   "dependencies": {
     "elm": "^0.19.0-no-deps"
   },

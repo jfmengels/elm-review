@@ -1,6 +1,6 @@
-# Why are there no severity levels in `elm-lint`?
+# Why are there no severity levels in `elm-review`?
 
-In almost all linting tools I have seen ([here is a nice list of linters](https://github.com/caramelomartins/awesome-linters)), there is a concept of severity levels.
+In almost all similar tools (linters, code checkers, ...) I have seen for other languages ([here is a nice list of linters](https://github.com/caramelomartins/awesome-linters)), there is a concept of severity levels.
 
 In the example of [`ESLint`](https://eslint.org), there are three:
 - "error": If an error with this severity level is found, it is reported and the CLI exits with a non-zero status.

@@ -1,6 +1,6 @@
 # Design goals for the `Lint.Test` module
 
-`elm-lint` comes with a testing library under `Lint.Test`, which allows you to test the linting rules you write using [`elm-test`](https://github.com/elm-community/elm-test). It comes with a guide explaining how to write tests efficiently.
+`elm-review` comes with a testing library under `Lint.Test`, which allows you to test the rules you write using [`elm-test`](https://github.com/elm-community/elm-test). It comes with a guide explaining how to write tests efficiently.
 
 `Lint.Test` has been created around several goals:
   - Help developers with great test failure messages
@@ -17,7 +17,7 @@ For this reason, custom error messages were mandatory. And since we are used to 
 
 When making a rule, there are plenty of things to test, and when left to developers with a general testing framework, a lot of them end up being ignored. Testing only that a rule reports an error for a given source code without checking the actual error information is a test that is likely to keep succeeding for the wrong reasons.
 
-Because I think that all the information in an error is important, the test module forces you to test them all. Following are the element that `elm-lint` forces you to test.
+Because I think that all the information in an error is important, the test module forces you to test them all. Following are the element that `elm-review` forces you to test.
 
 ### Error message and details
 
@@ -39,6 +39,6 @@ This is usually a pain to test because it requires giving it a range (of the for
 If (and only if) the error provides fixes, the test module requires you to provide what the code should look like after fixes have been applied. If the fix is invalid because it is malformed, doesn't make any changes or makes the code not syntactically valid, then the test will fail.
  (In those situations, the fix is not presented to the user in the CLI)
 
-When the user encounters an error and it provides fixes, `elm-lint` will mention them a fix is available, without checking that the fix is valid, because I estimate that trying out each change is probably too expensive in terms of performance. When running `elm-lint` with `--fix`, fixes will be evaluated and will be ignored (not presented to the user) if they are found invalid, which is not a great experience for them. `elm-lint` will warn about fixes that could not be applied, but having correct fixes in the first place will make for a much greater experience for the user.
+When the user encounters an error and it provides fixes, `elm-review` will mention them a fix is available, without checking that the fix is valid, because I estimate that trying out each change is probably too expensive in terms of performance. When running `elm-review` with `--fix`, fixes will be evaluated and will be ignored (not presented to the user) if they are found invalid, which is not a great experience for them. `elm-review` will warn about fixes that could not be applied, but having correct fixes in the first place will make for a much greater experience for the user.
 
 Not testing the fixed code means the user is more likely to see false fix positives, and to get valid but incorrect fixes.
