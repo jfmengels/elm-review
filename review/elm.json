@@ -8,9 +8,9 @@
         "direct": {
             "elm/core": "1.0.2",
             "elm/json": "1.1.3",
-            "jfmengels/elm-lint": "4.0.0",
-            "jfmengels/lint-debug": "1.0.0",
-            "jfmengels/lint-unused": "1.0.0"
+            "jfmengels/elm-review": "1.0.0",
+            "jfmengels/review-debug": "1.0.0",
+            "jfmengels/review-unused": "1.0.0"
         },
         "indirect": {
             "elm/html": "1.0.0",

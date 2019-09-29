@@ -20,8 +20,8 @@ module Review exposing
 import Elm.Parser as Parser
 import Elm.Processing exposing (init, process)
 import Elm.Syntax.File exposing (File)
-import Elm.Syntax.Module exposing (Module(..))
-import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.Module as Module
+import Elm.Syntax.Node as Node
 import Elm.Syntax.Range exposing (Range)
 import Review.Fix exposing (Fix)
 import Review.Project exposing (Project)
@@ -100,7 +100,7 @@ moduleName : File -> String
 moduleName file =
     file.moduleDefinition
         |> Node.value
-        |> Elm.Syntax.Module.moduleName
+        |> Module.moduleName
         |> String.join "."
 
 

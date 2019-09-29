@@ -1,5 +1,5 @@
 {
-  "name": "elm-review",
+  "name": "elm-review-package",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -8,8 +8,8 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "elm make --docs=elm-stuff/docs.json && elm-format src/ --validate && elm-test && elm-xref",
-    "test:watch": "npm run test -s -- --watch"
+    "test": "elm make --docs=elm-stuff/docs.json && elm-format src/ --validate && elm-test && elm-review . && elm-xref",
+    "test:watch": "npx elm-test --watch"
   },
   "repository": {
     "type": "git",
@@ -22,7 +22,8 @@
   },
   "homepage": "https://github.com/jfmengels/elm-review#readme",
   "dependencies": {
-    "elm": "^0.19.0-no-deps"
+    "elm": "^0.19.0-no-deps",
+    "elm-review": "^1.0.0-beta.1"
   },
   "devDependencies": {
     "elm-format": "^0.8.2",
