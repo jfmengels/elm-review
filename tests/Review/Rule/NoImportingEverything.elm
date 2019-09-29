@@ -14,7 +14,6 @@ import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Review.Rule as Rule exposing (Error, Rule)
-import Review.Util as Util
 
 
 {-| Configuration for the rule.
@@ -88,7 +87,9 @@ importVisitor config node =
 
         name : String
         name =
-            Util.moduleName moduleName
+            moduleName
+                |> Node.value
+                |> String.join "."
     in
     if List.member name config.exceptions then
         []

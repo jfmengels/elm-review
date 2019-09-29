@@ -26,7 +26,6 @@ import Elm.Syntax.Range exposing (Range)
 import Review.Fix exposing (Fix)
 import Review.Project exposing (Project)
 import Review.Rule as Rule exposing (Rule)
-import Review.Util as Util
 
 
 {-| Represents an error in a file found by a rule.
@@ -99,20 +98,10 @@ reviewWithRule project path file rule =
 
 moduleName : File -> String
 moduleName file =
-    let
-        moduleNameNode : Node (List String)
-        moduleNameNode =
-            case Node.value file.moduleDefinition of
-                NormalModule data ->
-                    data.moduleName
-
-                PortModule data ->
-                    data.moduleName
-
-                EffectModule data ->
-                    data.moduleName
-    in
-    Util.moduleName moduleNameNode
+    file.moduleDefinition
+        |> Node.value
+        |> Elm.Syntax.Module.moduleName
+        |> String.join "."
 
 
 compareErrorPositions : Error -> Error -> Order
