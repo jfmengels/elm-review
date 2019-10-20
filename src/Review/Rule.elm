@@ -805,7 +805,7 @@ The example is simplified to only forbid the use of the `Html.button` expression
                 ( [], context )
 
 Tip: If you do not need to collect data in this visitor, you may wish to use the
-simpler [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) function).
+simpler [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) function.
 
 -}
 withModuleDefinitionVisitor : (Node Module -> context -> ( List Error, context )) -> Schema anything context -> Schema { hasAtLeastOneVisitor : () } context
