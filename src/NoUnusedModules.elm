@@ -77,11 +77,17 @@ rule =
         |> Rule.fromSchema
 
 
+fileVisitor : Context -> Rule.Schema { multiFile : (), hasNoVisitor : (), hasAtLeastOneVisitor : () } Context
 fileVisitor context =
-    Rule.schemaForFile
-        |> Rule.withInitialContext context
+    Rule.newFileVisitorSchema context
+        |> Rule.withFileKeyVisitor fileKeyVisitor
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withImportVisitor importVisitor
+
+
+fileKeyVisitor : Rule.FileKey -> Context -> Context
+fileKeyVisitor fileKey context =
+    { context | fileKey = fileKey }
 
 
 error : { file : File, moduleNameLocation : Range } -> List String -> Error

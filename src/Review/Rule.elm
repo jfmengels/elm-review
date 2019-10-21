@@ -7,6 +7,8 @@ module Review.Rule exposing
     , withFixes
     , Error, error, errorMessage, errorDetails, errorRange, errorFixes
     , name, analyzer
+    , Analyzer(..), newMultiSchema, fromMultiSchema, newFileVisitorSchema
+    , FileKey, withFileKeyVisitor, errorForFile
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -185,6 +187,12 @@ For more information on automatic fixing, read the documentation for [`Review.Fi
 
 @docs name, analyzer
 
+
+# TODO
+
+@docs Analyzer, newMultiSchema, fromMultiSchema, newFileVisitorSchema
+@docs FileKey, withFileKeyVisitor, errorForFile
+
 -}
 
 import Elm.Project
@@ -202,12 +210,24 @@ import Review.Project exposing (Project)
 
 {-| Represents a construct able to analyze a `File` and report unwanted patterns.
 See [`newSchema`](#newSchema), and [`fromSchema`](#fromSchema) for how to create one.
+TODO Explain about single and multi-file rules
 -}
 type Rule
     = Rule
         { name : String
-        , analyzer : Project -> File -> List Error
+        , analyzer : Analyzer
         }
+
+
+{-| TODO describe
+TODO move this to its module, where the details can be hidden from the package.
+May need to move the Rule type in there too?
+-}
+type Analyzer
+    = -- TODO Can't Single also be (Project -> List File -> List Error)?
+      -- Have the file processing be done in this file rather than in Review.elm
+      Single (Project -> File -> List Error)
+    | Multi (Project -> List File -> List Error)
 
 
 {-| Represents a Schema for a [`Rule`](#Rule). Create one using [`newSchema`](#newSchema).
@@ -248,6 +268,7 @@ type
     = Schema
         { name : String
         , initialContext : context
+        , fileKeyVisitor : Maybe (FileKey -> context -> context)
         , elmJsonVisitor : Maybe Elm.Project.Project -> context -> context
         , moduleDefinitionVisitor : Node Module -> context -> ( List Error, context )
         , importVisitor : Node Import -> context -> ( List Error, context )
@@ -320,38 +341,147 @@ take a look at [`withInitialContext`](#withInitialContext) and "with\*" function
             |> Rule.fromSchema
 
 -}
-newSchema : String -> Schema { hasNoVisitor : () } ()
+newSchema : String -> Schema { singleFile : (), hasNoVisitor : () } ()
 newSchema name_ =
-    Schema
-        { name = name_
-        , initialContext = ()
-        , elmJsonVisitor = \elmJson context -> context
-        , moduleDefinitionVisitor = \node context -> ( [], context )
-        , importVisitor = \node context -> ( [], context )
-        , declarationListVisitor = \declarationNodes context -> ( [], context )
-        , declarationVisitor = \node direction context -> ( [], context )
-        , expressionVisitor = \node direction context -> ( [], context )
-        , finalEvaluationFn = \context -> []
-        }
+    emptySchema name_ ()
+
+
+{-| Creates a new schema for a rule. Will require calling [`fromSchema`](#fromSchema)
+to create a usable [`Rule`](#Rule). Use "with\*" functions from this module, like
+[`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) or [`withSimpleImportVisitor`](#withSimpleImportVisitor)
+to make it report something.
+
+    import Review.Rule as Rule exposing (Rule)
+
+    rule : Rule
+    rule =
+        Rule.newSchema "NoDebug"
+            |> Rule.withSimpleExpressionVisitor expressionVisitor
+            |> Rule.withSimpleImportVisitor importVisitor
+            |> Rule.fromSchema
+
+If you wish to build a [`Rule`](#Rule) that collects data as the file gets traversed,
+take a look at [`withInitialContext`](#withInitialContext) and "with\*" functions without
+"Simple" in their name, like [`withExpressionVisitor`](#withExpressionVisitor),
+[`withImportVisitor`](#withImportVisitor) or [`withFinalEvaluation`](#withFinalEvaluation).
+
+    import Review.Rule as Rule exposing (Rule)
+
+    rule : Rule
+    rule =
+        Rule.newSchema "NoUnusedVariables"
+            |> Rule.withInitialContext { declaredVariables = [], usedVariables = [] }
+            |> Rule.withExpressionVisitor expressionVisitor
+            |> Rule.withImportVisitor importVisitor
+            |> Rule.fromSchema
+
+-}
+newFileVisitorSchema : context -> Schema { multiFile : (), hasNoVisitor : () } context
+newFileVisitorSchema initialContext =
+    emptySchema "" initialContext
 
 
 {-| Create a [`Rule`](#Rule) from a configured [`Schema`](#Schema).
 -}
-fromSchema : Schema { hasAtLeastOneVisitor : () } context -> Rule
+fromSchema : Schema { a | hasAtLeastOneVisitor : () } context -> Rule
 fromSchema (Schema schema) =
     Rule
         { name = schema.name
         , analyzer =
-            \project file ->
-                schema.initialContext
-                    |> schema.elmJsonVisitor (Review.Project.elmJson project)
-                    |> schema.moduleDefinitionVisitor file.moduleDefinition
-                    |> accumulateList schema.importVisitor file.imports
-                    |> accumulate (schema.declarationListVisitor file.declarations)
-                    |> accumulateList (visitDeclaration schema.declarationVisitor schema.expressionVisitor) file.declarations
-                    |> makeFinalEvaluation schema.finalEvaluationFn
-                    |> List.reverse
+            Single
+                (\project file ->
+                    schema.initialContext
+                        |> schema.elmJsonVisitor (Review.Project.elmJson project)
+                        |> schema.moduleDefinitionVisitor file.moduleDefinition
+                        |> accumulateList schema.importVisitor file.imports
+                        |> accumulate (schema.declarationListVisitor file.declarations)
+                        |> accumulateList (visitDeclaration schema.declarationVisitor schema.expressionVisitor) file.declarations
+                        |> makeFinalEvaluation schema.finalEvaluationFn
+                        |> List.reverse
+                )
         }
+
+
+type MultiSchema context
+    = MultiSchema
+        { name : String
+        , initialContext : context
+        , elmJsonVisitor : Maybe (Maybe Elm.Project.Project -> context -> context)
+        , mergeContexts : context -> context -> context
+        , fileVisitor : context -> Schema { multiFile : (), hasAtLeastOneVisitor : () } context
+        , finalEvaluationFn : context -> List Error
+        }
+
+
+newMultiSchema :
+    String
+    ->
+        { initialContext : context
+        , fileVisitor : context -> Schema { multiFile : (), hasAtLeastOneVisitor : () } context
+        , mergeContexts : context -> context -> context
+        , finalEvaluation : context -> List Error
+        }
+    -> MultiSchema context
+newMultiSchema name_ { initialContext, fileVisitor, mergeContexts, finalEvaluation } =
+    MultiSchema
+        { name = name_
+        , initialContext = initialContext
+        , elmJsonVisitor = Nothing
+        , mergeContexts = mergeContexts
+        , fileVisitor = fileVisitor
+        , finalEvaluationFn = finalEvaluation
+        }
+
+
+{-| TODO documentation
+-}
+fromMultiSchema : MultiSchema context -> Rule
+fromMultiSchema ((MultiSchema schema) as multiSchema) =
+    Rule
+        { name = schema.name
+        , analyzer = Multi (multiAnalyzer multiSchema)
+        }
+
+
+multiAnalyzer : MultiSchema context -> Project -> List File -> List Error
+multiAnalyzer (MultiSchema schema) project =
+    let
+        initialContext : context
+        initialContext =
+            case schema.elmJsonVisitor of
+                Just elmJsonVisitor ->
+                    elmJsonVisitor (Review.Project.elmJson project) schema.initialContext
+
+                Nothing ->
+                    schema.initialContext
+    in
+    \files ->
+        let
+            contextsAndErrorsPerFile : List ( List Error, context )
+            contextsAndErrorsPerFile =
+                List.map
+                    (visitFileForMulti
+                        (schema.fileVisitor initialContext)
+                        initialContext
+                    )
+                    files
+        in
+        List.concat
+            [ List.concatMap Tuple.first contextsAndErrorsPerFile
+            , contextsAndErrorsPerFile
+                |> List.map Tuple.second
+                |> List.foldl schema.mergeContexts schema.initialContext
+                |> schema.finalEvaluationFn
+            ]
+
+
+visitFileForMulti : Schema { multiFile : (), hasAtLeastOneVisitor : () } context -> context -> File -> ( List Error, context )
+visitFileForMulti (Schema schema) initialContext file =
+    initialContext
+        |> schema.moduleDefinitionVisitor file.moduleDefinition
+        |> accumulateList schema.importVisitor file.imports
+        |> accumulate (schema.declarationListVisitor file.declarations)
+        |> accumulateList (visitDeclaration schema.declarationVisitor schema.expressionVisitor) file.declarations
 
 
 {-| Concatenate the errors of the previous step and of the last step.
@@ -393,7 +523,7 @@ Note: `withSimpleModuleDefinitionVisitor` is a simplified version of [`withModul
 which isn't passed a `context` and doesn't return one. You can use `withSimpleModuleDefinitionVisitor` even if you use "non-simple with\*" functions.
 
 -}
-withSimpleModuleDefinitionVisitor : (Node Module -> List Error) -> Schema anything context -> Schema { hasAtLeastOneVisitor : () } context
+withSimpleModuleDefinitionVisitor : (Node Module -> List Error) -> Schema anything context -> Schema { anything | hasAtLeastOneVisitor : () } context
 withSimpleModuleDefinitionVisitor visitor (Schema schema) =
     Schema { schema | moduleDefinitionVisitor = \node context -> ( visitor node, context ) }
 
@@ -442,7 +572,7 @@ Note: `withSimpleImportVisitor` is a simplified version of [`withImportVisitor`]
 which isn't passed a `context` and doesn't return one. You can use `withSimpleImportVisitor` even if you use "non-simple with\*" functions.
 
 -}
-withSimpleImportVisitor : (Node Import -> List Error) -> Schema anything context -> Schema { hasAtLeastOneVisitor : () } context
+withSimpleImportVisitor : (Node Import -> List Error) -> Schema anything context -> Schema { anything | hasAtLeastOneVisitor : () } context
 withSimpleImportVisitor visitor (Schema schema) =
     Schema { schema | importVisitor = \node context -> ( visitor node, context ) }
 
@@ -496,7 +626,7 @@ Note: `withSimpleDeclarationVisitor` is a simplified version of [`withDeclaratio
 which isn't passed a [`Direction`](#Direction) (it will only be called `OnEnter`ing the node) and a `context` and doesn't return a context. You can use `withSimpleDeclarationVisitor` even if you use "non-simple with\*" functions.
 
 -}
-withSimpleDeclarationVisitor : (Node Declaration -> List Error) -> Schema anything context -> Schema { hasAtLeastOneVisitor : () } context
+withSimpleDeclarationVisitor : (Node Declaration -> List Error) -> Schema anything context -> Schema { anything | hasAtLeastOneVisitor : () } context
 withSimpleDeclarationVisitor visitor (Schema schema) =
     Schema
         { schema
@@ -551,7 +681,7 @@ Note: `withSimpleExpressionVisitor` is a simplified version of [`withExpressionV
 which isn't passed a [`Direction`](#Direction) (it will only be called `OnEnter`ing the node) and a `context` and doesn't return a context. You can use `withSimpleExpressionVisitor` even if you use "non-simple with\*" functions.
 
 -}
-withSimpleExpressionVisitor : (Node Expression -> List Error) -> Schema anything context -> Schema { hasAtLeastOneVisitor : () } context
+withSimpleExpressionVisitor : (Node Expression -> List Error) -> Schema anything context -> Schema { anything | hasAtLeastOneVisitor : () } context
 withSimpleExpressionVisitor visitor (Schema schema) =
     Schema
         { schema
@@ -666,11 +796,17 @@ right after [`newSchema`](#newSchema) just like in the example above, as previou
 "with\*" functions will be ignored.
 
 -}
-withInitialContext : context -> Schema { hasNoVisitor : () } () -> Schema { hasNoVisitor : () } context
+withInitialContext : context -> Schema { anything | hasNoVisitor : () } () -> Schema { anything | hasNoVisitor : () } context
 withInitialContext initialContext_ (Schema schema) =
+    emptySchema schema.name initialContext_
+
+
+emptySchema : String -> context -> Schema anything context
+emptySchema name_ initialContext =
     Schema
-        { name = schema.name
-        , initialContext = initialContext_
+        { name = name_
+        , initialContext = initialContext
+        , fileKeyVisitor = Nothing
         , elmJsonVisitor = \elmJson context -> context
         , moduleDefinitionVisitor = \node context -> ( [], context )
         , importVisitor = \node context -> ( [], context )
@@ -744,7 +880,7 @@ The following example forbids exposing a file in an "Internal" directory in your
             ( [], context )
 
 -}
-withElmJsonVisitor : (Maybe Elm.Project.Project -> context -> context) -> Schema anything context -> Schema anything context
+withElmJsonVisitor : (Maybe Elm.Project.Project -> context -> context) -> Schema { anything | singleFile : () } context -> Schema { anything | singleFile : () } context
 withElmJsonVisitor visitor (Schema schema) =
     Schema { schema | elmJsonVisitor = visitor }
 
@@ -808,7 +944,7 @@ Tip: If you do not need to collect data in this visitor, you may wish to use the
 simpler [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) function.
 
 -}
-withModuleDefinitionVisitor : (Node Module -> context -> ( List Error, context )) -> Schema anything context -> Schema { hasAtLeastOneVisitor : () } context
+withModuleDefinitionVisitor : (Node Module -> context -> ( List Error, context )) -> Schema anything context -> Schema { anything | hasAtLeastOneVisitor : () } context
 withModuleDefinitionVisitor visitor (Schema schema) =
     Schema { schema | moduleDefinitionVisitor = visitor }
 
@@ -879,7 +1015,7 @@ Tip: If you do not need to collect or use the `context` in this visitor, you may
 simpler [`withSimpleImportVisitor`](#withSimpleImportVisitor) function.
 
 -}
-withImportVisitor : (Node Import -> context -> ( List Error, context )) -> Schema anything context -> Schema { hasAtLeastOneVisitor : () } context
+withImportVisitor : (Node Import -> context -> ( List Error, context )) -> Schema anything context -> Schema { anything | hasAtLeastOneVisitor : () } context
 withImportVisitor visitor (Schema schema) =
     Schema { schema | importVisitor = visitor }
 
@@ -969,7 +1105,7 @@ Tip: If you do not need to collect or use the `context` in this visitor, you may
 simpler [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) function.
 
 -}
-withDeclarationVisitor : (Node Declaration -> Direction -> context -> ( List Error, context )) -> Schema anything context -> Schema { hasAtLeastOneVisitor : () } context
+withDeclarationVisitor : (Node Declaration -> Direction -> context -> ( List Error, context )) -> Schema anything context -> Schema { anything | hasAtLeastOneVisitor : () } context
 withDeclarationVisitor visitor (Schema schema) =
     Schema { schema | declarationVisitor = visitor }
 
@@ -988,7 +1124,7 @@ and [withExpressionVisitor](#withExpressionVisitor). Otherwise, using
 [withDeclarationVisitor](#withDeclarationVisitor) is probably a simpler choice.
 
 -}
-withDeclarationListVisitor : (List (Node Declaration) -> context -> ( List Error, context )) -> Schema anything context -> Schema { hasAtLeastOneVisitor : () } context
+withDeclarationListVisitor : (List (Node Declaration) -> context -> ( List Error, context )) -> Schema anything context -> Schema { anything | hasAtLeastOneVisitor : () } context
 withDeclarationListVisitor visitor (Schema schema) =
     Schema { schema | declarationListVisitor = visitor }
 
@@ -1072,7 +1208,7 @@ Tip: If you do not need to collect or use the `context` in this visitor, you may
 simpler [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) function.
 
 -}
-withExpressionVisitor : (Node Expression -> Direction -> context -> ( List Error, context )) -> Schema anything context -> Schema { hasAtLeastOneVisitor : () } context
+withExpressionVisitor : (Node Expression -> Direction -> context -> ( List Error, context )) -> Schema anything context -> Schema { anything | hasAtLeastOneVisitor : () } context
 withExpressionVisitor visitor (Schema schema) =
     Schema { schema | expressionVisitor = visitor }
 
@@ -1121,9 +1257,58 @@ for [`withImportVisitor`](#withImportVisitor), but using [`withFinalEvaluation`]
                 []
 
 -}
-withFinalEvaluation : (context -> List Error) -> Schema { hasAtLeastOneVisitor : () } context -> Schema { hasAtLeastOneVisitor : () } context
+withFinalEvaluation : (context -> List Error) -> Schema { anything | hasAtLeastOneVisitor : () } context -> Schema { anything | hasAtLeastOneVisitor : () } context
 withFinalEvaluation visitor (Schema schema) =
     Schema { schema | finalEvaluationFn = visitor }
+
+
+{-| Add a function that makes a final evaluation based only on the data that was
+collected in the `context`. This can be useful if you can't or if it is hard to
+determine something as you traverse the file.
+
+The following example forbids importing both `Element` (`elm-ui`) and
+`Html.Styled` (`elm-css`). Note that this is the same one written in the example
+for [`withImportVisitor`](#withImportVisitor), but using [`withFinalEvaluation`](#withFinalEvaluation).
+
+    import Dict as Dict exposing (Dict)
+    import Elm.Syntax.Import exposing (Import)
+    import Elm.Syntax.Node as Node exposing (Node)
+    import Elm.Syntax.Range exposing (Range)
+    import Review.Rule as Rule exposing (Error, Rule)
+
+    type alias Context =
+        Dict (List String) Range
+
+    rule : Rule
+    rule =
+        Rule.newSchema "NoUsingBothHtmlAndHtmlStyled"
+            |> Rule.withInitialContext Dict.empty
+            |> Rule.withImportVisitor importVisitor
+            |> Rule.withFinalEvaluation finalEvaluation
+            |> Rule.fromSchema
+
+    importVisitor : Node Import -> Context -> ( List Error, Context )
+    importVisitor node context =
+        ( [], Dict.insert (Node.value node |> .moduleName |> Node.value) (Node.range node) context )
+
+    finalEvaluation : Context -> List Error
+    finalEvaluation context =
+        case ( Dict.get [ "Element" ] context, Dict.get [ "Html", "Styled" ] context ) of
+            ( Just elmUiRange, Just _ ) ->
+                [ Rule.error
+                    { message = "Do not use both `elm-ui` and `elm-css`"
+                    , details = [ "At fruits.com, we use `elm-ui` in the dashboard application, and `elm-css` in the rest of the code. We want to use `elm-ui` in our new projects, but in projects using `elm-css`, we don't want to use both libraries to keep things simple." ]
+                    }
+                    elmUiRange
+                ]
+
+            _ ->
+                []
+
+-}
+withFileKeyVisitor : (FileKey -> context -> context) -> Schema { anything | hasNoVisitor : () } context -> Schema { anything | hasNoVisitor : () } context
+withFileKeyVisitor visitor (Schema schema) =
+    Schema { schema | fileKeyVisitor = Just visitor }
 
 
 
@@ -1147,6 +1332,10 @@ type Error
         }
 
 
+type FileKey
+    = FileKey String
+
+
 {-| Creates an [`Error`](#Error). Use it when you find a pattern that the rule should forbid.
 It takes the [message you want to display to the user](#a-helpful-error-message-and-details), and a [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range),
 which is the location where the error should be shown (under which to put the squiggly lines in an editor).
@@ -1167,6 +1356,35 @@ by the tests automatically.
 -}
 error : { message : String, details : List String } -> Range -> Error
 error { message, details } range =
+    Error
+        { message = message
+        , details = details
+        , range = range
+        , fixes = Nothing
+        }
+
+
+{-| Creates an [`Error`](#Error). Use it when you find a pattern that the rule should forbid.
+It takes the [message you want to display to the user](#a-helpful-error-message-and-details), and a [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range),
+which is the location where the error should be shown (under which to put the squiggly lines in an editor).
+In most cases, you can get it using [`Node.range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#range).
+
+The `details` is a list of strings, and each item will be visually separated
+when shown to the user. The details may not be empty, and this will be enforced
+by the tests automatically.
+
+    error : Node a -> Error
+    error node =
+        Rule.error
+            { message = "Remove the use of `Debug` before shipping to production"
+            , details = [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing its use before committing and attempting to push to production." ]
+            }
+            (Node.range node)
+
+-}
+errorForFile : FileKey -> { message : String, details : List String } -> Range -> Error
+errorForFile fileKey { message, details } range =
+    -- TODO Use fileKey
     Error
         { message = message
         , details = details
@@ -1251,7 +1469,7 @@ name (Rule rule) =
 
 {-| Get the analyzer function of a [`Rule`](#Rule).
 -}
-analyzer : Rule -> (Project -> File -> List Error)
+analyzer : Rule -> Analyzer
 analyzer (Rule rule) =
     rule.analyzer
 

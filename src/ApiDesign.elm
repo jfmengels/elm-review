@@ -24,8 +24,9 @@ Problems to fix:
       - [ ] Figure if it makes sense to have a finalEvaluationFn, and potentially forbid it?
   - [ ] Be able to run both types of rules and get a list of errors
   - [ ] Find great type and functions names
-  - [ ] Make a nice API for when the multifile context is different as the file visitor's
-  - [ ] Make a nice API for when the multifile context is the same as the file visitor's
+  - [ ] Folding context
+      - [ ] Make a nice API for when the multi-file context is different as the file visitor's
+      - [ ] Make a nice API for when the multi-file context is the same as the file visitor's
   - [ ] Add a way to test multi-file rules
       - [ ] Make sure that the order does not matter by running a rule several
         times with a different order for the files every time.
@@ -33,11 +34,18 @@ Problems to fix:
 Errors
 
   - [ ] Define a way to report errors in other files?
-    A FileKey/FileId similar to a Navigation.Key? It has no useful meaning, but
-    makes it so you can't give an error to a non-existing file or file you haven't visited.
+      - A FileKey/FileId similar to a Navigation.Key? It has no useful meaning, but
+        makes it so you can't give an error to a non-existing file or file you haven't visited.
+      - Needed
   - [ ] Define a way to report errors in elm.json?
   - [ ] Get rid of Review.Error
       - [ ] Need to be able to create an error without a file in Review.Rule
+
+Renaming
+
+  - [ ] Have the current package be more multi-purpose?
+    It paves the way for other potential tools, like codemods, code crawlers
+    (to gather data and do something with it, like code generation).
 
 
 ## Definition

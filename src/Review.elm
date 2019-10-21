@@ -1,5 +1,5 @@
 module Review exposing
-    ( review
+    ( review, reviewFiles
     , Error, errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes
     )
 
@@ -8,7 +8,7 @@ module Review exposing
 
 # Reviewing
 
-@docs review
+@docs review, reviewFiles
 
 
 # Errors
@@ -92,16 +92,77 @@ review config project { path, source } =
 
 reviewWithRule : Project -> String -> File -> Rule -> List Error
 reviewWithRule project path file rule =
-    Rule.analyzer rule project file
-        |> List.map (ruleErrorToReviewError (moduleName file) rule)
+    -- Rule.analyzer rule project file
+    -- |> List.map (ruleErrorToReviewError (moduleName file) rule)
+    Debug.todo "Not done"
 
 
-moduleName : File -> String
-moduleName file =
-    file.moduleDefinition
-        |> Node.value
-        |> Module.moduleName
-        |> String.join "."
+type alias RawFile =
+    { path : String
+    , source : String
+    }
+
+
+{-| TODO documentation
+-}
+reviewFiles : List Rule -> Project -> List RawFile -> List Error
+reviewFiles rules project files =
+    let
+        ( parsedFiles, errors ) =
+            parseFiles files
+    in
+    rules
+        |> List.concatMap
+            (\rule ->
+                case Rule.analyzer rule of
+                    Rule.Single fn ->
+                        List.concatMap
+                            (\file ->
+                                fn project file
+                                    |> List.map (ruleErrorToReviewError rule)
+                            )
+                            parsedFiles
+
+                    Rule.Multi fn ->
+                        fn project parsedFiles
+                            |> List.map (ruleErrorToReviewError rule)
+            )
+        |> List.append errors
+
+
+parseFiles : List RawFile -> ( List File, List Error )
+parseFiles files =
+    files
+        |> List.map parseFile
+        |> List.foldl
+            (\result ( files_, errors_ ) ->
+                case result of
+                    Ok file ->
+                        ( file :: files_, errors_ )
+
+                    Err error ->
+                        ( files_, error :: errors_ )
+            )
+            ( [], [] )
+
+
+parseFile : RawFile -> Result Error File
+parseFile rawFile =
+    parseSource rawFile.source
+        |> Result.mapError
+            (\_ ->
+                Error
+                    { moduleName = Nothing
+                    , ruleName = "ParsingError"
+                    , message = rawFile.path ++ " is not a correct Elm file"
+                    , details =
+                        [ "I could not understand the content of this file, and this prevents me from analyzing it. It is highly likely that the content of the file is not correct Elm code."
+                        , "Hint: Try running `elm make`. The compiler should give you better hints on how to resolve the problem."
+                        ]
+                    , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
+                    , fixes = Nothing
+                    }
+            )
 
 
 compareErrorPositions : Error -> Error -> Order
@@ -151,10 +212,10 @@ compareRange a b =
         EQ
 
 
-ruleErrorToReviewError : String -> Rule -> Rule.Error -> Error
-ruleErrorToReviewError moduleName_ rule error =
+ruleErrorToReviewError : Rule -> Rule.Error -> Error
+ruleErrorToReviewError rule error =
     Error
-        { moduleName = Just moduleName_
+        { moduleName = Nothing
         , ruleName = Rule.name rule
         , message = Rule.errorMessage error
         , details = Rule.errorDetails error
