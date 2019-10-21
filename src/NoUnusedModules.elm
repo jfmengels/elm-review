@@ -60,24 +60,26 @@ not care about having extraneous dependencies.
 -}
 rule : Rule
 rule =
-    Rule.newSchema "NoUnusedModules"
+    Rule.newMultiSchema "NoUnusedModules"
         { initialContext =
             { modules = Dict.empty
             , usedModules = Set.empty
+            , fileKey = Nothing
             }
+        , elmJsonVisitor = Just elmJsonVisitor
         , fileVisitor = fileVisitor
         , mergeContexts =
             \contextA contextB ->
                 { modules = Dict.union contextA.modules contextB.modules
                 , usedModules = Set.union contextA.usedModules contextB.usedModules
+                , fileKey = Nothing
                 }
         , finalEvaluation = finalEvaluationForProject
         }
-        |> Rule.withElmJsonVisitor elmJsonVisitor
-        |> Rule.fromSchema
+        |> Rule.fromMultiSchema
 
 
-fileVisitor : Context -> Rule.Schema { multiFile : (), hasNoVisitor : (), hasAtLeastOneVisitor : () } Context
+fileVisitor : Context -> Rule.Schema { multiFile : () } { hasAtLeastOneVisitor : () } Context
 fileVisitor context =
     Rule.newFileVisitorSchema context
         |> Rule.withFileKeyVisitor fileKeyVisitor
@@ -87,56 +89,80 @@ fileVisitor context =
 
 fileKeyVisitor : Rule.FileKey -> Context -> Context
 fileKeyVisitor fileKey context =
-    { context | fileKey = fileKey }
+    { context | fileKey = Just fileKey }
 
 
-error : { file : File, moduleNameLocation : Range } -> List String -> Error
-error { file, range } moduleName =
-    Rule.errorForFile file
+error : ( List String, { fileKey : Rule.FileKey, moduleNameLocation : Range } ) -> Error
+error ( moduleName, { fileKey, moduleNameLocation } ) =
+    Rule.errorForFile fileKey
         { message = "`" ++ String.join "." moduleName ++ "` is never used."
         , details = [ "This module is never used. You may want to remove it to keep your project clean, and maybe detect some unused dependencies in your project." ]
         }
-        range
+        moduleNameLocation
 
 
 type alias Context =
-    { modules : Dict (List String) { file : File, moduleNameLocation : Range }
+    { modules : Dict (List String) { fileKey : Rule.FileKey, moduleNameLocation : Range }
     , usedModules : Set (List String)
+    , fileKey : Maybe Rule.FileKey
     }
 
 
 elmJsonVisitor : Maybe Project -> Context -> Context
 elmJsonVisitor maybeProject context =
     let
-        exposedModules : List String
+        exposedModules : List Elm.Module.Name
         exposedModules =
             case maybeProject of
                 Just (Elm.Project.Package { exposed }) ->
                     case exposed of
                         Elm.Project.ExposedList names ->
                             names
-                                |> List.map Elm.Module.toString
 
                         Elm.Project.ExposedDict fakeDict ->
-                            fakeDict
-                                |> List.concatMap Tuple.second
-                                |> List.map Elm.Module.toString
+                            List.concatMap Tuple.second fakeDict
 
                 _ ->
                     []
     in
-    { context | usedModules = Set.fromList exposedModules }
+    { context
+        | usedModules =
+            exposedModules
+                |> List.map (Elm.Module.toString >> String.split ".")
+                |> Set.fromList
+    }
 
 
 moduleDefinitionVisitor : Node Module -> Context -> ( List Error, Context )
 moduleDefinitionVisitor node context =
     let
         (Node range moduleName) =
-            node |> Node.value |> .moduleName
+            case Node.value node of
+                Module.NormalModule data ->
+                    data.moduleName
+
+                Module.PortModule data ->
+                    data.moduleName
+
+                Module.EffectModule data ->
+                    data.moduleName
     in
-    ( []
-    , { context | modules = Dict.insert moduleName range context.modules }
-    )
+    case context.fileKey of
+        Just fileKey ->
+            ( []
+            , { context
+                | modules =
+                    Dict.insert
+                        moduleName
+                        { fileKey = fileKey
+                        , moduleNameLocation = range
+                        }
+                        context.modules
+              }
+            )
+
+        Nothing ->
+            ( [], context )
 
 
 importVisitor : Node Import -> Context -> ( List Error, Context )
@@ -150,7 +176,7 @@ importVisitor node context =
                 |> Node.value
     in
     ( []
-    , { context | usedModules = Set.insert (Node.value moduleName) context.usedModules }
+    , { context | usedModules = Set.insert moduleName context.usedModules }
     )
 
 
@@ -159,4 +185,4 @@ finalEvaluationForProject { modules, usedModules } =
     modules
         |> Dict.filter (\moduleName _ -> not <| Set.member moduleName usedModules)
         |> Dict.toList
-        |> List.map (\moduleName range -> [])
+        |> List.map error
