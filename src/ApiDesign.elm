@@ -23,6 +23,12 @@ Problems to fix:
       - [ ] Forbid specifying an elmJsonVisitor
       - [ ] Figure if it makes sense to have a finalEvaluationFn, and potentially forbid it?
   - [ ] Be able to run both types of rules and get a list of errors
+  - [ ] Be able to re-run a rule when a file has changed
+      - [ ] For single rules, re-run the rule
+      - [ ] For multi rules:
+          - For every file, keep and associate to the file the resulting context and the errors thrown while visiting
+          - When a file changes, recompute the associated context and errors (and keep them)
+          - Re-merge the contexts, call finalEvaluation and concatenate the errors of the other files
   - [ ] Find great type and functions names
   - [ ] Folding context
       - [ ] Make a nice API for when the multi-file context is different as the file visitor's
