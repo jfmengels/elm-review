@@ -8,6 +8,7 @@
         "Review",
         "Review.Rule",
         "Review.Project",
+        "Review.File",
         "Review.Fix",
         "Review.Test"
     ],

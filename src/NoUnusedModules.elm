@@ -95,7 +95,7 @@ fileKeyVisitor fileKey context =
 error : ( List String, { fileKey : Rule.FileKey, moduleNameLocation : Range } ) -> Error
 error ( moduleName, { fileKey, moduleNameLocation } ) =
     Rule.errorForFile fileKey
-        { message = "`" ++ String.join "." moduleName ++ "` is never used."
+        { message = "Module `" ++ String.join "." moduleName ++ "` is never used."
         , details = [ "This module is never used. You may want to remove it to keep your project clean, and maybe detect some unused dependencies in your project." ]
         }
         moduleNameLocation

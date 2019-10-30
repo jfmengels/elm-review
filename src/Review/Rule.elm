@@ -5,7 +5,7 @@ module Review.Rule exposing
     , withInitialContext, withModuleDefinitionVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalEvaluation
     , withElmJsonVisitor
     , withFixes
-    , Error, error, errorMessage, errorDetails, errorRange, errorFixes
+    , Error, error, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
     , name, analyzer
     , Analyzer(..), newMultiSchema, fromMultiSchema, newFileVisitorSchema
     , FileKey, withFileKeyVisitor, errorForFile
@@ -180,7 +180,7 @@ For more information on automatic fixing, read the documentation for [`Review.Fi
 
 ## Errors
 
-@docs Error, error, errorMessage, errorDetails, errorRange, errorFixes
+@docs Error, error, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
 
 
 # ACCESS
@@ -204,6 +204,7 @@ import Elm.Syntax.Infix exposing (InfixDirection(..))
 import Elm.Syntax.Module exposing (Module)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
+import Review.File exposing (ParsedFile)
 import Review.Fix exposing (Fix)
 import Review.Project exposing (Project)
 
@@ -226,8 +227,8 @@ May need to move the Rule type in there too?
 type Analyzer
     = -- TODO Can't Single also be (Project -> List File -> List Error)?
       -- Have the file processing be done in this file rather than in Review.elm
-      Single (Project -> File -> List Error)
-    | Multi (Project -> List File -> List Error)
+      Single (Project -> ParsedFile -> List Error)
+    | Multi (Project -> List ParsedFile -> List Error)
 
 
 {-| Represents a Schema for a [`Rule`](#Rule). Create one using [`newSchema`](#newSchema).
@@ -389,17 +390,28 @@ fromSchema (Schema schema) =
         { name = schema.name
         , analyzer =
             Single
-                (\project file ->
+                (\project { path, ast } ->
                     schema.initialContext
                         |> schema.elmJsonVisitor (Review.Project.elmJson project)
-                        |> schema.moduleDefinitionVisitor file.moduleDefinition
-                        |> accumulateList schema.importVisitor file.imports
-                        |> accumulate (schema.declarationListVisitor file.declarations)
-                        |> accumulateList (visitDeclaration schema.declarationVisitor schema.expressionVisitor) file.declarations
+                        |> schema.moduleDefinitionVisitor ast.moduleDefinition
+                        |> accumulateList schema.importVisitor ast.imports
+                        |> accumulate (schema.declarationListVisitor ast.declarations)
+                        |> accumulateList (visitDeclaration schema.declarationVisitor schema.expressionVisitor) ast.declarations
                         |> makeFinalEvaluation schema.finalEvaluationFn
+                        |> List.map (\(Error err) -> Error { err | filePath = path })
                         |> List.reverse
                 )
         }
+
+
+maybeApply : Maybe (b -> a -> a) -> b -> a -> a
+maybeApply maybeFn argument =
+    case maybeFn of
+        Just fn ->
+            fn argument
+
+        Nothing ->
+            identity
 
 
 type MultiSchema context
@@ -434,17 +446,7 @@ newMultiSchema name_ { initialContext, elmJsonVisitor, fileVisitor, mergeContext
         }
 
 
-{-| TODO documentation
--}
-fromMultiSchema : MultiSchema context -> Rule
-fromMultiSchema ((MultiSchema schema) as multiSchema) =
-    Rule
-        { name = schema.name
-        , analyzer = Multi (multiAnalyzer multiSchema)
-        }
-
-
-multiAnalyzer : MultiSchema context -> Project -> List File -> List Error
+multiAnalyzer : MultiSchema context -> Project -> List ParsedFile -> List Error
 multiAnalyzer (MultiSchema schema) project =
     let
         initialContext : context
@@ -476,13 +478,24 @@ multiAnalyzer (MultiSchema schema) project =
             ]
 
 
-visitFileForMulti : Schema { multiFile : () } { hasAtLeastOneVisitor : () } context -> context -> File -> ( List Error, context )
-visitFileForMulti (Schema schema) initialContext file =
+visitFileForMulti : Schema { multiFile : () } { hasAtLeastOneVisitor : () } context -> context -> ParsedFile -> ( List Error, context )
+visitFileForMulti (Schema schema) initialContext { path, ast } =
     initialContext
-        |> schema.moduleDefinitionVisitor file.moduleDefinition
-        |> accumulateList schema.importVisitor file.imports
-        |> accumulate (schema.declarationListVisitor file.declarations)
-        |> accumulateList (visitDeclaration schema.declarationVisitor schema.expressionVisitor) file.declarations
+        |> maybeApply schema.fileKeyVisitor (FileKey path)
+        |> schema.moduleDefinitionVisitor ast.moduleDefinition
+        |> accumulateList schema.importVisitor ast.imports
+        |> accumulate (schema.declarationListVisitor ast.declarations)
+        |> accumulateList (visitDeclaration schema.declarationVisitor schema.expressionVisitor) ast.declarations
+
+
+{-| TODO documentation
+-}
+fromMultiSchema : MultiSchema context -> Rule
+fromMultiSchema ((MultiSchema schema) as multiSchema) =
+    Rule
+        { name = schema.name
+        , analyzer = Multi (multiAnalyzer multiSchema)
+        }
 
 
 {-| Concatenate the errors of the previous step and of the last step.
@@ -1263,51 +1276,9 @@ withFinalEvaluation visitor (Schema schema) =
     Schema { schema | finalEvaluationFn = visitor }
 
 
-{-| Add a function that makes a final evaluation based only on the data that was
-collected in the `context`. This can be useful if you can't or if it is hard to
-determine something as you traverse the file.
-
-The following example forbids importing both `Element` (`elm-ui`) and
-`Html.Styled` (`elm-css`). Note that this is the same one written in the example
-for [`withImportVisitor`](#withImportVisitor), but using [`withFinalEvaluation`](#withFinalEvaluation).
-
-    import Dict as Dict exposing (Dict)
-    import Elm.Syntax.Import exposing (Import)
-    import Elm.Syntax.Node as Node exposing (Node)
-    import Elm.Syntax.Range exposing (Range)
-    import Review.Rule as Rule exposing (Error, Rule)
-
-    type alias Context =
-        Dict (List String) Range
-
-    rule : Rule
-    rule =
-        Rule.newSchema "NoUsingBothHtmlAndHtmlStyled"
-            |> Rule.withInitialContext Dict.empty
-            |> Rule.withImportVisitor importVisitor
-            |> Rule.withFinalEvaluation finalEvaluation
-            |> Rule.fromSchema
-
-    importVisitor : Node Import -> Context -> ( List Error, Context )
-    importVisitor node context =
-        ( [], Dict.insert (Node.value node |> .moduleName |> Node.value) (Node.range node) context )
-
-    finalEvaluation : Context -> List Error
-    finalEvaluation context =
-        case ( Dict.get [ "Element" ] context, Dict.get [ "Html", "Styled" ] context ) of
-            ( Just elmUiRange, Just _ ) ->
-                [ Rule.error
-                    { message = "Do not use both `elm-ui` and `elm-css`"
-                    , details = [ "At fruits.com, we use `elm-ui` in the dashboard application, and `elm-css` in the rest of the code. We want to use `elm-ui` in our new projects, but in projects using `elm-css`, we don't want to use both libraries to keep things simple." ]
-                    }
-                    elmUiRange
-                ]
-
-            _ ->
-                []
-
+{-| TODO
 -}
-withFileKeyVisitor : (FileKey -> context -> context) -> Schema anytype { hasNoVisitor : () } context -> Schema anytype { hasNoVisitor : () } context
+withFileKeyVisitor : (FileKey -> context -> context) -> Schema { multiFile : () } { hasNoVisitor : () } context -> Schema { multiFile : () } { hasNoVisitor : () } context
 withFileKeyVisitor visitor (Schema schema) =
     Schema { schema | fileKeyVisitor = Just visitor }
 
@@ -1327,6 +1298,7 @@ name of the rule that emitted it and the file name.
 type Error
     = Error
         { message : String
+        , filePath : String
         , details : List String
         , range : Range
         , fixes : Maybe (List Fix)
@@ -1359,6 +1331,7 @@ error : { message : String, details : List String } -> Range -> Error
 error { message, details } range =
     Error
         { message = message
+        , filePath = ""
         , details = details
         , range = range
         , fixes = Nothing
@@ -1384,12 +1357,13 @@ by the tests automatically.
 
 -}
 errorForFile : FileKey -> { message : String, details : List String } -> Range -> Error
-errorForFile fileKey { message, details } range =
+errorForFile (FileKey path) { message, details } range =
     -- TODO Use fileKey
     Error
         { message = message
         , details = details
         , range = range
+        , filePath = path
         , fixes = Nothing
         }
 
@@ -1455,6 +1429,13 @@ of an [`Error`](#Error).
 errorFixes : Error -> Maybe (List Fix)
 errorFixes (Error err) =
     err.fixes
+
+
+{-| TODO
+-}
+errorFilePath : Error -> String
+errorFilePath (Error err) =
+    err.filePath
 
 
 

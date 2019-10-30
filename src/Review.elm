@@ -1,9 +1,15 @@
 module Review exposing
-    ( review, reviewFiles
-    , Error, errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes
+    ( parseFile, parseFiles
+    , review, reviewFiles
+    , Error, errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
     )
 
 {-| Module to configure your review configuration and run it on a source file.
+
+
+# Parsing files
+
+@docs parseFile, parseFiles
 
 
 # Reviewing
@@ -13,7 +19,7 @@ module Review exposing
 
 # Errors
 
-@docs Error, errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes
+@docs Error, errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
 
 -}
 
@@ -23,6 +29,7 @@ import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Module as Module
 import Elm.Syntax.Node as Node
 import Elm.Syntax.Range exposing (Range)
+import Review.File exposing (ParsedFile, RawFile)
 import Review.Fix exposing (Fix)
 import Review.Project exposing (Project)
 import Review.Rule as Rule exposing (Rule)
@@ -38,6 +45,7 @@ like the name of the rule that emitted it and the file name.
 type Error
     = Error
         { moduleName : Maybe String
+        , filePath : String
         , ruleName : String
         , message : String
         , details : List String
@@ -78,6 +86,7 @@ review config project { path, source } =
         Err _ ->
             [ Error
                 { moduleName = Nothing
+                , filePath = path
                 , ruleName = "ParsingError"
                 , message = path ++ " is not a correct Elm file"
                 , details =
@@ -105,12 +114,8 @@ type alias RawFile =
 
 {-| TODO documentation
 -}
-reviewFiles : List Rule -> Project -> List RawFile -> List Error
+reviewFiles : List Rule -> Project -> List ParsedFile -> List Error
 reviewFiles rules project files =
-    let
-        ( parsedFiles, errors ) =
-            parseFiles files
-    in
     rules
         |> List.concatMap
             (\rule ->
@@ -121,16 +126,15 @@ reviewFiles rules project files =
                                 fn project file
                                     |> List.map (ruleErrorToReviewError rule)
                             )
-                            parsedFiles
+                            files
 
                     Rule.Multi fn ->
-                        fn project parsedFiles
+                        fn project files
                             |> List.map (ruleErrorToReviewError rule)
             )
-        |> List.append errors
 
 
-parseFiles : List RawFile -> ( List File, List Error )
+parseFiles : List RawFile -> ( List ParsedFile, List Error )
 parseFiles files =
     files
         |> List.map parseFile
@@ -146,13 +150,21 @@ parseFiles files =
             ( [], [] )
 
 
-parseFile : RawFile -> Result Error File
+parseFile : RawFile -> Result Error ParsedFile
 parseFile rawFile =
-    parseSource rawFile.source
-        |> Result.mapError
-            (\_ ->
+    case parseSource rawFile.source of
+        Ok ast ->
+            Ok
+                { path = rawFile.path
+                , source = rawFile.source
+                , ast = ast
+                }
+
+        Err _ ->
+            Err <|
                 Error
                     { moduleName = Nothing
+                    , filePath = rawFile.path
                     , ruleName = "ParsingError"
                     , message = rawFile.path ++ " is not a correct Elm file"
                     , details =
@@ -162,7 +174,6 @@ parseFile rawFile =
                     , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
                     , fixes = Nothing
                     }
-            )
 
 
 compareErrorPositions : Error -> Error -> Order
@@ -216,6 +227,7 @@ ruleErrorToReviewError : Rule -> Rule.Error -> Error
 ruleErrorToReviewError rule error =
     Error
         { moduleName = Nothing
+        , filePath = Rule.errorFilePath error
         , ruleName = Rule.name rule
         , message = Rule.errorMessage error
         , details = Rule.errorDetails error
@@ -278,3 +290,10 @@ errorRange (Error error) =
 errorFixes : Error -> Maybe (List Fix)
 errorFixes (Error error) =
     error.fixes
+
+
+{-| TODO
+-}
+errorFilePath : Error -> String
+errorFilePath (Error error) =
+    error.filePath
