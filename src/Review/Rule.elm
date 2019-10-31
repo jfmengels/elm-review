@@ -463,9 +463,12 @@ multiAnalyzer (MultiSchema schema) project =
             contextsAndErrorsPerFile : List ( List Error, context )
             contextsAndErrorsPerFile =
                 List.map
-                    (visitFileForMulti
-                        (schema.fileVisitor initialContext)
-                        initialContext
+                    (\file ->
+                        visitFileForMulti
+                            (schema.fileVisitor initialContext)
+                            initialContext
+                            file
+                            |> Tuple.mapFirst (List.map (\(Error err) -> Error { err | filePath = file.path }))
                     )
                     files
         in
