@@ -216,31 +216,26 @@ interested in project related details, then you should use [`run`](#run) instead
 -}
 runWithProjectData : Project -> Rule -> String -> ReviewResult
 runWithProjectData project rule source =
-    let
-        errors : List Review.Error
-        errors =
-            Review.review [ rule ] project { path = "TestContent.elm", source = source }
-    in
-    case List.head errors |> Maybe.map Review.errorMessage of
-        Just "TestContent.elm is not a correct Elm file" ->
-            ParseFailure
-
-        _ ->
-            errors
+    case Review.parseFile { path = "TestContent.elm", source = source } of
+        Ok parsedFile ->
+            Review.reviewFiles [ rule ] project [ parsedFile ]
                 |> List.map
                     (\error_ ->
                         Rule.error
-                            { message = Review.errorMessage error_
-                            , details = Review.errorDetails error_
+                            { message = Rule.errorMessage error_
+                            , details = Rule.errorDetails error_
                             }
-                            (Review.errorRange error_)
-                            |> Rule.withFixes (Review.errorFixes error_ |> Maybe.withDefault [])
+                            (Rule.errorRange error_)
+                            |> Rule.withFixes (Rule.errorFixes error_ |> Maybe.withDefault [])
                     )
                 |> SuccessfulRun
                     { source = source
                     , getCodeAtLocation = getCodeAtLocationInSourceCode source
                     , checkIfLocationIsAmbiguous = checkIfLocationIsAmbiguousInSourceCode source
                     }
+
+        Err parsingError ->
+            ParseFailure
 
 
 {-| Assert that the rule reported no errors. Note, this is equivalent to using [`expectErrors`](#expectErrors)

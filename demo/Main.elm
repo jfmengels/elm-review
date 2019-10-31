@@ -9,8 +9,9 @@ import NoUnused.CustomTypeConstructors
 import NoUnused.Variables
 import Reporter
 import Review
+import Review.File exposing (ParsedFile, RawFile)
 import Review.Project as Project
-import Review.Rule exposing (Rule)
+import Review.Rule as Rule exposing (Rule)
 
 
 
@@ -32,7 +33,7 @@ main =
 
 type alias Model =
     { sourceCode : String
-    , reviewErrors : List Review.Error
+    , reviewErrors : List Rule.Error
     , noDebugEnabled : Bool
     , noUnusedVariablesEnabled : Bool
     , noUnusedTypeConstructorsEnabled : Bool
@@ -125,7 +126,7 @@ update action model =
 
 runReview : Model -> Model
 runReview model =
-    { model | reviewErrors = Review.review (config model) Project.new (file model.sourceCode) }
+    { model | reviewErrors = Review.reviewRawFiles (config model) Project.new [ file model.sourceCode ] }
 
 
 
@@ -325,17 +326,16 @@ reviewErrors model =
         ]
 
 
-fromReviewError : Review.Error -> Reporter.Error
+fromReviewError : Rule.Error -> Reporter.Error
 fromReviewError error =
-    { moduleName = Review.errorModuleName error
-    , ruleName = Review.errorRuleName error
-    , message = Review.errorMessage error
-    , details = Review.errorDetails error
-    , range = Review.errorRange error
-    , hasFix = Review.errorFixes error /= Nothing
+    { ruleName = Rule.errorRuleName error
+    , message = Rule.errorMessage error
+    , details = Rule.errorDetails error
+    , range = Rule.errorRange error
+    , hasFix = Rule.errorFixes error /= Nothing
     }
 
 
-file : String -> { path : String, source : String }
+file : String -> RawFile
 file source =
     { path = "SOURCE CODE", source = source }
