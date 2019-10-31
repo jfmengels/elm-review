@@ -6,8 +6,7 @@ module Review.Rule exposing
     , withElmJsonVisitor
     , withFixes
     , Error, error, parsingError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
-    , name, analyzer
-    , Analyzer(..), newMultiSchema, fromMultiSchema, newFileVisitorSchema
+    , newMultiSchema, fromMultiSchema, newFileVisitorSchema
     , FileKey, withFileKeyVisitor, errorForFile
     )
 
@@ -183,14 +182,9 @@ For more information on automatic fixing, read the documentation for [`Review.Fi
 @docs Error, error, parsingError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
 
 
-# ACCESS
-
-@docs name, analyzer
-
-
 # TODO
 
-@docs Analyzer, newMultiSchema, fromMultiSchema, newFileVisitorSchema
+@docs newMultiSchema, fromMultiSchema, newFileVisitorSchema
 @docs FileKey, withFileKeyVisitor, errorForFile
 
 -}
@@ -214,17 +208,6 @@ See [`newSchema`](#newSchema), and [`fromSchema`](#fromSchema) for how to create
 TODO Explain about single and multi-file rules
 -}
 type Rule
-    = Rule
-        { name : String
-        , analyzer : Analyzer
-        }
-
-
-{-| TODO describe
-TODO move this to its module, where the details can be hidden from the package.
-May need to move the Rule type in there too?
--}
-type Analyzer
     = -- TODO Can't Single also be (Project -> List File -> List Error)?
       -- Have the file processing be done in this file rather than in Review.elm
       Single (Project -> ParsedFile -> List Error)
@@ -386,22 +369,18 @@ newFileVisitorSchema initialContext =
 -}
 fromSchema : Schema { singleFile : () } { hasAtLeastOneVisitor : () } context -> Rule
 fromSchema (Schema schema) =
-    Rule
-        { name = schema.name
-        , analyzer =
-            Single
-                (\project { path, ast } ->
-                    schema.initialContext
-                        |> schema.elmJsonVisitor (Review.Project.elmJson project)
-                        |> schema.moduleDefinitionVisitor ast.moduleDefinition
-                        |> accumulateList schema.importVisitor ast.imports
-                        |> accumulate (schema.declarationListVisitor ast.declarations)
-                        |> accumulateList (visitDeclaration schema.declarationVisitor schema.expressionVisitor) ast.declarations
-                        |> makeFinalEvaluation schema.finalEvaluationFn
-                        |> List.map (\(Error err) -> Error { err | ruleName = schema.name, filePath = path })
-                        |> List.reverse
-                )
-        }
+    Single
+        (\project { path, ast } ->
+            schema.initialContext
+                |> schema.elmJsonVisitor (Review.Project.elmJson project)
+                |> schema.moduleDefinitionVisitor ast.moduleDefinition
+                |> accumulateList schema.importVisitor ast.imports
+                |> accumulate (schema.declarationListVisitor ast.declarations)
+                |> accumulateList (visitDeclaration schema.declarationVisitor schema.expressionVisitor) ast.declarations
+                |> makeFinalEvaluation schema.finalEvaluationFn
+                |> List.map (\(Error err) -> Error { err | ruleName = schema.name, filePath = path })
+                |> List.reverse
+        )
 
 
 maybeApply : Maybe (b -> a -> a) -> b -> a -> a
@@ -496,10 +475,7 @@ visitFileForMulti (Schema schema) initialContext { path, ast } =
 -}
 fromMultiSchema : MultiSchema context -> Rule
 fromMultiSchema ((MultiSchema schema) as multiSchema) =
-    Rule
-        { name = schema.name
-        , analyzer = Multi (multiAnalyzer multiSchema)
-        }
+    Multi (multiAnalyzer multiSchema)
 
 
 {-| Concatenate the errors of the previous step and of the last step.
@@ -1467,24 +1443,6 @@ errorFixes (Error err) =
 errorFilePath : Error -> String
 errorFilePath (Error err) =
     err.filePath
-
-
-
--- ACCESS
-
-
-{-| Get the name of a [`Rule`](#Rule).
--}
-name : Rule -> String
-name (Rule rule) =
-    rule.name
-
-
-{-| Get the analyzer function of a [`Rule`](#Rule).
--}
-analyzer : Rule -> Analyzer
-analyzer (Rule rule) =
-    rule.analyzer
 
 
 
