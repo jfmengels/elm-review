@@ -5,7 +5,7 @@ module Review.Rule exposing
     , withInitialContext, withModuleDefinitionVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalEvaluation
     , withElmJsonVisitor
     , withFixes
-    , Error, error, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
+    , Error, error, parsingError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
     , name, analyzer
     , Analyzer(..), newMultiSchema, fromMultiSchema, newFileVisitorSchema
     , FileKey, withFileKeyVisitor, errorForFile
@@ -180,7 +180,7 @@ For more information on automatic fixing, read the documentation for [`Review.Fi
 
 ## Errors
 
-@docs Error, error, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
+@docs Error, error, parsingError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
 
 
 # ACCESS
@@ -204,7 +204,7 @@ import Elm.Syntax.Infix exposing (InfixDirection(..))
 import Elm.Syntax.Module exposing (Module)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
-import Review.File exposing (ParsedFile)
+import Review.File exposing (ParsedFile, RawFile)
 import Review.Fix exposing (Fix)
 import Review.Project exposing (Project)
 
@@ -398,7 +398,7 @@ fromSchema (Schema schema) =
                         |> accumulate (schema.declarationListVisitor ast.declarations)
                         |> accumulateList (visitDeclaration schema.declarationVisitor schema.expressionVisitor) ast.declarations
                         |> makeFinalEvaluation schema.finalEvaluationFn
-                        |> List.map (\(Error err) -> Error { err | filePath = path })
+                        |> List.map (\(Error err) -> Error { err | ruleName = schema.name, filePath = path })
                         |> List.reverse
                 )
         }
@@ -478,6 +478,7 @@ multiAnalyzer (MultiSchema schema) project =
                 |> List.map Tuple.second
                 |> List.foldl schema.mergeContexts schema.initialContext
                 |> schema.finalEvaluationFn
+                |> List.map (\(Error err) -> Error { err | ruleName = schema.name })
             ]
 
 
@@ -1301,6 +1302,7 @@ name of the rule that emitted it and the file name.
 type Error
     = Error
         { message : String
+        , ruleName : String
         , filePath : String
         , details : List String
         , range : Range
@@ -1334,6 +1336,7 @@ error : { message : String, details : List String } -> Range -> Error
 error { message, details } range =
     Error
         { message = message
+        , ruleName = ""
         , filePath = ""
         , details = details
         , range = range
@@ -1364,9 +1367,27 @@ errorForFile (FileKey path) { message, details } range =
     -- TODO Use fileKey
     Error
         { message = message
+        , ruleName = ""
         , details = details
         , range = range
         , filePath = path
+        , fixes = Nothing
+        }
+
+
+{-| TODO
+-}
+parsingError : RawFile -> Error
+parsingError rawFile =
+    Error
+        { filePath = rawFile.path
+        , ruleName = "ParsingError"
+        , message = rawFile.path ++ " is not a correct Elm file"
+        , details =
+            [ "I could not understand the content of this file, and this prevents me from analyzing it. It is highly likely that the content of the file is not correct Elm code."
+            , "Hint: Try running `elm make`. The compiler should give you better hints on how to resolve the problem."
+            ]
+        , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
         , fixes = Nothing
         }
 
@@ -1402,6 +1423,13 @@ withFixes fixes (Error err) =
 
     else
         Error { err | fixes = Just fixes }
+
+
+{-| Get the name of the rule that triggered this [`Error`](#Error).
+-}
+errorRuleName : Error -> String
+errorRuleName (Error err) =
+    err.ruleName
 
 
 {-| Get the error message of an [`Error`](#Error).

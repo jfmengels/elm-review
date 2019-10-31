@@ -1,7 +1,6 @@
 module Review exposing
     ( parseFile, parseFiles
     , review, reviewFiles
-    , Error, errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
     )
 
 {-| Module to configure your review configuration and run it on a source file.
@@ -16,11 +15,6 @@ module Review exposing
 
 @docs review, reviewFiles
 
-
-# Errors
-
-@docs Error, errorModuleName, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
-
 -}
 
 import Elm.Parser as Parser
@@ -32,26 +26,7 @@ import Elm.Syntax.Range exposing (Range)
 import Review.File exposing (ParsedFile, RawFile)
 import Review.Fix exposing (Fix)
 import Review.Project exposing (Project)
-import Review.Rule as Rule exposing (Rule)
-
-
-{-| Represents an error in a file found by a rule.
-
-Note: This should not be confused with `Error` from the `Review.Rule` module.
-`Review.Error` is created from `Review.Rule.Error` but contains additional information
-like the name of the rule that emitted it and the file name.
-
--}
-type Error
-    = Error
-        { moduleName : Maybe String
-        , filePath : String
-        , ruleName : String
-        , message : String
-        , details : List String
-        , range : Range
-        , fixes : Maybe (List Fix)
-        }
+import Review.Rule as Rule exposing (Error, Rule)
 
 
 
@@ -75,27 +50,16 @@ type Error
         review config project sourceCode
 
 -}
-review : List Rule -> Project -> { path : String, source : String } -> List Error
-review config project { path, source } =
-    case parseSource source of
+review : List Rule -> Project -> RawFile -> List Error
+review config project rawFile =
+    case parseSource rawFile.source of
         Ok file ->
             config
-                |> List.concatMap (reviewWithRule project path file)
+                |> List.concatMap (reviewWithRule project rawFile.path file)
                 |> List.sortWith compareErrorPositions
 
         Err _ ->
-            [ Error
-                { moduleName = Nothing
-                , filePath = path
-                , ruleName = "ParsingError"
-                , message = path ++ " is not a correct Elm file"
-                , details =
-                    [ "I could not understand the content of this file, and this prevents me from analyzing it. It is highly likely that the content of the file is not correct Elm code."
-                    , "Hint: Try running `elm make`. The compiler should give you better hints on how to resolve the problem."
-                    ]
-                , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
-                , fixes = Nothing
-                }
+            [ Rule.parsingError rawFile
             ]
 
 
@@ -121,16 +85,10 @@ reviewFiles rules project files =
             (\rule ->
                 case Rule.analyzer rule of
                     Rule.Single fn ->
-                        List.concatMap
-                            (\file ->
-                                fn project file
-                                    |> List.map (ruleErrorToReviewError rule)
-                            )
-                            files
+                        List.concatMap (fn project) files
 
                     Rule.Multi fn ->
                         fn project files
-                            |> List.map (ruleErrorToReviewError rule)
             )
 
 
@@ -161,24 +119,12 @@ parseFile rawFile =
                 }
 
         Err _ ->
-            Err <|
-                Error
-                    { moduleName = Nothing
-                    , filePath = rawFile.path
-                    , ruleName = "ParsingError"
-                    , message = rawFile.path ++ " is not a correct Elm file"
-                    , details =
-                        [ "I could not understand the content of this file, and this prevents me from analyzing it. It is highly likely that the content of the file is not correct Elm code."
-                        , "Hint: Try running `elm make`. The compiler should give you better hints on how to resolve the problem."
-                        ]
-                    , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
-                    , fixes = Nothing
-                    }
+            Err (Rule.parsingError rawFile)
 
 
 compareErrorPositions : Error -> Error -> Order
-compareErrorPositions (Error a) (Error b) =
-    compareRange a.range b.range
+compareErrorPositions a b =
+    compareRange (Rule.errorRange a) (Rule.errorRange b)
 
 
 compareRange : Range -> Range -> Order
@@ -223,19 +169,6 @@ compareRange a b =
         EQ
 
 
-ruleErrorToReviewError : Rule -> Rule.Error -> Error
-ruleErrorToReviewError rule error =
-    Error
-        { moduleName = Nothing
-        , filePath = Rule.errorFilePath error
-        , ruleName = Rule.name rule
-        , message = Rule.errorMessage error
-        , details = Rule.errorDetails error
-        , range = Rule.errorRange error
-        , fixes = Rule.errorFixes error
-        }
-
-
 {-| Parse source code into a AST
 -}
 parseSource : String -> Result String File
@@ -244,56 +177,3 @@ parseSource source =
         |> Parser.parse
         |> Result.mapError (\error -> "Parsing error")
         |> Result.map (process init)
-
-
-
--- ERRORS
-
-
-{-| Get the name of the module for which the error occurred.
--}
-errorModuleName : Error -> Maybe String
-errorModuleName (Error error) =
-    error.moduleName
-
-
-{-| Get the name of the rule of an error.
--}
-errorRuleName : Error -> String
-errorRuleName (Error error) =
-    error.ruleName
-
-
-{-| Get the message of an error.
--}
-errorMessage : Error -> String
-errorMessage (Error error) =
-    error.message
-
-
-{-| Get the details of an error.
--}
-errorDetails : Error -> List String
-errorDetails (Error error) =
-    error.details
-
-
-{-| Get the range of an error.
--}
-errorRange : Error -> Range
-errorRange (Error error) =
-    error.range
-
-
-{-| Get the fixes for an error.
--}
-errorFixes : Error -> Maybe (List Fix)
-errorFixes (Error error) =
-    error.fixes
-
-
-{-| TODO
--}
-errorFilePath : Error -> String
-errorFilePath (Error error) =
-    error.filePath
