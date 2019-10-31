@@ -17,10 +17,10 @@ Here are a few examples:
     - [X] Using the same functions as for a single rule
     - [X] Forbid specifying a name
     - [X] Forbid specifying an elmJsonVisitor
-- [ ] Be able to run both types of rules and get a list of errors
-- [ ] Be able to re-run a rule when a file has changed
-    - [ ] For single rules, re-run the rule on the file and replace the errors on the file
-    - [ ] For multi rules:
+- [X] Be able to run both types of rules and get a list of errors
+- [X] Be able to re-run a rule when a file has changed
+    - [X] For single rules, re-run the rule on the file and replace the errors on the file
+    - [X] For multi rules:
         - For every file, keep and associate to the file the resulting context and the errors thrown while visiting
         - When a file changes, recompute the associated context and errors (and keep them)
         - Re-merge the contexts, call finalEvaluation and concatenate the errors of the other files

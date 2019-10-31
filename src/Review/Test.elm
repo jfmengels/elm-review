@@ -219,6 +219,7 @@ runWithProjectData project rule source =
     case Review.parseFile { path = "TestContent.elm", source = source } of
         Ok parsedFile ->
             Review.reviewFiles [ rule ] project [ parsedFile ]
+                |> Tuple.first
                 |> List.map
                     (\error_ ->
                         Rule.error

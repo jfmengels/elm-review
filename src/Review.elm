@@ -77,18 +77,9 @@ import Review.Rule as Rule exposing (Error, Rule)
             ]
 
 -}
-reviewFiles : List Rule -> Project -> List ParsedFile -> List Error
+reviewFiles : List Rule -> Project -> List ParsedFile -> ( List Error, List Rule )
 reviewFiles rules project files =
-    rules
-        |> List.concatMap
-            (\rule ->
-                case Rule.analyzer rule of
-                    Rule.Single fn ->
-                        List.concatMap (fn project) files
-
-                    Rule.Multi fn ->
-                        fn project files
-            )
+    Rule.runRules rules project files
 
 
 {-| Review a list of raw files and gives back the errors raised by the given rules.
@@ -141,6 +132,7 @@ reviewRawFiles rules project files =
     in
     List.concat
         [ reviewFiles rules project parsedFiles
+            |> Tuple.first
         , parsingErrors
         ]
 

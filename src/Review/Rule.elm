@@ -1,5 +1,6 @@
 module Review.Rule exposing
     ( Rule, Schema
+    , runRules
     , newSchema, fromSchema
     , withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
     , withInitialContext, withModuleDefinitionVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalEvaluation
@@ -8,6 +9,7 @@ module Review.Rule exposing
     , Error, error, parsingError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
     , newMultiSchema, fromMultiSchema, newFileVisitorSchema
     , FileKey, withFileKeyVisitor, errorForFile
+    , ReviewResult(..)
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -150,6 +152,11 @@ patterns you would want to forbid, but that are not handled by the example.
 @docs Rule, Schema
 
 
+## Running the rule
+
+@docs runRules
+
+
 ## Creating a Rule
 
 @docs newSchema, fromSchema
@@ -186,9 +193,11 @@ For more information on automatic fixing, read the documentation for [`Review.Fi
 
 @docs newMultiSchema, fromMultiSchema, newFileVisitorSchema
 @docs FileKey, withFileKeyVisitor, errorForFile
+@docs ReviewResult
 
 -}
 
+import Dict exposing (Dict)
 import Elm.Project
 import Elm.Syntax.Declaration exposing (Declaration(..))
 import Elm.Syntax.Expression exposing (Expression(..), Function, LetDeclaration(..))
@@ -208,10 +217,12 @@ See [`newSchema`](#newSchema), and [`fromSchema`](#fromSchema) for how to create
 TODO Explain about single and multi-file rules
 -}
 type Rule
-    = -- TODO Can't Single also be (Project -> List File -> List Error)?
-      -- Have the file processing be done in this file rather than in Review.elm
-      Single (Project -> ParsedFile -> List Error)
-    | Multi (Project -> List ParsedFile -> List Error)
+    = Single String (Project -> List ParsedFile -> ( List Error, Rule ))
+    | Multi String (Project -> List ParsedFile -> ( List Error, Rule ))
+
+
+type ReviewResult
+    = ReviewResult ( List Error, Project -> List ParsedFile -> ReviewResult )
 
 
 {-| Represents a Schema for a [`Rule`](#Rule). Create one using [`newSchema`](#newSchema).
@@ -261,6 +272,30 @@ type
         , expressionVisitor : Node Expression -> Direction -> context -> ( List Error, context )
         , finalEvaluationFn : context -> List Error
         }
+
+
+runRules : List Rule -> Project -> List ParsedFile -> ( List Error, List Rule )
+runRules rules project files =
+    List.foldl
+        (\rule ( errors, previousRules ) ->
+            let
+                ( ruleErrors, ruleWithCache ) =
+                    run rule project files
+            in
+            ( List.concat [ ruleErrors, errors ], ruleWithCache :: previousRules )
+        )
+        ( [], [] )
+        rules
+
+
+run : Rule -> Project -> List ParsedFile -> ( List Error, Rule )
+run rule project files =
+    case rule of
+        Single _ fn ->
+            fn project files
+
+        Multi _ fn ->
+            fn project files
 
 
 {-| Represents whether a Node is being traversed before having seen its children (`OnEnter`ing the Node), or after (`OnExit`ing the Node).
@@ -368,19 +403,63 @@ newFileVisitorSchema initialContext =
 {-| Create a [`Rule`](#Rule) from a configured [`Schema`](#Schema).
 -}
 fromSchema : Schema { singleFile : () } { hasAtLeastOneVisitor : () } context -> Rule
-fromSchema (Schema schema) =
-    Single
-        (\project { path, ast } ->
-            schema.initialContext
-                |> schema.elmJsonVisitor (Review.Project.elmJson project)
-                |> schema.moduleDefinitionVisitor ast.moduleDefinition
-                |> accumulateList schema.importVisitor ast.imports
-                |> accumulate (schema.declarationListVisitor ast.declarations)
-                |> accumulateList (visitDeclaration schema.declarationVisitor schema.expressionVisitor) ast.declarations
-                |> makeFinalEvaluation schema.finalEvaluationFn
-                |> List.map (\(Error err) -> Error { err | ruleName = schema.name, filePath = path })
-                |> List.reverse
-        )
+fromSchema ((Schema { name }) as schema) =
+    Single name (runSingle schema Dict.empty)
+
+
+type alias SingleRuleCache =
+    Dict String
+        { source : String
+        , errors : List Error
+        }
+
+
+runSingle : Schema { singleFile : () } { hasAtLeastOneVisitor : () } context -> SingleRuleCache -> Project -> List ParsedFile -> ( List Error, Rule )
+runSingle ((Schema { name }) as schema) startCache project files =
+    let
+        computeErrors_ : ParsedFile -> List Error
+        computeErrors_ =
+            computeErrors schema project
+
+        newCache : SingleRuleCache
+        newCache =
+            List.foldl
+                (\file cache ->
+                    case Dict.get file.path cache of
+                        Nothing ->
+                            Dict.insert file.path { source = file.source, errors = computeErrors_ file } cache
+
+                        Just cacheEntry ->
+                            if cacheEntry.source == file.source then
+                                -- File is unchanged, we will later return the cached errors
+                                cache
+
+                            else
+                                Dict.insert file.path { source = file.source, errors = computeErrors_ file } cache
+                )
+                startCache
+                files
+
+        errors : List Error
+        errors =
+            newCache
+                |> Dict.values
+                |> List.concatMap .errors
+    in
+    ( errors, Single name (runSingle schema newCache) )
+
+
+computeErrors : Schema { singleFile : () } { hasAtLeastOneVisitor : () } context -> Project -> ParsedFile -> List Error
+computeErrors (Schema schema) project file =
+    schema.initialContext
+        |> schema.elmJsonVisitor (Review.Project.elmJson project)
+        |> schema.moduleDefinitionVisitor file.ast.moduleDefinition
+        |> accumulateList schema.importVisitor file.ast.imports
+        |> accumulate (schema.declarationListVisitor file.ast.declarations)
+        |> accumulateList (visitDeclaration schema.declarationVisitor schema.expressionVisitor) file.ast.declarations
+        |> makeFinalEvaluation schema.finalEvaluationFn
+        |> List.map (\(Error err) -> Error { err | ruleName = schema.name, filePath = file.path })
+        |> List.reverse
 
 
 maybeApply : Maybe (b -> a -> a) -> b -> a -> a
@@ -425,42 +504,6 @@ newMultiSchema name_ { initialContext, elmJsonVisitor, fileVisitor, mergeContext
         }
 
 
-multiAnalyzer : MultiSchema context -> Project -> List ParsedFile -> List Error
-multiAnalyzer (MultiSchema schema) project =
-    let
-        initialContext : context
-        initialContext =
-            case schema.elmJsonVisitor of
-                Just elmJsonVisitor ->
-                    elmJsonVisitor (Review.Project.elmJson project) schema.initialContext
-
-                Nothing ->
-                    schema.initialContext
-    in
-    \files ->
-        let
-            contextsAndErrorsPerFile : List ( List Error, context )
-            contextsAndErrorsPerFile =
-                List.map
-                    (\file ->
-                        visitFileForMulti
-                            (schema.fileVisitor initialContext)
-                            initialContext
-                            file
-                            |> Tuple.mapFirst (List.map (\(Error err) -> Error { err | filePath = file.path }))
-                    )
-                    files
-        in
-        List.concat
-            [ List.concatMap Tuple.first contextsAndErrorsPerFile
-            , contextsAndErrorsPerFile
-                |> List.map Tuple.second
-                |> List.foldl schema.mergeContexts schema.initialContext
-                |> schema.finalEvaluationFn
-                |> List.map (\(Error err) -> Error { err | ruleName = schema.name })
-            ]
-
-
 visitFileForMulti : Schema { multiFile : () } { hasAtLeastOneVisitor : () } context -> context -> ParsedFile -> ( List Error, context )
 visitFileForMulti (Schema schema) initialContext { path, ast } =
     initialContext
@@ -475,7 +518,82 @@ visitFileForMulti (Schema schema) initialContext { path, ast } =
 -}
 fromMultiSchema : MultiSchema context -> Rule
 fromMultiSchema ((MultiSchema schema) as multiSchema) =
-    Multi (multiAnalyzer multiSchema)
+    Multi schema.name (runMulti multiSchema Dict.empty)
+
+
+type alias MultiRuleCache context =
+    Dict String
+        { source : String
+        , errors : List Error
+        , context : context
+        }
+
+
+runMulti : MultiSchema context -> MultiRuleCache context -> Project -> List ParsedFile -> ( List Error, Rule )
+runMulti (MultiSchema schema) startCache project =
+    let
+        initialContext : context
+        initialContext =
+            case schema.elmJsonVisitor of
+                Just elmJsonVisitor ->
+                    elmJsonVisitor (Review.Project.elmJson project) schema.initialContext
+
+                Nothing ->
+                    schema.initialContext
+    in
+    \files ->
+        let
+            computeFile : ParsedFile -> { source : String, errors : List Error, context : context }
+            computeFile file =
+                let
+                    ( fileErrors, context ) =
+                        visitFileForMulti
+                            (schema.fileVisitor initialContext)
+                            initialContext
+                            file
+                in
+                { source = file.source
+                , errors = List.map (\(Error err) -> Error { err | filePath = file.path }) fileErrors
+                , context = context
+                }
+
+            newCache : MultiRuleCache context
+            newCache =
+                List.foldl
+                    (\file cache ->
+                        case Dict.get file.path cache of
+                            Nothing ->
+                                Dict.insert file.path (computeFile file) cache
+
+                            Just cacheEntry ->
+                                if cacheEntry.source == file.source then
+                                    -- File is unchanged, we will later return the cached errors and context
+                                    cache
+
+                                else
+                                    Dict.insert file.path (computeFile file) cache
+                    )
+                    startCache
+                    files
+
+            contextsAndErrorsPerFile : List ( List Error, context )
+            contextsAndErrorsPerFile =
+                newCache
+                    |> Dict.values
+                    |> List.map (\cacheEntry -> ( cacheEntry.errors, cacheEntry.context ))
+
+            errors : List Error
+            errors =
+                List.concat
+                    [ List.concatMap Tuple.first contextsAndErrorsPerFile
+                    , contextsAndErrorsPerFile
+                        |> List.map Tuple.second
+                        |> List.foldl schema.mergeContexts schema.initialContext
+                        |> schema.finalEvaluationFn
+                        |> List.map (\(Error err) -> Error { err | ruleName = schema.name })
+                    ]
+        in
+        ( errors, Multi schema.name (runMulti (MultiSchema schema) newCache) )
 
 
 {-| Concatenate the errors of the previous step and of the last step.
