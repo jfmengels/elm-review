@@ -12,7 +12,6 @@ module NoUnusedModules exposing (rule)
 import Dict exposing (Dict)
 import Elm.Module
 import Elm.Project exposing (Project)
-import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.Node as Node exposing (Node(..))

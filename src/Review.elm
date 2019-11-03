@@ -20,11 +20,7 @@ module Review exposing
 import Elm.Parser as Parser
 import Elm.Processing exposing (init, process)
 import Elm.Syntax.File exposing (File)
-import Elm.Syntax.Module as Module
-import Elm.Syntax.Node as Node
-import Elm.Syntax.Range exposing (Range)
 import Review.File exposing (ParsedFile, RawFile)
-import Review.Fix exposing (Fix)
 import Review.Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 
