@@ -449,16 +449,22 @@ runSingle ((Schema { name }) as schema) startCache project files =
 
 
 computeErrors : Schema { singleFile : () } { hasAtLeastOneVisitor : () } context -> Project -> ParsedFile -> List Error
-computeErrors (Schema schema) project file =
-    schema.initialContext
-        |> schema.elmJsonVisitor (Review.Project.elmJson project)
-        |> schema.moduleDefinitionVisitor file.ast.moduleDefinition
-        |> accumulateList schema.importVisitor file.ast.imports
-        |> accumulate (schema.declarationListVisitor file.ast.declarations)
-        |> accumulateList (visitDeclaration schema.declarationVisitor schema.expressionVisitor) file.ast.declarations
-        |> makeFinalEvaluation schema.finalEvaluationFn
-        |> List.map (\(Error err) -> Error { err | ruleName = schema.name, filePath = file.path })
-        |> List.reverse
+computeErrors (Schema schema) project =
+    let
+        initialContext : context
+        initialContext =
+            schema.initialContext
+                |> schema.elmJsonVisitor (Review.Project.elmJson project)
+    in
+    \file ->
+        initialContext
+            |> schema.moduleDefinitionVisitor file.ast.moduleDefinition
+            |> accumulateList schema.importVisitor file.ast.imports
+            |> accumulate (schema.declarationListVisitor file.ast.declarations)
+            |> accumulateList (visitDeclaration schema.declarationVisitor schema.expressionVisitor) file.ast.declarations
+            |> makeFinalEvaluation schema.finalEvaluationFn
+            |> List.map (\(Error err) -> Error { err | ruleName = schema.name, filePath = file.path })
+            |> List.reverse
 
 
 maybeApply : Maybe (b -> a -> a) -> b -> a -> a
