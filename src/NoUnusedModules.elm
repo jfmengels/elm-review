@@ -78,7 +78,7 @@ rule =
         |> Rule.fromMultiSchema
 
 
-fileVisitor : Context -> Rule.Schema { multiFile : () } { hasAtLeastOneVisitor : () } Context
+fileVisitor : Context -> Rule.Schema Rule.ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } Context
 fileVisitor context =
     Rule.newFileVisitorSchema context
         |> Rule.withFileKeyVisitor fileKeyVisitor
