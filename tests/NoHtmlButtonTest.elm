@@ -77,6 +77,20 @@ a = H.button
                         , under = "H.button"
                         }
                     ]
+    , test "should report the use of `button` when it has been imported explicitly" <|
+        \() ->
+            testRule """
+import Html exposing (button)
+a = button
+"""
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = message
+                        , details = details
+                        , under = "button"
+                        }
+                        |> Review.Test.atExactly { start = { row = 5, column = 5 }, end = { row = 5, column = 11 } }
+                    ]
     ]
 
 
