@@ -33,6 +33,19 @@ Here are a few examples:
     - [ ] Make sure that the order does not matter by running a rule several
       times with a different order for the files every time.
 
+- Solve cases where you may want to re-review a file
+    - Need to know what the interface of a module is (what do `import Html exposing (..)` and `import A exposing (B(..))` bring into the scope?).
+        - Providing the signatures of modules should suffice.
+        - For internal files, https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Interface
+        - For dependencies, load them one way or another (TBD)
+    - Need to know the contents of a function body (does this function use `Html.lazy`?) or type (does this type alias to or wrap a function?)
+        - The imported files should be analyzed before the importing file, and the resulting context should be available using `withInitialContext` or a similar function.
+        - This may warrant a different function or an additional parameter to create the rule, so that `elm-review` knows in which order files should be analyzed. (Maybe `withInitialContext` and its alternative can do that job)
+        - When loading the files, it's probably worth creating an acyclic graph of files by the way they import themselves imports can probably be created so as to know the order in which. The code using `elm-review` should only have to collect the files, but should not have to create the graph itself. This might be a bit similar to what is being done with https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Processing#ProcessContext.
+        - When a file gets updated, the files importing it get re-evaluated, and so on (until the resulting context is the same as before).
+        - It should be possible to add or remove files from the graph/list of files, to prepare for a potential watch mode.
+
+
 ## Work on errors
 
 - [X] Define a way to report errors in other files?
