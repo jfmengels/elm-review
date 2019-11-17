@@ -1,6 +1,6 @@
 module Review.Project exposing
     ( Project, ElmJson
-    , elmJson
+    , elmJson, interfaces
     , new, withElmJson
     )
 
@@ -18,7 +18,7 @@ rules to have access to, to later pass it to the [`Review.review`](./Review#revi
 
 # Access
 
-@docs elmJson
+@docs elmJson, interfaces
 
 
 # Build
@@ -27,7 +27,10 @@ rules to have access to, to later pass it to the [`Review.review`](./Review#revi
 
 -}
 
+import Dict exposing (Dict)
+import Elm.Interface exposing (Interface)
 import Elm.Project
+import Elm.Syntax.ModuleName exposing (ModuleName)
 
 
 
@@ -38,7 +41,10 @@ import Elm.Project
 the `elm.json` file.
 -}
 type Project
-    = Project { elmJson : Maybe ElmJson }
+    = Project
+        { elmJson : Maybe ElmJson
+        , interfaces : Dict ModuleName Interface
+        }
 
 
 {-| Contents of the `elm.json` file. Alias to
@@ -65,6 +71,19 @@ elmJson (Project data) =
     data.elmJson
 
 
+{-| Get the interfaces for every dependency in the project.
+
+This will give you a `Project` type from the
+[`elm/project-metadata-utils`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.0/Elm-Project)
+package, so you will need to install and use it to gain access to the
+information inside the `elm.json` file.
+
+-}
+interfaces : Project -> Dict ModuleName Interface
+interfaces (Project data) =
+    data.interfaces
+
+
 
 -- BUILD
 
@@ -73,7 +92,10 @@ elmJson (Project data) =
 -}
 new : Project
 new =
-    Project { elmJson = Nothing }
+    Project
+        { elmJson = Nothing
+        , interfaces = Dict.empty
+        }
 
 
 {-| Add the contents of the `elm.json` file to the project details.
