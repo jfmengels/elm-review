@@ -45,6 +45,15 @@ Here are a few examples:
         - When a file gets updated, the files importing it get re-evaluated, and so on (until the resulting context is the same as before).
         - It should be possible to add or remove files from the graph/list of files, to prepare for a potential watch mode.
 
+- [ ] Dependency signature loading
+    - The signatures are available by
+        - Reading local file $elm_home/packages/<author>/<packagename>/docs.json
+        - Downloading https://package.elm-lang.org/packages/elm/core/latest/docs.json
+    - Cache the `docs.json` above so as not to have to download the packages at every run
+    - Add these to `elm-syntax`'s `ProcessContext` in order to better parse the files (wrt operator precedence)
+    - Add them to the Project
+    - Load dependencies before loading the files (wrt the `ProcessContext`)
+    - Make `Project` handle the list of files, the parsing, the graph creation, etc.
 
 ## Work on errors
 
