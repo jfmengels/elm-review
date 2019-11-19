@@ -28,10 +28,10 @@ rules to have access to, to later pass it to the [`Review.review`](./Review#revi
 -}
 
 import Dict exposing (Dict)
+import Elm.Docs
 import Elm.Interface exposing (Interface)
 import Elm.Project
 import Elm.Syntax.ModuleName exposing (ModuleName)
-import Review.ModuleInterface as ModuleInterface
 
 
 
@@ -44,8 +44,8 @@ the `elm.json` file.
 type Project
     = Project
         { elmJson : Maybe ElmJson
-        , interfaces : Dict ModuleName (List ModuleInterface.Exposed)
-        , moduleToDependency : Dict ModuleName String
+        , interfaces : Dict String Elm.Docs.Module
+        , moduleToDependency : Dict String String
         }
 
 
@@ -81,7 +81,7 @@ package, so you will need to install and use it to gain access to the
 information inside the `elm.json` file.
 
 -}
-interfaces : Project -> Dict ModuleName (List ModuleInterface.Exposed)
+interfaces : Project -> Dict String Elm.Docs.Module
 interfaces (Project project) =
     project.interfaces
 
@@ -110,22 +110,18 @@ withElmJson elmJson_ (Project project) =
 
 {-| Add a dependency to the project
 -}
-withDependency : { packageName : String, interfaces : List ( String, List ModuleInterface.Exposed ) } -> Project -> Project
+withDependency : { r | packageName : String, interfaces : List Elm.Docs.Module } -> Project -> Project
 withDependency dependency (Project project) =
     Project
         { project
             | interfaces =
                 dependency.interfaces
-                    |> List.map (Tuple.mapFirst (String.split "."))
+                    |> List.map (\module_ -> ( module_.name, module_ ))
                     |> Dict.fromList
                     |> Dict.union project.interfaces
             , moduleToDependency =
                 dependency.interfaces
-                    |> List.map
-                        (Tuple.mapBoth
-                            (String.split ".")
-                            (always dependency.packageName)
-                        )
+                    |> List.map (\module_ -> ( module_.name, dependency.packageName ))
                     |> Dict.fromList
                     |> Dict.union project.moduleToDependency
         }
