@@ -55,6 +55,19 @@ Here are a few examples:
     - Load dependencies before loading the files (wrt the `ProcessContext`)
     - Make `Project` handle the list of files, the parsing, the graph creation, etc.
 
+## Caching
+
+- For multi-rules
+  - Add a way to decode/encode the context for each file
+  - If the rule supports encoding/decoding, in `Review.Test` check that `context == decode <| encode context` for every file
+  - Store the contexts for each file/rule to the file system
+  - Load the contexts for each file/rule from the file system
+  - Figure out what to do if the initial context changes (discard the cache?)
+- Propose a way in the CLI to
+  - remove the cache?
+  - run without cache?
+  - specify the cache location?
+
 ## Work on errors
 
 - [X] Define a way to report errors in other files?
