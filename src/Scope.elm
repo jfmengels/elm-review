@@ -1,4 +1,4 @@
-module Scope exposing (Context, SetterGetter, importVisitor, initialContext, realFunctionOrType)
+module Scope exposing (Context, SetterGetter, dependenciesVisitor, importVisitor, initialContext, realFunctionOrType)
 
 {-| Report variables or types that are declared or imported but never used.
 
@@ -10,6 +10,7 @@ module Scope exposing (Context, SetterGetter, importVisitor, initialContext, rea
 -}
 
 import Dict exposing (Dict)
+import Elm.Docs
 import Elm.Syntax.Declaration exposing (Declaration(..))
 import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
 import Elm.Syntax.Expression exposing (Expression(..), Function, FunctionImplementation, LetDeclaration(..))
@@ -32,7 +33,8 @@ type Context
 type alias InnerContext =
     { scopes : Nonempty Scope
     , importAliases : Dict String (List String)
-    , explicitlyImportedFunctionOrTypes : Dict String (List String)
+    , importedFunctionOrTypes : Dict String (List String)
+    , dependencies : Dict String Elm.Docs.Module
     }
 
 
@@ -41,14 +43,15 @@ initialContext =
     Context
         { scopes = Nonempty.fromElement emptyScope
         , importAliases = Dict.empty
-        , explicitlyImportedFunctionOrTypes = Dict.empty
+        , importedFunctionOrTypes = Dict.empty
+        , dependencies = Dict.empty
         }
 
 
 realFunctionOrType : List String -> String -> Context -> ( List String, String )
 realFunctionOrType moduleName functionOrType (Context context) =
     if List.length moduleName == 0 then
-        ( Dict.get functionOrType context.explicitlyImportedFunctionOrTypes
+        ( Dict.get functionOrType context.importedFunctionOrTypes
             |> Maybe.withDefault moduleName
         , functionOrType
         )
@@ -79,7 +82,7 @@ importVisitor { setter, getter } maybeVisitor =
                     \node newContext -> ( [], newContext )
 
                 Just fn ->
-                    \node newContext -> fn node newContext
+                    fn
     in
     \((Node range import_) as node) outerContext ->
         outerContext
@@ -88,10 +91,30 @@ importVisitor { setter, getter } maybeVisitor =
             |> registerImportAlias import_
             |> registerExposed import_
             |> Context
-            |> (\newContext ->
-                    setter newContext outerContext
-               )
+            |> (\newContext -> setter newContext outerContext)
             |> visitor node
+
+
+dependenciesVisitor : SetterGetter context -> Maybe (Dict String Elm.Docs.Module -> context -> context) -> Dict String Elm.Docs.Module -> context -> context
+dependenciesVisitor { setter, getter } maybeVisitor =
+    let
+        visitor : Dict String Elm.Docs.Module -> context -> context
+        visitor =
+            case maybeVisitor of
+                Nothing ->
+                    \dependencies newContext -> newContext
+
+                Just fn ->
+                    fn
+    in
+    \dependencies outerContext ->
+        outerContext
+            |> getter
+            |> unbox
+            |> (\innerContext -> { innerContext | dependencies = dependencies })
+            |> Context
+            |> (\newContext -> setter newContext outerContext)
+            |> visitor dependencies
 
 
 registerImportAlias : Import -> InnerContext -> InnerContext
@@ -117,7 +140,35 @@ registerExposed import_ innerContext =
             innerContext
 
         Just (Exposing.All _) ->
-            innerContext
+            let
+                moduleName : List String
+                moduleName =
+                    Node.value import_.moduleName
+            in
+            case Dict.get (String.join "." moduleName) innerContext.dependencies of
+                Just module_ ->
+                    let
+                        nameWithModuleName : { r | name : String } -> ( String, List String )
+                        nameWithModuleName { name } =
+                            ( name, moduleName )
+
+                        exposedValues : Dict String (List String)
+                        exposedValues =
+                            List.concat
+                                [ List.map nameWithModuleName module_.unions
+                                , List.map nameWithModuleName module_.values
+                                , List.map nameWithModuleName module_.aliases
+                                , List.map nameWithModuleName module_.binops
+                                ]
+                                |> Dict.fromList
+                    in
+                    { innerContext
+                        | importedFunctionOrTypes =
+                            Dict.union innerContext.importedFunctionOrTypes exposedValues
+                    }
+
+                Nothing ->
+                    innerContext
 
         Just (Exposing.Explicit topLevelExposeList) ->
             let
@@ -130,25 +181,32 @@ registerExposed import_ innerContext =
                     topLevelExposeList
                         |> List.map
                             (\topLevelExpose ->
-                                case Node.value topLevelExpose of
-                                    Exposing.InfixExpose operator ->
-                                        ( operator, moduleName )
-
-                                    Exposing.FunctionExpose function ->
-                                        ( function, moduleName )
-
-                                    Exposing.TypeOrAliasExpose type_ ->
-                                        ( type_, moduleName )
-
-                                    Exposing.TypeExpose { name } ->
-                                        ( name, moduleName )
+                                ( nameOfTopLevelExpose <| Node.value topLevelExpose
+                                , moduleName
+                                )
                             )
                         |> Dict.fromList
             in
             { innerContext
-                | explicitlyImportedFunctionOrTypes =
-                    Dict.union innerContext.explicitlyImportedFunctionOrTypes exposedValues
+                | importedFunctionOrTypes =
+                    Dict.union innerContext.importedFunctionOrTypes exposedValues
             }
+
+
+nameOfTopLevelExpose : TopLevelExpose -> String
+nameOfTopLevelExpose topLevelExpose =
+    case topLevelExpose of
+        Exposing.InfixExpose operator ->
+            operator
+
+        Exposing.FunctionExpose function ->
+            function
+
+        Exposing.TypeOrAliasExpose type_ ->
+            type_
+
+        Exposing.TypeExpose { name } ->
+            name
 
 
 unbox : Context -> InnerContext

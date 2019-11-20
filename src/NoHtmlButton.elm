@@ -25,6 +25,7 @@ rule =
             { scope = Scope.initialContext
             , allowed = HtmlButtonIsForbidden
             }
+        |> Rule.withDependenciesVisitor (Scope.dependenciesVisitor scopeSetterGetter Nothing)
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withImportVisitor (Scope.importVisitor scopeSetterGetter Nothing)
         |> Rule.withExpressionVisitor expressionVisitor
