@@ -1,6 +1,6 @@
 module Review.Project exposing
     ( Project, ElmJson
-    , elmJson, interfaces
+    , elmJson, modules
     , new, withElmJson, withDependency
     )
 
@@ -21,7 +21,7 @@ ignore it if you just want to write a review rule.
 
 # Access
 
-@docs elmJson, interfaces
+@docs elmJson, modules
 
 
 # Build
@@ -47,7 +47,7 @@ the `elm.json` file.
 type Project
     = Project
         { elmJson : Maybe ElmJson
-        , interfaces : Dict String Elm.Docs.Module
+        , modules : Dict String Elm.Docs.Module
         , moduleToDependency : Dict String String
         }
 
@@ -76,7 +76,7 @@ elmJson (Project project) =
     project.elmJson
 
 
-{-| Get the interfaces for every dependency in the project.
+{-| Get the modules for every dependency in the project.
 
 This will give you a `Project` type from the
 [`elm/project-metadata-utils`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.0/Elm-Project)
@@ -84,9 +84,9 @@ package, so you will need to install and use it to gain access to the
 information inside the `elm.json` file.
 
 -}
-interfaces : Project -> Dict String Elm.Docs.Module
-interfaces (Project project) =
-    project.interfaces
+modules : Project -> Dict String Elm.Docs.Module
+modules (Project project) =
+    project.modules
 
 
 
@@ -99,7 +99,7 @@ new : Project
 new =
     Project
         { elmJson = Nothing
-        , interfaces = Dict.empty
+        , modules = Dict.empty
         , moduleToDependency = Dict.empty
         }
 
@@ -122,17 +122,17 @@ associativity of operators, which has an impact on the resulting AST when
 parsing a file.
 
 -}
-withDependency : { r | packageName : String, interfaces : List Elm.Docs.Module } -> Project -> Project
+withDependency : { r | packageName : String, modules : List Elm.Docs.Module } -> Project -> Project
 withDependency dependency (Project project) =
     Project
         { project
-            | interfaces =
-                dependency.interfaces
+            | modules =
+                dependency.modules
                     |> List.map (\module_ -> ( module_.name, module_ ))
                     |> Dict.fromList
-                    |> Dict.union project.interfaces
+                    |> Dict.union project.modules
             , moduleToDependency =
-                dependency.interfaces
+                dependency.modules
                     |> List.map (\module_ -> ( module_.name, dependency.packageName ))
                     |> Dict.fromList
                     |> Dict.union project.moduleToDependency
