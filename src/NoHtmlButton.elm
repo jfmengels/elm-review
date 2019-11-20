@@ -27,6 +27,7 @@ rule =
             }
         |> Rule.withDependenciesVisitor (Scope.dependenciesVisitor scopeSetterGetter Nothing)
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
+        |> Rule.withDeclarationListVisitor (Scope.declarationListVisitor scopeSetterGetter Nothing)
         |> Rule.withImportVisitor (Scope.importVisitor scopeSetterGetter Nothing)
         |> Rule.withExpressionVisitor expressionVisitor
         |> Rule.fromSchema

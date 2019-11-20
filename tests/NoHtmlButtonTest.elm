@@ -125,14 +125,14 @@ a = button
                         }
                         |> Review.Test.atExactly { start = { row = 5, column = 5 }, end = { row = 5, column = 11 } }
                     ]
-    , test "should not report the use of `button` when it has been imported implicitly and the dependency is not known" <|
+    , test "should not report the use of `button` when it has been imported using `exposing (..)` and the dependency is not known" <|
         \() ->
             testRule """
 import Html exposing (..)
 a = button
 """
                 |> Review.Test.expectNoErrors
-    , test "should report the use of `button` when it has been imported implicitly and the dependency is known" <|
+    , test "should report the use of `button` when it has been imported using `exposing (..)` and the dependency is known" <|
         \() ->
             testRuleWithHtmlDependency """
 import Html exposing (..)
@@ -145,6 +145,41 @@ a = button
                         , under = "button"
                         }
                         |> Review.Test.atExactly { start = { row = 5, column = 5 }, end = { row = 5, column = 11 } }
+                    ]
+    , test "should not report the use of `button` when it has been imported using `exposing (..)` and the dependency is known, but it has been redefined at the top-level" <|
+        \() ->
+            testRuleWithHtmlDependency """
+import Html exposing (..)
+a = button
+button = 1
+"""
+                |> Review.Test.expectNoErrors
+    , Test.skip <|
+        test "should not report the use of `button` when it has been imported using `exposing (..)` and the dependency is known, but it has been redefined in an accessible let..in declaration" <|
+            \() ->
+                testRuleWithHtmlDependency """
+import Html exposing (..)
+a = let
+  button = 1
+  in button
+"""
+                    |> Review.Test.expectNoErrors
+    , test "should report the use of `button` when it has been imported using `exposing (..)` and the dependency is known, and it has been redefined in an out-of-scope let..in declaration" <|
+        \() ->
+            testRuleWithHtmlDependency """
+import Html exposing (..)
+a = let
+  button = 1
+  in 2
+b = button
+"""
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = message
+                        , details = details
+                        , under = "button"
+                        }
+                        |> Review.Test.atExactly { start = { row = 8, column = 5 }, end = { row = 8, column = 11 } }
                     ]
     ]
 

@@ -1,17 +1,31 @@
-module Scope exposing (Context, SetterGetter, dependenciesVisitor, importVisitor, initialContext, realFunctionOrType)
+module Scope exposing
+    ( Context, SetterGetter
+    , initialContext, dependenciesVisitor, importVisitor, declarationListVisitor
+    , realFunctionOrType
+    )
 
 {-| Report variables or types that are declared or imported but never used.
 
 
-# Rule
+# Definition
 
-@docs rule
+@docs Context, SetterGetter
+
+
+# Usage
+
+@docs initialContext, dependenciesVisitor, importVisitor, declarationListVisitor
+
+
+# Access
+
+@docs realFunctionOrType
 
 -}
 
 import Dict exposing (Dict)
 import Elm.Docs
-import Elm.Syntax.Declaration exposing (Declaration(..))
+import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
 import Elm.Syntax.Expression exposing (Expression(..), Function, FunctionImplementation, LetDeclaration(..))
 import Elm.Syntax.Import exposing (Import)
@@ -26,50 +40,136 @@ import Review.Rule as Rule exposing (Direction, Error, Rule)
 import Set exposing (Set)
 
 
+
+-- DEFINITION
+
+
 type Context
     = Context InnerContext
 
 
 type alias InnerContext =
-    { scopes : Nonempty Scope
+    { scopes : Nonempty (Dict String VariableInfo)
     , importAliases : Dict String (List String)
     , importedFunctionOrTypes : Dict String (List String)
     , dependencies : Dict String Elm.Docs.Module
     }
 
 
+type alias SetterGetter context =
+    { setter : Context -> context -> context
+    , getter : context -> Context
+    }
+
+
+
+-- USAGE
+
+
 initialContext : Context
 initialContext =
     Context
-        { scopes = Nonempty.fromElement emptyScope
+        { scopes = Nonempty.fromElement Dict.empty
         , importAliases = Dict.empty
         , importedFunctionOrTypes = Dict.empty
         , dependencies = Dict.empty
         }
 
 
-realFunctionOrType : List String -> String -> Context -> ( List String, String )
-realFunctionOrType moduleName functionOrType (Context context) =
-    if List.length moduleName == 0 then
-        ( Dict.get functionOrType context.importedFunctionOrTypes
-            |> Maybe.withDefault moduleName
-        , functionOrType
-        )
+dependenciesVisitor : SetterGetter context -> Maybe (Dict String Elm.Docs.Module -> context -> context) -> Dict String Elm.Docs.Module -> context -> context
+dependenciesVisitor { setter, getter } maybeVisitor =
+    let
+        visitor : Dict String Elm.Docs.Module -> context -> context
+        visitor =
+            case maybeVisitor of
+                Nothing ->
+                    \dependencies newContext -> newContext
 
-    else if List.length moduleName == 1 then
-        ( Dict.get (String.join "." moduleName) context.importAliases
-            |> Maybe.withDefault moduleName
-        , functionOrType
-        )
+                Just fn ->
+                    fn
+    in
+    \dependencies outerContext ->
+        outerContext
+            |> getter
+            |> unbox
+            |> (\innerContext -> { innerContext | dependencies = dependencies })
+            |> Context
+            |> (\newContext -> setter newContext outerContext)
+            |> visitor dependencies
 
-    else
-        ( moduleName, functionOrType )
+
+declarationListVisitor : SetterGetter context -> Maybe (List (Node Declaration) -> context -> ( List Error, context )) -> List (Node Declaration) -> context -> ( List Error, context )
+declarationListVisitor { setter, getter } maybeVisitor =
+    let
+        visitor : List (Node Declaration) -> context -> ( List Error, context )
+        visitor =
+            case maybeVisitor of
+                Nothing ->
+                    \declarations newContext -> ( [], newContext )
+
+                Just fn ->
+                    fn
+    in
+    \declarations outerContext ->
+        outerContext
+            |> getter
+            |> unbox
+            |> (\innerContext -> List.foldl registerDeclaration innerContext declarations)
+            |> Context
+            |> (\newContext -> setter newContext outerContext)
+            |> visitor declarations
 
 
-type alias SetterGetter context =
-    { setter : Context -> context -> context
-    , getter : context -> Context
-    }
+registerDeclaration : Node Declaration -> InnerContext -> InnerContext
+registerDeclaration declaration innerContext =
+    case declarationNameNode declaration of
+        Just nameNode ->
+            registerVariable
+                { variableType = TopLevelVariable
+                , node = nameNode
+                }
+                (Node.value nameNode)
+                innerContext
+
+        Nothing ->
+            innerContext
+
+
+declarationNameNode : Node Declaration -> Maybe (Node String)
+declarationNameNode (Node _ declaration) =
+    case declaration of
+        Declaration.FunctionDeclaration function ->
+            function.declaration
+                |> Node.value
+                |> .name
+                |> Just
+
+        Declaration.CustomTypeDeclaration type_ ->
+            Just type_.name
+
+        Declaration.AliasDeclaration alias_ ->
+            Just alias_.name
+
+        Declaration.PortDeclaration port_ ->
+            Just port_.name
+
+        Declaration.InfixDeclaration _ ->
+            Nothing
+
+        Declaration.Destructuring _ _ ->
+            Nothing
+
+
+registerVariable : VariableInfo -> String -> InnerContext -> InnerContext
+registerVariable variableInfo name context =
+    let
+        scopes : Nonempty (Dict String VariableInfo)
+        scopes =
+            Nonempty.mapHead
+                (Dict.insert name variableInfo)
+                context.scopes
+    in
+    { context | scopes = scopes }
 
 
 importVisitor : SetterGetter context -> Maybe (Node Import -> context -> ( List Error, context )) -> Node Import -> context -> ( List Error, context )
@@ -95,28 +195,6 @@ importVisitor { setter, getter } maybeVisitor =
             |> visitor node
 
 
-dependenciesVisitor : SetterGetter context -> Maybe (Dict String Elm.Docs.Module -> context -> context) -> Dict String Elm.Docs.Module -> context -> context
-dependenciesVisitor { setter, getter } maybeVisitor =
-    let
-        visitor : Dict String Elm.Docs.Module -> context -> context
-        visitor =
-            case maybeVisitor of
-                Nothing ->
-                    \dependencies newContext -> newContext
-
-                Just fn ->
-                    fn
-    in
-    \dependencies outerContext ->
-        outerContext
-            |> getter
-            |> unbox
-            |> (\innerContext -> { innerContext | dependencies = dependencies })
-            |> Context
-            |> (\newContext -> setter newContext outerContext)
-            |> visitor dependencies
-
-
 registerImportAlias : Import -> InnerContext -> InnerContext
 registerImportAlias import_ innerContext =
     case import_.moduleAlias of
@@ -127,7 +205,7 @@ registerImportAlias import_ innerContext =
             { innerContext
                 | importAliases =
                     Dict.insert
-                        (Node.value alias_ |> String.join ".")
+                        (Node.value alias_ |> getModuleName)
                         (Node.value import_.moduleName)
                         innerContext.importAliases
             }
@@ -145,7 +223,7 @@ registerExposed import_ innerContext =
                 moduleName =
                     Node.value import_.moduleName
             in
-            case Dict.get (String.join "." moduleName) innerContext.dependencies of
+            case Dict.get (getModuleName moduleName) innerContext.dependencies of
                 Just module_ ->
                     let
                         nameWithModuleName : { r | name : String } -> ( String, List String )
@@ -214,16 +292,9 @@ unbox (Context context) =
     context
 
 
-type alias Scope =
-    { declared : Dict String VariableInfo
-    , used : Set String
-    }
-
-
 type alias VariableInfo =
     { variableType : VariableType
-    , under : Range
-    , rangeToRemove : Range
+    , node : Node String
     }
 
 
@@ -241,13 +312,6 @@ type ImportType
     = ImportedVariable
     | ImportedType
     | ImportedOperator
-
-
-emptyScope : Scope
-emptyScope =
-    { declared = Dict.empty
-    , used = Set.empty
-    }
 
 
 getUsedTypesFromPattern : Node Pattern -> List String
@@ -446,6 +510,45 @@ collectModuleNamesFromTypeAnnotation node =
 
         Unit ->
             []
+
+
+
+-- ACCESS
+
+
+realFunctionOrType : List String -> String -> Context -> ( List String, String )
+realFunctionOrType moduleName functionOrType (Context context) =
+    if List.length moduleName == 0 then
+        ( if isInScope functionOrType context.scopes then
+            []
+
+          else
+            case Dict.get functionOrType context.importedFunctionOrTypes of
+                Just importedFunctionOrType ->
+                    importedFunctionOrType
+
+                Nothing ->
+                    []
+        , functionOrType
+        )
+
+    else if List.length moduleName == 1 then
+        ( Dict.get (getModuleName moduleName) context.importAliases
+            |> Maybe.withDefault moduleName
+        , functionOrType
+        )
+
+    else
+        ( moduleName, functionOrType )
+
+
+isInScope : String -> Nonempty (Dict String VariableInfo) -> Bool
+isInScope name scopes =
+    Nonempty.any (Dict.member name) scopes
+
+
+
+-- MISC
 
 
 getModuleName : List String -> String
