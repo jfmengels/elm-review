@@ -66,6 +66,7 @@ rule =
             , fileKey = Nothing
             }
         , elmJsonVisitor = Just elmJsonVisitor
+        , dependenciesVisitor = Nothing
         , fileVisitor = fileVisitor
         , mergeContexts =
             \contextA contextB ->

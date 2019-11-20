@@ -4,7 +4,7 @@ module Review.Rule exposing
     , newSchema, fromSchema
     , withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
     , withInitialContext, withModuleDefinitionVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalEvaluation
-    , withElmJsonVisitor
+    , withElmJsonVisitor, withDependenciesVisitor
     , withFixes
     , Error, error, parsingError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
     , newMultiSchema, fromMultiSchema, newFileVisitorSchema
@@ -25,6 +25,7 @@ contents of the file to analyze to the rule. The order in which things get passe
 
   - Read project-related info (only collect data in these steps)
       - The `elm.json` file, visited by [`withElmJsonVisitor`](#withElmJsonVisitor)
+      - The definition for dependencies, visited by [`withDependenciesVisitor`](#withDependenciesVisitor)
   - Visit the file (in the following order)
       - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
       - Each import, visited by [`withSimpleImportVisitor`](#withSimpleImportVisitor) and [`withImportVisitor`](#withImportVisitor)
@@ -174,7 +175,7 @@ patterns you would want to forbid, but that are not handled by the example.
 
 ## Builder functions to analyze the project's data
 
-@docs withElmJsonVisitor
+@docs withElmJsonVisitor, withDependenciesVisitor
 
 
 ## Automatic fixing
@@ -198,6 +199,7 @@ For more information on automatic fixing, read the documentation for [`Review.Fi
 -}
 
 import Dict exposing (Dict)
+import Elm.Docs
 import Elm.Project
 import Elm.Syntax.Declaration exposing (Declaration(..))
 import Elm.Syntax.Expression exposing (Expression(..), Function, LetDeclaration(..))
@@ -264,6 +266,7 @@ type
         , initialContext : context
         , fileKeyVisitor : Maybe (FileKey -> context -> context)
         , elmJsonVisitor : Maybe Elm.Project.Project -> context -> context
+        , dependenciesVisitor : Dict String Elm.Docs.Module -> context -> context
         , moduleDefinitionVisitor : Node Module -> context -> ( List Error, context )
         , importVisitor : Node Import -> context -> ( List Error, context )
         , declarationListVisitor : List (Node Declaration) -> context -> ( List Error, context )
@@ -467,6 +470,7 @@ computeErrors (Schema schema) project =
         initialContext =
             schema.initialContext
                 |> schema.elmJsonVisitor (Review.Project.elmJson project)
+                |> schema.dependenciesVisitor (Review.Project.modules project)
     in
     \file ->
         initialContext
@@ -494,6 +498,7 @@ type MultiSchema context
         { name : String
         , initialContext : context
         , elmJsonVisitor : Maybe (Maybe Elm.Project.Project -> context -> context)
+        , dependenciesVisitor : Maybe (Dict String Elm.Docs.Module -> context -> context)
         , mergeContexts : context -> context -> context
         , fileVisitor : context -> Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } context
         , finalEvaluationFn : context -> List Error
@@ -505,16 +510,18 @@ newMultiSchema :
     ->
         { initialContext : context
         , elmJsonVisitor : Maybe (Maybe Elm.Project.Project -> context -> context)
+        , dependenciesVisitor : Maybe (Dict String Elm.Docs.Module -> context -> context)
         , fileVisitor : context -> Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } context
         , mergeContexts : context -> context -> context
         , finalEvaluation : context -> List Error
         }
     -> MultiSchema context
-newMultiSchema name_ { initialContext, elmJsonVisitor, fileVisitor, mergeContexts, finalEvaluation } =
+newMultiSchema name_ { initialContext, elmJsonVisitor, dependenciesVisitor, fileVisitor, mergeContexts, finalEvaluation } =
     MultiSchema
         { name = name_
         , initialContext = initialContext
         , elmJsonVisitor = elmJsonVisitor
+        , dependenciesVisitor = dependenciesVisitor
         , mergeContexts = mergeContexts
         , fileVisitor = fileVisitor
         , finalEvaluationFn = finalEvaluation
@@ -549,14 +556,23 @@ type alias MultiRuleCache context =
 runMulti : MultiSchema context -> MultiRuleCache context -> Project -> List ParsedFile -> ( List Error, Rule )
 runMulti (MultiSchema schema) startCache project =
     let
-        initialContext : context
-        initialContext =
+        contextWithElmJson : context
+        contextWithElmJson =
             case schema.elmJsonVisitor of
                 Just elmJsonVisitor ->
                     elmJsonVisitor (Review.Project.elmJson project) schema.initialContext
 
                 Nothing ->
                     schema.initialContext
+
+        initialContext : context
+        initialContext =
+            case schema.dependenciesVisitor of
+                Just dependenciesVisitor ->
+                    dependenciesVisitor (Review.Project.modules project) contextWithElmJson
+
+                Nothing ->
+                    contextWithElmJson
     in
     \files ->
         let
@@ -937,6 +953,7 @@ emptySchema name_ initialContext =
         , initialContext = initialContext
         , fileKeyVisitor = Nothing
         , elmJsonVisitor = \elmJson context -> context
+        , dependenciesVisitor = \modules context -> context
         , moduleDefinitionVisitor = \node context -> ( [], context )
         , importVisitor = \node context -> ( [], context )
         , declarationListVisitor = \declarationNodes context -> ( [], context )
@@ -1012,6 +1029,11 @@ The following example forbids exposing a file in an "Internal" directory in your
 withElmJsonVisitor : (Maybe Elm.Project.Project -> context -> context) -> Schema anyType anything context -> Schema anyType anything context
 withElmJsonVisitor visitor (Schema schema) =
     Schema { schema | elmJsonVisitor = visitor }
+
+
+withDependenciesVisitor : (Dict String Elm.Docs.Module -> context -> context) -> Schema anyType anything context -> Schema anyType anything context
+withDependenciesVisitor visitor (Schema schema) =
+    Schema { schema | dependenciesVisitor = visitor }
 
 
 {-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s
