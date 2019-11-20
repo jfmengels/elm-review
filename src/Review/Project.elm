@@ -10,6 +10,9 @@ These will be accessible in rules with functions like [`Review.Rule.withElmJsonV
 This module is made to build all of the project-related data that we want
 rules to have access to, to later pass it to the [`Review.review`](./Review#review) function.
 
+This module is useful if you try to run `elm-review` by yourself. You can safely
+ignore it if you just want to write a review rule.
+
 
 # Definition
 
@@ -101,14 +104,23 @@ new =
         }
 
 
-{-| Add the contents of the `elm.json` file to the project details.
+{-| Add the content of the `elm.json` file to the project details, making it
+available for rules to access using
+[`Review.Rule.withElmJsonVisitor`](./Review-Rule#withElmJsonVisitor).
 -}
 withElmJson : ElmJson -> Project -> Project
 withElmJson elmJson_ (Project project) =
     Project { project | elmJson = Just elmJson_ }
 
 
-{-| Add a dependency to the project
+{-| Add a dependency to the project. These will be available for rules to make
+better assumptions on what is happening in the code.
+
+Knowing the dependencies of the project will also help better parse the source
+files, since the dependencies will allow us to know the precedence and
+associativity of operators, which has an impact on the resulting AST when
+parsing a file.
+
 -}
 withDependency : { r | packageName : String, interfaces : List Elm.Docs.Module } -> Project -> Project
 withDependency dependency (Project project) =
