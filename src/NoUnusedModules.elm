@@ -65,8 +65,8 @@ rule =
             , usedModules = Set.empty
             , fileKey = Nothing
             }
-        , elmJsonVisitor = Just elmJsonVisitor
-        , dependenciesVisitor = Nothing
+        , elmJsonVisitors = [ elmJsonVisitor ]
+        , dependenciesVisitors = []
         , fileVisitor = fileVisitor
         , mergeContexts =
             \contextA contextB ->
@@ -102,7 +102,11 @@ error ( moduleName, { fileKey, moduleNameLocation } ) =
 
 
 type alias Context =
-    { modules : Dict (List String) { fileKey : Rule.FileKey, moduleNameLocation : Range }
+    { modules :
+        Dict (List String)
+            { fileKey : Rule.FileKey
+            , moduleNameLocation : Range
+            }
     , usedModules : Set (List String)
     , fileKey : Maybe Rule.FileKey
     }

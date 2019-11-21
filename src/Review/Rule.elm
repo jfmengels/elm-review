@@ -264,15 +264,15 @@ type
     = Schema
         { name : String
         , initialContext : context
-        , fileKeyVisitor : Maybe (FileKey -> context -> context)
-        , elmJsonVisitor : Maybe Elm.Project.Project -> context -> context
-        , dependenciesVisitor : Dict String Elm.Docs.Module -> context -> context
-        , moduleDefinitionVisitor : Node Module -> context -> ( List Error, context )
-        , importVisitor : Node Import -> context -> ( List Error, context )
-        , declarationListVisitor : List (Node Declaration) -> context -> ( List Error, context )
-        , declarationVisitor : Node Declaration -> Direction -> context -> ( List Error, context )
-        , expressionVisitor : Node Expression -> Direction -> context -> ( List Error, context )
-        , finalEvaluationFn : context -> List Error
+        , fileKeyVisitors : List (FileKey -> context -> context)
+        , elmJsonVisitors : List (Maybe Elm.Project.Project -> context -> context)
+        , dependenciesVisitors : List (Dict String Elm.Docs.Module -> context -> context)
+        , moduleDefinitionVisitors : List (Node Module -> context -> ( List Error, context ))
+        , importVisitors : List (Node Import -> context -> ( List Error, context ))
+        , declarationListVisitors : List (List (Node Declaration) -> context -> ( List Error, context ))
+        , declarationVisitors : List (Node Declaration -> Direction -> context -> ( List Error, context ))
+        , expressionVisitors : List (Node Expression -> Direction -> context -> ( List Error, context ))
+        , finalEvaluationFns : List (context -> List Error)
         }
 
 
@@ -418,7 +418,23 @@ newFileVisitorSchema initialContext =
 -}
 fromSchema : Schema ForLookingAtASingleFile { hasAtLeastOneVisitor : () } context -> Rule
 fromSchema ((Schema { name }) as schema) =
-    Single name (runSingle schema Dict.empty)
+    Single name (runSingle (reverseVisitors schema) Dict.empty)
+
+
+reverseVisitors : Schema anyType { hasAtLeastOneVisitor : () } context -> Schema anyType { hasAtLeastOneVisitor : () } context
+reverseVisitors (Schema schema) =
+    Schema
+        { schema
+            | fileKeyVisitors = List.reverse schema.fileKeyVisitors
+            , elmJsonVisitors = List.reverse schema.elmJsonVisitors
+            , dependenciesVisitors = List.reverse schema.dependenciesVisitors
+            , moduleDefinitionVisitors = List.reverse schema.moduleDefinitionVisitors
+            , importVisitors = List.reverse schema.importVisitors
+            , declarationListVisitors = List.reverse schema.declarationListVisitors
+            , declarationVisitors = List.reverse schema.declarationVisitors
+            , expressionVisitors = List.reverse schema.expressionVisitors
+            , finalEvaluationFns = List.reverse schema.finalEvaluationFns
+        }
 
 
 type alias SingleRuleCache =
@@ -469,36 +485,31 @@ computeErrors (Schema schema) project =
         initialContext : context
         initialContext =
             schema.initialContext
-                |> schema.elmJsonVisitor (Review.Project.elmJson project)
-                |> schema.dependenciesVisitor (Review.Project.modules project)
+                |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project)
+                |> accumulateContext schema.dependenciesVisitors (Review.Project.modules project)
     in
     \file ->
-        initialContext
-            |> schema.moduleDefinitionVisitor file.ast.moduleDefinition
-            |> accumulateList schema.importVisitor file.ast.imports
-            |> accumulate (schema.declarationListVisitor file.ast.declarations)
-            |> accumulateList (visitDeclaration schema.declarationVisitor schema.expressionVisitor) file.ast.declarations
-            |> makeFinalEvaluation schema.finalEvaluationFn
+        ( [], initialContext )
+            |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors file.ast.moduleDefinition
+            |> accumulateList (visitImport schema.importVisitors) file.ast.imports
+            |> accumulateWithListOfVisitors schema.declarationListVisitors file.ast.declarations
+            |> accumulateList (visitDeclaration schema.declarationVisitors schema.expressionVisitors) file.ast.declarations
+            |> makeFinalEvaluation schema.finalEvaluationFns
             |> List.map (\(Error err) -> Error { err | ruleName = schema.name, filePath = file.path })
             |> List.reverse
 
 
-maybeApply : Maybe (b -> a -> a) -> b -> a -> a
-maybeApply maybeFn argument =
-    case maybeFn of
-        Just fn ->
-            fn argument
-
-        Nothing ->
-            identity
+accumulateContext : List (element -> context -> context) -> element -> context -> context
+accumulateContext visitors element context =
+    List.foldl (\visitor -> visitor element) context visitors
 
 
 type MultiSchema context
     = MultiSchema
         { name : String
         , initialContext : context
-        , elmJsonVisitor : Maybe (Maybe Elm.Project.Project -> context -> context)
-        , dependenciesVisitor : Maybe (Dict String Elm.Docs.Module -> context -> context)
+        , elmJsonVisitors : List (Maybe Elm.Project.Project -> context -> context)
+        , dependenciesVisitors : List (Dict String Elm.Docs.Module -> context -> context)
         , mergeContexts : context -> context -> context
         , fileVisitor : context -> Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } context
         , finalEvaluationFn : context -> List Error
@@ -509,19 +520,19 @@ newMultiSchema :
     String
     ->
         { initialContext : context
-        , elmJsonVisitor : Maybe (Maybe Elm.Project.Project -> context -> context)
-        , dependenciesVisitor : Maybe (Dict String Elm.Docs.Module -> context -> context)
+        , elmJsonVisitors : List (Maybe Elm.Project.Project -> context -> context)
+        , dependenciesVisitors : List (Dict String Elm.Docs.Module -> context -> context)
         , fileVisitor : context -> Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } context
         , mergeContexts : context -> context -> context
         , finalEvaluation : context -> List Error
         }
     -> MultiSchema context
-newMultiSchema name_ { initialContext, elmJsonVisitor, dependenciesVisitor, fileVisitor, mergeContexts, finalEvaluation } =
+newMultiSchema name_ { initialContext, elmJsonVisitors, dependenciesVisitors, fileVisitor, mergeContexts, finalEvaluation } =
     MultiSchema
         { name = name_
         , initialContext = initialContext
-        , elmJsonVisitor = elmJsonVisitor
-        , dependenciesVisitor = dependenciesVisitor
+        , elmJsonVisitors = elmJsonVisitors
+        , dependenciesVisitors = dependenciesVisitors
         , mergeContexts = mergeContexts
         , fileVisitor = fileVisitor
         , finalEvaluationFn = finalEvaluation
@@ -529,20 +540,32 @@ newMultiSchema name_ { initialContext, elmJsonVisitor, dependenciesVisitor, file
 
 
 visitFileForMulti : Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } context -> context -> ParsedFile -> ( List Error, context )
-visitFileForMulti (Schema schema) initialContext { path, ast } =
-    initialContext
-        |> maybeApply schema.fileKeyVisitor (FileKey path)
-        |> schema.moduleDefinitionVisitor ast.moduleDefinition
-        |> accumulateList schema.importVisitor ast.imports
-        |> accumulate (schema.declarationListVisitor ast.declarations)
-        |> accumulateList (visitDeclaration schema.declarationVisitor schema.expressionVisitor) ast.declarations
+visitFileForMulti (Schema schema) initialContext file =
+    ( []
+    , initialContext
+        |> accumulateContext schema.fileKeyVisitors (FileKey file.path)
+    )
+        |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors file.ast.moduleDefinition
+        |> accumulateList (visitImport schema.importVisitors) file.ast.imports
+        |> accumulateWithListOfVisitors schema.declarationListVisitors file.ast.declarations
+        |> accumulateList (visitDeclaration schema.declarationVisitors schema.expressionVisitors) file.ast.declarations
 
 
 {-| TODO documentation
 -}
 fromMultiSchema : MultiSchema context -> Rule
-fromMultiSchema ((MultiSchema schema) as multiSchema) =
-    Multi schema.name (runMulti multiSchema Dict.empty)
+fromMultiSchema (MultiSchema schema) =
+    Multi schema.name
+        (runMulti
+            (MultiSchema
+                { schema
+                    | elmJsonVisitors = List.reverse schema.elmJsonVisitors
+                    , dependenciesVisitors = List.reverse schema.dependenciesVisitors
+                    , fileVisitor = schema.fileVisitor >> reverseVisitors
+                }
+            )
+            Dict.empty
+        )
 
 
 type alias MultiRuleCache context =
@@ -556,23 +579,11 @@ type alias MultiRuleCache context =
 runMulti : MultiSchema context -> MultiRuleCache context -> Project -> List ParsedFile -> ( List Error, Rule )
 runMulti (MultiSchema schema) startCache project =
     let
-        contextWithElmJson : context
-        contextWithElmJson =
-            case schema.elmJsonVisitor of
-                Just elmJsonVisitor ->
-                    elmJsonVisitor (Review.Project.elmJson project) schema.initialContext
-
-                Nothing ->
-                    schema.initialContext
-
         initialContext : context
         initialContext =
-            case schema.dependenciesVisitor of
-                Just dependenciesVisitor ->
-                    dependenciesVisitor (Review.Project.modules project) contextWithElmJson
-
-                Nothing ->
-                    contextWithElmJson
+            schema.initialContext
+                |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project)
+                |> accumulateContext schema.dependenciesVisitors (Review.Project.modules project)
     in
     \files ->
         let
@@ -631,10 +642,14 @@ runMulti (MultiSchema schema) startCache project =
 
 {-| Concatenate the errors of the previous step and of the last step.
 -}
-makeFinalEvaluation : (context -> List Error) -> ( List Error, context ) -> List Error
-makeFinalEvaluation finalEvaluationFn ( previousErrors, previousContext ) =
-    finalEvaluationFn previousContext
-        ++ previousErrors
+makeFinalEvaluation : List (context -> List Error) -> ( List Error, context ) -> List Error
+makeFinalEvaluation finalEvaluationFns ( previousErrors, context ) =
+    List.concat
+        [ List.concatMap
+            (\visitor -> visitor context)
+            finalEvaluationFns
+        , previousErrors
+        ]
 
 
 {-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s [module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`) and report patterns.
@@ -669,8 +684,8 @@ which isn't passed a `context` and doesn't return one. You can use `withSimpleMo
 
 -}
 withSimpleModuleDefinitionVisitor : (Node Module -> List Error) -> Schema anyType anything context -> Schema anyType { hasAtLeastOneVisitor : () } context
-withSimpleModuleDefinitionVisitor visitor (Schema schema) =
-    Schema { schema | moduleDefinitionVisitor = \node context -> ( visitor node, context ) }
+withSimpleModuleDefinitionVisitor visitor schema =
+    withModuleDefinitionVisitor (\node context -> ( visitor node, context )) schema
 
 
 {-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s [import statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Import) (`import Html as H exposing (div)`) in order of their definition and report patterns.
@@ -718,8 +733,8 @@ which isn't passed a `context` and doesn't return one. You can use `withSimpleIm
 
 -}
 withSimpleImportVisitor : (Node Import -> List Error) -> Schema anyType anything context -> Schema anyType { hasAtLeastOneVisitor : () } context
-withSimpleImportVisitor visitor (Schema schema) =
-    Schema { schema | importVisitor = \node context -> ( visitor node, context ) }
+withSimpleImportVisitor visitor schema =
+    withImportVisitor (\node context -> ( visitor node, context )) schema
 
 
 {-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s
@@ -772,18 +787,17 @@ which isn't passed a [`Direction`](#Direction) (it will only be called `OnEnter`
 
 -}
 withSimpleDeclarationVisitor : (Node Declaration -> List Error) -> Schema anyType anything context -> Schema anyType { hasAtLeastOneVisitor : () } context
-withSimpleDeclarationVisitor visitor (Schema schema) =
-    Schema
-        { schema
-            | declarationVisitor =
-                \node direction context ->
-                    case direction of
-                        OnEnter ->
-                            ( visitor node, context )
+withSimpleDeclarationVisitor visitor schema =
+    withDeclarationVisitor
+        (\node direction context ->
+            case direction of
+                OnEnter ->
+                    ( visitor node, context )
 
-                        OnExit ->
-                            ( [], context )
-        }
+                OnExit ->
+                    ( [], context )
+        )
+        schema
 
 
 {-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s
@@ -827,18 +841,17 @@ which isn't passed a [`Direction`](#Direction) (it will only be called `OnEnter`
 
 -}
 withSimpleExpressionVisitor : (Node Expression -> List Error) -> Schema anyType anything context -> Schema anyType { hasAtLeastOneVisitor : () } context
-withSimpleExpressionVisitor visitor (Schema schema) =
-    Schema
-        { schema
-            | expressionVisitor =
-                \node direction context ->
-                    case direction of
-                        OnEnter ->
-                            ( visitor node, context )
+withSimpleExpressionVisitor visitor schema =
+    withExpressionVisitor
+        (\node direction context ->
+            case direction of
+                OnEnter ->
+                    ( visitor node, context )
 
-                        OnExit ->
-                            ( [], context )
-        }
+                OnExit ->
+                    ( [], context )
+        )
+        schema
 
 
 {-| Adds an initial `context` to start collecting data during your traversal.
@@ -951,15 +964,15 @@ emptySchema name_ initialContext =
     Schema
         { name = name_
         , initialContext = initialContext
-        , fileKeyVisitor = Nothing
-        , elmJsonVisitor = \elmJson context -> context
-        , dependenciesVisitor = \modules context -> context
-        , moduleDefinitionVisitor = \node context -> ( [], context )
-        , importVisitor = \node context -> ( [], context )
-        , declarationListVisitor = \declarationNodes context -> ( [], context )
-        , declarationVisitor = \node direction context -> ( [], context )
-        , expressionVisitor = \node direction context -> ( [], context )
-        , finalEvaluationFn = \context -> []
+        , fileKeyVisitors = []
+        , elmJsonVisitors = []
+        , dependenciesVisitors = []
+        , moduleDefinitionVisitors = []
+        , importVisitors = []
+        , declarationListVisitors = []
+        , declarationVisitors = []
+        , expressionVisitors = []
+        , finalEvaluationFns = []
         }
 
 
@@ -1028,12 +1041,12 @@ The following example forbids exposing a file in an "Internal" directory in your
 -}
 withElmJsonVisitor : (Maybe Elm.Project.Project -> context -> context) -> Schema anyType anything context -> Schema anyType anything context
 withElmJsonVisitor visitor (Schema schema) =
-    Schema { schema | elmJsonVisitor = visitor }
+    Schema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
 
 
 withDependenciesVisitor : (Dict String Elm.Docs.Module -> context -> context) -> Schema anyType anything context -> Schema anyType anything context
 withDependenciesVisitor visitor (Schema schema) =
-    Schema { schema | dependenciesVisitor = visitor }
+    Schema { schema | dependenciesVisitors = visitor :: schema.dependenciesVisitors }
 
 
 {-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s
@@ -1097,7 +1110,7 @@ simpler [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor
 -}
 withModuleDefinitionVisitor : (Node Module -> context -> ( List Error, context )) -> Schema anyType anything context -> Schema anyType { hasAtLeastOneVisitor : () } context
 withModuleDefinitionVisitor visitor (Schema schema) =
-    Schema { schema | moduleDefinitionVisitor = visitor }
+    Schema { schema | moduleDefinitionVisitors = visitor :: schema.moduleDefinitionVisitors }
 
 
 {-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s
@@ -1168,7 +1181,7 @@ simpler [`withSimpleImportVisitor`](#withSimpleImportVisitor) function.
 -}
 withImportVisitor : (Node Import -> context -> ( List Error, context )) -> Schema anyType anything context -> Schema anyType { hasAtLeastOneVisitor : () } context
 withImportVisitor visitor (Schema schema) =
-    Schema { schema | importVisitor = visitor }
+    Schema { schema | importVisitors = visitor :: schema.importVisitors }
 
 
 {-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s
@@ -1258,7 +1271,7 @@ simpler [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) function
 -}
 withDeclarationVisitor : (Node Declaration -> Direction -> context -> ( List Error, context )) -> Schema anyType anything context -> Schema anyType { hasAtLeastOneVisitor : () } context
 withDeclarationVisitor visitor (Schema schema) =
-    Schema { schema | declarationVisitor = visitor }
+    Schema { schema | declarationVisitors = visitor :: schema.declarationVisitors }
 
 
 {-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s
@@ -1277,7 +1290,7 @@ and [withExpressionVisitor](#withExpressionVisitor). Otherwise, using
 -}
 withDeclarationListVisitor : (List (Node Declaration) -> context -> ( List Error, context )) -> Schema anyType anything context -> Schema anyType { hasAtLeastOneVisitor : () } context
 withDeclarationListVisitor visitor (Schema schema) =
-    Schema { schema | declarationListVisitor = visitor }
+    Schema { schema | declarationListVisitors = visitor :: schema.declarationListVisitors }
 
 
 {-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s
@@ -1361,7 +1374,7 @@ simpler [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) function.
 -}
 withExpressionVisitor : (Node Expression -> Direction -> context -> ( List Error, context )) -> Schema anyType anything context -> Schema anyType { hasAtLeastOneVisitor : () } context
 withExpressionVisitor visitor (Schema schema) =
-    Schema { schema | expressionVisitor = visitor }
+    Schema { schema | expressionVisitors = visitor :: schema.expressionVisitors }
 
 
 {-| Add a function that makes a final evaluation based only on the data that was
@@ -1410,14 +1423,14 @@ for [`withImportVisitor`](#withImportVisitor), but using [`withFinalEvaluation`]
 -}
 withFinalEvaluation : (context -> List Error) -> Schema anyType { hasAtLeastOneVisitor : () } context -> Schema anyType { hasAtLeastOneVisitor : () } context
 withFinalEvaluation visitor (Schema schema) =
-    Schema { schema | finalEvaluationFn = visitor }
+    Schema { schema | finalEvaluationFns = visitor :: schema.finalEvaluationFns }
 
 
 {-| TODO
 -}
 withFileKeyVisitor : (FileKey -> context -> context) -> Schema ForLookingAtSeveralFiles { hasNoVisitor : () } context -> Schema ForLookingAtSeveralFiles { hasNoVisitor : () } context
 withFileKeyVisitor visitor (Schema schema) =
-    Schema { schema | fileKeyVisitor = Just visitor }
+    Schema { schema | fileKeyVisitors = visitor :: schema.fileKeyVisitors }
 
 
 
@@ -1606,17 +1619,63 @@ errorFilePath (Error err) =
 -- TREE TRAVERSAL
 
 
+visitImport :
+    List (Node Import -> context -> ( List Error, context ))
+    -> Node Import
+    -> context
+    -> ( List Error, context )
+visitImport importVisitors node context =
+    visitNodeWithListOfVisitors importVisitors node ( [], context )
+
+
 visitDeclaration :
-    (Node Declaration -> Direction -> context -> ( List Error, context ))
-    -> (Node Expression -> Direction -> context -> ( List Error, context ))
+    List (Node Declaration -> Direction -> context -> ( List Error, context ))
+    -> List (Node Expression -> Direction -> context -> ( List Error, context ))
     -> Node Declaration
     -> context
     -> ( List Error, context )
-visitDeclaration declarationVisitor expressionVisitor node context =
-    context
-        |> declarationVisitor node OnEnter
-        |> accumulateList (visitExpression expressionVisitor) (expressionsInDeclaration node)
-        |> accumulate (declarationVisitor node OnExit)
+visitDeclaration declarationVisitors expressionVisitors node context =
+    ( [], context )
+        |> visitNodeWithListOfVisitorsAndDirection OnEnter declarationVisitors node
+        |> accumulateList (visitExpression expressionVisitors) (expressionsInDeclaration node)
+        |> visitNodeWithListOfVisitorsAndDirection OnExit declarationVisitors node
+
+
+visitNodeWithListOfVisitors :
+    List (Node a -> context -> ( List Error, context ))
+    -> Node a
+    -> ( List Error, context )
+    -> ( List Error, context )
+visitNodeWithListOfVisitors visitors node initialErrorsAndContext =
+    List.foldl
+        (\visitor -> accumulate (visitor node))
+        initialErrorsAndContext
+        visitors
+
+
+visitNodeWithListOfVisitorsAndDirection :
+    Direction
+    -> List (Node a -> Direction -> context -> ( List Error, context ))
+    -> Node a
+    -> ( List Error, context )
+    -> ( List Error, context )
+visitNodeWithListOfVisitorsAndDirection direction visitors node initialErrorsAndContext =
+    List.foldl
+        (\visitor -> accumulate (visitor node direction))
+        initialErrorsAndContext
+        visitors
+
+
+accumulateWithListOfVisitors :
+    List (a -> context -> ( List Error, context ))
+    -> a
+    -> ( List Error, context )
+    -> ( List Error, context )
+accumulateWithListOfVisitors visitors element initialErrorsAndContext =
+    List.foldl
+        (\visitor -> accumulate (visitor element))
+        initialErrorsAndContext
+        visitors
 
 
 expressionsInDeclaration : Node Declaration -> List (Node Expression)
@@ -1641,12 +1700,16 @@ expressionsInDeclaration node =
             []
 
 
-visitExpression : (Node Expression -> Direction -> context -> ( List Error, context )) -> Node Expression -> context -> ( List Error, context )
-visitExpression visitor node context =
-    context
-        |> visitor node OnEnter
-        |> accumulateList (visitExpression visitor) (expressionChildren node)
-        |> accumulate (visitor node OnExit)
+visitExpression : List (Node Expression -> Direction -> context -> ( List Error, context )) -> Node Expression -> context -> ( List Error, context )
+visitExpression visitors node context =
+    ( [], context )
+        |> visitNodeWithListOfVisitorsAndDirection OnEnter visitors node
+        |> accumulateList (visitExpression visitors) (expressionChildren node)
+        |> visitNodeWithListOfVisitorsAndDirection OnExit visitors node
+
+
+
+-- |> accumulate (visitor node OnExit)
 
 
 expressionChildren : Node Expression -> List (Node Expression)
