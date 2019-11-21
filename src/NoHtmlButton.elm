@@ -21,22 +21,20 @@ type Allowed
 rule : Rule
 rule =
     Rule.newSchema "NoHtmlButton"
-        |> Rule.withInitialContext
-            { scope = Scope.initialContext
-            , allowed = HtmlButtonIsForbidden
+        |> Rule.withInitialContext initialContext
+        |> Scope.addVisitors
+            { setter = \scope context -> { context | scope = scope }
+            , getter = .scope
             }
-        |> Rule.withDependenciesVisitor (Scope.dependenciesVisitor scopeSetterGetter Nothing)
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-        |> Rule.withDeclarationListVisitor (Scope.declarationListVisitor scopeSetterGetter Nothing)
-        |> Rule.withImportVisitor (Scope.importVisitor scopeSetterGetter Nothing)
         |> Rule.withExpressionVisitor expressionVisitor
         |> Rule.fromSchema
 
 
-scopeSetterGetter : Scope.SetterGetter Context
-scopeSetterGetter =
-    { setter = \scope context -> { context | scope = scope }
-    , getter = .scope
+initialContext : Context
+initialContext =
+    { scope = Scope.initialContext
+    , allowed = HtmlButtonIsForbidden
     }
 
 

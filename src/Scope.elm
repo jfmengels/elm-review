@@ -1,6 +1,6 @@
 module Scope exposing
-    ( Context, SetterGetter
-    , initialContext, dependenciesVisitor, importVisitor, declarationListVisitor
+    ( Context
+    , initialContext, addVisitors
     , realFunctionOrType
     )
 
@@ -9,12 +9,12 @@ module Scope exposing
 
 # Definition
 
-@docs Context, SetterGetter
+@docs Context
 
 
 # Usage
 
-@docs initialContext, dependenciesVisitor, importVisitor, declarationListVisitor
+@docs initialContext, addVisitors
 
 
 # Access
@@ -76,48 +76,48 @@ initialContext =
         }
 
 
-dependenciesVisitor : SetterGetter context -> Maybe (Dict String Elm.Docs.Module -> context -> context) -> Dict String Elm.Docs.Module -> context -> context
-dependenciesVisitor { setter, getter } maybeVisitor =
+addVisitors :
+    { setter : Context -> context -> context
+    , getter : context -> Context
+    }
+    -> Rule.Schema anyType anything context
+    -> Rule.Schema anyType { hasAtLeastOneVisitor : () } context
+addVisitors setterGetter schema =
+    schema
+        |> Rule.withDependenciesVisitor
+            (unboxContext setterGetter dependenciesVisitor)
+        |> Rule.withImportVisitor
+            (unboxContext setterGetter importVisitor |> pairWithNoErrors)
+        |> Rule.withDeclarationListVisitor
+            (unboxContext setterGetter declarationListVisitor |> pairWithNoErrors)
+
+
+unboxContext : SetterGetter context -> (visitedElement -> InnerContext -> InnerContext) -> visitedElement -> context -> context
+unboxContext { setter, getter } visitor visitedElement outerContext =
     let
-        visitor : Dict String Elm.Docs.Module -> context -> context
-        visitor =
-            case maybeVisitor of
-                Nothing ->
-                    \dependencies newContext -> newContext
-
-                Just fn ->
-                    fn
+        innerContext : InnerContext
+        innerContext =
+            outerContext
+                |> getter
+                |> unbox
+                |> visitor visitedElement
     in
-    \dependencies outerContext ->
-        outerContext
-            |> getter
-            |> unbox
-            |> (\innerContext -> { innerContext | dependencies = dependencies })
-            |> Context
-            |> (\newContext -> setter newContext outerContext)
-            |> visitor dependencies
+    setter (Context innerContext) outerContext
 
 
-declarationListVisitor : SetterGetter context -> Maybe (List (Node Declaration) -> context -> ( List Error, context )) -> List (Node Declaration) -> context -> ( List Error, context )
-declarationListVisitor { setter, getter } maybeVisitor =
-    let
-        visitor : List (Node Declaration) -> context -> ( List Error, context )
-        visitor =
-            case maybeVisitor of
-                Nothing ->
-                    \declarations newContext -> ( [], newContext )
+pairWithNoErrors : (visited -> context -> context) -> visited -> context -> ( List Error, context )
+pairWithNoErrors fn visited context =
+    ( [], fn visited context )
 
-                Just fn ->
-                    fn
-    in
-    \declarations outerContext ->
-        outerContext
-            |> getter
-            |> unbox
-            |> (\innerContext -> List.foldl registerDeclaration innerContext declarations)
-            |> Context
-            |> (\newContext -> setter newContext outerContext)
-            |> visitor declarations
+
+dependenciesVisitor : Dict String Elm.Docs.Module -> InnerContext -> InnerContext
+dependenciesVisitor dependencies innerContext =
+    { innerContext | dependencies = dependencies }
+
+
+declarationListVisitor : List (Node Declaration) -> InnerContext -> InnerContext
+declarationListVisitor declarations innerContext =
+    List.foldl registerDeclaration innerContext declarations
 
 
 registerDeclaration : Node Declaration -> InnerContext -> InnerContext
@@ -172,27 +172,11 @@ registerVariable variableInfo name context =
     { context | scopes = scopes }
 
 
-importVisitor : SetterGetter context -> Maybe (Node Import -> context -> ( List Error, context )) -> Node Import -> context -> ( List Error, context )
-importVisitor { setter, getter } maybeVisitor =
-    let
-        visitor : Node Import -> context -> ( List Error, context )
-        visitor =
-            case maybeVisitor of
-                Nothing ->
-                    \node newContext -> ( [], newContext )
-
-                Just fn ->
-                    fn
-    in
-    \((Node range import_) as node) outerContext ->
-        outerContext
-            |> getter
-            |> unbox
-            |> registerImportAlias import_
-            |> registerExposed import_
-            |> Context
-            |> (\newContext -> setter newContext outerContext)
-            |> visitor node
+importVisitor : Node Import -> InnerContext -> InnerContext
+importVisitor (Node range import_) innerContext =
+    innerContext
+        |> registerImportAlias import_
+        |> registerExposed import_
 
 
 registerImportAlias : Import -> InnerContext -> InnerContext
