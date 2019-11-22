@@ -85,15 +85,15 @@ addVisitors :
 addVisitors setterGetter schema =
     schema
         |> Rule.withDependenciesVisitor
-            (unboxContext setterGetter dependenciesVisitor)
+            (mapInnerContext setterGetter dependenciesVisitor)
         |> Rule.withImportVisitor
-            (unboxContext setterGetter importVisitor |> pairWithNoErrors)
+            (mapInnerContext setterGetter importVisitor |> pairWithNoErrors)
         |> Rule.withDeclarationListVisitor
-            (unboxContext setterGetter declarationListVisitor |> pairWithNoErrors)
+            (mapInnerContext setterGetter declarationListVisitor |> pairWithNoErrors)
 
 
-unboxContext : SetterGetter context -> (visitedElement -> InnerContext -> InnerContext) -> visitedElement -> context -> context
-unboxContext { setter, getter } visitor visitedElement outerContext =
+mapInnerContext : SetterGetter context -> (visitedElement -> InnerContext -> InnerContext) -> visitedElement -> context -> context
+mapInnerContext { setter, getter } visitor visitedElement outerContext =
     let
         innerContext : InnerContext
         innerContext =
