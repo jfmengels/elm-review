@@ -270,10 +270,20 @@ type
         , moduleDefinitionVisitors : List (Node Module -> context -> ( List Error, context ))
         , importVisitors : List (Node Import -> context -> ( List Error, context ))
         , declarationListVisitors : List (List (Node Declaration) -> context -> ( List Error, context ))
-        , declarationVisitors : List (Node Declaration -> Direction -> context -> ( List Error, context ))
-        , expressionVisitors : List (Node Expression -> Direction -> context -> ( List Error, context ))
+        , declarationVisitors : List (DirectedVisitor Declaration context)
+        , expressionVisitors : List (DirectedVisitor Expression context)
         , finalEvaluationFns : List (context -> List Error)
         }
+
+
+type alias DirectedVisitor nodeType context =
+    Node nodeType -> Direction -> context -> ( List Error, context )
+
+
+type alias InAndOut visitor =
+    { onEnter : List visitor
+    , onExit : List visitor
+    }
 
 
 
@@ -431,8 +441,6 @@ reverseVisitors (Schema schema) =
             , moduleDefinitionVisitors = List.reverse schema.moduleDefinitionVisitors
             , importVisitors = List.reverse schema.importVisitors
             , declarationListVisitors = List.reverse schema.declarationListVisitors
-            , declarationVisitors = List.reverse schema.declarationVisitors
-            , expressionVisitors = List.reverse schema.expressionVisitors
             , finalEvaluationFns = List.reverse schema.finalEvaluationFns
         }
 
@@ -487,16 +495,31 @@ computeErrors (Schema schema) project =
             schema.initialContext
                 |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project)
                 |> accumulateContext schema.dependenciesVisitors (Review.Project.modules project)
+
+        declarationVisitors : InAndOut (DirectedVisitor Declaration context)
+        declarationVisitors =
+            inAndOut schema.declarationVisitors
+
+        expressionVisitors : InAndOut (DirectedVisitor Expression context)
+        expressionVisitors =
+            inAndOut schema.expressionVisitors
     in
     \file ->
         ( [], initialContext )
             |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors file.ast.moduleDefinition
             |> accumulateList (visitImport schema.importVisitors) file.ast.imports
             |> accumulateWithListOfVisitors schema.declarationListVisitors file.ast.declarations
-            |> accumulateList (visitDeclaration schema.declarationVisitors schema.expressionVisitors) file.ast.declarations
+            |> accumulateList (visitDeclaration declarationVisitors expressionVisitors) file.ast.declarations
             |> makeFinalEvaluation schema.finalEvaluationFns
             |> List.map (\(Error err) -> Error { err | ruleName = schema.name, filePath = file.path })
             |> List.reverse
+
+
+inAndOut : List (DirectedVisitor nodeType context) -> InAndOut (DirectedVisitor nodeType context)
+inAndOut visitors =
+    { onEnter = List.reverse visitors
+    , onExit = visitors
+    }
 
 
 accumulateContext : List (element -> context -> context) -> element -> context -> context
@@ -540,15 +563,25 @@ newMultiSchema name_ { initialContext, elmJsonVisitors, dependenciesVisitors, fi
 
 
 visitFileForMulti : Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } context -> context -> ParsedFile -> ( List Error, context )
-visitFileForMulti (Schema schema) initialContext file =
-    ( []
-    , initialContext
-        |> accumulateContext schema.fileKeyVisitors (FileKey file.path)
-    )
-        |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors file.ast.moduleDefinition
-        |> accumulateList (visitImport schema.importVisitors) file.ast.imports
-        |> accumulateWithListOfVisitors schema.declarationListVisitors file.ast.declarations
-        |> accumulateList (visitDeclaration schema.declarationVisitors schema.expressionVisitors) file.ast.declarations
+visitFileForMulti (Schema schema) =
+    let
+        declarationVisitors : InAndOut (DirectedVisitor Declaration context)
+        declarationVisitors =
+            inAndOut schema.declarationVisitors
+
+        expressionVisitors : InAndOut (DirectedVisitor Expression context)
+        expressionVisitors =
+            inAndOut schema.expressionVisitors
+    in
+    \initialContext file ->
+        ( []
+        , initialContext
+            |> accumulateContext schema.fileKeyVisitors (FileKey file.path)
+        )
+            |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors file.ast.moduleDefinition
+            |> accumulateList (visitImport schema.importVisitors) file.ast.imports
+            |> accumulateWithListOfVisitors schema.declarationListVisitors file.ast.declarations
+            |> accumulateList (visitDeclaration declarationVisitors expressionVisitors) file.ast.declarations
 
 
 {-| TODO documentation
@@ -1629,16 +1662,16 @@ visitImport importVisitors node context =
 
 
 visitDeclaration :
-    List (Node Declaration -> Direction -> context -> ( List Error, context ))
-    -> List (Node Expression -> Direction -> context -> ( List Error, context ))
+    InAndOut (DirectedVisitor Declaration context)
+    -> InAndOut (DirectedVisitor Expression context)
     -> Node Declaration
     -> context
     -> ( List Error, context )
 visitDeclaration declarationVisitors expressionVisitors node context =
     ( [], context )
-        |> visitNodeWithListOfVisitorsAndDirection OnEnter declarationVisitors node
+        |> visitNodeWithListOfVisitorsAndDirection OnEnter declarationVisitors.onEnter node
         |> accumulateList (visitExpression expressionVisitors) (expressionsInDeclaration node)
-        |> visitNodeWithListOfVisitorsAndDirection OnExit declarationVisitors node
+        |> visitNodeWithListOfVisitorsAndDirection OnExit declarationVisitors.onExit node
 
 
 visitNodeWithListOfVisitors :
@@ -1700,12 +1733,16 @@ expressionsInDeclaration node =
             []
 
 
-visitExpression : List (Node Expression -> Direction -> context -> ( List Error, context )) -> Node Expression -> context -> ( List Error, context )
+visitExpression :
+    InAndOut (DirectedVisitor Expression context)
+    -> Node Expression
+    -> context
+    -> ( List Error, context )
 visitExpression visitors node context =
     ( [], context )
-        |> visitNodeWithListOfVisitorsAndDirection OnEnter visitors node
+        |> visitNodeWithListOfVisitorsAndDirection OnEnter visitors.onEnter node
         |> accumulateList (visitExpression visitors) (expressionChildren node)
-        |> visitNodeWithListOfVisitorsAndDirection OnExit visitors node
+        |> visitNodeWithListOfVisitorsAndDirection OnExit visitors.onExit node
 
 
 
