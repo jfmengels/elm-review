@@ -68,6 +68,9 @@ initialContext =
     Context
         { scopes = Nonempty.fromElement Dict.empty
         , importAliases = Dict.empty
+
+        -- TODO Add elm/core's prelude
+        -- https://package.elm-lang.org/packages/elm/core/latest
         , importedFunctionOrTypes = Dict.empty
         , dependencies = Dict.empty
         }

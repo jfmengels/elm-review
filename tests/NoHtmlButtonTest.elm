@@ -1,5 +1,6 @@
 module NoHtmlButtonTest exposing (all)
 
+import Dependencies
 import Elm.Type as Type
 import NoHtmlButton exposing (rule)
 import Review.Project as Project exposing (Project)
@@ -17,26 +18,7 @@ testRule string =
 projectWithHtmlDependency : Project
 projectWithHtmlDependency =
     Project.new
-        |> Project.withDependency
-            { packageName = "elm/html"
-            , modules =
-                [ { name = "Html"
-                  , comment = ""
-                  , unions = []
-                  , aliases = []
-                  , values =
-                        [ { name = "button"
-                          , comment = ""
-                          , tipe =
-                                -- "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-                                Type.Lambda (Type.Type "List.List" [ Type.Type "Html.Attribute" [ Type.Var "msg" ] ])
-                                    (Type.Lambda (Type.Type "List.List" [ Type.Type "Html.Html" [ Type.Var "msg" ] ]) (Type.Type "Html.Html" [ Type.Var "msg" ]))
-                          }
-                        ]
-                  , binops = []
-                  }
-                ]
-            }
+        |> Project.withDependency Dependencies.elmHtml
 
 
 testRuleWithHtmlDependency : String -> ReviewResult
