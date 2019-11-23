@@ -32,9 +32,7 @@ ignore it if you just want to write a review rule.
 
 import Dict exposing (Dict)
 import Elm.Docs
-import Elm.Interface exposing (Interface)
 import Elm.Project
-import Elm.Syntax.ModuleName exposing (ModuleName)
 
 
 

@@ -26,18 +26,15 @@ module Scope exposing
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
-import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
-import Elm.Syntax.Expression as Expression exposing (Expression(..), Function, FunctionImplementation, LetDeclaration(..))
+import Elm.Syntax.Exposing as Exposing exposing (TopLevelExpose)
+import Elm.Syntax.Expression exposing (Expression(..), LetDeclaration(..))
 import Elm.Syntax.Import exposing (Import)
-import Elm.Syntax.Module as Module exposing (Module(..))
+import Elm.Syntax.Module exposing (Module(..))
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
-import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
 import NonemptyList as Nonempty exposing (Nonempty)
-import Review.Fix as Fix
-import Review.Rule as Rule exposing (Direction, Error, Rule)
-import Set exposing (Set)
+import Review.Rule as Rule exposing (Direction, Error)
 
 
 
