@@ -154,16 +154,24 @@ a = button
 button = 1
 """
                 |> Review.Test.expectNoErrors
-    , Test.skip <|
-        test "should not report the use of `button` when it has been imported using `exposing (..)` and the dependency is known, but it has been redefined in an accessible let..in declaration" <|
-            \() ->
-                testRuleWithHtmlDependency """
+    , test "should not report the use of `button` when it has been imported using `exposing (..)` and the dependency is known, but it has been redefined in an accessible let..in declaration" <|
+        \() ->
+            testRuleWithHtmlDependency """
 import Html exposing (..)
 a = let
   button = 1
   in button
 """
-                    |> Review.Test.expectNoErrors
+                |> Review.Test.expectNoErrors
+    , test "should not report the use of `button` when it has been imported using `exposing (button)`, but it has been redefined in an accessible let..in declaration" <|
+        \() ->
+            testRuleWithHtmlDependency """
+import Html exposing (..)
+a = let
+  button = 1
+  in button
+"""
+                |> Review.Test.expectNoErrors
     , test "should report the use of `button` when it has been imported using `exposing (..)` and the dependency is known, and it has been redefined in an out-of-scope let..in declaration" <|
         \() ->
             testRuleWithHtmlDependency """

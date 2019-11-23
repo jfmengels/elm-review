@@ -27,7 +27,7 @@ import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
-import Elm.Syntax.Expression exposing (Expression(..), Function, FunctionImplementation, LetDeclaration(..))
+import Elm.Syntax.Expression as Expression exposing (Expression(..), Function, FunctionImplementation, LetDeclaration(..))
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Module as Module exposing (Module(..))
 import Elm.Syntax.Node as Node exposing (Node(..))
@@ -90,6 +90,18 @@ addVisitors setterGetter schema =
             (mapInnerContext setterGetter importVisitor |> pairWithNoErrors)
         |> Rule.withDeclarationListVisitor
             (mapInnerContext setterGetter declarationListVisitor |> pairWithNoErrors)
+        |> Rule.withExpressionVisitor
+            (\visitedElement direction outerContext ->
+                let
+                    innerContext : InnerContext
+                    innerContext =
+                        outerContext
+                            |> setterGetter.getter
+                            |> unbox
+                            |> expressionVisitor visitedElement direction
+                in
+                ( [], setterGetter.setter (Context innerContext) outerContext )
+            )
 
 
 mapInnerContext : SetterGetter context -> (visitedElement -> InnerContext -> InnerContext) -> visitedElement -> context -> context
@@ -494,6 +506,73 @@ collectModuleNamesFromTypeAnnotation node =
 
         Unit ->
             []
+
+
+expressionVisitor : Node Expression -> Direction -> InnerContext -> InnerContext
+expressionVisitor (Node range value) direction context =
+    case ( direction, value ) of
+        ( Rule.OnEnter, LetExpression { declarations, expression } ) ->
+            List.foldl
+                (\declaration context_ ->
+                    case Node.value declaration of
+                        LetFunction function ->
+                            let
+                                nameNode : Node String
+                                nameNode =
+                                    function.declaration
+                                        |> Node.value
+                                        |> .name
+                            in
+                            registerVariable
+                                { variableType = TopLevelVariable, node = (Node.value function.declaration).name }
+                                -- TODO Check if the name as 2nd arg is not redundant with the 1st argument's node field
+                                (Node.value nameNode)
+                                context_
+
+                        LetDestructuring pattern _ ->
+                            context_
+                )
+                { context | scopes = Nonempty.cons Dict.empty context.scopes }
+                declarations
+
+        ( Rule.OnExit, LetExpression _ ) ->
+            { context | scopes = Nonempty.pop context.scopes }
+
+        ( Rule.OnEnter, LambdaExpression { args, expression } ) ->
+            -- let
+            --     namesUsedInArgumentPatterns : { types : List String, modules : List String }
+            --     namesUsedInArgumentPatterns =
+            --         args
+            --             |> List.map getUsedVariablesFromPattern
+            --             |> foldUsedTypesAndModules
+            -- in
+            -- ( [], markUsedTypesAndModules namesUsedInArgumentPatterns context )
+            context
+
+        ( Rule.OnExit, CaseExpression { cases } ) ->
+            -- TODO Need to push a new scope for every case
+            -- let
+            --     usedVariables : { types : List String, modules : List String }
+            --     usedVariables =
+            --         cases
+            --             |> List.map
+            --                 (\( patternNode, expressionNode ) ->
+            --                     getUsedVariablesFromPattern patternNode
+            --                 )
+            --             |> foldUsedTypesAndModules
+            -- in
+            -- ( []
+            -- , markUsedTypesAndModules usedVariables context
+            -- )
+            context
+
+        -- let
+        --     ( errors, remainingUsed ) =
+        --         makeReport (Nonempty.head context.scopes)
+        -- in
+        -- { context | scopes = Nonempty.pop context.scopes }
+        _ ->
+            context
 
 
 
