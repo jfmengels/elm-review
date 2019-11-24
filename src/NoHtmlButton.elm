@@ -23,8 +23,8 @@ rule =
     Rule.newSchema "NoHtmlButton"
         |> Rule.withInitialContext initialContext
         |> Scope.addVisitors
-            { setter = \scope context -> { context | scope = scope }
-            , getter = .scope
+            { set = \scope context -> { context | scope = scope }
+            , get = .scope
             }
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withExpressionVisitor expressionVisitor

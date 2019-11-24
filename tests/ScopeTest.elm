@@ -36,8 +36,8 @@ baseRule =
     Rule.newSchema "TestRule"
         |> Rule.withInitialContext initialContext
         |> Scope.addVisitors
-            { setter = \scope context -> { context | scope = scope }
-            , getter = .scope
+            { set = \scope context -> { context | scope = scope }
+            , get = .scope
             }
 
 

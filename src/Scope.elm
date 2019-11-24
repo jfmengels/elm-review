@@ -55,8 +55,8 @@ type alias InnerContext =
 
 
 type alias SetterGetter context =
-    { setter : Context -> context -> context
-    , getter : context -> Context
+    { set : Context -> context -> context
+    , get : context -> Context
     }
 
 
@@ -75,8 +75,8 @@ initialContext =
 
 
 addVisitors :
-    { setter : Context -> context -> context
-    , getter : context -> Context
+    { set : Context -> context -> context
+    , get : context -> Context
     }
     -> Rule.Schema anyType anything context
     -> Rule.Schema anyType { hasAtLeastOneVisitor : () } context
@@ -94,25 +94,25 @@ addVisitors setterGetter schema =
                     innerContext : InnerContext
                     innerContext =
                         outerContext
-                            |> setterGetter.getter
+                            |> setterGetter.get
                             |> unbox
                             |> expressionVisitor visitedElement direction
                 in
-                ( [], setterGetter.setter (Context innerContext) outerContext )
+                ( [], setterGetter.set (Context innerContext) outerContext )
             )
 
 
 mapInnerContext : SetterGetter context -> (visitedElement -> InnerContext -> InnerContext) -> visitedElement -> context -> context
-mapInnerContext { setter, getter } visitor visitedElement outerContext =
+mapInnerContext { set, get } visitor visitedElement outerContext =
     let
         innerContext : InnerContext
         innerContext =
             outerContext
-                |> getter
+                |> get
                 |> unbox
                 |> visitor visitedElement
     in
-    setter (Context innerContext) outerContext
+    set (Context innerContext) outerContext
 
 
 pairWithNoErrors : (visited -> context -> context) -> visited -> context -> ( List Error, context )
