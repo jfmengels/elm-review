@@ -1,7 +1,36 @@
-module Dependencies exposing (elmHtml)
+module Dependencies exposing (elmCore, elmHtml)
 
 import Elm.Docs
 import Elm.Type as Type
+
+
+elmCore : { packageName : String, modules : List Elm.Docs.Module }
+elmCore =
+    { packageName = "elm/html"
+    , modules =
+        [ { name = "Basics"
+          , comment = ""
+          , unions = []
+          , aliases = []
+          , values =
+                [ { name = "always"
+                  , comment = ""
+                  , tipe =
+                        -- b -> a -> b
+                        Type.Lambda (Type.Var "b") (Type.Lambda (Type.Var "a") (Type.Var "b"))
+                  }
+                ]
+          , binops =
+                [ { name = "+"
+                  , comment = "Add numbers"
+                  , tipe = Type.Lambda (Type.Var "number") (Type.Lambda (Type.Var "number") (Type.Var "number"))
+                  , associativity = Elm.Docs.Left
+                  , precedence = 6
+                  }
+                ]
+          }
+        ]
+    }
 
 
 elmHtml : { packageName : String, modules : List Elm.Docs.Module }

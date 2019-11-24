@@ -20,6 +20,7 @@ type alias Context =
 project : Project
 project =
     Project.new
+        |> Project.withDependency Dependencies.elmCore
         |> Project.withDependency Dependencies.elmHtml
 
 
@@ -112,6 +113,7 @@ a = b
     button
     Http.get
     get
+    always
 """
                         |> Review.Test.expectErrors
                             [ Review.Test.error
@@ -123,7 +125,8 @@ Baz.foo -> Bar.foo
 <nothing>.baz -> Bar.baz
 <nothing>.button -> Html.button
 Http.get -> Http.get
-<nothing>.get -> Http.get"""
+<nothing>.get -> Http.get
+<nothing>.always -> Basics.always"""
                                 , details = [ "details" ]
                                 , under = "module"
                                 }

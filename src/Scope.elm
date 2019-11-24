@@ -26,12 +26,13 @@ module Scope exposing
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
-import Elm.Syntax.Exposing as Exposing exposing (TopLevelExpose)
+import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
 import Elm.Syntax.Expression exposing (Expression(..), LetDeclaration(..))
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Module exposing (Module(..))
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
+import Elm.Syntax.Range as Range
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
 import NonemptyList as Nonempty exposing (Nonempty)
 import Review.Rule as Rule exposing (Direction, Error)
@@ -68,9 +69,6 @@ initialContext =
     Context
         { scopes = Nonempty.fromElement Dict.empty
         , importAliases = Dict.empty
-
-        -- TODO Add elm/core's prelude
-        -- https://package.elm-lang.org/packages/elm/core/latest
         , importedFunctionOrTypes = Dict.empty
         , dependencies = Dict.empty
         }
@@ -125,6 +123,46 @@ pairWithNoErrors fn visited context =
 dependenciesVisitor : Dict String Elm.Docs.Module -> InnerContext -> InnerContext
 dependenciesVisitor dependencies innerContext =
     { innerContext | dependencies = dependencies }
+        |> registerPrelude
+
+
+registerPrelude : InnerContext -> InnerContext
+registerPrelude innerContext =
+    List.foldl registerExposed innerContext elmCorePrelude
+
+
+elmCorePrelude : List Import
+elmCorePrelude =
+    -- These are the default imports implicitly added by the Elm compiler
+    -- https://package.elm-lang.org/packages/elm/core/latest
+    [ createFakeImport [ "Basics" ] (Just <| Exposing.All Range.emptyRange) Nothing
+    , createFakeImport [ "List" ] Nothing Nothing
+    , createFakeImport [ "Maybe" ] Nothing Nothing
+    , createFakeImport [ "Result" ] Nothing Nothing
+    , createFakeImport [ "String" ] Nothing Nothing
+    , createFakeImport [ "Char" ] Nothing Nothing
+    , createFakeImport [ "Tuple" ] Nothing Nothing
+    , createFakeImport [ "Debug" ] Nothing Nothing
+    , createFakeImport [ "Platform" ] Nothing Nothing
+    , createFakeImport [ "Platform", "Cmd" ] Nothing (Just "Cmd")
+    , createFakeImport [ "Platform", "Sub" ] Nothing (Just "Sub")
+    ]
+
+
+createFakeImport2 : { moduleName : List String, exposingList : Maybe Exposing, moduleAlias : Maybe String } -> Import
+createFakeImport2 { moduleName, moduleAlias, exposingList } =
+    { moduleName = Node Range.emptyRange moduleName
+    , moduleAlias = moduleAlias |> Maybe.map (List.singleton >> Node Range.emptyRange)
+    , exposingList = exposingList |> Maybe.map (Node Range.emptyRange)
+    }
+
+
+createFakeImport : List String -> Maybe Exposing -> Maybe String -> Import
+createFakeImport moduleName exposing_ alias_ =
+    { moduleName = Node Range.emptyRange moduleName
+    , moduleAlias = alias_ |> Maybe.map (List.singleton >> Node Range.emptyRange)
+    , exposingList = exposing_ |> Maybe.map (Node Range.emptyRange)
+    }
 
 
 declarationListVisitor : List (Node Declaration) -> InnerContext -> InnerContext
