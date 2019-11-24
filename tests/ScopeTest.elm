@@ -114,6 +114,7 @@ a = b
     Http.get
     get
     always
+    Just
 """
                         |> Review.Test.expectErrors
                             [ Review.Test.error
@@ -126,7 +127,8 @@ Baz.foo -> Bar.foo
 <nothing>.button -> Html.button
 Http.get -> Http.get
 <nothing>.get -> Http.get
-<nothing>.always -> Basics.always"""
+<nothing>.always -> Basics.always
+<nothing>.Just -> Maybe.Just"""
                                 , details = [ "details" ]
                                 , under = "module"
                                 }

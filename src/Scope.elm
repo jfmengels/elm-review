@@ -133,35 +133,101 @@ registerPrelude innerContext =
 
 elmCorePrelude : List Import
 elmCorePrelude =
+    let
+        explicit : List TopLevelExpose -> Maybe Exposing
+        explicit exposed =
+            exposed
+                |> List.map (Node Range.emptyRange)
+                |> Exposing.Explicit
+                |> Just
+    in
     -- These are the default imports implicitly added by the Elm compiler
     -- https://package.elm-lang.org/packages/elm/core/latest
-    [ createFakeImport [ "Basics" ] (Just <| Exposing.All Range.emptyRange) Nothing
-    , createFakeImport [ "List" ] Nothing Nothing
-    , createFakeImport [ "Maybe" ] Nothing Nothing
-    , createFakeImport [ "Result" ] Nothing Nothing
-    , createFakeImport [ "String" ] Nothing Nothing
-    , createFakeImport [ "Char" ] Nothing Nothing
-    , createFakeImport [ "Tuple" ] Nothing Nothing
-    , createFakeImport [ "Debug" ] Nothing Nothing
-    , createFakeImport [ "Platform" ] Nothing Nothing
-    , createFakeImport [ "Platform", "Cmd" ] Nothing (Just "Cmd")
-    , createFakeImport [ "Platform", "Sub" ] Nothing (Just "Sub")
+    [ createFakeImport
+        { moduleName = [ "Basics" ]
+        , moduleAlias = Nothing
+        , exposingList = Just <| Exposing.All Range.emptyRange
+        }
+    , createFakeImport
+        { moduleName = [ "List" ]
+        , moduleAlias = Nothing
+        , exposingList =
+            explicit
+                [ Exposing.TypeExpose { name = "List", open = Nothing }
+                , Exposing.InfixExpose "::"
+                ]
+        }
+    , createFakeImport
+        { moduleName = [ "Maybe" ]
+        , moduleAlias = Nothing
+        , exposingList =
+            explicit
+                [ Exposing.TypeExpose { name = "Maybe", open = Just Range.emptyRange }
+                ]
+        }
+    , createFakeImport
+        { moduleName = [ "Result" ]
+        , moduleAlias = Nothing
+        , exposingList =
+            explicit
+                [ Exposing.TypeExpose { name = "Result", open = Just Range.emptyRange }
+                ]
+        }
+    , createFakeImport
+        { moduleName = [ "String" ]
+        , moduleAlias = Nothing
+        , exposingList =
+            explicit
+                [ Exposing.TypeExpose { name = "Char", open = Nothing }
+                ]
+        }
+    , createFakeImport
+        { moduleName = [ "Char" ]
+        , moduleAlias = Nothing
+        , exposingList = Nothing
+        }
+    , createFakeImport
+        { moduleName = [ "Tuple" ]
+        , moduleAlias = Nothing
+        , exposingList = Nothing
+        }
+    , createFakeImport
+        { moduleName = [ "Debug" ]
+        , moduleAlias = Nothing
+        , exposingList = Nothing
+        }
+    , createFakeImport
+        { moduleName = [ "Platform" ]
+        , moduleAlias = Nothing
+        , exposingList =
+            explicit
+                [ Exposing.TypeExpose { name = "Program", open = Nothing }
+                ]
+        }
+    , createFakeImport
+        { moduleName = [ "Platform", "Cmd" ]
+        , moduleAlias = Just "Cmd"
+        , exposingList =
+            explicit
+                [ Exposing.TypeExpose { name = "Cmd", open = Nothing }
+                ]
+        }
+    , createFakeImport
+        { moduleName = [ "Platform", "Sub" ]
+        , moduleAlias = Just "Sub"
+        , exposingList =
+            explicit
+                [ Exposing.TypeExpose { name = "Sub", open = Nothing }
+                ]
+        }
     ]
 
 
-createFakeImport2 : { moduleName : List String, exposingList : Maybe Exposing, moduleAlias : Maybe String } -> Import
-createFakeImport2 { moduleName, moduleAlias, exposingList } =
+createFakeImport : { moduleName : List String, exposingList : Maybe Exposing, moduleAlias : Maybe String } -> Import
+createFakeImport { moduleName, moduleAlias, exposingList } =
     { moduleName = Node Range.emptyRange moduleName
     , moduleAlias = moduleAlias |> Maybe.map (List.singleton >> Node Range.emptyRange)
     , exposingList = exposingList |> Maybe.map (Node Range.emptyRange)
-    }
-
-
-createFakeImport : List String -> Maybe Exposing -> Maybe String -> Import
-createFakeImport moduleName exposing_ alias_ =
-    { moduleName = Node Range.emptyRange moduleName
-    , moduleAlias = alias_ |> Maybe.map (List.singleton >> Node Range.emptyRange)
-    , exposingList = exposing_ |> Maybe.map (Node Range.emptyRange)
     }
 
 
@@ -251,14 +317,26 @@ registerExposed import_ innerContext =
         Nothing ->
             innerContext
 
-        Just (Exposing.All _) ->
+        Just exposing_ ->
             let
                 moduleName : List String
                 moduleName =
                     Node.value import_.moduleName
+
+                module_ : Elm.Docs.Module
+                module_ =
+                    Dict.get (getModuleName moduleName) innerContext.dependencies
+                        |> Maybe.withDefault
+                            { name = getModuleName moduleName
+                            , comment = ""
+                            , unions = []
+                            , values = []
+                            , aliases = []
+                            , binops = []
+                            }
             in
-            case Dict.get (getModuleName moduleName) innerContext.dependencies of
-                Just module_ ->
+            case exposing_ of
+                Exposing.All _ ->
                     let
                         nameWithModuleName : { r | name : String } -> ( String, List String )
                         nameWithModuleName { name } =
@@ -279,30 +357,45 @@ registerExposed import_ innerContext =
                             Dict.union innerContext.importedFunctionOrTypes exposedValues
                     }
 
+                Exposing.Explicit topLevelExposeList ->
+                    let
+                        exposedValues : Dict String (List String)
+                        exposedValues =
+                            topLevelExposeList
+                                |> List.concatMap (namesFromExposingList module_)
+                                |> List.map (\name -> ( name, moduleName ))
+                                |> Dict.fromList
+                    in
+                    { innerContext
+                        | importedFunctionOrTypes =
+                            Dict.union innerContext.importedFunctionOrTypes exposedValues
+                    }
+
+
+namesFromExposingList : Elm.Docs.Module -> Node TopLevelExpose -> List String
+namesFromExposingList module_ topLevelExpose =
+    case Node.value topLevelExpose of
+        Exposing.InfixExpose operator ->
+            [ operator ]
+
+        Exposing.FunctionExpose function ->
+            [ function ]
+
+        Exposing.TypeOrAliasExpose type_ ->
+            [ type_ ]
+
+        Exposing.TypeExpose { name, open } ->
+            case open of
+                Just _ ->
+                    name
+                        :: (module_.unions
+                                |> List.filter (\union -> union.name == name)
+                                |> List.concatMap .tags
+                                |> List.map Tuple.first
+                           )
+
                 Nothing ->
-                    innerContext
-
-        Just (Exposing.Explicit topLevelExposeList) ->
-            let
-                moduleName : List String
-                moduleName =
-                    Node.value import_.moduleName
-
-                exposedValues : Dict String (List String)
-                exposedValues =
-                    topLevelExposeList
-                        |> List.map
-                            (\topLevelExpose ->
-                                ( nameOfTopLevelExpose <| Node.value topLevelExpose
-                                , moduleName
-                                )
-                            )
-                        |> Dict.fromList
-            in
-            { innerContext
-                | importedFunctionOrTypes =
-                    Dict.union innerContext.importedFunctionOrTypes exposedValues
-            }
+                    [ name ]
 
 
 nameOfTopLevelExpose : TopLevelExpose -> String
@@ -317,7 +410,23 @@ nameOfTopLevelExpose topLevelExpose =
         Exposing.TypeOrAliasExpose type_ ->
             type_
 
-        Exposing.TypeExpose { name } ->
+        Exposing.TypeExpose { name, open } ->
+            name
+
+
+importedNames : TopLevelExpose -> String
+importedNames topLevelExpose =
+    case topLevelExpose of
+        Exposing.InfixExpose operator ->
+            operator
+
+        Exposing.FunctionExpose function ->
+            function
+
+        Exposing.TypeOrAliasExpose type_ ->
+            type_
+
+        Exposing.TypeExpose { name, open } ->
             name
 
 
