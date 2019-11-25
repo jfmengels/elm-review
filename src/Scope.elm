@@ -34,7 +34,7 @@ import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
-import NonemptyList as Nonempty exposing (Nonempty)
+import NonemptyList exposing (Nonempty)
 import Review.Rule as Rule exposing (Direction, Error)
 
 
@@ -67,7 +67,7 @@ type alias SetterGetter context =
 initialContext : Context
 initialContext =
     Context
-        { scopes = Nonempty.fromElement Dict.empty
+        { scopes = NonemptyList.fromElement Dict.empty
         , importAliases = Dict.empty
         , importedFunctionOrTypes = Dict.empty
         , dependencies = Dict.empty
@@ -281,7 +281,7 @@ registerVariable variableInfo name context =
     let
         scopes : Nonempty (Dict String VariableInfo)
         scopes =
-            Nonempty.mapHead
+            NonemptyList.mapHead
                 (Dict.insert name variableInfo)
                 context.scopes
     in
@@ -449,11 +449,11 @@ expressionVisitor (Node range value) direction context =
                         LetDestructuring pattern _ ->
                             context_
                 )
-                { context | scopes = Nonempty.cons Dict.empty context.scopes }
+                { context | scopes = NonemptyList.cons Dict.empty context.scopes }
                 declarations
 
         ( Rule.OnExit, LetExpression _ ) ->
-            { context | scopes = Nonempty.pop context.scopes }
+            { context | scopes = NonemptyList.pop context.scopes }
 
         _ ->
             context
@@ -491,7 +491,7 @@ realFunctionOrType moduleName functionOrType (Context context) =
 
 isInScope : String -> Nonempty (Dict String VariableInfo) -> Bool
 isInScope name scopes =
-    Nonempty.any (Dict.member name) scopes
+    NonemptyList.any (Dict.member name) scopes
 
 
 
