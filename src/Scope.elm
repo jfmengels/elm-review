@@ -27,7 +27,7 @@ import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
-import Elm.Syntax.Expression exposing (Expression(..), LetDeclaration(..))
+import Elm.Syntax.Expression as Expression exposing (Expression(..), LetDeclaration(..))
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Module exposing (Module(..))
 import Elm.Syntax.Node as Node exposing (Node(..))
@@ -88,6 +88,18 @@ addVisitors setterGetter schema =
             (mapInnerContext setterGetter importVisitor |> pairWithNoErrors)
         |> Rule.withDeclarationListVisitor
             (mapInnerContext setterGetter declarationListVisitor |> pairWithNoErrors)
+        |> Rule.withDeclarationVisitor
+            (\visitedElement direction outerContext ->
+                let
+                    innerContext : InnerContext
+                    innerContext =
+                        outerContext
+                            |> setterGetter.get
+                            |> unbox
+                            |> declarationVisitor visitedElement direction
+                in
+                ( [], setterGetter.set (Context innerContext) outerContext )
+            )
         |> Rule.withExpressionVisitor
             (\visitedElement direction outerContext ->
                 let
@@ -412,6 +424,7 @@ type alias VariableInfo =
 
 type VariableType
     = TopLevelVariable
+    | FunctionParameter
     | LetVariable
     | ImportedModule
     | ImportedItem ImportType
@@ -424,6 +437,84 @@ type ImportType
     = ImportedVariable
     | ImportedType
     | ImportedOperator
+
+
+declarationVisitor : Node Declaration -> Rule.Direction -> InnerContext -> InnerContext
+declarationVisitor declaration direction context =
+    case ( direction, Node.value declaration ) of
+        ( Rule.OnEnter, Declaration.FunctionDeclaration function ) ->
+            context.scopes
+                |> NonemptyList.cons (parameters <| .arguments <| Node.value function.declaration)
+                |> updateScope context
+
+        ( Rule.OnExit, Declaration.FunctionDeclaration function ) ->
+            { context | scopes = NonemptyList.pop context.scopes }
+
+        _ ->
+            context
+
+
+parameters : List (Node Pattern) -> Dict String VariableInfo
+parameters patterns =
+    List.concatMap collectNamesFromPattern patterns
+        |> List.map
+            (\node ->
+                ( Node.value node
+                , { node = node
+                  , variableType = FunctionParameter
+                  }
+                )
+            )
+        |> Dict.fromList
+
+
+collectNamesFromPattern : Node Pattern -> List (Node String)
+collectNamesFromPattern pattern =
+    case Node.value pattern of
+        Pattern.AllPattern ->
+            []
+
+        Pattern.UnitPattern ->
+            []
+
+        Pattern.CharPattern _ ->
+            []
+
+        Pattern.StringPattern _ ->
+            []
+
+        Pattern.IntPattern _ ->
+            []
+
+        Pattern.HexPattern _ ->
+            []
+
+        Pattern.FloatPattern _ ->
+            []
+
+        Pattern.TuplePattern subPatterns ->
+            List.concatMap collectNamesFromPattern subPatterns
+
+        Pattern.RecordPattern names ->
+            names
+
+        Pattern.UnConsPattern left right ->
+            List.concatMap collectNamesFromPattern [ left, right ]
+
+        Pattern.ListPattern subPatterns ->
+            List.concatMap collectNamesFromPattern subPatterns
+
+        Pattern.VarPattern name ->
+            [ Node (Node.range pattern) name ]
+
+        Pattern.NamedPattern _ subPatterns ->
+            List.concatMap collectNamesFromPattern subPatterns
+
+        Pattern.AsPattern subPattern alias_ ->
+            alias_ :: collectNamesFromPattern subPattern
+
+        Pattern.ParenthesizedPattern subPattern ->
+            collectNamesFromPattern subPattern
 
 
 expressionVisitor : Node Expression -> Direction -> InnerContext -> InnerContext

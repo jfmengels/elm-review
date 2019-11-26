@@ -171,6 +171,31 @@ b = button
                         }
                         |> Review.Test.atExactly { start = { row = 8, column = 5 }, end = { row = 8, column = 11 } }
                     ]
+    , test "should not report the use of `button` if it is shadowed by an accessible parameter" <|
+        \() ->
+            testRuleWithHtmlDependency """
+import Html exposing (..)
+a button =
+  button
+"""
+                |> Review.Test.expectNoErrors
+    , test "should report the use of `button` even if it was defined as a parameter somewhere else" <|
+        \() ->
+            testRuleWithHtmlDependency """
+import Html exposing (..)
+a button =
+  button
+b =
+  button
+"""
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = message
+                        , details = details
+                        , under = "button"
+                        }
+                        |> Review.Test.atExactly { start = { row = 8, column = 3 }, end = { row = 8, column = 9 } }
+                    ]
     ]
 
 
