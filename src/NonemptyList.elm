@@ -134,13 +134,8 @@ pop (Nonempty x xs) =
 {-| Map the head to a value of the same type
 -}
 mapHead : (a -> a) -> Nonempty a -> Nonempty a
-mapHead fn nonempty =
-    let
-        newHead : a
-        newHead =
-            fn (head nonempty)
-    in
-    replaceHead newHead nonempty
+mapHead fn (Nonempty x xs) =
+    Nonempty (fn x) xs
 
 
 {-| Exchange the head element while leaving the tail alone.
