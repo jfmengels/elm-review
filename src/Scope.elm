@@ -240,12 +240,13 @@ registerDeclaration : Node Declaration -> InnerContext -> InnerContext
 registerDeclaration declaration innerContext =
     case declarationNameNode declaration of
         Just nameNode ->
-            registerVariable
-                { variableType = TopLevelVariable
-                , node = nameNode
-                }
-                (Node.value nameNode)
-                innerContext
+            innerContext.scopes
+                |> registerVariable
+                    { variableType = TopLevelVariable
+                    , node = nameNode
+                    }
+                    (Node.value nameNode)
+                |> updateScope innerContext
 
         Nothing ->
             innerContext
@@ -276,15 +277,15 @@ declarationNameNode (Node _ declaration) =
             Nothing
 
 
-registerVariable : VariableInfo -> String -> InnerContext -> InnerContext
-registerVariable variableInfo name context =
-    let
-        scopes : Nonempty (Dict String VariableInfo)
-        scopes =
-            NonemptyList.mapHead
-                (Dict.insert name variableInfo)
-                context.scopes
-    in
+registerVariable : VariableInfo -> String -> Nonempty (Dict String VariableInfo) -> Nonempty (Dict String VariableInfo)
+registerVariable variableInfo name scopes =
+    NonemptyList.mapHead
+        (Dict.insert name variableInfo)
+        scopes
+
+
+updateScope : InnerContext -> Nonempty (Dict String VariableInfo) -> InnerContext
+updateScope context scopes =
     { context | scopes = scopes }
 
 
@@ -430,7 +431,7 @@ expressionVisitor (Node range value) direction context =
     case ( direction, value ) of
         ( Rule.OnEnter, LetExpression { declarations, expression } ) ->
             List.foldl
-                (\declaration context_ ->
+                (\declaration scopes ->
                     case Node.value declaration of
                         LetFunction function ->
                             let
@@ -444,13 +445,14 @@ expressionVisitor (Node range value) direction context =
                                 { variableType = TopLevelVariable, node = (Node.value function.declaration).name }
                                 -- TODO Check if the name as 2nd arg is not redundant with the 1st argument's node field
                                 (Node.value nameNode)
-                                context_
+                                scopes
 
                         LetDestructuring pattern _ ->
-                            context_
+                            scopes
                 )
-                { context | scopes = NonemptyList.cons Dict.empty context.scopes }
+                (NonemptyList.cons Dict.empty context.scopes)
                 declarations
+                |> updateScope context
 
         ( Rule.OnExit, LetExpression _ ) ->
             { context | scopes = NonemptyList.pop context.scopes }
