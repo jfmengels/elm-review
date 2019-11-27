@@ -196,6 +196,32 @@ b =
                         }
                         |> Review.Test.atExactly { start = { row = 8, column = 3 }, end = { row = 8, column = 9 } }
                     ]
+    , test "should not report the use of `button` if it is shadowed by a name while pattern matching" <|
+        \() ->
+            testRuleWithHtmlDependency """
+import Html exposing (..)
+a =
+  case c of
+    Foo button -> button
+"""
+                |> Review.Test.expectNoErrors
+    , test "should report the use of `button` even if a different pattern matching has a pattern that shadows it" <|
+        \() ->
+            testRuleWithHtmlDependency """
+import Html exposing (..)
+a =
+  case c of
+    Foo button -> button
+    Bar -> button
+"""
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = message
+                        , details = details
+                        , under = "button"
+                        }
+                        |> Review.Test.atExactly { start = { row = 8, column = 12 }, end = { row = 8, column = 18 } }
+                    ]
     ]
 
 

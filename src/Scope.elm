@@ -45,10 +45,17 @@ type Context
 
 
 type alias InnerContext =
-    { scopes : Nonempty (Dict String VariableInfo)
+    { scopes : Nonempty Scope
     , importAliases : Dict String (List String)
     , importedFunctionOrTypes : Dict String (List String)
     , dependencies : Dict String Elm.Docs.Module
+    }
+
+
+type alias Scope =
+    { names : Dict String VariableInfo
+    , cases : List ( Node Expression, Dict String VariableInfo )
+    , caseToExit : Node Expression
     }
 
 
@@ -65,11 +72,19 @@ type alias SetterGetter context =
 initialContext : Context
 initialContext =
     Context
-        { scopes = NonemptyList.fromElement Dict.empty
+        { scopes = NonemptyList.fromElement emptyScope
         , importAliases = Dict.empty
         , importedFunctionOrTypes = Dict.empty
         , dependencies = Dict.empty
         }
+
+
+emptyScope : Scope
+emptyScope =
+    { names = Dict.empty
+    , cases = []
+    , caseToExit = Node Range.emptyRange (Expression.Literal "root")
+    }
 
 
 addVisitors :
@@ -95,6 +110,18 @@ addVisitors setterGetter schema =
                             |> setterGetter.get
                             |> unbox
                             |> declarationVisitor visitedElement direction
+                in
+                ( [], setterGetter.set (Context innerContext) outerContext )
+            )
+        |> Rule.withExpressionVisitor
+            (\visitedElement direction outerContext ->
+                let
+                    innerContext : InnerContext
+                    innerContext =
+                        outerContext
+                            |> setterGetter.get
+                            |> unbox
+                            |> popScope visitedElement direction
                 in
                 ( [], setterGetter.set (Context innerContext) outerContext )
             )
@@ -287,14 +314,14 @@ declarationNameNode (Node _ declaration) =
             Nothing
 
 
-registerVariable : VariableInfo -> String -> Nonempty (Dict String VariableInfo) -> Nonempty (Dict String VariableInfo)
+registerVariable : VariableInfo -> String -> Nonempty Scope -> Nonempty Scope
 registerVariable variableInfo name scopes =
     NonemptyList.mapHead
-        (Dict.insert name variableInfo)
+        (\scope -> { scope | names = Dict.insert name variableInfo scope.names })
         scopes
 
 
-updateScope : InnerContext -> Nonempty (Dict String VariableInfo) -> InnerContext
+updateScope : InnerContext -> Nonempty Scope -> InnerContext
 updateScope context scopes =
     { context | scopes = scopes }
 
@@ -424,6 +451,7 @@ type VariableType
     = TopLevelVariable
     | FunctionParameter
     | LetVariable
+    | PatternVariable
     | ImportedModule
     | ImportedItem ImportType
     | ModuleAlias { originalNameOfTheImport : String, exposesSomething : Bool }
@@ -441,8 +469,13 @@ declarationVisitor : Node Declaration -> Rule.Direction -> InnerContext -> Inner
 declarationVisitor declaration direction context =
     case ( direction, Node.value declaration ) of
         ( Rule.OnEnter, Declaration.FunctionDeclaration function ) ->
+            let
+                newScope : Scope
+                newScope =
+                    { emptyScope | names = parameters <| .arguments <| Node.value function.declaration }
+            in
             context.scopes
-                |> NonemptyList.cons (parameters <| .arguments <| Node.value function.declaration)
+                |> NonemptyList.cons newScope
                 |> updateScope context
 
         ( Rule.OnExit, Declaration.FunctionDeclaration function ) ->
@@ -515,8 +548,37 @@ collectNamesFromPattern pattern =
             collectNamesFromPattern subPattern
 
 
+popScope : Node Expression -> Direction -> InnerContext -> InnerContext
+popScope ((Node range value) as node) direction context =
+    let
+        currentScope : Scope
+        currentScope =
+            NonemptyList.head context.scopes
+    in
+    case direction of
+        Rule.OnEnter ->
+            let
+                caseExpression : Maybe ( Node Expression, Dict String VariableInfo )
+                caseExpression =
+                    findInList (\( expressionNode, _ ) -> node == expressionNode) currentScope.cases
+            in
+            case caseExpression of
+                Nothing ->
+                    context
+
+                Just ( _, names ) ->
+                    { context | scopes = NonemptyList.cons { emptyScope | names = names, caseToExit = node } context.scopes }
+
+        Rule.OnExit ->
+            if node == currentScope.caseToExit then
+                { context | scopes = NonemptyList.pop context.scopes }
+
+            else
+                context
+
+
 expressionVisitor : Node Expression -> Direction -> InnerContext -> InnerContext
-expressionVisitor (Node range value) direction context =
+expressionVisitor ((Node range value) as node) direction context =
     case ( direction, value ) of
         ( Rule.OnEnter, Expression.LetExpression { declarations, expression } ) ->
             List.foldl
@@ -539,15 +601,55 @@ expressionVisitor (Node range value) direction context =
                         Expression.LetDestructuring pattern _ ->
                             scopes
                 )
-                (NonemptyList.cons Dict.empty context.scopes)
+                (NonemptyList.cons emptyScope context.scopes)
                 declarations
                 |> updateScope context
 
         ( Rule.OnExit, Expression.LetExpression _ ) ->
             { context | scopes = NonemptyList.pop context.scopes }
 
+        ( Rule.OnEnter, Expression.CaseExpression caseBlock ) ->
+            let
+                cases : List ( Node Expression, Dict String VariableInfo )
+                cases =
+                    caseBlock.cases
+                        |> List.map
+                            (\( pattern, expression ) ->
+                                ( expression
+                                , collectNamesFromPattern pattern
+                                    |> List.map
+                                        (\node_ ->
+                                            ( Node.value node_
+                                            , { node = node_
+                                              , variableType = PatternVariable
+                                              }
+                                            )
+                                        )
+                                    |> Dict.fromList
+                                )
+                            )
+            in
+            { context | scopes = NonemptyList.mapHead (\scope -> { scope | cases = cases }) context.scopes }
+
+        ( Rule.OnExit, Expression.CaseExpression caseBlock ) ->
+            { context | scopes = NonemptyList.mapHead (\scope -> { scope | cases = [] }) context.scopes }
+
         _ ->
             context
+
+
+findInList : (a -> Bool) -> List a -> Maybe a
+findInList predicate list =
+    case list of
+        [] ->
+            Nothing
+
+        a :: rest ->
+            if predicate a then
+                Just a
+
+            else
+                findInList predicate rest
 
 
 
@@ -580,9 +682,9 @@ realFunctionOrType moduleName functionOrType (Context context) =
         ( moduleName, functionOrType )
 
 
-isInScope : String -> Nonempty (Dict String VariableInfo) -> Bool
+isInScope : String -> Nonempty Scope -> Bool
 isInScope name scopes =
-    NonemptyList.any (Dict.member name) scopes
+    NonemptyList.any (.names >> Dict.member name) scopes
 
 
 
