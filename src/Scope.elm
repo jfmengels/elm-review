@@ -27,13 +27,11 @@ import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
-import Elm.Syntax.Expression as Expression exposing (Expression(..), LetDeclaration(..))
+import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Import exposing (Import)
-import Elm.Syntax.Module exposing (Module(..))
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range
-import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
 import NonemptyList exposing (Nonempty)
 import Review.Rule as Rule exposing (Direction, Error)
 
@@ -520,11 +518,11 @@ collectNamesFromPattern pattern =
 expressionVisitor : Node Expression -> Direction -> InnerContext -> InnerContext
 expressionVisitor (Node range value) direction context =
     case ( direction, value ) of
-        ( Rule.OnEnter, LetExpression { declarations, expression } ) ->
+        ( Rule.OnEnter, Expression.LetExpression { declarations, expression } ) ->
             List.foldl
                 (\declaration scopes ->
                     case Node.value declaration of
-                        LetFunction function ->
+                        Expression.LetFunction function ->
                             let
                                 nameNode : Node String
                                 nameNode =
@@ -538,14 +536,14 @@ expressionVisitor (Node range value) direction context =
                                 (Node.value nameNode)
                                 scopes
 
-                        LetDestructuring pattern _ ->
+                        Expression.LetDestructuring pattern _ ->
                             scopes
                 )
                 (NonemptyList.cons Dict.empty context.scopes)
                 declarations
                 |> updateScope context
 
-        ( Rule.OnExit, LetExpression _ ) ->
+        ( Rule.OnExit, Expression.LetExpression _ ) ->
             { context | scopes = NonemptyList.pop context.scopes }
 
         _ ->
