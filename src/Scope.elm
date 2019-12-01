@@ -593,7 +593,7 @@ expressionVisitor ((Node range value) as node) direction context =
                                         |> .name
                             in
                             registerVariable
-                                { variableType = TopLevelVariable, node = (Node.value function.declaration).name }
+                                { variableType = LetVariable, node = nameNode }
                                 -- TODO Check if the name as 2nd arg is not redundant with the 1st argument's node field
                                 (Node.value nameNode)
                                 scopes
