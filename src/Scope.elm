@@ -157,6 +157,10 @@ pairWithNoErrors fn visited context =
     ( [], fn visited context )
 
 
+
+-- DEPENDENCIES
+
+
 dependenciesVisitor : Dict String Elm.Docs.Module -> InnerContext -> InnerContext
 dependenciesVisitor dependencies innerContext =
     { innerContext | dependencies = dependencies }
@@ -276,10 +280,10 @@ declarationListVisitor declarations innerContext =
 registerDeclaration : Node Declaration -> InnerContext -> InnerContext
 registerDeclaration declaration innerContext =
     case declarationNameNode declaration of
-        Just nameNode ->
+        Just ( variableType, nameNode ) ->
             innerContext.scopes
                 |> registerVariable
-                    { variableType = TopLevelVariable
+                    { variableType = variableType
                     , node = nameNode
                     }
                     (Node.value nameNode)
@@ -289,23 +293,25 @@ registerDeclaration declaration innerContext =
             innerContext
 
 
-declarationNameNode : Node Declaration -> Maybe (Node String)
+declarationNameNode : Node Declaration -> Maybe ( VariableType, Node String )
 declarationNameNode (Node _ declaration) =
     case declaration of
         Declaration.FunctionDeclaration function ->
-            function.declaration
-                |> Node.value
-                |> .name
-                |> Just
+            Just
+                ( TopLevelVariable
+                , function.declaration
+                    |> Node.value
+                    |> .name
+                )
 
         Declaration.CustomTypeDeclaration type_ ->
-            Just type_.name
+            Just ( TopLevelVariable, type_.name )
 
         Declaration.AliasDeclaration alias_ ->
-            Just alias_.name
+            Just ( TopLevelVariable, alias_.name )
 
         Declaration.PortDeclaration port_ ->
-            Just port_.name
+            Just ( Port, port_.name )
 
         Declaration.InfixDeclaration _ ->
             Nothing
@@ -452,10 +458,7 @@ type VariableType
     | FunctionParameter
     | LetVariable
     | PatternVariable
-    | ImportedModule
     | ImportedItem ImportType
-    | ModuleAlias { originalNameOfTheImport : String, exposesSomething : Bool }
-    | Type
     | Port
 
 

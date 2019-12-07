@@ -128,7 +128,7 @@ a = button
                         }
                         |> Review.Test.atExactly { start = { row = 5, column = 5 }, end = { row = 5, column = 11 } }
                     ]
-    , test "should not report the use of `button` when it has been imported using `exposing (..)` and the dependency is known, but it has been redefined at the top-level" <|
+    , test "should not report the use of `button` when it has been imported using `exposing (..)` and the dependency is known, but it has been redefined at the top-level as a function" <|
         \() ->
             testRuleWithHtmlDependency """
 import Html exposing (..)
@@ -143,6 +143,14 @@ import Html exposing (..)
 a = let
   button = 1
   in button
+"""
+                |> Review.Test.expectNoErrors
+    , test "should not report the use of `button` when it has been imported using `exposing (..)` and the dependency is known, but it has been redefined at the top-level as a port" <|
+        \() ->
+            testRuleWithHtmlDependency """
+import Html exposing (..)
+a = button
+port button : (() -> msg) -> Sub msg
 """
                 |> Review.Test.expectNoErrors
     , test "should not report the use of `button` when it has been imported using `exposing (button)`, but it has been redefined in an accessible let..in declaration" <|
