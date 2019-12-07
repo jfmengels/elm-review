@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "elm-format": "^0.8.2",
-    "elm-test": "^0.19.1",
+    "elm-test": "^0.19.1-revision2",
     "elm-xref": "^4.0.0"
   }
 }
