@@ -47,8 +47,7 @@ unused modules in your application or package.
 rule : Rule
 rule =
     Rule.newMultiSchema "NoUnused.Modules"
-        { elmJsonVisitors = [ elmJsonVisitor ]
-        , dependenciesVisitors = []
+        { dependenciesVisitors = []
         , moduleVisitorSchema = moduleVisitorSchema
         , context =
             { initGlobalContext = initGlobalContext
@@ -58,6 +57,7 @@ rule =
             }
         , finalEvaluation = finalEvaluationForProject
         }
+        |> Rule.withMultiElmJsonVisitor elmJsonVisitor
         |> Rule.fromMultiSchema
 
 

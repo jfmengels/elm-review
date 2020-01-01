@@ -10,6 +10,7 @@ module Review.Rule exposing
     , newMultiSchema, fromMultiSchema, newFileVisitorSchema
     , FileKey, errorForFile
     , ReviewResult(..)
+    , withMultiElmJsonVisitor
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -549,8 +550,7 @@ type MultiSchema globalContext moduleContext
 newMultiSchema :
     String
     ->
-        { elmJsonVisitors : List (Maybe Elm.Project.Project -> globalContext -> globalContext)
-        , dependenciesVisitors : List (Dict String Elm.Docs.Module -> globalContext -> globalContext)
+        { dependenciesVisitors : List (Dict String Elm.Docs.Module -> globalContext -> globalContext)
         , moduleVisitorSchema : Schema ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
         , context :
             { initGlobalContext : globalContext
@@ -561,11 +561,11 @@ newMultiSchema :
         , finalEvaluation : globalContext -> List Error
         }
     -> MultiSchema globalContext moduleContext
-newMultiSchema name_ { context, elmJsonVisitors, dependenciesVisitors, moduleVisitorSchema, finalEvaluation } =
+newMultiSchema name_ { context, dependenciesVisitors, moduleVisitorSchema, finalEvaluation } =
     MultiSchema
         { name = name_
         , context = context
-        , elmJsonVisitors = elmJsonVisitors
+        , elmJsonVisitors = []
         , dependenciesVisitors = dependenciesVisitors
         , moduleVisitorSchema = moduleVisitorSchema
         , finalEvaluationFn = finalEvaluation
@@ -716,6 +716,16 @@ moduleNameNode node =
 
         Module.EffectModule data ->
             data.moduleName
+
+
+{-| TODO documentation
+-}
+withMultiElmJsonVisitor :
+    (Maybe Elm.Project.Project -> globalContext -> globalContext)
+    -> MultiSchema globalContext moduleContext
+    -> MultiSchema globalContext moduleContext
+withMultiElmJsonVisitor visitor (MultiSchema schema) =
+    MultiSchema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
 
 
 {-| Concatenate the errors of the previous step and of the last step.
