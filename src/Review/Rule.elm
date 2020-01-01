@@ -536,7 +536,7 @@ type MultiSchema globalContext moduleContext
         , context :
             { initGlobalContext : globalContext
             , initModuleContext : FileKey -> Node ModuleName -> globalContext -> moduleContext
-            , toGlobalContext : FileKey -> Node ModuleName -> moduleContext -> globalContext
+            , fromModuleToGlobal : FileKey -> Node ModuleName -> moduleContext -> globalContext
             , fold : globalContext -> globalContext -> globalContext
             }
         , elmJsonVisitors : List (Maybe Elm.Project.Project -> globalContext -> globalContext)
@@ -555,7 +555,7 @@ newMultiSchema :
         , context :
             { initGlobalContext : globalContext
             , initModuleContext : FileKey -> Node ModuleName -> globalContext -> moduleContext
-            , toGlobalContext : FileKey -> Node ModuleName -> moduleContext -> globalContext
+            , fromModuleToGlobal : FileKey -> Node ModuleName -> moduleContext -> globalContext
             , fold : globalContext -> globalContext -> globalContext
             }
         , finalEvaluation : globalContext -> List Error
@@ -660,7 +660,7 @@ runMulti (MultiSchema schema) startCache project =
                 { source = file.source
                 , errors = List.map (\(Error err) -> Error { err | filePath = file.path }) fileErrors
                 , context =
-                    schema.context.toGlobalContext
+                    schema.context.fromModuleToGlobal
                         fileKey
                         moduleNameNode_
                         context

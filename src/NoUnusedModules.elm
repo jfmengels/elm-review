@@ -53,7 +53,7 @@ rule =
         , context =
             { initGlobalContext = initGlobalContext
             , initModuleContext = initModuleContext
-            , toGlobalContext = toGlobalContext
+            , fromModuleToGlobal = fromModuleToGlobal
             , fold = fold
             }
         , finalEvaluation = finalEvaluationForProject
@@ -95,8 +95,8 @@ initModuleContext _ _ _ =
     }
 
 
-toGlobalContext : Rule.FileKey -> Node ModuleName -> ModuleContext -> GlobalContext
-toGlobalContext fileKey moduleName moduleContext =
+fromModuleToGlobal : Rule.FileKey -> Node ModuleName -> ModuleContext -> GlobalContext
+fromModuleToGlobal fileKey moduleName moduleContext =
     { modules =
         Dict.singleton
             (Node.value moduleName)
