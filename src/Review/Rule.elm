@@ -7,7 +7,7 @@ module Review.Rule exposing
     , withElmJsonVisitor, withDependenciesVisitor
     , withFixes
     , Error, error, parsingError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
-    , newMultiSchema, fromMultiSchema, newFileVisitorSchema, withMultiDependenciesVisitor, withMultiElmJsonVisitor
+    , newMultiSchema, fromMultiSchema, newFileVisitorSchema, withMultiDependenciesVisitor, withMultiElmJsonVisitor, withMultiFinalEvaluation
     , FileKey, errorForFile
     , ReviewResult(..)
     )
@@ -192,7 +192,7 @@ For more information on automatic fixing, read the documentation for [`Review.Fi
 
 # TODO
 
-@docs newMultiSchema, fromMultiSchema, newFileVisitorSchema, withMultiDependenciesVisitor, withMultiElmJsonVisitor
+@docs newMultiSchema, fromMultiSchema, newFileVisitorSchema, withMultiDependenciesVisitor, withMultiElmJsonVisitor, withMultiFinalEvaluation
 @docs FileKey, errorForFile
 @docs ReviewResult
 
@@ -526,6 +526,18 @@ accumulateContext visitors element context =
     List.foldl (\visitor -> visitor element) context visitors
 
 
+{-| Concatenate the errors of the previous step and of the last step.
+-}
+makeFinalEvaluation : List (context -> List Error) -> ( List Error, context ) -> List Error
+makeFinalEvaluation finalEvaluationFns ( previousErrors, context ) =
+    List.concat
+        [ List.concatMap
+            (\visitor -> visitor context)
+            finalEvaluationFns
+        , previousErrors
+        ]
+
+
 
 -- MULTI FILE RULES
 
@@ -539,34 +551,33 @@ type MultiSchema globalContext moduleContext
             , fromModuleToGlobal : FileKey -> Node ModuleName -> moduleContext -> globalContext
             , fold : globalContext -> globalContext -> globalContext
             }
+        , moduleVisitorSchema : Schema ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
         , elmJsonVisitors : List (Maybe Elm.Project.Project -> globalContext -> globalContext)
         , dependenciesVisitors : List (Dict String Elm.Docs.Module -> globalContext -> globalContext)
-        , moduleVisitorSchema : Schema ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
-        , finalEvaluationFn : globalContext -> List Error
+        , finalEvaluationFns : List (globalContext -> List Error)
         }
 
 
 newMultiSchema :
     String
     ->
-        { moduleVisitorSchema : Schema ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
-        , context :
+        { context :
             { initGlobalContext : globalContext
             , initModuleContext : FileKey -> Node ModuleName -> globalContext -> moduleContext
             , fromModuleToGlobal : FileKey -> Node ModuleName -> moduleContext -> globalContext
             , fold : globalContext -> globalContext -> globalContext
             }
-        , finalEvaluation : globalContext -> List Error
+        , moduleVisitorSchema : Schema ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
         }
     -> MultiSchema globalContext moduleContext
-newMultiSchema name_ { context, moduleVisitorSchema, finalEvaluation } =
+newMultiSchema name_ { context, moduleVisitorSchema } =
     MultiSchema
         { name = name_
         , context = context
+        , moduleVisitorSchema = moduleVisitorSchema
         , elmJsonVisitors = []
         , dependenciesVisitors = []
-        , moduleVisitorSchema = moduleVisitorSchema
-        , finalEvaluationFn = finalEvaluation
+        , finalEvaluationFns = []
         }
 
 
@@ -599,6 +610,7 @@ fromMultiSchema (MultiSchema schema) =
                 { schema
                     | elmJsonVisitors = List.reverse schema.elmJsonVisitors
                     , dependenciesVisitors = List.reverse schema.dependenciesVisitors
+                    , finalEvaluationFns = List.reverse schema.finalEvaluationFns
                 }
             )
             Dict.empty
@@ -696,11 +708,20 @@ runMulti (MultiSchema schema) startCache project =
                     , contextsAndErrorsPerFile
                         |> List.map Tuple.second
                         |> List.foldl schema.context.fold initialContext
-                        |> schema.finalEvaluationFn
+                        |> makeFinalEvaluationForMulti schema.finalEvaluationFns
                         |> List.map (\(Error err) -> Error { err | ruleName = schema.name })
                     ]
         in
         ( errors, Multi schema.name (runMulti (MultiSchema schema) newCache) )
+
+
+{-| Concatenate the errors of the previous step and of the last step.
+-}
+makeFinalEvaluationForMulti : List (context -> List Error) -> context -> List Error
+makeFinalEvaluationForMulti finalEvaluationFns context =
+    List.concatMap
+        (\visitor -> visitor context)
+        finalEvaluationFns
 
 
 moduleNameNode : Node Module -> Node ModuleName
@@ -736,16 +757,14 @@ withMultiDependenciesVisitor visitor (MultiSchema schema) =
     MultiSchema { schema | dependenciesVisitors = visitor :: schema.dependenciesVisitors }
 
 
-{-| Concatenate the errors of the previous step and of the last step.
+{-| TODO documentation
 -}
-makeFinalEvaluation : List (context -> List Error) -> ( List Error, context ) -> List Error
-makeFinalEvaluation finalEvaluationFns ( previousErrors, context ) =
-    List.concat
-        [ List.concatMap
-            (\visitor -> visitor context)
-            finalEvaluationFns
-        , previousErrors
-        ]
+withMultiFinalEvaluation :
+    (globalContext -> List Error)
+    -> MultiSchema globalContext moduleContext
+    -> MultiSchema globalContext moduleContext
+withMultiFinalEvaluation visitor (MultiSchema schema) =
+    MultiSchema { schema | finalEvaluationFns = visitor :: schema.finalEvaluationFns }
 
 
 {-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s [module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`) and report patterns.

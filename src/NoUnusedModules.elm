@@ -54,9 +54,9 @@ rule =
             , fromModuleToGlobal = fromModuleToGlobal
             , fold = fold
             }
-        , finalEvaluation = finalEvaluationForProject
         }
         |> Rule.withMultiElmJsonVisitor elmJsonVisitor
+        |> Rule.withMultiFinalEvaluation finalEvaluationForProject
         |> Rule.fromMultiSchema
 
 
