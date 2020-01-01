@@ -47,8 +47,7 @@ unused modules in your application or package.
 rule : Rule
 rule =
     Rule.newMultiSchema "NoUnused.Modules"
-        { dependenciesVisitors = []
-        , moduleVisitorSchema = moduleVisitorSchema
+        { moduleVisitorSchema = moduleVisitorSchema
         , context =
             { initGlobalContext = initGlobalContext
             , initModuleContext = initModuleContext

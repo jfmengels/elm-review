@@ -7,10 +7,9 @@ module Review.Rule exposing
     , withElmJsonVisitor, withDependenciesVisitor
     , withFixes
     , Error, error, parsingError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
-    , newMultiSchema, fromMultiSchema, newFileVisitorSchema
+    , newMultiSchema, fromMultiSchema, newFileVisitorSchema, withMultiDependenciesVisitor, withMultiElmJsonVisitor
     , FileKey, errorForFile
     , ReviewResult(..)
-    , withMultiElmJsonVisitor
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -193,7 +192,7 @@ For more information on automatic fixing, read the documentation for [`Review.Fi
 
 # TODO
 
-@docs newMultiSchema, fromMultiSchema, newFileVisitorSchema
+@docs newMultiSchema, fromMultiSchema, newFileVisitorSchema, withMultiDependenciesVisitor, withMultiElmJsonVisitor
 @docs FileKey, errorForFile
 @docs ReviewResult
 
@@ -550,8 +549,7 @@ type MultiSchema globalContext moduleContext
 newMultiSchema :
     String
     ->
-        { dependenciesVisitors : List (Dict String Elm.Docs.Module -> globalContext -> globalContext)
-        , moduleVisitorSchema : Schema ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
+        { moduleVisitorSchema : Schema ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
         , context :
             { initGlobalContext : globalContext
             , initModuleContext : FileKey -> Node ModuleName -> globalContext -> moduleContext
@@ -561,12 +559,12 @@ newMultiSchema :
         , finalEvaluation : globalContext -> List Error
         }
     -> MultiSchema globalContext moduleContext
-newMultiSchema name_ { context, dependenciesVisitors, moduleVisitorSchema, finalEvaluation } =
+newMultiSchema name_ { context, moduleVisitorSchema, finalEvaluation } =
     MultiSchema
         { name = name_
         , context = context
         , elmJsonVisitors = []
-        , dependenciesVisitors = dependenciesVisitors
+        , dependenciesVisitors = []
         , moduleVisitorSchema = moduleVisitorSchema
         , finalEvaluationFn = finalEvaluation
         }
@@ -726,6 +724,16 @@ withMultiElmJsonVisitor :
     -> MultiSchema globalContext moduleContext
 withMultiElmJsonVisitor visitor (MultiSchema schema) =
     MultiSchema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
+
+
+{-| TODO documentation
+-}
+withMultiDependenciesVisitor :
+    (Dict String Elm.Docs.Module -> globalContext -> globalContext)
+    -> MultiSchema globalContext moduleContext
+    -> MultiSchema globalContext moduleContext
+withMultiDependenciesVisitor visitor (MultiSchema schema) =
+    MultiSchema { schema | dependenciesVisitors = visitor :: schema.dependenciesVisitors }
 
 
 {-| Concatenate the errors of the previous step and of the last step.
