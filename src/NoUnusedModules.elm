@@ -1,6 +1,6 @@
 module NoUnusedModules exposing (rule)
 
-{-| Forbid the use of unused dependencies in your project.
+{-| Forbid the use of modules that are never used in your project.
 
 
 # Rule
@@ -14,47 +14,36 @@ import Elm.Module
 import Elm.Project exposing (Project)
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Module as Module exposing (Module)
-import Elm.Syntax.Node as Node exposing (Node(..))
+import Elm.Syntax.ModuleName exposing (ModuleName)
+import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
 
-{-| Forbid the use of the [`Debug`](https://package.elm-lang.org/packages/elm/core/latest/Debug) module before it goes into production or fails in the CI.
+{-| Forbid the use of modules that are never used in your project.
+
+For an application, a module is considered unused if it does not contain a
+`main` function (be it exposed or not), does not import `Test` module, and is
+never imported in other modules.
+
+For a package, a module is considered unused if it is not exposed in the
+`elm.json`'s `exposed-modules`, does not import `Test` module, and is never
+imported in other modules.
+
+A module will be considered as used if it gets imported, even if none of its
+functions or types are used. Other rules from this package will help detect and
+remove code so that the import statement is removed.
 
     config =
-        [ NoDebug.rule
+        [ NoUnused.Modules.rule
         ]
-
-
-## Fail
-
-    if Debug.log "condition" condition then
-        a
-
-    else
-        b
-
-    if condition then
-        Debug.todo "Nooo!"
-
-    else
-        value
-
-
-## Success
-
-    if condition then
-        a
-
-    else
-        b
 
 
 # When (not) to use this rule
 
-You may not want to enable this rule if you are developing an application and do
-not care about having extraneous dependencies.
+You may not want to enable this rule if you are not concerned about having
+unused modules in your application of package.
 
 -}
 rule : Rule
@@ -96,7 +85,7 @@ error : ( List String, { fileKey : Rule.FileKey, moduleNameLocation : Range } ) 
 error ( moduleName, { fileKey, moduleNameLocation } ) =
     Rule.errorForFile fileKey
         { message = "Module `" ++ String.join "." moduleName ++ "` is never used."
-        , details = [ "This module is never used. You may want to remove it to keep your project clean, and maybe detect some unused dependencies in your project." ]
+        , details = [ "This module is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
         }
         moduleNameLocation
 
@@ -140,7 +129,7 @@ elmJsonVisitor maybeProject context =
 moduleDefinitionVisitor : Node Module -> Context -> ( List Error, Context )
 moduleDefinitionVisitor node context =
     let
-        (Node range moduleName) =
+        (Node.Node range moduleName) =
             case Node.value node of
                 Module.NormalModule data ->
                     data.moduleName
