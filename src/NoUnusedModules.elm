@@ -49,39 +49,88 @@ unused modules in your application of package.
 rule : Rule
 rule =
     Rule.newMultiSchema "NoUnusedModules"
-        { initialContext =
-            { modules = Dict.empty
-            , usedModules = Set.empty
-            , fileKey = Nothing
-            }
-        , elmJsonVisitors = [ elmJsonVisitor ]
+        { elmJsonVisitors = [ elmJsonVisitor ]
         , dependenciesVisitors = []
-        , fileVisitor = fileVisitor
-        , mergeContexts =
-            \contextA contextB ->
-                { modules = Dict.union contextA.modules contextB.modules
-                , usedModules = Set.union contextA.usedModules contextB.usedModules
-                , fileKey = Nothing
-                }
+        , moduleVisitorSchema = moduleVisitorSchema
+        , context =
+            { initGlobalContext = initGlobalContext
+            , initModuleContext = initModuleContext
+            , toGlobalContext = toGlobalContext
+            , fold = fold
+            }
         , finalEvaluation = finalEvaluationForProject
         }
         |> Rule.fromMultiSchema
 
 
-fileVisitor : Context -> Rule.Schema Rule.ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } Context
-fileVisitor context =
-    Rule.newFileVisitorSchema context
-        |> Rule.withFileKeyVisitor fileKeyVisitor
+
+-- CONTEXT
+
+
+type alias GlobalContext =
+    { modules :
+        Dict ModuleName
+            { fileKey : Rule.FileKey
+            , moduleNameLocation : Range
+            }
+    , usedModules : Set ModuleName
+    }
+
+
+type alias ModuleContext =
+    { modules :
+        Dict ModuleName
+            { fileKey : Rule.FileKey
+            , moduleNameLocation : Range
+            }
+    , usedModules : Set ModuleName
+    , fileKey : Rule.FileKey
+    }
+
+
+initGlobalContext : GlobalContext
+initGlobalContext =
+    { modules = Dict.empty
+    , usedModules = Set.empty
+    }
+
+
+initModuleContext : Rule.FileKey -> Node ModuleName -> GlobalContext -> ModuleContext
+initModuleContext fileKey moduleName globalContext =
+    { modules = Dict.empty
+    , usedModules = Set.empty
+    , fileKey = fileKey
+    }
+
+
+toGlobalContext : Rule.FileKey -> Node ModuleName -> ModuleContext -> GlobalContext
+toGlobalContext fileKey moduleName moduleContext =
+    { modules = moduleContext.modules
+    , usedModules = moduleContext.usedModules
+    }
+
+
+fold : GlobalContext -> GlobalContext -> GlobalContext
+fold contextA contextB =
+    { modules = Dict.union contextA.modules contextB.modules
+    , usedModules = Set.union contextA.usedModules contextB.usedModules
+    }
+
+
+
+-- VISITORS
+
+
+moduleVisitorSchema :
+    Rule.Schema Rule.ForLookingAtSeveralFiles { hasNoVisitor : () } ModuleContext
+    -> Rule.Schema Rule.ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } ModuleContext
+moduleVisitorSchema schema =
+    schema
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withImportVisitor importVisitor
 
 
-fileKeyVisitor : Rule.FileKey -> Context -> Context
-fileKeyVisitor fileKey context =
-    { context | fileKey = Just fileKey }
-
-
-error : ( List String, { fileKey : Rule.FileKey, moduleNameLocation : Range } ) -> Error
+error : ( ModuleName, { fileKey : Rule.FileKey, moduleNameLocation : Range } ) -> Error
 error ( moduleName, { fileKey, moduleNameLocation } ) =
     Rule.errorForFile fileKey
         { message = "Module `" ++ String.join "." moduleName ++ "` is never used."
@@ -90,18 +139,7 @@ error ( moduleName, { fileKey, moduleNameLocation } ) =
         moduleNameLocation
 
 
-type alias Context =
-    { modules :
-        Dict (List String)
-            { fileKey : Rule.FileKey
-            , moduleNameLocation : Range
-            }
-    , usedModules : Set (List String)
-    , fileKey : Maybe Rule.FileKey
-    }
-
-
-elmJsonVisitor : Maybe Project -> Context -> Context
+elmJsonVisitor : Maybe Project -> GlobalContext -> GlobalContext
 elmJsonVisitor maybeProject context =
     let
         exposedModules : List Elm.Module.Name
@@ -126,7 +164,7 @@ elmJsonVisitor maybeProject context =
     }
 
 
-moduleDefinitionVisitor : Node Module -> Context -> ( List Error, Context )
+moduleDefinitionVisitor : Node Module -> ModuleContext -> ( List Error, ModuleContext )
 moduleDefinitionVisitor node context =
     let
         (Node.Node range moduleName) =
@@ -140,28 +178,23 @@ moduleDefinitionVisitor node context =
                 Module.EffectModule data ->
                     data.moduleName
     in
-    case context.fileKey of
-        Just fileKey ->
-            ( []
-            , { context
-                | modules =
-                    Dict.insert
-                        moduleName
-                        { fileKey = fileKey
-                        , moduleNameLocation = range
-                        }
-                        context.modules
-              }
-            )
-
-        Nothing ->
-            ( [], context )
+    ( []
+    , { context
+        | modules =
+            Dict.insert
+                moduleName
+                { fileKey = context.fileKey
+                , moduleNameLocation = range
+                }
+                context.modules
+      }
+    )
 
 
-importVisitor : Node Import -> Context -> ( List Error, Context )
+importVisitor : Node Import -> ModuleContext -> ( List Error, ModuleContext )
 importVisitor node context =
     let
-        moduleName : List String
+        moduleName : ModuleName
         moduleName =
             node
                 |> Node.value
@@ -173,7 +206,7 @@ importVisitor node context =
     )
 
 
-finalEvaluationForProject : Context -> List Error
+finalEvaluationForProject : GlobalContext -> List Error
 finalEvaluationForProject { modules, usedModules } =
     modules
         |> Dict.filter (\moduleName _ -> not <| Set.member moduleName usedModules)

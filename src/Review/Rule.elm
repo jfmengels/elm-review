@@ -8,7 +8,7 @@ module Review.Rule exposing
     , withFixes
     , Error, error, parsingError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
     , newMultiSchema, fromMultiSchema, newFileVisitorSchema
-    , FileKey, withFileKeyVisitor, errorForFile
+    , FileKey, errorForFile
     , ReviewResult(..)
     )
 
@@ -193,7 +193,7 @@ For more information on automatic fixing, read the documentation for [`Review.Fi
 # TODO
 
 @docs newMultiSchema, fromMultiSchema, newFileVisitorSchema
-@docs FileKey, withFileKeyVisitor, errorForFile
+@docs FileKey, errorForFile
 @docs ReviewResult
 
 -}
@@ -205,7 +205,8 @@ import Elm.Syntax.Declaration exposing (Declaration(..))
 import Elm.Syntax.Expression exposing (Expression(..), Function, LetDeclaration(..))
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Infix exposing (InfixDirection(..))
-import Elm.Syntax.Module exposing (Module)
+import Elm.Syntax.Module as Module exposing (Module)
+import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Review.File exposing (ParsedFile, RawFile)
@@ -264,7 +265,6 @@ type
     = Schema
         { name : String
         , initialContext : context
-        , fileKeyVisitors : List (FileKey -> context -> context)
         , elmJsonVisitors : List (Maybe Elm.Project.Project -> context -> context)
         , dependenciesVisitors : List (Dict String Elm.Docs.Module -> context -> context)
         , moduleDefinitionVisitors : List (Node Module -> context -> ( List Error, context ))
@@ -435,8 +435,7 @@ reverseVisitors : Schema anyType { hasAtLeastOneVisitor : () } context -> Schema
 reverseVisitors (Schema schema) =
     Schema
         { schema
-            | fileKeyVisitors = List.reverse schema.fileKeyVisitors
-            , elmJsonVisitors = List.reverse schema.elmJsonVisitors
+            | elmJsonVisitors = List.reverse schema.elmJsonVisitors
             , dependenciesVisitors = List.reverse schema.dependenciesVisitors
             , moduleDefinitionVisitors = List.reverse schema.moduleDefinitionVisitors
             , importVisitors = List.reverse schema.importVisitors
@@ -527,37 +526,48 @@ accumulateContext visitors element context =
     List.foldl (\visitor -> visitor element) context visitors
 
 
-type MultiSchema context
+
+-- MULTI FILE RULES
+
+
+type MultiSchema globalContext moduleContext
     = MultiSchema
         { name : String
-        , initialContext : context
-        , elmJsonVisitors : List (Maybe Elm.Project.Project -> context -> context)
-        , dependenciesVisitors : List (Dict String Elm.Docs.Module -> context -> context)
-        , mergeContexts : context -> context -> context
-        , fileVisitor : context -> Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } context
-        , finalEvaluationFn : context -> List Error
+        , context :
+            { initGlobalContext : globalContext
+            , initModuleContext : FileKey -> Node ModuleName -> globalContext -> moduleContext
+            , toGlobalContext : FileKey -> Node ModuleName -> moduleContext -> globalContext
+            , fold : globalContext -> globalContext -> globalContext
+            }
+        , elmJsonVisitors : List (Maybe Elm.Project.Project -> globalContext -> globalContext)
+        , dependenciesVisitors : List (Dict String Elm.Docs.Module -> globalContext -> globalContext)
+        , moduleVisitorSchema : Schema ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
+        , finalEvaluationFn : globalContext -> List Error
         }
 
 
 newMultiSchema :
     String
     ->
-        { initialContext : context
-        , elmJsonVisitors : List (Maybe Elm.Project.Project -> context -> context)
-        , dependenciesVisitors : List (Dict String Elm.Docs.Module -> context -> context)
-        , fileVisitor : context -> Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } context
-        , mergeContexts : context -> context -> context
-        , finalEvaluation : context -> List Error
+        { elmJsonVisitors : List (Maybe Elm.Project.Project -> globalContext -> globalContext)
+        , dependenciesVisitors : List (Dict String Elm.Docs.Module -> globalContext -> globalContext)
+        , moduleVisitorSchema : Schema ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
+        , context :
+            { initGlobalContext : globalContext
+            , initModuleContext : FileKey -> Node ModuleName -> globalContext -> moduleContext
+            , toGlobalContext : FileKey -> Node ModuleName -> moduleContext -> globalContext
+            , fold : globalContext -> globalContext -> globalContext
+            }
+        , finalEvaluation : globalContext -> List Error
         }
-    -> MultiSchema context
-newMultiSchema name_ { initialContext, elmJsonVisitors, dependenciesVisitors, fileVisitor, mergeContexts, finalEvaluation } =
+    -> MultiSchema globalContext moduleContext
+newMultiSchema name_ { context, elmJsonVisitors, dependenciesVisitors, moduleVisitorSchema, finalEvaluation } =
     MultiSchema
         { name = name_
-        , initialContext = initialContext
+        , context = context
         , elmJsonVisitors = elmJsonVisitors
         , dependenciesVisitors = dependenciesVisitors
-        , mergeContexts = mergeContexts
-        , fileVisitor = fileVisitor
+        , moduleVisitorSchema = moduleVisitorSchema
         , finalEvaluationFn = finalEvaluation
         }
 
@@ -574,10 +584,7 @@ visitFileForMulti (Schema schema) =
             inAndOut schema.expressionVisitors
     in
     \initialContext file ->
-        ( []
-        , initialContext
-            |> accumulateContext schema.fileKeyVisitors (FileKey file.path)
-        )
+        ( [], initialContext )
             |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors file.ast.moduleDefinition
             |> accumulateList (visitImport schema.importVisitors) file.ast.imports
             |> accumulateWithListOfVisitors schema.declarationListVisitors file.ast.declarations
@@ -586,7 +593,7 @@ visitFileForMulti (Schema schema) =
 
 {-| TODO documentation
 -}
-fromMultiSchema : MultiSchema context -> Rule
+fromMultiSchema : MultiSchema globalContext moduleContext -> Rule
 fromMultiSchema (MultiSchema schema) =
     Multi schema.name
         (runMulti
@@ -594,7 +601,6 @@ fromMultiSchema (MultiSchema schema) =
                 { schema
                     | elmJsonVisitors = List.reverse schema.elmJsonVisitors
                     , dependenciesVisitors = List.reverse schema.dependenciesVisitors
-                    , fileVisitor = schema.fileVisitor >> reverseVisitors
                 }
             )
             Dict.empty
@@ -609,32 +615,58 @@ type alias MultiRuleCache context =
         }
 
 
-runMulti : MultiSchema context -> MultiRuleCache context -> Project -> List ParsedFile -> ( List Error, Rule )
+runMulti : MultiSchema globalContext moduleContext -> MultiRuleCache globalContext -> Project -> List ParsedFile -> ( List Error, Rule )
 runMulti (MultiSchema schema) startCache project =
     let
-        initialContext : context
+        initialContext : globalContext
         initialContext =
-            schema.initialContext
+            schema.context.initGlobalContext
                 |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project)
                 |> accumulateContext schema.dependenciesVisitors (Review.Project.modules project)
     in
     \files ->
         let
-            computeFile : ParsedFile -> { source : String, errors : List Error, context : context }
+            computeFile : ParsedFile -> { source : String, errors : List Error, context : globalContext }
             computeFile file =
                 let
+                    fileKey : FileKey
+                    fileKey =
+                        FileKey file.path
+
+                    moduleNameNode_ : Node ModuleName
+                    moduleNameNode_ =
+                        moduleNameNode file.ast.moduleDefinition
+
+                    initialModuleContext : moduleContext
+                    initialModuleContext =
+                        schema.context.initModuleContext
+                            fileKey
+                            moduleNameNode_
+                            initialContext
+
+                    moduleVisitor : Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
+                    moduleVisitor =
+                        initialModuleContext
+                            |> newFileVisitorSchema
+                            |> schema.moduleVisitorSchema
+                            |> reverseVisitors
+
                     ( fileErrors, context ) =
                         visitFileForMulti
-                            (schema.fileVisitor initialContext)
-                            initialContext
+                            moduleVisitor
+                            initialModuleContext
                             file
                 in
                 { source = file.source
                 , errors = List.map (\(Error err) -> Error { err | filePath = file.path }) fileErrors
-                , context = context
+                , context =
+                    schema.context.toGlobalContext
+                        fileKey
+                        moduleNameNode_
+                        context
                 }
 
-            newCache : MultiRuleCache context
+            newCache : MultiRuleCache globalContext
             newCache =
                 List.foldl
                     (\file cache ->
@@ -653,7 +685,7 @@ runMulti (MultiSchema schema) startCache project =
                     startCache
                     files
 
-            contextsAndErrorsPerFile : List ( List Error, context )
+            contextsAndErrorsPerFile : List ( List Error, globalContext )
             contextsAndErrorsPerFile =
                 newCache
                     |> Dict.values
@@ -665,12 +697,25 @@ runMulti (MultiSchema schema) startCache project =
                     [ List.concatMap Tuple.first contextsAndErrorsPerFile
                     , contextsAndErrorsPerFile
                         |> List.map Tuple.second
-                        |> List.foldl schema.mergeContexts schema.initialContext
+                        |> List.foldl schema.context.fold schema.context.initGlobalContext
                         |> schema.finalEvaluationFn
                         |> List.map (\(Error err) -> Error { err | ruleName = schema.name })
                     ]
         in
         ( errors, Multi schema.name (runMulti (MultiSchema schema) newCache) )
+
+
+moduleNameNode : Node Module -> Node ModuleName
+moduleNameNode node =
+    case Node.value node of
+        Module.NormalModule data ->
+            data.moduleName
+
+        Module.PortModule data ->
+            data.moduleName
+
+        Module.EffectModule data ->
+            data.moduleName
 
 
 {-| Concatenate the errors of the previous step and of the last step.
@@ -997,7 +1042,6 @@ emptySchema name_ initialContext =
     Schema
         { name = name_
         , initialContext = initialContext
-        , fileKeyVisitors = []
         , elmJsonVisitors = []
         , dependenciesVisitors = []
         , moduleDefinitionVisitors = []
@@ -1457,13 +1501,6 @@ for [`withImportVisitor`](#withImportVisitor), but using [`withFinalEvaluation`]
 withFinalEvaluation : (context -> List Error) -> Schema anyType { hasAtLeastOneVisitor : () } context -> Schema anyType { hasAtLeastOneVisitor : () } context
 withFinalEvaluation visitor (Schema schema) =
     Schema { schema | finalEvaluationFns = visitor :: schema.finalEvaluationFns }
-
-
-{-| TODO
--}
-withFileKeyVisitor : (FileKey -> context -> context) -> Schema ForLookingAtSeveralFiles { hasNoVisitor : () } context -> Schema ForLookingAtSeveralFiles { hasNoVisitor : () } context
-withFileKeyVisitor visitor (Schema schema) =
-    Schema { schema | fileKeyVisitors = visitor :: schema.fileKeyVisitors }
 
 
 
