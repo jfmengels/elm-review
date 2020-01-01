@@ -697,7 +697,7 @@ runMulti (MultiSchema schema) startCache project =
                     [ List.concatMap Tuple.first contextsAndErrorsPerFile
                     , contextsAndErrorsPerFile
                         |> List.map Tuple.second
-                        |> List.foldl schema.context.fold schema.context.initGlobalContext
+                        |> List.foldl schema.context.fold initialContext
                         |> schema.finalEvaluationFn
                         |> List.map (\(Error err) -> Error { err | ruleName = schema.name })
                     ]
