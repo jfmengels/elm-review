@@ -78,13 +78,7 @@ type alias GlobalContext =
 
 
 type alias ModuleContext =
-    { modules :
-        Dict ModuleName
-            { fileKey : Rule.FileKey
-            , moduleNameLocation : Range
-            }
-    , usedModules : Set ModuleName
-    , fileKey : Rule.FileKey
+    { importedModules : Set ModuleName
     }
 
 
@@ -96,17 +90,18 @@ initGlobalContext =
 
 
 initModuleContext : Rule.FileKey -> Node ModuleName -> GlobalContext -> ModuleContext
-initModuleContext fileKey moduleName globalContext =
-    { modules = Dict.empty
-    , usedModules = Set.empty
-    , fileKey = fileKey
+initModuleContext _ _ _ =
+    { importedModules = Set.empty
     }
 
 
 toGlobalContext : Rule.FileKey -> Node ModuleName -> ModuleContext -> GlobalContext
 toGlobalContext fileKey moduleName moduleContext =
-    { modules = moduleContext.modules
-    , usedModules = moduleContext.usedModules
+    { modules =
+        Dict.singleton
+            (Node.value moduleName)
+            { fileKey = fileKey, moduleNameLocation = Node.range moduleName }
+    , usedModules = moduleContext.importedModules
     }
 
 
@@ -126,7 +121,6 @@ moduleVisitorSchema :
     -> Rule.Schema Rule.ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitorSchema schema =
     schema
-        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withImportVisitor importVisitor
 
 
@@ -164,46 +158,19 @@ elmJsonVisitor maybeProject context =
     }
 
 
-moduleDefinitionVisitor : Node Module -> ModuleContext -> ( List Error, ModuleContext )
-moduleDefinitionVisitor node context =
-    let
-        (Node.Node range moduleName) =
-            case Node.value node of
-                Module.NormalModule data ->
-                    data.moduleName
-
-                Module.PortModule data ->
-                    data.moduleName
-
-                Module.EffectModule data ->
-                    data.moduleName
-    in
-    ( []
-    , { context
-        | modules =
-            Dict.insert
-                moduleName
-                { fileKey = context.fileKey
-                , moduleNameLocation = range
-                }
-                context.modules
-      }
-    )
-
-
 importVisitor : Node Import -> ModuleContext -> ( List Error, ModuleContext )
 importVisitor node context =
-    let
-        moduleName : ModuleName
-        moduleName =
-            node
-                |> Node.value
-                |> .moduleName
-                |> Node.value
-    in
     ( []
-    , { context | usedModules = Set.insert moduleName context.usedModules }
+    , { context | importedModules = Set.insert (moduleNameForImport node) context.importedModules }
     )
+
+
+moduleNameForImport : Node Import -> ModuleName
+moduleNameForImport node =
+    node
+        |> Node.value
+        |> .moduleName
+        |> Node.value
 
 
 finalEvaluationForProject : GlobalContext -> List Error
