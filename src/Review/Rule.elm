@@ -561,19 +561,22 @@ type MultiSchema globalContext moduleContext
 newMultiSchema :
     String
     ->
-        { context :
-            { initGlobalContext : globalContext
-            , initModuleContext : FileKey -> Node ModuleName -> globalContext -> moduleContext
-            , fromModuleToGlobal : FileKey -> Node ModuleName -> moduleContext -> globalContext
-            , fold : globalContext -> globalContext -> globalContext
-            }
-        , moduleVisitorSchema : Schema ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
+        { moduleVisitorSchema : Schema ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
+        , initGlobalContext : globalContext
+        , initModuleContext : FileKey -> Node ModuleName -> globalContext -> moduleContext
+        , fromModuleToGlobal : FileKey -> Node ModuleName -> moduleContext -> globalContext
+        , fold : globalContext -> globalContext -> globalContext
         }
     -> MultiSchema globalContext moduleContext
-newMultiSchema name_ { context, moduleVisitorSchema } =
+newMultiSchema name_ { moduleVisitorSchema, initGlobalContext, initModuleContext, fromModuleToGlobal, fold } =
     MultiSchema
         { name = name_
-        , context = context
+        , context =
+            { initGlobalContext = initGlobalContext
+            , initModuleContext = initModuleContext
+            , fromModuleToGlobal = fromModuleToGlobal
+            , fold = fold
+            }
         , moduleVisitorSchema = moduleVisitorSchema
         , elmJsonVisitors = []
         , dependenciesVisitors = []

@@ -48,12 +48,10 @@ rule : Rule
 rule =
     Rule.newMultiSchema "NoUnused.Modules"
         { moduleVisitorSchema = moduleVisitorSchema
-        , context =
-            { initGlobalContext = initGlobalContext
-            , initModuleContext = initModuleContext
-            , fromModuleToGlobal = fromModuleToGlobal
-            , fold = fold
-            }
+        , initGlobalContext = initGlobalContext
+        , initModuleContext = initModuleContext
+        , fromModuleToGlobal = fromModuleToGlobal
+        , fold = fold
         }
         |> Rule.withMultiElmJsonVisitor elmJsonVisitor
         |> Rule.withMultiFinalEvaluation finalEvaluationForProject
