@@ -1,6 +1,6 @@
 module Review.Test exposing
-    ( ReviewResult, run, runWithProjectData
-    , ExpectedError, expectErrors, expectNoErrors, error, atExactly, whenFixed
+    ( ReviewResult, run, runWithProjectData, runMulti, runMultiWithProjectData
+    , ExpectedError, expectErrors, expectErrorsForFiles, expectNoErrors, error, atExactly, whenFixed
     )
 
 {-| Module that helps you test your rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/).
@@ -95,12 +95,12 @@ for this module.
 
 # Running tests
 
-@docs ReviewResult, run, runWithProjectData
+@docs ReviewResult, run, runWithProjectData, runMulti, runMultiWithProjectData
 
 
 # Making assertions
 
-@docs ExpectedError, expectErrors, expectNoErrors, error, atExactly, whenFixed
+@docs ExpectedError, expectErrors, expectErrorsForFiles, expectNoErrors, error, atExactly, whenFixed
 
 -}
 
@@ -127,7 +127,7 @@ type ReviewResult
 
 
 type alias CodeInspector =
-    { source : String
+    { file : File.ParsedFile
     , getCodeAtLocation : Range -> Maybe String
     , checkIfLocationIsAmbiguous : Error -> String -> Expectation
     }
@@ -220,12 +220,29 @@ interested in project related details, then you should use [`run`](#run) instead
 
 -}
 runWithProjectData : Project -> Rule -> String -> ReviewResult
-runWithProjectData project rule originalSource =
-    let
-        sources : List String
-        sources =
-            [ originalSource ]
-    in
+runWithProjectData project rule source =
+    runMultiWithProjectData project rule [ source ]
+
+
+codeInspectorForSource : File.ParsedFile -> CodeInspector
+codeInspectorForSource file =
+    { file = file
+    , getCodeAtLocation = getCodeAtLocationInSourceCode file.source
+    , checkIfLocationIsAmbiguous = checkIfLocationIsAmbiguousInSourceCode file.source
+    }
+
+
+{-| TODO documentation
+-}
+runMulti : Rule -> List String -> ReviewResult
+runMulti rule sources =
+    runMultiWithProjectData Project.new rule sources
+
+
+{-| TODO documentation
+-}
+runMultiWithProjectData : Project -> Rule -> List String -> ReviewResult
+runMultiWithProjectData project rule sources =
     case parseSources sources of
         Ok parsedFiles ->
             let
@@ -235,30 +252,21 @@ runWithProjectData project rule originalSource =
                         |> Tuple.first
             in
             -- TODO Fail if modules have the same module name
-            List.map2
-                (\source parsedFile ->
-                    { inspector = codeInspectorForSource source
+            List.map
+                (\parsedFile ->
+                    { inspector = codeInspectorForSource parsedFile
                     , errors =
                         errors
                             |> List.filter (\error_ -> Rule.errorFilePath error_ == parsedFile.path)
                             |> List.sortWith compareErrorPositions
                     }
                 )
-                sources
                 parsedFiles
                 |> SuccessfulRun
 
         Err parsingError ->
             -- TODO Explain in which file there was a parsing error
             ParseFailure
-
-
-codeInspectorForSource : String -> CodeInspector
-codeInspectorForSource source =
-    { source = source
-    , getCodeAtLocation = getCodeAtLocationInSourceCode source
-    , checkIfLocationIsAmbiguous = checkIfLocationIsAmbiguousInSourceCode source
-    }
 
 
 parseSources : List String -> Result Error (List File.ParsedFile)
@@ -402,17 +410,26 @@ an error at the end of the source code.
 -}
 expectErrors : List ExpectedError -> ReviewResult -> Expectation
 expectErrors expectedErrors reviewResult =
+    expectErrorsForFiles [ expectedErrors ] reviewResult
+
+
+{-| TODO Documentation
+-}
+expectErrorsForFiles : List (List ExpectedError) -> ReviewResult -> Expectation
+expectErrorsForFiles expectedErrorsList reviewResult =
     case reviewResult of
         ParseFailure ->
             Expect.fail ErrorMessage.parsingFailure
 
         SuccessfulRun runResults ->
-            -- TODO Add expectation that we have only one file
-            runResults
-                |> List.map (\{ inspector, errors } () -> checkAllErrorsMatch inspector expectedErrors errors)
+            -- TODO Add expectation that we have as many elements in expectedErrorsList as runResults
+            List.map2
+                (\{ inspector, errors } expectedErrors () ->
+                    checkAllErrorsMatch inspector expectedErrors errors
+                )
+                runResults
+                expectedErrorsList
                 |> (\expectations -> Expect.all expectations ())
-
-
 
 
 {-| Create an expectation for an error.
@@ -684,7 +701,7 @@ checkFixesAreCorrect codeInspector error_ ((ExpectedError expectedError_) as exp
                 |> Expect.fail
 
         ( Just expectedFixedSource, Just fixes ) ->
-            case Fix.fix fixes codeInspector.source of
+            case Fix.fix fixes codeInspector.file.source of
                 Fix.Successful fixedSource ->
                     (fixedSource == expectedFixedSource)
                         |> Expect.true (ErrorMessage.fixedCodeMismatch fixedSource expectedFixedSource error_)
