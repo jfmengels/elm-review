@@ -1620,7 +1620,6 @@ by the tests automatically.
 -}
 errorForFile : FileKey -> { message : String, details : List String } -> Range -> Error
 errorForFile (FileKey path) { message, details } range =
-    -- TODO Use fileKey
     Error
         { message = message
         , ruleName = ""
