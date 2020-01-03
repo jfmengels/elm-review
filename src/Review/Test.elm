@@ -108,17 +108,22 @@ import Array exposing (Array)
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
 import Review
+import Review.File as File
 import Review.Fix as Fix
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test.ErrorMessage as ErrorMessage
 
 
+
+-- REVIEW RESULT
+
+
 {-| The result of running a rule on a `String` containing source code.
 -}
 type ReviewResult
     = ParseFailure
-    | SuccessfulRun CodeInspector (List Error)
+    | SuccessfulRun (List { inspector : CodeInspector, errors : List Error })
 
 
 type alias CodeInspector =
@@ -215,20 +220,63 @@ interested in project related details, then you should use [`run`](#run) instead
 
 -}
 runWithProjectData : Project -> Rule -> String -> ReviewResult
-runWithProjectData project rule source =
-    case Review.parseFile { path = "TestContent.elm", source = source } of
-        Ok parsedFile ->
-            Review.reviewFiles [ rule ] project [ parsedFile ]
-                |> Tuple.first
-                |> List.sortWith compareErrorPositions
-                |> SuccessfulRun
-                    { source = source
-                    , getCodeAtLocation = getCodeAtLocationInSourceCode source
-                    , checkIfLocationIsAmbiguous = checkIfLocationIsAmbiguousInSourceCode source
+runWithProjectData project rule originalSource =
+    let
+        sources : List String
+        sources =
+            [ originalSource ]
+    in
+    case parseSources sources of
+        Ok parsedFiles ->
+            let
+                errors : List Error
+                errors =
+                    Review.reviewFiles [ rule ] project parsedFiles
+                        |> Tuple.first
+            in
+            -- TODO Fail if modules have the same module name
+            List.map2
+                (\source parsedFile ->
+                    { inspector = codeInspectorForSource source
+                    , errors =
+                        errors
+                            |> List.filter (\error_ -> Rule.errorFilePath error_ == parsedFile.path)
+                            |> List.sortWith compareErrorPositions
                     }
+                )
+                sources
+                parsedFiles
+                |> SuccessfulRun
 
         Err parsingError ->
+            -- TODO Explain in which file there was a parsing error
             ParseFailure
+
+
+codeInspectorForSource : String -> CodeInspector
+codeInspectorForSource source =
+    { source = source
+    , getCodeAtLocation = getCodeAtLocationInSourceCode source
+    , checkIfLocationIsAmbiguous = checkIfLocationIsAmbiguousInSourceCode source
+    }
+
+
+parseSources : List String -> Result Error (List File.ParsedFile)
+parseSources sources =
+    sources
+        |> List.indexedMap
+            (\index source ->
+                Review.parseFile
+                    { path = "TestContent_" ++ String.fromInt index ++ ".elm"
+                    , source = source
+                    }
+            )
+        |> combineResults
+
+
+combineResults : List (Result x a) -> Result x (List a)
+combineResults =
+    List.foldr (Result.map2 (::)) (Ok [])
 
 
 compareErrorPositions : Error -> Error -> Order
@@ -307,7 +355,12 @@ expectNoErrors reviewResult =
         ParseFailure ->
             Expect.fail ErrorMessage.parsingFailure
 
-        SuccessfulRun _ errors ->
+        SuccessfulRun runResults ->
+            let
+                errors : List Error
+                errors =
+                    List.concatMap .errors runResults
+            in
             List.isEmpty errors
                 |> Expect.true (ErrorMessage.didNotExpectErrors errors)
 
@@ -353,8 +406,13 @@ expectErrors expectedErrors reviewResult =
         ParseFailure ->
             Expect.fail ErrorMessage.parsingFailure
 
-        SuccessfulRun codeInspector errors ->
-            checkAllErrorsMatch codeInspector expectedErrors errors
+        SuccessfulRun runResults ->
+            -- TODO Add expectation that we have only one file
+            runResults
+                |> List.map (\{ inspector, errors } () -> checkAllErrorsMatch inspector expectedErrors errors)
+                |> (\expectations -> Expect.all expectations ())
+
+
 
 
 {-| Create an expectation for an error.
