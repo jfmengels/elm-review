@@ -422,14 +422,18 @@ expectErrorsForFiles expectedErrorsList reviewResult =
             Expect.fail ErrorMessage.parsingFailure
 
         SuccessfulRun runResults ->
-            -- TODO Add expectation that we have as many elements in expectedErrorsList as runResults
-            List.map2
-                (\{ inspector, errors } expectedErrors () ->
-                    checkAllErrorsMatch inspector expectedErrors errors
-                )
-                runResults
-                expectedErrorsList
-                |> (\expectations -> Expect.all expectations ())
+            if List.length runResults /= List.length expectedErrorsList then
+                Expect.fail <| ErrorMessage.errorListLengthMismatch (List.length runResults) (List.length expectedErrorsList)
+
+            else
+                -- TODO Add expectation that we have as many elements in expectedErrorsList as runResults
+                List.map2
+                    (\{ inspector, errors } expectedErrors () ->
+                        checkAllErrorsMatch inspector expectedErrors errors
+                    )
+                    runResults
+                    expectedErrorsList
+                    |> (\expectations -> Expect.all expectations ())
 
 
 {-| Create an expectation for an error.

@@ -1,7 +1,7 @@
 module Review.Test.ErrorMessage exposing
     ( ExpectedErrorData
     , parsingFailure, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
-    , underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode
+    , underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode, errorListLengthMismatch
     , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
     , impossibleState
     )
@@ -13,7 +13,7 @@ module Review.Test.ErrorMessage exposing
 
 @docs ExpectedErrorData
 @docs parsingFailure, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
-@docs underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode
+@docs underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode, errorListLengthMismatch
 @docs missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
 @docs impossibleState
 
@@ -213,6 +213,29 @@ I found """ ++ String.fromInt (List.length occurrencesInSourceCode) ++ """ locat
 
 Tip: I found them at:
 """ ++ listOccurrencesAsLocations sourceCode under occurrencesInSourceCode
+
+
+errorListLengthMismatch : Int -> Int -> String
+errorListLengthMismatch expectedListLength actualListLength =
+    """MISMATCH BETWEEN NUMBER OF MODULES AND NUMBER OF LISTS OF ERRORS
+
+You passed a list of """ ++ String.fromInt expectedListLength ++ """ modules to this test, but a list of """ ++ String.fromInt actualListLength ++ """ lists
+of errors.
+
+I expect each item in the list of expected errors to correspond to the
+module at the same position in the module list. Since the two lists have
+different sizes, I'm not sure how to associate the last modules or errors.
+
+If you expect no errors to be reported for a module, use an empty list:
+
+  test "..." <|
+    \\() ->
+      [ sourceCode1, sourceCode2 ]
+      |> Review.Test.runMulti rule
+      |> Review.Test.expectErrorsForFiles
+          [ [] -- Expect no errors reported in `sourceCode1`
+          , [ Review.Test.error theErrorForSourceCode2 ]
+          ]"""
 
 
 impossibleState : String

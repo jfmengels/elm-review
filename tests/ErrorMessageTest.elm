@@ -21,6 +21,7 @@ all =
         , expectedMoreErrorsTest
         , tooManyErrorsTest
         , locationIsAmbiguousInSourceCodeTest
+        , errorListLengthMismatchTest
         , missingFixesTest
         , unexpectedFixesTest
         , fixedCodeMismatchTest
@@ -585,6 +586,34 @@ Tip: I found them at:
   - { start = { row = 6, column = 1 }, end = { row = 7, column = 4 } }
 """
         ]
+
+
+errorListLengthMismatchTest : Test
+errorListLengthMismatchTest =
+    test "errorListLengthMismatch" <|
+        \() ->
+            ErrorMessage.errorListLengthMismatch 1417 1418
+                |> expectMessageEqual """
+MISMATCH BETWEEN NUMBER OF MODULES AND NUMBER OF LISTS OF ERRORS
+
+You passed a list of 1417 modules to this test, but a list of 1418 lists
+of errors.
+
+I expect each item in the list of expected errors to correspond to the
+module at the same position in the module list. Since the two lists have
+different sizes, I'm not sure how to associate the last modules or errors.
+
+If you expect no errors to be reported for a module, use an empty list:
+
+  test "..." <|
+    \\() ->
+      [ sourceCode1, sourceCode2 ]
+      |> Review.Test.runMulti rule
+      |> Review.Test.expectErrorsForFiles
+          [ [] -- Expect no errors reported in `sourceCode1`
+          , [ Review.Test.error theErrorForSourceCode2 ]
+          ]
+"""
 
 
 missingFixesTest : Test
