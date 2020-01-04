@@ -27,7 +27,8 @@ import Set exposing (Set)
 A module is considered unused if it does not contain a `main` function
 (be it exposed or not), does not import `Test` module, and is never imported in
 other modules. For packages, modules listed in the `elm.json`'s
-`exposed-modules` are considered used.
+`exposed-modules` are considered used. The `ReviewConfig` is also always
+considered as used.
 
 A module will be considered as used if it gets imported, even if none of its
 functions or types are used. Other rules from this package will help detect and
