@@ -105,6 +105,8 @@ for this module.
 -}
 
 import Array exposing (Array)
+import Elm.Syntax.Module as Module
+import Elm.Syntax.Node as Node
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
 import Review
@@ -113,6 +115,7 @@ import Review.Fix as Fix
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test.ErrorMessage as ErrorMessage
+import Set exposing (Set)
 
 
 
@@ -122,7 +125,7 @@ import Review.Test.ErrorMessage as ErrorMessage
 {-| The result of running a rule on a `String` containing source code.
 -}
 type ReviewResult
-    = ParseFailure
+    = FailedRun String
     | SuccessfulRun (List { inspector : CodeInspector, errors : List Error })
 
 
@@ -245,28 +248,53 @@ runMultiWithProjectData : Project -> Rule -> List String -> ReviewResult
 runMultiWithProjectData project rule sources =
     case parseSources sources of
         Ok parsedFiles ->
-            let
-                errors : List Error
-                errors =
-                    Review.reviewFiles [ rule ] project parsedFiles
-                        |> Tuple.first
-            in
-            -- TODO Fail if modules have the same module name
-            List.map
-                (\parsedFile ->
-                    { inspector = codeInspectorForSource parsedFile
-                    , errors =
-                        errors
-                            |> List.filter (\error_ -> Rule.errorFilePath error_ == parsedFile.path)
-                            |> List.sortWith compareErrorPositions
-                    }
-                )
-                parsedFiles
-                |> SuccessfulRun
+            case findDuplicateModuleNames Set.empty parsedFiles of
+                Just moduleName ->
+                    FailedRun <| ErrorMessage.duplicateModuleName moduleName
 
-        Err parsingError ->
+                Nothing ->
+                    let
+                        errors : List Error
+                        errors =
+                            Review.reviewFiles [ rule ] project parsedFiles
+                                |> Tuple.first
+                    in
+                    List.map
+                        (\parsedFile ->
+                            { inspector = codeInspectorForSource parsedFile
+                            , errors =
+                                errors
+                                    |> List.filter (\error_ -> Rule.errorFilePath error_ == parsedFile.path)
+                                    |> List.sortWith compareErrorPositions
+                            }
+                        )
+                        parsedFiles
+                        |> SuccessfulRun
+
+        Err _ ->
             -- TODO Explain in which file there was a parsing error
-            ParseFailure
+            FailedRun ErrorMessage.parsingFailure
+
+
+findDuplicateModuleNames : Set (List String) -> List File.ParsedFile -> Maybe (List String)
+findDuplicateModuleNames previousModuleNames parsedFiles =
+    case parsedFiles of
+        [] ->
+            Nothing
+
+        file :: restOfFiles ->
+            let
+                moduleName : List String
+                moduleName =
+                    file.ast.moduleDefinition
+                        |> Node.value
+                        |> Module.moduleName
+            in
+            if Set.member moduleName previousModuleNames then
+                Just moduleName
+
+            else
+                findDuplicateModuleNames (Set.insert moduleName previousModuleNames) restOfFiles
 
 
 parseSources : List String -> Result Error (List File.ParsedFile)
@@ -360,8 +388,8 @@ like `expectErrors []`.
 expectNoErrors : ReviewResult -> Expectation
 expectNoErrors reviewResult =
     case reviewResult of
-        ParseFailure ->
-            Expect.fail ErrorMessage.parsingFailure
+        FailedRun errorMessage ->
+            Expect.fail errorMessage
 
         SuccessfulRun runResults ->
             let
@@ -418,15 +446,14 @@ expectErrors expectedErrors reviewResult =
 expectErrorsForFiles : List (List ExpectedError) -> ReviewResult -> Expectation
 expectErrorsForFiles expectedErrorsList reviewResult =
     case reviewResult of
-        ParseFailure ->
-            Expect.fail ErrorMessage.parsingFailure
+        FailedRun errorMessage ->
+            Expect.fail errorMessage
 
         SuccessfulRun runResults ->
             if List.length runResults /= List.length expectedErrorsList then
                 Expect.fail <| ErrorMessage.errorListLengthMismatch (List.length runResults) (List.length expectedErrorsList)
 
             else
-                -- TODO Add expectation that we have as many elements in expectedErrorsList as runResults
                 List.map2
                     (\{ inspector, errors } expectedErrors () ->
                         checkAllErrorsMatch inspector expectedErrors errors

@@ -22,6 +22,7 @@ all =
         , tooManyErrorsTest
         , locationIsAmbiguousInSourceCodeTest
         , errorListLengthMismatchTest
+        , duplicateModuleNameTest
         , missingFixesTest
         , unexpectedFixesTest
         , fixedCodeMismatchTest
@@ -613,6 +614,24 @@ If you expect no errors to be reported for a module, use an empty list:
           [ [] -- Expect no errors reported in `sourceCode1`
           , [ Review.Test.error theErrorForSourceCode2 ]
           ]
+"""
+
+
+duplicateModuleNameTest : Test
+duplicateModuleNameTest =
+    test "duplicateModuleName" <|
+        \() ->
+            ErrorMessage.duplicateModuleName [ "My", "Module" ]
+                |> expectMessageEqual """
+DUPLICATE MODULE NAMES
+
+I found several modules named `My.Module` in the test source codes.
+
+I expect all modules to be able to exist together in the same project,
+but having several modules with the same name is not allowed by the Elm
+compiler.
+
+Please rename the modules so that they all have different names.
 """
 
 

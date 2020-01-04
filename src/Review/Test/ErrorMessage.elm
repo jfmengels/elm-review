@@ -1,7 +1,8 @@
 module Review.Test.ErrorMessage exposing
     ( ExpectedErrorData
     , parsingFailure, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
-    , underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode, errorListLengthMismatch
+    , underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode
+    , errorListLengthMismatch, duplicateModuleName
     , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
     , impossibleState
     )
@@ -13,7 +14,8 @@ module Review.Test.ErrorMessage exposing
 
 @docs ExpectedErrorData
 @docs parsingFailure, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
-@docs underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode, errorListLengthMismatch
+@docs underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode
+@docs errorListLengthMismatch, duplicateModuleName
 @docs missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
 @docs impossibleState
 
@@ -236,6 +238,19 @@ If you expect no errors to be reported for a module, use an empty list:
           [ [] -- Expect no errors reported in `sourceCode1`
           , [ Review.Test.error theErrorForSourceCode2 ]
           ]"""
+
+
+duplicateModuleName : List String -> String
+duplicateModuleName moduleName =
+    """DUPLICATE MODULE NAMES
+
+I found several modules named `""" ++ String.join "." moduleName ++ """` in the test source codes.
+
+I expect all modules to be able to exist together in the same project,
+but having several modules with the same name is not allowed by the Elm
+compiler.
+
+Please rename the modules so that they all have different names."""
 
 
 impossibleState : String
