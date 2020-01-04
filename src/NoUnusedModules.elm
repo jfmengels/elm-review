@@ -70,12 +70,14 @@ type alias GlobalContext =
             , moduleNameLocation : Range
             }
     , usedModules : Set ModuleName
+    , isPackage : Bool
     }
 
 
 type alias ModuleContext =
     { importedModules : Set ModuleName
     , containsMainFunction : Bool
+    , isPackage : Bool
     }
 
 
@@ -83,13 +85,15 @@ initGlobalContext : GlobalContext
 initGlobalContext =
     { modules = Dict.empty
     , usedModules = Set.singleton [ "ReviewConfig" ]
+    , isPackage = False
     }
 
 
 initModuleContext : Rule.FileKey -> Node ModuleName -> GlobalContext -> ModuleContext
-initModuleContext _ _ _ =
+initModuleContext _ _ globalContext =
     { importedModules = Set.empty
     , containsMainFunction = False
+    , isPackage = globalContext.isPackage
     }
 
 
@@ -105,6 +109,7 @@ fromModuleToGlobal fileKey moduleName moduleContext =
 
         else
             moduleContext.importedModules
+    , isPackage = moduleContext.isPackage
     }
 
 
@@ -112,6 +117,7 @@ fold : GlobalContext -> GlobalContext -> GlobalContext
 fold contextA contextB =
     { modules = Dict.union contextA.modules contextB.modules
     , usedModules = Set.union contextA.usedModules contextB.usedModules
+    , isPackage = contextA.isPackage
     }
 
 
@@ -122,19 +128,18 @@ fold contextA contextB =
 elmJsonVisitor : Maybe Project -> GlobalContext -> GlobalContext
 elmJsonVisitor maybeProject context =
     let
-        exposedModules : List Elm.Module.Name
-        exposedModules =
+        ( exposedModules, isPackage ) =
             case maybeProject of
                 Just (Elm.Project.Package { exposed }) ->
                     case exposed of
                         Elm.Project.ExposedList names ->
-                            names
+                            ( names, True )
 
                         Elm.Project.ExposedDict fakeDict ->
-                            List.concatMap Tuple.second fakeDict
+                            ( List.concatMap Tuple.second fakeDict, True )
 
                 _ ->
-                    []
+                    ( [], False )
     in
     { context
         | usedModules =
@@ -142,6 +147,7 @@ elmJsonVisitor maybeProject context =
                 |> List.map (Elm.Module.toString >> String.split ".")
                 |> Set.fromList
                 |> Set.union context.usedModules
+        , isPackage = isPackage
     }
 
 
@@ -200,20 +206,24 @@ moduleNameForImport node =
 
 declarationListVisitor : List (Node Declaration) -> ModuleContext -> ( List Error, ModuleContext )
 declarationListVisitor list context =
-    let
-        containsMainFunction : Bool
-        containsMainFunction =
-            List.any
-                (\decl ->
-                    case Node.value decl of
-                        Declaration.FunctionDeclaration function ->
-                            (function.declaration |> Node.value |> .name |> Node.value) == "main"
+    if context.isPackage then
+        ( [], context )
 
-                        _ ->
-                            False
-                )
-                list
-    in
-    ( []
-    , { context | containsMainFunction = containsMainFunction }
-    )
+    else
+        let
+            containsMainFunction : Bool
+            containsMainFunction =
+                List.any
+                    (\decl ->
+                        case Node.value decl of
+                            Declaration.FunctionDeclaration function ->
+                                (function.declaration |> Node.value |> .name |> Node.value) == "main"
+
+                            _ ->
+                                False
+                    )
+                    list
+        in
+        ( []
+        , { context | containsMainFunction = containsMainFunction }
+        )

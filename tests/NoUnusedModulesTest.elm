@@ -116,7 +116,7 @@ a = 1
                         , under = "Reported"
                         }
                     ]
-    , test "should not report a module if it exposes a main function" <|
+    , test "should not report an application module if it exposes a main function" <|
         \() ->
             """
 module NotReported exposing (..)
@@ -124,7 +124,16 @@ main = text ""
 """
                 |> Review.Test.runWithProjectData application rule
                 |> Review.Test.expectNoErrors
-    , test "should not report a module if it contains a main function even if it is not exposed" <|
+    , test "should not report an application module if it contains a main function even if it is not exposed" <|
+        \() ->
+            """
+module NotReported exposing (a)
+main = text ""
+a = 1
+"""
+                |> Review.Test.runWithProjectData application rule
+                |> Review.Test.expectNoErrors
+    , test "should not report a module with main function if we don't know the project type" <|
         \() ->
             """
 module NotReported exposing (a)
@@ -170,6 +179,35 @@ a = 1
                         { message = "Module `NotExposed` is never used."
                         , details = details
                         , under = "NotExposed"
+                        }
+                    ]
+    , test "should report non-exposed and non-used package modules that expose a `main` function" <|
+        \() ->
+            """
+module Reported exposing (main)
+main = text ""
+"""
+                |> Review.Test.runWithProjectData package_ rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Module `Reported` is never used."
+                        , details = details
+                        , under = "Reported"
+                        }
+                    ]
+    , test "should report non-exposed and non-used package modules that define a `main` function" <|
+        \() ->
+            """
+module Reported exposing (a)
+main = text ""
+a = 1
+"""
+                |> Review.Test.runWithProjectData package_ rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Module `Reported` is never used."
+                        , details = details
+                        , under = "Reported"
                         }
                     ]
     ]
