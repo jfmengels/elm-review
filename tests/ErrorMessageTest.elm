@@ -51,10 +51,11 @@ expectMessageEqual expectedMessage =
 
 parsingFailureTest : Test
 parsingFailureTest =
-    test "parsingFailure" <|
-        \() ->
-            ErrorMessage.parsingFailure
-                |> expectMessageEqual """
+    describe "parsingFailure"
+        [ test "when there is only one file" <|
+            \() ->
+                ErrorMessage.parsingFailure True { index = 0, source = "module MyModule exposing (.." }
+                    |> expectMessageEqual """
 TEST SOURCE CODE PARSING ERROR
 
 I could not parse the test source code, because it was not valid Elm code.
@@ -62,6 +63,23 @@ I could not parse the test source code, because it was not valid Elm code.
 Hint: Maybe you forgot to add the module definition at the top, like:
 
   `module A exposing (..)`"""
+        , test "when there are multiple files" <|
+            \() ->
+                ErrorMessage.parsingFailure False { index = 32, source = "module MyModule exposing (.." }
+                    |> expectMessageEqual """
+TEST SOURCE CODE PARSING ERROR
+
+I could not parse one of the test source codes, because it was not valid
+Elm code.
+
+The source code in question is the one at index 32 starting with:
+
+  `module MyModule exposing (..`
+
+Hint: Maybe you forgot to add the module definition at the top, like:
+
+  `module A exposing (..)`"""
+        ]
 
 
 didNotExpectErrorsTest : Test

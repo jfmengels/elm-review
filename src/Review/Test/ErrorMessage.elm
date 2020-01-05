@@ -52,15 +52,37 @@ I expected no errors but found:
 """ ++ listErrorMessagesAndPositions errors
 
 
-parsingFailure : String
-parsingFailure =
-    """TEST SOURCE CODE PARSING ERROR
+parsingFailure : Bool -> { index : Int, source : String } -> String
+parsingFailure isOnlyFile { index, source } =
+    let
+        title : String
+        title =
+            "TEST SOURCE CODE PARSING ERROR"
 
-I could not parse the test source code, because it was not valid Elm code.
-
-Hint: Maybe you forgot to add the module definition at the top, like:
+        hint : String
+        hint =
+            """Hint: Maybe you forgot to add the module definition at the top, like:
 
   `module A exposing (..)`"""
+
+        details : String
+        details =
+            if isOnlyFile then
+                "I could not parse the test source code, because it was not valid Elm code."
+
+            else
+                """I could not parse one of the test source codes, because it was not valid
+Elm code.
+
+The source code in question is the one at index """
+                    ++ String.fromInt index
+                    ++ """ starting with:
+
+  `"""
+                    ++ (String.join "" <| List.take 1 <| String.split "\n" <| String.trim source)
+                    ++ "`"
+    in
+    title ++ "\n\n" ++ details ++ "\n\n" ++ hint
 
 
 messageMismatch : ExpectedErrorData -> Error -> String

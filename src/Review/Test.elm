@@ -271,9 +271,8 @@ runMultiWithProjectData project rule sources =
                         parsedFiles
                         |> SuccessfulRun
 
-        Err _ ->
-            -- TODO Explain in which file there was a parsing error
-            FailedRun ErrorMessage.parsingFailure
+        Err fileAndIndex ->
+            FailedRun <| ErrorMessage.parsingFailure (List.length sources == 1) fileAndIndex
 
 
 findDuplicateModuleNames : Set (List String) -> List File.ParsedFile -> Maybe (List String)
@@ -297,7 +296,7 @@ findDuplicateModuleNames previousModuleNames parsedFiles =
                 findDuplicateModuleNames (Set.insert moduleName previousModuleNames) restOfFiles
 
 
-parseSources : List String -> Result Error (List File.ParsedFile)
+parseSources : List String -> Result { index : Int, source : String } (List File.ParsedFile)
 parseSources sources =
     sources
         |> List.indexedMap
@@ -306,6 +305,7 @@ parseSources sources =
                     { path = "TestContent_" ++ String.fromInt index ++ ".elm"
                     , source = source
                     }
+                    |> Result.mapError (\_ -> { index = index, source = source })
             )
         |> combineResults
 
