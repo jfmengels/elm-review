@@ -1,5 +1,5 @@
 module Review.Test exposing
-    ( ReviewResult, run, runWithProjectData, runMulti, runMultiWithProjectData
+    ( ReviewResult, run, runWithProjectData, runOnModules, runOnModulesWithProjectData
     , ExpectedError, expectErrors, expectErrorsForModules, expectNoErrors, error, atExactly, whenFixed
     )
 
@@ -95,7 +95,7 @@ for this module.
 
 # Running tests
 
-@docs ReviewResult, run, runWithProjectData, runMulti, runMultiWithProjectData
+@docs ReviewResult, run, runWithProjectData, runOnModules, runOnModulesWithProjectData
 
 
 # Making assertions
@@ -231,7 +231,7 @@ interested in project related details, then you should use [`run`](#run) instead
 -}
 runWithProjectData : Project -> Rule -> String -> ReviewResult
 runWithProjectData project rule source =
-    runMultiWithProjectData project rule [ source ]
+    runOnModulesWithProjectData project rule [ source ]
 
 
 codeInspectorForSource : File.ParsedFile -> CodeInspector
@@ -244,15 +244,15 @@ codeInspectorForSource file =
 
 {-| TODO documentation
 -}
-runMulti : Rule -> List String -> ReviewResult
-runMulti rule sources =
-    runMultiWithProjectData Project.new rule sources
+runOnModules : Rule -> List String -> ReviewResult
+runOnModules rule sources =
+    runOnModulesWithProjectData Project.new rule sources
 
 
 {-| TODO documentation
 -}
-runMultiWithProjectData : Project -> Rule -> List String -> ReviewResult
-runMultiWithProjectData project rule sources =
+runOnModulesWithProjectData : Project -> Rule -> List String -> ReviewResult
+runOnModulesWithProjectData project rule sources =
     case parseSources sources of
         Ok parsedFiles ->
             case findDuplicateModuleNames Set.empty parsedFiles of

@@ -257,7 +257,7 @@ module A exposing (..)
 module B exposing (..)
 -- someCode
 \"\"\" ]
-      |> Review.Test.runMulti rule
+      |> Review.Test.runOnModules rule
       |> Review.Test.expectErrorsForModules
           [ ( "B", [ Review.Test.error someError ] )
           ]"""

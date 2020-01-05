@@ -78,7 +78,7 @@ module OtherModule exposing (..)
 a = 1
 """
             ]
-                |> Review.Test.runMultiWithProjectData application rule
+                |> Review.Test.runOnModulesWithProjectData application rule
                 |> Review.Test.expectNoErrors
     , test "should report a module when it is never used" <|
         \() ->
@@ -95,7 +95,7 @@ module Other.Reported exposing (..)
 a = 1
 """
             ]
-                |> Review.Test.runMultiWithProjectData application rule
+                |> Review.Test.runOnModulesWithProjectData application rule
                 |> Review.Test.expectErrorsForModules
                     [ ( "Reported"
                       , [ Review.Test.error
