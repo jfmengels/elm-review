@@ -1,17 +1,14 @@
 module Review.Test exposing
     ( ReviewResult, run, runWithProjectData, runOnModules, runOnModulesWithProjectData
-    , ExpectedError, expectErrors, expectErrorsForModules, expectNoErrors, error, atExactly, whenFixed
+    , ExpectedError, expectNoErrors, expectErrors, expectErrorsForModules, error, atExactly, whenFixed
     )
 
 {-| Module that helps you test your rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/).
 
-    import Review.Test exposing (ReviewResult)
+    import Review.Test
     import Test exposing (Test, describe, test)
     import The.Rule.You.Want.To.Test exposing (rule)
 
-    testRule : String -> ReviewResult
-    testRule string =
-        Review.Test.run rule string
 
     -- In this example, the rule we're testing is `NoDebug`
     tests : Test
@@ -19,13 +16,15 @@ module Review.Test exposing
         describe "NoDebug"
             [ test "should not report calls to normal functions" <|
                 \() ->
-                    testRule """module A exposing (..)
+                    """module A exposing (..)
     a = foo n"""
+                        |> Review.Test.run rule
                         |> Review.Test.expectNoErrors
             , test "should report Debug.log use" <|
                 \() ->
-                    testRule """module A exposing (..)
+                    """module A exposing (..)
     a = Debug.log "some" "message\""""
+                        |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
                                 { message = "Remove the use of `Debug` before shipping to production"
@@ -100,7 +99,7 @@ for this module.
 
 # Making assertions
 
-@docs ExpectedError, expectErrors, expectErrorsForModules, expectNoErrors, error, atExactly, whenFixed
+@docs ExpectedError, expectNoErrors, expectErrors, expectErrorsForModules, error, atExactly, whenFixed
 
 -}
 
@@ -168,15 +167,17 @@ type alias SourceCode =
 the errors reported by the rule.
 
     import My.Rule exposing (rule)
-    import Review.Test exposing (ReviewResult)
-    import Test exposing (Test)
+    import Review.Test
+    import Test exposing (Test, test)
 
     all : Test
     all =
         test "test title" <|
             \() ->
-                Review.Test.run rule """module SomeModule exposing (a)
+                """
+    module SomeModule exposing (a)
     a = 1"""
+                    |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
 
 The source code needs to be syntactically valid Elm code. If the code
@@ -201,8 +202,8 @@ project loaded, such as the contents of `elm.json` file.
 
     import My.Rule exposing (rule)
     import Review.Project as Project exposing (Project)
-    import Review.Test exposing (ReviewResult)
-    import Test exposing (Test)
+    import Review.Test
+    import Test exposing (Test, test)
 
     all : Test
     all =
@@ -214,8 +215,9 @@ project loaded, such as the contents of `elm.json` file.
                         Project.new
                             |> Project.withElmJson elmJsonToConstructManually
                 in
-                Review.Test.runWithProjectData project rule """module SomeModule exposing (a)
+                """module SomeModule exposing (a)
     a = 1"""
+                    |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectNoErrors
 
 The source code needs to be syntactically valid Elm code. If the code
@@ -234,22 +236,89 @@ runWithProjectData project rule source =
     runOnModulesWithProjectData project rule [ source ]
 
 
-codeInspectorForSource : File.ParsedFile -> CodeInspector
-codeInspectorForSource file =
-    { file = file
-    , getCodeAtLocation = getCodeAtLocationInSourceCode file.source
-    , checkIfLocationIsAmbiguous = checkIfLocationIsAmbiguousInSourceCode file.source
-    }
+{-| Run a `Rule` on several modules. You can then use
+[`expectNoErrors`](#expectNoErrors) or [`expectErrorsForModules`](#expectErrorsForModules) to assert
+the errors reported by the rule.
 
+This is the same as [`run`](#run), but you can pass several modules.
+This is especially useful to test rules created with
+[`Review.Rule.newMultiSchema`](./Review-Rule#newMultiSchema), that look at
+several files, and where the context of the project is important.
 
-{-| TODO documentation
+    import My.Rule exposing (rule)
+    import Review.Test
+    import Test exposing (Test, test)
+
+    all : Test
+    all =
+        test "test title" <|
+            \() ->
+                let
+                    project : Project
+                    project =
+                        Project.new
+                            |> Project.withElmJson elmJsonToConstructManually
+                in
+                [ """
+    module A exposing (a)
+    a = 1""", """
+    module B exposing (a)
+    a = 1""" ]
+                    |> Review.Test.runOnModulesWithProjectData project rule
+                    |> Review.Test.expectNoErrors
+
+The source codes need to be syntactically valid Elm code. If the code
+can't be parsed, the test will fail regardless of the expectations you set on it.
+
+Note that to be syntactically valid, you need at least a module declaration at the
+top of each file (like `module A exposing (..)`) and one declaration (like `a = 1`).
+You can't just have an expression like `1 + 2`.
+
+Note: This is a simpler version of [`runOnModulesWithProjectData`](#runOnModulesWithProjectData).
+If your rule is interested in project related details, then you should use
+[`runOnModulesWithProjectData`](#runOnModulesWithProjectData) instead.
+
 -}
 runOnModules : Rule -> List String -> ReviewResult
 runOnModules rule sources =
     runOnModulesWithProjectData Project.new rule sources
 
 
-{-| TODO documentation
+{-| Run a `Rule` on several modules. You can then use
+[`expectNoErrors`](#expectNoErrors) or [`expectErrorsForModules`](#expectErrorsForModules) to assert
+the errors reported by the rule.
+
+This is basically the same as [`run`](#run), but you can pass several modules.
+This is especially useful to test rules created with
+[`Review.Rule.newMultiSchema`](./Review-Rule#newMultiSchema), that look at
+several files, and where the context of the project is important.
+
+    import My.Rule exposing (rule)
+    import Review.Test
+    import Test exposing (Test, test)
+
+    all : Test
+    all =
+        test "test without errors" <|
+            \() ->
+                [ """
+    module A exposing (a)
+    a = 1""", """
+    module B exposing (a)
+    a = 1""" ]
+                    |> Review.Test.runOnModules rule
+                    |> Review.Test.expectNoErrors
+
+The source codes need to be syntactically valid Elm code. If the code
+can't be parsed, the test will fail regardless of the expectations you set on it.
+
+Note that to be syntactically valid, you need at least a module declaration at the
+top of each file (like `module A exposing (..)`) and one declaration (like `a = 1`).
+You can't just have an expression like `1 + 2`.
+
+Note: This is a more complex version of [`runOnModules`](#runOnModules). If your rule is not
+interested in project related details, then you should use [`runOnModules`](#runOnModules) instead.
+
 -}
 runOnModulesWithProjectData : Project -> Rule -> List String -> ReviewResult
 runOnModulesWithProjectData project rule sources =
@@ -285,6 +354,14 @@ runOnModulesWithProjectData project rule sources =
 
         Err fileAndIndex ->
             FailedRun <| ErrorMessage.parsingFailure (List.length sources == 1) fileAndIndex
+
+
+codeInspectorForSource : File.ParsedFile -> CodeInspector
+codeInspectorForSource file =
+    { file = file
+    , getCodeAtLocation = getCodeAtLocationInSourceCode file.source
+    , checkIfLocationIsAmbiguous = checkIfLocationIsAmbiguousInSourceCode file.source
+    }
 
 
 findDuplicateModuleNames : Set (List String) -> List File.ParsedFile -> Maybe (List String)
@@ -377,13 +454,10 @@ compareRange a b =
 {-| Assert that the rule reported no errors. Note, this is equivalent to using [`expectErrors`](#expectErrors)
 like `expectErrors []`.
 
-    import Review.Test exposing (ReviewResult)
+    import Review.Test
     import Test exposing (Test, describe, test)
     import The.Rule.You.Want.To.Test exposing (rule)
 
-    testRule : String -> ReviewResult
-    testRule string =
-        Review.Test.run rule string
 
     -- In this example, the rule we're testing is `NoDebug`
     tests : Test
@@ -391,8 +465,9 @@ like `expectErrors []`.
         describe "NoDebug"
             [ test "should not report calls to normal functions" <|
                 \() ->
-                    testRule """module A exposing (..)
+                    """module A exposing (..)
     a = foo n"""
+                        |> Review.Test.run rule
                         |> Review.Test.expectNoErrors
             ]
 
@@ -423,13 +498,10 @@ The errors should be in the order of where they appear in the source code. An er
 at the start of the source code should appear earlier in the list than
 an error at the end of the source code.
 
-    import Review.Test exposing (ReviewResult)
+    import Review.Test
     import Test exposing (Test, describe, test)
     import The.Rule.You.Want.To.Test exposing (rule)
 
-    testRule : String -> ReviewResult
-    testRule string =
-        Review.Test.run rule string
 
     -- In this example, the rule we're testing is `NoDebug`
     tests : Test
@@ -437,8 +509,9 @@ an error at the end of the source code.
         describe "NoDebug"
             [ test "should report Debug.log use" <|
                 \() ->
-                    testRule """module A exposing (..)
+                    """module A exposing (..)
     a = Debug.log "some" "message\""""
+                        |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
                                 { message = "Remove the use of `Debug` before shipping to production"
@@ -461,7 +534,51 @@ expectErrors expectedErrors reviewResult =
             Expect.fail ErrorMessage.needToUsedExpectErrorsForModules
 
 
-{-| TODO Documentation
+{-| Assert that the rule reported some errors, by specifying which one and the
+module for which they were reported.
+
+This is the same as [`expectErrors`](#expectErrors), but for when you used
+[`runOnModules`](#runOnModules) or [`runOnModulesWithProjectData`](#runOnModulesWithProjectData).
+to create the test. When using those, the errors you expect need to be associated
+with a module. If we don't specify this, your tests might pass because you
+expected the right errors, but they may be reported for the wrong module!
+
+The expected errors are tupled: the first element is the module name
+(for example: `List` or `My.Module.Name`) and the second element is the list of
+errors you expect to be reported.
+
+Assert which errors are reported using [`error`](#error). The test will fail if
+a different number of errors than expected are reported, or if the message or the
+location is incorrect.
+
+The errors should be in the order of where they appear in the source code. An error
+at the start of the source code should appear earlier in the list than
+an error at the end of the source code.
+
+    import Review.Test
+    import Test exposing (Test, describe, test)
+    import The.Rule.You.Want.To.Test exposing (rule)
+
+    all : Test
+    all =
+        test "The.Rule.You.Want.To.Test" <|
+            \() ->
+                [ """
+    module ModuleA exposing (a)
+    a = 1""", """
+    module ModuleB exposing (a)
+    a = Debug.log "log" 1""" ]
+                    |> Review.Test.runOnModules rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "ModuleB"
+                          , [ Review.Test.error
+                                { message = "Remove the use of `Debug` before shipping to production"
+                                , under = "Debug.log"
+                                }
+                            ]
+                          )
+                        ]
+
 -}
 expectErrorsForModules : List ( String, List ExpectedError ) -> ReviewResult -> Expectation
 expectErrorsForModules expectedErrorsList reviewResult =
@@ -499,8 +616,9 @@ lines will appear if the error appeared in an editor.
         describe "NoDebug"
             [ test "should report Debug.log use" <|
                 \() ->
-                    testRule """module A exposing (..)
+                    """module A exposing (..)
     a = Debug.log "some" "message\""""
+                        |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
                                 { message = "Remove the use of `Debug` before shipping to production"
@@ -534,10 +652,11 @@ is only necessary when the `under` field is ambiguous.
         describe "NoDebug"
             [ test "should report multiple Debug.log calls" <|
                 \() ->
-                    testRule """module A exposing (..)
+                    """module A exposing (..)
     a = Debug.log "foo" z
     b = Debug.log "foo" z
     """
+                        |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
                                 { message = "Remove the use of `Debug` before shipping to production"
@@ -575,10 +694,11 @@ it doesn't, you should not use `withFixes`.
         describe "NoDebug"
             [ test "should report multiple Debug.log calls" <|
                 \() ->
-                    testRule """module A exposing (..)
+                    """module A exposing (..)
     a = 1
     b = Debug.log "foo" 2
     """
+                        |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
                                 { message = "Remove the use of `Debug` before shipping to production"
