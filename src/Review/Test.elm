@@ -1,6 +1,6 @@
 module Review.Test exposing
     ( ReviewResult, run, runWithProjectData, runMulti, runMultiWithProjectData
-    , ExpectedError, expectErrors, expectErrorsForFiles, expectNoErrors, error, atExactly, whenFixed
+    , ExpectedError, expectErrors, expectErrorsForModules, expectNoErrors, error, atExactly, whenFixed
     )
 
 {-| Module that helps you test your rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/).
@@ -100,7 +100,7 @@ for this module.
 
 # Making assertions
 
-@docs ExpectedError, expectErrors, expectErrorsForFiles, expectNoErrors, error, atExactly, whenFixed
+@docs ExpectedError, expectErrors, expectErrorsForModules, expectNoErrors, error, atExactly, whenFixed
 
 -}
 
@@ -109,6 +109,7 @@ import Elm.Syntax.Module as Module
 import Elm.Syntax.Node as Node
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
+import ListExtra
 import Review
 import Review.File as File
 import Review.Fix as Fix
@@ -126,7 +127,13 @@ import Set exposing (Set)
 -}
 type ReviewResult
     = FailedRun String
-    | SuccessfulRun (List { inspector : CodeInspector, errors : List Error })
+    | SuccessfulRun
+        (List
+            { moduleName : String
+            , inspector : CodeInspector
+            , errors : List Error
+            }
+        )
 
 
 type alias CodeInspector =
@@ -261,7 +268,12 @@ runMultiWithProjectData project rule sources =
                     in
                     List.map
                         (\parsedFile ->
-                            { inspector = codeInspectorForSource parsedFile
+                            { moduleName =
+                                parsedFile.ast.moduleDefinition
+                                    |> Node.value
+                                    |> Module.moduleName
+                                    |> String.join "."
+                            , inspector = codeInspectorForSource parsedFile
                             , errors =
                                 errors
                                     |> List.filter (\error_ -> Rule.errorFilePath error_ == parsedFile.path)
@@ -438,29 +450,40 @@ an error at the end of the source code.
 -}
 expectErrors : List ExpectedError -> ReviewResult -> Expectation
 expectErrors expectedErrors reviewResult =
-    expectErrorsForFiles [ expectedErrors ] reviewResult
+    case reviewResult of
+        FailedRun errorMessage ->
+            Expect.fail errorMessage
+
+        SuccessfulRun ({ inspector, errors, moduleName } :: []) ->
+            checkAllErrorsMatch inspector expectedErrors errors
+
+        SuccessfulRun _ ->
+            Expect.fail ErrorMessage.needToUsedExpectErrorsForModules
 
 
 {-| TODO Documentation
 -}
-expectErrorsForFiles : List (List ExpectedError) -> ReviewResult -> Expectation
-expectErrorsForFiles expectedErrorsList reviewResult =
+expectErrorsForModules : List ( String, List ExpectedError ) -> ReviewResult -> Expectation
+expectErrorsForModules expectedErrorsList reviewResult =
     case reviewResult of
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
         SuccessfulRun runResults ->
-            if List.length runResults /= List.length expectedErrorsList then
-                Expect.fail <| ErrorMessage.errorListLengthMismatch (List.length runResults) (List.length expectedErrorsList)
-
-            else
-                List.map2
-                    (\{ inspector, errors } expectedErrors () ->
-                        checkAllErrorsMatch inspector expectedErrors errors
+            runResults
+                |> List.map
+                    (\{ inspector, errors, moduleName } ->
+                        let
+                            expectedErrors : List ExpectedError
+                            expectedErrors =
+                                expectedErrorsList
+                                    |> ListExtra.find (\( moduleName_, _ ) -> moduleName_ == moduleName)
+                                    |> Maybe.map Tuple.second
+                                    |> Maybe.withDefault []
+                        in
+                        \() -> checkAllErrorsMatch inspector expectedErrors errors
                     )
-                    runResults
-                    expectedErrorsList
-                    |> (\expectations -> Expect.all expectations ())
+                |> (\expectations -> Expect.all expectations ())
 
 
 {-| Create an expectation for an error.

@@ -1,4 +1,4 @@
-module ListExtra exposing (last, uniquePairs)
+module ListExtra exposing (find, last, uniquePairs)
 
 {-| Functions taken from elm-community/list-extra.
 
@@ -8,7 +8,7 @@ elm-community/list-extra would release a new major version.
 
 # List functions
 
-@docs last, uniquePairs
+@docs find, last, uniquePairs
 
 
 # Original Copyright notice
@@ -36,6 +36,24 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 -}
+
+
+{-| Find the first element that satisfies a predicate and return
+Just that element. If none match, return Nothing.
+find (\\num -> num > 5) [2, 4, 6, 8] == Just 6
+-}
+find : (a -> Bool) -> List a -> Maybe a
+find predicate list =
+    case list of
+        [] ->
+            Nothing
+
+        first :: rest ->
+            if predicate first then
+                Just first
+
+            else
+                find predicate rest
 
 
 last : List a -> Maybe a

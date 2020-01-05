@@ -21,7 +21,7 @@ all =
         , expectedMoreErrorsTest
         , tooManyErrorsTest
         , locationIsAmbiguousInSourceCodeTest
-        , errorListLengthMismatchTest
+        , needToUsedExpectErrorsForModulesTest
         , duplicateModuleNameTest
         , missingFixesTest
         , unexpectedFixesTest
@@ -607,32 +607,32 @@ Tip: I found them at:
         ]
 
 
-errorListLengthMismatchTest : Test
-errorListLengthMismatchTest =
-    test "errorListLengthMismatch" <|
+needToUsedExpectErrorsForModulesTest : Test
+needToUsedExpectErrorsForModulesTest =
+    test "needToUsedExpectErrorsForModules" <|
         \() ->
-            ErrorMessage.errorListLengthMismatch 1417 1418
+            ErrorMessage.needToUsedExpectErrorsForModules
                 |> expectMessageEqual """
-MISMATCH BETWEEN NUMBER OF MODULES AND NUMBER OF LISTS OF ERRORS
+AMBIGUOUS MODULE FOR ERROR
 
-You passed a list of 1417 modules to this test, but a list of 1418 lists
-of errors.
+You gave me several modules, and you expect some errors. I need to know for
+which module you expect these errors to be reported.
 
-I expect each item in the list of expected errors to correspond to the
-module at the same position in the module list. Since the two lists have
-different sizes, I'm not sure how to associate the last modules or errors.
-
-If you expect no errors to be reported for a module, use an empty list:
+You should use `expectErrorsForModules` to do this:
 
   test "..." <|
     \\() ->
-      [ sourceCode1, sourceCode2 ]
+      [ \"\"\"
+module A exposing (..)
+-- someCode
+\"\"\", \"\"\"
+module B exposing (..)
+-- someCode
+\"\"\" ]
       |> Review.Test.runMulti rule
-      |> Review.Test.expectErrorsForFiles
-          [ [] -- Expect no errors reported in `sourceCode1`
-          , [ Review.Test.error theErrorForSourceCode2 ]
-          ]
-"""
+      |> Review.Test.expectErrorsForModules
+          [ ( "B", [ Review.Test.error someError ] )
+          ]"""
 
 
 duplicateModuleNameTest : Test

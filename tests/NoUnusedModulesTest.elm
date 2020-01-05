@@ -90,16 +90,29 @@ main = text ""
 module Reported exposing (..)
 a = 1
 """
+            , """
+module Other.Reported exposing (..)
+a = 1
+"""
             ]
                 |> Review.Test.runMultiWithProjectData application rule
-                |> Review.Test.expectErrorsForFiles
-                    [ []
-                    , [ Review.Test.error
+                |> Review.Test.expectErrorsForModules
+                    [ ( "Reported"
+                      , [ Review.Test.error
                             { message = "Module `Reported` is never used."
                             , details = details
                             , under = "Reported"
                             }
-                      ]
+                        ]
+                      )
+                    , ( "Other.Reported"
+                      , [ Review.Test.error
+                            { message = "Module `Other.Reported` is never used."
+                            , details = details
+                            , under = "Other.Reported"
+                            }
+                        ]
+                      )
                     ]
     , test "should report a module even if it is the only module in the project" <|
         \() ->
