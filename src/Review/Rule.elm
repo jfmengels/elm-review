@@ -209,6 +209,8 @@ import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
+import Graph exposing (Graph)
+import IntDict exposing (IntDict)
 import Review.File exposing (ParsedFile, RawFile)
 import Review.Fix exposing (Fix)
 import Review.Project exposing (Project)
@@ -555,7 +557,13 @@ type MultiSchema globalContext moduleContext
         , elmJsonVisitors : List (Maybe Elm.Project.Project -> globalContext -> globalContext)
         , dependenciesVisitors : List (Dict String Elm.Docs.Module -> globalContext -> globalContext)
         , finalEvaluationFns : List (globalContext -> List Error)
+        , traversalType : TraversalType
         }
+
+
+type TraversalType
+    = AllFilesInParallel
+    | ImportedModulesFirst
 
 
 newMultiSchema :
@@ -581,6 +589,7 @@ newMultiSchema name_ { moduleVisitorSchema, initGlobalContext, initModuleContext
         , elmJsonVisitors = []
         , dependenciesVisitors = []
         , finalEvaluationFns = []
+        , traversalType = AllFilesInParallel
         }
 
 
@@ -629,7 +638,17 @@ type alias MultiRuleCache context =
 
 
 runMulti : MultiSchema globalContext moduleContext -> MultiRuleCache globalContext -> Project -> List ParsedFile -> ( List Error, Rule )
-runMulti (MultiSchema schema) startCache project =
+runMulti ((MultiSchema { traversalType }) as schema) =
+    case traversalType of
+        AllFilesInParallel ->
+            allFilesInParallelTraversal schema
+
+        ImportedModulesFirst ->
+            importedModulesFirst schema
+
+
+allFilesInParallelTraversal : MultiSchema globalContext moduleContext -> MultiRuleCache globalContext -> Project -> List ParsedFile -> ( List Error, Rule )
+allFilesInParallelTraversal (MultiSchema schema) startCache project =
     let
         initialContext : globalContext
         initialContext =
@@ -716,6 +735,89 @@ runMulti (MultiSchema schema) startCache project =
                     ]
         in
         ( errors, Multi schema.name (runMulti (MultiSchema schema) newCache) )
+
+
+importedModulesFirst : MultiSchema globalContext moduleContext -> MultiRuleCache globalContext -> Project -> List ParsedFile -> ( List Error, Rule )
+importedModulesFirst (MultiSchema schema) startCache project =
+    \files ->
+        let
+            graph : Graph ModuleName ()
+            graph =
+                buildModuleGraph files
+                    |> Debug.log "graph"
+        in
+        -- TODO Implement
+        ( [], Multi schema.name (runMulti (MultiSchema schema) startCache) )
+
+
+buildModuleGraph : List ParsedFile -> Graph ModuleName ()
+buildModuleGraph files =
+    -- This should be moved to `Review.Project`, to avoid having to do this for every rule
+    let
+        fileIds : Dict ModuleName Int
+        fileIds =
+            files
+                |> List.indexedMap Tuple.pair
+                |> List.foldl
+                    (\( index, file ) dict ->
+                        Dict.insert
+                            (getModuleName file)
+                            index
+                            dict
+                    )
+                    Dict.empty
+
+        getFileId : ModuleName -> Int
+        getFileId moduleName =
+            case Dict.get moduleName fileIds of
+                Just fileId ->
+                    fileId
+
+                Nothing ->
+                    getFileId moduleName
+
+        ( nodes, edges ) =
+            files
+                |> List.foldl
+                    (\file ( resNodes, resEdges ) ->
+                        let
+                            ( moduleNode, modulesEdges ) =
+                                nodesAndEdges (\moduleName -> Dict.get moduleName fileIds) file (getFileId <| getModuleName file)
+                        in
+                        ( moduleNode :: resNodes, List.concat [ modulesEdges, resEdges ] )
+                    )
+                    ( [], [] )
+    in
+    Graph.fromNodesAndEdges nodes edges
+
+
+nodesAndEdges : (ModuleName -> Maybe Int) -> ParsedFile -> Int -> ( Graph.Node ModuleName, List (Graph.Edge ()) )
+nodesAndEdges getFileId file fileId =
+    let
+        moduleName =
+            getModuleName file
+    in
+    ( Graph.Node fileId moduleName
+    , importedModules file
+        |> List.filterMap getFileId
+        |> List.map
+            (\importFileId ->
+                Graph.Edge fileId importFileId ()
+            )
+    )
+
+
+getModuleName : ParsedFile -> ModuleName
+getModuleName file =
+    file.ast.moduleDefinition
+        |> Node.value
+        |> Module.moduleName
+
+
+importedModules : ParsedFile -> List ModuleName
+importedModules file =
+    file.ast.imports
+        |> List.map (Node.value >> .moduleName >> Node.value)
 
 
 {-| Concatenate the errors of the previous step and of the last step.
