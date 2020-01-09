@@ -495,7 +495,7 @@ computeErrors (Schema schema) project =
         initialContext =
             schema.initialContext
                 |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project)
-                |> accumulateContext schema.dependenciesVisitors (Review.Project.modules project)
+                |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencyModules project)
 
         declarationVisitors : InAndOut (DirectedVisitor Declaration context)
         declarationVisitors =
@@ -654,7 +654,7 @@ allFilesInParallelTraversal (MultiSchema schema) startCache project =
         initialContext =
             schema.context.initGlobalContext
                 |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project)
-                |> accumulateContext schema.dependenciesVisitors (Review.Project.modules project)
+                |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencyModules project)
     in
     \files ->
         let

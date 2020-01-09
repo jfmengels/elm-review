@@ -1,7 +1,7 @@
 module Review.Project exposing
     ( Project, ElmJson
-    , elmJson, modules
-    , new, withElmJson, withDependency
+    , modules, elmJson, dependencyModules
+    , new, withFile, withElmJson, withDependency
     )
 
 {-| Represents project-related data, that a rule can access to get more information.
@@ -21,18 +21,22 @@ ignore it if you just want to write a review rule.
 
 # Access
 
-@docs elmJson, modules
+@docs modules, elmJson, dependencyModules
 
 
 # Build
 
-@docs new, withElmJson, withDependency
+@docs new, withFile, withElmJson, withDependency
 
 -}
 
 import Dict exposing (Dict)
 import Elm.Docs
+import Elm.Parser as Parser
+import Elm.Processing
 import Elm.Project
+import Elm.Syntax.File exposing (File)
+import Review.File exposing (ParsedFile)
 
 
 
@@ -44,8 +48,10 @@ the `elm.json` file.
 -}
 type Project
     = Project
-        { elmJson : Maybe ElmJson
-        , modules : Dict String Elm.Docs.Module
+        { modules : List ParsedFile
+        , filesThatFailedToParse : List String
+        , elmJson : Maybe ElmJson
+        , dependencyModules : Dict String Elm.Docs.Module
         , moduleToDependency : Dict String String
         }
 
@@ -59,6 +65,13 @@ type alias ElmJson =
 
 
 -- ACCESS
+
+
+{-| Get the list of modules in the project.
+-}
+modules : Project -> List ParsedFile
+modules (Project project) =
+    project.modules
 
 
 {-| Get the contents of the `elm.json` file, if available.
@@ -82,9 +95,9 @@ package, so you will need to install and use it to gain access to the
 information inside the `elm.json` file.
 
 -}
-modules : Project -> Dict String Elm.Docs.Module
-modules (Project project) =
-    project.modules
+dependencyModules : Project -> Dict String Elm.Docs.Module
+dependencyModules (Project project) =
+    project.dependencyModules
 
 
 
@@ -96,10 +109,47 @@ modules (Project project) =
 new : Project
 new =
     Project
-        { elmJson = Nothing
-        , modules = Dict.empty
+        { modules = []
+        , filesThatFailedToParse = []
+        , elmJson = Nothing
+        , dependencyModules = Dict.empty
         , moduleToDependency = Dict.empty
         }
+
+
+{-| Add the content of the `elm.json` file to the project details, making it
+available for rules to access using
+[`Review.Rule.withElmJsonVisitor`](./Review-Rule#withElmJsonVisitor).
+-}
+withFile : { path : String, source : String } -> Project -> Project
+withFile { path, source } (Project project) =
+    case parseSource source of
+        Ok ast ->
+            Project
+                { project
+                    | modules =
+                        { path = path
+                        , source = source
+                        , ast = ast
+                        }
+                            :: project.modules
+                }
+
+        Err _ ->
+            Project { project | filesThatFailedToParse = path :: project.filesThatFailedToParse }
+
+
+{-| Parse source code into a AST
+-}
+parseSource : String -> Result () File
+parseSource source =
+    source
+        |> Parser.parse
+        |> Result.mapError (always ())
+        -- TODO Add the dependencies to fix how files will be parsed
+        -- Note: If the dependencies change, we'll need to reprocess everything, just in case.
+        -- Also, invalidate the cache for all the files.
+        |> Result.map (Elm.Processing.process Elm.Processing.init)
 
 
 {-| Add the content of the `elm.json` file to the project details, making it
@@ -124,11 +174,11 @@ withDependency : { r | packageName : String, modules : List Elm.Docs.Module } ->
 withDependency dependency (Project project) =
     Project
         { project
-            | modules =
+            | dependencyModules =
                 dependency.modules
                     |> List.map (\module_ -> ( module_.name, module_ ))
                     |> Dict.fromList
-                    |> Dict.union project.modules
+                    |> Dict.union project.dependencyModules
             , moduleToDependency =
                 dependency.modules
                     |> List.map (\module_ -> ( module_.name, dependency.packageName ))
