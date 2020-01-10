@@ -322,38 +322,73 @@ interested in project related details, then you should use [`runOnModules`](#run
 -}
 runOnModulesWithProjectData : Project -> Rule -> List String -> ReviewResult
 runOnModulesWithProjectData project rule sources =
-    case parseSources sources of
-        Ok parsedFiles ->
-            case findDuplicateModuleNames Set.empty parsedFiles of
+    let
+        projectWithModules : Project
+        projectWithModules =
+            sources
+                |> List.indexedMap
+                    (\index source ->
+                        { path = "TestContent_" ++ String.fromInt index ++ ".elm"
+                        , source = source
+                        }
+                    )
+                |> List.foldl (\module_ p -> Project.withModule module_ p) project
+    in
+    case Project.filesThatFailedToParse projectWithModules of
+        { source } :: _ ->
+            let
+                fileAndIndex : { source : String, index : Int }
+                fileAndIndex =
+                    { source = source
+                    , index = indexOf source sources |> Maybe.withDefault -1
+                    }
+            in
+            FailedRun <| ErrorMessage.parsingFailure (List.length sources == 1) fileAndIndex
+
+        [] ->
+            let
+                modules : List File.ParsedFile
+                modules =
+                    Project.modules projectWithModules
+            in
+            case findDuplicateModuleNames Set.empty modules of
                 Just moduleName ->
                     FailedRun <| ErrorMessage.duplicateModuleName moduleName
 
                 Nothing ->
-                    let
-                        errors : List Error
-                        errors =
-                            Review.reviewFiles [ rule ] project parsedFiles
-                                |> Tuple.first
-                    in
                     List.map
-                        (\parsedFile ->
+                        (\module_ ->
                             { moduleName =
-                                parsedFile.ast.moduleDefinition
+                                module_.ast.moduleDefinition
                                     |> Node.value
                                     |> Module.moduleName
                                     |> String.join "."
-                            , inspector = codeInspectorForSource parsedFile
+                            , inspector = codeInspectorForSource module_
                             , errors =
-                                errors
-                                    |> List.filter (\error_ -> Rule.errorFilePath error_ == parsedFile.path)
+                                modules
+                                    |> Review.reviewFiles [ rule ] projectWithModules
+                                    |> Tuple.first
+                                    |> List.filter (\error_ -> Rule.errorFilePath error_ == module_.path)
                                     |> List.sortWith compareErrorPositions
                             }
                         )
-                        parsedFiles
+                        modules
                         |> SuccessfulRun
 
-        Err fileAndIndex ->
-            FailedRun <| ErrorMessage.parsingFailure (List.length sources == 1) fileAndIndex
+
+indexOf : a -> List a -> Maybe Int
+indexOf elementToFind aList =
+    case aList of
+        [] ->
+            Nothing
+
+        a :: rest ->
+            if a == elementToFind then
+                Just 0
+
+            else
+                indexOf elementToFind rest
+                    |> Maybe.map ((+) 1)
 
 
 codeInspectorForSource : File.ParsedFile -> CodeInspector
@@ -383,25 +418,6 @@ findDuplicateModuleNames previousModuleNames parsedFiles =
 
             else
                 findDuplicateModuleNames (Set.insert moduleName previousModuleNames) restOfFiles
-
-
-parseSources : List String -> Result { index : Int, source : String } (List File.ParsedFile)
-parseSources sources =
-    sources
-        |> List.indexedMap
-            (\index source ->
-                Review.parseFile
-                    { path = "TestContent_" ++ String.fromInt index ++ ".elm"
-                    , source = source
-                    }
-                    |> Result.mapError (\_ -> { index = index, source = source })
-            )
-        |> combineResults
-
-
-combineResults : List (Result x a) -> Result x (List a)
-combineResults =
-    List.foldr (Result.map2 (::)) (Ok [])
 
 
 compareErrorPositions : Error -> Error -> Order

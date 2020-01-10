@@ -1,7 +1,7 @@
 module Review.Project exposing
     ( Project, ElmJson
-    , modules, elmJson, dependencyModules
-    , new, withFile, withElmJson, withDependency
+    , modules, filesThatFailedToParse, elmJson, dependencyModules
+    , new, withModule, withElmJson, withDependency
     )
 
 {-| Represents project-related data, that a rule can access to get more information.
@@ -21,12 +21,12 @@ ignore it if you just want to write a review rule.
 
 # Access
 
-@docs modules, elmJson, dependencyModules
+@docs modules, filesThatFailedToParse, elmJson, dependencyModules
 
 
 # Build
 
-@docs new, withFile, withElmJson, withDependency
+@docs new, withModule, withElmJson, withDependency
 
 -}
 
@@ -37,6 +37,7 @@ import Elm.Processing
 import Elm.Project
 import Elm.Syntax.File exposing (File)
 import Review.File exposing (ParsedFile)
+import Set exposing (Set)
 
 
 
@@ -49,7 +50,7 @@ the `elm.json` file.
 type Project
     = Project
         { modules : List ParsedFile
-        , filesThatFailedToParse : List String
+        , filesThatFailedToParse : List { path : String, source : String }
         , elmJson : Maybe ElmJson
         , dependencyModules : Dict String Elm.Docs.Module
         , moduleToDependency : Dict String String
@@ -72,6 +73,13 @@ type alias ElmJson =
 modules : Project -> List ParsedFile
 modules (Project project) =
     project.modules
+
+
+{-| Get the list of file paths that failed to parse, because they were syntactically invalid Elm code.
+-}
+filesThatFailedToParse : Project -> List { path : String, source : String }
+filesThatFailedToParse (Project project) =
+    project.filesThatFailedToParse
 
 
 {-| Get the contents of the `elm.json` file, if available.
@@ -117,26 +125,49 @@ new =
         }
 
 
-{-| Add the content of the `elm.json` file to the project details, making it
-available for rules to access using
-[`Review.Rule.withElmJsonVisitor`](./Review-Rule#withElmJsonVisitor).
+{-| Add a module to the project. This module will then be analyzed by the rules.
 -}
-withFile : { path : String, source : String } -> Project -> Project
-withFile { path, source } (Project project) =
+withModule : { path : String, source : String } -> Project -> Project
+withModule { path, source } project =
     case parseSource source of
         Ok ast ->
-            Project
-                { project
-                    | modules =
-                        { path = path
-                        , source = source
-                        , ast = ast
-                        }
-                            :: project.modules
-                }
+            project
+                |> removeFileFromProject path
+                |> addModule
+                    { path = path
+                    , source = source
+                    , ast = ast
+                    }
 
         Err _ ->
-            Project { project | filesThatFailedToParse = path :: project.filesThatFailedToParse }
+            project
+                |> removeFileFromProject path
+                |> addFileThatFailedToParse
+                    { path = path
+                    , source = source
+                    }
+
+
+removeFileFromProject : String -> Project -> Project
+removeFileFromProject path (Project project) =
+    Project
+        { project
+            | modules = List.filter (\module_ -> module_.path /= path) project.modules
+            , filesThatFailedToParse = List.filter (\file -> file.path /= path) project.filesThatFailedToParse
+        }
+
+
+addModule : ParsedFile -> Project -> Project
+addModule module_ (Project project) =
+    Project { project | modules = module_ :: project.modules }
+
+
+addFileThatFailedToParse : { path : String, source : String } -> Project -> Project
+addFileThatFailedToParse { path, source } (Project project) =
+    Project
+        { project
+            | filesThatFailedToParse = { path = path, source = source } :: project.filesThatFailedToParse
+        }
 
 
 {-| Parse source code into a AST
