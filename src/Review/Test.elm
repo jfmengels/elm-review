@@ -365,8 +365,8 @@ runOnModulesWithProjectData project rule sources =
                                     |> String.join "."
                             , inspector = codeInspectorForSource module_
                             , errors =
-                                modules
-                                    |> Review.reviewFiles [ rule ] projectWithModules
+                                projectWithModules
+                                    |> Review.review [ rule ]
                                     |> Tuple.first
                                     |> List.filter (\error_ -> Rule.errorFilePath error_ == module_.path)
                                     |> List.sortWith compareErrorPositions

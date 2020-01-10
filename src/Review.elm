@@ -1,19 +1,11 @@
-module Review exposing
-    ( parseFile
-    , reviewFiles, reviewRawFiles
-    )
+module Review exposing (review)
 
 {-| Module to configure your review configuration and run it on a source file.
 
 
-# Parsing files
-
-@docs parseFile
-
-
 # Reviewing
 
-@docs reviewFiles, reviewRawFiles
+@docs review
 
 -}
 
@@ -33,6 +25,7 @@ import Review.Rule as Rule exposing (Error, Rule)
 
     import Review
     import Review.File exposing (ParsedFile)
+    import Review.Project as Project exposing (Project)
 
     config : List Rule
     config =
@@ -43,115 +36,28 @@ import Review.Rule as Rule exposing (Error, Rule)
     project : Project
     project =
         Project.new
+            |> Project.withModule { path = "src/A.elm", source = "module A exposing (a)\na = 1" }
+            |> Project.withModule { path = "src/B.elm", source = "module B exposing (b)\nb = 1" }
 
-    type alias Model =
-        { parsedFiles : ParsedFile
-        , parsingErrors : List Review.Error
-        }
-
-    model : Model
-    model =
-        [ { path = "src/A.elm", source = "module A exposing (a)\na = 1" }
-        , { path = "src/B.elm", source = "module B exposing (b)\nb = 1" }
-        ]
-            |> List.foldl
-                (\file model_ ->
-                    case Review.parseFile file of
-                        Ok parsedFile ->
-                            { model_ | parsedFiles = parsedFile :: model_.parsedFiles }
-
-                        Err parsingError ->
-                            { model_ | parsingErrors = parsingError :: model_.parsingErrors }
-                )
-                { parsedFiles = [], parsingErrors = [] }
-
-    errors : List Error
-    errors =
-        List.concat
-            [ Review.reviewFiles rules project model.parsedFiles
-            , model.parsingErrors
-            ]
+    doReview =
+        let
+            ( errors, rulesWithCachedValues ) =
+                Review.review rules project
+        in
+        doSomethingWithTheseValues
 
 -}
-reviewFiles : List Rule -> Project -> List ParsedFile -> ( List Error, List Rule )
-reviewFiles rules project files =
-    Rule.runRules rules project files
-
-
-{-| Review a list of raw files and gives back the errors raised by the given rules.
-
-    import Review
-    import Review.File exposing (RawFile)
-
-    config : List Rule
-    config =
-        [ Some.Rule.rule
-        , Some.Other.Rule.rule
-        ]
-
-    project : Project
-    project =
-        Project.new
-
-    files : List RawFile
-    files =
-        [ { path = "src/A.elm", source = "module A exposing (a)\na = 1" }
-        , { path = "src/B.elm", source = "module B exposing (b)\nb = 1" }
-        ]
-
-    errors : List Error
-    errors =
-        Review.reviewRawFiles rules project files
-
-Note: This function does the same thing a [`reviewFiles`](#reviewFiles), except
-that it also parses the files using `elm-syntax`. If you work with already
-parsed files, or if you are likely to review files multiple times, you should
-use [`reviewFiles`](#reviewFiles).
-
--}
-reviewRawFiles : List Rule -> Project -> List RawFile -> List Error
-reviewRawFiles rules project files =
+review : List Rule -> Project -> ( List Error, List Rule )
+review rules project =
     let
-        ( parsedFiles, parsingErrors ) =
-            files
-                |> List.map parseFile
-                |> List.foldl
-                    (\result ( parsed, errors ) ->
-                        case result of
-                            Ok parsedFile ->
-                                ( parsedFile :: parsed, errors )
-
-                            Err parsingError ->
-                                ( parsed, parsingError :: errors )
-                    )
-                    ( [], [] )
+        ( ruleErrors, rulesWithCache ) =
+            Rule.runRules rules project
     in
-    List.concat
-        [ reviewFiles rules project parsedFiles
-            |> Tuple.first
-        , parsingErrors
+    ( List.concat
+        [ ruleErrors
+        , project
+            |> Review.Project.filesThatFailedToParse
+            |> List.map Rule.parsingError
         ]
-
-
-parseFile : RawFile -> Result Error ParsedFile
-parseFile rawFile =
-    case parseSource rawFile.source of
-        Ok ast ->
-            Ok
-                { path = rawFile.path
-                , source = rawFile.source
-                , ast = ast
-                }
-
-        Err _ ->
-            Err (Rule.parsingError rawFile)
-
-
-{-| Parse source code into a AST
--}
-parseSource : String -> Result String File
-parseSource source =
-    source
-        |> Parser.parse
-        |> Result.mapError (\error -> "Parsing error")
-        |> Result.map (process init)
+    , rulesWithCache
+    )

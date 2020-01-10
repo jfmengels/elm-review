@@ -221,8 +221,8 @@ See [`newSchema`](#newSchema), and [`fromSchema`](#fromSchema) for how to create
 TODO Explain about single and multi-file rules
 -}
 type Rule
-    = Single String (Project -> List ParsedFile -> ( List Error, Rule ))
-    | Multi String (Project -> List ParsedFile -> ( List Error, Rule ))
+    = Single String (Project -> ( List Error, Rule ))
+    | Multi String (Project -> ( List Error, Rule ))
 
 
 type ReviewResult
@@ -300,13 +300,13 @@ type ForLookingAtSeveralFiles
     = JustOneMore2 ForLookingAtSeveralFiles
 
 
-runRules : List Rule -> Project -> List ParsedFile -> ( List Error, List Rule )
-runRules rules project files =
+runRules : List Rule -> Project -> ( List Error, List Rule )
+runRules rules project =
     List.foldl
         (\rule ( errors, previousRules ) ->
             let
                 ( ruleErrors, ruleWithCache ) =
-                    run rule project files
+                    run rule project
             in
             ( List.concat [ ruleErrors, errors ], ruleWithCache :: previousRules )
         )
@@ -314,14 +314,14 @@ runRules rules project files =
         rules
 
 
-run : Rule -> Project -> List ParsedFile -> ( List Error, Rule )
-run rule project files =
+run : Rule -> Project -> ( List Error, Rule )
+run rule project =
     case rule of
         Single _ fn ->
-            fn project files
+            fn project
 
         Multi _ fn ->
-            fn project files
+            fn project
 
 
 {-| Represents whether a Node is being traversed before having seen its children (`OnEnter`ing the Node), or after (`OnExit`ing the Node).
@@ -453,8 +453,8 @@ type alias SingleRuleCache =
         }
 
 
-runSingle : Schema ForLookingAtASingleFile { hasAtLeastOneVisitor : () } context -> SingleRuleCache -> Project -> List ParsedFile -> ( List Error, Rule )
-runSingle ((Schema { name }) as schema) startCache project files =
+runSingle : Schema ForLookingAtASingleFile { hasAtLeastOneVisitor : () } context -> SingleRuleCache -> Project -> ( List Error, Rule )
+runSingle ((Schema { name }) as schema) startCache project =
     let
         computeErrors_ : ParsedFile -> List Error
         computeErrors_ =
@@ -463,21 +463,21 @@ runSingle ((Schema { name }) as schema) startCache project files =
         newCache : SingleRuleCache
         newCache =
             List.foldl
-                (\file cache ->
-                    case Dict.get file.path cache of
+                (\module_ cache ->
+                    case Dict.get module_.path cache of
                         Nothing ->
-                            Dict.insert file.path { source = file.source, errors = computeErrors_ file } cache
+                            Dict.insert module_.path { source = module_.source, errors = computeErrors_ module_ } cache
 
                         Just cacheEntry ->
-                            if cacheEntry.source == file.source then
+                            if cacheEntry.source == module_.source then
                                 -- File is unchanged, we will later return the cached errors
                                 cache
 
                             else
-                                Dict.insert file.path { source = file.source, errors = computeErrors_ file } cache
+                                Dict.insert module_.path { source = module_.source, errors = computeErrors_ module_ } cache
                 )
                 startCache
-                files
+                (Review.Project.modules project)
 
         errors : List Error
         errors =
@@ -637,7 +637,7 @@ type alias MultiRuleCache context =
         }
 
 
-runMulti : MultiSchema globalContext moduleContext -> MultiRuleCache globalContext -> Project -> List ParsedFile -> ( List Error, Rule )
+runMulti : MultiSchema globalContext moduleContext -> MultiRuleCache globalContext -> Project -> ( List Error, Rule )
 runMulti ((MultiSchema { traversalType }) as schema) =
     case traversalType of
         AllFilesInParallel ->
@@ -647,7 +647,7 @@ runMulti ((MultiSchema { traversalType }) as schema) =
             importedModulesFirst schema
 
 
-allFilesInParallelTraversal : MultiSchema globalContext moduleContext -> MultiRuleCache globalContext -> Project -> List ParsedFile -> ( List Error, Rule )
+allFilesInParallelTraversal : MultiSchema globalContext moduleContext -> MultiRuleCache globalContext -> Project -> ( List Error, Rule )
 allFilesInParallelTraversal (MultiSchema schema) startCache project =
     let
         initialContext : globalContext
@@ -655,108 +655,107 @@ allFilesInParallelTraversal (MultiSchema schema) startCache project =
             schema.context.initGlobalContext
                 |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project)
                 |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencyModules project)
-    in
-    \files ->
-        let
-            computeFile : ParsedFile -> { source : String, errors : List Error, context : globalContext }
-            computeFile file =
-                let
-                    fileKey : FileKey
-                    fileKey =
-                        FileKey file.path
 
-                    moduleNameNode_ : Node ModuleName
-                    moduleNameNode_ =
-                        moduleNameNode file.ast.moduleDefinition
+        computeModule : ParsedFile -> { source : String, errors : List Error, context : globalContext }
+        computeModule module_ =
+            let
+                fileKey : FileKey
+                fileKey =
+                    FileKey module_.path
 
-                    initialModuleContext : moduleContext
-                    initialModuleContext =
-                        schema.context.initModuleContext
-                            fileKey
-                            moduleNameNode_
-                            initialContext
+                moduleNameNode_ : Node ModuleName
+                moduleNameNode_ =
+                    moduleNameNode module_.ast.moduleDefinition
 
-                    moduleVisitor : Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
-                    moduleVisitor =
-                        initialModuleContext
-                            |> newFileVisitorSchema
-                            |> schema.moduleVisitorSchema
-                            |> reverseVisitors
-
-                    ( fileErrors, context ) =
-                        visitFileForMulti
-                            moduleVisitor
-                            initialModuleContext
-                            file
-                in
-                { source = file.source
-                , errors = List.map (\(Error err) -> Error { err | filePath = file.path }) fileErrors
-                , context =
-                    schema.context.fromModuleToGlobal
+                initialModuleContext : moduleContext
+                initialModuleContext =
+                    schema.context.initModuleContext
                         fileKey
                         moduleNameNode_
-                        context
-                }
+                        initialContext
 
-            newCache : MultiRuleCache globalContext
-            newCache =
-                List.foldl
-                    (\file cache ->
-                        case Dict.get file.path cache of
-                            Nothing ->
-                                Dict.insert file.path (computeFile file) cache
+                moduleVisitor : Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
+                moduleVisitor =
+                    initialModuleContext
+                        |> newFileVisitorSchema
+                        |> schema.moduleVisitorSchema
+                        |> reverseVisitors
 
-                            Just cacheEntry ->
-                                if cacheEntry.source == file.source then
-                                    -- File is unchanged, we will later return the cached errors and context
-                                    cache
+                ( fileErrors, context ) =
+                    visitFileForMulti
+                        moduleVisitor
+                        initialModuleContext
+                        module_
+            in
+            { source = module_.source
+            , errors = List.map (\(Error err) -> Error { err | filePath = module_.path }) fileErrors
+            , context =
+                schema.context.fromModuleToGlobal
+                    fileKey
+                    moduleNameNode_
+                    context
+            }
 
-                                else
-                                    Dict.insert file.path (computeFile file) cache
-                    )
-                    startCache
-                    files
+        newCache : MultiRuleCache globalContext
+        newCache =
+            List.foldl
+                (\module_ cache ->
+                    case Dict.get module_.path cache of
+                        Nothing ->
+                            Dict.insert module_.path (computeModule module_) cache
 
-            contextsAndErrorsPerFile : List ( List Error, globalContext )
-            contextsAndErrorsPerFile =
-                newCache
-                    |> Dict.values
-                    |> List.map (\cacheEntry -> ( cacheEntry.errors, cacheEntry.context ))
+                        Just cacheEntry ->
+                            if cacheEntry.source == module_.source then
+                                -- File is unchanged, we will later return the cached errors and context
+                                cache
 
-            errors : List Error
-            errors =
-                List.concat
-                    [ List.concatMap Tuple.first contextsAndErrorsPerFile
-                    , contextsAndErrorsPerFile
-                        |> List.map Tuple.second
-                        |> List.foldl schema.context.fold initialContext
-                        |> makeFinalEvaluationForMulti schema.finalEvaluationFns
-                        |> List.map (\(Error err) -> Error { err | ruleName = schema.name })
-                    ]
-        in
-        ( errors, Multi schema.name (runMulti (MultiSchema schema) newCache) )
+                            else
+                                Dict.insert module_.path (computeModule module_) cache
+                )
+                startCache
+                (Review.Project.modules project)
+
+        contextsAndErrorsPerFile : List ( List Error, globalContext )
+        contextsAndErrorsPerFile =
+            newCache
+                |> Dict.values
+                |> List.map (\cacheEntry -> ( cacheEntry.errors, cacheEntry.context ))
+
+        errors : List Error
+        errors =
+            List.concat
+                [ List.concatMap Tuple.first contextsAndErrorsPerFile
+                , contextsAndErrorsPerFile
+                    |> List.map Tuple.second
+                    |> List.foldl schema.context.fold initialContext
+                    |> makeFinalEvaluationForMulti schema.finalEvaluationFns
+                    |> List.map (\(Error err) -> Error { err | ruleName = schema.name })
+                ]
+    in
+    ( errors, Multi schema.name (runMulti (MultiSchema schema) newCache) )
 
 
-importedModulesFirst : MultiSchema globalContext moduleContext -> MultiRuleCache globalContext -> Project -> List ParsedFile -> ( List Error, Rule )
+importedModulesFirst : MultiSchema globalContext moduleContext -> MultiRuleCache globalContext -> Project -> ( List Error, Rule )
 importedModulesFirst (MultiSchema schema) startCache project =
-    \files ->
-        let
-            graph : Graph ModuleName ()
-            graph =
-                buildModuleGraph files
-                    |> Debug.log "graph"
-        in
-        -- TODO Implement
-        ( [], Multi schema.name (runMulti (MultiSchema schema) startCache) )
+    let
+        graph : Graph ModuleName ()
+        graph =
+            project
+                |> Review.Project.modules
+                |> buildModuleGraph
+                |> Debug.log "graph"
+    in
+    -- TODO Implement
+    ( [], Multi schema.name (runMulti (MultiSchema schema) startCache) )
 
 
 buildModuleGraph : List ParsedFile -> Graph ModuleName ()
-buildModuleGraph files =
+buildModuleGraph modules =
     -- This should be moved to `Review.Project`, to avoid having to do this for every rule
     let
         fileIds : Dict ModuleName Int
         fileIds =
-            files
+            modules
                 |> List.indexedMap Tuple.pair
                 |> List.foldl
                     (\( index, file ) dict ->
@@ -777,7 +776,7 @@ buildModuleGraph files =
                     getFileId moduleName
 
         ( nodes, edges ) =
-            files
+            modules
                 |> List.foldl
                     (\file ( resNodes, resEdges ) ->
                         let
