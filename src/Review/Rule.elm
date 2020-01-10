@@ -7,7 +7,7 @@ module Review.Rule exposing
     , withElmJsonVisitor, withDependenciesVisitor
     , withFixes
     , Error, error, parsingError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
-    , newMultiSchema, fromMultiSchema, newFileVisitorSchema, withMultiDependenciesVisitor, withMultiElmJsonVisitor, withMultiFinalEvaluation
+    , newMultiSchema, fromMultiSchema, newFileVisitorSchema, traversingImportedModulesFirst, withMultiElmJsonVisitor, withMultiDependenciesVisitor, withMultiFinalEvaluation
     , FileKey, errorForFile
     , ReviewResult(..)
     )
@@ -192,7 +192,7 @@ For more information on automatic fixing, read the documentation for [`Review.Fi
 
 # TODO
 
-@docs newMultiSchema, fromMultiSchema, newFileVisitorSchema, withMultiDependenciesVisitor, withMultiElmJsonVisitor, withMultiFinalEvaluation
+@docs newMultiSchema, fromMultiSchema, newFileVisitorSchema, traversingImportedModulesFirst, withMultiElmJsonVisitor, withMultiDependenciesVisitor, withMultiFinalEvaluation
 @docs FileKey, errorForFile
 @docs ReviewResult
 
@@ -741,82 +741,137 @@ importedModulesFirst (MultiSchema schema) startCache project =
         graph : Graph ModuleName ()
         graph =
             project
-                |> Review.Project.modules
-                |> buildModuleGraph
-                |> Debug.log "graph"
+                |> Review.Project.moduleGraph
     in
-    -- TODO Implement
-    ( [], Multi schema.name (runMulti (MultiSchema schema) startCache) )
+    case Graph.checkAcyclic graph |> Result.map Graph.topologicalSort of
+        Ok nodeContexts ->
+            let
+                initialContext : globalContext
+                initialContext =
+                    schema.context.initGlobalContext
+                        |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project)
+                        |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencyModules project)
 
+                modules : Dict ModuleName ParsedFile
+                modules =
+                    project
+                        |> Review.Project.modules
+                        |> List.foldl
+                            (\module_ dict ->
+                                Dict.insert
+                                    (getModuleName module_)
+                                    module_
+                                    dict
+                            )
+                            Dict.empty
 
-buildModuleGraph : List ParsedFile -> Graph ModuleName ()
-buildModuleGraph modules =
-    -- This should be moved to `Review.Project`, to avoid having to do this for every rule
-    let
-        fileIds : Dict ModuleName Int
-        fileIds =
-            modules
-                |> List.indexedMap Tuple.pair
-                |> List.foldl
-                    (\( index, file ) dict ->
-                        Dict.insert
-                            (getModuleName file)
-                            index
-                            dict
-                    )
-                    Dict.empty
+                computeModule : MultiRuleCache globalContext -> Graph.Adjacency () -> ParsedFile -> { source : String, errors : List Error, context : globalContext }
+                computeModule cache adjacents module_ =
+                    let
+                        fileKey : FileKey
+                        fileKey =
+                            FileKey module_.path
 
-        getFileId : ModuleName -> Int
-        getFileId moduleName =
-            case Dict.get moduleName fileIds of
-                Just fileId ->
-                    fileId
+                        moduleNameNode_ : Node ModuleName
+                        moduleNameNode_ =
+                            moduleNameNode module_.ast.moduleDefinition
 
-                Nothing ->
-                    getFileId moduleName
+                        initialModuleContext : moduleContext
+                        initialModuleContext =
+                            adjacents
+                                |> IntDict.keys
+                                |> List.filterMap
+                                    (\key ->
+                                        Graph.get key graph
+                                            |> Maybe.andThen (\nodeContext -> Dict.get nodeContext.node.label modules)
+                                            |> Maybe.andThen (\m -> Dict.get m.path cache)
+                                            |> Maybe.map .context
+                                    )
+                                -- TODO Remove contexts from parents already handled by other parents
+                                |> List.foldl schema.context.fold initialContext
+                                |> schema.context.initModuleContext fileKey moduleNameNode_
 
-        ( nodes, edges ) =
-            modules
-                |> List.foldl
-                    (\file ( resNodes, resEdges ) ->
-                        let
-                            ( moduleNode, modulesEdges ) =
-                                nodesAndEdges (\moduleName -> Dict.get moduleName fileIds) file (getFileId <| getModuleName file)
-                        in
-                        ( moduleNode :: resNodes, List.concat [ modulesEdges, resEdges ] )
-                    )
-                    ( [], [] )
-    in
-    Graph.fromNodesAndEdges nodes edges
+                        moduleVisitor : Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
+                        moduleVisitor =
+                            initialModuleContext
+                                |> newFileVisitorSchema
+                                |> schema.moduleVisitorSchema
+                                |> reverseVisitors
 
+                        ( fileErrors, context ) =
+                            visitFileForMulti
+                                moduleVisitor
+                                initialModuleContext
+                                module_
+                    in
+                    { source = module_.source
+                    , errors = List.map (\(Error err) -> Error { err | filePath = module_.path }) fileErrors
+                    , context =
+                        schema.context.fromModuleToGlobal
+                            fileKey
+                            moduleNameNode_
+                            context
+                    }
 
-nodesAndEdges : (ModuleName -> Maybe Int) -> ParsedFile -> Int -> ( Graph.Node ModuleName, List (Graph.Edge ()) )
-nodesAndEdges getFileId file fileId =
-    let
-        moduleName =
-            getModuleName file
-    in
-    ( Graph.Node fileId moduleName
-    , importedModules file
-        |> List.filterMap getFileId
-        |> List.map
-            (\importFileId ->
-                Graph.Edge fileId importFileId ()
-            )
-    )
+                newCache : MultiRuleCache globalContext
+                newCache =
+                    -- TODO Need to invalidate the cache if an imported module changes
+                    List.foldr
+                        (\{ node, outgoing } cache ->
+                            let
+                                maybeModule : Maybe ParsedFile
+                                maybeModule =
+                                    Dict.get node.label modules
+                            in
+                            case maybeModule of
+                                Nothing ->
+                                    cache
+
+                                Just module_ ->
+                                    case Dict.get module_.path cache of
+                                        Nothing ->
+                                            Dict.insert module_.path (computeModule cache outgoing module_) cache
+
+                                        Just cacheEntry ->
+                                            if cacheEntry.source == module_.source then
+                                                -- File is unchanged, we will later return the cached errors and context
+                                                cache
+
+                                            else
+                                                Dict.insert module_.path (computeModule cache outgoing module_) cache
+                        )
+                        startCache
+                        nodeContexts
+
+                contextsAndErrorsPerFile : List ( List Error, globalContext )
+                contextsAndErrorsPerFile =
+                    newCache
+                        |> Dict.values
+                        |> List.map (\cacheEntry -> ( cacheEntry.errors, cacheEntry.context ))
+
+                errors : List Error
+                errors =
+                    List.concat
+                        [ List.concatMap Tuple.first contextsAndErrorsPerFile
+                        , contextsAndErrorsPerFile
+                            |> List.map Tuple.second
+                            |> List.foldl schema.context.fold initialContext
+                            |> makeFinalEvaluationForMulti schema.finalEvaluationFns
+                            |> List.map (\(Error err) -> Error { err | ruleName = schema.name })
+                        ]
+            in
+            ( errors, Multi schema.name (runMulti (MultiSchema schema) newCache) )
+
+        Err _ ->
+            -- TODO return some kind of global error?
+            ( [], Multi schema.name (runMulti (MultiSchema schema) startCache) )
 
 
 getModuleName : ParsedFile -> ModuleName
-getModuleName file =
-    file.ast.moduleDefinition
+getModuleName module_ =
+    module_.ast.moduleDefinition
         |> Node.value
         |> Module.moduleName
-
-
-importedModules : ParsedFile -> List ModuleName
-importedModules file =
-    file.ast.imports
-        |> List.map (Node.value >> .moduleName >> Node.value)
 
 
 {-| Concatenate the errors of the previous step and of the last step.
@@ -839,6 +894,13 @@ moduleNameNode node =
 
         Module.EffectModule data ->
             data.moduleName
+
+
+{-| TODO documentation
+-}
+traversingImportedModulesFirst : MultiSchema globalContext moduleContext -> MultiSchema globalContext moduleContext
+traversingImportedModulesFirst (MultiSchema schema) =
+    MultiSchema { schema | traversalType = ImportedModulesFirst }
 
 
 {-| TODO documentation
