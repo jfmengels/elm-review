@@ -122,17 +122,6 @@ addVisitors setterGetter schema =
                             |> setterGetter.get
                             |> unbox
                             |> popScope visitedElement direction
-                in
-                ( [], setterGetter.set (Context innerContext) outerContext )
-            )
-        |> Rule.withExpressionVisitor
-            (\visitedElement direction outerContext ->
-                let
-                    innerContext : InnerContext
-                    innerContext =
-                        outerContext
-                            |> setterGetter.get
-                            |> unbox
                             |> expressionVisitor visitedElement direction
                 in
                 ( [], setterGetter.set (Context innerContext) outerContext )
