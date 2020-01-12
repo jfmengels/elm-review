@@ -57,7 +57,7 @@ rule =
                 schema
                     |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         , initGlobalContext = initGlobalContext
-        , initModuleContext = initModuleContext
+        , fromGlobalToModule = fromGlobalToModule
         , fromModuleToGlobal = fromModuleToGlobal
         , fold = fold
         }
@@ -97,8 +97,8 @@ initGlobalContext =
     }
 
 
-initModuleContext : Rule.FileKey -> Node ModuleName -> GlobalContext -> ModuleContext
-initModuleContext fileKey moduleNameNode globalContext =
+fromGlobalToModule : Rule.FileKey -> Node ModuleName -> GlobalContext -> ModuleContext
+fromGlobalToModule fileKey moduleNameNode globalContext =
     { exposesEverything = False
     , exposed = Dict.empty
     }

@@ -50,7 +50,7 @@ rule =
     Rule.newMultiSchema "NoUnused.Modules"
         { moduleVisitorSchema = moduleVisitorSchema
         , initGlobalContext = initGlobalContext
-        , initModuleContext = initModuleContext
+        , fromGlobalToModule = fromGlobalToModule
         , fromModuleToGlobal = fromModuleToGlobal
         , fold = fold
         }
@@ -89,8 +89,8 @@ initGlobalContext =
     }
 
 
-initModuleContext : Rule.FileKey -> Node ModuleName -> GlobalContext -> ModuleContext
-initModuleContext _ _ globalContext =
+fromGlobalToModule : Rule.FileKey -> Node ModuleName -> GlobalContext -> ModuleContext
+fromGlobalToModule _ _ globalContext =
     { importedModules = Set.empty
     , containsMainFunction = False
     , isPackage = globalContext.isPackage

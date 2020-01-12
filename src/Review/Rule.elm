@@ -549,7 +549,7 @@ type MultiSchema globalContext moduleContext
         { name : String
         , context :
             { initGlobalContext : globalContext
-            , initModuleContext : FileKey -> Node ModuleName -> globalContext -> moduleContext
+            , fromGlobalToModule : FileKey -> Node ModuleName -> globalContext -> moduleContext
             , fromModuleToGlobal : FileKey -> Node ModuleName -> moduleContext -> globalContext
             , fold : globalContext -> globalContext -> globalContext
             }
@@ -571,17 +571,17 @@ newMultiSchema :
     ->
         { moduleVisitorSchema : Schema ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
         , initGlobalContext : globalContext
-        , initModuleContext : FileKey -> Node ModuleName -> globalContext -> moduleContext
+        , fromGlobalToModule : FileKey -> Node ModuleName -> globalContext -> moduleContext
         , fromModuleToGlobal : FileKey -> Node ModuleName -> moduleContext -> globalContext
         , fold : globalContext -> globalContext -> globalContext
         }
     -> MultiSchema globalContext moduleContext
-newMultiSchema name_ { moduleVisitorSchema, initGlobalContext, initModuleContext, fromModuleToGlobal, fold } =
+newMultiSchema name_ { moduleVisitorSchema, initGlobalContext, fromGlobalToModule, fromModuleToGlobal, fold } =
     MultiSchema
         { name = name_
         , context =
             { initGlobalContext = initGlobalContext
-            , initModuleContext = initModuleContext
+            , fromGlobalToModule = fromGlobalToModule
             , fromModuleToGlobal = fromModuleToGlobal
             , fold = fold
             }
@@ -670,7 +670,7 @@ allFilesInParallelTraversal (MultiSchema schema) startCache project =
 
                 initialModuleContext : moduleContext
                 initialModuleContext =
-                    schema.context.initModuleContext
+                    schema.context.fromGlobalToModule
                         fileKey
                         moduleNameNode_
                         initialContext
@@ -790,7 +790,7 @@ importedModulesFirst (MultiSchema schema) startCache project =
                                     )
                                 -- TODO Remove contexts from parents already handled by other parents
                                 |> List.foldl schema.context.fold initialContext
-                                |> schema.context.initModuleContext fileKey moduleNameNode_
+                                |> schema.context.fromGlobalToModule fileKey moduleNameNode_
 
                         moduleVisitor : Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
                         moduleVisitor =
