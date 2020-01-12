@@ -610,6 +610,7 @@ visitFileForMulti (Schema schema) =
             |> accumulateList (visitImport schema.importVisitors) file.ast.imports
             |> accumulateWithListOfVisitors schema.declarationListVisitors file.ast.declarations
             |> accumulateList (visitDeclaration declarationVisitors expressionVisitors) file.ast.declarations
+            |> (\( errors, context ) -> ( makeFinalEvaluation schema.finalEvaluationFns ( errors, context ), context ))
 
 
 {-| TODO documentation
