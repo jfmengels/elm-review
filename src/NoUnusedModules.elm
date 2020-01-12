@@ -52,7 +52,7 @@ rule =
         , initGlobalContext = initGlobalContext
         , fromGlobalToModule = fromGlobalToModule
         , fromModuleToGlobal = fromModuleToGlobal
-        , fold = fold
+        , foldGlobalContexts = foldGlobalContexts
         }
         |> Rule.withMultiElmJsonVisitor elmJsonVisitor
         |> Rule.withMultiFinalEvaluation finalEvaluationForProject
@@ -113,8 +113,8 @@ fromModuleToGlobal fileKey moduleName moduleContext =
     }
 
 
-fold : GlobalContext -> GlobalContext -> GlobalContext
-fold contextA contextB =
+foldGlobalContexts : GlobalContext -> GlobalContext -> GlobalContext
+foldGlobalContexts contextA contextB =
     { modules = Dict.union contextA.modules contextB.modules
     , usedModules = Set.union contextA.usedModules contextB.usedModules
     , isPackage = contextA.isPackage

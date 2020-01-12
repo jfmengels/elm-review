@@ -59,7 +59,7 @@ rule =
         , initGlobalContext = initGlobalContext
         , fromGlobalToModule = fromGlobalToModule
         , fromModuleToGlobal = fromModuleToGlobal
-        , fold = fold
+        , foldGlobalContexts = foldGlobalContexts
         }
         |> Rule.traversingImportedModulesFirst
         |> Rule.withMultiFinalEvaluation finalEvaluationForProject
@@ -115,8 +115,8 @@ fromModuleToGlobal fileKey moduleName moduleContext =
     }
 
 
-fold : GlobalContext -> GlobalContext -> GlobalContext
-fold contextA contextB =
+foldGlobalContexts : GlobalContext -> GlobalContext -> GlobalContext
+foldGlobalContexts contextA contextB =
     { modules = Dict.union contextA.modules contextB.modules
     }
 

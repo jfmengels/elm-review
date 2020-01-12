@@ -551,7 +551,7 @@ type MultiSchema globalContext moduleContext
             { initGlobalContext : globalContext
             , fromGlobalToModule : FileKey -> Node ModuleName -> globalContext -> moduleContext
             , fromModuleToGlobal : FileKey -> Node ModuleName -> moduleContext -> globalContext
-            , fold : globalContext -> globalContext -> globalContext
+            , foldGlobalContexts : globalContext -> globalContext -> globalContext
             }
         , moduleVisitorSchema : Schema ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
         , elmJsonVisitors : List (Maybe Elm.Project.Project -> globalContext -> globalContext)
@@ -573,17 +573,17 @@ newMultiSchema :
         , initGlobalContext : globalContext
         , fromGlobalToModule : FileKey -> Node ModuleName -> globalContext -> moduleContext
         , fromModuleToGlobal : FileKey -> Node ModuleName -> moduleContext -> globalContext
-        , fold : globalContext -> globalContext -> globalContext
+        , foldGlobalContexts : globalContext -> globalContext -> globalContext
         }
     -> MultiSchema globalContext moduleContext
-newMultiSchema name_ { moduleVisitorSchema, initGlobalContext, fromGlobalToModule, fromModuleToGlobal, fold } =
+newMultiSchema name_ { moduleVisitorSchema, initGlobalContext, fromGlobalToModule, fromModuleToGlobal, foldGlobalContexts } =
     MultiSchema
         { name = name_
         , context =
             { initGlobalContext = initGlobalContext
             , fromGlobalToModule = fromGlobalToModule
             , fromModuleToGlobal = fromModuleToGlobal
-            , fold = fold
+            , foldGlobalContexts = foldGlobalContexts
             }
         , moduleVisitorSchema = moduleVisitorSchema
         , elmJsonVisitors = []
@@ -728,7 +728,7 @@ allFilesInParallelTraversal (MultiSchema schema) startCache project =
                 [ List.concatMap Tuple.first contextsAndErrorsPerFile
                 , contextsAndErrorsPerFile
                     |> List.map Tuple.second
-                    |> List.foldl schema.context.fold initialContext
+                    |> List.foldl schema.context.foldGlobalContexts initialContext
                     |> makeFinalEvaluationForMulti schema.finalEvaluationFns
                     |> List.map (\(Error err) -> Error { err | ruleName = schema.name })
                 ]
@@ -789,7 +789,7 @@ importedModulesFirst (MultiSchema schema) startCache project =
                                             |> Maybe.map .context
                                     )
                                 -- TODO Remove contexts from parents already handled by other parents
-                                |> List.foldl schema.context.fold initialContext
+                                |> List.foldl schema.context.foldGlobalContexts initialContext
                                 |> schema.context.fromGlobalToModule fileKey moduleNameNode_
 
                         moduleVisitor : Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
@@ -856,7 +856,7 @@ importedModulesFirst (MultiSchema schema) startCache project =
                         [ List.concatMap Tuple.first contextsAndErrorsPerFile
                         , contextsAndErrorsPerFile
                             |> List.map Tuple.second
-                            |> List.foldl schema.context.fold initialContext
+                            |> List.foldl schema.context.foldGlobalContexts initialContext
                             |> makeFinalEvaluationForMulti schema.finalEvaluationFns
                             |> List.map (\(Error err) -> Error { err | ruleName = schema.name })
                         ]
