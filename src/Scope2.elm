@@ -1,6 +1,6 @@
 module Scope2 exposing
-    ( ModuleContext
-    , initialContext, addVisitors
+    ( GlobalContext, ModuleContext
+    , addGlobalVisitors, addModuleVisitors, initGlobalContext, fromGlobalToModule, fromModuleToGlobal, foldGlobalContexts
     , realFunctionOrType
     )
 
@@ -9,12 +9,12 @@ module Scope2 exposing
 
 # Definition
 
-@docs ModuleContext
+@docs GlobalContext, ModuleContext
 
 
 # Usage
 
-@docs initialContext, addVisitors
+@docs addGlobalVisitors, addModuleVisitors, initGlobalContext, fromGlobalToModule, fromModuleToGlobal, foldGlobalContexts
 
 
 # Access
@@ -29,6 +29,7 @@ import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Import exposing (Import)
+import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range
@@ -49,9 +50,9 @@ import Review.Rule as Rule exposing (Direction, Error)
                schema
                    |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
        , initGlobalContext = initGlobalContext
-       , initModuleContext = initModuleContext
+       , fromGlobalToModule = fromGlobalToModule
        , fromModuleToGlobal = fromModuleToGlobal
-       , fold = fold
+       , foldGlobalContexts = foldGlobalContexts
        })
 
     Need to fine-tune the details on how that would work obviously.
@@ -65,7 +66,8 @@ type GlobalContext
 
 
 type alias InnerGlobalContext =
-    { modules : Dict String Elm.Docs.Module
+    { dependencies : Dict String Elm.Docs.Module
+    , modules : Dict ModuleName Elm.Docs.Module
     }
 
 
@@ -77,7 +79,9 @@ type alias InnerModuleContext =
     { scopes : Nonempty Scope
     , importAliases : Dict String (List String)
     , importedFunctionOrTypes : Dict String (List String)
-    , modules : Dict String Elm.Docs.Module
+    , dependencies : Dict String Elm.Docs.Module
+    , modules : Dict ModuleName Elm.Docs.Module
+    , exposesEverything : Bool
     }
 
 
@@ -88,7 +92,13 @@ type alias Scope =
     }
 
 
-type alias SetterGetter context =
+type alias GlobalSetterGetter context =
+    { set : GlobalContext -> context -> context
+    , get : context -> GlobalContext
+    }
+
+
+type alias ModuleSetterGetter context =
     { set : ModuleContext -> context -> context
     , get : context -> ModuleContext
     }
@@ -98,19 +108,40 @@ type alias SetterGetter context =
 -- USAGE
 
 
-intialGlobalContext : GlobalContext
-intialGlobalContext =
-    GlobalContext { modules = Dict.empty }
-
-FINISH THIS
-
-initModuleContext : ModuleContext
-initModuleContext =
-    ModuleContext
-        { scopes = NonemptyList.fromElement emptyScope
-        , importAliases = Dict.empty
-        , importedFunctionOrTypes = Dict.empty
+initGlobalContext : GlobalContext
+initGlobalContext =
+    GlobalContext
+        { dependencies = Dict.empty
         , modules = Dict.empty
+        }
+
+
+fromGlobalToModule : GlobalContext -> ModuleContext
+fromGlobalToModule (GlobalContext globalContext) =
+    { scopes = NonemptyList.fromElement emptyScope
+    , importAliases = Dict.empty
+    , importedFunctionOrTypes = Dict.empty
+    , dependencies = globalContext.dependencies
+    , modules = globalContext.modules
+    , exposesEverything = False
+    }
+        |> registerPrelude
+        |> ModuleContext
+
+
+fromModuleToGlobal : ModuleContext -> GlobalContext
+fromModuleToGlobal (ModuleContext moduleContext) =
+    GlobalContext
+        { dependencies = moduleContext.dependencies
+        , modules = moduleContext.modules
+        }
+
+
+foldGlobalContexts : GlobalContext -> GlobalContext -> GlobalContext
+foldGlobalContexts (GlobalContext a) (GlobalContext b) =
+    GlobalContext
+        { dependencies = a.dependencies
+        , modules = Dict.union a.modules b.modules
         }
 
 
@@ -122,20 +153,19 @@ emptyScope =
     }
 
 
-addVisitors :
-    { set : ModuleContext -> context -> context
-    , get : context -> ModuleContext
-    }
-    -> Rule.Schema anyType anything context
-    -> Rule.Schema anyType { hasAtLeastOneVisitor : () } context
-addVisitors setterGetter schema =
+addGlobalVisitors : GlobalSetterGetter globalContext -> Rule.MultiSchema globalContext moduleContext -> Rule.MultiSchema globalContext moduleContext
+addGlobalVisitors setterGetter schema =
     schema
-        |> Rule.withDependenciesVisitor
-            (mapInnerContext setterGetter dependenciesVisitor)
+        |> Rule.withMultiDependenciesVisitor (mapInnerGlobalContext setterGetter dependenciesVisitor)
+
+
+addModuleVisitors : ModuleSetterGetter moduleContext -> Rule.Schema anytype anything moduleContext -> Rule.Schema anytype { hasAtLeastOneVisitor : () } moduleContext
+addModuleVisitors setterGetter schema =
+    schema
         |> Rule.withImportVisitor
-            (mapInnerContext setterGetter importVisitor |> pairWithNoErrors)
+            (mapInnerModuleContext setterGetter importVisitor |> pairWithNoErrors)
         |> Rule.withDeclarationListVisitor
-            (mapInnerContext setterGetter declarationListVisitor |> pairWithNoErrors)
+            (mapInnerModuleContext setterGetter declarationListVisitor |> pairWithNoErrors)
         |> Rule.withDeclarationVisitor
             (\visitedElement direction outerContext ->
                 let
@@ -143,7 +173,7 @@ addVisitors setterGetter schema =
                     innerContext =
                         outerContext
                             |> setterGetter.get
-                            |> unbox
+                            |> unboxModule
                             |> declarationVisitor visitedElement direction
                 in
                 ( [], setterGetter.set (ModuleContext innerContext) outerContext )
@@ -155,7 +185,7 @@ addVisitors setterGetter schema =
                     innerContext =
                         outerContext
                             |> setterGetter.get
-                            |> unbox
+                            |> unboxModule
                             |> popScope visitedElement direction
                             |> expressionVisitor visitedElement direction
                 in
@@ -163,14 +193,29 @@ addVisitors setterGetter schema =
             )
 
 
-mapInnerContext : SetterGetter context -> (visitedElement -> InnerModuleContext -> InnerModuleContext) -> visitedElement -> context -> context
-mapInnerContext { set, get } visitor visitedElement outerContext =
+
+
+mapInnerGlobalContext : GlobalSetterGetter context -> (visitedElement -> InnerGlobalContext -> InnerGlobalContext) -> visitedElement -> context -> context
+mapInnerGlobalContext { set, get } visitor visitedElement outerContext =
+    let
+        innerContext : InnerGlobalContext
+        innerContext =
+            outerContext
+                |> get
+                |> unboxGlobal
+                |> visitor visitedElement
+    in
+    set (GlobalContext innerContext) outerContext
+
+
+mapInnerModuleContext : ModuleSetterGetter context -> (visitedElement -> InnerModuleContext -> InnerModuleContext) -> visitedElement -> context -> context
+mapInnerModuleContext { set, get } visitor visitedElement outerContext =
     let
         innerContext : InnerModuleContext
         innerContext =
             outerContext
                 |> get
-                |> unbox
+                |> unboxModule
                 |> visitor visitedElement
     in
     set (ModuleContext innerContext) outerContext
@@ -185,10 +230,9 @@ pairWithNoErrors fn visited context =
 -- DEPENDENCIES
 
 
-dependenciesVisitor : Dict String Elm.Docs.Module -> InnerModuleContext -> InnerModuleContext
-dependenciesVisitor modules innerContext =
-    { innerContext | modules = modules }
-        |> registerPrelude
+dependenciesVisitor : Dict String Elm.Docs.Module -> InnerGlobalContext -> InnerGlobalContext
+dependenciesVisitor dependencies innerContext =
+    { innerContext | dependencies = dependencies }
 
 
 registerPrelude : InnerModuleContext -> InnerModuleContext
@@ -393,7 +437,7 @@ registerExposed import_ innerContext =
 
                 module_ : Elm.Docs.Module
                 module_ =
-                    Dict.get (getModuleName moduleName) innerContext.modules
+                    Dict.get (getModuleName moduleName) innerContext.dependencies
                         |> Maybe.withDefault
                             { name = getModuleName moduleName
                             , comment = ""
@@ -466,8 +510,13 @@ namesFromExposingList module_ topLevelExpose =
                     [ name ]
 
 
-unbox : ModuleContext -> InnerModuleContext
-unbox (ModuleContext context) =
+unboxGlobal : GlobalContext -> InnerGlobalContext
+unboxGlobal (GlobalContext context) =
+    context
+
+
+unboxModule : ModuleContext -> InnerModuleContext
+unboxModule (ModuleContext context) =
     context
 
 
