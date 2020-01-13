@@ -81,10 +81,9 @@ a = 1
                         }
                         |> Review.Test.atExactly { start = { row = 2, column = 20 }, end = { row = 2, column = 21 } }
                     ]
-    , Test.skip <|
-        test "should not report an exposed function when it is used in other modules (qualified import)" <|
-            \() ->
-                [ """
+    , test "should not report an exposed function when it is used in other modules (qualified import)" <|
+        \() ->
+            [ """
 module A exposing (a)
 a = 1
 """, """
@@ -92,12 +91,11 @@ module B exposing (main)
 import A
 main = A.a
 """ ]
-                    |> Review.Test.runOnModulesWithProjectData application rule
-                    |> Review.Test.expectNoErrors
-    , Test.skip <|
-        test "should not report an exposed function when it is used in other modules (using an alias)" <|
-            \() ->
-                [ """
+                |> Review.Test.runOnModulesWithProjectData application rule
+                |> Review.Test.expectNoErrors
+    , test "should not report an exposed function when it is used in other modules (using an alias)" <|
+        \() ->
+            [ """
 module A exposing (a)
 a = 1
 """, """
@@ -105,12 +103,11 @@ module B exposing (main)
 import A as SomeA
 main = SomeA.a
 """ ]
-                    |> Review.Test.runOnModulesWithProjectData application rule
-                    |> Review.Test.expectNoErrors
-    , Test.skip <|
-        test "should not report an exposed function when it is used in other modules (using `exposing` to import)" <|
-            \() ->
-                [ """
+                |> Review.Test.runOnModulesWithProjectData application rule
+                |> Review.Test.expectNoErrors
+    , test "should not report an exposed function when it is used in other modules (using `exposing` to import)" <|
+        \() ->
+            [ """
 module A exposing (a)
 a = 1
 """, """
@@ -118,12 +115,11 @@ module B exposing (main)
 import A exposing (a)
 main = a
 """ ]
-                    |> Review.Test.runOnModulesWithProjectData application rule
-                    |> Review.Test.expectNoErrors
-    , Test.skip <|
-        test "should not report an exposed function when it is used in other modules (using `exposing(..)` to import)" <|
-            \() ->
-                [ """
+                |> Review.Test.runOnModulesWithProjectData application rule
+                |> Review.Test.expectNoErrors
+    , test "should not report an exposed function when it is used in other modules (using `exposing(..)` to import)" <|
+        \() ->
+            [ """
 module A exposing (a)
 a = 1
 """, """
@@ -131,8 +127,8 @@ module B exposing (main)
 import A exposing (..)
 main = a
 """ ]
-                    |> Review.Test.runOnModulesWithProjectData application rule
-                    |> Review.Test.expectNoErrors
+                |> Review.Test.runOnModulesWithProjectData application rule
+                |> Review.Test.expectNoErrors
     , test "should report an exposed function when it is not used in other modules, even if it is used in the module" <|
         \() ->
             """
@@ -149,15 +145,14 @@ main = exposed
                         }
                         |> Review.Test.atExactly { start = { row = 2, column = 20 }, end = { row = 2, column = 27 } }
                     ]
-    , Test.skip <|
-        test "should not report anything for modules that expose everything`" <|
-            \() ->
-                """
+    , test "should not report anything for modules that expose everything`" <|
+        \() ->
+            """
 module A exposing (..)
 a = 1
 """
-                    |> Review.Test.runWithProjectData package_ rule
-                    |> Review.Test.expectNoErrors
+                |> Review.Test.runWithProjectData package_ rule
+                |> Review.Test.expectNoErrors
     , test "should not report the `main` function for an application even if it is unused" <|
         \() ->
             """
