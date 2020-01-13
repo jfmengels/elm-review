@@ -159,7 +159,7 @@ rule =
                 }
         , fromModuleToGlobal =
             \fileKey moduleNameNode moduleContext ->
-                { scope = Scope.fromModuleToGlobal moduleContext.scope
+                { scope = Scope.fromModuleToGlobal moduleNameNode moduleContext.scope
                 }
         , foldGlobalContexts = \a b -> { scope = Scope.foldGlobalContexts a.scope b.scope }
         }

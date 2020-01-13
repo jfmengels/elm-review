@@ -23,16 +23,22 @@ module Scope2 exposing
 
 -}
 
+-- TODO Re-add the nice "can't make mistakes" addVisitors
+
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Import exposing (Import)
+import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
-import Elm.Syntax.Range as Range
+import Elm.Syntax.Range as Range exposing (Range)
+import Elm.Syntax.Signature exposing (Signature)
+import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
+import Elm.Type
 import NonemptyList exposing (Nonempty)
 import Review.Rule as Rule exposing (Direction, Error)
 
@@ -82,7 +88,18 @@ type alias InnerModuleContext =
     , dependencies : Dict String Elm.Docs.Module
     , modules : Dict ModuleName Elm.Docs.Module
     , exposesEverything : Bool
+    , exposedNames : Dict String { range : Range, exposedElement : ExposedElement }
+    , exposedUnions : List Elm.Docs.Union
+    , exposedAliases : List Elm.Docs.Alias
+    , exposedValues : List Elm.Docs.Value
+    , exposedBinops : List Elm.Docs.Binop
     }
+
+
+type ExposedElement
+    = Function
+    | TypeOrTypeAlias
+    | ExposedType Bool
 
 
 type alias Scope =
@@ -124,16 +141,30 @@ fromGlobalToModule (GlobalContext globalContext) =
     , dependencies = globalContext.dependencies
     , modules = globalContext.modules
     , exposesEverything = False
+    , exposedNames = Dict.empty
+    , exposedUnions = []
+    , exposedAliases = []
+    , exposedValues = []
+    , exposedBinops = []
     }
         |> registerPrelude
         |> ModuleContext
 
 
-fromModuleToGlobal : ModuleContext -> GlobalContext
-fromModuleToGlobal (ModuleContext moduleContext) =
+fromModuleToGlobal : Node ModuleName -> ModuleContext -> GlobalContext
+fromModuleToGlobal moduleName (ModuleContext moduleContext) =
     GlobalContext
         { dependencies = moduleContext.dependencies
-        , modules = moduleContext.modules
+        , modules =
+            Dict.insert (Node.value moduleName)
+                { name = String.join "." (Node.value moduleName)
+                , comment = ""
+                , unions = moduleContext.exposedUnions
+                , aliases = moduleContext.exposedAliases
+                , values = moduleContext.exposedValues
+                , binops = moduleContext.exposedBinops
+                }
+                moduleContext.modules
         }
 
 
@@ -162,6 +193,8 @@ addGlobalVisitors setterGetter schema =
 addModuleVisitors : ModuleSetterGetter moduleContext -> Rule.Schema anytype anything moduleContext -> Rule.Schema anytype { hasAtLeastOneVisitor : () } moduleContext
 addModuleVisitors setterGetter schema =
     schema
+        |> Rule.withModuleDefinitionVisitor
+            (mapInnerModuleContext setterGetter moduleDefinitionVisitor |> pairWithNoErrors)
         |> Rule.withImportVisitor
             (mapInnerModuleContext setterGetter importVisitor |> pairWithNoErrors)
         |> Rule.withDeclarationListVisitor
@@ -193,6 +226,29 @@ addModuleVisitors setterGetter schema =
             )
 
 
+
+-- scopedRule :
+--     String
+--     ->
+--         { forGlobal :
+--             { get : globalContext -> GlobalContext
+--             , set : GlobalContext -> globalContext -> globalContext
+--             }
+--         , forModule :
+--             { get : moduleContext -> ModuleContext
+--             , set : ModuleContext -> moduleContext -> moduleContext
+--             }
+--         }
+--     ->
+--         { moduleVisitorSchema : Rule.Schema Rule.ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Rule.Schema Rule.ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
+--         , initGlobalContext : globalContext
+--         , fromGlobalToModule : Rule.FileKey -> Node ModuleName -> globalContext -> moduleContext
+--         , fromModuleToGlobal : Rule.FileKey -> Node ModuleName -> moduleContext -> globalContext
+--         , foldGlobalContexts : globalContext -> globalContext -> globalContext
+--         }
+--     -> Rule.MultiSchema globalContext moduleContext
+-- scopedRule name setterGetters context =
+--     Rule.newMultiSchema name
 
 
 mapInnerGlobalContext : GlobalSetterGetter context -> (visitedElement -> InnerGlobalContext -> InnerGlobalContext) -> visitedElement -> context -> context
@@ -237,7 +293,7 @@ dependenciesVisitor dependencies innerContext =
 
 registerPrelude : InnerModuleContext -> InnerModuleContext
 registerPrelude innerContext =
-    List.foldl registerExposed innerContext elmCorePrelude
+    List.foldl registerImportExposed innerContext elmCorePrelude
 
 
 elmCorePrelude : List Import
@@ -343,6 +399,7 @@ createFakeImport { moduleName, moduleAlias, exposingList } =
 declarationListVisitor : List (Node Declaration) -> InnerModuleContext -> InnerModuleContext
 declarationListVisitor declarations innerContext =
     List.foldl registerDeclaration innerContext declarations
+        |> (\newInnerContext -> List.foldl registerExposed newInnerContext declarations)
 
 
 registerDeclaration : Node Declaration -> InnerModuleContext -> InnerModuleContext
@@ -388,6 +445,79 @@ declarationNameNode (Node _ declaration) =
             Nothing
 
 
+registerExposed : Node Declaration -> InnerModuleContext -> InnerModuleContext
+registerExposed declaration innerContext =
+    case Node.value declaration of
+        Declaration.FunctionDeclaration function ->
+            let
+                name : String
+                name =
+                    function.declaration
+                        |> Node.value
+                        |> .name
+                        |> Node.value
+            in
+            { innerContext
+                | exposedValues =
+                    { name = name
+                    , comment = ""
+                    , tipe = convertTypeSignatureToDocsType function.signature
+                    }
+                        :: innerContext.exposedValues
+            }
+
+        Declaration.CustomTypeDeclaration type_ ->
+            innerContext
+
+        Declaration.AliasDeclaration alias_ ->
+            innerContext
+
+        Declaration.PortDeclaration port_ ->
+            innerContext
+
+        Declaration.InfixDeclaration _ ->
+            innerContext
+
+        Declaration.Destructuring _ _ ->
+            innerContext
+
+
+convertTypeSignatureToDocsType : Maybe (Node Signature) -> Elm.Type.Type
+convertTypeSignatureToDocsType maybeSignature =
+    case maybeSignature |> Maybe.map (Node.value >> .typeAnnotation) of
+        Just typeAnnotation ->
+            syntaxTypeAnnotationToDocsType typeAnnotation
+
+        Nothing ->
+            Elm.Type.Tuple []
+
+
+syntaxTypeAnnotationToDocsType : Node TypeAnnotation -> Elm.Type.Type
+syntaxTypeAnnotationToDocsType (Node _ typeAnnotation) =
+    case typeAnnotation of
+        TypeAnnotation.GenericType name ->
+            Elm.Type.Var name
+
+        TypeAnnotation.Typed (Node _ ( moduleName, typeName )) typeParameters ->
+            -- Elm.Type.Type (String.join "." moduleName ++ "." ++ typeName) (List.map syntaxTypeAnnotationToDocsType typeParameters)
+            Elm.Type.Tuple []
+
+        TypeAnnotation.Unit ->
+            Elm.Type.Tuple []
+
+        TypeAnnotation.Tupled typeAnnotationTypeAnnotationSyntaxElmNodeNodeSyntaxElmListList ->
+            Elm.Type.Tuple []
+
+        TypeAnnotation.Record recordDefinitionTypeAnnotationSyntaxElm ->
+            Elm.Type.Tuple []
+
+        TypeAnnotation.GenericRecord stringStringNodeNodeSyntaxElm recordDefinitionTypeAnnotationSyntaxElmNodeNodeSyntaxElm ->
+            Elm.Type.Tuple []
+
+        TypeAnnotation.FunctionTypeAnnotation typeAnnotationTypeAnnotationSyntaxElmNodeNodeSyntaxElm typeAnnotationTypeAnnotationSyntaxElmNodeNodeSyntaxElm2 ->
+            Elm.Type.Tuple []
+
+
 registerVariable : VariableInfo -> String -> Nonempty Scope -> Nonempty Scope
 registerVariable variableInfo name scopes =
     NonemptyList.mapHead
@@ -400,11 +530,52 @@ updateScope context scopes =
     { context | scopes = scopes }
 
 
+
+-- MODULE DEFINITION VISITOR
+
+
+moduleDefinitionVisitor : Node Module -> InnerModuleContext -> InnerModuleContext
+moduleDefinitionVisitor node innerContext =
+    case Module.exposingList (Node.value node) of
+        Exposing.All _ ->
+            { innerContext | exposesEverything = True }
+
+        Exposing.Explicit list ->
+            { innerContext | exposedNames = exposedElements list }
+
+
+exposedElements : List (Node Exposing.TopLevelExpose) -> Dict String { range : Range, exposedElement : ExposedElement }
+exposedElements nodes =
+    nodes
+        |> List.filterMap
+            (\node ->
+                case Node.value node of
+                    Exposing.FunctionExpose name ->
+                        Just <| ( name, { range = Node.range node, exposedElement = Function } )
+
+                    Exposing.TypeOrAliasExpose name ->
+                        -- TODO
+                        Nothing
+
+                    Exposing.TypeExpose { name } ->
+                        -- TODO
+                        Nothing
+
+                    Exposing.InfixExpose name ->
+                        Nothing
+            )
+        |> Dict.fromList
+
+
+
+-- IMPORT VISITOR
+
+
 importVisitor : Node Import -> InnerModuleContext -> InnerModuleContext
 importVisitor (Node range import_) innerContext =
     innerContext
         |> registerImportAlias import_
-        |> registerExposed import_
+        |> registerImportExposed import_
 
 
 registerImportAlias : Import -> InnerModuleContext -> InnerModuleContext
@@ -423,8 +594,8 @@ registerImportAlias import_ innerContext =
             }
 
 
-registerExposed : Import -> InnerModuleContext -> InnerModuleContext
-registerExposed import_ innerContext =
+registerImportExposed : Import -> InnerModuleContext -> InnerModuleContext
+registerImportExposed import_ innerContext =
     case import_.exposingList |> Maybe.map Node.value of
         Nothing ->
             innerContext
@@ -437,7 +608,13 @@ registerExposed import_ innerContext =
 
                 module_ : Elm.Docs.Module
                 module_ =
-                    Dict.get (getModuleName moduleName) innerContext.dependencies
+                    (case Dict.get (getModuleName moduleName) innerContext.dependencies of
+                        Just m ->
+                            Just m
+
+                        Nothing ->
+                            Dict.get moduleName innerContext.modules
+                    )
                         |> Maybe.withDefault
                             { name = getModuleName moduleName
                             , comment = ""
