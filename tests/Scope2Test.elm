@@ -15,10 +15,9 @@ import Test exposing (Test, test)
 
 all : Test
 all =
-    Test.only <|
-        Test.describe "Scope"
-            [ realFunctionOrTypeTests
-            ]
+    Test.describe "Scope"
+        [ realFunctionOrTypeTests
+        ]
 
 
 realFunctionOrTypeTests : Test
@@ -42,6 +41,7 @@ a = localValue
     exposedElement
     nonExposedElement
     elementFromExposesEverything
+    VariantA
     Foo.bar
     Foo.Bar
     Baz.foo
@@ -50,6 +50,7 @@ a = localValue
     Http.get
     get
     always
+    True
     Just
 """, """module ExposesSomeThings exposing (SomeOtherTypeAlias, exposedElement)
 type NonExposedCustomType = Variant
@@ -75,6 +76,7 @@ elementFromExposesEverything = 1
 <nothing>.exposedElement -> ExposesSomeThings.exposedElement
 <nothing>.nonExposedElement -> <nothing>.nonExposedElement
 <nothing>.elementFromExposesEverything -> ExposesEverything.elementFromExposesEverything
+<nothing>.VariantA -> ExposesEverything.VariantA
 Foo.bar -> Foo.bar
 Foo.Bar -> Foo.Bar
 Baz.foo -> Bar.foo
@@ -83,6 +85,7 @@ Baz.foo -> Bar.foo
 Http.get -> Http.get
 <nothing>.get -> Http.get
 <nothing>.always -> Basics.always
+<nothing>.True -> Basics.True
 <nothing>.Just -> Maybe.Just"""
                                 , details = [ "details" ]
                                 , under = "module"

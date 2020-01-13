@@ -10,7 +10,13 @@ elmCore =
     , modules =
         [ { name = "Basics"
           , comment = ""
-          , unions = []
+          , unions =
+                [ { name = "Bool"
+                  , comment = ""
+                  , args = []
+                  , tags = [ ( "True", [] ), ( "False", [] ) ]
+                  }
+                ]
           , aliases = []
           , values =
                 [ { name = "always"

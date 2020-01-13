@@ -477,7 +477,9 @@ registerExposed declaration innerContext =
                         { name = Node.value type_.name
                         , comment = ""
                         , args = []
-                        , tags = []
+                        , tags =
+                            type_.constructors
+                                |> List.map (\constructor -> ( Node.value (Node.value constructor).name, [] ))
                         }
                             :: innerContext.exposedUnions
                 }
@@ -661,7 +663,12 @@ registerImportExposed import_ innerContext =
                         exposedValues : Dict String (List String)
                         exposedValues =
                             List.concat
-                                [ List.map nameWithModuleName module_.unions
+                                [ List.concatMap
+                                    (\union ->
+                                        nameWithModuleName union
+                                            :: List.map (\( name, _ ) -> ( name, moduleName )) union.tags
+                                    )
+                                    module_.unions
                                 , List.map nameWithModuleName module_.values
                                 , List.map nameWithModuleName module_.aliases
                                 , List.map nameWithModuleName module_.binops
