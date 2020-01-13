@@ -457,14 +457,18 @@ registerExposed declaration innerContext =
                         |> .name
                         |> Node.value
             in
-            { innerContext
-                | exposedValues =
-                    { name = name
-                    , comment = ""
-                    , tipe = convertTypeSignatureToDocsType function.signature
-                    }
-                        :: innerContext.exposedValues
-            }
+            if innerContext.exposesEverything || Dict.member name innerContext.exposedNames then
+                { innerContext
+                    | exposedValues =
+                        { name = name
+                        , comment = ""
+                        , tipe = convertTypeSignatureToDocsType function.signature
+                        }
+                            :: innerContext.exposedValues
+                }
+
+            else
+                innerContext
 
         Declaration.CustomTypeDeclaration type_ ->
             innerContext

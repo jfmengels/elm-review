@@ -66,13 +66,16 @@ Http.get -> Http.get
             \() ->
                 [ """module A exposing (..)
 import Bar as Baz exposing (baz)
-import Foo exposing (..)
+import ExposesSomeThings exposing (..)
+import ExposesEverything exposing (..)
 import Foo.Bar
 import Html exposing (..)
 import Http exposing (get)
 
 a = b
-    somethingFromFoo
+    exposedElement
+    nonExposedElement
+    elementFromExposesEverything
     Foo.bar
     Foo.Bar
     Baz.foo
@@ -82,8 +85,11 @@ a = b
     get
     always
     Just
-""", """module Foo exposing (somethingFromFoo)
-somethingFromFoo = 1
+""", """module ExposesSomeThings exposing (exposedElement)
+exposedElement = 1
+nonExposedElement = 2
+""", """module ExposesEverything exposing (..)
+elementFromExposesEverything = 1
 """ ]
                     |> Review.Test.runOnModulesWithProjectData project rule
                     |> Review.Test.expectErrorsForModules
@@ -91,7 +97,9 @@ somethingFromFoo = 1
                           , [ Review.Test.error
                                 { message = """
 <nothing>.b -> <nothing>.b
-<nothing>.somethingFromFoo -> Foo.somethingFromFoo
+<nothing>.exposedElement -> ExposesSomeThings.exposedElement
+<nothing>.nonExposedElement -> <nothing>.nonExposedElement
+<nothing>.elementFromExposesEverything -> ExposesEverything.elementFromExposesEverything
 Foo.bar -> Foo.bar
 Foo.Bar -> Foo.Bar
 Baz.foo -> Bar.foo
@@ -106,7 +114,15 @@ Http.get -> Http.get
                                 }
                             ]
                           )
-                        , ( "Foo"
+                        , ( "ExposesSomeThings"
+                          , [ Review.Test.error
+                                { message = ""
+                                , details = [ "details" ]
+                                , under = "module"
+                                }
+                            ]
+                          )
+                        , ( "ExposesEverything"
                           , [ Review.Test.error
                                 { message = ""
                                 , details = [ "details" ]
