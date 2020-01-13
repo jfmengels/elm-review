@@ -356,6 +356,13 @@ runOnModulesWithProjectData project rule sources =
                     FailedRun <| ErrorMessage.duplicateModuleName moduleName
 
                 Nothing ->
+                    let
+                        errors : List Error
+                        errors =
+                            projectWithModules
+                                |> Review.review [ rule ]
+                                |> Tuple.first
+                    in
                     List.map
                         (\module_ ->
                             { moduleName =
@@ -365,9 +372,7 @@ runOnModulesWithProjectData project rule sources =
                                     |> String.join "."
                             , inspector = codeInspectorForSource module_
                             , errors =
-                                projectWithModules
-                                    |> Review.review [ rule ]
-                                    |> Tuple.first
+                                errors
                                     |> List.filter (\error_ -> Rule.errorFilePath error_ == module_.path)
                                     |> List.sortWith compareErrorPositions
                             }
