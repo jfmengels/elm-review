@@ -603,6 +603,7 @@ expectErrorsForModules expectedErrorsList reviewResult =
             Expect.fail errorMessage
 
         SuccessfulRun runResults ->
+            -- TODO Fail if there are some unknown modules in expectedErrorsList
             runResults
                 |> List.map
                     (\{ inspector, errors, moduleName } ->
