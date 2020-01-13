@@ -471,10 +471,34 @@ registerExposed declaration innerContext =
                 innerContext
 
         Declaration.CustomTypeDeclaration type_ ->
-            innerContext
+            if innerContext.exposesEverything || Dict.member (Node.value type_.name) innerContext.exposedNames then
+                { innerContext
+                    | exposedUnions =
+                        { name = Node.value type_.name
+                        , comment = ""
+                        , args = []
+                        , tags = []
+                        }
+                            :: innerContext.exposedUnions
+                }
+
+            else
+                innerContext
 
         Declaration.AliasDeclaration alias_ ->
-            innerContext
+            if innerContext.exposesEverything || Dict.member (Node.value alias_.name) innerContext.exposedNames then
+                { innerContext
+                    | exposedAliases =
+                        { name = Node.value alias_.name
+                        , comment = ""
+                        , args = []
+                        , tipe = Elm.Type.Tuple []
+                        }
+                            :: innerContext.exposedAliases
+                }
+
+            else
+                innerContext
 
         Declaration.PortDeclaration port_ ->
             innerContext
@@ -558,8 +582,7 @@ exposedElements nodes =
                         Just <| ( name, { range = Node.range node, exposedElement = Function } )
 
                     Exposing.TypeOrAliasExpose name ->
-                        -- TODO
-                        Nothing
+                        Just <| ( name, { range = Node.range node, exposedElement = Function } )
 
                     Exposing.TypeExpose { name } ->
                         -- TODO
