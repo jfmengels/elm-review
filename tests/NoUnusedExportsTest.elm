@@ -176,15 +176,14 @@ main = text ""
                         }
                         |> Review.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 27 } }
                     ]
-    , Test.skip <|
-        test "should not report a function that does not refer to anything" <|
-            \() ->
-                """
+    , test "should not report a function that does not refer to anything" <|
+        \() ->
+            """
 module A exposing (b)
 a = 1
 """
-                    |> Review.Test.runWithProjectData package_ rule
-                    |> Review.Test.expectNoErrors
+                |> Review.Test.runWithProjectData package_ rule
+                |> Review.Test.expectNoErrors
     ]
 
 

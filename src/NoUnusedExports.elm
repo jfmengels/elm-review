@@ -62,6 +62,7 @@ rule =
                         , get = .scope
                         }
                     |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
+                    |> Rule.withDeclarationListVisitor declarationListVisitor
                     |> Rule.withExpressionVisitor expressionVisitor
         , initGlobalContext = initGlobalContext
         , fromGlobalToModule = fromGlobalToModule
@@ -191,6 +192,54 @@ elmJsonVisitor maybeProject globalContext =
 
         _ ->
             { globalContext | projectType = IsApplication }
+
+
+
+-- DECLARATION LIST VISITOR
+
+
+declarationListVisitor : List (Node Declaration) -> ModuleContext -> ( List Error, ModuleContext )
+declarationListVisitor declarations moduleContext =
+    if moduleContext.exposesEverything then
+        ( [], moduleContext )
+
+    else
+        let
+            declaredNames : Set String
+            declaredNames =
+                declarations
+                    |> List.filterMap (Node.value >> declarationName)
+                    |> Set.fromList
+        in
+        ( []
+        , { moduleContext | exposed = Dict.filter (\name _ -> Set.member name declaredNames) moduleContext.exposed }
+        )
+
+
+declarationName : Declaration -> Maybe String
+declarationName declaration =
+    case declaration of
+        Declaration.FunctionDeclaration function ->
+            function.declaration
+                |> Node.value
+                |> .name
+                |> Node.value
+                |> Just
+
+        Declaration.CustomTypeDeclaration type_ ->
+            Just <| Node.value type_.name
+
+        Declaration.AliasDeclaration alias_ ->
+            Just <| Node.value alias_.name
+
+        Declaration.PortDeclaration port_ ->
+            Just <| Node.value port_.name
+
+        Declaration.InfixDeclaration { operator } ->
+            Just <| Node.value operator
+
+        Declaration.Destructuring _ _ ->
+            Nothing
 
 
 
