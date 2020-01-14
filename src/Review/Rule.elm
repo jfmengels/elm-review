@@ -846,6 +846,7 @@ importedModulesFirst (MultiSchema schema) startCache project =
 
                 contextsAndErrorsPerFile : List ( List Error, globalContext )
                 contextsAndErrorsPerFile =
+                    -- TODO select leaf nodes and fold their contexts only
                     newCache
                         |> Dict.values
                         |> List.map (\cacheEntry -> ( cacheEntry.errors, cacheEntry.context ))

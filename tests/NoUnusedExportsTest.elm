@@ -161,22 +161,21 @@ main = text ""
 """
                 |> Review.Test.runWithProjectData application rule
                 |> Review.Test.expectNoErrors
-    , Test.skip <|
-        test "should report the `main` function for a package when it is never used outside the module" <|
-            \() ->
-                """
+    , test "should report the `main` function for a package when it is never used outside the module" <|
+        \() ->
+            """
 module Main exposing (main)
 main = text ""
 """
-                    |> Review.Test.runWithProjectData package_ rule
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "Exposed function or type `main` is never used outside this module."
-                            , details = details
-                            , under = "main"
-                            }
-                            |> Review.Test.atExactly { start = { row = 2, column = 20 }, end = { row = 2, column = 24 } }
-                        ]
+                |> Review.Test.runWithProjectData package_ rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Exposed function or type `main` is never used outside this module."
+                        , details = details
+                        , under = "main"
+                        }
+                        |> Review.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 27 } }
+                    ]
     , Test.skip <|
         test "should not report a function that does not refer to anything" <|
             \() ->

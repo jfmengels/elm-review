@@ -114,10 +114,10 @@ fromModuleToGlobal fileKey moduleName moduleContext =
 
 
 foldGlobalContexts : GlobalContext -> GlobalContext -> GlobalContext
-foldGlobalContexts contextA contextB =
-    { modules = Dict.union contextA.modules contextB.modules
-    , usedModules = Set.union contextA.usedModules contextB.usedModules
-    , isPackage = contextA.isPackage
+foldGlobalContexts newContext previousContext =
+    { modules = Dict.union previousContext.modules newContext.modules
+    , usedModules = Set.union previousContext.usedModules newContext.usedModules
+    , isPackage = previousContext.isPackage
     }
 
 

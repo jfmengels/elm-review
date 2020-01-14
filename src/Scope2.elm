@@ -1,6 +1,6 @@
 module Scope2 exposing
     ( GlobalContext, ModuleContext
-    , addGlobalVisitors, addModuleVisitors, initGlobalContext, fromGlobalToModule, fromModuleToGlobal, foldGlobalContexts
+    , GlobalSetterGetter, addGlobalVisitors, ModuleSetterGetter, addModuleVisitors, initGlobalContext, fromGlobalToModule, fromModuleToGlobal, foldGlobalContexts
     , realFunctionOrType
     )
 
@@ -14,7 +14,7 @@ module Scope2 exposing
 
 # Usage
 
-@docs addGlobalVisitors, addModuleVisitors, initGlobalContext, fromGlobalToModule, fromModuleToGlobal, foldGlobalContexts
+@docs GlobalSetterGetter, addGlobalVisitors, ModuleSetterGetter, addModuleVisitors, initGlobalContext, fromGlobalToModule, fromModuleToGlobal, foldGlobalContexts
 
 
 # Access
