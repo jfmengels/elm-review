@@ -23,6 +23,7 @@ import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
+import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Review.Rule as Rule exposing (Error, Rule)
 import Scope2 as Scope
 import Set exposing (Set)
@@ -111,6 +112,7 @@ type alias ModuleContext =
     , exposesEverything : Bool
     , exposed : Dict String { range : Range, exposedElement : ExposedElement }
     , used : Set ( ModuleName, String )
+    , typesNotToReport : Set String
     }
 
 
@@ -129,6 +131,7 @@ fromGlobalToModule fileKey moduleName globalContext =
     , exposesEverything = False
     , exposed = Dict.empty
     , used = Set.empty
+    , typesNotToReport = Set.empty
     }
 
 
@@ -142,7 +145,10 @@ fromModuleToGlobal fileKey moduleName moduleContext =
             { fileKey = fileKey
             , exposed = moduleContext.exposed
             }
-    , used = moduleContext.used
+    , used =
+        moduleContext.typesNotToReport
+            |> Set.map (Tuple.pair <| Node.value moduleName)
+            |> Set.union moduleContext.used
     }
 
 
@@ -155,13 +161,20 @@ foldGlobalContexts newContext previousContext =
     }
 
 
-error : ( ModuleName, { fileKey : Rule.FileKey, moduleNameLocation : Range } ) -> Error
-error ( moduleName, { fileKey, moduleNameLocation } ) =
-    Rule.errorForFile fileKey
-        { message = "Module `" ++ String.join "." moduleName ++ "` is never used."
-        , details = [ "This module is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
+registerAsUsed : ModuleContext -> ModuleName -> String -> ModuleContext
+registerAsUsed moduleContext moduleName name =
+    let
+        ( realModuleName, realName ) =
+            Scope.realFunctionOrType moduleName name moduleContext.scope
+    in
+    if realModuleName /= [] then
+        { moduleContext
+            | used =
+                Set.insert ( realModuleName, realName ) moduleContext.used
         }
-        moduleNameLocation
+
+    else
+        moduleContext
 
 
 
@@ -195,54 +208,6 @@ elmJsonVisitor maybeProject globalContext =
 
 
 
--- DECLARATION LIST VISITOR
-
-
-declarationListVisitor : List (Node Declaration) -> ModuleContext -> ( List Error, ModuleContext )
-declarationListVisitor declarations moduleContext =
-    if moduleContext.exposesEverything then
-        ( [], moduleContext )
-
-    else
-        let
-            declaredNames : Set String
-            declaredNames =
-                declarations
-                    |> List.filterMap (Node.value >> declarationName)
-                    |> Set.fromList
-        in
-        ( []
-        , { moduleContext | exposed = Dict.filter (\name _ -> Set.member name declaredNames) moduleContext.exposed }
-        )
-
-
-declarationName : Declaration -> Maybe String
-declarationName declaration =
-    case declaration of
-        Declaration.FunctionDeclaration function ->
-            function.declaration
-                |> Node.value
-                |> .name
-                |> Node.value
-                |> Just
-
-        Declaration.CustomTypeDeclaration type_ ->
-            Just <| Node.value type_.name
-
-        Declaration.AliasDeclaration alias_ ->
-            Just <| Node.value alias_.name
-
-        Declaration.PortDeclaration port_ ->
-            Just <| Node.value port_.name
-
-        Declaration.InfixDeclaration { operator } ->
-            Just <| Node.value operator
-
-        Declaration.Destructuring _ _ ->
-            Nothing
-
-
-
 -- GLOBAL EVALUATION
 
 
@@ -259,8 +224,21 @@ finalEvaluationForProject globalContext =
                     |> Dict.toList
                     |> List.map
                         (\( name, { range, exposedElement } ) ->
+                            let
+                                what : String
+                                what =
+                                    case exposedElement of
+                                        Function ->
+                                            "Exposed function or value"
+
+                                        TypeOrTypeAlias ->
+                                            "Exposed type or type alias"
+
+                                        ExposedType ->
+                                            "Exposed type"
+                            in
                             Rule.errorForFile fileKey
-                                { message = "Exposed function or type `" ++ name ++ "` is never used outside this module."
+                                { message = what ++ " `" ++ name ++ "` is never used outside this module."
                                 , details = [ "This exposed element is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
                                 }
                                 range
@@ -312,8 +290,7 @@ exposedElements nodes =
                         Just <| ( name, { range = Node.range node, exposedElement = Function } )
 
                     Exposing.TypeOrAliasExpose name ->
-                        -- TODO
-                        Nothing
+                        Just <| ( name, { range = Node.range node, exposedElement = TypeOrTypeAlias } )
 
                     Exposing.TypeExpose { name } ->
                         -- TODO
@@ -326,6 +303,135 @@ exposedElements nodes =
 
 
 
+-- DECLARATION LIST VISITOR
+
+
+declarationListVisitor : List (Node Declaration) -> ModuleContext -> ( List Error, ModuleContext )
+declarationListVisitor declarations moduleContext =
+    if moduleContext.exposesEverything then
+        ( [], moduleContext )
+
+    else
+        let
+            declaredNames : Set String
+            declaredNames =
+                declarations
+                    |> List.filterMap (Node.value >> declarationName)
+                    |> Set.fromList
+
+            typesUsedInSignature_ : List ( ModuleName, String )
+            typesUsedInSignature_ =
+                declarations
+                    |> List.concatMap typesUsedInSignature
+
+            contextWithUsedTypes : ModuleContext
+            contextWithUsedTypes =
+                List.foldl
+                    (\( moduleName, name ) context -> registerAsUsed context moduleName name)
+                    moduleContext
+                    typesUsedInSignature_
+        in
+        ( []
+        , { contextWithUsedTypes
+            | exposed =
+                Dict.filter
+                    (\name _ -> Set.member name declaredNames)
+                    contextWithUsedTypes.exposed
+            , typesNotToReport =
+                typesUsedInSignature_
+                    |> List.filter
+                        (\( moduleName, name ) ->
+                            (Scope.realFunctionOrType moduleName name contextWithUsedTypes.scope
+                                |> Tuple.first
+                                |> List.isEmpty
+                            )
+                                && isType name
+                        )
+                    |> List.map Tuple.second
+                    |> Set.fromList
+          }
+        )
+
+
+isType : String -> Bool
+isType string =
+    case String.uncons string of
+        Nothing ->
+            False
+
+        Just ( char, _ ) ->
+            Char.isUpper char
+
+
+declarationName : Declaration -> Maybe String
+declarationName declaration =
+    case declaration of
+        Declaration.FunctionDeclaration function ->
+            function.declaration
+                |> Node.value
+                |> .name
+                |> Node.value
+                |> Just
+
+        Declaration.CustomTypeDeclaration type_ ->
+            Just <| Node.value type_.name
+
+        Declaration.AliasDeclaration alias_ ->
+            Just <| Node.value alias_.name
+
+        Declaration.PortDeclaration port_ ->
+            Just <| Node.value port_.name
+
+        Declaration.InfixDeclaration { operator } ->
+            Just <| Node.value operator
+
+        Declaration.Destructuring _ _ ->
+            Nothing
+
+
+typesUsedInSignature : Node Declaration -> List ( ModuleName, String )
+typesUsedInSignature declaration =
+    case Node.value declaration of
+        Declaration.FunctionDeclaration function ->
+            function.signature
+                |> Maybe.map (Node.value >> .typeAnnotation >> collectTypesFromTypeAnnotation)
+                |> Maybe.withDefault []
+
+        _ ->
+            []
+
+
+collectTypesFromTypeAnnotation : Node TypeAnnotation -> List ( ModuleName, String )
+collectTypesFromTypeAnnotation node =
+    case Node.value node of
+        TypeAnnotation.FunctionTypeAnnotation a b ->
+            collectTypesFromTypeAnnotation a ++ collectTypesFromTypeAnnotation b
+
+        TypeAnnotation.Typed nameNode params ->
+            Node.value nameNode :: List.concatMap collectTypesFromTypeAnnotation params
+
+        TypeAnnotation.Record list ->
+            list
+                |> List.map (Node.value >> Tuple.second)
+                |> List.concatMap collectTypesFromTypeAnnotation
+
+        TypeAnnotation.GenericRecord name list ->
+            list
+                |> Node.value
+                |> List.map (Node.value >> Tuple.second)
+                |> List.concatMap collectTypesFromTypeAnnotation
+
+        TypeAnnotation.Tupled list ->
+            List.concatMap collectTypesFromTypeAnnotation list
+
+        TypeAnnotation.GenericType _ ->
+            []
+
+        TypeAnnotation.Unit ->
+            []
+
+
+
 -- EXPRESSION VISITOR
 
 
@@ -333,12 +439,7 @@ expressionVisitor : Node Expression -> Rule.Direction -> ModuleContext -> ( List
 expressionVisitor node direction moduleContext =
     case ( direction, Node.value node ) of
         ( Rule.OnEnter, Expression.FunctionOrValue moduleName name ) ->
-            ( []
-            , { moduleContext
-                | used =
-                    Set.insert (Scope.realFunctionOrType moduleName name moduleContext.scope) moduleContext.used
-              }
-            )
+            ( [], registerAsUsed moduleContext moduleName name )
 
         _ ->
             ( [], moduleContext )
