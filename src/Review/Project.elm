@@ -1,7 +1,7 @@
 module Review.Project exposing
     ( Project, ElmJson
     , modules, filesThatFailedToParse, moduleGraph, elmJson, dependencyModules
-    , new, withModule, withElmJson, withDependency, precomputeModuleGraph
+    , new, withModule, withParsedModule, withElmJson, withDependency, precomputeModuleGraph
     )
 
 {-| Represents project-related data, that a rule can access to get more information.
@@ -26,7 +26,7 @@ ignore it if you just want to write a review rule.
 
 # Build
 
-@docs new, withModule, withElmJson, withDependency, precomputeModuleGraph
+@docs new, withModule, withParsedModule, withElmJson, withDependency, precomputeModuleGraph
 
 -}
 
@@ -161,6 +161,15 @@ withModule { path, source } project =
                     { path = path
                     , source = source
                     }
+
+
+{-| Add an already parsed module to the project. This module will then be analyzed by the rules.
+-}
+withParsedModule : { path : String, source : String, ast : Elm.Syntax.File.File } -> Project -> Project
+withParsedModule parsedFile project =
+    project
+        |> removeFileFromProject parsedFile.path
+        |> addModule parsedFile
 
 
 removeFileFromProject : String -> Project -> Project

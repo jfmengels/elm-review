@@ -9,7 +9,6 @@ import NoUnused.CustomTypeConstructors
 import NoUnused.Variables
 import Reporter
 import Review
-import Review.File exposing (RawFile)
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Rule)
 
@@ -345,6 +344,6 @@ fromReviewError error =
     }
 
 
-file : String -> RawFile
+file : String -> { path : String, source : String }
 file source =
     { path = "SOURCE CODE", source = source }

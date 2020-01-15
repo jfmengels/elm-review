@@ -9,6 +9,7 @@ import Elm.Syntax.File
 type alias RawFile =
     { path : String
     , source : String
+    , ast : Maybe Elm.Syntax.File.File
     }
 
 

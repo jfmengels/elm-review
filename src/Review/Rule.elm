@@ -211,7 +211,7 @@ import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Graph exposing (Graph)
 import IntDict
-import Review.File exposing (ParsedFile, RawFile)
+import Review.File exposing (ParsedFile)
 import Review.Fix exposing (Fix)
 import Review.Project exposing (Project)
 
@@ -1789,7 +1789,7 @@ errorForFile (FileKey path) { message, details } range =
 
 {-| TODO
 -}
-parsingError : RawFile -> Error
+parsingError : { path : String, source : String } -> Error
 parsingError rawFile =
     Error
         { filePath = rawFile.path
