@@ -447,14 +447,7 @@ type VariableType
     | FunctionParameter
     | LetVariable
     | PatternVariable
-    | ImportedItem ImportType
     | Port
-
-
-type ImportType
-    = ImportedVariable
-    | ImportedType
-    | ImportedOperator
 
 
 declarationVisitor : Node Declaration -> Rule.Direction -> InnerContext -> InnerContext

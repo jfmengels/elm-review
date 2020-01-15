@@ -98,8 +98,6 @@ type alias InnerModuleContext =
 
 type ExposedElement
     = Function
-    | TypeOrTypeAlias
-    | ExposedType Bool
 
 
 type alias Scope =
@@ -742,14 +740,7 @@ type VariableType
     | FunctionParameter
     | LetVariable
     | PatternVariable
-    | ImportedItem ImportType
     | Port
-
-
-type ImportType
-    = ImportedVariable
-    | ImportedType
-    | ImportedOperator
 
 
 declarationVisitor : Node Declaration -> Rule.Direction -> InnerModuleContext -> InnerModuleContext
