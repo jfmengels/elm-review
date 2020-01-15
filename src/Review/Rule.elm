@@ -210,9 +210,8 @@ import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Graph exposing (Graph)
 import IntDict
-import Review.File exposing (ParsedFile)
 import Review.Fix exposing (Fix)
-import Review.Project exposing (Project)
+import Review.Project exposing (ParsedFile, Project)
 
 
 {-| Represents a construct able to analyze a `File` and report unwanted patterns.

@@ -110,9 +110,8 @@ import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
 import ListExtra
 import Review
-import Review.File as File
 import Review.Fix as Fix
-import Review.Project as Project exposing (Project)
+import Review.Project as Project exposing (ParsedFile, Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test.ErrorMessage as ErrorMessage
 import Set exposing (Set)
@@ -137,7 +136,7 @@ type alias SuccessfulRunResult =
 
 
 type alias CodeInspector =
-    { file : File.ParsedFile
+    { file : ParsedFile
     , getCodeAtLocation : Range -> Maybe String
     , checkIfLocationIsAmbiguous : Error -> String -> Expectation
     }
@@ -348,7 +347,7 @@ runOnModulesWithProjectData project rule sources =
 
         [] ->
             let
-                modules : List File.ParsedFile
+                modules : List ParsedFile
                 modules =
                     Project.modules projectWithModules
             in
@@ -397,7 +396,7 @@ indexOf elementToFind aList =
                     |> Maybe.map ((+) 1)
 
 
-codeInspectorForSource : File.ParsedFile -> CodeInspector
+codeInspectorForSource : ParsedFile -> CodeInspector
 codeInspectorForSource file =
     { file = file
     , getCodeAtLocation = getCodeAtLocationInSourceCode file.source
@@ -405,7 +404,7 @@ codeInspectorForSource file =
     }
 
 
-findDuplicateModuleNames : Set (List String) -> List File.ParsedFile -> Maybe (List String)
+findDuplicateModuleNames : Set (List String) -> List ParsedFile -> Maybe (List String)
 findDuplicateModuleNames previousModuleNames parsedFiles =
     case parsedFiles of
         [] ->

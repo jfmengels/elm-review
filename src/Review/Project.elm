@@ -1,5 +1,5 @@
 module Review.Project exposing
-    ( Project, ElmJson
+    ( Project, ParsedFile, ElmJson
     , modules, filesThatFailedToParse, moduleGraph, elmJson, dependencyModules
     , new, withModule, withParsedModule, withElmJson, withDependency, precomputeModuleGraph
     )
@@ -16,7 +16,7 @@ ignore it if you just want to write a review rule.
 
 # Definition
 
-@docs Project, ElmJson
+@docs Project, ParsedFile, ElmJson
 
 
 # Access
@@ -40,7 +40,6 @@ import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
 import Graph exposing (Graph)
-import Review.File exposing (ParsedFile)
 
 
 
@@ -59,6 +58,13 @@ type Project
         , moduleToDependency : Dict String String
         , moduleGraph : Maybe (Graph ModuleName ())
         }
+
+
+type alias ParsedFile =
+    { path : String
+    , source : String
+    , ast : Elm.Syntax.File.File
+    }
 
 
 {-| Contents of the `elm.json` file. Alias to
