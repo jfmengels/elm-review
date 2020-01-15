@@ -14,6 +14,7 @@ when inside the directory containing this file.
 import NoDebug
 import NoUnused.CustomTypeConstructors
 import NoUnused.Variables
+import NoUnusedExports
 import NoUnusedModules
 import Review.Rule exposing (Rule)
 
@@ -24,4 +25,5 @@ config =
     , NoUnused.Variables.rule
     , NoUnused.CustomTypeConstructors.rule
     , NoUnusedModules.rule
+    , NoUnusedExports.rule
     ]
