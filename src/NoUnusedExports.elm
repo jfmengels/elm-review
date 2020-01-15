@@ -20,7 +20,7 @@ import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
-import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Review.Rule as Rule exposing (Error, Rule)
@@ -160,17 +160,10 @@ foldGlobalContexts newContext previousContext =
     }
 
 
-registerAsUsed : ModuleContext -> ModuleName -> String -> ModuleContext
-registerAsUsed moduleContext moduleName name =
-    let
-        ( realModuleName, realName ) =
-            Scope.realFunctionOrType moduleName name moduleContext.scope
-    in
-    if realModuleName /= [] then
-        { moduleContext
-            | used =
-                Set.insert ( realModuleName, realName ) moduleContext.used
-        }
+registerAsUsed : ( ModuleName, String ) -> ModuleContext -> ModuleContext
+registerAsUsed ( moduleName, name ) moduleContext =
+    if moduleName /= [] then
+        { moduleContext | used = Set.insert ( moduleName, name ) moduleContext.used }
 
     else
         moduleContext
@@ -292,8 +285,7 @@ exposedElements nodes =
                         Just <| ( name, { range = Node.range node, exposedElement = TypeOrTypeAlias } )
 
                     Exposing.TypeExpose { name } ->
-                        -- TODO
-                        Nothing
+                        Just <| ( name, { range = Node.range node, exposedElement = ExposedType } )
 
                     Exposing.InfixExpose name ->
                         Nothing
@@ -307,49 +299,51 @@ exposedElements nodes =
 
 declarationListVisitor : List (Node Declaration) -> ModuleContext -> ( List Error, ModuleContext )
 declarationListVisitor declarations moduleContext =
-    if moduleContext.exposesEverything then
-        ( [], moduleContext )
+    let
+        declaredNames : Set String
+        declaredNames =
+            declarations
+                |> List.filterMap (Node.value >> declarationName)
+                |> Set.fromList
 
-    else
-        let
-            declaredNames : Set String
-            declaredNames =
-                declarations
-                    |> List.filterMap (Node.value >> declarationName)
-                    |> Set.fromList
+        typesUsedInDeclaration_ : List ( List ( ModuleName, String ), Bool )
+        typesUsedInDeclaration_ =
+            declarations
+                |> List.map (typesUsedInDeclaration moduleContext)
 
-            typesUsedInSignature_ : List ( ModuleName, String )
-            typesUsedInSignature_ =
-                declarations
-                    |> List.concatMap typesUsedInSignature
+        allUsedTypes : List ( ModuleName, String )
+        allUsedTypes =
+            typesUsedInDeclaration_
+                |> List.concatMap Tuple.first
 
-            contextWithUsedTypes : ModuleContext
-            contextWithUsedTypes =
-                List.foldl
-                    (\( moduleName, name ) context -> registerAsUsed context moduleName name)
-                    moduleContext
-                    typesUsedInSignature_
-        in
-        ( []
-        , { contextWithUsedTypes
-            | exposed =
-                Dict.filter
-                    (\name _ -> Set.member name declaredNames)
-                    contextWithUsedTypes.exposed
-            , typesNotToReport =
-                typesUsedInSignature_
-                    |> List.filter
-                        (\( moduleName, name ) ->
-                            (Scope.realFunctionOrType moduleName name contextWithUsedTypes.scope
-                                |> Tuple.first
-                                |> List.isEmpty
-                            )
-                                && isType name
-                        )
-                    |> List.map Tuple.second
-                    |> Set.fromList
-          }
-        )
+        contextWithUsedTypes : ModuleContext
+        contextWithUsedTypes =
+            List.foldl registerAsUsed moduleContext allUsedTypes
+    in
+    ( []
+    , { contextWithUsedTypes
+        | exposed =
+            contextWithUsedTypes.exposed
+                |> (if moduleContext.exposesEverything then
+                        identity
+
+                    else
+                        Dict.filter (\name _ -> Set.member name declaredNames)
+                   )
+        , typesNotToReport =
+            typesUsedInDeclaration_
+                |> List.concatMap
+                    (\( list, comesFromCustomTypeWithHiddenConstructors ) ->
+                        if comesFromCustomTypeWithHiddenConstructors then
+                            []
+
+                        else
+                            List.filter (\( moduleName, name ) -> isType name && moduleName == []) list
+                    )
+                |> List.map Tuple.second
+                |> Set.fromList
+      }
+    )
 
 
 isType : String -> Bool
@@ -388,40 +382,65 @@ declarationName declaration =
             Nothing
 
 
-typesUsedInSignature : Node Declaration -> List ( ModuleName, String )
-typesUsedInSignature declaration =
+typesUsedInDeclaration : ModuleContext -> Node Declaration -> ( List ( ModuleName, String ), Bool )
+typesUsedInDeclaration moduleContext declaration =
     case Node.value declaration of
         Declaration.FunctionDeclaration function ->
-            function.signature
-                |> Maybe.map (Node.value >> .typeAnnotation >> collectTypesFromTypeAnnotation)
+            ( function.signature
+                |> Maybe.map (Node.value >> .typeAnnotation >> collectTypesFromTypeAnnotation moduleContext.scope)
                 |> Maybe.withDefault []
+            , False
+            )
 
-        _ ->
-            []
+        Declaration.CustomTypeDeclaration type_ ->
+            ( type_.constructors
+                |> List.concatMap (Node.value >> .arguments)
+                |> List.concatMap (collectTypesFromTypeAnnotation moduleContext.scope)
+            , not <|
+                case Dict.get (Node.value type_.name) moduleContext.exposed |> Maybe.map .exposedElement of
+                    Just ExposedType ->
+                        True
+
+                    _ ->
+                        False
+            )
+
+        Declaration.AliasDeclaration alias_ ->
+            ( collectTypesFromTypeAnnotation moduleContext.scope alias_.typeAnnotation, False )
+
+        Declaration.PortDeclaration _ ->
+            ( [], False )
+
+        Declaration.InfixDeclaration _ ->
+            ( [], False )
+
+        Declaration.Destructuring _ _ ->
+            ( [], False )
 
 
-collectTypesFromTypeAnnotation : Node TypeAnnotation -> List ( ModuleName, String )
-collectTypesFromTypeAnnotation node =
+collectTypesFromTypeAnnotation : Scope.ModuleContext -> Node TypeAnnotation -> List ( ModuleName, String )
+collectTypesFromTypeAnnotation scope node =
     case Node.value node of
         TypeAnnotation.FunctionTypeAnnotation a b ->
-            collectTypesFromTypeAnnotation a ++ collectTypesFromTypeAnnotation b
+            collectTypesFromTypeAnnotation scope a ++ collectTypesFromTypeAnnotation scope b
 
-        TypeAnnotation.Typed nameNode params ->
-            Node.value nameNode :: List.concatMap collectTypesFromTypeAnnotation params
+        TypeAnnotation.Typed (Node _ ( moduleName, name )) params ->
+            Scope.realFunctionOrType moduleName name scope
+                :: List.concatMap (collectTypesFromTypeAnnotation scope) params
 
         TypeAnnotation.Record list ->
             list
                 |> List.map (Node.value >> Tuple.second)
-                |> List.concatMap collectTypesFromTypeAnnotation
+                |> List.concatMap (collectTypesFromTypeAnnotation scope)
 
         TypeAnnotation.GenericRecord name list ->
             list
                 |> Node.value
                 |> List.map (Node.value >> Tuple.second)
-                |> List.concatMap collectTypesFromTypeAnnotation
+                |> List.concatMap (collectTypesFromTypeAnnotation scope)
 
         TypeAnnotation.Tupled list ->
-            List.concatMap collectTypesFromTypeAnnotation list
+            List.concatMap (collectTypesFromTypeAnnotation scope) list
 
         TypeAnnotation.GenericType _ ->
             []
@@ -438,7 +457,11 @@ expressionVisitor : Node Expression -> Rule.Direction -> ModuleContext -> ( List
 expressionVisitor node direction moduleContext =
     case ( direction, Node.value node ) of
         ( Rule.OnEnter, Expression.FunctionOrValue moduleName name ) ->
-            ( [], registerAsUsed moduleContext moduleName name )
+            ( []
+            , registerAsUsed
+                (Scope.realFunctionOrType moduleName name moduleContext.scope)
+                moduleContext
+            )
 
         _ ->
             ( [], moduleContext )

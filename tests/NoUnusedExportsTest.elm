@@ -66,8 +66,11 @@ all =
     describe "NoUnusedExports"
         [ functionsAndValuesTests
         , typesTests
+        , typeAliasesTests
 
         -- TODO Add tests that report exposing the type's variants if they are never used.
+        -- TODO Add tests to add exceptions to tests
+        -- TODO Add tests to add exceptions for ReviewConfig.config (for applications only)
         ]
 
 
@@ -226,10 +229,9 @@ main = VariantA
 """ ]
                     |> Review.Test.runOnModulesWithProjectData application rule
                     |> Review.Test.expectNoErrors
-        , Test.skip <|
-            test "should not report a used exposed custom type (type alias)" <|
-                \() ->
-                    [ """
+        , test "should not report a used exposed custom type (used in type alias)" <|
+            \() ->
+                [ """
 module A exposing (ExposedB, ExposedC)
 type ExposedB = B
 type ExposedC = C
@@ -239,8 +241,8 @@ import A
 type alias B = A.ExposedB
 type alias C = A.ExposedC
 """ ]
-                        |> Review.Test.runOnModulesWithProjectData package_ rule
-                        |> Review.Test.expectNoErrors
+                    |> Review.Test.runOnModulesWithProjectData package_ rule
+                    |> Review.Test.expectNoErrors
         , test "should not report an unused exposed custom type if it's part of the package's exposed API" <|
             \() ->
                 """
@@ -259,10 +261,9 @@ main = 1
 """
                     |> Review.Test.runWithProjectData application rule
                     |> Review.Test.expectNoErrors
-        , Test.skip <|
-            test "should not report an unused exposed custom type if it's aliased by an exposed type alias" <|
-                \() ->
-                    [ """
+        , test "should not report an unused exposed custom type if it's aliased by an exposed type alias" <|
+            \() ->
+                [ """
 module A exposing (MyType, OtherType)
 type MyType = VariantA | VariantB
 type alias OtherType = MyType
@@ -271,12 +272,11 @@ module Exposed exposing (..)
 import A
 type alias B = A.OtherType
 """ ]
-                        |> Review.Test.runOnModulesWithProjectData package_ rule
-                        |> Review.Test.expectNoErrors
-        , Test.skip <|
-            test "should not report an unused exposed custom type if it's present in an exposed type alias" <|
-                \() ->
-                    [ """
+                    |> Review.Test.runOnModulesWithProjectData package_ rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report an unused exposed custom type if it's present in an exposed type alias" <|
+            \() ->
+                [ """
 module A exposing (MyType, OtherType)
 type MyType = VariantA | VariantB
 type alias OtherType = { thing : MyType }
@@ -285,26 +285,37 @@ module Exposed exposing (..)
 import A
 type alias B = A.OtherType
 """ ]
-                        |> Review.Test.runOnModulesWithProjectData package_ rule
-                        |> Review.Test.expectNoErrors
-        , Test.skip <|
-            test "should not report an unused exposed custom type if it's present in an exposed type alias (nested)" <|
-                \() ->
-                    [ """
+                    |> Review.Test.runOnModulesWithProjectData package_ rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report an unused exposed custom type if it's present in an exposed type alias (nested)" <|
+            \() ->
+                [ """
 module A exposing (MyType, OtherType)
 type MyType = VariantA | VariantB
-type alias OtherType = { other { thing : ((), MyType) } }
+type alias OtherType = { other : { thing : ((), MyType) } }
 """, """
 module Exposed exposing (..)
 import A
 type alias B = A.OtherType
 """ ]
-                        |> Review.Test.runOnModulesWithProjectData package_ rule
-                        |> Review.Test.expectNoErrors
-        , Test.skip <|
-            test "should not report an unused exposed custom type if it's present in an exposed custom type constructor's arguments" <|
-                \() ->
-                    [ """
+                    |> Review.Test.runOnModulesWithProjectData package_ rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report an unused exposed custom type if it's present in an exposed custom type constructor's arguments" <|
+            \() ->
+                [ """
+module A exposing (MyType, OtherType(..))
+type MyType = VariantA | VariantB
+type OtherType = Thing MyType
+""", """
+module Exposed exposing (..)
+import A
+type alias B = A.OtherType
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData package_ rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report an unused exposed custom type if it's present in an exposed custom type constructor's arguments but the constructors are not exposed" <|
+            \() ->
+                [ """
 module A exposing (MyType, OtherType)
 type MyType = VariantA | VariantB
 type OtherType = Thing MyType
@@ -313,12 +324,34 @@ module Exposed exposing (..)
 import A
 type alias B = A.OtherType
 """ ]
-                        |> Review.Test.runOnModulesWithProjectData package_ rule
-                        |> Review.Test.expectNoErrors
-        , Test.skip <|
-            test "should not report an unused exposed custom type if it's present in an exposed custom type constructor's arguments (nested)" <|
-                \() ->
-                    [ """
+                    |> Review.Test.runOnModulesWithProjectData package_ rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "A"
+                          , [ Review.Test.error
+                                { message = "Exposed type or type alias `MyType` is never used outside this module."
+                                , details = details
+                                , under = "MyType"
+                                }
+                                |> Review.Test.atExactly { start = { row = 2, column = 20 }, end = { row = 2, column = 26 } }
+                            ]
+                          )
+                        ]
+        , test "should not report an unused exposed custom type if it's present in an exposed custom type constructor's arguments (nested)" <|
+            \() ->
+                [ """
+module A exposing (MyType, OtherType(..))
+type MyType = VariantA | VariantB
+type OtherType = OtherThing | SomeThing ((), List MyType)
+""", """
+module Exposed exposing (..)
+import A
+type alias B = A.OtherType
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData package_ rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report an unused exposed custom type if it's present in an exposed custom type constructor's arguments (nested) but the constructors are not exposed" <|
+            \() ->
+                [ """
 module A exposing (MyType, OtherType)
 type MyType = VariantA | VariantB
 type OtherType = OtherThing | SomeThing ((), List MyType)
@@ -327,6 +360,191 @@ module Exposed exposing (..)
 import A
 type alias B = A.OtherType
 """ ]
-                        |> Review.Test.runOnModulesWithProjectData package_ rule
-                        |> Review.Test.expectNoErrors
+                    |> Review.Test.runOnModulesWithProjectData package_ rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "A"
+                          , [ Review.Test.error
+                                { message = "Exposed type or type alias `MyType` is never used outside this module."
+                                , details = details
+                                , under = "MyType"
+                                }
+                                |> Review.Test.atExactly { start = { row = 2, column = 20 }, end = { row = 2, column = 26 } }
+                            ]
+                          )
+                        ]
+        ]
+
+
+typeAliasesTests : Test
+typeAliasesTests =
+    describe "Type aliases"
+        [ test "should report an unused exposed type alias" <|
+            \() ->
+                """
+module A exposing (Exposed)
+type alias Exposed = {}
+"""
+                    |> Review.Test.runWithProjectData application rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Exposed type or type alias `Exposed` is never used outside this module."
+                            , details = details
+                            , under = "Exposed"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 20 }, end = { row = 2, column = 27 } }
+                        ]
+        , test "should not report a used exposed type alias (type signature)" <|
+            \() ->
+                [ """
+module A exposing (Exposed)
+type alias Exposed = {}
+""", """
+module B exposing (main)
+import A
+main : A.Exposed
+main = {}
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report a used exposed type alias (used in type alias)" <|
+            \() ->
+                [ """
+module A exposing (ExposedB)
+type alias ExposedB = {}
+""", """
+module Exposed exposing (B)
+import A
+type alias B = A.ExposedB
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData package_ rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report an unused exposed type alias if it's part of the package's exposed API" <|
+            \() ->
+                """
+module Exposed exposing (MyType)
+type alias MyType = {}
+"""
+                    |> Review.Test.runWithProjectData package_ rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report an unused exposed type alias if it's present in the signature of an exposed function" <|
+            \() ->
+                """
+module A exposing (main, MyType)
+type alias MyType = {}
+main : () -> MyType
+main = 1
+"""
+                    |> Review.Test.runWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report an unused exposed type alias if it's aliased by an exposed type alias" <|
+            \() ->
+                [ """
+module A exposing (MyType, OtherType)
+type alias MyType = {}
+type alias OtherType = MyType
+""", """
+module Exposed exposing (..)
+import A
+type alias B = A.OtherType
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData package_ rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report an unused exposed type alias if it's present in an exposed type alias" <|
+            \() ->
+                [ """
+module A exposing (MyType, OtherType)
+type alias MyType = {}
+type alias OtherType = { thing : MyType }
+""", """
+module Exposed exposing (..)
+import A
+type alias B = A.OtherType
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData package_ rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report an unused exposed type alias if it's present in an exposed type alias (nested)" <|
+            \() ->
+                [ """
+module A exposing (MyType, OtherType)
+type alias MyType = {}
+type alias OtherType = { other : { thing : ((), MyType) } }
+""", """
+module Exposed exposing (..)
+import A
+type alias B = A.OtherType
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData package_ rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report an unused exposed type alias if it's present in an exposed custom type constructor's arguments" <|
+            \() ->
+                [ """
+module A exposing (MyType, OtherType(..))
+type alias MyType = {}
+type OtherType = OtherType MyType
+""", """
+module Exposed exposing (..)
+import A
+type alias B = A.OtherType
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData package_ rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report an unused exposed type alias if it's present in an exposed custom type constructor's arguments but the constructors are not exposed" <|
+            \() ->
+                [ """
+module A exposing (MyType, OtherType)
+type alias MyType = {}
+type OtherType = OtherType MyType
+""", """
+module Exposed exposing (..)
+import A
+type alias B = A.OtherType
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData package_ rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "A"
+                          , [ Review.Test.error
+                                { message = "Exposed type or type alias `MyType` is never used outside this module."
+                                , details = details
+                                , under = "MyType"
+                                }
+                                |> Review.Test.atExactly { start = { row = 2, column = 20 }, end = { row = 2, column = 26 } }
+                            ]
+                          )
+                        ]
+        , test "should not report an unused exposed type alias if it's present in an exposed custom type constructor's arguments (nested)" <|
+            \() ->
+                [ """
+module A exposing (MyType, OtherType(..))
+type alias MyType = {}
+type OtherType = OtherThing | SomeThing ((), List MyType)
+""", """
+module Exposed exposing (..)
+import A
+type alias B = A.OtherType
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData package_ rule
+                    |> Review.Test.expectNoErrors
+        , test "should report an unused exposed type alias if it's present in an exposed custom type constructor's arguments (nested) but the constructors are not exposed" <|
+            \() ->
+                [ """
+module A exposing (MyType, OtherType)
+type alias MyType = {}
+type OtherType = OtherThing | SomeThing ((), List MyType)
+""", """
+module Exposed exposing (..)
+import A
+type alias B = A.OtherType
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData package_ rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "A"
+                          , [ Review.Test.error
+                                { message = "Exposed type or type alias `MyType` is never used outside this module."
+                                , details = details
+                                , under = "MyType"
+                                }
+                                |> Review.Test.atExactly { start = { row = 2, column = 20 }, end = { row = 2, column = 26 } }
+                            ]
+                          )
+                        ]
         ]
