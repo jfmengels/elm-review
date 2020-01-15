@@ -333,7 +333,7 @@ runOnModulesWithProjectData project rule sources =
                         , source = source
                         }
                     )
-                |> List.foldl (\module_ p -> Project.withModule module_ p) project
+                |> List.foldl Project.withModule project
     in
     case Project.filesThatFailedToParse projectWithModules of
         { source } :: _ ->
