@@ -47,7 +47,11 @@ unused modules in your application or package.
 rule : Rule
 rule =
     Rule.newMultiSchema "NoUnused.Modules"
-        { moduleVisitorSchema = moduleVisitorSchema
+        { moduleVisitorSchema =
+            \schema ->
+                schema
+                    |> Rule.withImportVisitor importVisitor
+                    |> Rule.withDeclarationListVisitor declarationListVisitor
         , initGlobalContext = initGlobalContext
         , fromGlobalToModule = fromGlobalToModule
         , fromModuleToGlobal = fromModuleToGlobal
@@ -156,19 +160,6 @@ finalEvaluationForProject { modules, usedModules } =
         |> Dict.filter (\moduleName _ -> not <| Set.member moduleName usedModules)
         |> Dict.toList
         |> List.map error
-
-
-
--- MODULE VISITORS
-
-
-moduleVisitorSchema :
-    Rule.Schema Rule.ForLookingAtSeveralFiles { hasNoVisitor : () } ModuleContext
-    -> Rule.Schema Rule.ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } ModuleContext
-moduleVisitorSchema schema =
-    schema
-        |> Rule.withImportVisitor importVisitor
-        |> Rule.withDeclarationListVisitor declarationListVisitor
 
 
 error : ( ModuleName, { fileKey : Rule.FileKey, moduleNameLocation : Range } ) -> Error

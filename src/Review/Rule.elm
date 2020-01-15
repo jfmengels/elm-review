@@ -1,5 +1,5 @@
 module Review.Rule exposing
-    ( Rule, Schema, MultiSchema, ForLookingAtASingleFile, ForLookingAtSeveralFiles
+    ( Rule, Schema, MultiSchema
     , runRules
     , newSchema, fromSchema
     , withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
@@ -150,7 +150,7 @@ patterns you would want to forbid, but that are not handled by the example.
 
 ## Definition
 
-@docs Rule, Schema, MultiSchema, ForLookingAtASingleFile, ForLookingAtSeveralFiles
+@docs Rule, Schema, MultiSchema
 
 
 ## Running the rule
@@ -292,14 +292,6 @@ type alias InAndOut visitor =
 -- RULE TYPES
 
 
-type ForLookingAtASingleFile
-    = JustOneMore1 ForLookingAtASingleFile
-
-
-type ForLookingAtSeveralFiles
-    = JustOneMore2 ForLookingAtSeveralFiles
-
-
 runRules : List Rule -> Project -> ( List Error, List Rule )
 runRules rules project =
     List.foldl
@@ -386,7 +378,7 @@ take a look at [`withInitialContext`](#withInitialContext) and "with\*" function
             |> Rule.fromSchema
 
 -}
-newSchema : String -> Schema ForLookingAtASingleFile { hasNoVisitor : () } ()
+newSchema : String -> Schema { forLookingAtASingleFile : () } { hasNoVisitor : () } ()
 newSchema name_ =
     emptySchema name_ ()
 
@@ -421,14 +413,14 @@ take a look at [`withInitialContext`](#withInitialContext) and "with\*" function
             |> Rule.fromSchema
 
 -}
-newFileVisitorSchema : context -> Schema ForLookingAtSeveralFiles { hasNoVisitor : () } context
+newFileVisitorSchema : context -> Schema { forLookingAtSeveralFiles : () } { hasNoVisitor : () } context
 newFileVisitorSchema initialContext =
     emptySchema "" initialContext
 
 
 {-| Create a [`Rule`](#Rule) from a configured [`Schema`](#Schema).
 -}
-fromSchema : Schema ForLookingAtASingleFile { hasAtLeastOneVisitor : () } context -> Rule
+fromSchema : Schema { forLookingAtASingleFile : () } { hasAtLeastOneVisitor : () } context -> Rule
 fromSchema ((Schema { name }) as schema) =
     Single name (runSingle (reverseVisitors schema) Dict.empty)
 
@@ -453,7 +445,7 @@ type alias SingleRuleCache =
         }
 
 
-runSingle : Schema ForLookingAtASingleFile { hasAtLeastOneVisitor : () } context -> SingleRuleCache -> Project -> ( List Error, Rule )
+runSingle : Schema { forLookingAtASingleFile : () } { hasAtLeastOneVisitor : () } context -> SingleRuleCache -> Project -> ( List Error, Rule )
 runSingle ((Schema { name }) as schema) startCache project =
     let
         computeErrors_ : ParsedFile -> List Error
@@ -488,7 +480,7 @@ runSingle ((Schema { name }) as schema) startCache project =
     ( errors, Single name (runSingle schema newCache) )
 
 
-computeErrors : Schema ForLookingAtASingleFile { hasAtLeastOneVisitor : () } context -> Project -> ParsedFile -> List Error
+computeErrors : Schema { forLookingAtASingleFile : () } { hasAtLeastOneVisitor : () } context -> Project -> ParsedFile -> List Error
 computeErrors (Schema schema) project =
     let
         initialContext : context
@@ -553,7 +545,7 @@ type MultiSchema globalContext moduleContext
             , fromModuleToGlobal : FileKey -> Node ModuleName -> moduleContext -> globalContext
             , foldGlobalContexts : globalContext -> globalContext -> globalContext
             }
-        , moduleVisitorSchema : Schema ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
+        , moduleVisitorSchema : Schema { forLookingAtSeveralFiles : () } { hasNoVisitor : () } moduleContext -> Schema { forLookingAtSeveralFiles : () } { hasAtLeastOneVisitor : () } moduleContext
         , elmJsonVisitors : List (Maybe Elm.Project.Project -> globalContext -> globalContext)
         , dependenciesVisitors : List (Dict String Elm.Docs.Module -> globalContext -> globalContext)
         , finalEvaluationFns : List (globalContext -> List Error)
@@ -569,7 +561,7 @@ type TraversalType
 newMultiSchema :
     String
     ->
-        { moduleVisitorSchema : Schema ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
+        { moduleVisitorSchema : Schema { forLookingAtSeveralFiles : () } { hasNoVisitor : () } moduleContext -> Schema { forLookingAtSeveralFiles : () } { hasAtLeastOneVisitor : () } moduleContext
         , initGlobalContext : globalContext
         , fromGlobalToModule : FileKey -> Node ModuleName -> globalContext -> moduleContext
         , fromModuleToGlobal : FileKey -> Node ModuleName -> moduleContext -> globalContext
@@ -593,7 +585,7 @@ newMultiSchema name_ { moduleVisitorSchema, initGlobalContext, fromGlobalToModul
         }
 
 
-visitFileForMulti : Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } context -> context -> ParsedFile -> ( List Error, context )
+visitFileForMulti : Schema { forLookingAtSeveralFiles : () } { hasAtLeastOneVisitor : () } context -> context -> ParsedFile -> ( List Error, context )
 visitFileForMulti (Schema schema) =
     let
         declarationVisitors : InAndOut (DirectedVisitor Declaration context)
@@ -675,7 +667,7 @@ allFilesInParallelTraversal (MultiSchema schema) startCache project =
                         moduleNameNode_
                         initialContext
 
-                moduleVisitor : Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
+                moduleVisitor : Schema { forLookingAtSeveralFiles : () } { hasAtLeastOneVisitor : () } moduleContext
                 moduleVisitor =
                     initialModuleContext
                         |> newFileVisitorSchema
@@ -792,7 +784,7 @@ importedModulesFirst (MultiSchema schema) startCache project =
                                 |> List.foldl schema.context.foldGlobalContexts initialContext
                                 |> schema.context.fromGlobalToModule fileKey moduleNameNode_
 
-                        moduleVisitor : Schema ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
+                        moduleVisitor : Schema { forLookingAtSeveralFiles : () } { hasAtLeastOneVisitor : () } moduleContext
                         moduleVisitor =
                             initialModuleContext
                                 |> newFileVisitorSchema

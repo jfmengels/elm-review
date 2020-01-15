@@ -30,7 +30,7 @@ testRule rule string =
         |> Review.Test.runWithProjectData project rule
 
 
-baseRule : Rule.Schema Rule.ForLookingAtASingleFile { hasAtLeastOneVisitor : () } Context
+baseRule : Rule.Schema { forLookingAtASingleFile : () } { hasAtLeastOneVisitor : () } Context
 baseRule =
     Rule.newSchema "TestRule"
         |> Rule.withInitialContext initialContext
