@@ -111,7 +111,7 @@ type alias ModuleContext =
     , exposesEverything : Bool
     , exposed : Dict String { range : Range, exposedElement : ExposedElement }
     , used : Set ( ModuleName, String )
-    , typesNotToReport : Set String
+    , elementsNotToReport : Set String
     }
 
 
@@ -130,7 +130,7 @@ fromGlobalToModule fileKey moduleName globalContext =
     , exposesEverything = False
     , exposed = Dict.empty
     , used = Set.empty
-    , typesNotToReport = Set.empty
+    , elementsNotToReport = Set.empty
     }
 
 
@@ -145,7 +145,7 @@ fromModuleToGlobal fileKey moduleName moduleContext =
             , exposed = moduleContext.exposed
             }
     , used =
-        moduleContext.typesNotToReport
+        moduleContext.elementsNotToReport
             |> Set.map (Tuple.pair <| Node.value moduleName)
             |> Set.union moduleContext.used
     }
@@ -162,11 +162,12 @@ foldGlobalContexts newContext previousContext =
 
 registerAsUsed : ( ModuleName, String ) -> ModuleContext -> ModuleContext
 registerAsUsed ( moduleName, name ) moduleContext =
-    if moduleName /= [] then
-        { moduleContext | used = Set.insert ( moduleName, name ) moduleContext.used }
+    { moduleContext | used = Set.insert ( moduleName, name ) moduleContext.used }
 
-    else
-        moduleContext
+
+registerMultipleAsUsed : List ( ModuleName, String ) -> ModuleContext -> ModuleContext
+registerMultipleAsUsed usedElements moduleContext =
+    { moduleContext | used = Set.union (Set.fromList usedElements) moduleContext.used }
 
 
 
@@ -212,6 +213,7 @@ finalEvaluationForProject globalContext =
             (\( moduleName, { fileKey, exposed } ) ->
                 exposed
                     |> removeApplicationExceptions globalContext moduleName
+                    |> removeReviewConfig moduleName
                     |> Dict.filter (\name _ -> not <| Set.member ( moduleName, name ) globalContext.used)
                     |> Dict.toList
                     |> List.map
@@ -256,6 +258,15 @@ removeApplicationExceptions globalContext moduleName dict =
 
         IsPackage _ ->
             dict
+
+
+removeReviewConfig : ModuleName -> Dict String a -> Dict String a
+removeReviewConfig moduleName dict =
+    if moduleName == [ "ReviewConfig" ] then
+        Dict.remove "config" dict
+
+    else
+        dict
 
 
 
@@ -311,26 +322,31 @@ declarationListVisitor declarations moduleContext =
             declarations
                 |> List.map (typesUsedInDeclaration moduleContext)
 
+        testFunctions : List String
+        testFunctions =
+            declarations
+                |> List.filterMap (testFunctionName moduleContext.scope)
+
         allUsedTypes : List ( ModuleName, String )
         allUsedTypes =
             typesUsedInDeclaration_
                 |> List.concatMap Tuple.first
 
-        contextWithUsedTypes : ModuleContext
-        contextWithUsedTypes =
-            List.foldl registerAsUsed moduleContext allUsedTypes
+        contextWithUsedElements : ModuleContext
+        contextWithUsedElements =
+            registerMultipleAsUsed allUsedTypes moduleContext
     in
     ( []
-    , { contextWithUsedTypes
+    , { contextWithUsedElements
         | exposed =
-            contextWithUsedTypes.exposed
+            contextWithUsedElements.exposed
                 |> (if moduleContext.exposesEverything then
                         identity
 
                     else
                         Dict.filter (\name _ -> Set.member name declaredNames)
                    )
-        , typesNotToReport =
+        , elementsNotToReport =
             typesUsedInDeclaration_
                 |> List.concatMap
                     (\( list, comesFromCustomTypeWithHiddenConstructors ) ->
@@ -341,6 +357,7 @@ declarationListVisitor declarations moduleContext =
                             List.filter (\( moduleName, name ) -> isType name && moduleName == []) list
                     )
                 |> List.map Tuple.second
+                |> List.append testFunctions
                 |> Set.fromList
       }
     )
@@ -379,6 +396,33 @@ declarationName declaration =
             Just <| Node.value operator
 
         Declaration.Destructuring _ _ ->
+            Nothing
+
+
+testFunctionName : Scope.ModuleContext -> Node Declaration -> Maybe String
+testFunctionName scope declaration =
+    case Node.value declaration of
+        Declaration.FunctionDeclaration function ->
+            case
+                function.signature
+                    |> Maybe.map (Node.value >> .typeAnnotation >> Node.value)
+            of
+                Just (TypeAnnotation.Typed (Node _ ( moduleName, name )) _) ->
+                    case Scope.realFunctionOrType moduleName name scope of
+                        ( [ "Test" ], "Test" ) ->
+                            function.declaration
+                                |> Node.value
+                                |> .name
+                                |> Node.value
+                                |> Just
+
+                        _ ->
+                            Nothing
+
+                _ ->
+                    Nothing
+
+        _ ->
             Nothing
 
 

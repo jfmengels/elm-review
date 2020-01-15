@@ -69,8 +69,6 @@ all =
         , typeAliasesTests
 
         -- TODO Add tests that report exposing the type's variants if they are never used.
-        -- TODO Add tests to add exceptions to tests
-        -- TODO Add tests to add exceptions for ReviewConfig.config (for applications only)
         ]
 
 
@@ -192,6 +190,24 @@ main = text ""
                 """
 module A exposing (b)
 a = 1
+"""
+                    |> Review.Test.runWithProjectData package_ rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report exposed tests" <|
+            \() ->
+                """
+module ThingTest exposing (a)
+import Test exposing (Test)
+a : Test
+a = Test.describe "thing" []
+"""
+                    |> Review.Test.runWithProjectData package_ rule
+                    |> Review.Test.expectNoErrors
+        , test "should not ReviewConfig.config" <|
+            \() ->
+                """
+module ReviewConfig exposing (config)
+config = []
 """
                     |> Review.Test.runWithProjectData package_ rule
                     |> Review.Test.expectNoErrors
