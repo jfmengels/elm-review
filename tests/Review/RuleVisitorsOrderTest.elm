@@ -55,15 +55,6 @@ all =
                             |> Rule.withFinalEvaluation finalEvaluation
                             |> Rule.fromSchema
 
-                    declarationVisitor : String -> Node Expression -> Rule.Direction -> Context -> ( List Rule.Error, Context )
-                    declarationVisitor text node direction context =
-                        case direction of
-                            Rule.OnEnter ->
-                                ( [], context ++ "\nEnter " ++ text )
-
-                            Rule.OnExit ->
-                                ( [], context ++ "\nExit " ++ text )
-
                     finalEvaluation : Context -> List Rule.Error
                     finalEvaluation context =
                         [ Rule.error { message = context, details = [ "details" ] }

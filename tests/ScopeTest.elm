@@ -1,7 +1,6 @@
 module ScopeTest exposing (all)
 
 import Dependencies
-import Elm.Syntax.Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)
 import Review.Project as Project exposing (Project)

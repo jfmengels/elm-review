@@ -9,7 +9,7 @@ import NoUnused.CustomTypeConstructors
 import NoUnused.Variables
 import Reporter
 import Review
-import Review.File exposing (ParsedFile, RawFile)
+import Review.File exposing (RawFile)
 import Review.Project as Project
 import Review.Rule as Rule exposing (Rule)
 

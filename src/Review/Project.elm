@@ -40,9 +40,7 @@ import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
 import Graph exposing (Graph)
-import IntDict exposing (IntDict)
 import Review.File exposing (ParsedFile)
-import Set exposing (Set)
 
 
 

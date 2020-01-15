@@ -1,17 +1,14 @@
 module NoUnusedModulesTest exposing (all)
 
-import Dependencies
 import Elm.Constraint
 import Elm.License
 import Elm.Module
 import Elm.Package
 import Elm.Project
-import Elm.Type as Type
 import Elm.Version
-import Expect
 import NoUnusedModules exposing (rule)
 import Review.Project as Project exposing (Project)
-import Review.Test exposing (ReviewResult)
+import Review.Test
 import Test exposing (Test, describe, test)
 
 

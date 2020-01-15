@@ -136,10 +136,3 @@ pop (Nonempty x xs) =
 mapHead : (a -> a) -> Nonempty a -> Nonempty a
 mapHead fn (Nonempty x xs) =
     Nonempty (fn x) xs
-
-
-{-| Exchange the head element while leaving the tail alone.
--}
-replaceHead : a -> Nonempty a -> Nonempty a
-replaceHead y (Nonempty x xs) =
-    Nonempty y xs

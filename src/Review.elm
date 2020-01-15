@@ -9,10 +9,6 @@ module Review exposing (review)
 
 -}
 
-import Elm.Parser as Parser
-import Elm.Processing exposing (init, process)
-import Elm.Syntax.File exposing (File)
-import Review.File exposing (ParsedFile, RawFile)
 import Review.Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 

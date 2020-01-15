@@ -5,10 +5,9 @@ import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
-import Elm.Type
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Rule)
-import Review.Test exposing (ReviewResult)
+import Review.Test
 import Scope2 as Scope
 import Test exposing (Test, test)
 
@@ -110,11 +109,6 @@ Http.get -> Http.get
                           )
                         ]
         ]
-
-
-type alias GlobalContext =
-    { scope : Scope.GlobalContext
-    }
 
 
 type alias ModuleContext =

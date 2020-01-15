@@ -1,7 +1,6 @@
 module NoHtmlButtonTest exposing (all)
 
 import Dependencies
-import Elm.Type as Type
 import NoHtmlButton exposing (rule)
 import Review.Project as Project exposing (Project)
 import Review.Test exposing (ReviewResult)
