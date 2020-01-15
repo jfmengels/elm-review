@@ -10,7 +10,7 @@ import NoUnused.Variables
 import Reporter
 import Review
 import Review.File exposing (RawFile)
-import Review.Project as Project
+import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Rule)
 
 
@@ -33,6 +33,7 @@ main =
 
 type alias Model =
     { sourceCode : String
+    , project : Project
     , reviewErrors : List Rule.Error
     , noDebugEnabled : Bool
     , noUnusedVariablesEnabled : Bool
@@ -66,6 +67,7 @@ g n = n + 1
 """
     in
     { sourceCode = sourceCode
+    , project = Project.withModule (file sourceCode) Project.new
     , reviewErrors = []
     , noDebugEnabled = True
     , noUnusedVariablesEnabled = True
@@ -105,7 +107,10 @@ update : Msg -> Model -> Model
 update action model =
     case action of
         UserEditedSourceCode sourceCode ->
-            { model | sourceCode = sourceCode }
+            { model
+                | sourceCode = sourceCode
+                , project = Project.withModule (file sourceCode) model.project
+            }
                 |> runReview
 
         UserToggledNoDebugRule ->
@@ -126,7 +131,11 @@ update action model =
 
 runReview : Model -> Model
 runReview model =
-    { model | reviewErrors = Review.reviewRawFiles (config model) Project.new [ file model.sourceCode ] }
+    { model
+        | reviewErrors =
+            Review.review (config model) model.project
+                |> Tuple.first
+    }
 
 
 
