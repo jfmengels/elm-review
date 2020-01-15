@@ -101,11 +101,11 @@ didNotExpectErrorsTest =
                         dummyRange
                     ]
             in
-            ErrorMessage.didNotExpectErrors errors
+            ErrorMessage.didNotExpectErrors "ModuleName" errors
                 |> expectMessageEqual """
 DID NOT EXPECT ERRORS
 
-I expected no errors but found:
+I expected no errors for module `ModuleName` but found:
 
   - `Some error`
     at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
@@ -443,11 +443,11 @@ expectedMoreErrorsTest =
                       }
                     ]
             in
-            ErrorMessage.expectedMoreErrors missingErrors
+            ErrorMessage.expectedMoreErrors "MyModule" missingErrors
                 |> expectMessageEqual """
 RULE REPORTED LESS ERRORS THAN EXPECTED
 
-I expected to see 2 more errors:
+I expected to see 2 more errors for module `MyModule`:
 
   - `Remove the use of `Debug` before shipping to production`
   - `Remove the use of `Debug` before shipping to production`
@@ -469,11 +469,11 @@ tooManyErrorsTest =
                             { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
                         ]
                 in
-                ErrorMessage.tooManyErrors extraErrors
+                ErrorMessage.tooManyErrors "MyModule" extraErrors
                     |> expectMessageEqual """
 RULE REPORTED MORE ERRORS THAN EXPECTED
 
-I found 1 error too many:
+I found 1 error too many for module `MyModule`:
 
   - `Remove the use of `Debug` before shipping to production`
     at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
@@ -495,11 +495,11 @@ I found 1 error too many:
                             { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
                         ]
                 in
-                ErrorMessage.tooManyErrors extraErrors
+                ErrorMessage.tooManyErrors "MyOtherModule" extraErrors
                     |> expectMessageEqual """
 RULE REPORTED MORE ERRORS THAN EXPECTED
 
-I found 2 errors too many:
+I found 2 errors too many for module `MyOtherModule`:
 
   - `Remove the use of `Debug` before shipping to production`
     at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }

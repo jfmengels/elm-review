@@ -43,11 +43,11 @@ type alias SourceCode =
 -- ERROR MESSAGES
 
 
-didNotExpectErrors : List Error -> String
-didNotExpectErrors errors =
+didNotExpectErrors : String -> List Error -> String
+didNotExpectErrors moduleName errors =
     """DID NOT EXPECT ERRORS
 
-I expected no errors but found:
+I expected no errors for module `""" ++ moduleName ++ """` but found:
 
 """ ++ listErrorMessagesAndPositions errors
 
@@ -187,8 +187,8 @@ but I found it at:
   """ ++ rangeAsString (Rule.errorRange error)
 
 
-expectedMoreErrors : List ExpectedErrorData -> String
-expectedMoreErrors missingExpectedErrors =
+expectedMoreErrors : String -> List ExpectedErrorData -> String
+expectedMoreErrors moduleName missingExpectedErrors =
     let
         numberOfErrors : Int
         numberOfErrors =
@@ -197,15 +197,15 @@ expectedMoreErrors missingExpectedErrors =
     """RULE REPORTED LESS ERRORS THAN EXPECTED
 
 I expected to see """
-        ++ (String.fromInt numberOfErrors ++ " more " ++ pluralizeErrors numberOfErrors ++ ":\n\n")
+        ++ (String.fromInt numberOfErrors ++ " more " ++ pluralizeErrors numberOfErrors ++ " for module `" ++ moduleName ++ "`:\n\n")
         ++ (missingExpectedErrors
                 |> List.map expectedErrorToString
                 |> String.join "\n"
            )
 
 
-tooManyErrors : List Error -> String
-tooManyErrors extraErrors =
+tooManyErrors : String -> List Error -> String
+tooManyErrors moduleName extraErrors =
     let
         numberOfErrors : Int
         numberOfErrors =
@@ -214,7 +214,7 @@ tooManyErrors extraErrors =
     """RULE REPORTED MORE ERRORS THAN EXPECTED
 
 I found """
-        ++ (String.fromInt numberOfErrors ++ " " ++ pluralizeErrors numberOfErrors ++ " too many:\n\n")
+        ++ (String.fromInt numberOfErrors ++ " " ++ pluralizeErrors numberOfErrors ++ " too many for module `" ++ moduleName ++ "`:\n\n")
         ++ listErrorMessagesAndPositions extraErrors
 
 

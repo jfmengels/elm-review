@@ -126,13 +126,14 @@ import Set exposing (Set)
 -}
 type ReviewResult
     = FailedRun String
-    | SuccessfulRun
-        (List
-            { moduleName : String
-            , inspector : CodeInspector
-            , errors : List Error
-            }
-        )
+    | SuccessfulRun (List SuccessfulRunResult)
+
+
+type alias SuccessfulRunResult =
+    { moduleName : String
+    , inspector : CodeInspector
+    , errors : List Error
+    }
 
 
 type alias CodeInspector =
@@ -500,13 +501,13 @@ expectNoErrors reviewResult =
             Expect.fail errorMessage
 
         SuccessfulRun runResults ->
-            let
-                errors : List Error
-                errors =
-                    List.concatMap .errors runResults
-            in
-            List.isEmpty errors
-                |> Expect.true (ErrorMessage.didNotExpectErrors errors)
+            runResults
+                |> List.map
+                    (\{ errors, moduleName } () ->
+                        List.isEmpty errors
+                            |> Expect.true (ErrorMessage.didNotExpectErrors moduleName errors)
+                    )
+                |> (\expectations -> Expect.all expectations ())
 
 
 {-| Assert that the rule reported some errors, by specifying which one.
@@ -548,8 +549,8 @@ expectErrors expectedErrors reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun ({ inspector, errors, moduleName } :: []) ->
-            checkAllErrorsMatch inspector expectedErrors errors
+        SuccessfulRun (runResult :: []) ->
+            checkAllErrorsMatch runResult expectedErrors
 
         SuccessfulRun _ ->
             Expect.fail ErrorMessage.needToUsedExpectErrorsForModules
@@ -611,16 +612,16 @@ expectErrorsForModules expectedErrorsList reviewResult =
             -- TODO Fail if there are some unknown modules in expectedErrorsList
             runResults
                 |> List.map
-                    (\{ inspector, errors, moduleName } ->
+                    (\runResult ->
                         let
                             expectedErrors : List ExpectedError
                             expectedErrors =
                                 expectedErrorsList
-                                    |> ListExtra.find (\( moduleName_, _ ) -> moduleName_ == moduleName)
+                                    |> ListExtra.find (\( moduleName_, _ ) -> moduleName_ == runResult.moduleName)
                                     |> Maybe.map Tuple.second
                                     |> Maybe.withDefault []
                         in
-                        \() -> checkAllErrorsMatch inspector expectedErrors errors
+                        \() -> checkAllErrorsMatch runResult expectedErrors
                     )
                 |> (\expectations -> Expect.all expectations ())
 
@@ -801,28 +802,28 @@ checkIfLocationIsAmbiguousInSourceCode sourceCode error_ under =
 -- RUNNING THE CHECKS
 
 
-checkAllErrorsMatch : CodeInspector -> List ExpectedError -> List Error -> Expectation
-checkAllErrorsMatch codeInspector expectedErrors errors =
-    checkErrorsMatch codeInspector expectedErrors errors
+checkAllErrorsMatch : SuccessfulRunResult -> List ExpectedError -> Expectation
+checkAllErrorsMatch runResult expectedErrors =
+    checkErrorsMatch runResult expectedErrors runResult.errors
         |> List.reverse
         |> (\expectations -> Expect.all expectations ())
 
 
-checkErrorsMatch : CodeInspector -> List ExpectedError -> List Error -> List (() -> Expectation)
-checkErrorsMatch codeInspector expectedErrors errors =
+checkErrorsMatch : SuccessfulRunResult -> List ExpectedError -> List Error -> List (() -> Expectation)
+checkErrorsMatch runResult expectedErrors errors =
     case ( expectedErrors, errors ) of
         ( [], [] ) ->
             [ always Expect.pass ]
 
         ( expected :: restOfExpectedErrors, error_ :: restOfErrors ) ->
-            checkErrorMatch codeInspector expected error_
-                :: checkErrorsMatch codeInspector restOfExpectedErrors restOfErrors
+            checkErrorMatch runResult.inspector expected error_
+                :: checkErrorsMatch runResult restOfExpectedErrors restOfErrors
 
         ( expected :: restOfExpectedErrors, [] ) ->
-            [ always <| Expect.fail <| ErrorMessage.expectedMoreErrors <| List.map extractExpectedErrorData (expected :: restOfExpectedErrors) ]
+            [ always <| Expect.fail <| ErrorMessage.expectedMoreErrors runResult.moduleName <| List.map extractExpectedErrorData (expected :: restOfExpectedErrors) ]
 
         ( [], error_ :: restOfErrors ) ->
-            [ always <| Expect.fail <| ErrorMessage.tooManyErrors (error_ :: restOfErrors) ]
+            [ always <| Expect.fail <| ErrorMessage.tooManyErrors runResult.moduleName (error_ :: restOfErrors) ]
 
 
 checkErrorMatch : CodeInspector -> ExpectedError -> Error -> (() -> Expectation)
