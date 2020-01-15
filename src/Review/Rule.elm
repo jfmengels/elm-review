@@ -809,8 +809,8 @@ importedModulesFirst (MultiSchema schema) startCache project =
                 newCache : MultiRuleCache globalContext
                 newCache =
                     -- TODO Need to invalidate the cache if an imported module changes
-                    List.foldr
-                        (\{ node, outgoing } cache ->
+                    List.foldl
+                        (\{ node, incoming } cache ->
                             let
                                 maybeModule : Maybe ParsedFile
                                 maybeModule =
@@ -823,7 +823,7 @@ importedModulesFirst (MultiSchema schema) startCache project =
                                 Just module_ ->
                                     case Dict.get module_.path cache of
                                         Nothing ->
-                                            Dict.insert module_.path (computeModule cache outgoing module_) cache
+                                            Dict.insert module_.path (computeModule cache incoming module_) cache
 
                                         Just cacheEntry ->
                                             if cacheEntry.source == module_.source then
@@ -831,7 +831,7 @@ importedModulesFirst (MultiSchema schema) startCache project =
                                                 cache
 
                                             else
-                                                Dict.insert module_.path (computeModule cache outgoing module_) cache
+                                                Dict.insert module_.path (computeModule cache incoming module_) cache
                         )
                         startCache
                         nodeContexts

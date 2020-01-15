@@ -299,8 +299,8 @@ nodesAndEdges getFileId module_ fileId =
     , importedModules module_
         |> List.filterMap getFileId
         |> List.map
-            (\importFileId ->
-                Graph.Edge fileId importFileId ()
+            (\importedFileId ->
+                Graph.Edge importedFileId fileId ()
             )
     )
 
