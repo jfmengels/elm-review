@@ -9,7 +9,6 @@ module Review.Rule exposing
     , Error, error, parsingError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
     , newMultiSchema, fromMultiSchema, newFileVisitorSchema, traversingImportedModulesFirst, withMultiElmJsonVisitor, withMultiDependenciesVisitor, withMultiFinalEvaluation
     , FileKey, errorForFile
-    , ReviewResult(..)
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -223,10 +222,6 @@ TODO Explain about single and multi-file rules
 type Rule
     = Single String (Project -> ( List Error, Rule ))
     | Multi String (Project -> ( List Error, Rule ))
-
-
-type ReviewResult
-    = ReviewResult ( List Error, Project -> List ParsedFile -> ReviewResult )
 
 
 {-| Represents a Schema for a [`Rule`](#Rule). Create one using [`newSchema`](#newSchema).
