@@ -1,7 +1,7 @@
 module Review.Project exposing
     ( Project, ParsedFile, ElmJson
     , modules, filesThatFailedToParse, moduleGraph, elmJson, dependencyModules
-    , new, withModule, withParsedModule, removeModule, withElmJson, withDependency, precomputeModuleGraph
+    , new, withModule, withParsedModule, removeModule, withElmJson, withDependency, removeDependencies, precomputeModuleGraph
     )
 
 {-| Represents project-related data, that a rule can access to get more information.
@@ -26,7 +26,7 @@ ignore it if you just want to write a review rule.
 
 # Build
 
-@docs new, withModule, withParsedModule, removeModule, withElmJson, withDependency, precomputeModuleGraph
+@docs new, withModule, withParsedModule, removeModule, withElmJson, withDependency, removeDependencies, precomputeModuleGraph
 
 -}
 
@@ -244,15 +244,32 @@ withDependency dependency (Project project) =
     Project
         { project
             | dependencyModules =
-                dependency.modules
-                    |> List.map (\module_ -> ( module_.name, module_ ))
-                    |> Dict.fromList
-                    |> Dict.union project.dependencyModules
+                Dict.union
+                    project.dependencyModules
+                    (dependency.modules
+                        |> List.map (\module_ -> ( module_.name, module_ ))
+                        |> Dict.fromList
+                    )
             , moduleToDependency =
-                dependency.modules
-                    |> List.map (\module_ -> ( module_.name, dependency.packageName ))
-                    |> Dict.fromList
-                    |> Dict.union project.moduleToDependency
+                Dict.union
+                    project.moduleToDependency
+                    (dependency.modules
+                        |> List.map (\module_ -> ( module_.name, dependency.packageName ))
+                        |> Dict.fromList
+                    )
+        }
+        |> recomputeModuleGraphIfNeeded
+
+
+{-| Remove all dependencies of a project. Use this to flush the dependencies of
+a project when they are changed, before re-adding them.
+-}
+removeDependencies : Project -> Project
+removeDependencies (Project project) =
+    Project
+        { project
+            | dependencyModules = Dict.empty
+            , moduleToDependency = Dict.empty
         }
         |> recomputeModuleGraphIfNeeded
 
