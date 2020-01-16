@@ -150,23 +150,24 @@ new =
 -}
 withModule : { path : String, source : String } -> Project -> Project
 withModule { path, source } project =
-    case parseSource source of
-        Ok ast ->
-            project
-                |> removeFileFromProject path
-                |> addModule
-                    { path = path
-                    , source = source
-                    , ast = ast
-                    }
+    recomputeModuleGraphIfNeeded <|
+        case parseSource source of
+            Ok ast ->
+                project
+                    |> removeFileFromProject path
+                    |> addModule
+                        { path = path
+                        , source = source
+                        , ast = ast
+                        }
 
-        Err _ ->
-            project
-                |> removeFileFromProject path
-                |> addFileThatFailedToParse
-                    { path = path
-                    , source = source
-                    }
+            Err _ ->
+                project
+                    |> removeFileFromProject path
+                    |> addFileThatFailedToParse
+                        { path = path
+                        , source = source
+                        }
 
 
 {-| Add an already parsed module to the project. This module will then be analyzed by the rules.
@@ -176,6 +177,7 @@ withParsedModule parsedFile project =
     project
         |> removeFileFromProject parsedFile.path
         |> addModule parsedFile
+        |> recomputeModuleGraphIfNeeded
 
 
 removeFileFromProject : String -> Project -> Project
@@ -189,7 +191,6 @@ removeFileFromProject path (Project project) =
 
 addModule : ParsedFile -> Project -> Project
 addModule module_ (Project project) =
-    -- TODO Recompute module graph if it was already computed
     Project { project | modules = module_ :: project.modules }
 
 
@@ -208,9 +209,6 @@ parseSource source =
     source
         |> Parser.parse
         |> Result.mapError (always ())
-        -- TODO Add the dependencies to fix how files will be parsed
-        -- Note: If the dependencies change, we'll need to reprocess everything, just in case.
-        -- Also, invalidate the cache for all the files.
         |> Result.map (Elm.Processing.process Elm.Processing.init)
 
 
@@ -234,7 +232,6 @@ parsing a file.
 -}
 withDependency : { r | packageName : String, modules : List Elm.Docs.Module } -> Project -> Project
 withDependency dependency (Project project) =
-    -- TODO Recompute module graph if it was already computed
     Project
         { project
             | dependencyModules =
@@ -248,10 +245,21 @@ withDependency dependency (Project project) =
                     |> Dict.fromList
                     |> Dict.union project.moduleToDependency
         }
+        |> recomputeModuleGraphIfNeeded
 
 
 
 -- GRAPH CREATION
+
+
+recomputeModuleGraphIfNeeded : Project -> Project
+recomputeModuleGraphIfNeeded ((Project p) as project) =
+    case p.moduleGraph of
+        Just _ ->
+            precomputeModuleGraph project
+
+        Nothing ->
+            project
 
 
 precomputeModuleGraph : Project -> Project
