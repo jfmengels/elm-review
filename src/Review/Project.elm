@@ -1,7 +1,7 @@
 module Review.Project exposing
     ( Project, ParsedFile, ElmJson
     , modules, filesThatFailedToParse, moduleGraph, elmJson, dependencyModules
-    , new, withModule, withParsedModule, withElmJson, withDependency, precomputeModuleGraph
+    , new, withModule, withParsedModule, removeModule, withElmJson, withDependency, precomputeModuleGraph
     )
 
 {-| Represents project-related data, that a rule can access to get more information.
@@ -26,7 +26,7 @@ ignore it if you just want to write a review rule.
 
 # Build
 
-@docs new, withModule, withParsedModule, withElmJson, withDependency, precomputeModuleGraph
+@docs new, withModule, withParsedModule, removeModule, withElmJson, withDependency, precomputeModuleGraph
 
 -}
 
@@ -177,6 +177,15 @@ withParsedModule parsedFile project =
     project
         |> removeFileFromProject parsedFile.path
         |> addModule parsedFile
+        |> recomputeModuleGraphIfNeeded
+
+
+{-| Remove a module from the project by its path.
+-}
+removeModule : String -> Project -> Project
+removeModule path project =
+    project
+        |> removeFileFromProject path
         |> recomputeModuleGraphIfNeeded
 
 
