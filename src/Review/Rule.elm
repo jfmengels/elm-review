@@ -1972,10 +1972,6 @@ visitExpression visitors node context =
         |> visitNodeWithListOfVisitorsAndDirection OnExit visitors.onExit node
 
 
-
--- |> accumulate (visitor node OnExit)
-
-
 expressionChildren : Node Expression -> List (Node Expression)
 expressionChildren node =
     case Node.value node of
