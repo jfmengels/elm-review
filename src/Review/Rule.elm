@@ -798,11 +798,24 @@ importedModulesFirst (MultiSchema schema) startCache project =
                             context
                     }
 
+                newStartCache : MultiRuleCache globalContext
+                newStartCache =
+                    case Dict.get "#INITIAL_CONTEXT#" startCache of
+                        Nothing ->
+                            Dict.singleton "#INITIAL_CONTEXT#"
+                                { source = ""
+                                , errors = []
+                                , context = initialContext
+                                }
+
+                        Just _ ->
+                            startCache
+
                 newCache : MultiRuleCache globalContext
                 newCache =
                     List.foldl
                         (computeModuleAndCacheResult modules graph computeModule)
-                        ( startCache, Set.empty )
+                        ( newStartCache, Set.empty )
                         nodeContexts
                         |> Tuple.first
 
@@ -810,6 +823,7 @@ importedModulesFirst (MultiSchema schema) startCache project =
                 contextsAndErrorsPerFile =
                     -- TODO select leaf nodes and fold their contexts only
                     newCache
+                        |> Dict.remove "#INITIAL_CONTEXT#"
                         |> Dict.values
                         |> List.map (\cacheEntry -> ( cacheEntry.errors, cacheEntry.context ))
 
