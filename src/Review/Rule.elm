@@ -212,6 +212,7 @@ import Graph exposing (Graph)
 import IntDict
 import Review.Fix exposing (Fix)
 import Review.Project exposing (ParsedFile, Project)
+import Set exposing (Set)
 
 
 {-| Represents a construct able to analyze a `File` and report unwanted patterns.
@@ -752,8 +753,8 @@ importedModulesFirst (MultiSchema schema) startCache project =
                             )
                             Dict.empty
 
-                computeModule : MultiRuleCache globalContext -> Graph.Adjacency () -> ParsedFile -> { source : String, errors : List Error, context : globalContext }
-                computeModule cache adjacents module_ =
+                computeModule : MultiRuleCache globalContext -> List ParsedFile -> ParsedFile -> { source : String, errors : List Error, context : globalContext }
+                computeModule cache importedModules module_ =
                     let
                         fileKey : FileKey
                         fileKey =
@@ -765,13 +766,10 @@ importedModulesFirst (MultiSchema schema) startCache project =
 
                         initialModuleContext : moduleContext
                         initialModuleContext =
-                            adjacents
-                                |> IntDict.keys
+                            importedModules
                                 |> List.filterMap
-                                    (\key ->
-                                        Graph.get key graph
-                                            |> Maybe.andThen (\nodeContext -> Dict.get nodeContext.node.label modules)
-                                            |> Maybe.andThen (\m -> Dict.get m.path cache)
+                                    (\importedModule ->
+                                        Dict.get importedModule.path cache
                                             |> Maybe.map .context
                                     )
                                 -- TODO Remove contexts from parents already handled by other parents
@@ -802,33 +800,11 @@ importedModulesFirst (MultiSchema schema) startCache project =
 
                 newCache : MultiRuleCache globalContext
                 newCache =
-                    -- TODO Need to invalidate the cache if an imported module changes
                     List.foldl
-                        (\{ node, incoming } cache ->
-                            let
-                                maybeModule : Maybe ParsedFile
-                                maybeModule =
-                                    Dict.get node.label modules
-                            in
-                            case maybeModule of
-                                Nothing ->
-                                    cache
-
-                                Just module_ ->
-                                    case Dict.get module_.path cache of
-                                        Nothing ->
-                                            Dict.insert module_.path (computeModule cache incoming module_) cache
-
-                                        Just cacheEntry ->
-                                            if cacheEntry.source == module_.source then
-                                                -- File is unchanged, we will later return the cached errors and context
-                                                cache
-
-                                            else
-                                                Dict.insert module_.path (computeModule cache incoming module_) cache
-                        )
-                        startCache
+                        (computeModuleAndCacheResult modules graph computeModule)
+                        ( startCache, Set.empty )
                         nodeContexts
+                        |> Tuple.first
 
                 contextsAndErrorsPerFile : List ( List Error, globalContext )
                 contextsAndErrorsPerFile =
@@ -853,6 +829,66 @@ importedModulesFirst (MultiSchema schema) startCache project =
         Err _ ->
             -- TODO return some kind of global error?
             ( [], Multi schema.name (runMulti (MultiSchema schema) startCache) )
+
+
+computeModuleAndCacheResult :
+    Dict ModuleName ParsedFile
+    -> Graph ModuleName ()
+    -> (MultiRuleCache globalContext -> List ParsedFile -> ParsedFile -> { source : String, errors : List Error, context : globalContext })
+    -> Graph.NodeContext ModuleName ()
+    -> ( MultiRuleCache globalContext, Set ModuleName )
+    -> ( MultiRuleCache globalContext, Set ModuleName )
+computeModuleAndCacheResult modules graph computeModule { node, incoming } ( cache, invalidatedModules ) =
+    case Dict.get node.label modules of
+        Nothing ->
+            ( cache, invalidatedModules )
+
+        Just module_ ->
+            let
+                importedModules : List ParsedFile
+                importedModules =
+                    incoming
+                        |> IntDict.keys
+                        |> List.filterMap
+                            (\key ->
+                                Graph.get key graph
+                                    |> Maybe.andThen (\nodeContext -> Dict.get nodeContext.node.label modules)
+                            )
+
+                compute previousResult =
+                    let
+                        result : { source : String, errors : List Error, context : globalContext }
+                        result =
+                            computeModule cache importedModules module_
+                    in
+                    ( Dict.insert module_.path result cache
+                    , if Just result.context /= Maybe.map .context previousResult then
+                        Set.insert (getModuleName module_) invalidatedModules
+
+                      else
+                        invalidatedModules
+                    )
+            in
+            case Dict.get module_.path cache of
+                Nothing ->
+                    compute Nothing
+
+                Just cacheEntry ->
+                    let
+                        noImportedModulesHaveANewContext : Bool
+                        noImportedModulesHaveANewContext =
+                            importedModules
+                                |> List.map getModuleName
+                                |> Set.fromList
+                                |> Set.intersect invalidatedModules
+                                |> Set.isEmpty
+                    in
+                    if cacheEntry.source == module_.source && noImportedModulesHaveANewContext then
+                        -- File and its imported modules' context are unchanged, we will later return the cached errors and context
+                        ( cache, invalidatedModules )
+
+                    else
+                        compute (Just cacheEntry)
 
 
 getModuleName : ParsedFile -> ModuleName
