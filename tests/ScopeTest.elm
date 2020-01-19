@@ -30,10 +30,15 @@ testRule rule string =
         |> Review.Test.runWithProjectData project rule
 
 
-baseRule : Rule.Schema { forLookingAtASingleFile : () } { hasAtLeastOneVisitor : () } Context
+baseRule :
+    Rule.Schema
+        { hasAtLeastOneVisitor : ()
+        , withDependenciesVisitor : ()
+        , withElmJsonVisitor : ()
+        }
+        Context
 baseRule =
-    Rule.newSchema "TestRule"
-        |> Rule.withInitialContext initialContext
+    Rule.newSchema "TestRule" initialContext
         |> Scope.addVisitors
             { set = \scope context -> { context | scope = scope }
             , get = .scope

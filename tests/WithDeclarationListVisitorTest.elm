@@ -50,7 +50,7 @@ port input : (Json.Decode.Value -> msg) -> Sub msg"""
 
 rule : Rule
 rule =
-    Rule.newSchema "WithDeclarationListVisitorTestRule"
+    Rule.newSchema "WithDeclarationListVisitorTestRule" ()
         |> Rule.withDeclarationListVisitor declarationListVisitor
         |> Rule.fromSchema
 

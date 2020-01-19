@@ -20,8 +20,7 @@ type Allowed
 
 rule : Rule
 rule =
-    Rule.newSchema "NoHtmlButton"
-        |> Rule.withInitialContext initialContext
+    Rule.newSchema "NoHtmlButton" initialContext
         |> Scope.addVisitors
             { set = \scope context -> { context | scope = scope }
             , get = .scope

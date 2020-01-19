@@ -72,8 +72,7 @@ in your editor, rather than when running your tests or [elm-xref](https://github
 -}
 rule : Rule
 rule =
-    Rule.newSchema "NoUnusedTypeConstructors"
-        |> Rule.withInitialContext initialContext
+    Rule.newSchema "NoUnusedTypeConstructors" initialContext
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withDeclarationVisitor declarationVisitor
         |> Rule.withExpressionVisitor expressionVisitor

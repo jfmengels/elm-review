@@ -188,7 +188,7 @@ addGlobalVisitors setterGetter schema =
         |> Rule.withMultiDependenciesVisitor (mapInnerGlobalContext setterGetter dependenciesVisitor)
 
 
-addModuleVisitors : ModuleSetterGetter moduleContext -> Rule.Schema anytype anything moduleContext -> Rule.Schema anytype { hasAtLeastOneVisitor : () } moduleContext
+addModuleVisitors : ModuleSetterGetter moduleContext -> Rule.Schema anything moduleContext -> Rule.Schema { anything | hasAtLeastOneVisitor : () } moduleContext
 addModuleVisitors setterGetter schema =
     schema
         |> Rule.withModuleDefinitionVisitor

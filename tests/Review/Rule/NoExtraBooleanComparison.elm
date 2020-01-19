@@ -62,7 +62,7 @@ You should not use this rule if you
 -}
 rule : Rule
 rule =
-    Rule.newSchema "NoExtraBooleanComparison"
+    Rule.newSchema "NoExtraBooleanComparison" ()
         |> Rule.withSimpleExpressionVisitor expressionVisitor
         |> Rule.fromSchema
 

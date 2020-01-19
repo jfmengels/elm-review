@@ -62,7 +62,7 @@ should not use this rule.
 -}
 rule : Configuration -> Rule
 rule config =
-    Rule.newSchema "NoImportingEverything"
+    Rule.newSchema "NoImportingEverything" ()
         |> Rule.withSimpleImportVisitor (importVisitor config)
         |> Rule.fromSchema
 

@@ -27,8 +27,7 @@ all =
                 let
                     rule : Rule
                     rule =
-                        Rule.newSchema "TestRule"
-                            |> Rule.withInitialContext "\n0 - withInitialContext"
+                        Rule.newSchema "TestRule" "\n0 - withInitialContext"
                             |> Rule.withElmJsonVisitor (\_ context -> context ++ "\n1 - withElmJsonVisitor")
                             |> Rule.withDependenciesVisitor (\_ context -> context ++ "\n2 - withDependenciesVisitor")
                             |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ++ "\n3 - withModuleDefinitionVisitor" ))
@@ -89,8 +88,7 @@ a = 1
                 let
                     rule : Rule
                     rule =
-                        Rule.newSchema "TestRule"
-                            |> Rule.withInitialContext ""
+                        Rule.newSchema "TestRule" ""
                             |> Rule.withExpressionVisitor (declarationVisitor "A")
                             |> Rule.withExpressionVisitor (declarationVisitor "B")
                             |> Rule.withExpressionVisitor (declarationVisitor "C")
@@ -135,8 +133,7 @@ Exit A"""
                 let
                     rule : Rule
                     rule =
-                        Rule.newSchema "TestRule"
-                            |> Rule.withInitialContext ""
+                        Rule.newSchema "TestRule" ""
                             |> Rule.withDeclarationVisitor (declarationVisitor "A")
                             |> Rule.withDeclarationVisitor (declarationVisitor "B")
                             |> Rule.withDeclarationVisitor (declarationVisitor "C")
