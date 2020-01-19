@@ -53,13 +53,13 @@ import Set exposing (Set)
 -}
 rule : Rule
 rule =
-    Rule.newSchema "NoUnusedVariables" initialContext
+    Rule.newModuleRuleSchema "NoUnusedVariables" initialContext
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withImportVisitor importVisitor
         |> Rule.withExpressionVisitor expressionVisitor
         |> Rule.withDeclarationVisitor declarationVisitor
         |> Rule.withFinalEvaluation finalEvaluation
-        |> Rule.fromSchema
+        |> Rule.fromModuleRuleSchema
 
 
 type alias Context =

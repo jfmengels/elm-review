@@ -46,27 +46,27 @@ unused modules in your application or package.
 -}
 rule : Rule
 rule =
-    Rule.newMultiSchema "NoUnused.Modules"
+    Rule.newProjectRuleSchema "NoUnused.Modules"
         { moduleVisitorSchema =
             \schema ->
                 schema
                     |> Rule.withImportVisitor importVisitor
                     |> Rule.withDeclarationListVisitor declarationListVisitor
-        , initGlobalContext = initGlobalContext
+        , initProjectContext = initProjectContext
         , fromGlobalToModule = fromGlobalToModule
         , fromModuleToGlobal = fromModuleToGlobal
-        , foldGlobalContexts = foldGlobalContexts
+        , foldProjectContexts = foldProjectContexts
         }
-        |> Rule.withMultiElmJsonVisitor elmJsonVisitor
-        |> Rule.withMultiFinalEvaluation finalEvaluationForProject
-        |> Rule.fromMultiSchema
+        |> Rule.withProjectElmJsonVisitor elmJsonVisitor
+        |> Rule.withProjectFinalEvaluation finalEvaluationForProject
+        |> Rule.fromProjectRuleSchema
 
 
 
 -- CONTEXT
 
 
-type alias GlobalContext =
+type alias ProjectContext =
     { modules :
         Dict ModuleName
             { fileKey : Rule.FileKey
@@ -84,23 +84,23 @@ type alias ModuleContext =
     }
 
 
-initGlobalContext : GlobalContext
-initGlobalContext =
+initProjectContext : ProjectContext
+initProjectContext =
     { modules = Dict.empty
     , usedModules = Set.singleton [ "ReviewConfig" ]
     , isPackage = False
     }
 
 
-fromGlobalToModule : Rule.FileKey -> Node ModuleName -> GlobalContext -> ModuleContext
-fromGlobalToModule _ _ globalContext =
+fromGlobalToModule : Rule.FileKey -> Node ModuleName -> ProjectContext -> ModuleContext
+fromGlobalToModule _ _ projectContext =
     { importedModules = Set.empty
     , containsMainFunction = False
-    , isPackage = globalContext.isPackage
+    , isPackage = projectContext.isPackage
     }
 
 
-fromModuleToGlobal : Rule.FileKey -> Node ModuleName -> ModuleContext -> GlobalContext
+fromModuleToGlobal : Rule.FileKey -> Node ModuleName -> ModuleContext -> ProjectContext
 fromModuleToGlobal fileKey moduleName moduleContext =
     { modules =
         Dict.singleton
@@ -116,8 +116,8 @@ fromModuleToGlobal fileKey moduleName moduleContext =
     }
 
 
-foldGlobalContexts : GlobalContext -> GlobalContext -> GlobalContext
-foldGlobalContexts newContext previousContext =
+foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
+foldProjectContexts newContext previousContext =
     { modules = Dict.union previousContext.modules newContext.modules
     , usedModules = Set.union previousContext.usedModules newContext.usedModules
     , isPackage = previousContext.isPackage
@@ -128,7 +128,7 @@ foldGlobalContexts newContext previousContext =
 -- GLOBAL VISITORS
 
 
-elmJsonVisitor : Maybe Project -> GlobalContext -> GlobalContext
+elmJsonVisitor : Maybe Project -> ProjectContext -> ProjectContext
 elmJsonVisitor maybeProject context =
     let
         ( exposedModules, isPackage ) =
@@ -154,7 +154,7 @@ elmJsonVisitor maybeProject context =
     }
 
 
-finalEvaluationForProject : GlobalContext -> List Error
+finalEvaluationForProject : ProjectContext -> List Error
 finalEvaluationForProject { modules, usedModules } =
     modules
         |> Dict.filter (\moduleName _ -> not <| Set.member moduleName usedModules)

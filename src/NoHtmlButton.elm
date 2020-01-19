@@ -20,14 +20,14 @@ type Allowed
 
 rule : Rule
 rule =
-    Rule.newSchema "NoHtmlButton" initialContext
+    Rule.newModuleRuleSchema "NoHtmlButton" initialContext
         |> Scope.addVisitors
             { set = \scope context -> { context | scope = scope }
             , get = .scope
             }
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withExpressionVisitor expressionVisitor
-        |> Rule.fromSchema
+        |> Rule.fromModuleRuleSchema
 
 
 initialContext : Context

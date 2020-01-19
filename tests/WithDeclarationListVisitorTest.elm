@@ -50,9 +50,9 @@ port input : (Json.Decode.Value -> msg) -> Sub msg"""
 
 rule : Rule
 rule =
-    Rule.newSchema "WithDeclarationListVisitorTestRule" ()
+    Rule.newModuleRuleSchema "WithDeclarationListVisitorTestRule" ()
         |> Rule.withDeclarationListVisitor declarationListVisitor
-        |> Rule.fromSchema
+        |> Rule.fromModuleRuleSchema
 
 
 declarationListVisitor : List (Node Declaration) -> () -> ( List Error, () )

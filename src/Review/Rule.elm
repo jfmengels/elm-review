@@ -1,13 +1,13 @@
 module Review.Rule exposing
-    ( Rule, Schema, MultiSchema
+    ( Rule, ModuleRuleSchema, ProjectRuleSchema
     , runRules
-    , newSchema, fromSchema
+    , newModuleRuleSchema, fromModuleRuleSchema
     , withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
     , withModuleDefinitionVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalEvaluation
     , withElmJsonVisitor, withDependenciesVisitor
     , withFixes
     , Error, error, parsingError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
-    , newMultiSchema, fromMultiSchema, traversingImportedModulesFirst, withMultiElmJsonVisitor, withMultiDependenciesVisitor, withMultiFinalEvaluation
+    , newProjectRuleSchema, fromProjectRuleSchema, traversingImportedModulesFirst, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withProjectFinalEvaluation
     , FileKey, errorForFile
     )
 
@@ -149,7 +149,7 @@ patterns you would want to forbid, but that are not handled by the example.
 
 ## Definition
 
-@docs Rule, Schema, MultiSchema
+@docs Rule, ModuleRuleSchema, ProjectRuleSchema
 
 
 ## Running the rule
@@ -159,7 +159,7 @@ patterns you would want to forbid, but that are not handled by the example.
 
 ## Creating a Rule
 
-@docs newSchema, fromSchema
+@docs newModuleRuleSchema, fromModuleRuleSchema
 
 
 ## Builder functions without context
@@ -169,7 +169,7 @@ patterns you would want to forbid, but that are not handled by the example.
 
 ## Builder functions with context
 
-@docs withInitialContext, withModuleDefinitionVisitor, withImportVisitor, Direction, withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalEvaluation
+@docs withModuleDefinitionVisitor, withImportVisitor, Direction, withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalEvaluation
 
 
 ## Builder functions to analyze the project's data
@@ -191,7 +191,7 @@ For more information on automatic fixing, read the documentation for [`Review.Fi
 
 # TODO
 
-@docs newMultiSchema, fromMultiSchema, traversingImportedModulesFirst, withMultiElmJsonVisitor, withMultiDependenciesVisitor, withMultiFinalEvaluation
+@docs newProjectRuleSchema, fromProjectRuleSchema, traversingImportedModulesFirst, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withProjectFinalEvaluation
 @docs FileKey, errorForFile
 @docs ReviewResult
 
@@ -216,50 +216,27 @@ import Set exposing (Set)
 
 
 {-| Represents a construct able to analyze a `File` and report unwanted patterns.
-See [`newSchema`](#newSchema), and [`fromSchema`](#fromSchema) for how to create one.
+See [`newModuleRuleSchema`](#newModuleRuleSchema), and [`fromModuleRuleSchema`](#fromModuleRuleSchema) for how to create one.
 TODO Explain about single and multi-file rules
 -}
 type Rule
-    = Single String (Project -> ( List Error, Rule ))
-    | Multi String (Project -> ( List Error, Rule ))
+    = ModuleRule String (Project -> ( List Error, Rule ))
+    | ProjectRule String (Project -> ( List Error, Rule ))
 
 
-{-| Represents a Schema for a [`Rule`](#Rule). Create one using [`newSchema`](#newSchema).
+{-| Represents a ModuleRuleSchema for a [`Rule`](#Rule). Create one using [`newModuleRuleSchema`](#newModuleRuleSchema).
 
     import Review.Rule as Rule exposing (Rule)
 
     rule : Rule
     rule =
-        Rule.newSchema "NoDebug"
+        Rule.newModuleRuleSchema "NoDebug" ()
             |> Rule.withSimpleExpressionVisitor expressionVisitor
-            |> Rule.fromSchema
+            |> Rule.fromModuleRuleSchema
 
 -}
-type
-    Schema configuration context
-    -- `configurationState` is a phantom type used to forbid using `withInitialContext`
-    -- after having defined some visitors already. For `withInitialContext` to
-    -- work and due to the change in `context` type value, all visitors need to be
-    -- replaced by no-op functions. This means that if you did the following
-    --   Rule.newSchema "RuleName"
-    --     |> Rule.withSimpleExpressionVisitor expressionVisitor
-    --     |> Rule.withInitialContext something
-    --     |> Rule.withImportVisitor importVisitor
-    --     |> Rule.fromSchema
-    -- then the expression visitor would be erased and ignored. This phantom type
-    -- should prevent that from working.
-    -- It also prevents using
-    --   Rule.newSchema "RuleName"
-    --     |> Rule.withSimpleExpressionVisitor expressionVisitor
-    --     |> Rule.withInitialContext something
-    --     |> Rule.withImportVisitor importVisitor
-    --     |> Rule.fromSchema
-    -- Which is nice because this is a rule that does nothing. It doesn't yet
-    -- prevent the following, but I haven't yet found a fitting phantom type.
-    --   Rule.newSchema "RuleName"
-    --     |> Rule.withInitialContext something
-    --     |> Rule.fromSchema
-    = Schema
+type ModuleRuleSchema configuration context
+    = ModuleRuleSchema
         { name : String
         , initialContext : context
         , elmJsonVisitors : List (Maybe Elm.Project.Project -> context -> context)
@@ -304,10 +281,10 @@ runRules rules project =
 run : Rule -> Project -> ( List Error, Rule )
 run rule project =
     case rule of
-        Single _ fn ->
+        ModuleRule _ fn ->
             fn project
 
-        Multi _ fn ->
+        ProjectRule _ fn ->
             fn project
 
 
@@ -343,7 +320,7 @@ type Direction
     | OnExit
 
 
-{-| Creates a new schema for a rule. Will require calling [`fromSchema`](#fromSchema)
+{-| Creates a new schema for a rule. Will require calling [`fromModuleRuleSchema`](#fromModuleRuleSchema)
 to create a usable [`Rule`](#Rule). Use "with\*" functions from this module, like
 [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) or [`withSimpleImportVisitor`](#withSimpleImportVisitor)
 to make it report something.
@@ -352,11 +329,12 @@ to make it report something.
 
     rule : Rule
     rule =
-        Rule.newSchema "NoDebug"
+        Rule.newModuleRuleSchema "NoDebug" ()
             |> Rule.withSimpleExpressionVisitor expressionVisitor
             |> Rule.withSimpleImportVisitor importVisitor
-            |> Rule.fromSchema
+            |> Rule.fromModuleRuleSchema
 
+TODO Update this text
 If you wish to build a [`Rule`](#Rule) that collects data as the file gets traversed,
 take a look at [`withInitialContext`](#withInitialContext) and "with\*" functions without
 "Simple" in their name, like [`withExpressionVisitor`](#withExpressionVisitor),
@@ -366,31 +344,39 @@ take a look at [`withInitialContext`](#withInitialContext) and "with\*" function
 
     rule : Rule
     rule =
-        Rule.newSchema "NoUnusedVariables"
-            |> Rule.withInitialContext { declaredVariables = [], usedVariables = [] }
+        Rule.newModuleRuleSchema "NoUnusedVariables" initialContext
             |> Rule.withExpressionVisitor expressionVisitor
             |> Rule.withImportVisitor importVisitor
-            |> Rule.fromSchema
+            |> Rule.fromModuleRuleSchema
+
+    type alias Context =
+        { declaredVariables : List String
+        , usedVariables : List String
+        }
+
+    initialContext : Context
+    initialContext =
+        { declaredVariables = [], usedVariables = [] }
 
 -}
-newSchema :
+newModuleRuleSchema :
     String
     -> context
-    -> Schema { withElmJsonVisitor : (), withDependenciesVisitor : () } context
-newSchema name_ context =
+    -> ModuleRuleSchema { withElmJsonVisitor : (), withDependenciesVisitor : () } context
+newModuleRuleSchema name_ context =
     emptySchema name_ context
 
 
-{-| Create a [`Rule`](#Rule) from a configured [`Schema`](#Schema).
+{-| Create a [`Rule`](#Rule) from a configured [`ModuleRuleSchema`](#ModuleRuleSchema).
 -}
-fromSchema : Schema { anything | hasAtLeastOneVisitor : () } context -> Rule
-fromSchema ((Schema { name }) as schema) =
-    Single name (runSingle (reverseVisitors schema) Dict.empty)
+fromModuleRuleSchema : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context -> Rule
+fromModuleRuleSchema ((ModuleRuleSchema { name }) as schema) =
+    ModuleRule name (runModuleRule (reverseVisitors schema) Dict.empty)
 
 
-reverseVisitors : Schema anything context -> Schema anything context
-reverseVisitors (Schema schema) =
-    Schema
+reverseVisitors : ModuleRuleSchema anything context -> ModuleRuleSchema anything context
+reverseVisitors (ModuleRuleSchema schema) =
+    ModuleRuleSchema
         { schema
             | elmJsonVisitors = List.reverse schema.elmJsonVisitors
             , dependenciesVisitors = List.reverse schema.dependenciesVisitors
@@ -401,21 +387,21 @@ reverseVisitors (Schema schema) =
         }
 
 
-type alias SingleRuleCache =
+type alias ModuleRuleCache =
     Dict String
         { source : String
         , errors : List Error
         }
 
 
-runSingle : Schema { anything | hasAtLeastOneVisitor : () } context -> SingleRuleCache -> Project -> ( List Error, Rule )
-runSingle ((Schema { name }) as schema) startCache project =
+runModuleRule : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context -> ModuleRuleCache -> Project -> ( List Error, Rule )
+runModuleRule ((ModuleRuleSchema { name }) as schema) startCache project =
     let
         computeErrors_ : ParsedFile -> List Error
         computeErrors_ =
             computeErrors schema project
 
-        newCache : SingleRuleCache
+        newCache : ModuleRuleCache
         newCache =
             List.foldl
                 (\module_ cache ->
@@ -440,11 +426,11 @@ runSingle ((Schema { name }) as schema) startCache project =
                 |> Dict.values
                 |> List.concatMap .errors
     in
-    ( errors, Single name (runSingle schema newCache) )
+    ( errors, ModuleRule name (runModuleRule schema newCache) )
 
 
-computeErrors : Schema { anything | hasAtLeastOneVisitor : () } context -> Project -> ParsedFile -> List Error
-computeErrors (Schema schema) project =
+computeErrors : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context -> Project -> ParsedFile -> List Error
+computeErrors (ModuleRuleSchema schema) project =
     let
         initialContext : context
         initialContext =
@@ -496,22 +482,22 @@ makeFinalEvaluation finalEvaluationFns ( previousErrors, context ) =
 
 
 
--- MULTI FILE RULES
+-- PROJECT RULES
 
 
-type MultiSchema globalContext moduleContext
-    = MultiSchema
+type ProjectRuleSchema projectContext moduleContext
+    = ProjectRuleSchema
         { name : String
         , context :
-            { initGlobalContext : globalContext
-            , fromGlobalToModule : FileKey -> Node ModuleName -> globalContext -> moduleContext
-            , fromModuleToGlobal : FileKey -> Node ModuleName -> moduleContext -> globalContext
-            , foldGlobalContexts : globalContext -> globalContext -> globalContext
+            { initProjectContext : projectContext
+            , fromGlobalToModule : FileKey -> Node ModuleName -> projectContext -> moduleContext
+            , fromModuleToGlobal : FileKey -> Node ModuleName -> moduleContext -> projectContext
+            , foldProjectContexts : projectContext -> projectContext -> projectContext
             }
-        , moduleVisitorSchema : Schema {} moduleContext -> Schema { hasAtLeastOneVisitor : () } moduleContext
-        , elmJsonVisitors : List (Maybe Elm.Project.Project -> globalContext -> globalContext)
-        , dependenciesVisitors : List (Dict String Elm.Docs.Module -> globalContext -> globalContext)
-        , finalEvaluationFns : List (globalContext -> List Error)
+        , moduleVisitorSchema : ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
+        , elmJsonVisitors : List (Maybe Elm.Project.Project -> projectContext -> projectContext)
+        , dependenciesVisitors : List (Dict String Elm.Docs.Module -> projectContext -> projectContext)
+        , finalEvaluationFns : List (projectContext -> List Error)
         , traversalType : TraversalType
         }
 
@@ -521,24 +507,24 @@ type TraversalType
     | ImportedModulesFirst
 
 
-newMultiSchema :
+newProjectRuleSchema :
     String
     ->
-        { moduleVisitorSchema : Schema {} moduleContext -> Schema { hasAtLeastOneVisitor : () } moduleContext
-        , initGlobalContext : globalContext
-        , fromGlobalToModule : FileKey -> Node ModuleName -> globalContext -> moduleContext
-        , fromModuleToGlobal : FileKey -> Node ModuleName -> moduleContext -> globalContext
-        , foldGlobalContexts : globalContext -> globalContext -> globalContext
+        { moduleVisitorSchema : ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
+        , initProjectContext : projectContext
+        , fromGlobalToModule : FileKey -> Node ModuleName -> projectContext -> moduleContext
+        , fromModuleToGlobal : FileKey -> Node ModuleName -> moduleContext -> projectContext
+        , foldProjectContexts : projectContext -> projectContext -> projectContext
         }
-    -> MultiSchema globalContext moduleContext
-newMultiSchema name_ { moduleVisitorSchema, initGlobalContext, fromGlobalToModule, fromModuleToGlobal, foldGlobalContexts } =
-    MultiSchema
+    -> ProjectRuleSchema projectContext moduleContext
+newProjectRuleSchema name_ { moduleVisitorSchema, initProjectContext, fromGlobalToModule, fromModuleToGlobal, foldProjectContexts } =
+    ProjectRuleSchema
         { name = name_
         , context =
-            { initGlobalContext = initGlobalContext
+            { initProjectContext = initProjectContext
             , fromGlobalToModule = fromGlobalToModule
             , fromModuleToGlobal = fromModuleToGlobal
-            , foldGlobalContexts = foldGlobalContexts
+            , foldProjectContexts = foldProjectContexts
             }
         , moduleVisitorSchema = moduleVisitorSchema
         , elmJsonVisitors = []
@@ -548,8 +534,8 @@ newMultiSchema name_ { moduleVisitorSchema, initGlobalContext, fromGlobalToModul
         }
 
 
-visitFileForMulti : Schema { hasAtLeastOneVisitor : () } context -> context -> ParsedFile -> ( List Error, context )
-visitFileForMulti (Schema schema) =
+visitModuleForProjectRule : ModuleRuleSchema { hasAtLeastOneVisitor : () } context -> context -> ParsedFile -> ( List Error, context )
+visitModuleForProjectRule (ModuleRuleSchema schema) =
     let
         declarationVisitors : InAndOut (DirectedVisitor Declaration context)
         declarationVisitors =
@@ -570,11 +556,11 @@ visitFileForMulti (Schema schema) =
 
 {-| TODO documentation
 -}
-fromMultiSchema : MultiSchema globalContext moduleContext -> Rule
-fromMultiSchema (MultiSchema schema) =
-    Multi schema.name
-        (runMulti
-            (MultiSchema
+fromProjectRuleSchema : ProjectRuleSchema projectContext moduleContext -> Rule
+fromProjectRuleSchema (ProjectRuleSchema schema) =
+    ProjectRule schema.name
+        (runProjectRule
+            (ProjectRuleSchema
                 { schema
                     | elmJsonVisitors = List.reverse schema.elmJsonVisitors
                     , dependenciesVisitors = List.reverse schema.dependenciesVisitors
@@ -585,7 +571,7 @@ fromMultiSchema (MultiSchema schema) =
         )
 
 
-type alias MultiRuleCache context =
+type alias ProjectRuleCache context =
     Dict String
         { source : String
         , errors : List Error
@@ -593,8 +579,8 @@ type alias MultiRuleCache context =
         }
 
 
-runMulti : MultiSchema globalContext moduleContext -> MultiRuleCache globalContext -> Project -> ( List Error, Rule )
-runMulti ((MultiSchema { traversalType }) as schema) =
+runProjectRule : ProjectRuleSchema projectContext moduleContext -> ProjectRuleCache projectContext -> Project -> ( List Error, Rule )
+runProjectRule ((ProjectRuleSchema { traversalType }) as schema) =
     case traversalType of
         AllFilesInParallel ->
             allFilesInParallelTraversal schema
@@ -603,16 +589,16 @@ runMulti ((MultiSchema { traversalType }) as schema) =
             importedModulesFirst schema
 
 
-allFilesInParallelTraversal : MultiSchema globalContext moduleContext -> MultiRuleCache globalContext -> Project -> ( List Error, Rule )
-allFilesInParallelTraversal (MultiSchema schema) startCache project =
+allFilesInParallelTraversal : ProjectRuleSchema projectContext moduleContext -> ProjectRuleCache projectContext -> Project -> ( List Error, Rule )
+allFilesInParallelTraversal (ProjectRuleSchema schema) startCache project =
     let
-        initialContext : globalContext
+        initialContext : projectContext
         initialContext =
-            schema.context.initGlobalContext
+            schema.context.initProjectContext
                 |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project)
                 |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencyModules project)
 
-        computeModule : ParsedFile -> { source : String, errors : List Error, context : globalContext }
+        computeModule : ParsedFile -> { source : String, errors : List Error, context : projectContext }
         computeModule module_ =
             let
                 fileKey : FileKey
@@ -630,14 +616,14 @@ allFilesInParallelTraversal (MultiSchema schema) startCache project =
                         moduleNameNode_
                         initialContext
 
-                moduleVisitor : Schema { hasAtLeastOneVisitor : () } moduleContext
+                moduleVisitor : ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
                 moduleVisitor =
                     emptySchema "" initialModuleContext
                         |> schema.moduleVisitorSchema
                         |> reverseVisitors
 
                 ( fileErrors, context ) =
-                    visitFileForMulti
+                    visitModuleForProjectRule
                         moduleVisitor
                         initialModuleContext
                         module_
@@ -651,7 +637,7 @@ allFilesInParallelTraversal (MultiSchema schema) startCache project =
                     context
             }
 
-        newCache : MultiRuleCache globalContext
+        newCache : ProjectRuleCache projectContext
         newCache =
             List.foldl
                 (\module_ cache ->
@@ -670,7 +656,7 @@ allFilesInParallelTraversal (MultiSchema schema) startCache project =
                 startCache
                 (Review.Project.modules project)
 
-        contextsAndErrorsPerFile : List ( List Error, globalContext )
+        contextsAndErrorsPerFile : List ( List Error, projectContext )
         contextsAndErrorsPerFile =
             newCache
                 |> Dict.values
@@ -682,16 +668,16 @@ allFilesInParallelTraversal (MultiSchema schema) startCache project =
                 [ List.concatMap Tuple.first contextsAndErrorsPerFile
                 , contextsAndErrorsPerFile
                     |> List.map Tuple.second
-                    |> List.foldl schema.context.foldGlobalContexts initialContext
-                    |> makeFinalEvaluationForMulti schema.finalEvaluationFns
+                    |> List.foldl schema.context.foldProjectContexts initialContext
+                    |> makeFinalEvaluationForProject schema.finalEvaluationFns
                     |> List.map (\(Error err) -> Error { err | ruleName = schema.name })
                 ]
     in
-    ( errors, Multi schema.name (runMulti (MultiSchema schema) newCache) )
+    ( errors, ProjectRule schema.name (runProjectRule (ProjectRuleSchema schema) newCache) )
 
 
-importedModulesFirst : MultiSchema globalContext moduleContext -> MultiRuleCache globalContext -> Project -> ( List Error, Rule )
-importedModulesFirst (MultiSchema schema) startCache project =
+importedModulesFirst : ProjectRuleSchema projectContext moduleContext -> ProjectRuleCache projectContext -> Project -> ( List Error, Rule )
+importedModulesFirst (ProjectRuleSchema schema) startCache project =
     let
         graph : Graph ModuleName ()
         graph =
@@ -701,9 +687,9 @@ importedModulesFirst (MultiSchema schema) startCache project =
     case Graph.checkAcyclic graph |> Result.map Graph.topologicalSort of
         Ok nodeContexts ->
             let
-                initialContext : globalContext
+                initialContext : projectContext
                 initialContext =
-                    schema.context.initGlobalContext
+                    schema.context.initProjectContext
                         |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project)
                         |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencyModules project)
 
@@ -720,7 +706,7 @@ importedModulesFirst (MultiSchema schema) startCache project =
                             )
                             Dict.empty
 
-                computeModule : MultiRuleCache globalContext -> List ParsedFile -> ParsedFile -> { source : String, errors : List Error, context : globalContext }
+                computeModule : ProjectRuleCache projectContext -> List ParsedFile -> ParsedFile -> { source : String, errors : List Error, context : projectContext }
                 computeModule cache importedModules module_ =
                     let
                         fileKey : FileKey
@@ -740,17 +726,17 @@ importedModulesFirst (MultiSchema schema) startCache project =
                                             |> Maybe.map .context
                                     )
                                 -- TODO Remove contexts from parents already handled by other parents
-                                |> List.foldl schema.context.foldGlobalContexts initialContext
+                                |> List.foldl schema.context.foldProjectContexts initialContext
                                 |> schema.context.fromGlobalToModule fileKey moduleNameNode_
 
-                        moduleVisitor : Schema { hasAtLeastOneVisitor : () } moduleContext
+                        moduleVisitor : ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
                         moduleVisitor =
                             emptySchema "" initialModuleContext
                                 |> schema.moduleVisitorSchema
                                 |> reverseVisitors
 
                         ( fileErrors, context ) =
-                            visitFileForMulti
+                            visitModuleForProjectRule
                                 moduleVisitor
                                 initialModuleContext
                                 module_
@@ -764,7 +750,7 @@ importedModulesFirst (MultiSchema schema) startCache project =
                             context
                     }
 
-                newStartCache : MultiRuleCache globalContext
+                newStartCache : ProjectRuleCache projectContext
                 newStartCache =
                     case Dict.get "#INITIAL_CONTEXT#" startCache of
                         Nothing ->
@@ -777,7 +763,7 @@ importedModulesFirst (MultiSchema schema) startCache project =
                         Just _ ->
                             startCache
 
-                newCache : MultiRuleCache globalContext
+                newCache : ProjectRuleCache projectContext
                 newCache =
                     List.foldl
                         (computeModuleAndCacheResult modules graph computeModule)
@@ -785,7 +771,7 @@ importedModulesFirst (MultiSchema schema) startCache project =
                         nodeContexts
                         |> Tuple.first
 
-                contextsAndErrorsPerFile : List ( List Error, globalContext )
+                contextsAndErrorsPerFile : List ( List Error, projectContext )
                 contextsAndErrorsPerFile =
                     -- TODO select leaf nodes and fold their contexts only
                     newCache
@@ -799,25 +785,25 @@ importedModulesFirst (MultiSchema schema) startCache project =
                         [ List.concatMap Tuple.first contextsAndErrorsPerFile
                         , contextsAndErrorsPerFile
                             |> List.map Tuple.second
-                            |> List.foldl schema.context.foldGlobalContexts initialContext
-                            |> makeFinalEvaluationForMulti schema.finalEvaluationFns
+                            |> List.foldl schema.context.foldProjectContexts initialContext
+                            |> makeFinalEvaluationForProject schema.finalEvaluationFns
                             |> List.map (\(Error err) -> Error { err | ruleName = schema.name })
                         ]
             in
-            ( errors, Multi schema.name (runMulti (MultiSchema schema) newCache) )
+            ( errors, ProjectRule schema.name (runProjectRule (ProjectRuleSchema schema) newCache) )
 
         Err _ ->
             -- TODO return some kind of global error?
-            ( [], Multi schema.name (runMulti (MultiSchema schema) startCache) )
+            ( [], ProjectRule schema.name (runProjectRule (ProjectRuleSchema schema) startCache) )
 
 
 computeModuleAndCacheResult :
     Dict ModuleName ParsedFile
     -> Graph ModuleName ()
-    -> (MultiRuleCache globalContext -> List ParsedFile -> ParsedFile -> { source : String, errors : List Error, context : globalContext })
+    -> (ProjectRuleCache projectContext -> List ParsedFile -> ParsedFile -> { source : String, errors : List Error, context : projectContext })
     -> Graph.NodeContext ModuleName ()
-    -> ( MultiRuleCache globalContext, Set ModuleName )
-    -> ( MultiRuleCache globalContext, Set ModuleName )
+    -> ( ProjectRuleCache projectContext, Set ModuleName )
+    -> ( ProjectRuleCache projectContext, Set ModuleName )
 computeModuleAndCacheResult modules graph computeModule { node, incoming } ( cache, invalidatedModules ) =
     case Dict.get node.label modules of
         Nothing ->
@@ -837,7 +823,7 @@ computeModuleAndCacheResult modules graph computeModule { node, incoming } ( cac
 
                 compute previousResult =
                     let
-                        result : { source : String, errors : List Error, context : globalContext }
+                        result : { source : String, errors : List Error, context : projectContext }
                         result =
                             computeModule cache importedModules module_
                     in
@@ -880,8 +866,8 @@ getModuleName module_ =
 
 {-| Concatenate the errors of the previous step and of the last step.
 -}
-makeFinalEvaluationForMulti : List (context -> List Error) -> context -> List Error
-makeFinalEvaluationForMulti finalEvaluationFns context =
+makeFinalEvaluationForProject : List (context -> List Error) -> context -> List Error
+makeFinalEvaluationForProject finalEvaluationFns context =
     List.concatMap
         (\visitor -> visitor context)
         finalEvaluationFns
@@ -902,42 +888,42 @@ moduleNameNode node =
 
 {-| TODO documentation
 -}
-traversingImportedModulesFirst : MultiSchema globalContext moduleContext -> MultiSchema globalContext moduleContext
-traversingImportedModulesFirst (MultiSchema schema) =
-    MultiSchema { schema | traversalType = ImportedModulesFirst }
+traversingImportedModulesFirst : ProjectRuleSchema projectContext moduleContext -> ProjectRuleSchema projectContext moduleContext
+traversingImportedModulesFirst (ProjectRuleSchema schema) =
+    ProjectRuleSchema { schema | traversalType = ImportedModulesFirst }
 
 
 {-| TODO documentation
 -}
-withMultiElmJsonVisitor :
-    (Maybe Elm.Project.Project -> globalContext -> globalContext)
-    -> MultiSchema globalContext moduleContext
-    -> MultiSchema globalContext moduleContext
-withMultiElmJsonVisitor visitor (MultiSchema schema) =
-    MultiSchema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
+withProjectElmJsonVisitor :
+    (Maybe Elm.Project.Project -> projectContext -> projectContext)
+    -> ProjectRuleSchema projectContext moduleContext
+    -> ProjectRuleSchema projectContext moduleContext
+withProjectElmJsonVisitor visitor (ProjectRuleSchema schema) =
+    ProjectRuleSchema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
 
 
 {-| TODO documentation
 -}
-withMultiDependenciesVisitor :
-    (Dict String Elm.Docs.Module -> globalContext -> globalContext)
-    -> MultiSchema globalContext moduleContext
-    -> MultiSchema globalContext moduleContext
-withMultiDependenciesVisitor visitor (MultiSchema schema) =
-    MultiSchema { schema | dependenciesVisitors = visitor :: schema.dependenciesVisitors }
+withProjectDependenciesVisitor :
+    (Dict String Elm.Docs.Module -> projectContext -> projectContext)
+    -> ProjectRuleSchema projectContext moduleContext
+    -> ProjectRuleSchema projectContext moduleContext
+withProjectDependenciesVisitor visitor (ProjectRuleSchema schema) =
+    ProjectRuleSchema { schema | dependenciesVisitors = visitor :: schema.dependenciesVisitors }
 
 
 {-| TODO documentation
 -}
-withMultiFinalEvaluation :
-    (globalContext -> List Error)
-    -> MultiSchema globalContext moduleContext
-    -> MultiSchema globalContext moduleContext
-withMultiFinalEvaluation visitor (MultiSchema schema) =
-    MultiSchema { schema | finalEvaluationFns = visitor :: schema.finalEvaluationFns }
+withProjectFinalEvaluation :
+    (projectContext -> List Error)
+    -> ProjectRuleSchema projectContext moduleContext
+    -> ProjectRuleSchema projectContext moduleContext
+withProjectFinalEvaluation visitor (ProjectRuleSchema schema) =
+    ProjectRuleSchema { schema | finalEvaluationFns = visitor :: schema.finalEvaluationFns }
 
 
-{-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s [module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`) and report patterns.
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the `File`'s [module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`) and report patterns.
 
 The following example forbids having `_` in any part of a module name.
 
@@ -947,9 +933,9 @@ The following example forbids having `_` in any part of a module name.
 
     rule : Rule
     rule =
-        Rule.newSchema "NoUnderscoreInModuleName"
+        Rule.newModuleRuleSchema "NoUnderscoreInModuleName" ()
             |> Rule.withSimpleModuleDefinitionVisitor moduleDefinitionVisitor
-            |> Rule.fromSchema
+            |> Rule.fromModuleRuleSchema
 
     moduleDefinitionVisitor : Node Module -> List Error
     moduleDefinitionVisitor node =
@@ -968,12 +954,12 @@ Note: `withSimpleModuleDefinitionVisitor` is a simplified version of [`withModul
 which isn't passed a `context` and doesn't return one. You can use `withSimpleModuleDefinitionVisitor` even if you use "non-simple with\*" functions.
 
 -}
-withSimpleModuleDefinitionVisitor : (Node Module -> List Error) -> Schema anything context -> Schema { anything | hasAtLeastOneVisitor : () } context
+withSimpleModuleDefinitionVisitor : (Node Module -> List Error) -> ModuleRuleSchema anything context -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context
 withSimpleModuleDefinitionVisitor visitor schema =
     withModuleDefinitionVisitor (\node context -> ( visitor node, context )) schema
 
 
-{-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s [import statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Import) (`import Html as H exposing (div)`) in order of their definition and report patterns.
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the `File`'s [import statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Import) (`import Html as H exposing (div)`) in order of their definition and report patterns.
 
 The following example forbids using the core Html package and suggests using
 `elm-css` instead.
@@ -984,9 +970,9 @@ The following example forbids using the core Html package and suggests using
 
     rule : Rule
     rule =
-        Rule.newSchema "NoCoreHtml"
+        Rule.newModuleRuleSchema "NoCoreHtml" ()
             |> Rule.withSimpleImportVisitor importVisitor
-            |> Rule.fromSchema
+            |> Rule.fromModuleRuleSchema
 
     importVisitor : Node Import -> List Error
     importVisitor node =
@@ -1017,12 +1003,12 @@ Note: `withSimpleImportVisitor` is a simplified version of [`withImportVisitor`]
 which isn't passed a `context` and doesn't return one. You can use `withSimpleImportVisitor` even if you use "non-simple with\*" functions.
 
 -}
-withSimpleImportVisitor : (Node Import -> List Error) -> Schema anything context -> Schema { anything | hasAtLeastOneVisitor : () } context
+withSimpleImportVisitor : (Node Import -> List Error) -> ModuleRuleSchema anything context -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context
 withSimpleImportVisitor visitor schema =
     withImportVisitor (\node context -> ( visitor node, context )) schema
 
 
-{-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the `File`'s
 [declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Declaration)
 (`someVar = add 1 2`, `type Bool = True | False`, `port output : Json.Encode.Value -> Cmd msg`)
 and report patterns. The declarations will be visited in the order of their definition.
@@ -1036,9 +1022,9 @@ annotation.
 
     rule : Rule
     rule =
-        Rule.newSchema "NoMissingTypeAnnotation"
+        Rule.newModuleRuleSchema "NoMissingTypeAnnotation" ()
             |> Rule.withSimpleDeclarationVisitor declarationVisitor
-            |> Rule.fromSchema
+            |> Rule.fromModuleRuleSchema
 
     declarationVisitor : Node Declaration -> List Error
     declarationVisitor node =
@@ -1071,7 +1057,7 @@ Note: `withSimpleDeclarationVisitor` is a simplified version of [`withDeclaratio
 which isn't passed a [`Direction`](#Direction) (it will only be called `OnEnter`ing the node) and a `context` and doesn't return a context. You can use `withSimpleDeclarationVisitor` even if you use "non-simple with\*" functions.
 
 -}
-withSimpleDeclarationVisitor : (Node Declaration -> List Error) -> Schema anything context -> Schema { anything | hasAtLeastOneVisitor : () } context
+withSimpleDeclarationVisitor : (Node Declaration -> List Error) -> ModuleRuleSchema anything context -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context
 withSimpleDeclarationVisitor visitor schema =
     withDeclarationVisitor
         (\node direction context ->
@@ -1085,7 +1071,7 @@ withSimpleDeclarationVisitor visitor schema =
         schema
 
 
-{-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the `File`'s
 [expressions](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Expression)
 (`1`, `True`, `add 1 2`, `1 + 2`). The expressions are visited in pre-order
 depth-first search, meaning that an expression will be visited, then its first
@@ -1099,9 +1085,9 @@ The following example forbids using the Debug module.
 
     rule : Rule
     rule =
-        Rule.newSchema "NoDebug"
+        Rule.newModuleRuleSchema "NoDebug" ()
             |> Rule.withSimpleExpressionVisitor expressionVisitor
-            |> Rule.fromSchema
+            |> Rule.fromModuleRuleSchema
 
     expressionVisitor : Node Expression -> List Error
     expressionVisitor node =
@@ -1125,7 +1111,7 @@ Note: `withSimpleExpressionVisitor` is a simplified version of [`withExpressionV
 which isn't passed a [`Direction`](#Direction) (it will only be called `OnEnter`ing the node) and a `context` and doesn't return a context. You can use `withSimpleExpressionVisitor` even if you use "non-simple with\*" functions.
 
 -}
-withSimpleExpressionVisitor : (Node Expression -> List Error) -> Schema anything context -> Schema { anything | hasAtLeastOneVisitor : () } context
+withSimpleExpressionVisitor : (Node Expression -> List Error) -> ModuleRuleSchema anything context -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context
 withSimpleExpressionVisitor visitor schema =
     withExpressionVisitor
         (\node direction context ->
@@ -1166,8 +1152,8 @@ A few use examples:
 The `context` you choose needs to be of the same type for all visitors. In practice,
 it is similar to a `Model` for a rule.
 
-The following example forbids calling `Rule.newSchema` with a name that is not
-the same as the module's name (forbidding `Rule.newSchema "NoSomething"` when the
+The following example forbids calling `Rule.newModuleRuleSchema` with a name that is not
+the same as the module's name (forbidding `Rule.newModuleRuleSchema "NoSomething"` when the
 module name is `Review.Rule.NoSomethingElse`).
 
     import Elm.Syntax.Expression exposing (Expression(..))
@@ -1181,11 +1167,10 @@ module name is `Review.Rule.NoSomethingElse`).
 
     rule : Rule
     rule =
-        Rule.newSchema "NoDifferentNameForRuleAndModuleName"
-            |> Rule.withInitialContext Nothing
+        Rule.newModuleRuleSchema "NoDifferentNameForRuleAndModuleName" Nothing
             |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
             |> Rule.withExpressionVisitor expressionVisitor
-            |> Rule.fromSchema
+            |> Rule.fromModuleRuleSchema
 
     moduleDefinitionVisitor : Node Module -> Context -> ( List Error, Context )
     moduleDefinitionVisitor node context =
@@ -1205,7 +1190,7 @@ module name is `Review.Rule.NoSomethingElse`).
         case ( direction, Node.value node ) of
             ( Rule.OnEnter, Application (function :: ruleNameNode :: _) ) ->
                 case ( Node.value function, Node.value ruleNameNode ) of
-                    ( FunctionOrValue [ "Rule" ] "newSchema", Literal ruleName ) ->
+                    ( FunctionOrValue [ "Rule" ] "newModuleRuleSchema", Literal ruleName ) ->
                         if Just ruleName /= context then
                             let
                                 suggestedName : String
@@ -1235,14 +1220,10 @@ module name is `Review.Rule.NoSomethingElse`).
             _ ->
                 ( [], context )
 
-Note that due to implementation details, `withInitialContext` needs to be chained
-right after [`newSchema`](#newSchema) just like in the example above, as previous
-"with\*" functions will be ignored.
-
 -}
-emptySchema : String -> context -> Schema anything context
+emptySchema : String -> context -> ModuleRuleSchema anything context
 emptySchema name_ initialContext =
-    Schema
+    ModuleRuleSchema
         { name = name_
         , initialContext = initialContext
         , elmJsonVisitors = []
@@ -1256,7 +1237,7 @@ emptySchema name_ initialContext =
         }
 
 
-{-| Add a visitor to the [`Schema`](#Schema) which will visit the project's
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the project's
 [`elm.json`](https://package.elm-lang.org/packages/elm/project-metadata-utils/latest/Elm-Project) file.
 information, such as the contents of the `elm.json` file, to collect data (`module SomeModuleName exposing (a, b)`), collect data in the `context` and/or report patterns.
 
@@ -1273,11 +1254,10 @@ The following example forbids exposing a file in an "Internal" directory in your
 
     rule : Rule
     rule =
-        Rule.newSchema "DoNoExposeInternalModules"
-            |> Rule.withInitialContext Nothing
+        Rule.newModuleRuleSchema "DoNoExposeInternalModules" Nothing
             |> Rule.withElmJsonVisitor elmJsonVisitor
             |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-            |> Rule.fromSchema
+            |> Rule.fromModuleRuleSchema
 
     elmJsonVisitor : Maybe Elm.Project.Project -> Context -> Context
     elmJsonVisitor elmJson context =
@@ -1321,21 +1301,21 @@ The following example forbids exposing a file in an "Internal" directory in your
 -}
 withElmJsonVisitor :
     (Maybe Elm.Project.Project -> context -> context)
-    -> Schema { anything | withElmJsonVisitor : () } context
-    -> Schema { anything | withElmJsonVisitor : () } context
-withElmJsonVisitor visitor (Schema schema) =
-    Schema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
+    -> ModuleRuleSchema { anything | withElmJsonVisitor : () } context
+    -> ModuleRuleSchema { anything | withElmJsonVisitor : () } context
+withElmJsonVisitor visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
 
 
 withDependenciesVisitor :
     (Dict String Elm.Docs.Module -> context -> context)
-    -> Schema { anything | withDependenciesVisitor : () } context
-    -> Schema { anything | withDependenciesVisitor : () } context
-withDependenciesVisitor visitor (Schema schema) =
-    Schema { schema | dependenciesVisitors = visitor :: schema.dependenciesVisitors }
+    -> ModuleRuleSchema { anything | withDependenciesVisitor : () } context
+    -> ModuleRuleSchema { anything | withDependenciesVisitor : () } context
+withDependenciesVisitor visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | dependenciesVisitors = visitor :: schema.dependenciesVisitors }
 
 
-{-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the `File`'s
 [module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`), collect data in the `context` and/or report patterns.
 
 The following example forbids the use of `Html.button` except in the "Button" file.
@@ -1352,11 +1332,10 @@ The example is simplified to only forbid the use of the `Html.button` expression
 
     rule : Rule
     rule =
-        Rule.newSchema "NoHtmlButton"
-            |> Rule.withInitialContext HtmlButtonIsForbidden
+        Rule.newModuleRuleSchema "NoHtmlButton" HtmlButtonIsForbidden
             |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
             |> Rule.withExpressionVisitor expressionVisitor
-            |> Rule.fromSchema
+            |> Rule.fromModuleRuleSchema
 
     moduleDefinitionVisitor : Node Module -> Context -> ( List Error, Context )
     moduleDefinitionVisitor node context =
@@ -1394,12 +1373,12 @@ Tip: If you do not need to collect data in this visitor, you may wish to use the
 simpler [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) function.
 
 -}
-withModuleDefinitionVisitor : (Node Module -> context -> ( List Error, context )) -> Schema anything context -> Schema { anything | hasAtLeastOneVisitor : () } context
-withModuleDefinitionVisitor visitor (Schema schema) =
-    Schema { schema | moduleDefinitionVisitors = visitor :: schema.moduleDefinitionVisitors }
+withModuleDefinitionVisitor : (Node Module -> context -> ( List Error, context )) -> ModuleRuleSchema anything context -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context
+withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | moduleDefinitionVisitors = visitor :: schema.moduleDefinitionVisitors }
 
 
-{-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the `File`'s
 [import statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Import)
 (`import Html as H exposing (div)`) in order of their definition, collect data
 in the `context` and/or report patterns.
@@ -1418,10 +1397,15 @@ The following example forbids importing both `Element` (`elm-ui`) and
 
     rule : Rule
     rule =
-        Rule.newSchema "NoUsingBothHtmlAndHtmlStyled"
-            |> Rule.withInitialContext { elmUiWasImported = False, elmCssWasImported = False }
+        Rule.newModuleRuleSchema "NoUsingBothHtmlAndHtmlStyled" initialContext
             |> Rule.withImportVisitor importVisitor
-            |> Rule.fromSchema
+            |> Rule.fromModuleRuleSchema
+
+    initialContext : Context
+    initialContext =
+        { elmUiWasImported = False
+        , elmCssWasImported = False
+        }
 
     error : Node Import -> Error
     error node =
@@ -1465,12 +1449,12 @@ Tip: If you do not need to collect or use the `context` in this visitor, you may
 simpler [`withSimpleImportVisitor`](#withSimpleImportVisitor) function.
 
 -}
-withImportVisitor : (Node Import -> context -> ( List Error, context )) -> Schema anything context -> Schema { anything | hasAtLeastOneVisitor : () } context
-withImportVisitor visitor (Schema schema) =
-    Schema { schema | importVisitors = visitor :: schema.importVisitors }
+withImportVisitor : (Node Import -> context -> ( List Error, context )) -> ModuleRuleSchema anything context -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context
+withImportVisitor visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | importVisitors = visitor :: schema.importVisitors }
 
 
-{-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the `File`'s
 [declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Declaration)
 (`someVar = add 1 2`, `type Bool = True | False`, `port output : Json.Encode.Value -> Cmd msg`),
 collect data and/or report patterns. The declarations will be visited in the order of their definition.
@@ -1490,11 +1474,10 @@ type annotation.
 
     rule : Rule
     rule =
-        Rule.newSchema "NoMissingDocumentationForExposedFunctions"
-            |> Rule.withInitialContext (OnlySome [])
+        Rule.newModuleRuleSchema "NoMissingDocumentationForExposedFunctions" (OnlySome [])
             |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
             |> Rule.withDeclarationVisitor declarationVisitor
-            |> Rule.fromSchema
+            |> Rule.fromModuleRuleSchema
 
     moduleDefinitionVisitor : Node Module -> ExposedFunctions -> ( List Error, ExposedFunctions )
     moduleDefinitionVisitor node context =
@@ -1555,12 +1538,12 @@ Tip: If you do not need to collect or use the `context` in this visitor, you may
 simpler [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) function.
 
 -}
-withDeclarationVisitor : (Node Declaration -> Direction -> context -> ( List Error, context )) -> Schema anything context -> Schema { anything | hasAtLeastOneVisitor : () } context
-withDeclarationVisitor visitor (Schema schema) =
-    Schema { schema | declarationVisitors = visitor :: schema.declarationVisitors }
+withDeclarationVisitor : (Node Declaration -> Direction -> context -> ( List Error, context )) -> ModuleRuleSchema anything context -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context
+withDeclarationVisitor visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | declarationVisitors = visitor :: schema.declarationVisitors }
 
 
-{-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the `File`'s
 [declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Declaration)
 (`someVar = add 1 2`, `type Bool = True | False`, `port output : Json.Encode.Value -> Cmd msg`),
 collect data and/or report patterns.
@@ -1574,12 +1557,12 @@ and [withExpressionVisitor](#withExpressionVisitor). Otherwise, using
 [withDeclarationVisitor](#withDeclarationVisitor) is probably a simpler choice.
 
 -}
-withDeclarationListVisitor : (List (Node Declaration) -> context -> ( List Error, context )) -> Schema anything context -> Schema { anything | hasAtLeastOneVisitor : () } context
-withDeclarationListVisitor visitor (Schema schema) =
-    Schema { schema | declarationListVisitors = visitor :: schema.declarationListVisitors }
+withDeclarationListVisitor : (List (Node Declaration) -> context -> ( List Error, context )) -> ModuleRuleSchema anything context -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context
+withDeclarationListVisitor visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | declarationListVisitors = visitor :: schema.declarationListVisitors }
 
 
-{-| Add a visitor to the [`Schema`](#Schema) which will visit the `File`'s
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the `File`'s
 [expressions](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Expression)
 (`1`, `True`, `add 1 2`, `1 + 2`), collect data in the `context` and/or report patterns.
 The expressions are visited in pre-order depth-first search, meaning that an
@@ -1601,11 +1584,10 @@ The following example forbids the use of `Debug.log` even when it is imported li
 
     rule : Rule
     rule =
-        Rule.newSchema "NoDebugEvenIfImported"
-            |> Rule.withInitialContext DebugLogWasNotImported
+        Rule.newModuleRuleSchema "NoDebugEvenIfImported" DebugLogWasNotImported
             |> Rule.withImportVisitor importVisitor
             |> Rule.withExpressionVisitor expressionVisitor
-            |> Rule.fromSchema
+            |> Rule.fromModuleRuleSchema
 
     importVisitor : Node Import -> Context -> ( List Error, Context )
     importVisitor node context =
@@ -1658,9 +1640,9 @@ Tip: If you do not need to collect or use the `context` in this visitor, you may
 simpler [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) function.
 
 -}
-withExpressionVisitor : (Node Expression -> Direction -> context -> ( List Error, context )) -> Schema anything context -> Schema { anything | hasAtLeastOneVisitor : () } context
-withExpressionVisitor visitor (Schema schema) =
-    Schema { schema | expressionVisitors = visitor :: schema.expressionVisitors }
+withExpressionVisitor : (Node Expression -> Direction -> context -> ( List Error, context )) -> ModuleRuleSchema anything context -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context
+withExpressionVisitor visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | expressionVisitors = visitor :: schema.expressionVisitors }
 
 
 {-| Add a function that makes a final evaluation based only on the data that was
@@ -1682,11 +1664,10 @@ for [`withImportVisitor`](#withImportVisitor), but using [`withFinalEvaluation`]
 
     rule : Rule
     rule =
-        Rule.newSchema "NoUsingBothHtmlAndHtmlStyled"
-            |> Rule.withInitialContext Dict.empty
+        Rule.newModuleRuleSchema "NoUsingBothHtmlAndHtmlStyled" Dict.empty
             |> Rule.withImportVisitor importVisitor
             |> Rule.withFinalEvaluation finalEvaluation
-            |> Rule.fromSchema
+            |> Rule.fromModuleRuleSchema
 
     importVisitor : Node Import -> Context -> ( List Error, Context )
     importVisitor node context =
@@ -1707,9 +1688,9 @@ for [`withImportVisitor`](#withImportVisitor), but using [`withFinalEvaluation`]
                 []
 
 -}
-withFinalEvaluation : (context -> List Error) -> Schema { anything | hasAtLeastOneVisitor : () } context -> Schema { anything | hasAtLeastOneVisitor : () } context
-withFinalEvaluation visitor (Schema schema) =
-    Schema { schema | finalEvaluationFns = visitor :: schema.finalEvaluationFns }
+withFinalEvaluation : (context -> List Error) -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context
+withFinalEvaluation visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | finalEvaluationFns = visitor :: schema.finalEvaluationFns }
 
 
 

@@ -62,9 +62,9 @@ should not use this rule.
 -}
 rule : Configuration -> Rule
 rule config =
-    Rule.newSchema "NoImportingEverything" ()
+    Rule.newModuleRuleSchema "NoImportingEverything" ()
         |> Rule.withSimpleImportVisitor (importVisitor config)
-        |> Rule.fromSchema
+        |> Rule.fromModuleRuleSchema
 
 
 error : Range -> String -> Error

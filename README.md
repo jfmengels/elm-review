@@ -95,10 +95,10 @@ import Review.Rule as Rule exposing (Error, Rule)
 rule : Rule
 rule =
     -- Define the rule with the same name as the module it is defined in
-    Rule.newSchema "NoStringWithMisspelledCompanyName"
+    Rule.newModuleRuleSchema "NoStringWithMisspelledCompanyName" ()
         -- Make it look at expressions
         |> Rule.withSimpleExpressionVisitor expressionVisitor
-        |> Rule.fromSchema
+        |> Rule.fromModuleRuleSchema
 
 -- This function will visit all the expressions (like `1`, `"string"`, `foo bar`, `a + b`, ...)
 -- and report problems that it finds

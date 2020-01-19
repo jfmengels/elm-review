@@ -242,7 +242,7 @@ the errors reported by the rule.
 
 This is the same as [`run`](#run), but you can pass several modules.
 This is especially useful to test rules created with
-[`Review.Rule.newMultiSchema`](./Review-Rule#newMultiSchema), that look at
+[`Review.Rule.newProjectRuleSchema`](./Review-Rule#newProjectRuleSchema), that look at
 several files, and where the context of the project is important.
 
     import My.Rule exposing (rule)
@@ -290,7 +290,7 @@ the errors reported by the rule.
 
 This is basically the same as [`run`](#run), but you can pass several modules.
 This is especially useful to test rules created with
-[`Review.Rule.newMultiSchema`](./Review-Rule#newMultiSchema), that look at
+[`Review.Rule.newProjectRuleSchema`](./Review-Rule#newProjectRuleSchema), that look at
 several files, and where the context of the project is important.
 
     import My.Rule exposing (rule)

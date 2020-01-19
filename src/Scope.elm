@@ -91,8 +91,8 @@ addVisitors :
     { set : Context -> context -> context
     , get : context -> Context
     }
-    -> Rule.Schema { anything | withDependenciesVisitor : () } context
-    -> Rule.Schema { anything | withDependenciesVisitor : (), hasAtLeastOneVisitor : () } context
+    -> Rule.ModuleRuleSchema { anything | withDependenciesVisitor : () } context
+    -> Rule.ModuleRuleSchema { anything | withDependenciesVisitor : (), hasAtLeastOneVisitor : () } context
 addVisitors setterGetter schema =
     schema
         |> Rule.withDependenciesVisitor

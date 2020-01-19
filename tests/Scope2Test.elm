@@ -132,7 +132,7 @@ scopeGetterSetter =
 
 rule : Rule
 rule =
-    Rule.newMultiSchema "TestRule"
+    Rule.newProjectRuleSchema "TestRule"
         { moduleVisitorSchema =
             \schema ->
                 schema
@@ -140,21 +140,21 @@ rule =
                     |> Rule.withDeclarationVisitor declarationVisitor
                     |> Rule.withExpressionVisitor expressionVisitor
                     |> Rule.withFinalEvaluation finalEvaluation
-        , initGlobalContext = { scope = Scope.initGlobalContext }
+        , initProjectContext = { scope = Scope.initProjectContext }
         , fromGlobalToModule =
-            \fileKey moduleNameNode globalContext ->
-                { scope = Scope.fromGlobalToModule globalContext.scope
+            \fileKey moduleNameNode projectContext ->
+                { scope = Scope.fromGlobalToModule projectContext.scope
                 , text = ""
                 }
         , fromModuleToGlobal =
             \fileKey moduleNameNode moduleContext ->
                 { scope = Scope.fromModuleToGlobal moduleNameNode moduleContext.scope
                 }
-        , foldGlobalContexts = \a b -> { scope = Scope.foldGlobalContexts a.scope b.scope }
+        , foldProjectContexts = \a b -> { scope = Scope.foldProjectContexts a.scope b.scope }
         }
         |> Scope.addGlobalVisitors scopeGetterSetter
         |> Rule.traversingImportedModulesFirst
-        |> Rule.fromMultiSchema
+        |> Rule.fromProjectRuleSchema
 
 
 declarationVisitor : Node Declaration -> Rule.Direction -> ModuleContext -> ( List Rule.Error, ModuleContext )

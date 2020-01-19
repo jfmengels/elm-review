@@ -53,7 +53,7 @@ unused modules in your application or package.
 -}
 rule : Rule
 rule =
-    Rule.newMultiSchema "NoUnused.Exports"
+    Rule.newProjectRuleSchema "NoUnused.Exports"
         { moduleVisitorSchema =
             \schema ->
                 schema
@@ -64,27 +64,27 @@ rule =
                     |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
                     |> Rule.withDeclarationListVisitor declarationListVisitor
                     |> Rule.withExpressionVisitor expressionVisitor
-        , initGlobalContext = initGlobalContext
+        , initProjectContext = initProjectContext
         , fromGlobalToModule = fromGlobalToModule
         , fromModuleToGlobal = fromModuleToGlobal
-        , foldGlobalContexts = foldGlobalContexts
+        , foldProjectContexts = foldProjectContexts
         }
         |> Scope.addGlobalVisitors
             { set = \scope context -> { context | scope = scope }
             , get = .scope
             }
         |> Rule.traversingImportedModulesFirst
-        |> Rule.withMultiElmJsonVisitor elmJsonVisitor
-        |> Rule.withMultiFinalEvaluation finalEvaluationForProject
-        |> Rule.fromMultiSchema
+        |> Rule.withProjectElmJsonVisitor elmJsonVisitor
+        |> Rule.withProjectFinalEvaluation finalEvaluationForProject
+        |> Rule.fromProjectRuleSchema
 
 
 
 -- CONTEXT
 
 
-type alias GlobalContext =
-    { scope : Scope.GlobalContext
+type alias ProjectContext =
+    { scope : Scope.ProjectContext
     , projectType : ProjectType
     , modules :
         Dict ModuleName
@@ -115,18 +115,18 @@ type alias ModuleContext =
     }
 
 
-initGlobalContext : GlobalContext
-initGlobalContext =
-    { scope = Scope.initGlobalContext
+initProjectContext : ProjectContext
+initProjectContext =
+    { scope = Scope.initProjectContext
     , projectType = IsApplication
     , modules = Dict.empty
     , used = Set.empty
     }
 
 
-fromGlobalToModule : Rule.FileKey -> Node ModuleName -> GlobalContext -> ModuleContext
-fromGlobalToModule fileKey moduleName globalContext =
-    { scope = Scope.fromGlobalToModule globalContext.scope
+fromGlobalToModule : Rule.FileKey -> Node ModuleName -> ProjectContext -> ModuleContext
+fromGlobalToModule fileKey moduleName projectContext =
+    { scope = Scope.fromGlobalToModule projectContext.scope
     , exposesEverything = False
     , exposed = Dict.empty
     , used = Set.empty
@@ -134,7 +134,7 @@ fromGlobalToModule fileKey moduleName globalContext =
     }
 
 
-fromModuleToGlobal : Rule.FileKey -> Node ModuleName -> ModuleContext -> GlobalContext
+fromModuleToGlobal : Rule.FileKey -> Node ModuleName -> ModuleContext -> ProjectContext
 fromModuleToGlobal fileKey moduleName moduleContext =
     { scope = Scope.fromModuleToGlobal moduleName moduleContext.scope
     , projectType = IsApplication
@@ -151,9 +151,9 @@ fromModuleToGlobal fileKey moduleName moduleContext =
     }
 
 
-foldGlobalContexts : GlobalContext -> GlobalContext -> GlobalContext
-foldGlobalContexts newContext previousContext =
-    { scope = Scope.foldGlobalContexts previousContext.scope newContext.scope
+foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
+foldProjectContexts newContext previousContext =
+    { scope = Scope.foldProjectContexts previousContext.scope newContext.scope
     , projectType = previousContext.projectType
     , modules = Dict.union previousContext.modules newContext.modules
     , used = Set.union newContext.used previousContext.used
@@ -174,8 +174,8 @@ registerMultipleAsUsed usedElements moduleContext =
 -- ELM JSON VISITOR
 
 
-elmJsonVisitor : Maybe Project -> GlobalContext -> GlobalContext
-elmJsonVisitor maybeProject globalContext =
+elmJsonVisitor : Maybe Project -> ProjectContext -> ProjectContext
+elmJsonVisitor maybeProject projectContext =
     case maybeProject of
         Just (Elm.Project.Package { exposed }) ->
             let
@@ -188,7 +188,7 @@ elmJsonVisitor maybeProject globalContext =
                         Elm.Project.ExposedDict fakeDict ->
                             List.concatMap Tuple.second fakeDict
             in
-            { globalContext
+            { projectContext
                 | projectType =
                     exposedModuleNames
                         |> List.map (Elm.Module.toString >> String.split ".")
@@ -197,24 +197,24 @@ elmJsonVisitor maybeProject globalContext =
             }
 
         _ ->
-            { globalContext | projectType = IsApplication }
+            { projectContext | projectType = IsApplication }
 
 
 
 -- GLOBAL EVALUATION
 
 
-finalEvaluationForProject : GlobalContext -> List Error
-finalEvaluationForProject globalContext =
-    globalContext.modules
-        |> removeExposedPackages globalContext
+finalEvaluationForProject : ProjectContext -> List Error
+finalEvaluationForProject projectContext =
+    projectContext.modules
+        |> removeExposedPackages projectContext
         |> Dict.toList
         |> List.concatMap
             (\( moduleName, { fileKey, exposed } ) ->
                 exposed
-                    |> removeApplicationExceptions globalContext moduleName
+                    |> removeApplicationExceptions projectContext moduleName
                     |> removeReviewConfig moduleName
-                    |> Dict.filter (\name _ -> not <| Set.member ( moduleName, name ) globalContext.used)
+                    |> Dict.filter (\name _ -> not <| Set.member ( moduleName, name ) projectContext.used)
                     |> Dict.toList
                     |> List.map
                         (\( name, { range, exposedElement } ) ->
@@ -240,9 +240,9 @@ finalEvaluationForProject globalContext =
             )
 
 
-removeExposedPackages : GlobalContext -> Dict ModuleName a -> Dict ModuleName a
-removeExposedPackages globalContext dict =
-    case globalContext.projectType of
+removeExposedPackages : ProjectContext -> Dict ModuleName a -> Dict ModuleName a
+removeExposedPackages projectContext dict =
+    case projectContext.projectType of
         IsApplication ->
             dict
 
@@ -250,9 +250,9 @@ removeExposedPackages globalContext dict =
             Dict.filter (\name _ -> not <| Set.member name exposedModuleNames) dict
 
 
-removeApplicationExceptions : GlobalContext -> ModuleName -> Dict String a -> Dict String a
-removeApplicationExceptions globalContext moduleName dict =
-    case globalContext.projectType of
+removeApplicationExceptions : ProjectContext -> ModuleName -> Dict String a -> Dict String a
+removeApplicationExceptions projectContext moduleName dict =
+    case projectContext.projectType of
         IsApplication ->
             Dict.remove "main" dict
 

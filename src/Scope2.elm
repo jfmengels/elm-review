@@ -1,6 +1,6 @@
 module Scope2 exposing
-    ( GlobalContext, ModuleContext
-    , GlobalSetterGetter, addGlobalVisitors, ModuleSetterGetter, addModuleVisitors, initGlobalContext, fromGlobalToModule, fromModuleToGlobal, foldGlobalContexts
+    ( ProjectContext, ModuleContext
+    , GlobalSetterGetter, addGlobalVisitors, ModuleSetterGetter, addModuleVisitors, initProjectContext, fromGlobalToModule, fromModuleToGlobal, foldProjectContexts
     , realFunctionOrType
     )
 
@@ -9,12 +9,12 @@ module Scope2 exposing
 
 # Definition
 
-@docs GlobalContext, ModuleContext
+@docs ProjectContext, ModuleContext
 
 
 # Usage
 
-@docs GlobalSetterGetter, addGlobalVisitors, ModuleSetterGetter, addModuleVisitors, initGlobalContext, fromGlobalToModule, fromModuleToGlobal, foldGlobalContexts
+@docs GlobalSetterGetter, addGlobalVisitors, ModuleSetterGetter, addModuleVisitors, initProjectContext, fromGlobalToModule, fromModuleToGlobal, foldProjectContexts
 
 
 # Access
@@ -55,10 +55,10 @@ import Review.Rule as Rule exposing (Direction, Error)
            \schema ->
                schema
                    |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-       , initGlobalContext = initGlobalContext
+       , initProjectContext = initProjectContext
        , fromGlobalToModule = fromGlobalToModule
        , fromModuleToGlobal = fromModuleToGlobal
-       , foldGlobalContexts = foldGlobalContexts
+       , foldProjectContexts = foldProjectContexts
        })
 
     Need to fine-tune the details on how that would work obviously.
@@ -67,11 +67,11 @@ import Review.Rule as Rule exposing (Direction, Error)
 -}
 
 
-type GlobalContext
-    = GlobalContext InnerGlobalContext
+type ProjectContext
+    = ProjectContext InnerProjectContext
 
 
-type alias InnerGlobalContext =
+type alias InnerProjectContext =
     { dependencies : Dict String Elm.Docs.Module
     , modules : Dict ModuleName Elm.Docs.Module
     }
@@ -108,8 +108,8 @@ type alias Scope =
 
 
 type alias GlobalSetterGetter context =
-    { set : GlobalContext -> context -> context
-    , get : context -> GlobalContext
+    { set : ProjectContext -> context -> context
+    , get : context -> ProjectContext
     }
 
 
@@ -123,21 +123,21 @@ type alias ModuleSetterGetter context =
 -- USAGE
 
 
-initGlobalContext : GlobalContext
-initGlobalContext =
-    GlobalContext
+initProjectContext : ProjectContext
+initProjectContext =
+    ProjectContext
         { dependencies = Dict.empty
         , modules = Dict.empty
         }
 
 
-fromGlobalToModule : GlobalContext -> ModuleContext
-fromGlobalToModule (GlobalContext globalContext) =
+fromGlobalToModule : ProjectContext -> ModuleContext
+fromGlobalToModule (ProjectContext projectContext) =
     { scopes = NonemptyList.fromElement emptyScope
     , importAliases = Dict.empty
     , importedFunctionOrTypes = Dict.empty
-    , dependencies = globalContext.dependencies
-    , modules = globalContext.modules
+    , dependencies = projectContext.dependencies
+    , modules = projectContext.modules
     , exposesEverything = False
     , exposedNames = Dict.empty
     , exposedUnions = []
@@ -149,9 +149,9 @@ fromGlobalToModule (GlobalContext globalContext) =
         |> ModuleContext
 
 
-fromModuleToGlobal : Node ModuleName -> ModuleContext -> GlobalContext
+fromModuleToGlobal : Node ModuleName -> ModuleContext -> ProjectContext
 fromModuleToGlobal moduleName (ModuleContext moduleContext) =
-    GlobalContext
+    ProjectContext
         { dependencies = moduleContext.dependencies
         , modules =
             Dict.insert (Node.value moduleName)
@@ -166,9 +166,9 @@ fromModuleToGlobal moduleName (ModuleContext moduleContext) =
         }
 
 
-foldGlobalContexts : GlobalContext -> GlobalContext -> GlobalContext
-foldGlobalContexts (GlobalContext a) (GlobalContext b) =
-    GlobalContext
+foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
+foldProjectContexts (ProjectContext a) (ProjectContext b) =
+    ProjectContext
         { dependencies = a.dependencies
         , modules = Dict.union a.modules b.modules
         }
@@ -182,13 +182,13 @@ emptyScope =
     }
 
 
-addGlobalVisitors : GlobalSetterGetter globalContext -> Rule.MultiSchema globalContext moduleContext -> Rule.MultiSchema globalContext moduleContext
+addGlobalVisitors : GlobalSetterGetter projectContext -> Rule.ProjectRuleSchema projectContext moduleContext -> Rule.ProjectRuleSchema projectContext moduleContext
 addGlobalVisitors setterGetter schema =
     schema
-        |> Rule.withMultiDependenciesVisitor (mapInnerGlobalContext setterGetter dependenciesVisitor)
+        |> Rule.withProjectDependenciesVisitor (mapInnerProjectContext setterGetter dependenciesVisitor)
 
 
-addModuleVisitors : ModuleSetterGetter moduleContext -> Rule.Schema anything moduleContext -> Rule.Schema { anything | hasAtLeastOneVisitor : () } moduleContext
+addModuleVisitors : ModuleSetterGetter moduleContext -> Rule.ModuleRuleSchema anything moduleContext -> Rule.ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext
 addModuleVisitors setterGetter schema =
     schema
         |> Rule.withModuleDefinitionVisitor
@@ -229,8 +229,8 @@ addModuleVisitors setterGetter schema =
 --     String
 --     ->
 --         { forGlobal :
---             { get : globalContext -> GlobalContext
---             , set : GlobalContext -> globalContext -> globalContext
+--             { get : projectContext -> ProjectContext
+--             , set : ProjectContext -> projectContext -> projectContext
 --             }
 --         , forModule :
 --             { get : moduleContext -> ModuleContext
@@ -238,28 +238,28 @@ addModuleVisitors setterGetter schema =
 --             }
 --         }
 --     ->
---         { moduleVisitorSchema : Rule.Schema Rule.ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Rule.Schema Rule.ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
---         , initGlobalContext : globalContext
---         , fromGlobalToModule : Rule.FileKey -> Node ModuleName -> globalContext -> moduleContext
---         , fromModuleToGlobal : Rule.FileKey -> Node ModuleName -> moduleContext -> globalContext
---         , foldGlobalContexts : globalContext -> globalContext -> globalContext
+--         { moduleVisitorSchema : Rule.ModuleRuleSchema Rule.ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Rule.ModuleRuleSchema Rule.ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
+--         , initProjectContext : projectContext
+--         , fromGlobalToModule : Rule.FileKey -> Node ModuleName -> projectContext -> moduleContext
+--         , fromModuleToGlobal : Rule.FileKey -> Node ModuleName -> moduleContext -> projectContext
+--         , foldProjectContexts : projectContext -> projectContext -> projectContext
 --         }
---     -> Rule.MultiSchema globalContext moduleContext
+--     -> Rule.ProjectRuleSchema projectContext moduleContext
 -- scopedRule name setterGetters context =
---     Rule.newMultiSchema name
+--     Rule.newProjectRuleSchema name
 
 
-mapInnerGlobalContext : GlobalSetterGetter context -> (visitedElement -> InnerGlobalContext -> InnerGlobalContext) -> visitedElement -> context -> context
-mapInnerGlobalContext { set, get } visitor visitedElement outerContext =
+mapInnerProjectContext : GlobalSetterGetter context -> (visitedElement -> InnerProjectContext -> InnerProjectContext) -> visitedElement -> context -> context
+mapInnerProjectContext { set, get } visitor visitedElement outerContext =
     let
-        innerContext : InnerGlobalContext
+        innerContext : InnerProjectContext
         innerContext =
             outerContext
                 |> get
                 |> unboxGlobal
                 |> visitor visitedElement
     in
-    set (GlobalContext innerContext) outerContext
+    set (ProjectContext innerContext) outerContext
 
 
 mapInnerModuleContext : ModuleSetterGetter context -> (visitedElement -> InnerModuleContext -> InnerModuleContext) -> visitedElement -> context -> context
@@ -284,7 +284,7 @@ pairWithNoErrors fn visited context =
 -- DEPENDENCIES
 
 
-dependenciesVisitor : Dict String Elm.Docs.Module -> InnerGlobalContext -> InnerGlobalContext
+dependenciesVisitor : Dict String Elm.Docs.Module -> InnerProjectContext -> InnerProjectContext
 dependenciesVisitor dependencies innerContext =
     { innerContext | dependencies = dependencies }
 
@@ -719,8 +719,8 @@ namesFromExposingList module_ topLevelExpose =
                     [ name ]
 
 
-unboxGlobal : GlobalContext -> InnerGlobalContext
-unboxGlobal (GlobalContext context) =
+unboxGlobal : ProjectContext -> InnerProjectContext
+unboxGlobal (ProjectContext context) =
     context
 
 

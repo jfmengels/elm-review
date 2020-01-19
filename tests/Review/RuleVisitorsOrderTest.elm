@@ -27,7 +27,7 @@ all =
                 let
                     rule : Rule
                     rule =
-                        Rule.newSchema "TestRule" "\n0 - withInitialContext"
+                        Rule.newModuleRuleSchema "TestRule" "\n0 - withInitialContext"
                             |> Rule.withElmJsonVisitor (\_ context -> context ++ "\n1 - withElmJsonVisitor")
                             |> Rule.withDependenciesVisitor (\_ context -> context ++ "\n2 - withDependenciesVisitor")
                             |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ++ "\n3 - withModuleDefinitionVisitor" ))
@@ -52,7 +52,7 @@ all =
                                             ( [], context ++ "\n8 - withExpressionVisitor (Exit)" )
                                 )
                             |> Rule.withFinalEvaluation finalEvaluation
-                            |> Rule.fromSchema
+                            |> Rule.fromModuleRuleSchema
 
                     finalEvaluation : Context -> List Rule.Error
                     finalEvaluation context =
@@ -88,12 +88,12 @@ a = 1
                 let
                     rule : Rule
                     rule =
-                        Rule.newSchema "TestRule" ""
+                        Rule.newModuleRuleSchema "TestRule" ""
                             |> Rule.withExpressionVisitor (declarationVisitor "A")
                             |> Rule.withExpressionVisitor (declarationVisitor "B")
                             |> Rule.withExpressionVisitor (declarationVisitor "C")
                             |> Rule.withFinalEvaluation finalEvaluation
-                            |> Rule.fromSchema
+                            |> Rule.fromModuleRuleSchema
 
                     declarationVisitor : String -> Node Expression -> Rule.Direction -> Context -> ( List Rule.Error, Context )
                     declarationVisitor text node direction context =
@@ -133,12 +133,12 @@ Exit A"""
                 let
                     rule : Rule
                     rule =
-                        Rule.newSchema "TestRule" ""
+                        Rule.newModuleRuleSchema "TestRule" ""
                             |> Rule.withDeclarationVisitor (declarationVisitor "A")
                             |> Rule.withDeclarationVisitor (declarationVisitor "B")
                             |> Rule.withDeclarationVisitor (declarationVisitor "C")
                             |> Rule.withFinalEvaluation finalEvaluation
-                            |> Rule.fromSchema
+                            |> Rule.fromModuleRuleSchema
 
                     declarationVisitor : String -> Node Declaration -> Rule.Direction -> Context -> ( List Rule.Error, Context )
                     declarationVisitor text node direction context =

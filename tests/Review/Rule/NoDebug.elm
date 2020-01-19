@@ -61,10 +61,10 @@ and you do not ship to production.
 -}
 rule : Rule
 rule =
-    Rule.newSchema "NoDebug" ()
+    Rule.newModuleRuleSchema "NoDebug" ()
         |> Rule.withSimpleImportVisitor importVisitor
         |> Rule.withSimpleExpressionVisitor expressionVisitor
-        |> Rule.fromSchema
+        |> Rule.fromModuleRuleSchema
 
 
 error : Node a -> Error

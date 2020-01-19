@@ -31,14 +31,14 @@ testRule rule string =
 
 
 baseRule :
-    Rule.Schema
+    Rule.ModuleRuleSchema
         { hasAtLeastOneVisitor : ()
         , withDependenciesVisitor : ()
         , withElmJsonVisitor : ()
         }
         Context
 baseRule =
-    Rule.newSchema "TestRule" initialContext
+    Rule.newModuleRuleSchema "TestRule" initialContext
         |> Scope.addVisitors
             { set = \scope context -> { context | scope = scope }
             , get = .scope
@@ -64,7 +64,7 @@ all =
                             baseRule
                                 |> Rule.withExpressionVisitor expressionVisitor
                                 |> Rule.withFinalEvaluation finalEvaluation
-                                |> Rule.fromSchema
+                                |> Rule.fromModuleRuleSchema
 
                         expressionVisitor : Node Expression -> Rule.Direction -> Context -> ( List Rule.Error, Context )
                         expressionVisitor node direction context =
