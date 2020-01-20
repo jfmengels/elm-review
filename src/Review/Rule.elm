@@ -1894,9 +1894,20 @@ visitDeclaration :
     -> context
     -> ( List Error, context )
 visitDeclaration declarationVisitors expressionVisitors node context =
+    let
+        accumulateExpressionNodes : ( List Error, context ) -> ( List Error, context )
+        accumulateExpressionNodes =
+            if List.isEmpty expressionVisitors.onEnter then
+                identity
+
+            else
+                accumulateList
+                    (visitExpression expressionVisitors)
+                    (expressionsInDeclaration node)
+    in
     ( [], context )
         |> visitNodeWithListOfVisitorsAndDirection OnEnter declarationVisitors.onEnter node
-        |> accumulateList (visitExpression expressionVisitors) (expressionsInDeclaration node)
+        |> accumulateExpressionNodes
         |> visitNodeWithListOfVisitorsAndDirection OnExit declarationVisitors.onExit node
 
 
