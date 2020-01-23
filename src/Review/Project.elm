@@ -158,7 +158,7 @@ withModule { path, source } project =
                     |> addModule
                         { path = path
                         , source = source
-                        , ast = ast
+                        , ast = reorderComments ast
                         }
 
             Err _ ->
@@ -168,6 +168,19 @@ withModule { path, source } project =
                         { path = path
                         , source = source
                         }
+
+
+reorderComments : Elm.Syntax.File.File -> Elm.Syntax.File.File
+reorderComments file =
+    { file | comments = List.sortBy (Node.range >> .start >> positionAsInt >> negate) file.comments }
+
+
+positionAsInt : { row : Int, column : Int } -> Int
+positionAsInt { row, column } =
+    -- This is a quick and simple heuristic to be able to sort ranges.
+    -- It is entirely based on the assumption that no line is longer than
+    -- 1.000.000 characters long, which the compiler does not support for Elm 0.19.1.
+    row * 1000000 + column
 
 
 {-| Add an already parsed module to the project. This module will then be analyzed by the rules.

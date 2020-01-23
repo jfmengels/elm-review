@@ -2,8 +2,8 @@ module Review.Rule exposing
     ( Rule, ModuleRuleSchema, ProjectRuleSchema
     , runRules
     , newModuleRuleSchema, fromModuleRuleSchema
-    , withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
-    , withModuleDefinitionVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalEvaluation
+    , withSimpleModuleDefinitionVisitor, withSimpleCommentsVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
+    , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalEvaluation
     , withElmJsonVisitor, withDependenciesVisitor
     , withFixes
     , Error, error, parsingError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
@@ -27,8 +27,9 @@ contents of the file to analyze to the rule. The order in which things get passe
       - The definition for dependencies, visited by [`withDependenciesVisitor`](#withDependenciesVisitor)
   - Visit the file (in the following order)
       - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
+      - The module's list of comments, visited by [`withSimpleCommentsVisitor`](#withSimpleCommentsVisitor) and [`withCommentsVisitor`](#withCommentsVisitor)
       - Each import, visited by [`withSimpleImportVisitor`](#withSimpleImportVisitor) and [`withImportVisitor`](#withImportVisitor)
-      - The list of declarations, visited by [`withDeclarationListVisitor`](#withDeclarationListVisitor).
+      - The list of declarations, visited by [`withDeclarationListVisitor`](#withDeclarationListVisitor)
       - Each declaration, visited by [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) and [`withDeclarationVisitor`](#withDeclarationVisitor).
         Before evaluating the next declaration, the expression contained in the declaration
         will be visited recursively using by [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) and [`withExpressionVisitor`](#withExpressionVisitor)
@@ -164,12 +165,12 @@ patterns you would want to forbid, but that are not handled by the example.
 
 ## Builder functions without context
 
-@docs withSimpleModuleDefinitionVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
+@docs withSimpleModuleDefinitionVisitor, withSimpleCommentsVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
 
 
 ## Builder functions with context
 
-@docs withModuleDefinitionVisitor, withImportVisitor, Direction, withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalEvaluation
+@docs withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction, withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalEvaluation
 
 
 ## Builder functions to analyze the project's data
@@ -242,6 +243,7 @@ type ModuleRuleSchema configuration context
         , elmJsonVisitors : List (Maybe Elm.Project.Project -> context -> context)
         , dependenciesVisitors : List (Dict String Elm.Docs.Module -> context -> context)
         , moduleDefinitionVisitors : List (Node Module -> context -> ( List Error, context ))
+        , commentsVisitors : List (List (Node String) -> context -> ( List Error, context ))
         , importVisitors : List (Node Import -> context -> ( List Error, context ))
         , declarationListVisitors : List (List (Node Declaration) -> context -> ( List Error, context ))
         , declarationVisitors : List (DirectedVisitor Declaration context)
@@ -381,6 +383,7 @@ reverseVisitors (ModuleRuleSchema schema) =
             | elmJsonVisitors = List.reverse schema.elmJsonVisitors
             , dependenciesVisitors = List.reverse schema.dependenciesVisitors
             , moduleDefinitionVisitors = List.reverse schema.moduleDefinitionVisitors
+            , commentsVisitors = List.reverse schema.commentsVisitors
             , importVisitors = List.reverse schema.importVisitors
             , declarationListVisitors = List.reverse schema.declarationListVisitors
             , finalEvaluationFns = List.reverse schema.finalEvaluationFns
@@ -449,6 +452,7 @@ computeErrors (ModuleRuleSchema schema) project =
     \file ->
         ( [], initialContext )
             |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors file.ast.moduleDefinition
+            |> accumulateWithListOfVisitors schema.commentsVisitors file.ast.comments
             |> accumulateList (visitImport schema.importVisitors) file.ast.imports
             |> accumulateWithListOfVisitors schema.declarationListVisitors file.ast.declarations
             |> accumulateList (visitDeclaration declarationVisitors expressionVisitors) file.ast.declarations
@@ -548,6 +552,7 @@ visitModuleForProjectRule (ModuleRuleSchema schema) =
     \initialContext file ->
         ( [], initialContext )
             |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors file.ast.moduleDefinition
+            |> accumulateWithListOfVisitors schema.commentsVisitors file.ast.comments
             |> accumulateList (visitImport schema.importVisitors) file.ast.imports
             |> accumulateWithListOfVisitors schema.declarationListVisitors file.ast.declarations
             |> accumulateList (visitDeclaration declarationVisitors expressionVisitors) file.ast.declarations
@@ -959,6 +964,13 @@ withSimpleModuleDefinitionVisitor visitor schema =
     withModuleDefinitionVisitor (\node context -> ( visitor node, context )) schema
 
 
+{-| TODO documentation
+-}
+withSimpleCommentsVisitor : (List (Node String) -> List Error) -> ModuleRuleSchema anything context -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context
+withSimpleCommentsVisitor visitor schema =
+    withCommentsVisitor (\node context -> ( visitor node, context )) schema
+
+
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the `File`'s [import statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Import) (`import Html as H exposing (div)`) in order of their definition and report patterns.
 
 The following example forbids using the core Html package and suggests using
@@ -1229,6 +1241,7 @@ emptySchema name_ initialContext =
         , elmJsonVisitors = []
         , dependenciesVisitors = []
         , moduleDefinitionVisitors = []
+        , commentsVisitors = []
         , importVisitors = []
         , declarationListVisitors = []
         , declarationVisitors = []
@@ -1376,6 +1389,13 @@ simpler [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor
 withModuleDefinitionVisitor : (Node Module -> context -> ( List Error, context )) -> ModuleRuleSchema anything context -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context
 withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | moduleDefinitionVisitors = visitor :: schema.moduleDefinitionVisitors }
+
+
+{-| TODO documentation
+-}
+withCommentsVisitor : (List (Node String) -> context -> ( List Error, context )) -> ModuleRuleSchema anything context -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context
+withCommentsVisitor visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | commentsVisitors = visitor :: schema.commentsVisitors }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the `File`'s
