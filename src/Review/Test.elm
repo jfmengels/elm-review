@@ -111,7 +111,7 @@ import Expect exposing (Expectation)
 import ListExtra
 import Review
 import Review.Fix as Fix
-import Review.Project as Project exposing (ParsedFile, Project)
+import Review.Project as Project exposing (Project, ProjectModule)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test.ErrorMessage as ErrorMessage
 import Set exposing (Set)
@@ -136,7 +136,7 @@ type alias SuccessfulRunResult =
 
 
 type alias CodeInspector =
-    { file : ParsedFile
+    { module_ : ProjectModule
     , getCodeAtLocation : Range -> Maybe String
     , checkIfLocationIsAmbiguous : Error -> String -> Expectation
     }
@@ -291,7 +291,7 @@ the errors reported by the rule.
 This is basically the same as [`run`](#run), but you can pass several modules.
 This is especially useful to test rules created with
 [`Review.Rule.newProjectRuleSchema`](./Review-Rule#newProjectRuleSchema), that look at
-several files, and where the context of the project is important.
+several modules, and where the context of the project is important.
 
     import My.Rule exposing (rule)
     import Review.Test
@@ -347,7 +347,7 @@ runOnModulesWithProjectData project rule sources =
 
         [] ->
             let
-                modules : List ParsedFile
+                modules : List ProjectModule
                 modules =
                     Project.modules projectWithModules
             in
@@ -396,25 +396,25 @@ indexOf elementToFind aList =
                     |> Maybe.map ((+) 1)
 
 
-codeInspectorForSource : ParsedFile -> CodeInspector
-codeInspectorForSource file =
-    { file = file
-    , getCodeAtLocation = getCodeAtLocationInSourceCode file.source
-    , checkIfLocationIsAmbiguous = checkIfLocationIsAmbiguousInSourceCode file.source
+codeInspectorForSource : ProjectModule -> CodeInspector
+codeInspectorForSource module_ =
+    { module_ = module_
+    , getCodeAtLocation = getCodeAtLocationInSourceCode module_.source
+    , checkIfLocationIsAmbiguous = checkIfLocationIsAmbiguousInSourceCode module_.source
     }
 
 
-findDuplicateModuleNames : Set (List String) -> List ParsedFile -> Maybe (List String)
-findDuplicateModuleNames previousModuleNames parsedFiles =
-    case parsedFiles of
+findDuplicateModuleNames : Set (List String) -> List ProjectModule -> Maybe (List String)
+findDuplicateModuleNames previousModuleNames modules =
+    case modules of
         [] ->
             Nothing
 
-        file :: restOfFiles ->
+        { ast } :: restOfModules ->
             let
                 moduleName : List String
                 moduleName =
-                    file.ast.moduleDefinition
+                    ast.moduleDefinition
                         |> Node.value
                         |> Module.moduleName
             in
@@ -422,7 +422,7 @@ findDuplicateModuleNames previousModuleNames parsedFiles =
                 Just moduleName
 
             else
-                findDuplicateModuleNames (Set.insert moduleName previousModuleNames) restOfFiles
+                findDuplicateModuleNames (Set.insert moduleName previousModuleNames) restOfModules
 
 
 compareErrorPositions : Error -> Error -> Order
@@ -866,6 +866,10 @@ checkMessageAppearsUnder codeInspector error_ (ExpectedError expectedError) =
                         ]
 
         Nothing ->
+            -- TODO Fail with a more precise error message
+            -- This is actually qui easy to create. We can enter this here by
+            -- having the location be
+            -- { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
             Expect.fail ErrorMessage.impossibleState
                 |> always
 
@@ -897,7 +901,7 @@ checkFixesAreCorrect codeInspector error_ ((ExpectedError expectedError_) as exp
                 |> Expect.fail
 
         ( Just expectedFixedSource, Just fixes ) ->
-            case Fix.fix fixes codeInspector.file.source of
+            case Fix.fix fixes codeInspector.module_.source of
                 Fix.Successful fixedSource ->
                     (fixedSource == expectedFixedSource)
                         |> Expect.true (ErrorMessage.fixedCodeMismatch fixedSource expectedFixedSource error_)

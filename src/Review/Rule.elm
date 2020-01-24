@@ -16,10 +16,10 @@ module Review.Rule exposing
 
 # How does it work?
 
-`elm-review` turns the code of the analyzed file into an [Abstract Syntax Tree (AST)](https://en.wikipedia.org/wiki/Abstract_syntax_tree)
+`elm-review` turns the code of the analyzed module into an [Abstract Syntax Tree (AST)](https://en.wikipedia.org/wiki/Abstract_syntax_tree)
 (a tree-like structure which represents your source code) using the
 [`elm-syntax` package](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/).
-Then, for each file and rule, it will give the details of your project (like the `elm.json` file) and the
+Then, for each module and rule, it will give the details of your project (like the `elm.json` file) and the
 contents of the file to analyze to the rule. The order in which things get passed to the rule is the following:
 
   - Read project-related info (only collect data in these steps)
@@ -70,7 +70,7 @@ encounters this pattern for the first time could guess the problem just from the
 name. And a user who encountered it several times should know how to fix the
 problem just from the name too.
 
-I recommend having the name of the file containing the rule be the same as the
+I recommend having the name of the module containing the rule be the same as the
 rule name. This will make it easier to find the module in the project or on
 the packages website when trying to get more information.
 
@@ -212,11 +212,11 @@ import Elm.Syntax.Range exposing (Range)
 import Graph exposing (Graph)
 import IntDict
 import Review.Fix exposing (Fix)
-import Review.Project exposing (ParsedFile, Project)
+import Review.Project exposing (Project, ProjectModule)
 import Set exposing (Set)
 
 
-{-| Represents a construct able to analyze a `File` and report unwanted patterns.
+{-| Represents a construct able to analyze a module and report unwanted patterns.
 See [`newModuleRuleSchema`](#newModuleRuleSchema), and [`fromModuleRuleSchema`](#fromModuleRuleSchema) for how to create one.
 TODO Explain about single and multi-file rules
 -}
@@ -400,7 +400,7 @@ type alias ModuleRuleCache =
 runModuleRule : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context -> ModuleRuleCache -> Project -> ( List Error, Rule )
 runModuleRule ((ModuleRuleSchema { name }) as schema) startCache project =
     let
-        computeErrors_ : ParsedFile -> List Error
+        computeErrors_ : ProjectModule -> List Error
         computeErrors_ =
             computeErrors schema project
 
@@ -432,7 +432,7 @@ runModuleRule ((ModuleRuleSchema { name }) as schema) startCache project =
     ( errors, ModuleRule name (runModuleRule schema newCache) )
 
 
-computeErrors : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context -> Project -> ParsedFile -> List Error
+computeErrors : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context -> Project -> ProjectModule -> List Error
 computeErrors (ModuleRuleSchema schema) project =
     let
         initialContext : context
@@ -449,15 +449,15 @@ computeErrors (ModuleRuleSchema schema) project =
         expressionVisitors =
             inAndOut schema.expressionVisitors
     in
-    \file ->
+    \module_ ->
         ( [], initialContext )
-            |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors file.ast.moduleDefinition
-            |> accumulateWithListOfVisitors schema.commentsVisitors file.ast.comments
-            |> accumulateList (visitImport schema.importVisitors) file.ast.imports
-            |> accumulateWithListOfVisitors schema.declarationListVisitors file.ast.declarations
-            |> accumulateList (visitDeclaration declarationVisitors expressionVisitors) file.ast.declarations
+            |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors module_.ast.moduleDefinition
+            |> accumulateWithListOfVisitors schema.commentsVisitors module_.ast.comments
+            |> accumulateList (visitImport schema.importVisitors) module_.ast.imports
+            |> accumulateWithListOfVisitors schema.declarationListVisitors module_.ast.declarations
+            |> accumulateList (visitDeclaration declarationVisitors expressionVisitors) module_.ast.declarations
             |> makeFinalEvaluation schema.finalEvaluationFns
-            |> List.map (\(Error err) -> Error { err | ruleName = schema.name, filePath = file.path })
+            |> List.map (\(Error err) -> Error { err | ruleName = schema.name, filePath = module_.path })
             |> List.reverse
 
 
@@ -507,7 +507,7 @@ type ProjectRuleSchema projectContext moduleContext
 
 
 type TraversalType
-    = AllFilesInParallel
+    = AllModulesInParallel
     | ImportedModulesFirst
 
 
@@ -534,7 +534,7 @@ newProjectRuleSchema name_ { moduleVisitorSchema, initProjectContext, fromGlobal
         , elmJsonVisitors = []
         , dependenciesVisitors = []
         , finalEvaluationFns = []
-        , traversalType = AllFilesInParallel
+        , traversalType = AllModulesInParallel
         }
 
 
@@ -566,15 +566,15 @@ type alias ProjectRuleCache context =
 runProjectRule : ProjectRuleSchema projectContext moduleContext -> ProjectRuleCache projectContext -> Project -> ( List Error, Rule )
 runProjectRule ((ProjectRuleSchema { traversalType }) as schema) =
     case traversalType of
-        AllFilesInParallel ->
-            allFilesInParallelTraversal schema
+        AllModulesInParallel ->
+            allModulesInParallelTraversal schema
 
         ImportedModulesFirst ->
             importedModulesFirst schema
 
 
-allFilesInParallelTraversal : ProjectRuleSchema projectContext moduleContext -> ProjectRuleCache projectContext -> Project -> ( List Error, Rule )
-allFilesInParallelTraversal (ProjectRuleSchema schema) startCache project =
+allModulesInParallelTraversal : ProjectRuleSchema projectContext moduleContext -> ProjectRuleCache projectContext -> Project -> ( List Error, Rule )
+allModulesInParallelTraversal (ProjectRuleSchema schema) startCache project =
     let
         initialContext : projectContext
         initialContext =
@@ -582,7 +582,7 @@ allFilesInParallelTraversal (ProjectRuleSchema schema) startCache project =
                 |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project)
                 |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencyModules project)
 
-        computeModule : ParsedFile -> { source : String, errors : List Error, context : projectContext }
+        computeModule : ProjectModule -> { source : String, errors : List Error, context : projectContext }
         computeModule module_ =
             let
                 fileKey : FileKey
@@ -677,7 +677,7 @@ importedModulesFirst (ProjectRuleSchema schema) startCache project =
                         |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project)
                         |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencyModules project)
 
-                modules : Dict ModuleName ParsedFile
+                modules : Dict ModuleName ProjectModule
                 modules =
                     project
                         |> Review.Project.modules
@@ -690,7 +690,7 @@ importedModulesFirst (ProjectRuleSchema schema) startCache project =
                             )
                             Dict.empty
 
-                computeModule : ProjectRuleCache projectContext -> List ParsedFile -> ParsedFile -> { source : String, errors : List Error, context : projectContext }
+                computeModule : ProjectRuleCache projectContext -> List ProjectModule -> ProjectModule -> { source : String, errors : List Error, context : projectContext }
                 computeModule cache importedModules module_ =
                     let
                         fileKey : FileKey
@@ -782,9 +782,9 @@ importedModulesFirst (ProjectRuleSchema schema) startCache project =
 
 
 computeModuleAndCacheResult :
-    Dict ModuleName ParsedFile
+    Dict ModuleName ProjectModule
     -> Graph ModuleName ()
-    -> (ProjectRuleCache projectContext -> List ParsedFile -> ParsedFile -> { source : String, errors : List Error, context : projectContext })
+    -> (ProjectRuleCache projectContext -> List ProjectModule -> ProjectModule -> { source : String, errors : List Error, context : projectContext })
     -> Graph.NodeContext ModuleName ()
     -> ( ProjectRuleCache projectContext, Set ModuleName )
     -> ( ProjectRuleCache projectContext, Set ModuleName )
@@ -795,7 +795,7 @@ computeModuleAndCacheResult modules graph computeModule { node, incoming } ( cac
 
         Just module_ ->
             let
-                importedModules : List ParsedFile
+                importedModules : List ProjectModule
                 importedModules =
                     incoming
                         |> IntDict.keys
@@ -841,7 +841,7 @@ computeModuleAndCacheResult modules graph computeModule { node, incoming } ( cac
                         compute (Just cacheEntry)
 
 
-visitModuleForProjectRule : ModuleRuleSchema { hasAtLeastOneVisitor : () } context -> context -> ParsedFile -> ( List Error, context )
+visitModuleForProjectRule : ModuleRuleSchema { hasAtLeastOneVisitor : () } context -> context -> ProjectModule -> ( List Error, context )
 visitModuleForProjectRule (ModuleRuleSchema schema) =
     let
         declarationVisitors : InAndOut (DirectedVisitor Declaration context)
@@ -852,17 +852,17 @@ visitModuleForProjectRule (ModuleRuleSchema schema) =
         expressionVisitors =
             inAndOut schema.expressionVisitors
     in
-    \initialContext file ->
+    \initialContext module_ ->
         ( [], initialContext )
-            |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors file.ast.moduleDefinition
-            |> accumulateWithListOfVisitors schema.commentsVisitors file.ast.comments
-            |> accumulateList (visitImport schema.importVisitors) file.ast.imports
-            |> accumulateWithListOfVisitors schema.declarationListVisitors file.ast.declarations
-            |> accumulateList (visitDeclaration declarationVisitors expressionVisitors) file.ast.declarations
+            |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors module_.ast.moduleDefinition
+            |> accumulateWithListOfVisitors schema.commentsVisitors module_.ast.comments
+            |> accumulateList (visitImport schema.importVisitors) module_.ast.imports
+            |> accumulateWithListOfVisitors schema.declarationListVisitors module_.ast.declarations
+            |> accumulateList (visitDeclaration declarationVisitors expressionVisitors) module_.ast.declarations
             |> (\( errors, context ) -> ( makeFinalEvaluation schema.finalEvaluationFns ( errors, context ), context ))
 
 
-getModuleName : ParsedFile -> ModuleName
+getModuleName : ProjectModule -> ModuleName
 getModuleName module_ =
     module_.ast.moduleDefinition
         |> Node.value

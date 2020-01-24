@@ -1,5 +1,5 @@
 module Review.Project exposing
-    ( Project, ParsedFile, ElmJson
+    ( Project, ProjectModule, ElmJson
     , modules, filesThatFailedToParse, moduleGraph, elmJson, dependencyModules
     , new, withModule, withParsedModule, removeModule, withElmJson, withDependency, removeDependencies, precomputeModuleGraph
     )
@@ -16,7 +16,7 @@ ignore it if you just want to write a review rule.
 
 # Definition
 
-@docs Project, ParsedFile, ElmJson
+@docs Project, ProjectModule, ElmJson
 
 
 # Access
@@ -51,7 +51,7 @@ the `elm.json` file.
 -}
 type Project
     = Project
-        { modules : List ParsedFile
+        { modules : List ProjectModule
         , filesThatFailedToParse : List { path : String, source : String }
         , elmJson : Maybe ElmJson
         , dependencyModules : Dict String Elm.Docs.Module
@@ -60,7 +60,7 @@ type Project
         }
 
 
-type alias ParsedFile =
+type alias ProjectModule =
     { path : String
     , source : String
     , ast : Elm.Syntax.File.File
@@ -80,7 +80,7 @@ type alias ElmJson =
 
 {-| Get the list of modules in the project.
 -}
-modules : Project -> List ParsedFile
+modules : Project -> List ProjectModule
 modules (Project project) =
     project.modules
 
@@ -171,8 +171,8 @@ withModule { path, source } project =
 
 
 reorderComments : Elm.Syntax.File.File -> Elm.Syntax.File.File
-reorderComments file =
-    { file | comments = List.sortBy (Node.range >> .start >> positionAsInt >> negate) file.comments }
+reorderComments ast =
+    { ast | comments = List.sortBy (Node.range >> .start >> positionAsInt >> negate) ast.comments }
 
 
 positionAsInt : { row : Int, column : Int } -> Int
@@ -186,10 +186,10 @@ positionAsInt { row, column } =
 {-| Add an already parsed module to the project. This module will then be analyzed by the rules.
 -}
 withParsedModule : { path : String, source : String, ast : Elm.Syntax.File.File } -> Project -> Project
-withParsedModule parsedFile project =
+withParsedModule module_ project =
     project
-        |> removeFileFromProject parsedFile.path
-        |> addModule parsedFile
+        |> removeFileFromProject module_.path
+        |> addModule module_
         |> recomputeModuleGraphIfNeeded
 
 
@@ -211,7 +211,7 @@ removeFileFromProject path (Project project) =
         }
 
 
-addModule : ParsedFile -> Project -> Project
+addModule : ProjectModule -> Project -> Project
 addModule module_ (Project project) =
     Project { project | modules = module_ :: project.modules }
 
@@ -311,38 +311,41 @@ precomputeModuleGraph ((Project p) as project) =
             Project { p | moduleGraph = Just <| buildModuleGraph p.modules }
 
 
-buildModuleGraph : List ParsedFile -> Graph ModuleName ()
+buildModuleGraph : List ProjectModule -> Graph ModuleName ()
 buildModuleGraph mods =
     let
-        fileIds : Dict ModuleName Int
-        fileIds =
+        moduleIds : Dict ModuleName Int
+        moduleIds =
             mods
                 |> List.indexedMap Tuple.pair
                 |> List.foldl
-                    (\( index, file ) dict ->
+                    (\( index, module_ ) dict ->
                         Dict.insert
-                            (getModuleName file)
+                            (getModuleName module_)
                             index
                             dict
                     )
                     Dict.empty
 
-        getFileId : ModuleName -> Int
-        getFileId moduleName =
-            case Dict.get moduleName fileIds of
-                Just fileId ->
-                    fileId
+        getModuleId : ModuleName -> Int
+        getModuleId moduleName =
+            case Dict.get moduleName moduleIds of
+                Just moduleId ->
+                    moduleId
 
                 Nothing ->
-                    getFileId moduleName
+                    getModuleId moduleName
 
         ( nodes, edges ) =
             mods
                 |> List.foldl
-                    (\file ( resNodes, resEdges ) ->
+                    (\module_ ( resNodes, resEdges ) ->
                         let
                             ( moduleNode, modulesEdges ) =
-                                nodesAndEdges (\moduleName -> Dict.get moduleName fileIds) file (getFileId <| getModuleName file)
+                                nodesAndEdges
+                                    (\moduleName -> Dict.get moduleName moduleIds)
+                                    module_
+                                    (getModuleId <| getModuleName module_)
                         in
                         ( moduleNode :: resNodes, List.concat [ modulesEdges, resEdges ] )
                     )
@@ -351,29 +354,29 @@ buildModuleGraph mods =
     Graph.fromNodesAndEdges nodes edges
 
 
-nodesAndEdges : (ModuleName -> Maybe Int) -> ParsedFile -> Int -> ( Graph.Node ModuleName, List (Graph.Edge ()) )
-nodesAndEdges getFileId module_ fileId =
+nodesAndEdges : (ModuleName -> Maybe Int) -> ProjectModule -> Int -> ( Graph.Node ModuleName, List (Graph.Edge ()) )
+nodesAndEdges getModuleId module_ moduleId =
     let
         moduleName =
             getModuleName module_
     in
-    ( Graph.Node fileId moduleName
+    ( Graph.Node moduleId moduleName
     , importedModules module_
-        |> List.filterMap getFileId
+        |> List.filterMap getModuleId
         |> List.map
-            (\importedFileId ->
-                Graph.Edge importedFileId fileId ()
+            (\importedModuleId ->
+                Graph.Edge importedModuleId moduleId ()
             )
     )
 
 
-importedModules : ParsedFile -> List ModuleName
+importedModules : ProjectModule -> List ModuleName
 importedModules module_ =
     module_.ast.imports
         |> List.map (Node.value >> .moduleName >> Node.value)
 
 
-getModuleName : ParsedFile -> ModuleName
+getModuleName : ProjectModule -> ModuleName
 getModuleName module_ =
     module_.ast.moduleDefinition
         |> Node.value

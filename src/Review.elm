@@ -20,7 +20,7 @@ import Review.Rule as Rule exposing (Error, Rule)
 {-| Review a list of files and gives back the errors raised by the given rules.
 
     import Review
-    import Review.File exposing (ParsedFile)
+    import Review.File exposing (ProjectModule)
     import Review.Project as Project exposing (Project)
 
     config : List Rule
