@@ -117,10 +117,10 @@ elmJson (Project project) =
 
 {-| Get the modules for every dependency in the project.
 
-This will give you a `Project` type from the
-[`elm/project-metadata-utils`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.0/Elm-Project)
-package, so you will need to install and use it to gain access to the
-information inside the `elm.json` file.
+This will give you a `Elm.Docs.Module` type from the
+[`elm/project-metadata-utils`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.0/Elm-Docs)
+package, so you will need to install and use it to gain access to the dependency
+information.
 
 -}
 dependencyModules : Project -> Dict String Elm.Docs.Module

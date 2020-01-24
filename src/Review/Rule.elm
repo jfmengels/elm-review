@@ -538,27 +538,6 @@ newProjectRuleSchema name_ { moduleVisitorSchema, initProjectContext, fromGlobal
         }
 
 
-visitModuleForProjectRule : ModuleRuleSchema { hasAtLeastOneVisitor : () } context -> context -> ParsedFile -> ( List Error, context )
-visitModuleForProjectRule (ModuleRuleSchema schema) =
-    let
-        declarationVisitors : InAndOut (DirectedVisitor Declaration context)
-        declarationVisitors =
-            inAndOut schema.declarationVisitors
-
-        expressionVisitors : InAndOut (DirectedVisitor Expression context)
-        expressionVisitors =
-            inAndOut schema.expressionVisitors
-    in
-    \initialContext file ->
-        ( [], initialContext )
-            |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors file.ast.moduleDefinition
-            |> accumulateWithListOfVisitors schema.commentsVisitors file.ast.comments
-            |> accumulateList (visitImport schema.importVisitors) file.ast.imports
-            |> accumulateWithListOfVisitors schema.declarationListVisitors file.ast.declarations
-            |> accumulateList (visitDeclaration declarationVisitors expressionVisitors) file.ast.declarations
-            |> (\( errors, context ) -> ( makeFinalEvaluation schema.finalEvaluationFns ( errors, context ), context ))
-
-
 {-| TODO documentation
 -}
 fromProjectRuleSchema : ProjectRuleSchema projectContext moduleContext -> Rule
@@ -860,6 +839,27 @@ computeModuleAndCacheResult modules graph computeModule { node, incoming } ( cac
 
                     else
                         compute (Just cacheEntry)
+
+
+visitModuleForProjectRule : ModuleRuleSchema { hasAtLeastOneVisitor : () } context -> context -> ParsedFile -> ( List Error, context )
+visitModuleForProjectRule (ModuleRuleSchema schema) =
+    let
+        declarationVisitors : InAndOut (DirectedVisitor Declaration context)
+        declarationVisitors =
+            inAndOut schema.declarationVisitors
+
+        expressionVisitors : InAndOut (DirectedVisitor Expression context)
+        expressionVisitors =
+            inAndOut schema.expressionVisitors
+    in
+    \initialContext file ->
+        ( [], initialContext )
+            |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors file.ast.moduleDefinition
+            |> accumulateWithListOfVisitors schema.commentsVisitors file.ast.comments
+            |> accumulateList (visitImport schema.importVisitors) file.ast.imports
+            |> accumulateWithListOfVisitors schema.declarationListVisitors file.ast.declarations
+            |> accumulateList (visitDeclaration declarationVisitors expressionVisitors) file.ast.declarations
+            |> (\( errors, context ) -> ( makeFinalEvaluation schema.finalEvaluationFns ( errors, context ), context ))
 
 
 getModuleName : ParsedFile -> ModuleName
