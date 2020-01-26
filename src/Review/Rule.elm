@@ -4,7 +4,7 @@ module Review.Rule exposing
     , newModuleRuleSchema, fromModuleRuleSchema
     , withSimpleModuleDefinitionVisitor, withSimpleCommentsVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
     , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalModuleEvaluation
-    , withElmJsonVisitor, withDependenciesVisitor
+    , withModuleElmJsonVisitor, withDependenciesVisitor
     , withFixes
     , Error, error, parsingError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
     , newProjectRuleSchema, fromProjectRuleSchema, traversingImportedModulesFirst, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation
@@ -23,7 +23,7 @@ Then, for each module and rule, it will give the details of your project (like t
 contents of the file to analyze to the rule. The order in which things get passed to the rule is the following:
 
   - Read project-related info (only collect data in these steps)
-      - The `elm.json` file, visited by [`withElmJsonVisitor`](#withElmJsonVisitor)
+      - The `elm.json` file, visited by [`withModuleElmJsonVisitor`](#withModuleElmJsonVisitor)
       - The definition for dependencies, visited by [`withDependenciesVisitor`](#withDependenciesVisitor)
   - Visit the file (in the following order)
       - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
@@ -175,7 +175,7 @@ patterns you would want to forbid, but that are not handled by the example.
 
 ## Builder functions to analyze the project's data
 
-@docs withElmJsonVisitor, withDependenciesVisitor
+@docs withModuleElmJsonVisitor, withDependenciesVisitor
 
 
 ## Automatic fixing
@@ -194,7 +194,6 @@ For more information on automatic fixing, read the documentation for [`Review.Fi
 
 @docs newProjectRuleSchema, fromProjectRuleSchema, traversingImportedModulesFirst, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation
 @docs FileKey, errorForFile
-@docs ReviewResult
 
 -}
 
@@ -216,9 +215,9 @@ import Review.Project exposing (Project, ProjectModule)
 import Set exposing (Set)
 
 
-{-| Represents a construct able to analyze a module and report unwanted patterns.
-See [`newModuleRuleSchema`](#newModuleRuleSchema), and [`fromModuleRuleSchema`](#fromModuleRuleSchema) for how to create one.
-TODO Explain about single and multi-file rules
+{-| Represents a construct able to analyze modules from a project and report
+unwanted patterns.
+See [`newModuleRuleSchema`](#newModuleRuleSchema), and [`newProjectRuleSchema`](#newProjectRuleSchema) for how to create one.
 -}
 type Rule
     = ModuleRule String (Project -> ( List Error, Rule ))
@@ -364,7 +363,7 @@ take a look at [`withInitialContext`](#withInitialContext) and "with\*" function
 newModuleRuleSchema :
     String
     -> context
-    -> ModuleRuleSchema { withElmJsonVisitor : (), withDependenciesVisitor : () } context
+    -> ModuleRuleSchema { withModuleElmJsonVisitor : (), withDependenciesVisitor : () } context
 newModuleRuleSchema name_ context =
     emptySchema name_ context
 
@@ -1268,7 +1267,7 @@ The following example forbids exposing a file in an "Internal" directory in your
     rule : Rule
     rule =
         Rule.newModuleRuleSchema "DoNoExposeInternalModules" Nothing
-            |> Rule.withElmJsonVisitor elmJsonVisitor
+            |> Rule.withModuleElmJsonVisitor elmJsonVisitor
             |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
             |> Rule.fromModuleRuleSchema
 
@@ -1312,11 +1311,11 @@ The following example forbids exposing a file in an "Internal" directory in your
             ( [], context )
 
 -}
-withElmJsonVisitor :
+withModuleElmJsonVisitor :
     (Maybe Elm.Project.Project -> context -> context)
-    -> ModuleRuleSchema { anything | withElmJsonVisitor : () } context
-    -> ModuleRuleSchema { anything | withElmJsonVisitor : () } context
-withElmJsonVisitor visitor (ModuleRuleSchema schema) =
+    -> ModuleRuleSchema { anything | withModuleElmJsonVisitor : () } context
+    -> ModuleRuleSchema { anything | withModuleElmJsonVisitor : () } context
+withModuleElmJsonVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
 
 

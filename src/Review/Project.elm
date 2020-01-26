@@ -271,7 +271,8 @@ type alias ElmJson =
 
 {-| Add the content of the `elm.json` file to the project details, making it
 available for rules to access using
-[`Review.Rule.withElmJsonVisitor`](./Review-Rule#withElmJsonVisitor).
+[`Review.Rule.withModuleElmJsonVisitor`](./Review-Rule#withModuleElmJsonVisitor) and
+[`Review.Rule.withProjectElmJsonVisitor`](./Review-Rule#withProjectElmJsonVisitor).
 -}
 withElmJson : ElmJson -> Project -> Project
 withElmJson elmJson_ (Project project) =
