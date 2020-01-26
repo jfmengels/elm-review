@@ -1716,13 +1716,8 @@ withFinalModuleEvaluation visitor (ModuleRuleSchema schema) =
 -- ERRORS
 
 
-{-| Represents an error found by a [`Rule`](#Rule).
-
-Note: This should not be confused with [`Review.Error`](./Review#Error) from the
-[`Review`](./Review) module. [`Review.Error`](./Review#Error) is created from
-this module's [`Error`](#Error) but contains additional information like the
-name of the rule that emitted it and the file name.
-
+{-| Represents an error found by a [`Rule`](#Rule). These are created by the
+rules, and will be reported to the user.
 -}
 type Error
     = Error
@@ -1735,16 +1730,10 @@ type Error
         }
 
 
-type FileKey
-    = FileKey String
-
-
 {-| Creates an [`Error`](#Error). Use it when you find a pattern that the rule should forbid.
-It takes the [message you want to display to the user](#a-helpful-error-message-and-details), and a [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range),
-which is the location where the error should be shown (under which to put the squiggly lines in an editor).
-In most cases, you can get it using [`Node.range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#range).
 
-The `details` is a list of strings, and each item will be visually separated
+The `message` and `details` represent the [message you want to display to the user].
+The `details` is a list of paragraphs, and each item will be visually separated
 when shown to the user. The details may not be empty, and this will be enforced
 by the tests automatically.
 
@@ -1755,6 +1744,14 @@ by the tests automatically.
             , details = [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing its use before committing and attempting to push to production." ]
             }
             (Node.range node)
+
+The [`Range`] corresponds to the location where the error should be shown, i.e. where to put the squiggly lines in an editor.
+In most cases, you can get it using [`Node.range`].
+
+[message you want to display to the user]: #a-helpful-error-message-and-details
+
+[`Range`]: https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range
+[`Node.range`]: https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#range
 
 -}
 error : { message : String, details : List String } -> Range -> Error
@@ -1797,6 +1794,18 @@ errorForFile (FileKey path) { message, details } range =
         , filePath = path
         , fixes = Nothing
         }
+
+
+{-| A key to be able to report an error for a specific module. You need such a
+key in order to use the [`errorForFile`](#errorForFile) function. This is to
+prevent creating errors for modules you have not visited, or files that do not exist.
+
+You can get a `FileKey` from the `fromProjectToModule` and `fromModuleToProject`
+functions that you define when using [`newProjectRuleSchema`](#newProjectRuleSchema).
+
+-}
+type FileKey
+    = FileKey String
 
 
 {-| TODO
