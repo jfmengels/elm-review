@@ -75,7 +75,7 @@ rule =
             }
         |> Rule.traversingImportedModulesFirst
         |> Rule.withProjectElmJsonVisitor elmJsonVisitor
-        |> Rule.withProjectFinalEvaluation finalEvaluationForProject
+        |> Rule.withFinalProjectEvaluation finalEvaluationForProject
         |> Rule.fromProjectRuleSchema
 
 

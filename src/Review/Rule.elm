@@ -7,7 +7,7 @@ module Review.Rule exposing
     , withElmJsonVisitor, withDependenciesVisitor
     , withFixes
     , Error, error, parsingError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
-    , newProjectRuleSchema, fromProjectRuleSchema, traversingImportedModulesFirst, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withProjectFinalEvaluation
+    , newProjectRuleSchema, fromProjectRuleSchema, traversingImportedModulesFirst, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation
     , FileKey, errorForFile
     )
 
@@ -192,7 +192,7 @@ For more information on automatic fixing, read the documentation for [`Review.Fi
 
 # TODO
 
-@docs newProjectRuleSchema, fromProjectRuleSchema, traversingImportedModulesFirst, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withProjectFinalEvaluation
+@docs newProjectRuleSchema, fromProjectRuleSchema, traversingImportedModulesFirst, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation
 @docs FileKey, errorForFile
 @docs ReviewResult
 
@@ -920,11 +920,11 @@ withProjectDependenciesVisitor visitor (ProjectRuleSchema schema) =
 
 {-| TODO documentation
 -}
-withProjectFinalEvaluation :
+withFinalProjectEvaluation :
     (projectContext -> List Error)
     -> ProjectRuleSchema projectContext moduleContext
     -> ProjectRuleSchema projectContext moduleContext
-withProjectFinalEvaluation visitor (ProjectRuleSchema schema) =
+withFinalProjectEvaluation visitor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | finalEvaluationFns = visitor :: schema.finalEvaluationFns }
 
 

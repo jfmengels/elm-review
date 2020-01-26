@@ -58,7 +58,7 @@ rule =
         , foldProjectContexts = foldProjectContexts
         }
         |> Rule.withProjectElmJsonVisitor elmJsonVisitor
-        |> Rule.withProjectFinalEvaluation finalEvaluationForProject
+        |> Rule.withFinalProjectEvaluation finalEvaluationForProject
         |> Rule.fromProjectRuleSchema
 
 
