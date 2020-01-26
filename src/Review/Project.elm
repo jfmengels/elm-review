@@ -1,32 +1,39 @@
 module Review.Project exposing
-    ( Project, ProjectModule, ElmJson
-    , modules, filesThatFailedToParse, moduleGraph, elmJson, dependencyModules
-    , new, withModule, withParsedModule, removeModule, withElmJson, withDependency, removeDependencies, precomputeModuleGraph
+    ( Project, new
+    , ProjectModule, withModule, withParsedModule, removeModule, modules, filesThatFailedToParse, moduleGraph, precomputeModuleGraph
+    , ElmJson, withElmJson, elmJson
+    , withDependency, removeDependencies, dependencyModules
     )
 
-{-| Represents project-related data, that a rule can access to get more information.
+{-| Represents the contents of the project to be analyzed. This information will
+then be fed to the review rules.
 
-These will be accessible in rules with functions like [`Review.Rule.withElmJsonVisitor`](./Review-Rule#withElmJsonVisitor).
-This module is made to build all of the project-related data that we want
-rules to have access to, to later pass it to the [`Review.review`](./Review#review) function.
-
-This module is useful if you try to run `elm-review` by yourself. You can safely
-ignore it if you just want to write a review rule.
+Looking at this module is useful if you try to run `elm-review` in a new environment,
+but you can safely ignore it if you just want to write a review rule or run it
+in existing environments like the CLI tool.
 
 
-# Definition
+# Project
 
-@docs Project, ProjectModule, ElmJson
-
-
-# Access
-
-@docs modules, filesThatFailedToParse, moduleGraph, elmJson, dependencyModules
+@docs Project, new
 
 
-# Build
+# Project files
 
-@docs new, withModule, withParsedModule, removeModule, withElmJson, withDependency, removeDependencies, precomputeModuleGraph
+
+## Adding files
+
+@docs ProjectModule, withModule, withParsedModule, removeModule, modules, filesThatFailedToParse, moduleGraph, precomputeModuleGraph
+
+
+# `elm.json`
+
+@docs ElmJson, withElmJson, elmJson
+
+
+# Project dependencies
+
+@docs withDependency, removeDependencies, dependencyModules
 
 -}
 
@@ -43,10 +50,10 @@ import Graph exposing (Graph)
 
 
 
--- DEFINITION
+-- PROJECT
 
 
-{-| Represents all kinds of details about the project, such as the contents of
+{-| Represents all the details of the project, such as the contents of
 the `elm.json` file.
 -}
 type Project
@@ -58,78 +65,6 @@ type Project
         , moduleToDependency : Dict String String
         , moduleGraph : Maybe (Graph ModuleName ())
         }
-
-
-type alias ProjectModule =
-    { path : String
-    , source : String
-    , ast : Elm.Syntax.File.File
-    }
-
-
-{-| Contents of the `elm.json` file. Alias to
-[`elm/project-metadata-utils`'s Project project structure](https://package.elm-lang.org/packages/elm/project-metadata-utils/latest/Elm-Project).
--}
-type alias ElmJson =
-    Elm.Project.Project
-
-
-
--- ACCESS
-
-
-{-| Get the list of modules in the project.
--}
-modules : Project -> List ProjectModule
-modules (Project project) =
-    project.modules
-
-
-moduleGraph : Project -> Graph ModuleName ()
-moduleGraph (Project project) =
-    case project.moduleGraph of
-        Just graph ->
-            graph
-
-        Nothing ->
-            buildModuleGraph project.modules
-
-
-{-| Get the list of file paths that failed to parse, because they were syntactically invalid Elm code.
--}
-filesThatFailedToParse : Project -> List { path : String, source : String }
-filesThatFailedToParse (Project project) =
-    project.filesThatFailedToParse
-
-
-{-| Get the contents of the `elm.json` file, if available.
-
-This will give you a `Project` type from the
-[`elm/project-metadata-utils`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.0/Elm-Project)
-package, so you will need to install and use it to gain access to the
-information inside the `elm.json` file.
-
--}
-elmJson : Project -> Maybe ElmJson
-elmJson (Project project) =
-    project.elmJson
-
-
-{-| Get the modules for every dependency in the project.
-
-This will give you a `Elm.Docs.Module` type from the
-[`elm/project-metadata-utils`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.0/Elm-Docs)
-package, so you will need to install and use it to gain access to the dependency
-information.
-
--}
-dependencyModules : Project -> Dict String Elm.Docs.Module
-dependencyModules (Project project) =
-    project.dependencyModules
-
-
-
--- BUILD
 
 
 {-| Create a new Project.
@@ -146,7 +81,27 @@ new =
         }
 
 
-{-| Add a module to the project. This module will then be analyzed by the rules.
+
+-- PROJECT FILES
+
+
+{-| Represents a parsed file.
+-}
+type alias ProjectModule =
+    { path : String
+    , source : String
+    , ast : Elm.Syntax.File.File
+    }
+
+
+{-| Add an Elm file to the project. If a file with the same path already exists,
+then it will replace it.
+
+If the file is syntactically valid Elm code, it will then be analyzed by the
+review rules. Otherwise, the file will be added to the list of files that failed
+to parse, which you can get using [`filesThatFailedToParse`](#filesThatFailedToParse),
+and for which a parsing error will be reported when running [`Review.review`](./Review#review).
+
 -}
 withModule : { path : String, source : String } -> Project -> Project
 withModule { path, source } project =
@@ -158,7 +113,7 @@ withModule { path, source } project =
                     |> addModule
                         { path = path
                         , source = source
-                        , ast = reorderComments ast
+                        , ast = ast
                         }
 
             Err _ ->
@@ -168,11 +123,6 @@ withModule { path, source } project =
                         { path = path
                         , source = source
                         }
-
-
-reorderComments : Elm.Syntax.File.File -> Elm.Syntax.File.File
-reorderComments ast =
-    { ast | comments = List.sortBy (Node.range >> .start >> positionAsInt >> negate) ast.comments }
 
 
 positionAsInt : { row : Int, column : Int } -> Int
@@ -193,6 +143,29 @@ withParsedModule module_ project =
         |> recomputeModuleGraphIfNeeded
 
 
+addModule : ProjectModule -> Project -> Project
+addModule module_ (Project project) =
+    Project { project | modules = sanitizeModule module_ :: project.modules }
+
+
+sanitizeModule : ProjectModule -> ProjectModule
+sanitizeModule module_ =
+    { module_ | ast = reorderComments module_.ast }
+
+
+reorderComments : Elm.Syntax.File.File -> Elm.Syntax.File.File
+reorderComments ast =
+    { ast | comments = List.sortBy (Node.range >> .start >> positionAsInt >> negate) ast.comments }
+
+
+addFileThatFailedToParse : { path : String, source : String } -> Project -> Project
+addFileThatFailedToParse { path, source } (Project project) =
+    Project
+        { project
+            | filesThatFailedToParse = { path = path, source = source } :: project.filesThatFailedToParse
+        }
+
+
 {-| Remove a module from the project by its path.
 -}
 removeModule : String -> Project -> Project
@@ -211,19 +184,6 @@ removeFileFromProject path (Project project) =
         }
 
 
-addModule : ProjectModule -> Project -> Project
-addModule module_ (Project project) =
-    Project { project | modules = module_ :: project.modules }
-
-
-addFileThatFailedToParse : { path : String, source : String } -> Project -> Project
-addFileThatFailedToParse { path, source } (Project project) =
-    Project
-        { project
-            | filesThatFailedToParse = { path = path, source = source } :: project.filesThatFailedToParse
-        }
-
-
 {-| Parse source code into a AST
 -}
 parseSource : String -> Result () File
@@ -234,6 +194,81 @@ parseSource source =
         |> Result.map (Elm.Processing.process Elm.Processing.init)
 
 
+{-| Get the list of modules in the project.
+-}
+modules : Project -> List ProjectModule
+modules (Project project) =
+    project.modules
+
+
+{-| Get the list of file paths that failed to parse, because they were syntactically invalid Elm code.
+-}
+filesThatFailedToParse : Project -> List { path : String, source : String }
+filesThatFailedToParse (Project project) =
+    project.filesThatFailedToParse
+
+
+{-| Get the module graph for the project in the form of a
+[`elm-community/graph` Graph].
+
+The value contained in the [`Node`]s correspond to the module name, where the
+name is split by the `.` symbol. So the module `Some.Module` would correspond to
+`[ "Some", "Module" ]`.
+
+[`Edge`]s in this graph mean that a module is imported by another module: If there
+is an edge going from `[ "Some", "Module" ]` to `[ "Other", "Module" ]`, then
+module `Other.Module` is importing module `Some.Module`.
+
+Note that the graph will be computed every time this function is called, and that
+every rule may call this function once per review. To avoid this computation at
+every call, you can use [`precomputeModuleGraph`].
+
+[`elm-community/graph` Graph]: https://package.elm-lang.org/packages/elm-community/graph/6.0.0/Graph#Graph
+[`Node`]: https://package.elm-lang.org/packages/elm-community/graph/6.0.0/Graph#Node
+[`Edge`]: https://package.elm-lang.org/packages/elm-community/graph/6.0.0/Graph#Edge
+[`precomputeModuleGraph`]: #precomputeModuleGraph
+
+-}
+moduleGraph : Project -> Graph (List String) ()
+moduleGraph (Project project) =
+    case project.moduleGraph of
+        Just graph ->
+            graph
+
+        Nothing ->
+            buildModuleGraph project.modules
+
+
+{-| Precomputes the module graph that you get using [`moduleGraph`](#moduleGraph).
+This is to avoid a potentially long computation for every rule run. Once the graph
+is precomputed, it will be recomputed every time a module is changed, meaning
+you won't need to reuse this call `precomputeModuleGraph` again.
+
+You should use this function if and when you know you loaded all the files in
+the project.
+
+-}
+precomputeModuleGraph : Project -> Project
+precomputeModuleGraph ((Project p) as project) =
+    case p.moduleGraph of
+        Just _ ->
+            project
+
+        Nothing ->
+            Project { p | moduleGraph = Just <| buildModuleGraph p.modules }
+
+
+
+-- `elm.json`
+
+
+{-| Contents of the `elm.json` file. Alias to
+[`elm/project-metadata-utils`'s Project project structure](https://package.elm-lang.org/packages/elm/project-metadata-utils/latest/Elm-Project).
+-}
+type alias ElmJson =
+    Elm.Project.Project
+
+
 {-| Add the content of the `elm.json` file to the project details, making it
 available for rules to access using
 [`Review.Rule.withElmJsonVisitor`](./Review-Rule#withElmJsonVisitor).
@@ -241,6 +276,23 @@ available for rules to access using
 withElmJson : ElmJson -> Project -> Project
 withElmJson elmJson_ (Project project) =
     Project { project | elmJson = Just elmJson_ }
+
+
+{-| Get the contents of the `elm.json` file, if available.
+
+This will give you a `Project` type from the
+[`elm/project-metadata-utils`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.0/Elm-Project)
+package, so you will need to install and use it to gain access to the
+information inside the `elm.json` file.
+
+-}
+elmJson : Project -> Maybe ElmJson
+elmJson (Project project) =
+    project.elmJson
+
+
+
+-- PROJECT DEPENDENCIES
 
 
 {-| Add a dependency to the project. These will be available for rules to make
@@ -287,6 +339,19 @@ removeDependencies (Project project) =
         |> recomputeModuleGraphIfNeeded
 
 
+{-| Get the modules for every dependency in the project.
+
+This will give you a `Elm.Docs.Module` type from the
+[`elm/project-metadata-utils`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.0/Elm-Docs)
+package, so you will need to install and use it to gain access to the dependency
+information.
+
+-}
+dependencyModules : Project -> Dict String Elm.Docs.Module
+dependencyModules (Project project) =
+    project.dependencyModules
+
+
 
 -- GRAPH CREATION
 
@@ -299,16 +364,6 @@ recomputeModuleGraphIfNeeded ((Project p) as project) =
 
         Nothing ->
             project
-
-
-precomputeModuleGraph : Project -> Project
-precomputeModuleGraph ((Project p) as project) =
-    case p.moduleGraph of
-        Just _ ->
-            project
-
-        Nothing ->
-            Project { p | moduleGraph = Just <| buildModuleGraph p.modules }
 
 
 buildModuleGraph : List ProjectModule -> Graph ModuleName ()
