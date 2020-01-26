@@ -58,7 +58,7 @@ rule =
         |> Rule.withImportVisitor importVisitor
         |> Rule.withExpressionVisitor expressionVisitor
         |> Rule.withDeclarationVisitor declarationVisitor
-        |> Rule.withFinalEvaluation finalEvaluation
+        |> Rule.withFinalModuleEvaluation finalEvaluation
         |> Rule.fromModuleRuleSchema
 
 

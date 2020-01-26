@@ -3,7 +3,7 @@ module Review.Rule exposing
     , runRules
     , newModuleRuleSchema, fromModuleRuleSchema
     , withSimpleModuleDefinitionVisitor, withSimpleCommentsVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
-    , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalEvaluation
+    , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalModuleEvaluation
     , withElmJsonVisitor, withDependenciesVisitor
     , withFixes
     , Error, error, parsingError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
@@ -33,7 +33,7 @@ contents of the file to analyze to the rule. The order in which things get passe
       - Each declaration, visited by [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) and [`withDeclarationVisitor`](#withDeclarationVisitor).
         Before evaluating the next declaration, the expression contained in the declaration
         will be visited recursively using by [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) and [`withExpressionVisitor`](#withExpressionVisitor)
-      - A final evaluation is made when the whole AST has been traversed, using [`withFinalEvaluation`](#withFinalEvaluation)
+      - A final evaluation is made when the whole AST has been traversed, using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation)
 
 Evaluating a node means two things:
 
@@ -170,7 +170,7 @@ patterns you would want to forbid, but that are not handled by the example.
 
 ## Builder functions with context
 
-@docs withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction, withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalEvaluation
+@docs withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction, withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalModuleEvaluation
 
 
 ## Builder functions to analyze the project's data
@@ -340,7 +340,7 @@ TODO Update this text
 If you wish to build a [`Rule`](#Rule) that collects data as the file gets traversed,
 take a look at [`withInitialContext`](#withInitialContext) and "with\*" functions without
 "Simple" in their name, like [`withExpressionVisitor`](#withExpressionVisitor),
-[`withImportVisitor`](#withImportVisitor) or [`withFinalEvaluation`](#withFinalEvaluation).
+[`withImportVisitor`](#withImportVisitor) or [`withFinalModuleEvaluation`](#withFinalModuleEvaluation).
 
     import Review.Rule as Rule exposing (Rule)
 
@@ -1148,7 +1148,7 @@ available and updated by non-"simple" "with\*" functions, like
 [`withExpressionVisitor`](#withExpressionVisitor) or [`withImportVisitor`](#withImportVisitor).
 
 Once the file has been traversed and you have collected all the data available
-from the file, you can report some final errors using [`withFinalEvaluation`](#withFinalEvaluation).
+from the file, you can report some final errors using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation).
 
 A few use examples:
 
@@ -1463,7 +1463,7 @@ The following example forbids importing both `Element` (`elm-ui`) and
             _ ->
                 ( [], context )
 
-This example was written in a different way in the example for [`withFinalEvaluation`](#withFinalEvaluation).
+This example was written in a different way in the example for [`withFinalModuleEvaluation`](#withFinalModuleEvaluation).
 
 Tip: If you do not need to collect or use the `context` in this visitor, you may wish to use the
 simpler [`withSimpleImportVisitor`](#withSimpleImportVisitor) function.
@@ -1665,13 +1665,13 @@ withExpressionVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | expressionVisitors = visitor :: schema.expressionVisitors }
 
 
-{-| Add a function that makes a final evaluation based only on the data that was
-collected in the `context`. This can be useful if you can't or if it is hard to
-determine something as you traverse the file.
+{-| Add a function that makes a final evaluation of the module based only on the
+data that was collected in the `context`. This can be useful if you can't or if
+it is hard to determine something as you traverse the file.
 
 The following example forbids importing both `Element` (`elm-ui`) and
 `Html.Styled` (`elm-css`). Note that this is the same one written in the example
-for [`withImportVisitor`](#withImportVisitor), but using [`withFinalEvaluation`](#withFinalEvaluation).
+for [`withImportVisitor`](#withImportVisitor), but using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation).
 
     import Dict as Dict exposing (Dict)
     import Elm.Syntax.Import exposing (Import)
@@ -1686,7 +1686,7 @@ for [`withImportVisitor`](#withImportVisitor), but using [`withFinalEvaluation`]
     rule =
         Rule.newModuleRuleSchema "NoUsingBothHtmlAndHtmlStyled" Dict.empty
             |> Rule.withImportVisitor importVisitor
-            |> Rule.withFinalEvaluation finalEvaluation
+            |> Rule.withFinalModuleEvaluation finalEvaluation
             |> Rule.fromModuleRuleSchema
 
     importVisitor : Node Import -> Context -> ( List Error, Context )
@@ -1708,8 +1708,8 @@ for [`withImportVisitor`](#withImportVisitor), but using [`withFinalEvaluation`]
                 []
 
 -}
-withFinalEvaluation : (context -> List Error) -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context
-withFinalEvaluation visitor (ModuleRuleSchema schema) =
+withFinalModuleEvaluation : (context -> List Error) -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context
+withFinalModuleEvaluation visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | finalEvaluationFns = visitor :: schema.finalEvaluationFns }
 
 

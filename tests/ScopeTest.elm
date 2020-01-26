@@ -63,7 +63,7 @@ all =
                         rule =
                             baseRule
                                 |> Rule.withExpressionVisitor expressionVisitor
-                                |> Rule.withFinalEvaluation finalEvaluation
+                                |> Rule.withFinalModuleEvaluation finalEvaluation
                                 |> Rule.fromModuleRuleSchema
 
                         expressionVisitor : Node Expression -> Rule.Direction -> Context -> ( List Rule.Error, Context )

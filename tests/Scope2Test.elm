@@ -139,7 +139,7 @@ rule =
                     |> Scope.addModuleVisitors scopeGetterSetter
                     |> Rule.withDeclarationVisitor declarationVisitor
                     |> Rule.withExpressionVisitor expressionVisitor
-                    |> Rule.withFinalEvaluation finalEvaluation
+                    |> Rule.withFinalModuleEvaluation finalEvaluation
         , initProjectContext = { scope = Scope.initProjectContext }
         , fromProjectToModule =
             \fileKey moduleNameNode projectContext ->

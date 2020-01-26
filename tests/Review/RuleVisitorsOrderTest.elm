@@ -51,7 +51,7 @@ all =
                                         Rule.OnExit ->
                                             ( [], context ++ "\n8 - withExpressionVisitor (Exit)" )
                                 )
-                            |> Rule.withFinalEvaluation finalEvaluation
+                            |> Rule.withFinalModuleEvaluation finalEvaluation
                             |> Rule.fromModuleRuleSchema
 
                     finalEvaluation : Context -> List Rule.Error
@@ -92,7 +92,7 @@ a = 1
                             |> Rule.withExpressionVisitor (declarationVisitor "A")
                             |> Rule.withExpressionVisitor (declarationVisitor "B")
                             |> Rule.withExpressionVisitor (declarationVisitor "C")
-                            |> Rule.withFinalEvaluation finalEvaluation
+                            |> Rule.withFinalModuleEvaluation finalEvaluation
                             |> Rule.fromModuleRuleSchema
 
                     declarationVisitor : String -> Node Expression -> Rule.Direction -> Context -> ( List Rule.Error, Context )
@@ -137,7 +137,7 @@ Exit A"""
                             |> Rule.withDeclarationVisitor (declarationVisitor "A")
                             |> Rule.withDeclarationVisitor (declarationVisitor "B")
                             |> Rule.withDeclarationVisitor (declarationVisitor "C")
-                            |> Rule.withFinalEvaluation finalEvaluation
+                            |> Rule.withFinalModuleEvaluation finalEvaluation
                             |> Rule.fromModuleRuleSchema
 
                     declarationVisitor : String -> Node Declaration -> Rule.Direction -> Context -> ( List Rule.Error, Context )
