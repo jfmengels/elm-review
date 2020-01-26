@@ -54,16 +54,7 @@ unused modules in your application or package.
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "NoUnused.Exports"
-        { moduleVisitorSchema =
-            \schema ->
-                schema
-                    |> Scope.addModuleVisitors
-                        { set = \scope context -> { context | scope = scope }
-                        , get = .scope
-                        }
-                    |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-                    |> Rule.withDeclarationListVisitor declarationListVisitor
-                    |> Rule.withExpressionVisitor expressionVisitor
+        { moduleVisitorSchema = moduleVisitorSchema
         , initProjectContext = initProjectContext
         , fromProjectToModule = fromProjectToModule
         , fromModuleToProject = fromModuleToProject
@@ -77,6 +68,18 @@ rule =
         |> Rule.withProjectElmJsonVisitor elmJsonVisitor
         |> Rule.withFinalProjectEvaluation finalEvaluationForProject
         |> Rule.fromProjectRuleSchema
+
+
+moduleVisitorSchema : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
+moduleVisitorSchema schema =
+    schema
+        |> Scope.addModuleVisitors
+            { set = \scope context -> { context | scope = scope }
+            , get = .scope
+            }
+        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
+        |> Rule.withDeclarationListVisitor declarationListVisitor
+        |> Rule.withExpressionVisitor expressionVisitor
 
 
 
