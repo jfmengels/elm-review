@@ -29,7 +29,7 @@ all =
                     rule =
                         Rule.newModuleRuleSchema "TestRule" "\n0 - withInitialContext"
                             |> Rule.withModuleElmJsonVisitor (\_ context -> context ++ "\n1 - withModuleElmJsonVisitor")
-                            |> Rule.withDependenciesVisitor (\_ context -> context ++ "\n2 - withDependenciesVisitor")
+                            |> Rule.withModuleDependenciesVisitor (\_ context -> context ++ "\n2 - withModuleDependenciesVisitor")
                             |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ++ "\n3 - withModuleDefinitionVisitor" ))
                             |> Rule.withImportVisitor (\_ context -> ( [], context ++ "\n4 - withImportVisitor" ))
                             |> Rule.withDeclarationListVisitor (\_ context -> ( [], context ++ "\n5 - withDeclarationListVisitor" ))
@@ -71,7 +71,7 @@ a = 1
                             { message = """
 0 - withInitialContext
 1 - withModuleElmJsonVisitor
-2 - withDependenciesVisitor
+2 - withModuleDependenciesVisitor
 3 - withModuleDefinitionVisitor
 4 - withImportVisitor
 5 - withDeclarationListVisitor

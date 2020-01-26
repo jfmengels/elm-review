@@ -24,6 +24,6 @@ import Set exposing (Set)
 rule : Rule
 rule =
     Rule.newModuleRuleSchema "NoWithInitialContextAfterHavingAddedAVisitor" ()
-        |> Rule.withDependenciesVisitor (\_ context -> context)
+        |> Rule.withModuleDependenciesVisitor (\_ context -> context)
         |> Rule.withDeclarationListVisitor (\_ context -> ( [], context ))
         |> Rule.fromModuleRuleSchema

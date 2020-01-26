@@ -4,7 +4,7 @@ module Review.Rule exposing
     , newModuleRuleSchema, fromModuleRuleSchema
     , withSimpleModuleDefinitionVisitor, withSimpleCommentsVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
     , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalModuleEvaluation
-    , withModuleElmJsonVisitor, withDependenciesVisitor
+    , withModuleElmJsonVisitor, withModuleDependenciesVisitor
     , withFixes
     , Error, error, parsingError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
     , newProjectRuleSchema, fromProjectRuleSchema, traversingImportedModulesFirst, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation
@@ -24,7 +24,7 @@ contents of the file to analyze to the rule. The order in which things get passe
 
   - Read project-related info (only collect data in these steps)
       - The `elm.json` file, visited by [`withModuleElmJsonVisitor`](#withModuleElmJsonVisitor)
-      - The definition for dependencies, visited by [`withDependenciesVisitor`](#withDependenciesVisitor)
+      - The definition for dependencies, visited by [`withModuleDependenciesVisitor`](#withModuleDependenciesVisitor)
   - Visit the file (in the following order)
       - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
       - The module's list of comments, visited by [`withSimpleCommentsVisitor`](#withSimpleCommentsVisitor) and [`withCommentsVisitor`](#withCommentsVisitor)
@@ -175,7 +175,7 @@ patterns you would want to forbid, but that are not handled by the example.
 
 ## Builder functions to analyze the project's data
 
-@docs withModuleElmJsonVisitor, withDependenciesVisitor
+@docs withModuleElmJsonVisitor, withModuleDependenciesVisitor
 
 
 ## Automatic fixing
@@ -363,7 +363,7 @@ take a look at [`withInitialContext`](#withInitialContext) and "with\*" function
 newModuleRuleSchema :
     String
     -> context
-    -> ModuleRuleSchema { withModuleElmJsonVisitor : (), withDependenciesVisitor : () } context
+    -> ModuleRuleSchema { withModuleElmJsonVisitor : (), withModuleDependenciesVisitor : () } context
 newModuleRuleSchema name_ context =
     emptySchema name_ context
 
@@ -1319,11 +1319,11 @@ withModuleElmJsonVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
 
 
-withDependenciesVisitor :
+withModuleDependenciesVisitor :
     (Dict String Elm.Docs.Module -> context -> context)
-    -> ModuleRuleSchema { anything | withDependenciesVisitor : () } context
-    -> ModuleRuleSchema { anything | withDependenciesVisitor : () } context
-withDependenciesVisitor visitor (ModuleRuleSchema schema) =
+    -> ModuleRuleSchema { anything | withModuleDependenciesVisitor : () } context
+    -> ModuleRuleSchema { anything | withModuleDependenciesVisitor : () } context
+withModuleDependenciesVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | dependenciesVisitors = visitor :: schema.dependenciesVisitors }
 
 
