@@ -125,11 +125,11 @@ foldProjectContexts newContext previousContext =
 
 
 
--- GLOBAL VISITORS
+-- PROJECT VISITORS
 
 
 elmJsonVisitor : Maybe Project -> ProjectContext -> ProjectContext
-elmJsonVisitor maybeProject context =
+elmJsonVisitor maybeProject projectContext =
     let
         ( exposedModules, isPackage ) =
             case maybeProject of
@@ -144,12 +144,12 @@ elmJsonVisitor maybeProject context =
                 _ ->
                     ( [], False )
     in
-    { context
+    { projectContext
         | usedModules =
             exposedModules
                 |> List.map (Elm.Module.toString >> String.split ".")
                 |> Set.fromList
-                |> Set.union context.usedModules
+                |> Set.union projectContext.usedModules
         , isPackage = isPackage
     }
 

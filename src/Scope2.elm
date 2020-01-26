@@ -1,6 +1,6 @@
 module Scope2 exposing
     ( ProjectContext, ModuleContext
-    , GlobalSetterGetter, addGlobalVisitors, ModuleSetterGetter, addModuleVisitors, initProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
+    , ProjectSetterGetter, addProjectVisitors, ModuleSetterGetter, addModuleVisitors, initProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
     , realFunctionOrType
     )
 
@@ -14,7 +14,7 @@ module Scope2 exposing
 
 # Usage
 
-@docs GlobalSetterGetter, addGlobalVisitors, ModuleSetterGetter, addModuleVisitors, initProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
+@docs ProjectSetterGetter, addProjectVisitors, ModuleSetterGetter, addModuleVisitors, initProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
 
 
 # Access
@@ -107,7 +107,7 @@ type alias Scope =
     }
 
 
-type alias GlobalSetterGetter context =
+type alias ProjectSetterGetter context =
     { set : ProjectContext -> context -> context
     , get : context -> ProjectContext
     }
@@ -182,8 +182,8 @@ emptyScope =
     }
 
 
-addGlobalVisitors : GlobalSetterGetter projectContext -> Rule.ProjectRuleSchema projectContext moduleContext -> Rule.ProjectRuleSchema projectContext moduleContext
-addGlobalVisitors setterGetter schema =
+addProjectVisitors : ProjectSetterGetter projectContext -> Rule.ProjectRuleSchema projectContext moduleContext -> Rule.ProjectRuleSchema projectContext moduleContext
+addProjectVisitors setterGetter schema =
     schema
         |> Rule.withProjectDependenciesVisitor (mapInnerProjectContext setterGetter dependenciesVisitor)
 
@@ -249,14 +249,14 @@ addModuleVisitors setterGetter schema =
 --     Rule.newProjectRuleSchema name
 
 
-mapInnerProjectContext : GlobalSetterGetter context -> (visitedElement -> InnerProjectContext -> InnerProjectContext) -> visitedElement -> context -> context
+mapInnerProjectContext : ProjectSetterGetter context -> (visitedElement -> InnerProjectContext -> InnerProjectContext) -> visitedElement -> context -> context
 mapInnerProjectContext { set, get } visitor visitedElement outerContext =
     let
         innerContext : InnerProjectContext
         innerContext =
             outerContext
                 |> get
-                |> unboxGlobal
+                |> unboxProjectContext
                 |> visitor visitedElement
     in
     set (ProjectContext innerContext) outerContext
@@ -719,8 +719,8 @@ namesFromExposingList module_ topLevelExpose =
                     [ name ]
 
 
-unboxGlobal : ProjectContext -> InnerProjectContext
-unboxGlobal (ProjectContext context) =
+unboxProjectContext : ProjectContext -> InnerProjectContext
+unboxProjectContext (ProjectContext context) =
     context
 
 

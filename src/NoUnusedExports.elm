@@ -69,7 +69,7 @@ rule =
         , fromModuleToProject = fromModuleToProject
         , foldProjectContexts = foldProjectContexts
         }
-        |> Scope.addGlobalVisitors
+        |> Scope.addProjectVisitors
             { set = \scope context -> { context | scope = scope }
             , get = .scope
             }
@@ -201,7 +201,7 @@ elmJsonVisitor maybeProject projectContext =
 
 
 
--- GLOBAL EVALUATION
+-- PROJECT EVALUATION
 
 
 finalEvaluationForProject : ProjectContext -> List Error
