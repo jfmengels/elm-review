@@ -1,6 +1,6 @@
 module Scope2 exposing
     ( ProjectContext, ModuleContext
-    , GlobalSetterGetter, addGlobalVisitors, ModuleSetterGetter, addModuleVisitors, initProjectContext, fromGlobalToModule, fromModuleToGlobal, foldProjectContexts
+    , GlobalSetterGetter, addGlobalVisitors, ModuleSetterGetter, addModuleVisitors, initProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
     , realFunctionOrType
     )
 
@@ -14,7 +14,7 @@ module Scope2 exposing
 
 # Usage
 
-@docs GlobalSetterGetter, addGlobalVisitors, ModuleSetterGetter, addModuleVisitors, initProjectContext, fromGlobalToModule, fromModuleToGlobal, foldProjectContexts
+@docs GlobalSetterGetter, addGlobalVisitors, ModuleSetterGetter, addModuleVisitors, initProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
 
 
 # Access
@@ -56,8 +56,8 @@ import Review.Rule as Rule exposing (Direction, Error)
                schema
                    |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
        , initProjectContext = initProjectContext
-       , fromGlobalToModule = fromGlobalToModule
-       , fromModuleToGlobal = fromModuleToGlobal
+       , fromProjectToModule = fromProjectToModule
+       , fromModuleToProject = fromModuleToProject
        , foldProjectContexts = foldProjectContexts
        })
 
@@ -131,8 +131,8 @@ initProjectContext =
         }
 
 
-fromGlobalToModule : ProjectContext -> ModuleContext
-fromGlobalToModule (ProjectContext projectContext) =
+fromProjectToModule : ProjectContext -> ModuleContext
+fromProjectToModule (ProjectContext projectContext) =
     { scopes = NonemptyList.fromElement emptyScope
     , importAliases = Dict.empty
     , importedFunctionOrTypes = Dict.empty
@@ -149,8 +149,8 @@ fromGlobalToModule (ProjectContext projectContext) =
         |> ModuleContext
 
 
-fromModuleToGlobal : Node ModuleName -> ModuleContext -> ProjectContext
-fromModuleToGlobal moduleName (ModuleContext moduleContext) =
+fromModuleToProject : Node ModuleName -> ModuleContext -> ProjectContext
+fromModuleToProject moduleName (ModuleContext moduleContext) =
     ProjectContext
         { dependencies = moduleContext.dependencies
         , modules =
@@ -240,8 +240,8 @@ addModuleVisitors setterGetter schema =
 --     ->
 --         { moduleVisitorSchema : Rule.ModuleRuleSchema Rule.ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Rule.ModuleRuleSchema Rule.ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
 --         , initProjectContext : projectContext
---         , fromGlobalToModule : Rule.FileKey -> Node ModuleName -> projectContext -> moduleContext
---         , fromModuleToGlobal : Rule.FileKey -> Node ModuleName -> moduleContext -> projectContext
+--         , fromProjectToModule : Rule.FileKey -> Node ModuleName -> projectContext -> moduleContext
+--         , fromModuleToProject : Rule.FileKey -> Node ModuleName -> moduleContext -> projectContext
 --         , foldProjectContexts : projectContext -> projectContext -> projectContext
 --         }
 --     -> Rule.ProjectRuleSchema projectContext moduleContext

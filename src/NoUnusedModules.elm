@@ -53,8 +53,8 @@ rule =
                     |> Rule.withImportVisitor importVisitor
                     |> Rule.withDeclarationListVisitor declarationListVisitor
         , initProjectContext = initProjectContext
-        , fromGlobalToModule = fromGlobalToModule
-        , fromModuleToGlobal = fromModuleToGlobal
+        , fromProjectToModule = fromProjectToModule
+        , fromModuleToProject = fromModuleToProject
         , foldProjectContexts = foldProjectContexts
         }
         |> Rule.withProjectElmJsonVisitor elmJsonVisitor
@@ -92,16 +92,16 @@ initProjectContext =
     }
 
 
-fromGlobalToModule : Rule.FileKey -> Node ModuleName -> ProjectContext -> ModuleContext
-fromGlobalToModule _ _ projectContext =
+fromProjectToModule : Rule.FileKey -> Node ModuleName -> ProjectContext -> ModuleContext
+fromProjectToModule _ _ projectContext =
     { importedModules = Set.empty
     , containsMainFunction = False
     , isPackage = projectContext.isPackage
     }
 
 
-fromModuleToGlobal : Rule.FileKey -> Node ModuleName -> ModuleContext -> ProjectContext
-fromModuleToGlobal fileKey moduleName moduleContext =
+fromModuleToProject : Rule.FileKey -> Node ModuleName -> ModuleContext -> ProjectContext
+fromModuleToProject fileKey moduleName moduleContext =
     { modules =
         Dict.singleton
             (Node.value moduleName)

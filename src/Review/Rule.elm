@@ -494,8 +494,8 @@ type ProjectRuleSchema projectContext moduleContext
         { name : String
         , context :
             { initProjectContext : projectContext
-            , fromGlobalToModule : FileKey -> Node ModuleName -> projectContext -> moduleContext
-            , fromModuleToGlobal : FileKey -> Node ModuleName -> moduleContext -> projectContext
+            , fromProjectToModule : FileKey -> Node ModuleName -> projectContext -> moduleContext
+            , fromModuleToProject : FileKey -> Node ModuleName -> moduleContext -> projectContext
             , foldProjectContexts : projectContext -> projectContext -> projectContext
             }
         , moduleVisitorSchema : ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
@@ -516,18 +516,18 @@ newProjectRuleSchema :
     ->
         { moduleVisitorSchema : ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
         , initProjectContext : projectContext
-        , fromGlobalToModule : FileKey -> Node ModuleName -> projectContext -> moduleContext
-        , fromModuleToGlobal : FileKey -> Node ModuleName -> moduleContext -> projectContext
+        , fromProjectToModule : FileKey -> Node ModuleName -> projectContext -> moduleContext
+        , fromModuleToProject : FileKey -> Node ModuleName -> moduleContext -> projectContext
         , foldProjectContexts : projectContext -> projectContext -> projectContext
         }
     -> ProjectRuleSchema projectContext moduleContext
-newProjectRuleSchema name_ { moduleVisitorSchema, initProjectContext, fromGlobalToModule, fromModuleToGlobal, foldProjectContexts } =
+newProjectRuleSchema name_ { moduleVisitorSchema, initProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts } =
     ProjectRuleSchema
         { name = name_
         , context =
             { initProjectContext = initProjectContext
-            , fromGlobalToModule = fromGlobalToModule
-            , fromModuleToGlobal = fromModuleToGlobal
+            , fromProjectToModule = fromProjectToModule
+            , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
             }
         , moduleVisitorSchema = moduleVisitorSchema
@@ -595,7 +595,7 @@ allModulesInParallelTraversal (ProjectRuleSchema schema) startCache project =
 
                 initialModuleContext : moduleContext
                 initialModuleContext =
-                    schema.context.fromGlobalToModule
+                    schema.context.fromProjectToModule
                         fileKey
                         moduleNameNode_
                         initialContext
@@ -615,7 +615,7 @@ allModulesInParallelTraversal (ProjectRuleSchema schema) startCache project =
             { source = module_.source
             , errors = List.map (\(Error err) -> Error { err | filePath = module_.path }) fileErrors
             , context =
-                schema.context.fromModuleToGlobal
+                schema.context.fromModuleToProject
                     fileKey
                     moduleNameNode_
                     context
@@ -711,7 +711,7 @@ importedModulesFirst (ProjectRuleSchema schema) startCache project =
                                     )
                                 -- TODO Remove contexts from parents already handled by other parents
                                 |> List.foldl schema.context.foldProjectContexts initialContext
-                                |> schema.context.fromGlobalToModule fileKey moduleNameNode_
+                                |> schema.context.fromProjectToModule fileKey moduleNameNode_
 
                         moduleVisitor : ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
                         moduleVisitor =
@@ -728,7 +728,7 @@ importedModulesFirst (ProjectRuleSchema schema) startCache project =
                     { source = module_.source
                     , errors = List.map (\(Error err) -> Error { err | filePath = module_.path }) fileErrors
                     , context =
-                        schema.context.fromModuleToGlobal
+                        schema.context.fromModuleToProject
                             fileKey
                             moduleNameNode_
                             context

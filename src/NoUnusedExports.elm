@@ -65,8 +65,8 @@ rule =
                     |> Rule.withDeclarationListVisitor declarationListVisitor
                     |> Rule.withExpressionVisitor expressionVisitor
         , initProjectContext = initProjectContext
-        , fromGlobalToModule = fromGlobalToModule
-        , fromModuleToGlobal = fromModuleToGlobal
+        , fromProjectToModule = fromProjectToModule
+        , fromModuleToProject = fromModuleToProject
         , foldProjectContexts = foldProjectContexts
         }
         |> Scope.addGlobalVisitors
@@ -124,9 +124,9 @@ initProjectContext =
     }
 
 
-fromGlobalToModule : Rule.FileKey -> Node ModuleName -> ProjectContext -> ModuleContext
-fromGlobalToModule fileKey moduleName projectContext =
-    { scope = Scope.fromGlobalToModule projectContext.scope
+fromProjectToModule : Rule.FileKey -> Node ModuleName -> ProjectContext -> ModuleContext
+fromProjectToModule fileKey moduleName projectContext =
+    { scope = Scope.fromProjectToModule projectContext.scope
     , exposesEverything = False
     , exposed = Dict.empty
     , used = Set.empty
@@ -134,9 +134,9 @@ fromGlobalToModule fileKey moduleName projectContext =
     }
 
 
-fromModuleToGlobal : Rule.FileKey -> Node ModuleName -> ModuleContext -> ProjectContext
-fromModuleToGlobal fileKey moduleName moduleContext =
-    { scope = Scope.fromModuleToGlobal moduleName moduleContext.scope
+fromModuleToProject : Rule.FileKey -> Node ModuleName -> ModuleContext -> ProjectContext
+fromModuleToProject fileKey moduleName moduleContext =
+    { scope = Scope.fromModuleToProject moduleName moduleContext.scope
     , projectType = IsApplication
     , modules =
         Dict.singleton

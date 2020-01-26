@@ -141,14 +141,14 @@ rule =
                     |> Rule.withExpressionVisitor expressionVisitor
                     |> Rule.withFinalEvaluation finalEvaluation
         , initProjectContext = { scope = Scope.initProjectContext }
-        , fromGlobalToModule =
+        , fromProjectToModule =
             \fileKey moduleNameNode projectContext ->
-                { scope = Scope.fromGlobalToModule projectContext.scope
+                { scope = Scope.fromProjectToModule projectContext.scope
                 , text = ""
                 }
-        , fromModuleToGlobal =
+        , fromModuleToProject =
             \fileKey moduleNameNode moduleContext ->
-                { scope = Scope.fromModuleToGlobal moduleNameNode moduleContext.scope
+                { scope = Scope.fromModuleToProject moduleNameNode moduleContext.scope
                 }
         , foldProjectContexts = \a b -> { scope = Scope.foldProjectContexts a.scope b.scope }
         }
