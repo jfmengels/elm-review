@@ -115,6 +115,7 @@ withModule { path, source } project =
                         , source = source
                         , ast = ast
                         }
+                    |> recomputeModuleGraphIfNeeded
 
             Err _ ->
                 project
@@ -123,6 +124,7 @@ withModule { path, source } project =
                         { path = path
                         , source = source
                         }
+                    |> recomputeModuleGraphIfNeeded
 
 
 positionAsInt : { row : Int, column : Int } -> Int
