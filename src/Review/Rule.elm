@@ -1903,7 +1903,7 @@ errorFixes (Error err) =
     err.fixes
 
 
-{-| TODO
+{-| Get the file path of an [`Error`](#Error).
 -}
 errorFilePath : Error -> String
 errorFilePath (Error err) =
