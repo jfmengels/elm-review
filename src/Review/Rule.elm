@@ -265,6 +265,8 @@ type alias InAndOut visitor =
 -- RULE TYPES
 
 
+{-| TODO
+-}
 runRules : List Rule -> Project -> ( List Error, List Rule )
 runRules rules project =
     List.foldl
@@ -488,6 +490,8 @@ makeFinalEvaluation finalEvaluationFns ( previousErrors, context ) =
 -- PROJECT RULES
 
 
+{-| TODO
+-}
 type ProjectRuleSchema projectContext moduleContext
     = ProjectRuleSchema
         { name : String
@@ -510,6 +514,8 @@ type TraversalType
     | ImportedModulesFirst
 
 
+{-| TODO
+-}
 newProjectRuleSchema :
     String
     ->
@@ -1319,6 +1325,8 @@ withModuleElmJsonVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
 
 
+{-| TODO
+-}
 withModuleDependenciesVisitor :
     (Dict String Elm.Docs.Module -> context -> context)
     -> ModuleRuleSchema { anything | withModuleDependenciesVisitor : () } context
