@@ -8,7 +8,7 @@ module Review.Project exposing
 {-| Represents the contents of the project to be analyzed. This information will
 then be fed to the review rules.
 
-Looking at this module is useful if you try to run `elm-review` in a new environment,
+Looking at this module is useful if you try to make `elm-review` run in a new environment,
 but you can safely ignore it if you just want to write a review rule or run it
 in existing environments like the CLI tool.
 

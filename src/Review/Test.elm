@@ -109,7 +109,6 @@ import Elm.Syntax.Node as Node
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
 import ListExtra
-import Review
 import Review.Fix as Fix
 import Review.Project as Project exposing (Project, ProjectModule)
 import Review.Rule as Rule exposing (Error, Rule)
@@ -360,7 +359,7 @@ runOnModulesWithProjectData project rule sources =
                         errors : List Error
                         errors =
                             projectWithModules
-                                |> Review.review [ rule ]
+                                |> Rule.review [ rule ]
                                 |> Tuple.first
                     in
                     List.map

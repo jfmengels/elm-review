@@ -5,7 +5,6 @@
     "license": "BSD-3-Clause",
     "version": "1.0.0",
     "exposed-modules": [
-        "Review",
         "Review.Rule",
         "Review.Project",
         "Review.Fix",

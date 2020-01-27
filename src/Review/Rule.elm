@@ -1,12 +1,12 @@
 module Review.Rule exposing
     ( Rule, ModuleRuleSchema, ProjectRuleSchema
-    , runRules
+    , review
     , newModuleRuleSchema, fromModuleRuleSchema
     , withSimpleModuleDefinitionVisitor, withSimpleCommentsVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
     , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalModuleEvaluation
     , withModuleElmJsonVisitor, withModuleDependenciesVisitor
     , withFixes
-    , Error, error, parsingError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
+    , Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
     , newProjectRuleSchema, fromProjectRuleSchema, traversingImportedModulesFirst, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation
     , FileKey, errorForFile
     )
@@ -155,7 +155,7 @@ patterns you would want to forbid, but that are not handled by the example.
 
 ## Running the rule
 
-@docs runRules
+@docs review
 
 
 ## Creating a Rule
@@ -187,7 +187,7 @@ For more information on automatic fixing, read the documentation for [`Review.Fi
 
 ## Errors
 
-@docs Error, error, parsingError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
+@docs Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
 
 
 # TODO
@@ -262,11 +262,62 @@ type alias InAndOut visitor =
 
 
 
--- RULE TYPES
+-- REVIEWING
 
 
-{-| TODO
+{-| Review a project and gives back the errors raised by the given rules.
+
+Note that you won't need to use this function when writing a function. You should
+only need it if you try to make `elm-review` run in a new environment.
+
+    import Review.File exposing (ProjectModule)
+    import Review.Project as Project exposing (Project)
+    import Review.Rule as Rule exposing (Rule)
+
+    config : List Rule
+    config =
+        [ Some.Rule.rule
+        , Some.Other.Rule.rule
+        ]
+
+    project : Project
+    project =
+        Project.new
+            |> Project.withModule { path = "src/A.elm", source = "module A exposing (a)\na = 1" }
+            |> Project.withModule { path = "src/B.elm", source = "module B exposing (b)\nb = 1" }
+
+    doReview =
+        let
+            ( errors, rulesWithCachedValues ) =
+                Rule.review rules project
+        in
+        doSomethingWithTheseValues
+
+The resulting `List Rule` is the same list of rules given as input, but with an
+internal cache to make it faster to re-run the rules on the same project. If you
+plan on re-reviewing with the same rules and project, for instance to review the
+project after a file has changed, you may want to store the rules in your `Model`.
+
+The rules are functions, so doing so will make your model unable to be exported/imported
+with `elm/browser`'s debugger.
+
 -}
+review : List Rule -> Project -> ( List Error, List Rule )
+review rules project =
+    let
+        ( ruleErrors, rulesWithCache ) =
+            runRules rules project
+    in
+    ( List.concat
+        [ ruleErrors
+        , project
+            |> Review.Project.filesThatFailedToParse
+            |> List.map parsingError
+        ]
+    , rulesWithCache
+    )
+
+
 runRules : List Rule -> Project -> ( List Error, List Rule )
 runRules rules project =
     List.foldl
@@ -1816,8 +1867,6 @@ type FileKey
     = FileKey String
 
 
-{-| TODO
--}
 parsingError : { path : String, source : String } -> Error
 parsingError rawFile =
     Error

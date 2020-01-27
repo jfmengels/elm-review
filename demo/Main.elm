@@ -8,7 +8,6 @@ import NoDebug
 import NoUnused.CustomTypeConstructors
 import NoUnused.Variables
 import Reporter
-import Review
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Rule)
 
@@ -132,7 +131,7 @@ runReview : Model -> Model
 runReview model =
     { model
         | reviewErrors =
-            Review.review (config model) model.project
+            Rule.review (config model) model.project
                 |> Tuple.first
     }
 
