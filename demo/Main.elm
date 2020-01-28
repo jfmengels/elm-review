@@ -65,7 +65,7 @@ g n = n + 1
 """
     in
     { sourceCode = sourceCode
-    , project = Project.withModule (file sourceCode) Project.new
+    , project = Project.addModule (file sourceCode) Project.new
     , reviewErrors = []
     , noDebugEnabled = True
     , noUnusedVariablesEnabled = True
@@ -107,7 +107,7 @@ update action model =
         UserEditedSourceCode sourceCode ->
             { model
                 | sourceCode = sourceCode
-                , project = Project.withModule (file sourceCode) model.project
+                , project = Project.addModule (file sourceCode) model.project
             }
                 |> runReview
 

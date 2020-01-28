@@ -283,8 +283,8 @@ only need it if you try to make `elm-review` run in a new environment.
     project : Project
     project =
         Project.new
-            |> Project.withModule { path = "src/A.elm", source = "module A exposing (a)\na = 1" }
-            |> Project.withModule { path = "src/B.elm", source = "module B exposing (b)\nb = 1" }
+            |> Project.addModule { path = "src/A.elm", source = "module A exposing (a)\na = 1" }
+            |> Project.addModule { path = "src/B.elm", source = "module B exposing (b)\nb = 1" }
 
     doReview =
         let

@@ -1,6 +1,6 @@
 module Review.Project exposing
     ( Project, new
-    , ProjectModule, withModule, withParsedModule, removeModule, modules, filesThatFailedToParse, moduleGraph, precomputeModuleGraph
+    , ProjectModule, addModule, addParsedModule, removeModule, modules, filesThatFailedToParse, moduleGraph, precomputeModuleGraph
     , ElmJson, withElmJson, elmJson
     , withDependency, removeDependencies, dependencyModules
     )
@@ -23,7 +23,7 @@ in existing environments like the CLI tool.
 
 ## Adding files
 
-@docs ProjectModule, withModule, withParsedModule, removeModule, modules, filesThatFailedToParse, moduleGraph, precomputeModuleGraph
+@docs ProjectModule, addModule, addParsedModule, removeModule, modules, filesThatFailedToParse, moduleGraph, precomputeModuleGraph
 
 
 # `elm.json`
@@ -103,14 +103,14 @@ to parse, which you can get using [`filesThatFailedToParse`](#filesThatFailedToP
 and for which a parsing error will be reported when running [`Review.review`](./Review#review).
 
 -}
-withModule : { path : String, source : String } -> Project -> Project
-withModule { path, source } project =
+addModule : { path : String, source : String } -> Project -> Project
+addModule { path, source } project =
     recomputeModuleGraphIfNeeded <|
         case parseSource source of
             Ok ast ->
                 project
                     |> removeFileFromProject path
-                    |> addModule
+                    |> addModuleToProject
                         { path = path
                         , source = source
                         , ast = ast
@@ -137,16 +137,16 @@ positionAsInt { row, column } =
 
 {-| Add an already parsed module to the project. This module will then be analyzed by the rules.
 -}
-withParsedModule : { path : String, source : String, ast : Elm.Syntax.File.File } -> Project -> Project
-withParsedModule module_ project =
+addParsedModule : { path : String, source : String, ast : Elm.Syntax.File.File } -> Project -> Project
+addParsedModule module_ project =
     project
         |> removeFileFromProject module_.path
-        |> addModule module_
+        |> addModuleToProject module_
         |> recomputeModuleGraphIfNeeded
 
 
-addModule : ProjectModule -> Project -> Project
-addModule module_ (Project project) =
+addModuleToProject : ProjectModule -> Project -> Project
+addModuleToProject module_ (Project project) =
     Project { project | modules = sanitizeModule module_ :: project.modules }
 
 
