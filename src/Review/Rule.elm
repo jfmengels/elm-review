@@ -220,8 +220,7 @@ unwanted patterns.
 See [`newModuleRuleSchema`](#newModuleRuleSchema), and [`newProjectRuleSchema`](#newProjectRuleSchema) for how to create one.
 -}
 type Rule
-    = ModuleRule String (Project -> ( List Error, Rule ))
-    | ProjectRule String (Project -> ( List Error, Rule ))
+    = Rule String (Project -> ( List Error, Rule ))
 
 
 {-| Represents a ModuleRuleSchema for a [`Rule`](#Rule). Create one using [`newModuleRuleSchema`](#newModuleRuleSchema).
@@ -333,13 +332,8 @@ runRules rules project =
 
 
 run : Rule -> Project -> ( List Error, Rule )
-run rule project =
-    case rule of
-        ModuleRule _ fn ->
-            fn project
-
-        ProjectRule _ fn ->
-            fn project
+run (Rule _ fn) project =
+    fn project
 
 
 {-| Represents whether a Node is being traversed before having seen its children (`OnEnter`ing the Node), or after (`OnExit`ing the Node).
@@ -425,7 +419,7 @@ newModuleRuleSchema name_ context =
 -}
 fromModuleRuleSchema : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context -> Rule
 fromModuleRuleSchema ((ModuleRuleSchema { name }) as schema) =
-    ModuleRule name (runModuleRule (reverseVisitors schema) Dict.empty)
+    Rule name (runModuleRule (reverseVisitors schema) Dict.empty)
 
 
 reverseVisitors : ModuleRuleSchema anything context -> ModuleRuleSchema anything context
@@ -481,7 +475,7 @@ runModuleRule ((ModuleRuleSchema { name }) as schema) startCache project =
                 |> Dict.values
                 |> List.concatMap .errors
     in
-    ( errors, ModuleRule name (runModuleRule schema newCache) )
+    ( errors, Rule name (runModuleRule schema newCache) )
 
 
 computeErrors : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } context -> Project -> ProjectModule -> List Error
@@ -598,7 +592,7 @@ newProjectRuleSchema name_ { moduleVisitorSchema, initProjectContext, fromProjec
 -}
 fromProjectRuleSchema : ProjectRuleSchema projectContext moduleContext -> Rule
 fromProjectRuleSchema (ProjectRuleSchema schema) =
-    ProjectRule schema.name
+    Rule schema.name
         (runProjectRule
             (ProjectRuleSchema
                 { schema
@@ -713,7 +707,7 @@ allModulesInParallelTraversal (ProjectRuleSchema schema) startCache project =
                     |> List.map (\(Error err) -> Error { err | ruleName = schema.name })
                 ]
     in
-    ( errors, ProjectRule schema.name (runProjectRule (ProjectRuleSchema schema) newCache) )
+    ( errors, Rule schema.name (runProjectRule (ProjectRuleSchema schema) newCache) )
 
 
 importedModulesFirst : ProjectRuleSchema projectContext moduleContext -> ProjectRuleCache projectContext -> Project -> ( List Error, Rule )
@@ -830,11 +824,11 @@ importedModulesFirst (ProjectRuleSchema schema) startCache project =
                             |> List.map (\(Error err) -> Error { err | ruleName = schema.name })
                         ]
             in
-            ( errors, ProjectRule schema.name (runProjectRule (ProjectRuleSchema schema) newCache) )
+            ( errors, Rule schema.name (runProjectRule (ProjectRuleSchema schema) newCache) )
 
         Err _ ->
             -- TODO return some kind of global error?
-            ( [], ProjectRule schema.name (runProjectRule (ProjectRuleSchema schema) startCache) )
+            ( [], Rule schema.name (runProjectRule (ProjectRuleSchema schema) startCache) )
 
 
 computeModuleAndCacheResult :
