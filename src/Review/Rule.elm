@@ -1,13 +1,14 @@
 module Review.Rule exposing
-    ( Rule, ModuleRuleSchema, ProjectRuleSchema
+    ( Rule
     , review
-    , newModuleRuleSchema, fromModuleRuleSchema
+    , ModuleRuleSchema, newModuleRuleSchema, fromModuleRuleSchema
     , withSimpleModuleDefinitionVisitor, withSimpleCommentsVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
     , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalModuleEvaluation
     , withModuleElmJsonVisitor, withModuleDependenciesVisitor
-    , withFixes
+    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema
     , Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
-    , newProjectRuleSchema, fromProjectRuleSchema, traversingImportedModulesFirst, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation
+    , withFixes
+    , traversingImportedModulesFirst, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation
     , FileKey, errorForFile
     )
 
@@ -147,10 +148,12 @@ be used. The rule examples are not necessarily good rules to enforce. See the
 they are good ideas to enforce, they are often not complete, as there are other
 patterns you would want to forbid, but that are not handled by the example.
 
+There are several ways to write rules, depending on what information you need to collect to write the rule.
+
 
 ## Definition
 
-@docs Rule, ModuleRuleSchema, ProjectRuleSchema
+@docs Rule
 
 
 ## Running the rule
@@ -158,9 +161,17 @@ patterns you would want to forbid, but that are not handled by the example.
 @docs review
 
 
-## Creating a Rule
+## Creating a module rule
 
-@docs newModuleRuleSchema, fromModuleRuleSchema
+A "module rule" looks at modules (i.e. files) once at a time. When it finishes looking at a file and reporting errors,
+it forgets all about the file it just analyzed before looking at a different file. You should create one of these if you
+do not need to know the contents of a different module in the project, such as what functions are exposed.
+If you do need that information, you should create a [project rule](#creating-a-project-rule).
+
+If you are new to writing rules, I would recommend learning how to build a module rule first, as they are in practice a
+simpler version of project rules.
+
+@docs ModuleRuleSchema, newModuleRuleSchema, fromModuleRuleSchema
 
 
 ## Builder functions without context
@@ -178,11 +189,9 @@ patterns you would want to forbid, but that are not handled by the example.
 @docs withModuleElmJsonVisitor, withModuleDependenciesVisitor
 
 
-## Automatic fixing
+## Creating a project rule
 
-For more information on automatic fixing, read the documentation for [`Review.Fix`](./Review-Fix).
-
-@docs withFixes
+@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema
 
 
 ## Errors
@@ -190,9 +199,16 @@ For more information on automatic fixing, read the documentation for [`Review.Fi
 @docs Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
 
 
+## Automatic fixing
+
+For more information on automatic fixing, read the documentation for [`Review.Fix`](./Review-Fix).
+
+@docs withFixes
+
+
 # TODO
 
-@docs newProjectRuleSchema, fromProjectRuleSchema, traversingImportedModulesFirst, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation
+@docs traversingImportedModulesFirst, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation
 @docs FileKey, errorForFile
 
 -}
@@ -217,13 +233,16 @@ import Set exposing (Set)
 
 {-| Represents a construct able to analyze modules from a project and report
 unwanted patterns.
+TODO Link to "creating a module rule" and project rule instead
 See [`newModuleRuleSchema`](#newModuleRuleSchema), and [`newProjectRuleSchema`](#newProjectRuleSchema) for how to create one.
 -}
 type Rule
     = Rule String (Project -> ( List Error, Rule ))
 
 
-{-| Represents a ModuleRuleSchema for a [`Rule`](#Rule). Create one using [`newModuleRuleSchema`](#newModuleRuleSchema).
+{-| Represents a schema for a module [`Rule`](#Rule).
+
+Start by using [`newModuleRuleSchema`](#newModuleRuleSchema), then add visitors to look at the parts of the code you are interested in.
 
     import Review.Rule as Rule exposing (Rule)
 
