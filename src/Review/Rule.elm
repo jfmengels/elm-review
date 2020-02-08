@@ -694,19 +694,19 @@ allModulesInParallelTraversal (ProjectRuleSchema schema) startCache project =
         newCache =
             List.foldl
                 (\module_ cache ->
-                    case Dict.get module_.path cache of
+                    case Dict.get module_.path startCache of
                         Nothing ->
                             Dict.insert module_.path (computeModule module_) cache
 
                         Just cacheEntry ->
                             if cacheEntry.source == module_.source then
                                 -- File is unchanged, we will later return the cached errors and context
-                                cache
+                                Dict.insert module_.path cacheEntry cache
 
                             else
                                 Dict.insert module_.path (computeModule module_) cache
                 )
-                startCache
+                Dict.empty
                 (Review.Project.modules project)
 
         contextsAndErrorsPerFile : List ( List Error, projectContext )
@@ -759,6 +759,13 @@ importedModulesFirst (ProjectRuleSchema schema) startCache project =
                             )
                             Dict.empty
 
+                projectModulePaths : Set String
+                projectModulePaths =
+                    project
+                        |> Review.Project.modules
+                        |> List.map .path
+                        |> Set.fromList
+
                 computeModule : ProjectRuleCache projectContext -> List ProjectModule -> ProjectModule -> { source : String, errors : List Error, context : projectContext }
                 computeModule cache importedModules module_ =
                     let
@@ -805,16 +812,9 @@ importedModulesFirst (ProjectRuleSchema schema) startCache project =
 
                 newStartCache : ProjectRuleCache projectContext
                 newStartCache =
-                    case Dict.get "#INITIAL_CONTEXT#" startCache of
-                        Nothing ->
-                            Dict.singleton "#INITIAL_CONTEXT#"
-                                { source = ""
-                                , errors = []
-                                , context = initialContext
-                                }
-
-                        Just _ ->
-                            startCache
+                    startCache
+                        |> Dict.filter (\path _ -> Set.member path projectModulePaths)
+                        |> Dict.insert "#INITIAL_CONTEXT#" { source = "", errors = [], context = initialContext }
 
                 newCache : ProjectRuleCache projectContext
                 newCache =
