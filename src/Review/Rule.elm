@@ -208,10 +208,10 @@ For more information on automatic fixing, read the documentation for [`Review.Fi
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Project
-import Elm.Syntax.Declaration exposing (Declaration(..))
-import Elm.Syntax.Expression exposing (Expression(..), Function, LetDeclaration(..))
+import Elm.Syntax.Declaration as Declaration exposing (Declaration)
+import Elm.Syntax.Expression as Expression exposing (Expression, Function)
 import Elm.Syntax.Import exposing (Import)
-import Elm.Syntax.Infix exposing (InfixDirection(..))
+import Elm.Syntax.Infix as Infix
 import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
@@ -2040,22 +2040,22 @@ accumulateWithListOfVisitors visitors element initialErrorsAndContext =
 expressionsInDeclaration : Node Declaration -> List (Node Expression)
 expressionsInDeclaration node =
     case Node.value node of
-        FunctionDeclaration function ->
+        Declaration.FunctionDeclaration function ->
             [ functionToExpression function ]
 
-        CustomTypeDeclaration _ ->
+        Declaration.CustomTypeDeclaration _ ->
             []
 
-        AliasDeclaration { typeAnnotation } ->
+        Declaration.AliasDeclaration { typeAnnotation } ->
             []
 
-        Destructuring pattern expr ->
+        Declaration.Destructuring pattern expr ->
             [ expr ]
 
-        PortDeclaration _ ->
+        Declaration.PortDeclaration _ ->
             []
 
-        InfixDeclaration _ ->
+        Declaration.InfixDeclaration _ ->
             []
 
 
@@ -2074,95 +2074,95 @@ visitExpression visitors node moduleContext =
 expressionChildren : Node Expression -> List (Node Expression)
 expressionChildren node =
     case Node.value node of
-        Application expressions ->
+        Expression.Application expressions ->
             expressions
 
-        Literal _ ->
+        Expression.Literal _ ->
             []
 
-        Integer _ ->
+        Expression.Integer _ ->
             []
 
-        Floatable _ ->
+        Expression.Floatable _ ->
             []
 
-        UnitExpr ->
+        Expression.UnitExpr ->
             []
 
-        ListExpr elements ->
+        Expression.ListExpr elements ->
             elements
 
-        FunctionOrValue _ _ ->
+        Expression.FunctionOrValue _ _ ->
             []
 
-        RecordExpr fields ->
+        Expression.RecordExpr fields ->
             List.map (Node.value >> (\( _, expr ) -> expr)) fields
 
-        RecordUpdateExpression _ setters ->
+        Expression.RecordUpdateExpression _ setters ->
             List.map (Node.value >> (\( field, expr ) -> expr)) setters
 
-        ParenthesizedExpression expr ->
+        Expression.ParenthesizedExpression expr ->
             [ expr ]
 
-        Operator _ ->
+        Expression.Operator _ ->
             []
 
-        OperatorApplication operator direction left right ->
+        Expression.OperatorApplication operator direction left right ->
             case direction of
-                Left ->
+                Infix.Left ->
                     [ left, right ]
 
-                Right ->
+                Infix.Right ->
                     [ right, left ]
 
-                Non ->
+                Infix.Non ->
                     [ left, right ]
 
-        IfBlock cond then_ else_ ->
+        Expression.IfBlock cond then_ else_ ->
             [ cond, then_, else_ ]
 
-        LetExpression { expression, declarations } ->
+        Expression.LetExpression { expression, declarations } ->
             List.map
                 (\declaration ->
                     case Node.value declaration of
-                        LetFunction function ->
+                        Expression.LetFunction function ->
                             functionToExpression function
 
-                        LetDestructuring pattern expr ->
+                        Expression.LetDestructuring pattern expr ->
                             expr
                 )
                 declarations
                 ++ [ expression ]
 
-        CaseExpression { expression, cases } ->
+        Expression.CaseExpression { expression, cases } ->
             expression
                 :: List.map (\( pattern, caseExpression ) -> caseExpression) cases
 
-        LambdaExpression { args, expression } ->
+        Expression.LambdaExpression { args, expression } ->
             [ expression ]
 
-        TupledExpression expressions ->
+        Expression.TupledExpression expressions ->
             expressions
 
-        PrefixOperator _ ->
+        Expression.PrefixOperator _ ->
             []
 
-        Hex _ ->
+        Expression.Hex _ ->
             []
 
-        Negation expr ->
+        Expression.Negation expr ->
             [ expr ]
 
-        CharLiteral _ ->
+        Expression.CharLiteral _ ->
             []
 
-        RecordAccess expr property ->
+        Expression.RecordAccess expr property ->
             [ expr ]
 
-        RecordAccessFunction _ ->
+        Expression.RecordAccessFunction _ ->
             []
 
-        GLSLExpression _ ->
+        Expression.GLSLExpression _ ->
             []
 
 
