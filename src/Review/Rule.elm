@@ -5,7 +5,7 @@ module Review.Rule exposing
     , withSimpleModuleDefinitionVisitor, withSimpleCommentsVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
     , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalModuleEvaluation
     , withModuleElmJsonVisitor, withModuleDependenciesVisitor
-    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation, traversingImportedModulesFirst
+    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation, withContextFromImportedModules
     , Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, FileKey, errorForFile
     , withFixes
     )
@@ -189,7 +189,7 @@ simpler version of project rules.
 
 ## Creating a project rule
 
-@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation, traversingImportedModulesFirst
+@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation, withContextFromImportedModules
 
 
 ## Errors
@@ -643,10 +643,34 @@ withFinalProjectEvaluation visitor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | finalEvaluationFns = visitor :: schema.finalEvaluationFns }
 
 
-{-| TODO documentation
+{-| Allows the rule to have access to the context of the modules imported by the
+currently visited module. You can use for instance to know what is exposed in a
+different module.
+
+When you finish analyzing a module, the `moduleContext` is turned into a `projectContext`
+through [`fromModuleToProject`](#newProjectRuleSchema). Before analyzing a file,
+the `projectContext`s of its imported modules get folded into a single one
+starting with the initial context (that may have visited the
+[`elm.json` file](#withProjectElmJsonVisitor) and/or the [project's dependencies](#withProjectDependenciesVisitor))
+using [`foldProjectContexts`](#newProjectRuleSchema).
+
+If there is information about another module that you wish to access, you should
+therefore store it in the `moduleContext`, and have it persist when transitioning
+to a `projectContext` and back to a `moduleContext`.
+
+You can only access data from imported modules, not from modules that import the
+current module. If you need to do so, I suggest collecting all the information
+you need, and re-evaluate if from [the final project evaluation function](#withFinalProjectEvaluation).
+
+If you don't use this function, you will only be able to access the contents of
+the initial context. The benefit is that when re-analyzing the project, after a
+fix or when a file was changed in watch mode, much less work will need to be done
+and the analysis will be much faster, because we know other files can not have
+influenced the results of other modules.
+
 -}
-traversingImportedModulesFirst : ProjectRuleSchema projectContext moduleContext -> ProjectRuleSchema projectContext moduleContext
-traversingImportedModulesFirst (ProjectRuleSchema schema) =
+withContextFromImportedModules : ProjectRuleSchema projectContext moduleContext -> ProjectRuleSchema projectContext moduleContext
+withContextFromImportedModules (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | traversalType = ImportedModulesFirst }
 
 
@@ -662,14 +686,14 @@ runProjectRule : ProjectRuleSchema projectContext moduleContext -> ProjectRuleCa
 runProjectRule ((ProjectRuleSchema { traversalType }) as schema) =
     case traversalType of
         AllModulesInParallel ->
-            allModulesInParallelTraversal schema
+            traverseAllModulesInParallel schema
 
         ImportedModulesFirst ->
-            importedModulesFirst schema
+            traverseImportedModulesFirst schema
 
 
-allModulesInParallelTraversal : ProjectRuleSchema projectContext moduleContext -> ProjectRuleCache projectContext -> Project -> ( List Error, Rule )
-allModulesInParallelTraversal (ProjectRuleSchema schema) startCache project =
+traverseAllModulesInParallel : ProjectRuleSchema projectContext moduleContext -> ProjectRuleCache projectContext -> Project -> ( List Error, Rule )
+traverseAllModulesInParallel (ProjectRuleSchema schema) startCache project =
     let
         initialContext : projectContext
         initialContext =
@@ -755,8 +779,8 @@ allModulesInParallelTraversal (ProjectRuleSchema schema) startCache project =
     ( errors, Rule schema.name (runProjectRule (ProjectRuleSchema schema) newCache) )
 
 
-importedModulesFirst : ProjectRuleSchema projectContext moduleContext -> ProjectRuleCache projectContext -> Project -> ( List Error, Rule )
-importedModulesFirst (ProjectRuleSchema schema) startCache project =
+traverseImportedModulesFirst : ProjectRuleSchema projectContext moduleContext -> ProjectRuleCache projectContext -> Project -> ( List Error, Rule )
+traverseImportedModulesFirst (ProjectRuleSchema schema) startCache project =
     let
         graph : Graph ModuleName ()
         graph =

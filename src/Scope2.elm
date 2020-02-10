@@ -63,7 +63,6 @@ import Review.Rule as Rule exposing (Direction, Error)
 
     Need to fine-tune the details on how that would work obviously.
 
-    TODO We probably want to restrict the use of Scope on rule with `Rule.traversingImportedModulesFirst`
 -}
 
 
@@ -185,6 +184,7 @@ emptyScope =
 addProjectVisitors : ProjectSetterGetter projectContext -> Rule.ProjectRuleSchema projectContext moduleContext -> Rule.ProjectRuleSchema projectContext moduleContext
 addProjectVisitors setterGetter schema =
     schema
+        |> Rule.withContextFromImportedModules
         |> Rule.withProjectDependenciesVisitor (mapInnerProjectContext setterGetter dependenciesVisitor)
 
 

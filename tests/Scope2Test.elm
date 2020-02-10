@@ -153,7 +153,6 @@ rule =
         , foldProjectContexts = \a b -> { scope = Scope.foldProjectContexts a.scope b.scope }
         }
         |> Scope.addProjectVisitors scopeGetterSetter
-        |> Rule.traversingImportedModulesFirst
         |> Rule.fromProjectRuleSchema
 
 

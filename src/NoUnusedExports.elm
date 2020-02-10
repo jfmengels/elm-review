@@ -64,7 +64,7 @@ rule =
             { set = \scope context -> { context | scope = scope }
             , get = .scope
             }
-        |> Rule.traversingImportedModulesFirst
+        |> Rule.withContextFromImportedModules
         |> Rule.withProjectElmJsonVisitor elmJsonVisitor
         |> Rule.withFinalProjectEvaluation finalEvaluationForProject
         |> Rule.fromProjectRuleSchema
