@@ -550,7 +550,7 @@ computeErrors (ModuleRuleSchema schema) project initialContext =
             |> accumulateWithListOfVisitors schema.declarationListVisitors module_.ast.declarations
             |> accumulateList (visitDeclaration declarationVisitors expressionVisitors) module_.ast.declarations
             |> makeFinalEvaluation schema.finalEvaluationFns
-            |> List.map (\(Error err) -> Error { err | ruleName = schema.name, filePath = module_.path })
+            |> List.map (setRuleName schema.name >> setFilePathIfUnset module_)
             |> List.reverse
 
 
@@ -771,7 +771,7 @@ traverseAllModulesInParallel (ProjectRuleSchema schema) startCache project =
                         module_
             in
             { source = module_.source
-            , errors = List.map (\(Error err) -> Error { err | filePath = module_.path }) fileErrors
+            , errors = List.map (setFilePathIfUnset module_) fileErrors
             , context =
                 schema.context.fromModuleToProject
                     fileKey
@@ -812,7 +812,7 @@ traverseAllModulesInParallel (ProjectRuleSchema schema) startCache project =
                     |> List.map Tuple.second
                     |> List.foldl schema.context.foldProjectContexts initialContext
                     |> makeFinalEvaluationForProject schema.finalEvaluationFns
-                    |> List.map (\(Error err) -> Error { err | ruleName = schema.name })
+                    |> List.map (setRuleName schema.name)
                 ]
     in
     ( errors, Rule schema.name (runProjectRule (ProjectRuleSchema schema) newCache) )
@@ -891,7 +891,7 @@ traverseImportedModulesFirst (ProjectRuleSchema schema) startCache project =
                                 module_
                     in
                     { source = module_.source
-                    , errors = List.map (\(Error err) -> Error { err | filePath = module_.path }) fileErrors
+                    , errors = List.map (setFilePathIfUnset module_) fileErrors
                     , context =
                         schema.context.fromModuleToProject
                             fileKey
@@ -929,7 +929,7 @@ traverseImportedModulesFirst (ProjectRuleSchema schema) startCache project =
                             |> List.map Tuple.second
                             |> List.foldl schema.context.foldProjectContexts initialContext
                             |> makeFinalEvaluationForProject schema.finalEvaluationFns
-                            |> List.map (\(Error err) -> Error { err | ruleName = schema.name })
+                            |> List.map (setRuleName schema.name)
                         ]
             in
             ( errors, Rule schema.name (runProjectRule (ProjectRuleSchema schema) newCache) )
@@ -937,6 +937,25 @@ traverseImportedModulesFirst (ProjectRuleSchema schema) startCache project =
         Err _ ->
             -- TODO return some kind of global error?
             ( [], Rule schema.name (runProjectRule (ProjectRuleSchema schema) startCache) )
+
+
+setRuleName : String -> Error -> Error
+setRuleName ruleName (Error err) =
+    Error { err | ruleName = ruleName }
+
+
+setFilePathIfUnset : ProjectModule -> Error -> Error
+setFilePathIfUnset module_ (Error err) =
+    Error
+        { err
+            | filePath =
+                case err.filePath of
+                    "" ->
+                        module_.path
+
+                    _ ->
+                        err.filePath
+        }
 
 
 computeModuleAndCacheResult :
