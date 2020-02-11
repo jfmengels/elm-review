@@ -607,21 +607,35 @@ expectErrorsForModules expectedErrorsList reviewResult =
             Expect.fail errorMessage
 
         SuccessfulRun runResults ->
-            -- TODO Fail if there are some unknown modules in expectedErrorsList
-            runResults
-                |> List.map
-                    (\runResult ->
-                        let
-                            expectedErrors : List ExpectedError
-                            expectedErrors =
-                                expectedErrorsList
-                                    |> ListExtra.find (\( moduleName_, _ ) -> moduleName_ == runResult.moduleName)
-                                    |> Maybe.map Tuple.second
-                                    |> Maybe.withDefault []
-                        in
-                        \() -> checkAllErrorsMatch runResult expectedErrors
-                    )
-                |> (\expectations -> Expect.all expectations ())
+            let
+                maybeUnknownModule : Maybe String
+                maybeUnknownModule =
+                    Set.diff
+                        (expectedErrorsList |> List.map Tuple.first |> Set.fromList)
+                        (runResults |> List.map .moduleName |> Set.fromList)
+                        |> Set.toList
+                        |> List.head
+            in
+            case maybeUnknownModule of
+                Just unknownModule ->
+                    ErrorMessage.unknownModulesInExpectedErrors unknownModule
+                        |> Expect.fail
+
+                Nothing ->
+                    runResults
+                        |> List.map
+                            (\runResult ->
+                                let
+                                    expectedErrors : List ExpectedError
+                                    expectedErrors =
+                                        expectedErrorsList
+                                            |> ListExtra.find (\( moduleName_, _ ) -> moduleName_ == runResult.moduleName)
+                                            |> Maybe.map Tuple.second
+                                            |> Maybe.withDefault []
+                                in
+                                \() -> checkAllErrorsMatch runResult expectedErrors
+                            )
+                        |> (\expectations -> Expect.all expectations ())
 
 
 {-| Create an expectation for an error.
@@ -866,7 +880,7 @@ checkMessageAppearsUnder codeInspector error_ (ExpectedError expectedError) =
 
         Nothing ->
             -- TODO Fail with a more precise error message
-            -- This is actually qui easy to create. We can enter this here by
+            -- This is actually quite easy to create. We can enter this here by
             -- having the location be
             -- { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
             Expect.fail ErrorMessage.impossibleState

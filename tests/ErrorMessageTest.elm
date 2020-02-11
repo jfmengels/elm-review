@@ -23,6 +23,7 @@ all =
         , locationIsAmbiguousInSourceCodeTest
         , needToUsedExpectErrorsForModulesTest
         , duplicateModuleNameTest
+        , unknownModulesInExpectedErrorsTest
         , missingFixesTest
         , unexpectedFixesTest
         , fixedCodeMismatchTest
@@ -650,6 +651,24 @@ but having several modules with the same name is not allowed by the Elm
 compiler.
 
 Please rename the modules so that they all have different names.
+"""
+
+
+unknownModulesInExpectedErrorsTest : Test
+unknownModulesInExpectedErrorsTest =
+    test "unknownModulesInExpectedErrors" <|
+        \() ->
+            ErrorMessage.unknownModulesInExpectedErrors "My.Module"
+                |> expectMessageEqual """
+UNKNOWN MODULES IN EXPECTED ERRORS
+
+I expected errors for a module named `My.Module` in the list passed to
+`expectErrorsForModules`, but I couldn't find a module in the test source
+codes named that way.
+
+I assume that there was a mistake during the writing of the test. Please
+match the names of the modules in the test source codes to the ones in the
+expected errors list.
 """
 
 

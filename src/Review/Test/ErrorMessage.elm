@@ -2,7 +2,7 @@ module Review.Test.ErrorMessage exposing
     ( ExpectedErrorData
     , parsingFailure, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
     , underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode
-    , needToUsedExpectErrorsForModules, duplicateModuleName
+    , needToUsedExpectErrorsForModules, duplicateModuleName, unknownModulesInExpectedErrors
     , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
     , impossibleState
     )
@@ -15,7 +15,7 @@ module Review.Test.ErrorMessage exposing
 @docs ExpectedErrorData
 @docs parsingFailure, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
 @docs underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode
-@docs needToUsedExpectErrorsForModules, duplicateModuleName
+@docs needToUsedExpectErrorsForModules, duplicateModuleName, unknownModulesInExpectedErrors
 @docs missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
 @docs impossibleState
 
@@ -274,6 +274,19 @@ but having several modules with the same name is not allowed by the Elm
 compiler.
 
 Please rename the modules so that they all have different names."""
+
+
+unknownModulesInExpectedErrors : String -> String
+unknownModulesInExpectedErrors moduleName =
+    """UNKNOWN MODULES IN EXPECTED ERRORS
+
+I expected errors for a module named `""" ++ moduleName ++ """` in the list passed to
+`expectErrorsForModules`, but I couldn't find a module in the test source
+codes named that way.
+
+I assume that there was a mistake during the writing of the test. Please
+match the names of the modules in the test source codes to the ones in the
+expected errors list."""
 
 
 impossibleState : String
