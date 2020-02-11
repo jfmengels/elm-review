@@ -18,6 +18,7 @@ all =
         , unexpectedDetailsTest
         , emptyDetailsTest
         , wrongLocationTest
+        , underMayNotBeEmptyTest
         , locationNotFoundTest
         , expectedMoreErrorsTest
         , tooManyErrorsTest
@@ -455,6 +456,31 @@ and I found it, but the code it points to does not lead to anything:
 
 Please try to have the error under the smallest region that makes sense.
 This will be the most helpful for the person who reads the error message.
+"""
+
+
+underMayNotBeEmptyTest : Test
+underMayNotBeEmptyTest =
+    test "underMayNotBeEmpty" <|
+        \() ->
+            ErrorMessage.underMayNotBeEmpty
+                { message = "Some error"
+                , codeAtLocation = "abcd = 1"
+                }
+                |> expectMessageEqual """
+COULD NOT FIND LOCATION FOR ERROR
+
+I was looking for the error with the following message:
+
+  `Some error`
+
+and I found it, but the expected error has an empty string for `under`. I
+need to point somewhere, so as to best help the people who encounter this
+error.
+
+If this helps, this is where I found the error:
+
+  `abcd = 1`
 """
 
 
