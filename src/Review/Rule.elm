@@ -15,9 +15,14 @@ module Review.Rule exposing
 
 # How does it work?
 
-`elm-review` turns the code of the analyzed module into an [Abstract Syntax Tree (AST)](https://en.wikipedia.org/wiki/Abstract_syntax_tree)
+`elm-review` reads the `elm.json`, dependencies and the modules from your project,
+and turns each module into an [Abstract Syntax Tree (AST)](https://en.wikipedia.org/wiki/Abstract_syntax_tree)
 (a tree-like structure which represents your source code) using the
 [`elm-syntax` package](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/).
+
+`elm-review` then feeds all this data into `review rules` that then report problems.
+The way that review rules consume the data depends on its type, a "module rule" or "project rule".
+
 Then, for each module and rule, it will give the details of your project (like the `elm.json` file) and the
 contents of the file to analyze to the rule. The order in which things get passed to the rule is the following:
 
@@ -31,8 +36,8 @@ contents of the file to analyze to the rule. The order in which things get passe
       - The list of declarations, visited by [`withDeclarationListVisitor`](#withDeclarationListVisitor)
       - Each declaration, visited by [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) and [`withDeclarationVisitor`](#withDeclarationVisitor).
         Before evaluating the next declaration, the expression contained in the declaration
-        will be visited recursively using by [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) and [`withExpressionVisitor`](#withExpressionVisitor)
-      - A final evaluation is made when the whole AST has been traversed, using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation)
+        will be visited recursively by [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) and [`withExpressionVisitor`](#withExpressionVisitor)
+      - A final evaluation is made when the module has fully been visited, using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation)
 
 Evaluating a node means two things:
 
