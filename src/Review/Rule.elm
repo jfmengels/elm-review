@@ -432,7 +432,10 @@ newModuleRuleSchema name_ moduleContext =
 -}
 fromModuleRuleSchema : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext -> Rule
 fromModuleRuleSchema ((ModuleRuleSchema { name }) as schema) =
-    Rule name (runModuleRule (reverseVisitors schema) Dict.empty)
+    runModuleRule
+        (reverseVisitors schema)
+        newModuleRuleCache
+        |> Rule name
 
 
 reverseVisitors : ModuleRuleSchema anything moduleContext -> ModuleRuleSchema anything moduleContext
@@ -449,22 +452,54 @@ reverseVisitors (ModuleRuleSchema schema) =
         }
 
 
-type alias ModuleRuleCache =
+type alias ModuleRuleCache moduleContext =
+    { initialContext : Maybe moduleContext
+    , moduleResults : ModuleRuleResultCache
+    }
+
+
+type alias ModuleRuleResultCache =
     Dict String
         { source : String
         , errors : List Error
         }
 
 
-runModuleRule : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleCache -> Project -> ( List Error, Rule )
-runModuleRule ((ModuleRuleSchema { name }) as schema) startCache project =
+newModuleRuleCache : ModuleRuleCache moduleContext
+newModuleRuleCache =
+    { initialContext = Nothing
+    , moduleResults = Dict.empty
+    }
+
+
+runModuleRule : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleCache moduleContext -> Project -> ( List Error, Rule )
+runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache project =
     let
+        initialContext : moduleContext
+        initialContext =
+            schema.initialContext
+                |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project)
+                |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencyModules project)
+
+        startCache : ModuleRuleCache moduleContext
+        startCache =
+            case previousCache.initialContext of
+                Just previousInitialContext ->
+                    if previousInitialContext == initialContext then
+                        previousCache
+
+                    else
+                        { newModuleRuleCache | initialContext = Just initialContext }
+
+                Nothing ->
+                    { newModuleRuleCache | initialContext = Just initialContext }
+
         computeErrors_ : ProjectModule -> List Error
         computeErrors_ =
-            computeErrors schema project
+            computeErrors moduleRuleSchema project initialContext
 
-        newCache : ModuleRuleCache
-        newCache =
+        moduleResults : ModuleRuleResultCache
+        moduleResults =
             List.foldl
                 (\module_ cache ->
                     case Dict.get module_.path cache of
@@ -479,27 +514,26 @@ runModuleRule ((ModuleRuleSchema { name }) as schema) startCache project =
                             else
                                 Dict.insert module_.path { source = module_.source, errors = computeErrors_ module_ } cache
                 )
-                startCache
+                startCache.moduleResults
                 (Review.Project.modules project)
 
         errors : List Error
         errors =
-            newCache
+            moduleResults
                 |> Dict.values
                 |> List.concatMap .errors
     in
-    ( errors, Rule name (runModuleRule schema newCache) )
+    ( errors
+    , runModuleRule
+        moduleRuleSchema
+        { startCache | moduleResults = moduleResults }
+        |> Rule schema.name
+    )
 
 
-computeErrors : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext -> Project -> ProjectModule -> List Error
-computeErrors (ModuleRuleSchema schema) project =
+computeErrors : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext -> Project -> moduleContext -> ProjectModule -> List Error
+computeErrors (ModuleRuleSchema schema) project initialContext =
     let
-        initialContext : moduleContext
-        initialContext =
-            schema.initialContext
-                |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project)
-                |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencyModules project)
-
         declarationVisitors : InAndOut (DirectedVisitor Declaration moduleContext)
         declarationVisitors =
             inAndOut schema.declarationVisitors
