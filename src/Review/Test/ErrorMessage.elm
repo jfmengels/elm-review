@@ -1,10 +1,9 @@
 module Review.Test.ErrorMessage exposing
     ( ExpectedErrorData
     , parsingFailure, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
-    , underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode
+    , underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, locationIsAmbiguousInSourceCode
     , needToUsedExpectErrorsForModules, duplicateModuleName, unknownModulesInExpectedErrors
     , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
-    , impossibleState
     )
 
 {-| Error messages for the `Review.Test` module.
@@ -14,10 +13,9 @@ module Review.Test.ErrorMessage exposing
 
 @docs ExpectedErrorData
 @docs parsingFailure, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
-@docs underMismatch, expectedMoreErrors, tooManyErrors, locationIsAmbiguousInSourceCode
+@docs underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, locationIsAmbiguousInSourceCode
 @docs needToUsedExpectErrorsForModules, duplicateModuleName, unknownModulesInExpectedErrors
 @docs missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
-@docs impossibleState
 
 -}
 
@@ -218,6 +216,22 @@ I found """
         ++ listErrorMessagesAndPositions extraErrors
 
 
+locationNotFound : Error -> String
+locationNotFound error =
+    """COULD NOT FIND LOCATION FOR ERROR
+
+I was looking for the error with the following message:
+
+  """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
+
+and I found it, but the code it points to does not lead to anything:
+
+  """ ++ rangeAsString (Rule.errorRange error) ++ """
+
+Please try to have the error under the smallest region that makes sense.
+This will be the most helpful for the person who reads the error message."""
+
+
 locationIsAmbiguousInSourceCode : SourceCode -> Error -> String -> List Int -> String
 locationIsAmbiguousInSourceCode sourceCode error under occurrencesInSourceCode =
     """AMBIGUOUS ERROR LOCATION
@@ -287,13 +301,6 @@ codes named that way.
 I assume that there was a mistake during the writing of the test. Please
 match the names of the modules in the test source codes to the ones in the
 expected errors list."""
-
-
-impossibleState : String
-impossibleState =
-    """ELM-REVIEW IMPOSSIBLE STATE
-
-Oh no! I'm in an impossible state! I found an error at a location that I could not trace back. Please let me know and give me an SSCCE (http://sscce.org/) here: https://github.com/jfmengels/elm-review/issues."""
 
 
 missingFixes : ExpectedErrorData -> String

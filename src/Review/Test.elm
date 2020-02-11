@@ -879,11 +879,8 @@ checkMessageAppearsUnder codeInspector error_ (ExpectedError expectedError) =
                         ]
 
         Nothing ->
-            -- TODO Fail with a more precise error message
-            -- This is actually quite easy to create. We can enter this here by
-            -- having the location be
-            -- { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
-            Expect.fail ErrorMessage.impossibleState
+            ErrorMessage.locationNotFound error_
+                |> Expect.fail
                 |> always
 
 

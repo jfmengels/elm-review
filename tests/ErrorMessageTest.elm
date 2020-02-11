@@ -18,6 +18,7 @@ all =
         , unexpectedDetailsTest
         , emptyDetailsTest
         , wrongLocationTest
+        , locationNotFoundTest
         , expectedMoreErrorsTest
         , tooManyErrorsTest
         , locationIsAmbiguousInSourceCodeTest
@@ -425,6 +426,36 @@ but I found it at:
   { start = { row = 4, column = 1 }, end = { row = 5, column = 3 } }
 """
         ]
+
+
+locationNotFoundTest : Test
+locationNotFoundTest =
+    test "locationNotFound" <|
+        \() ->
+            let
+                error : Error
+                error =
+                    Rule.error
+                        { message = "Some error"
+                        , details = [ "Some details" ]
+                        }
+                        { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
+            in
+            ErrorMessage.locationNotFound error
+                |> expectMessageEqual """
+COULD NOT FIND LOCATION FOR ERROR
+
+I was looking for the error with the following message:
+
+  `Some error`
+
+and I found it, but the code it points to does not lead to anything:
+
+  { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
+
+Please try to have the error under the smallest region that makes sense.
+This will be the most helpful for the person who reads the error message.
+"""
 
 
 expectedMoreErrorsTest : Test
