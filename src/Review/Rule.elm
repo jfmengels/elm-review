@@ -722,7 +722,7 @@ type alias ProjectRuleCache projectContext =
 
 
 runProjectRule : ProjectRuleSchema projectContext moduleContext -> ProjectRuleCache projectContext -> Project -> ( List Error, Rule )
-runProjectRule (ProjectRuleSchema schema) startCache project =
+runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache project =
     let
         graph : Graph ModuleName ()
         graph =
@@ -814,7 +814,6 @@ runProjectRule (ProjectRuleSchema schema) startCache project =
                 newStartCache =
                     startCache
                         |> Dict.filter (\path _ -> Set.member path projectModulePaths)
-                        |> Dict.insert "#INITIAL_CONTEXT#" { source = "", errors = [], context = initialContext }
 
                 newCache : ProjectRuleCache projectContext
                 newCache =
@@ -826,9 +825,7 @@ runProjectRule (ProjectRuleSchema schema) startCache project =
 
                 contextsAndErrorsPerFile : List ( List Error, projectContext )
                 contextsAndErrorsPerFile =
-                    -- TODO select leaf nodes and fold their contexts only
                     newCache
-                        |> Dict.remove "#INITIAL_CONTEXT#"
                         |> Dict.values
                         |> List.map (\cacheEntry -> ( cacheEntry.errors, cacheEntry.context ))
 
@@ -836,18 +833,14 @@ runProjectRule (ProjectRuleSchema schema) startCache project =
                 errors =
                     List.concat
                         [ List.concatMap Tuple.first contextsAndErrorsPerFile
-                        , contextsAndErrorsPerFile
-                            |> List.map Tuple.second
-                            |> List.foldl schema.context.foldProjectContexts initialContext
-                            |> makeFinalEvaluationForProject schema.finalEvaluationFns
-                            |> List.map (setRuleName schema.name)
+                        , errorsFromFinalEvaluationForProject wrappedSchema initialContext contextsAndErrorsPerFile
                         ]
             in
-            ( errors, Rule schema.name (runProjectRule (ProjectRuleSchema schema) newCache) )
+            ( errors, Rule schema.name (runProjectRule wrappedSchema newCache) )
 
         Err _ ->
             -- TODO return some kind of global error?
-            ( [], Rule schema.name (runProjectRule (ProjectRuleSchema schema) startCache) )
+            ( [], Rule schema.name (runProjectRule wrappedSchema startCache) )
 
 
 setRuleName : String -> Error -> Error
@@ -961,6 +954,19 @@ getModuleName module_ =
     module_.ast.moduleDefinition
         |> Node.value
         |> Module.moduleName
+
+
+errorsFromFinalEvaluationForProject : ProjectRuleSchema projectContext moduleContext -> projectContext -> List ( List Error, projectContext ) -> List Error
+errorsFromFinalEvaluationForProject (ProjectRuleSchema schema) initialContext contextsAndErrorsPerFile =
+    if List.isEmpty schema.finalEvaluationFns then
+        []
+
+    else
+        contextsAndErrorsPerFile
+            |> List.map Tuple.second
+            |> List.foldl schema.context.foldProjectContexts initialContext
+            |> makeFinalEvaluationForProject schema.finalEvaluationFns
+            |> List.map (setRuleName schema.name)
 
 
 {-| Concatenate the errors of the previous step and of the last step.
