@@ -722,104 +722,7 @@ type alias ProjectRuleCache projectContext =
 
 
 runProjectRule : ProjectRuleSchema projectContext moduleContext -> ProjectRuleCache projectContext -> Project -> ( List Error, Rule )
-runProjectRule ((ProjectRuleSchema { traversalType }) as schema) =
-    case traversalType of
-        AllModulesInParallel ->
-            traverseAllModulesInParallel schema
-
-        ImportedModulesFirst ->
-            traverseImportedModulesFirst schema
-
-
-traverseAllModulesInParallel : ProjectRuleSchema projectContext moduleContext -> ProjectRuleCache projectContext -> Project -> ( List Error, Rule )
-traverseAllModulesInParallel (ProjectRuleSchema schema) startCache project =
-    let
-        initialContext : projectContext
-        initialContext =
-            schema.context.initProjectContext
-                |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project)
-                |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencyModules project)
-
-        computeModule : ProjectModule -> { source : String, errors : List Error, context : projectContext }
-        computeModule module_ =
-            let
-                fileKey : FileKey
-                fileKey =
-                    FileKey module_.path
-
-                moduleNameNode_ : Node ModuleName
-                moduleNameNode_ =
-                    moduleNameNode module_.ast.moduleDefinition
-
-                initialModuleContext : moduleContext
-                initialModuleContext =
-                    schema.context.fromProjectToModule
-                        fileKey
-                        moduleNameNode_
-                        initialContext
-
-                moduleVisitor : ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
-                moduleVisitor =
-                    emptySchema "" initialModuleContext
-                        |> schema.moduleVisitorSchema
-                        |> reverseVisitors
-
-                ( fileErrors, context ) =
-                    visitModuleForProjectRule
-                        moduleVisitor
-                        initialModuleContext
-                        module_
-            in
-            { source = module_.source
-            , errors = List.map (setFilePathIfUnset module_) fileErrors
-            , context =
-                schema.context.fromModuleToProject
-                    fileKey
-                    moduleNameNode_
-                    context
-            }
-
-        newCache : ProjectRuleCache projectContext
-        newCache =
-            List.foldl
-                (\module_ cache ->
-                    case Dict.get module_.path startCache of
-                        Nothing ->
-                            Dict.insert module_.path (computeModule module_) cache
-
-                        Just cacheEntry ->
-                            if cacheEntry.source == module_.source then
-                                -- File is unchanged, we will later return the cached errors and context
-                                Dict.insert module_.path cacheEntry cache
-
-                            else
-                                Dict.insert module_.path (computeModule module_) cache
-                )
-                Dict.empty
-                (Review.Project.modules project)
-
-        contextsAndErrorsPerFile : List ( List Error, projectContext )
-        contextsAndErrorsPerFile =
-            newCache
-                |> Dict.values
-                |> List.map (\cacheEntry -> ( cacheEntry.errors, cacheEntry.context ))
-
-        errors : List Error
-        errors =
-            List.concat
-                [ List.concatMap Tuple.first contextsAndErrorsPerFile
-                , contextsAndErrorsPerFile
-                    |> List.map Tuple.second
-                    |> List.foldl schema.context.foldProjectContexts initialContext
-                    |> makeFinalEvaluationForProject schema.finalEvaluationFns
-                    |> List.map (setRuleName schema.name)
-                ]
-    in
-    ( errors, Rule schema.name (runProjectRule (ProjectRuleSchema schema) newCache) )
-
-
-traverseImportedModulesFirst : ProjectRuleSchema projectContext moduleContext -> ProjectRuleCache projectContext -> Project -> ( List Error, Rule )
-traverseImportedModulesFirst (ProjectRuleSchema schema) startCache project =
+runProjectRule (ProjectRuleSchema schema) startCache project =
     let
         graph : Graph ModuleName ()
         graph =
@@ -868,15 +771,23 @@ traverseImportedModulesFirst (ProjectRuleSchema schema) startCache project =
 
                         initialModuleContext : moduleContext
                         initialModuleContext =
-                            importedModules
-                                |> List.filterMap
-                                    (\importedModule ->
-                                        Dict.get importedModule.path cache
-                                            |> Maybe.map .context
-                                    )
-                                -- TODO Remove contexts from parents already handled by other parents
-                                |> List.foldl schema.context.foldProjectContexts initialContext
-                                |> schema.context.fromProjectToModule fileKey moduleNameNode_
+                            case schema.traversalType of
+                                AllModulesInParallel ->
+                                    schema.context.fromProjectToModule
+                                        fileKey
+                                        moduleNameNode_
+                                        initialContext
+
+                                ImportedModulesFirst ->
+                                    importedModules
+                                        |> List.filterMap
+                                            (\importedModule ->
+                                                Dict.get importedModule.path cache
+                                                    |> Maybe.map .context
+                                            )
+                                        -- TODO Remove contexts from parents already handled by other parents
+                                        |> List.foldl schema.context.foldProjectContexts initialContext
+                                        |> schema.context.fromProjectToModule fileKey moduleNameNode_
 
                         moduleVisitor : ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
                         moduleVisitor =
@@ -908,7 +819,7 @@ traverseImportedModulesFirst (ProjectRuleSchema schema) startCache project =
                 newCache : ProjectRuleCache projectContext
                 newCache =
                     List.foldl
-                        (computeModuleAndCacheResult modules graph computeModule)
+                        (computeModuleAndCacheResult schema.traversalType modules graph computeModule)
                         ( newStartCache, Set.empty )
                         nodeContexts
                         |> Tuple.first
@@ -959,13 +870,14 @@ setFilePathIfUnset module_ (Error err) =
 
 
 computeModuleAndCacheResult :
-    Dict ModuleName ProjectModule
+    TraversalType
+    -> Dict ModuleName ProjectModule
     -> Graph ModuleName ()
     -> (ProjectRuleCache projectContext -> List ProjectModule -> ProjectModule -> { source : String, errors : List Error, context : projectContext })
     -> Graph.NodeContext ModuleName ()
     -> ( ProjectRuleCache projectContext, Set ModuleName )
     -> ( ProjectRuleCache projectContext, Set ModuleName )
-computeModuleAndCacheResult modules graph computeModule { node, incoming } ( cache, invalidatedModules ) =
+computeModuleAndCacheResult traversalType modules graph computeModule { node, incoming } ( cache, invalidatedModules ) =
     case Dict.get node.label modules of
         Nothing ->
             ( cache, invalidatedModules )
@@ -974,13 +886,18 @@ computeModuleAndCacheResult modules graph computeModule { node, incoming } ( cac
             let
                 importedModules : List ProjectModule
                 importedModules =
-                    incoming
-                        |> IntDict.keys
-                        |> List.filterMap
-                            (\key ->
-                                Graph.get key graph
-                                    |> Maybe.andThen (\nodeContext -> Dict.get nodeContext.node.label modules)
-                            )
+                    case traversalType of
+                        AllModulesInParallel ->
+                            []
+
+                        ImportedModulesFirst ->
+                            incoming
+                                |> IntDict.keys
+                                |> List.filterMap
+                                    (\key ->
+                                        Graph.get key graph
+                                            |> Maybe.andThen (\nodeContext -> Dict.get nodeContext.node.label modules)
+                                    )
 
                 compute previousResult =
                     let
@@ -1001,21 +918,21 @@ computeModuleAndCacheResult modules graph computeModule { node, incoming } ( cac
                     compute Nothing
 
                 Just cacheEntry ->
-                    let
-                        noImportedModulesHaveANewContext : Bool
-                        noImportedModulesHaveANewContext =
-                            importedModules
-                                |> List.map getModuleName
-                                |> Set.fromList
-                                |> Set.intersect invalidatedModules
-                                |> Set.isEmpty
-                    in
-                    if cacheEntry.source == module_.source && noImportedModulesHaveANewContext then
+                    if cacheEntry.source == module_.source && (traversalType == AllModulesInParallel || noImportedModulesHaveANewContext importedModules invalidatedModules) then
                         -- File and its imported modules' context are unchanged, we will later return the cached errors and context
                         ( cache, invalidatedModules )
 
                     else
                         compute (Just cacheEntry)
+
+
+noImportedModulesHaveANewContext : List ProjectModule -> Set ModuleName -> Bool
+noImportedModulesHaveANewContext importedModules invalidatedModules =
+    importedModules
+        |> List.map getModuleName
+        |> Set.fromList
+        |> Set.intersect invalidatedModules
+        |> Set.isEmpty
 
 
 visitModuleForProjectRule : ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext -> moduleContext -> ProjectModule -> ( List Error, moduleContext )
