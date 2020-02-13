@@ -234,7 +234,7 @@ TODO Link to "creating a module rule" and project rule instead
 See [`newModuleRuleSchema`](#newModuleRuleSchema), and [`newProjectRuleSchema`](#newProjectRuleSchema) for how to create one.
 -}
 type Rule
-    = Rule String (Project -> ( List Error, Rule ))
+    = Rule String (Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, Rule ))
 
 
 {-| Represents a schema for a module [`Rule`](#Rule).
@@ -322,26 +322,51 @@ to compare them or compare the model that holds them.
 review : List Rule -> Project -> ( List Error, List Rule )
 review rules project =
     let
-        ( ruleErrors, rulesWithCache ) =
-            runRules rules project
+        sortedModules : Result (Graph.Edge ()) (List (Graph.NodeContext ModuleName ()))
+        sortedModules =
+            project
+                |> Review.Project.moduleGraph
+                |> Graph.checkAcyclic
+                |> Result.map Graph.topologicalSort
     in
-    ( List.concat
-        [ ruleErrors
-        , project
-            |> Review.Project.filesThatFailedToParse
-            |> List.map parsingError
-        ]
-    , rulesWithCache
-    )
+    case sortedModules of
+        Ok nodeContexts ->
+            let
+                ( ruleErrors, rulesWithCache ) =
+                    runRules rules project nodeContexts
+            in
+            ( List.concat
+                [ ruleErrors
+                , project
+                    |> Review.Project.filesThatFailedToParse
+                    |> List.map parsingError
+                ]
+            , rulesWithCache
+            )
+
+        Err _ ->
+            ( [ Error
+                    { filePath = "GLOBAL ERROR"
+                    , ruleName = "Incorrect project"
+                    , message = "Import cycle discovered"
+                    , details =
+                        [ "I detected an import cycle in your project. This prevents me from working correctly, and results in a error for the Elm compiler anyway. Please resolve it using the compiler's suggestions, then try running `elm-review` again."
+                        ]
+                    , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
+                    , fixes = Nothing
+                    }
+              ]
+            , rules
+            )
 
 
-runRules : List Rule -> Project -> ( List Error, List Rule )
-runRules rules project =
+runRules : List Rule -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, List Rule )
+runRules rules project nodeContexts =
     List.foldl
         (\(Rule _ fn) ( errors, previousRules ) ->
             let
                 ( ruleErrors, ruleWithCache ) =
-                    fn project
+                    fn project nodeContexts
             in
             ( List.concat [ ruleErrors, errors ], ruleWithCache :: previousRules )
         )
@@ -472,8 +497,8 @@ newModuleRuleCache =
     }
 
 
-runModuleRule : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleCache moduleContext -> Project -> ( List Error, Rule )
-runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache project =
+runModuleRule : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleCache moduleContext -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, Rule )
+runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache project _ =
     let
         initialContext : moduleContext
         initialContext =
@@ -721,125 +746,119 @@ type alias ProjectRuleCache projectContext =
         }
 
 
-runProjectRule : ProjectRuleSchema projectContext moduleContext -> ProjectRuleCache projectContext -> Project -> ( List Error, Rule )
-runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache project =
+runProjectRule : ProjectRuleSchema projectContext moduleContext -> ProjectRuleCache projectContext -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, Rule )
+runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache project nodeContexts =
     let
         graph : Graph ModuleName ()
         graph =
             project
                 |> Review.Project.moduleGraph
     in
-    case Graph.checkAcyclic graph |> Result.map Graph.topologicalSort of
-        Ok nodeContexts ->
+    let
+        initialContext : projectContext
+        initialContext =
+            schema.context.initProjectContext
+                |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project)
+                |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencyModules project)
+
+        modules : Dict ModuleName ProjectModule
+        modules =
+            project
+                |> Review.Project.modules
+                |> List.foldl
+                    (\module_ dict ->
+                        Dict.insert
+                            (getModuleName module_)
+                            module_
+                            dict
+                    )
+                    Dict.empty
+
+        projectModulePaths : Set String
+        projectModulePaths =
+            project
+                |> Review.Project.modules
+                |> List.map .path
+                |> Set.fromList
+
+        computeModule : ProjectRuleCache projectContext -> List ProjectModule -> ProjectModule -> { source : String, errors : List Error, context : projectContext }
+        computeModule cache importedModules module_ =
             let
-                initialContext : projectContext
-                initialContext =
-                    schema.context.initProjectContext
-                        |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project)
-                        |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencyModules project)
+                fileKey : FileKey
+                fileKey =
+                    FileKey module_.path
 
-                modules : Dict ModuleName ProjectModule
-                modules =
-                    project
-                        |> Review.Project.modules
-                        |> List.foldl
-                            (\module_ dict ->
-                                Dict.insert
-                                    (getModuleName module_)
-                                    module_
-                                    dict
-                            )
-                            Dict.empty
+                moduleNameNode_ : Node ModuleName
+                moduleNameNode_ =
+                    moduleNameNode module_.ast.moduleDefinition
 
-                projectModulePaths : Set String
-                projectModulePaths =
-                    project
-                        |> Review.Project.modules
-                        |> List.map .path
-                        |> Set.fromList
+                initialModuleContext : moduleContext
+                initialModuleContext =
+                    case schema.traversalType of
+                        AllModulesInParallel ->
+                            schema.context.fromProjectToModule
+                                fileKey
+                                moduleNameNode_
+                                initialContext
 
-                computeModule : ProjectRuleCache projectContext -> List ProjectModule -> ProjectModule -> { source : String, errors : List Error, context : projectContext }
-                computeModule cache importedModules module_ =
-                    let
-                        fileKey : FileKey
-                        fileKey =
-                            FileKey module_.path
+                        ImportedModulesFirst ->
+                            importedModules
+                                |> List.filterMap
+                                    (\importedModule ->
+                                        Dict.get importedModule.path cache
+                                            |> Maybe.map .context
+                                    )
+                                |> List.foldl schema.context.foldProjectContexts initialContext
+                                |> schema.context.fromProjectToModule fileKey moduleNameNode_
 
-                        moduleNameNode_ : Node ModuleName
-                        moduleNameNode_ =
-                            moduleNameNode module_.ast.moduleDefinition
+                moduleVisitor : ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
+                moduleVisitor =
+                    emptySchema "" initialModuleContext
+                        |> schema.moduleVisitorSchema
+                        |> reverseVisitors
 
-                        initialModuleContext : moduleContext
-                        initialModuleContext =
-                            case schema.traversalType of
-                                AllModulesInParallel ->
-                                    schema.context.fromProjectToModule
-                                        fileKey
-                                        moduleNameNode_
-                                        initialContext
-
-                                ImportedModulesFirst ->
-                                    importedModules
-                                        |> List.filterMap
-                                            (\importedModule ->
-                                                Dict.get importedModule.path cache
-                                                    |> Maybe.map .context
-                                            )
-                                        |> List.foldl schema.context.foldProjectContexts initialContext
-                                        |> schema.context.fromProjectToModule fileKey moduleNameNode_
-
-                        moduleVisitor : ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
-                        moduleVisitor =
-                            emptySchema "" initialModuleContext
-                                |> schema.moduleVisitorSchema
-                                |> reverseVisitors
-
-                        ( fileErrors, context ) =
-                            visitModuleForProjectRule
-                                moduleVisitor
-                                initialModuleContext
-                                module_
-                    in
-                    { source = module_.source
-                    , errors = List.map (setFilePathIfUnset module_) fileErrors
-                    , context =
-                        schema.context.fromModuleToProject
-                            fileKey
-                            moduleNameNode_
-                            context
-                    }
-
-                newStartCache : ProjectRuleCache projectContext
-                newStartCache =
-                    startCache
-                        |> Dict.filter (\path _ -> Set.member path projectModulePaths)
-
-                newCache : ProjectRuleCache projectContext
-                newCache =
-                    List.foldl
-                        (computeModuleAndCacheResult schema.traversalType modules graph computeModule)
-                        ( newStartCache, Set.empty )
-                        nodeContexts
-                        |> Tuple.first
-
-                contextsAndErrorsPerFile : List ( List Error, projectContext )
-                contextsAndErrorsPerFile =
-                    newCache
-                        |> Dict.values
-                        |> List.map (\cacheEntry -> ( cacheEntry.errors, cacheEntry.context ))
-
-                errors : List Error
-                errors =
-                    List.concat
-                        [ List.concatMap Tuple.first contextsAndErrorsPerFile
-                        , errorsFromFinalEvaluationForProject wrappedSchema initialContext contextsAndErrorsPerFile
-                        ]
+                ( fileErrors, context ) =
+                    visitModuleForProjectRule
+                        moduleVisitor
+                        initialModuleContext
+                        module_
             in
-            ( errors, Rule schema.name (runProjectRule wrappedSchema newCache) )
+            { source = module_.source
+            , errors = List.map (setFilePathIfUnset module_) fileErrors
+            , context =
+                schema.context.fromModuleToProject
+                    fileKey
+                    moduleNameNode_
+                    context
+            }
 
-        Err _ ->
-            -- TODO return some kind of global error?
-            ( [], Rule schema.name (runProjectRule wrappedSchema startCache) )
+        newStartCache : ProjectRuleCache projectContext
+        newStartCache =
+            startCache
+                |> Dict.filter (\path _ -> Set.member path projectModulePaths)
+
+        newCache : ProjectRuleCache projectContext
+        newCache =
+            List.foldl
+                (computeModuleAndCacheResult schema.traversalType modules graph computeModule)
+                ( newStartCache, Set.empty )
+                nodeContexts
+                |> Tuple.first
+
+        contextsAndErrorsPerFile : List ( List Error, projectContext )
+        contextsAndErrorsPerFile =
+            newCache
+                |> Dict.values
+                |> List.map (\cacheEntry -> ( cacheEntry.errors, cacheEntry.context ))
+
+        errors : List Error
+        errors =
+            List.concat
+                [ List.concatMap Tuple.first contextsAndErrorsPerFile
+                , errorsFromFinalEvaluationForProject wrappedSchema initialContext contextsAndErrorsPerFile
+                ]
+    in
+    ( errors, Rule schema.name (runProjectRule wrappedSchema newCache) )
 
 
 setRuleName : String -> Error -> Error
