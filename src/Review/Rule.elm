@@ -785,7 +785,6 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache project 
                                                 Dict.get importedModule.path cache
                                                     |> Maybe.map .context
                                             )
-                                        -- TODO Remove contexts from parents already handled by other parents
                                         |> List.foldl schema.context.foldProjectContexts initialContext
                                         |> schema.context.fromProjectToModule fileKey moduleNameNode_
 
