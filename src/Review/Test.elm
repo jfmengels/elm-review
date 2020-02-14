@@ -372,7 +372,11 @@ runOnModulesWithProjectData project rule sources =
                             , inspector = codeInspectorForSource module_
                             , errors =
                                 errors
-                                    |> List.filter (\error_ -> Rule.errorFilePath error_ == module_.path)
+                                    |> List.filter
+                                        (\error_ ->
+                                            (Rule.errorFilePath error_ == module_.path)
+                                                || (Rule.errorFilePath error_ == "GLOBAL ERROR")
+                                        )
                                     |> List.sortWith compareErrorPositions
                             }
                         )
