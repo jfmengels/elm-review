@@ -12,13 +12,6 @@ type alias Context =
     String
 
 
-testRule : Rule -> String -> ReviewResult
-testRule rule string =
-    "module A exposing (..)\n\n"
-        ++ string
-        |> Review.Test.run rule
-
-
 all : Test
 all =
     Test.describe "Visitor order"
@@ -27,7 +20,7 @@ all =
                 let
                     rule : Rule
                     rule =
-                        Rule.newModuleRuleSchema "TestRule" "\n0 - withInitialContext"
+                        Rule.newModuleRuleSchema "TestRule" "\n0 - initial context"
                             |> Rule.withModuleElmJsonVisitor (\_ context -> context ++ "\n1 - withModuleElmJsonVisitor")
                             |> Rule.withModuleDependenciesVisitor (\_ context -> context ++ "\n2 - withModuleDependenciesVisitor")
                             |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ++ "\n3 - withModuleDefinitionVisitor" ))
@@ -62,14 +55,15 @@ all =
                             }
                         ]
                 in
-                testRule rule """
-import A
+                """module A exposing (..)
+import B
 a = 1
 """
+                    |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = """
-0 - withInitialContext
+0 - initial context
 1 - withModuleElmJsonVisitor
 2 - withModuleDependenciesVisitor
 3 - withModuleDefinitionVisitor
@@ -112,7 +106,7 @@ a = 1
                             }
                         ]
                 in
-                testRule rule """
+                Review.Test.run rule """module A exposing (..)
 a = 1
 """
                     |> Review.Test.expectErrors
@@ -157,7 +151,7 @@ Exit A"""
                             }
                         ]
                 in
-                testRule rule """
+                Review.Test.run rule """module A exposing (..)
 a = 1
 """
                     |> Review.Test.expectErrors

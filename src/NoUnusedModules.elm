@@ -131,11 +131,11 @@ foldProjectContexts newContext previousContext =
 -- PROJECT VISITORS
 
 
-elmJsonVisitor : Maybe Project -> ProjectContext -> ProjectContext
+elmJsonVisitor : Maybe { a | project : Project } -> ProjectContext -> ProjectContext
 elmJsonVisitor maybeProject projectContext =
     let
         ( exposedModules, isPackage ) =
-            case maybeProject of
+            case maybeProject |> Maybe.map .project of
                 Just (Elm.Project.Package { exposed }) ->
                     case exposed of
                         Elm.Project.ExposedList names ->

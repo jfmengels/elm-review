@@ -1,7 +1,7 @@
 module Review.Project exposing
     ( Project, new
     , ProjectModule, addModule, addParsedModule, removeModule, modules, filesThatFailedToParse, moduleGraph, precomputeModuleGraph
-    , ElmJson, withElmJson, elmJson
+    , withElmJson, elmJson
     , withDependency, removeDependencies, dependencyModules
     )
 
@@ -28,7 +28,7 @@ in existing environments like the CLI tool.
 
 # `elm.json`
 
-@docs ElmJson, withElmJson, elmJson
+@docs withElmJson, elmJson
 
 
 # Project dependencies
@@ -54,14 +54,14 @@ import Review.Dependencies
 -- PROJECT
 
 
-{-| Represents all the details of the project, such as the contents of
-the `elm.json` file.
+{-| Holds all the information related to the project such as the contents of
+the `elm.json` file, the project modules and the project dependencies.
 -}
 type Project
     = Project
         { modules : List ProjectModule
         , filesThatFailedToParse : List { path : String, source : String }
-        , elmJson : Maybe ElmJson
+        , elmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
         , dependencyModules : Dict String Elm.Docs.Module
         , moduleToDependency : Dict String String
         , moduleGraph : Maybe (Graph ModuleName ())
@@ -273,19 +273,16 @@ precomputeModuleGraph ((Project p) as project) =
 -- `elm.json`
 
 
-{-| Contents of the `elm.json` file. Alias to
-[`elm/project-metadata-utils`'s Project project structure](https://package.elm-lang.org/packages/elm/project-metadata-utils/latest/Elm-Project).
--}
-type alias ElmJson =
-    Elm.Project.Project
-
-
 {-| Add the content of the `elm.json` file to the project details, making it
 available for rules to access using
 [`Review.Rule.withModuleElmJsonVisitor`](./Review-Rule#withModuleElmJsonVisitor) and
 [`Review.Rule.withProjectElmJsonVisitor`](./Review-Rule#withProjectElmJsonVisitor).
+
+The `raw` value should be the raw JSON as a string, and `contents` corresponds to
+[`elm/project-metadata-utils`'s Project project structure](https://package.elm-lang.org/packages/elm/project-metadata-utils/latest/Elm-Project).
+
 -}
-withElmJson : ElmJson -> Project -> Project
+withElmJson : { path : String, raw : String, project : Elm.Project.Project } -> Project -> Project
 withElmJson elmJson_ (Project project) =
     Project { project | elmJson = Just elmJson_ }
 
@@ -298,7 +295,7 @@ package, so you will need to install and use it to gain access to the
 information inside the `elm.json` file.
 
 -}
-elmJson : Project -> Maybe ElmJson
+elmJson : Project -> Maybe { path : String, raw : String, project : Elm.Project.Project }
 elmJson (Project project) =
     project.elmJson
 

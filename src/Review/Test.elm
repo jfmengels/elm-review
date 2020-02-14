@@ -23,7 +23,7 @@ module Review.Test exposing
             , test "should report Debug.log use" <|
                 \() ->
                     """module A exposing (..)
-    a = Debug.log "some" "message\""""
+    a = Debug.log "some" "message" """
                         |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
@@ -135,7 +135,7 @@ type alias SuccessfulRunResult =
 
 
 type alias CodeInspector =
-    { module_ : ProjectModule
+    { source : String
     , getCodeAtLocation : Range -> Maybe String
     , checkIfLocationIsAmbiguous : Error -> String -> Expectation
     }
@@ -355,6 +355,7 @@ runOnModulesWithProjectData project rule sources =
                     FailedRun <| ErrorMessage.duplicateModuleName moduleName
 
                 Nothing ->
+                    -- TODO Fail if there is a global error
                     let
                         errors : List Error
                         errors =
@@ -362,26 +363,45 @@ runOnModulesWithProjectData project rule sources =
                                 |> Rule.review [ rule ]
                                 |> Tuple.first
                     in
-                    List.map
-                        (\module_ ->
-                            { moduleName =
-                                module_.ast.moduleDefinition
-                                    |> Node.value
-                                    |> Module.moduleName
-                                    |> String.join "."
-                            , inspector = codeInspectorForSource module_
-                            , errors =
-                                errors
-                                    |> List.filter
-                                        (\error_ ->
-                                            (Rule.errorFilePath error_ == module_.path)
-                                                || (Rule.errorFilePath error_ == "GLOBAL ERROR")
-                                        )
-                                    |> List.sortWith compareErrorPositions
-                            }
-                        )
-                        modules
+                    List.concat
+                        [ List.map (moduleToRunResult errors) modules
+                        , elmJsonRunResult errors projectWithModules
+                        ]
                         |> SuccessfulRun
+
+
+moduleToRunResult : List Error -> ProjectModule -> SuccessfulRunResult
+moduleToRunResult errors projectModule =
+    { moduleName =
+        projectModule.ast.moduleDefinition
+            |> Node.value
+            |> Module.moduleName
+            |> String.join "."
+    , inspector = codeInspectorForSource projectModule.source
+    , errors =
+        errors
+            |> List.filter (\error_ -> Rule.errorFilePath error_ == projectModule.path)
+            |> List.sortWith compareErrorPositions
+    }
+
+
+elmJsonRunResult : List Error -> Project -> List SuccessfulRunResult
+elmJsonRunResult errors project =
+    case Project.elmJson project of
+        Just elmJsonData ->
+            case List.filter (\error_ -> Rule.errorFilePath error_ == elmJsonData.path) errors of
+                [] ->
+                    []
+
+                errorsForElmJson ->
+                    [ { moduleName = elmJsonData.path
+                      , inspector = codeInspectorForSource elmJsonData.raw
+                      , errors = errorsForElmJson
+                      }
+                    ]
+
+        Nothing ->
+            []
 
 
 indexOf : a -> List a -> Maybe Int
@@ -399,11 +419,11 @@ indexOf elementToFind aList =
                     |> Maybe.map ((+) 1)
 
 
-codeInspectorForSource : ProjectModule -> CodeInspector
-codeInspectorForSource module_ =
-    { module_ = module_
-    , getCodeAtLocation = getCodeAtLocationInSourceCode module_.source
-    , checkIfLocationIsAmbiguous = checkIfLocationIsAmbiguousInSourceCode module_.source
+codeInspectorForSource : String -> CodeInspector
+codeInspectorForSource source =
+    { source = source
+    , getCodeAtLocation = getCodeAtLocationInSourceCode source
+    , checkIfLocationIsAmbiguous = checkIfLocationIsAmbiguousInSourceCode source
     }
 
 
@@ -925,7 +945,7 @@ checkFixesAreCorrect codeInspector error_ ((ExpectedError expectedError_) as exp
                 |> Expect.fail
 
         ( Just expectedFixedSource, Just fixes ) ->
-            case Fix.fix fixes codeInspector.module_.source of
+            case Fix.fix fixes codeInspector.source of
                 Fix.Successful fixedSource ->
                     (fixedSource == expectedFixedSource)
                         |> Expect.true (ErrorMessage.fixedCodeMismatch fixedSource expectedFixedSource error_)

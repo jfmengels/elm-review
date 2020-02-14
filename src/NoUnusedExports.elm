@@ -14,7 +14,7 @@ module NoUnusedExports exposing (rule)
 
 import Dict exposing (Dict)
 import Elm.Module
-import Elm.Project exposing (Project)
+import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Expression as Expression exposing (Expression)
@@ -177,9 +177,9 @@ registerMultipleAsUsed usedElements moduleContext =
 -- ELM JSON VISITOR
 
 
-elmJsonVisitor : Maybe Project -> ProjectContext -> ProjectContext
+elmJsonVisitor : Maybe { a | project : Elm.Project.Project } -> ProjectContext -> ProjectContext
 elmJsonVisitor maybeProject projectContext =
-    case maybeProject of
+    case maybeProject |> Maybe.map .project of
         Just (Elm.Project.Package { exposed }) ->
             let
                 exposedModuleNames : List Elm.Module.Name

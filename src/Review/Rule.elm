@@ -6,7 +6,7 @@ module Review.Rule exposing
     , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalModuleEvaluation
     , withModuleElmJsonVisitor, withModuleDependenciesVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation, withContextFromImportedModules
-    , Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, FileKey, errorForFile
+    , Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, FileKey, errorForFile, ElmJsonKey, errorForElmJson
     , withFixes
     )
 
@@ -199,7 +199,7 @@ simpler version of project rules.
 
 ## Errors
 
-@docs Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, FileKey, errorForFile
+@docs Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, FileKey, errorForFile, ElmJsonKey, errorForElmJson
 
 
 ## Automatic fixing
@@ -561,7 +561,7 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache proj
         initialContext : moduleContext
         initialContext =
             schema.initialContext
-                |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project)
+                |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project |> Maybe.map .project)
                 |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencyModules project)
 
         startCache : ModuleRuleCache moduleContext
@@ -677,7 +677,7 @@ type ProjectRuleSchema projectContext moduleContext
             , foldProjectContexts : projectContext -> projectContext -> projectContext
             }
         , moduleVisitorSchema : ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
-        , elmJsonVisitors : List (Maybe Elm.Project.Project -> projectContext -> projectContext)
+        , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> projectContext)
         , dependenciesVisitors : List (Dict String Elm.Docs.Module -> projectContext -> projectContext)
         , finalEvaluationFns : List (projectContext -> List Error)
         , traversalType : TraversalType
@@ -738,7 +738,7 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
 {-| TODO documentation
 -}
 withProjectElmJsonVisitor :
-    (Maybe Elm.Project.Project -> projectContext -> projectContext)
+    (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> projectContext)
     -> ProjectRuleSchema projectContext moduleContext
     -> ProjectRuleSchema projectContext moduleContext
 withProjectElmJsonVisitor visitor (ProjectRuleSchema schema) =
@@ -816,7 +816,17 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache project 
         initialContext : projectContext
         initialContext =
             schema.context.initProjectContext
-                |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project)
+                |> accumulateContext schema.elmJsonVisitors
+                    (case Review.Project.elmJson project of
+                        Just elmJson ->
+                            Just
+                                { elmJsonKey = ElmJsonKey { path = elmJson.path, raw = elmJson.raw }
+                                , project = elmJson.project
+                                }
+
+                        Nothing ->
+                            Nothing
+                    )
                 |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencyModules project)
 
         modules : Dict ModuleName ProjectModule
@@ -1947,6 +1957,39 @@ errorForFile (FileKey path) { message, details } range =
         , ruleName = ""
         , details = details
         , range = range
+        , filePath = path
+        , fixes = Nothing
+        }
+
+
+{-| A key to be able to report an error for the `elm.json` file. You need this
+key in order to use the [`errorForElmJson`](#errorForElmJson) function. This is to
+prevent creating errors for it if you have not visited it.
+
+You can get a `ElmJsonKey` using the [`withProjectElmJsonVisitor`](#withProjectElmJsonVisitor) function.
+
+-}
+type ElmJsonKey
+    = ElmJsonKey
+        { path : String
+        , raw : String
+        }
+
+
+{-| TODO Documentation
+-}
+errorForElmJson : ElmJsonKey -> (String -> { message : String, details : List String, range : Range }) -> Error
+errorForElmJson (ElmJsonKey { path, raw }) getErrorInfo =
+    let
+        errorInfo : { message : String, details : List String, range : Range }
+        errorInfo =
+            getErrorInfo raw
+    in
+    Error
+        { message = errorInfo.message
+        , ruleName = ""
+        , details = errorInfo.details
+        , range = errorInfo.range
         , filePath = path
         , fixes = Nothing
         }
