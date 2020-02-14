@@ -1,9 +1,5 @@
 module NoUnusedExportsTest exposing (all)
 
-import Elm.Constraint
-import Elm.License
-import Elm.Module
-import Elm.Package
 import Elm.Project
 import Elm.Version
 import Json.Decode as Decode

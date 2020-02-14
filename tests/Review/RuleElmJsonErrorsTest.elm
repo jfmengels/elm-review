@@ -2,13 +2,10 @@ module Review.RuleElmJsonErrorsTest exposing (all)
 
 import Elm.Package
 import Elm.Project
-import Elm.Syntax.Declaration exposing (Declaration)
-import Elm.Syntax.Expression exposing (Expression)
-import Elm.Syntax.Node exposing (Node)
 import Elm.Version
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Rule)
-import Review.Test exposing (ReviewResult)
+import Review.Test
 import Test exposing (Test, test)
 
 
