@@ -1,6 +1,6 @@
 module Review.Test.ErrorMessage exposing
     ( ExpectedErrorData
-    , parsingFailure, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
+    , parsingFailure, globalErrorInTest, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
     , underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
     , needToUsedExpectErrorsForModules, duplicateModuleName, unknownModulesInExpectedErrors
     , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
@@ -12,7 +12,7 @@ module Review.Test.ErrorMessage exposing
 # Error messages
 
 @docs ExpectedErrorData
-@docs parsingFailure, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
+@docs parsingFailure, globalErrorInTest, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
 @docs underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
 @docs needToUsedExpectErrorsForModules, duplicateModuleName, unknownModulesInExpectedErrors
 @docs missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
@@ -81,6 +81,21 @@ The source code in question is the one at index """
                     ++ "`"
     in
     title ++ "\n\n" ++ details ++ "\n\n" ++ hint
+
+
+globalErrorInTest : Error -> String
+globalErrorInTest error =
+    """GLOBAL ERROR IN SOURCE CODE
+
+I found a global error in the project you provided for this test:
+
+  """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
+
+  """ ++ formatDetails (Rule.errorDetails error) ++ """
+
+`elm-review` would fail with this error if the project to be reviewed had
+the same issue. Please fix this issue in your test.
+"""
 
 
 messageMismatch : ExpectedErrorData -> Error -> String

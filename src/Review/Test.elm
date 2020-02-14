@@ -355,7 +355,6 @@ runOnModulesWithProjectData project rule sources =
                     FailedRun <| ErrorMessage.duplicateModuleName moduleName
 
                 Nothing ->
-                    -- TODO Fail if there is a global error
                     let
                         errors : List Error
                         errors =
@@ -363,11 +362,16 @@ runOnModulesWithProjectData project rule sources =
                                 |> Rule.review [ rule ]
                                 |> Tuple.first
                     in
-                    List.concat
-                        [ List.map (moduleToRunResult errors) modules
-                        , elmJsonRunResult errors projectWithModules
-                        ]
-                        |> SuccessfulRun
+                    case ListExtra.find (\err_ -> Rule.errorFilePath err_ == "GLOBAL ERROR") errors of
+                        Just globalError ->
+                            FailedRun <| ErrorMessage.globalErrorInTest globalError
+
+                        Nothing ->
+                            List.concat
+                                [ List.map (moduleToRunResult errors) modules
+                                , elmJsonRunResult errors projectWithModules
+                                ]
+                                |> SuccessfulRun
 
 
 moduleToRunResult : List Error -> ProjectModule -> SuccessfulRunResult
