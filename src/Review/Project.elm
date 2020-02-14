@@ -47,6 +47,7 @@ import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
 import Graph exposing (Graph)
+import Review.Dependencies
 
 
 
@@ -193,7 +194,15 @@ parseSource source =
     source
         |> Parser.parse
         |> Result.mapError (always ())
-        |> Result.map (Elm.Processing.process Elm.Processing.init)
+        |> Result.map (Elm.Processing.process elmProcessContext)
+
+
+elmProcessContext : Elm.Processing.ProcessContext
+elmProcessContext =
+    Elm.Processing.init
+        |> Elm.Processing.addDependency Review.Dependencies.elmCore
+        |> Elm.Processing.addDependency Review.Dependencies.elmUrl
+        |> Elm.Processing.addDependency Review.Dependencies.elmParser
 
 
 {-| Get the list of modules in the project.
