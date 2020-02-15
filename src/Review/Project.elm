@@ -63,7 +63,6 @@ type Project
         , filesThatFailedToParse : List { path : String, source : String }
         , elmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
         , dependencyModules : Dict String Elm.Docs.Module
-        , moduleToDependency : Dict String String
         , moduleGraph : Maybe (Graph ModuleName ())
         }
 
@@ -77,7 +76,6 @@ new =
         , filesThatFailedToParse = []
         , elmJson = Nothing
         , dependencyModules = Dict.empty
-        , moduleToDependency = Dict.empty
         , moduleGraph = Nothing
         }
 
@@ -324,13 +322,6 @@ withDependency dependency (Project project) =
                         |> List.map (\module_ -> ( module_.name, module_ ))
                         |> Dict.fromList
                     )
-            , moduleToDependency =
-                Dict.union
-                    project.moduleToDependency
-                    (dependency.modules
-                        |> List.map (\module_ -> ( module_.name, dependency.packageName ))
-                        |> Dict.fromList
-                    )
         }
         |> recomputeModuleGraphIfNeeded
 
@@ -340,11 +331,7 @@ a project when they are changed, before re-adding them.
 -}
 removeDependencies : Project -> Project
 removeDependencies (Project project) =
-    Project
-        { project
-            | dependencyModules = Dict.empty
-            , moduleToDependency = Dict.empty
-        }
+    Project { project | dependencyModules = Dict.empty }
         |> recomputeModuleGraphIfNeeded
 
 
