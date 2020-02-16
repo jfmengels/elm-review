@@ -61,9 +61,6 @@ rule =
         , foldProjectContexts = foldProjectContexts
         }
         |> Scope.addProjectVisitors
-            { set = \scope context -> { context | scope = scope }
-            , get = .scope
-            }
         |> Rule.withContextFromImportedModules
         |> Rule.withProjectElmJsonVisitor elmJsonVisitor
         |> Rule.withFinalProjectEvaluation finalEvaluationForProject
@@ -74,9 +71,6 @@ moduleVisitorSchema : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleS
 moduleVisitorSchema schema =
     schema
         |> Scope.addModuleVisitors
-            { set = \scope context -> { context | scope = scope }
-            , get = .scope
-            }
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withDeclarationListVisitor declarationListVisitor
         |> Rule.withExpressionVisitor expressionVisitor

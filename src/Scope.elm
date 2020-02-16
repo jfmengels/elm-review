@@ -60,12 +60,6 @@ type alias Scope =
     }
 
 
-type alias SetterGetter context =
-    { set : Context -> context -> context
-    , get : context -> Context
-    }
-
-
 
 -- USAGE
 
@@ -89,57 +83,51 @@ emptyScope =
 
 
 addVisitors :
-    { set : Context -> context -> context
-    , get : context -> Context
-    }
-    -> Rule.ModuleRuleSchema { anything | withModuleDependenciesVisitor : () } context
-    -> Rule.ModuleRuleSchema { anything | withModuleDependenciesVisitor : (), hasAtLeastOneVisitor : () } context
-addVisitors setterGetter schema =
+    Rule.ModuleRuleSchema { anything | withModuleDependenciesVisitor : () } { context | scope : Context }
+    -> Rule.ModuleRuleSchema { anything | withModuleDependenciesVisitor : (), hasAtLeastOneVisitor : () } { context | scope : Context }
+addVisitors schema =
     schema
         |> Rule.withModuleDependenciesVisitor
-            (mapInnerContext setterGetter dependenciesVisitor)
+            (mapInnerContext dependenciesVisitor)
         |> Rule.withImportVisitor
-            (mapInnerContext setterGetter importVisitor |> pairWithNoErrors)
+            (mapInnerContext importVisitor |> pairWithNoErrors)
         |> Rule.withDeclarationListVisitor
-            (mapInnerContext setterGetter declarationListVisitor |> pairWithNoErrors)
+            (mapInnerContext declarationListVisitor |> pairWithNoErrors)
         |> Rule.withDeclarationVisitor
             (\visitedElement direction outerContext ->
                 let
                     innerContext : InnerContext
                     innerContext =
-                        outerContext
-                            |> setterGetter.get
+                        outerContext.scope
                             |> unbox
                             |> declarationVisitor visitedElement direction
                 in
-                ( [], setterGetter.set (Context innerContext) outerContext )
+                ( [], { outerContext | scope = Context innerContext } )
             )
         |> Rule.withExpressionVisitor
             (\visitedElement direction outerContext ->
                 let
                     innerContext : InnerContext
                     innerContext =
-                        outerContext
-                            |> setterGetter.get
+                        outerContext.scope
                             |> unbox
                             |> popScope visitedElement direction
                             |> expressionVisitor visitedElement direction
                 in
-                ( [], setterGetter.set (Context innerContext) outerContext )
+                ( [], { outerContext | scope = Context innerContext } )
             )
 
 
-mapInnerContext : SetterGetter context -> (visitedElement -> InnerContext -> InnerContext) -> visitedElement -> context -> context
-mapInnerContext { set, get } visitor visitedElement outerContext =
+mapInnerContext : (visitedElement -> InnerContext -> InnerContext) -> visitedElement -> { context | scope : Context } -> { context | scope : Context }
+mapInnerContext visitor visitedElement outerContext =
     let
         innerContext : InnerContext
         innerContext =
-            outerContext
-                |> get
+            outerContext.scope
                 |> unbox
                 |> visitor visitedElement
     in
-    set (Context innerContext) outerContext
+    { outerContext | scope = Context innerContext }
 
 
 pairWithNoErrors : (visited -> context -> context) -> visited -> context -> ( List Error, context )

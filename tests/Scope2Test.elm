@@ -124,19 +124,13 @@ project =
         |> Project.withDependency Dependencies.elmHtml
 
 
-scopeGetterSetter =
-    { set = \scope context -> { context | scope = scope }
-    , get = .scope
-    }
-
-
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "TestRule"
         { moduleVisitorSchema =
             \schema ->
                 schema
-                    |> Scope.addModuleVisitors scopeGetterSetter
+                    |> Scope.addModuleVisitors
                     |> Rule.withDeclarationVisitor declarationVisitor
                     |> Rule.withExpressionVisitor expressionVisitor
                     |> Rule.withFinalModuleEvaluation finalEvaluation
@@ -152,7 +146,7 @@ rule =
                 }
         , foldProjectContexts = \a b -> { scope = Scope.foldProjectContexts a.scope b.scope }
         }
-        |> Scope.addProjectVisitors scopeGetterSetter
+        |> Scope.addProjectVisitors
         |> Rule.fromProjectRuleSchema
 
 

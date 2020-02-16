@@ -22,9 +22,6 @@ rule : Rule
 rule =
     Rule.newModuleRuleSchema "NoHtmlButton" initialContext
         |> Scope.addVisitors
-            { set = \scope context -> { context | scope = scope }
-            , get = .scope
-            }
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withExpressionVisitor expressionVisitor
         |> Rule.fromModuleRuleSchema

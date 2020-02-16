@@ -1,6 +1,6 @@
 module Scope2 exposing
     ( ProjectContext, ModuleContext
-    , ProjectSetterGetter, addProjectVisitors, ModuleSetterGetter, addModuleVisitors, initProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
+    , addProjectVisitors, addModuleVisitors, initProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
     , realFunctionOrType
     )
 
@@ -14,7 +14,7 @@ module Scope2 exposing
 
 # Usage
 
-@docs ProjectSetterGetter, addProjectVisitors, ModuleSetterGetter, addModuleVisitors, initProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
+@docs addProjectVisitors, addModuleVisitors, initProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
 
 
 # Access
@@ -107,18 +107,6 @@ type alias Scope =
     }
 
 
-type alias ProjectSetterGetter context =
-    { set : ProjectContext -> context -> context
-    , get : context -> ProjectContext
-    }
-
-
-type alias ModuleSetterGetter context =
-    { set : ModuleContext -> context -> context
-    , get : context -> ModuleContext
-    }
-
-
 
 -- USAGE
 
@@ -182,46 +170,44 @@ emptyScope =
     }
 
 
-addProjectVisitors : ProjectSetterGetter projectContext -> Rule.ProjectRuleSchema projectContext moduleContext -> Rule.ProjectRuleSchema projectContext moduleContext
-addProjectVisitors setterGetter schema =
+addProjectVisitors : Rule.ProjectRuleSchema { projectContext | scope : ProjectContext } moduleContext -> Rule.ProjectRuleSchema { projectContext | scope : ProjectContext } moduleContext
+addProjectVisitors schema =
     schema
         |> Rule.withContextFromImportedModules
-        |> Rule.withProjectDependenciesVisitor (mapInnerProjectContext setterGetter dependenciesVisitor)
+        |> Rule.withProjectDependenciesVisitor (mapInnerProjectContext dependenciesVisitor)
 
 
-addModuleVisitors : ModuleSetterGetter moduleContext -> Rule.ModuleRuleSchema anything moduleContext -> Rule.ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext
-addModuleVisitors setterGetter schema =
+addModuleVisitors : Rule.ModuleRuleSchema anything { moduleContext | scope : ModuleContext } -> Rule.ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } { moduleContext | scope : ModuleContext }
+addModuleVisitors schema =
     schema
         |> Rule.withModuleDefinitionVisitor
-            (mapInnerModuleContext setterGetter moduleDefinitionVisitor |> pairWithNoErrors)
+            (mapInnerModuleContext moduleDefinitionVisitor |> pairWithNoErrors)
         |> Rule.withImportVisitor
-            (mapInnerModuleContext setterGetter importVisitor |> pairWithNoErrors)
+            (mapInnerModuleContext importVisitor |> pairWithNoErrors)
         |> Rule.withDeclarationListVisitor
-            (mapInnerModuleContext setterGetter declarationListVisitor |> pairWithNoErrors)
+            (mapInnerModuleContext declarationListVisitor |> pairWithNoErrors)
         |> Rule.withDeclarationVisitor
             (\visitedElement direction outerContext ->
                 let
                     innerContext : InnerModuleContext
                     innerContext =
-                        outerContext
-                            |> setterGetter.get
+                        outerContext.scope
                             |> unboxModule
                             |> declarationVisitor visitedElement direction
                 in
-                ( [], setterGetter.set (ModuleContext innerContext) outerContext )
+                ( [], { outerContext | scope = ModuleContext innerContext } )
             )
         |> Rule.withExpressionVisitor
             (\visitedElement direction outerContext ->
                 let
                     innerContext : InnerModuleContext
                     innerContext =
-                        outerContext
-                            |> setterGetter.get
+                        outerContext.scope
                             |> unboxModule
                             |> popScope visitedElement direction
                             |> expressionVisitor visitedElement direction
                 in
-                ( [], setterGetter.set (ModuleContext innerContext) outerContext )
+                ( [], { outerContext | scope = ModuleContext innerContext } )
             )
 
 
@@ -250,30 +236,28 @@ addModuleVisitors setterGetter schema =
 --     Rule.newProjectRuleSchema name
 
 
-mapInnerProjectContext : ProjectSetterGetter context -> (visitedElement -> InnerProjectContext -> InnerProjectContext) -> visitedElement -> context -> context
-mapInnerProjectContext { set, get } visitor visitedElement outerContext =
+mapInnerProjectContext : (visitedElement -> InnerProjectContext -> InnerProjectContext) -> visitedElement -> { projectContext | scope : ProjectContext } -> { projectContext | scope : ProjectContext }
+mapInnerProjectContext visitor visitedElement outerContext =
     let
         innerContext : InnerProjectContext
         innerContext =
-            outerContext
-                |> get
+            outerContext.scope
                 |> unboxProjectContext
                 |> visitor visitedElement
     in
-    set (ProjectContext innerContext) outerContext
+    { outerContext | scope = ProjectContext innerContext }
 
 
-mapInnerModuleContext : ModuleSetterGetter context -> (visitedElement -> InnerModuleContext -> InnerModuleContext) -> visitedElement -> context -> context
-mapInnerModuleContext { set, get } visitor visitedElement outerContext =
+mapInnerModuleContext : (visitedElement -> InnerModuleContext -> InnerModuleContext) -> visitedElement -> { moduleContext | scope : ModuleContext } -> { moduleContext | scope : ModuleContext }
+mapInnerModuleContext visitor visitedElement outerContext =
     let
         innerContext : InnerModuleContext
         innerContext =
-            outerContext
-                |> get
+            outerContext.scope
                 |> unboxModule
                 |> visitor visitedElement
     in
-    set (ModuleContext innerContext) outerContext
+    { outerContext | scope = ModuleContext innerContext }
 
 
 pairWithNoErrors : (visited -> context -> context) -> visited -> context -> ( List Error, context )

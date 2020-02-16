@@ -40,9 +40,6 @@ baseRule :
 baseRule =
     Rule.newModuleRuleSchema "TestRule" initialContext
         |> Scope.addVisitors
-            { set = \scope context -> { context | scope = scope }
-            , get = .scope
-            }
 
 
 initialContext : Context
