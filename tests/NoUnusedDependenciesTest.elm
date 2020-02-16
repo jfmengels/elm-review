@@ -130,20 +130,17 @@ module A exposing (a)
 a = 1
 """
                     |> Review.Test.runWithProjectData (createProject applicationElmJson) rule
-                    |> Review.Test.expectErrorsForModules
-                        [ ( "elm.json"
-                          , [ Review.Test.error
-                                { message = "Unused dependency `author/package-with-bar`"
-                                , details = details
-                                , under = "author/package-with-bar"
-                                }
-                            , Review.Test.error
-                                { message = "Unused dependency `author/package-with-foo`"
-                                , details = details
-                                , under = "author/package-with-foo"
-                                }
-                            ]
-                          )
+                    |> Review.Test.expectErrorsForElmJson
+                        [ Review.Test.error
+                            { message = "Unused dependency `author/package-with-bar`"
+                            , details = details
+                            , under = "author/package-with-bar"
+                            }
+                        , Review.Test.error
+                            { message = "Unused dependency `author/package-with-foo`"
+                            , details = details
+                            , under = "author/package-with-foo"
+                            }
                         ]
         , test "should not report dependencies for an application whose modules are imported" <|
             \() ->
@@ -162,20 +159,17 @@ module A exposing (a)
 a = 1
 """
                     |> Review.Test.runWithProjectData (createProject packageElmJson) rule
-                    |> Review.Test.expectErrorsForModules
-                        [ ( "elm.json"
-                          , [ Review.Test.error
-                                { message = "Unused dependency `author/package-with-bar`"
-                                , details = details
-                                , under = "author/package-with-bar"
-                                }
-                            , Review.Test.error
-                                { message = "Unused dependency `author/package-with-foo`"
-                                , details = details
-                                , under = "author/package-with-foo"
-                                }
-                            ]
-                          )
+                    |> Review.Test.expectErrorsForElmJson
+                        [ Review.Test.error
+                            { message = "Unused dependency `author/package-with-bar`"
+                            , details = details
+                            , under = "author/package-with-bar"
+                            }
+                        , Review.Test.error
+                            { message = "Unused dependency `author/package-with-foo`"
+                            , details = details
+                            , under = "author/package-with-foo"
+                            }
                         ]
         , test "should not report dependencies for a package whose modules are imported" <|
             \() ->

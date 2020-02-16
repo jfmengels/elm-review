@@ -1,6 +1,6 @@
 module Review.Test exposing
     ( ReviewResult, run, runWithProjectData, runOnModules, runOnModulesWithProjectData
-    , ExpectedError, expectNoErrors, expectErrors, expectErrorsForModules, error, atExactly, whenFixed
+    , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson
     )
 
 {-| Module that helps you test your rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/).
@@ -98,7 +98,7 @@ for this module.
 
 # Making assertions
 
-@docs ExpectedError, expectNoErrors, expectErrors, expectErrorsForModules, error, atExactly, whenFixed
+@docs ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson
 
 -}
 
@@ -533,7 +533,7 @@ expectNoErrors reviewResult =
                 |> (\expectations -> Expect.all expectations ())
 
 
-{-| Assert that the rule reported some errors, by specifying which one.
+{-| Assert that the rule reported some errors, by specifying which ones.
 
 Assert which errors are reported using [`error`](#error). The test will fail if
 a different number of errors than expected are reported, or if the message or the
@@ -579,7 +579,7 @@ expectErrors expectedErrors reviewResult =
             Expect.fail ErrorMessage.needToUsedExpectErrorsForModules
 
 
-{-| Assert that the rule reported some errors, by specifying which one and the
+{-| Assert that the rule reported some errors, by specifying which ones and the
 module for which they were reported.
 
 This is the same as [`expectErrors`](#expectErrors), but for when you used
@@ -662,6 +662,41 @@ expectErrorsForModules expectedErrorsList reviewResult =
                                 \() -> checkAllErrorsMatch runResult expectedErrors
                             )
                         |> (\expectations -> Expect.all expectations ())
+
+
+{-| Assert that the rule reported some errors for the `elm.json` file, by specifying which ones.
+
+    test "report an error when a module is unused" <|
+        \() ->
+            """
+    module ModuleA exposing (a)
+    a = 1"""
+                |> Review.Test.runWithProjectData rule
+                |> Review.Test.expectErrorsForElmJson
+                    [ Review.Test.error
+                        { message = "Unused dependency `author/package`"
+                        , details = [ "Details about the error" ]
+                        , under = "Debug.log"
+                        }
+                    ]
+
+Alternatively, or if you need to specify errors for other files too, you can use [`expectErrorsForModules`](#expectErrorsForModules), specifying `elm.json` as the module name.
+
+    sourceCode
+        |> Review.Test.runOnModules rule
+        |> Review.Test.expectErrorsForModules
+            [ ( "ModuleB", [ Review.Test.error someErrorModuleB ] )
+            , ( "elm.json", [ Review.Test.error someErrorForElmJson ] )
+            ]
+
+Assert which errors are reported using [`error`](#error). The test will fail if
+a different number of errors than expected are reported, or if the message or the
+location is incorrect.
+
+-}
+expectErrorsForElmJson : List ExpectedError -> ReviewResult -> Expectation
+expectErrorsForElmJson expectedErrors reviewResult =
+    expectErrorsForModules [ ( "elm.json", expectedErrors ) ] reviewResult
 
 
 {-| Create an expectation for an error.
