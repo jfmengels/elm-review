@@ -33,6 +33,7 @@ import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range
 import NonemptyList exposing (Nonempty)
+import Review.Project
 import Review.Rule as Rule exposing (Direction, Error)
 
 
@@ -48,7 +49,7 @@ type alias InnerContext =
     { scopes : Nonempty Scope
     , importAliases : Dict String (List String)
     , importedFunctionOrTypes : Dict String (List String)
-    , dependencies : Dict String Elm.Docs.Module
+    , dependenciesModules : Dict String Elm.Docs.Module
     }
 
 
@@ -75,7 +76,7 @@ initialContext =
         { scopes = NonemptyList.fromElement emptyScope
         , importAliases = Dict.empty
         , importedFunctionOrTypes = Dict.empty
-        , dependencies = Dict.empty
+        , dependenciesModules = Dict.empty
         }
 
 
@@ -150,18 +151,18 @@ pairWithNoErrors fn visited context =
 -- DEPENDENCIES
 
 
-dependenciesVisitor : Dict String (List Elm.Docs.Module) -> InnerContext -> InnerContext
+dependenciesVisitor : Dict String Review.Project.Dependency -> InnerContext -> InnerContext
 dependenciesVisitor dependencies innerContext =
     let
-        dependencyModules : Dict String Elm.Docs.Module
-        dependencyModules =
+        dependenciesModules : Dict String Elm.Docs.Module
+        dependenciesModules =
             dependencies
                 |> Dict.values
-                |> List.concatMap identity
+                |> List.concatMap .modules
                 |> List.map (\dependencyModule -> ( dependencyModule.name, dependencyModule ))
                 |> Dict.fromList
     in
-    { innerContext | dependencies = dependencyModules }
+    { innerContext | dependenciesModules = dependenciesModules }
         |> registerPrelude
 
 
@@ -367,7 +368,7 @@ registerExposed import_ innerContext =
 
                 module_ : Elm.Docs.Module
                 module_ =
-                    Dict.get (getModuleName moduleName) innerContext.dependencies
+                    Dict.get (getModuleName moduleName) innerContext.dependenciesModules
                         |> Maybe.withDefault
                             { name = getModuleName moduleName
                             , comment = ""

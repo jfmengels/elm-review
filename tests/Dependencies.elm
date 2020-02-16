@@ -1,12 +1,27 @@
 module Dependencies exposing (elmCore, elmHtml)
 
 import Elm.Docs
+import Elm.Project
 import Elm.Type as Type
+import Elm.Version
+import Json.Decode as Decode
+import Review.Project
 
 
-elmCore : { packageName : String, modules : List Elm.Docs.Module }
+createElmJson : String -> Elm.Project.Project
+createElmJson rawElmJson =
+    case Decode.decodeString Elm.Project.decoder rawElmJson of
+        Ok elmJson ->
+            elmJson
+
+        Err _ ->
+            createElmJson rawElmJson
+
+
+elmCore : Review.Project.Dependency
 elmCore =
-    { packageName = "elm/core"
+    { name = "elm/core"
+    , version = Elm.Version.one
     , modules =
         [ { name = "Basics"
           , comment = ""
@@ -66,12 +81,54 @@ elmCore =
                 ]
           }
         ]
+    , elmJson = createElmJson """
+{
+    "type": "package",
+    "name": "elm/core",
+    "summary": "Elm's standard libraries",
+    "license": "BSD-3-Clause",
+    "version": "1.0.4",
+    "exposed-modules": {
+        "Primitives": [
+            "Basics",
+            "String",
+            "Char",
+            "Bitwise",
+            "Tuple"
+        ],
+        "Collections": [
+            "List",
+            "Dict",
+            "Set",
+            "Array"
+        ],
+        "Error Handling": [
+            "Maybe",
+            "Result"
+        ],
+        "Debug": [
+            "Debug"
+        ],
+        "Effects": [
+            "Platform.Cmd",
+            "Platform.Sub",
+            "Platform",
+            "Process",
+            "Task"
+        ]
+    },
+    "elm-version": "0.19.0 <= v < 0.20.0",
+    "dependencies": {},
+    "test-dependencies": {}
+}
+"""
     }
 
 
-elmHtml : { packageName : String, modules : List Elm.Docs.Module }
+elmHtml : Review.Project.Dependency
 elmHtml =
-    { packageName = "elm/html"
+    { name = "elm/html"
+    , version = Elm.Version.one
     , modules =
         [ { name = "Html"
           , comment = ""
@@ -93,4 +150,31 @@ elmHtml =
           , binops = []
           }
         ]
+    , elmJson = createElmJson """
+{
+  "type": "package",
+  "name": "elm/html",
+  "summary": "Fast HTML, rendered with virtual DOM diffing",
+  "license": "BSD-3-Clause",
+  "version": "1.0.0",
+  "exposed-modules": {
+    "HTML": [
+      "Html",
+      "Html.Attributes",
+      "Html.Events"
+    ],
+    "Optimize": [
+      "Html.Keyed",
+      "Html.Lazy"
+    ]
+  },
+  "elm-version": "0.19.0 <= v < 0.20.0",
+  "dependencies": {
+    "elm/core": "1.0.0 <= v < 2.0.0",
+    "elm/json": "1.0.0 <= v < 2.0.0",
+    "elm/virtual-dom": "1.0.0 <= v < 2.0.0"
+  },
+  "test-dependencies": {}
+}
+"""
     }

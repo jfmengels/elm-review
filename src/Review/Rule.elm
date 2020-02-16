@@ -211,7 +211,6 @@ For more information on automatic fixing, read the documentation for [`Review.Fi
 -}
 
 import Dict exposing (Dict)
-import Elm.Docs
 import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression, Function)
@@ -255,7 +254,7 @@ type ModuleRuleSchema configuration context
         { name : String
         , initialContext : context
         , elmJsonVisitors : List (Maybe Elm.Project.Project -> context -> context)
-        , dependenciesVisitors : List (Dict String (List Elm.Docs.Module) -> context -> context)
+        , dependenciesVisitors : List (Dict String Review.Project.Dependency -> context -> context)
         , moduleDefinitionVisitors : List (Node Module -> context -> ( List Error, context ))
         , commentsVisitors : List (List (Node String) -> context -> ( List Error, context ))
         , importVisitors : List (Node Import -> context -> ( List Error, context ))
@@ -562,7 +561,7 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache proj
         initialContext =
             schema.initialContext
                 |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project |> Maybe.map .project)
-                |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencyModules project)
+                |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencies project)
 
         startCache : ModuleRuleCache moduleContext
         startCache =
@@ -678,7 +677,7 @@ type ProjectRuleSchema projectContext moduleContext
             }
         , moduleVisitorSchema : ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
         , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> projectContext)
-        , dependenciesVisitors : List (Dict String (List Elm.Docs.Module) -> projectContext -> projectContext)
+        , dependenciesVisitors : List (Dict String Review.Project.Dependency -> projectContext -> projectContext)
         , finalEvaluationFns : List (projectContext -> List Error)
         , traversalType : TraversalType
         }
@@ -748,7 +747,7 @@ withProjectElmJsonVisitor visitor (ProjectRuleSchema schema) =
 {-| TODO documentation
 -}
 withProjectDependenciesVisitor :
-    (Dict String (List Elm.Docs.Module) -> projectContext -> projectContext)
+    (Dict String Review.Project.Dependency -> projectContext -> projectContext)
     -> ProjectRuleSchema projectContext moduleContext
     -> ProjectRuleSchema projectContext moduleContext
 withProjectDependenciesVisitor visitor (ProjectRuleSchema schema) =
@@ -827,7 +826,7 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache project 
                         Nothing ->
                             Nothing
                     )
-                |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencyModules project)
+                |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencies project)
 
         modules : Dict ModuleName ProjectModule
         modules =
@@ -1472,7 +1471,7 @@ withModuleElmJsonVisitor visitor (ModuleRuleSchema schema) =
 {-| TODO
 -}
 withModuleDependenciesVisitor :
-    (Dict String (List Elm.Docs.Module) -> moduleContext -> moduleContext)
+    (Dict String Review.Project.Dependency -> moduleContext -> moduleContext)
     -> ModuleRuleSchema { anything | withModuleDependenciesVisitor : () } moduleContext
     -> ModuleRuleSchema { anything | withModuleDependenciesVisitor : () } moduleContext
 withModuleDependenciesVisitor visitor (ModuleRuleSchema schema) =

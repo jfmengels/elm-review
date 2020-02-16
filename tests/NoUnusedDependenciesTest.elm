@@ -1,7 +1,7 @@
 module NoUnusedDependenciesTest exposing (all)
 
-import Elm.Docs
 import Elm.Project
+import Elm.Version
 import Json.Decode as Decode
 import NoUnusedDependencies exposing (rule)
 import Review.Project as Project exposing (Project)
@@ -76,9 +76,10 @@ packageElmJson =
 }"""
 
 
-packageWithFoo : { packageName : String, modules : List Elm.Docs.Module }
+packageWithFoo : Project.Dependency
 packageWithFoo =
-    { packageName = "author/package-with-foo"
+    { name = "author/package-with-foo"
+    , version = Elm.Version.one
     , modules =
         [ { name = "Foo"
           , comment = ""
@@ -88,12 +89,29 @@ packageWithFoo =
           , binops = []
           }
         ]
+    , elmJson = .project <| createElmJson """
+{
+    "type": "package",
+    "name": "author/package-with-foo",
+    "summary": "Summary",
+    "license": "BSD-3-Clause",
+    "version": "1.0.0",
+    "exposed-modules": [
+        "Foo"
+    ],
+    "elm-version": "0.19.0 <= v < 0.20.0",
+    "dependencies": {
+        "elm/core": "1.0.0 <= v < 2.0.0"
+    },
+    "test-dependencies": {}
+}"""
     }
 
 
-packageWithBar : { packageName : String, modules : List Elm.Docs.Module }
+packageWithBar : Project.Dependency
 packageWithBar =
-    { packageName = "author/package-with-bar"
+    { name = "author/package-with-bar"
+    , version = Elm.Version.one
     , modules =
         [ { name = "Bar"
           , comment = ""
@@ -103,6 +121,22 @@ packageWithBar =
           , binops = []
           }
         ]
+    , elmJson = .project <| createElmJson """
+{
+    "type": "package",
+    "name": "author/package-with-bar",
+    "summary": "Summary",
+    "license": "BSD-3-Clause",
+    "version": "1.0.0",
+    "exposed-modules": [
+        "Bar"
+    ],
+    "elm-version": "0.19.0 <= v < 0.20.0",
+    "dependencies": {
+        "elm/core": "1.0.0 <= v < 2.0.0"
+    },
+    "test-dependencies": {}
+}"""
     }
 
 

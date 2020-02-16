@@ -10,13 +10,13 @@ module NoUnusedDependencies exposing (rule)
 -}
 
 import Dict exposing (Dict)
-import Elm.Docs
 import Elm.Package
 import Elm.Project exposing (Project)
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
+import Review.Project
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
@@ -65,7 +65,7 @@ moduleVisitorSchema schema =
         |> Rule.withImportVisitor importVisitor
 
 
-dependenciesVisitor : Dict String (List Elm.Docs.Module) -> ProjectContext -> ProjectContext
+dependenciesVisitor : Dict String Review.Project.Dependency -> ProjectContext -> ProjectContext
 dependenciesVisitor dependencies projectContext =
     let
         moduleNameToDependency : Dict String String
@@ -73,9 +73,8 @@ dependenciesVisitor dependencies projectContext =
             dependencies
                 |> Dict.toList
                 |> List.concatMap
-                    (\( packageName, dependencyModules ) ->
-                        List.map (\{ name } -> ( name, packageName ))
-                            dependencyModules
+                    (\( packageName, { modules } ) ->
+                        List.map (\{ name } -> ( name, packageName )) modules
                     )
                 |> Dict.fromList
     in

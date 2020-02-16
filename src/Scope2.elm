@@ -40,6 +40,7 @@ import Elm.Syntax.Signature exposing (Signature)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
 import NonemptyList exposing (Nonempty)
+import Review.Project
 import Review.Rule as Rule exposing (Direction, Error)
 
 
@@ -71,7 +72,7 @@ type ProjectContext
 
 
 type alias InnerProjectContext =
-    { dependencies : Dict String Elm.Docs.Module
+    { dependenciesModules : Dict String Elm.Docs.Module
     , modules : Dict ModuleName Elm.Docs.Module
     }
 
@@ -84,7 +85,7 @@ type alias InnerModuleContext =
     { scopes : Nonempty Scope
     , importAliases : Dict String (List String)
     , importedFunctionOrTypes : Dict String (List String)
-    , dependencies : Dict String Elm.Docs.Module
+    , dependenciesModules : Dict String Elm.Docs.Module
     , modules : Dict ModuleName Elm.Docs.Module
     , exposesEverything : Bool
     , exposedNames : Dict String { range : Range, exposedElement : ExposedElement }
@@ -125,7 +126,7 @@ type alias ModuleSetterGetter context =
 initProjectContext : ProjectContext
 initProjectContext =
     ProjectContext
-        { dependencies = Dict.empty
+        { dependenciesModules = Dict.empty
         , modules = Dict.empty
         }
 
@@ -135,7 +136,7 @@ fromProjectToModule (ProjectContext projectContext) =
     { scopes = NonemptyList.fromElement emptyScope
     , importAliases = Dict.empty
     , importedFunctionOrTypes = Dict.empty
-    , dependencies = projectContext.dependencies
+    , dependenciesModules = projectContext.dependenciesModules
     , modules = projectContext.modules
     , exposesEverything = False
     , exposedNames = Dict.empty
@@ -151,7 +152,7 @@ fromProjectToModule (ProjectContext projectContext) =
 fromModuleToProject : Node ModuleName -> ModuleContext -> ProjectContext
 fromModuleToProject moduleName (ModuleContext moduleContext) =
     ProjectContext
-        { dependencies = moduleContext.dependencies
+        { dependenciesModules = moduleContext.dependenciesModules
         , modules =
             Dict.insert (Node.value moduleName)
                 { name = String.join "." (Node.value moduleName)
@@ -168,7 +169,7 @@ fromModuleToProject moduleName (ModuleContext moduleContext) =
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts (ProjectContext a) (ProjectContext b) =
     ProjectContext
-        { dependencies = a.dependencies
+        { dependenciesModules = a.dependenciesModules
         , modules = Dict.union a.modules b.modules
         }
 
@@ -284,18 +285,18 @@ pairWithNoErrors fn visited context =
 -- DEPENDENCIES
 
 
-dependenciesVisitor : Dict String (List Elm.Docs.Module) -> InnerProjectContext -> InnerProjectContext
+dependenciesVisitor : Dict String Review.Project.Dependency -> InnerProjectContext -> InnerProjectContext
 dependenciesVisitor dependencies innerContext =
     let
-        dependencyModules : Dict String Elm.Docs.Module
-        dependencyModules =
+        dependenciesModules : Dict String Elm.Docs.Module
+        dependenciesModules =
             dependencies
                 |> Dict.values
-                |> List.concatMap identity
+                |> List.concatMap .modules
                 |> List.map (\dependencyModule -> ( dependencyModule.name, dependencyModule ))
                 |> Dict.fromList
     in
-    { innerContext | dependencies = dependencyModules }
+    { innerContext | dependenciesModules = dependenciesModules }
 
 
 registerPrelude : InnerModuleContext -> InnerModuleContext
@@ -644,7 +645,7 @@ registerImportExposed import_ innerContext =
 
                 module_ : Elm.Docs.Module
                 module_ =
-                    (case Dict.get (getModuleName moduleName) innerContext.dependencies of
+                    (case Dict.get (getModuleName moduleName) innerContext.dependenciesModules of
                         Just m ->
                             Just m
 

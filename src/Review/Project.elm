@@ -2,7 +2,7 @@ module Review.Project exposing
     ( Project, new
     , ProjectModule, addModule, addParsedModule, removeModule, modules, filesThatFailedToParse, moduleGraph, precomputeModuleGraph
     , withElmJson, elmJson
-    , withDependency, removeDependencies, dependencyModules
+    , Dependency, withDependency, removeDependencies, dependencies
     )
 
 {-| Represents the contents of the project to be analyzed. This information will
@@ -33,7 +33,7 @@ in existing environments like the CLI tool.
 
 # Project dependencies
 
-@docs withDependency, removeDependencies, dependencyModules
+@docs Dependency, withDependency, removeDependencies, dependencies
 
 -}
 
@@ -46,6 +46,7 @@ import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
+import Elm.Version
 import Graph exposing (Graph)
 import Review.Dependencies
 
@@ -62,7 +63,7 @@ type Project
         { modules : List ProjectModule
         , filesThatFailedToParse : List { path : String, source : String }
         , elmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
-        , dependencyModules : Dict String (List Elm.Docs.Module)
+        , dependencies : Dict String Dependency
         , moduleGraph : Maybe (Graph ModuleName ())
         }
 
@@ -75,7 +76,7 @@ new =
         { modules = []
         , filesThatFailedToParse = []
         , elmJson = Nothing
-        , dependencyModules = Dict.empty
+        , dependencies = Dict.empty
         , moduleGraph = Nothing
         }
 
@@ -302,6 +303,16 @@ elmJson (Project project) =
 -- PROJECT DEPENDENCIES
 
 
+{-| TODO Documentation
+-}
+type alias Dependency =
+    { name : String
+    , version : Elm.Version.Version
+    , elmJson : Elm.Project.Project
+    , modules : List Elm.Docs.Module
+    }
+
+
 {-| Add a dependency to the project. These will be available for rules to make
 better assumptions on what is happening in the code.
 
@@ -311,15 +322,15 @@ associativity of operators, which has an impact on the resulting AST when
 parsing a file.
 
 -}
-withDependency : { r | packageName : String, modules : List Elm.Docs.Module } -> Project -> Project
+withDependency : Dependency -> Project -> Project
 withDependency dependency (Project project) =
     Project
         { project
-            | dependencyModules =
+            | dependencies =
                 Dict.insert
-                    dependency.packageName
-                    dependency.modules
-                    project.dependencyModules
+                    dependency.name
+                    dependency
+                    project.dependencies
         }
         |> recomputeModuleGraphIfNeeded
 
@@ -329,11 +340,12 @@ a project when they are changed, before re-adding them.
 -}
 removeDependencies : Project -> Project
 removeDependencies (Project project) =
-    Project { project | dependencyModules = Dict.empty }
+    Project { project | dependencies = Dict.empty }
         |> recomputeModuleGraphIfNeeded
 
 
-{-| Get the modules for every dependency in the project.
+{-| TODO Rewrite documentation
+Get the modules for every dependency in the project.
 
 This will give you a `Elm.Docs.Module` type from the
 [`elm/project-metadata-utils`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.0/Elm-Docs)
@@ -341,9 +353,9 @@ package, so you will need to install and use it to gain access to the dependency
 information.
 
 -}
-dependencyModules : Project -> Dict String (List Elm.Docs.Module)
-dependencyModules (Project project) =
-    project.dependencyModules
+dependencies : Project -> Dict String Dependency
+dependencies (Project project) =
+    project.dependencies
 
 
 
