@@ -91,7 +91,7 @@ type alias ProjectContext =
     , projectType : ProjectType
     , modules :
         Dict ModuleName
-            { fileKey : Rule.FileKey
+            { moduleKey : Rule.ModuleKey
             , exposed : Dict String { range : Range, exposedElement : ExposedElement }
             }
     , used : Set ( ModuleName, String )
@@ -127,8 +127,8 @@ initProjectContext =
     }
 
 
-fromProjectToModule : Rule.FileKey -> Node ModuleName -> ProjectContext -> ModuleContext
-fromProjectToModule fileKey moduleName projectContext =
+fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> ProjectContext -> ModuleContext
+fromProjectToModule moduleKey moduleName projectContext =
     { scope = Scope.fromProjectToModule projectContext.scope
     , exposesEverything = False
     , exposed = Dict.empty
@@ -137,14 +137,14 @@ fromProjectToModule fileKey moduleName projectContext =
     }
 
 
-fromModuleToProject : Rule.FileKey -> Node ModuleName -> ModuleContext -> ProjectContext
-fromModuleToProject fileKey moduleName moduleContext =
+fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> ModuleContext -> ProjectContext
+fromModuleToProject moduleKey moduleName moduleContext =
     { scope = Scope.fromModuleToProject moduleName moduleContext.scope
     , projectType = IsApplication
     , modules =
         Dict.singleton
             (Node.value moduleName)
-            { fileKey = fileKey
+            { moduleKey = moduleKey
             , exposed = moduleContext.exposed
             }
     , used =
@@ -213,7 +213,7 @@ finalEvaluationForProject projectContext =
         |> removeExposedPackages projectContext
         |> Dict.toList
         |> List.concatMap
-            (\( moduleName, { fileKey, exposed } ) ->
+            (\( moduleName, { moduleKey, exposed } ) ->
                 exposed
                     |> removeApplicationExceptions projectContext moduleName
                     |> removeReviewConfig moduleName
@@ -234,7 +234,7 @@ finalEvaluationForProject projectContext =
                                         ExposedType ->
                                             "Exposed type"
                             in
-                            Rule.errorForFile fileKey
+                            Rule.errorForFile moduleKey
                                 { message = what ++ " `" ++ name ++ "` is never used outside this module."
                                 , details = [ "This exposed element is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
                                 }

@@ -72,7 +72,7 @@ moduleVisitorSchema schema =
 type alias ProjectContext =
     { modules :
         Dict ModuleName
-            { fileKey : Rule.FileKey
+            { moduleKey : Rule.ModuleKey
             , moduleNameLocation : Range
             }
     , usedModules : Set ModuleName
@@ -95,7 +95,7 @@ initProjectContext =
     }
 
 
-fromProjectToModule : Rule.FileKey -> Node ModuleName -> ProjectContext -> ModuleContext
+fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> ProjectContext -> ModuleContext
 fromProjectToModule _ _ projectContext =
     { importedModules = Set.empty
     , containsMainFunction = False
@@ -103,12 +103,12 @@ fromProjectToModule _ _ projectContext =
     }
 
 
-fromModuleToProject : Rule.FileKey -> Node ModuleName -> ModuleContext -> ProjectContext
-fromModuleToProject fileKey moduleName moduleContext =
+fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> ModuleContext -> ProjectContext
+fromModuleToProject moduleKey moduleName moduleContext =
     { modules =
         Dict.singleton
             (Node.value moduleName)
-            { fileKey = fileKey, moduleNameLocation = Node.range moduleName }
+            { moduleKey = moduleKey, moduleNameLocation = Node.range moduleName }
     , usedModules =
         if Set.member [ "Test" ] moduleContext.importedModules || moduleContext.containsMainFunction then
             Set.insert (Node.value moduleName) moduleContext.importedModules
@@ -165,9 +165,9 @@ finalEvaluationForProject { modules, usedModules } =
         |> List.map error
 
 
-error : ( ModuleName, { fileKey : Rule.FileKey, moduleNameLocation : Range } ) -> Error
-error ( moduleName, { fileKey, moduleNameLocation } ) =
-    Rule.errorForFile fileKey
+error : ( ModuleName, { moduleKey : Rule.ModuleKey, moduleNameLocation : Range } ) -> Error
+error ( moduleName, { moduleKey, moduleNameLocation } ) =
+    Rule.errorForFile moduleKey
         { message = "Module `" ++ String.join "." moduleName ++ "` is never used."
         , details = [ "This module is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
         }

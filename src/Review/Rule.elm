@@ -6,7 +6,7 @@ module Review.Rule exposing
     , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalModuleEvaluation
     , withModuleElmJsonVisitor, withModuleDependenciesVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation, withContextFromImportedModules
-    , Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, FileKey, errorForFile, ElmJsonKey, errorForElmJson
+    , Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, ModuleKey, errorForFile, ElmJsonKey, errorForElmJson
     , withFixes
     )
 
@@ -199,7 +199,7 @@ simpler version of project rules.
 
 ## Errors
 
-@docs Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, FileKey, errorForFile, ElmJsonKey, errorForElmJson
+@docs Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, ModuleKey, errorForFile, ElmJsonKey, errorForElmJson
 
 
 ## Automatic fixing
@@ -671,8 +671,8 @@ type ProjectRuleSchema projectContext moduleContext
         { name : String
         , context :
             { initProjectContext : projectContext
-            , fromProjectToModule : FileKey -> Node ModuleName -> projectContext -> moduleContext
-            , fromModuleToProject : FileKey -> Node ModuleName -> moduleContext -> projectContext
+            , fromProjectToModule : ModuleKey -> Node ModuleName -> projectContext -> moduleContext
+            , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
             , foldProjectContexts : projectContext -> projectContext -> projectContext
             }
         , moduleVisitorSchema : ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
@@ -695,8 +695,8 @@ newProjectRuleSchema :
     ->
         { moduleVisitorSchema : ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
         , initProjectContext : projectContext
-        , fromProjectToModule : FileKey -> Node ModuleName -> projectContext -> moduleContext
-        , fromModuleToProject : FileKey -> Node ModuleName -> moduleContext -> projectContext
+        , fromProjectToModule : ModuleKey -> Node ModuleName -> projectContext -> moduleContext
+        , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
         , foldProjectContexts : projectContext -> projectContext -> projectContext
         }
     -> ProjectRuleSchema projectContext moduleContext
@@ -851,9 +851,9 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache project 
         computeModule : ProjectRuleCache projectContext -> List ProjectModule -> ProjectModule -> { source : String, errors : List Error, context : projectContext }
         computeModule cache importedModules module_ =
             let
-                fileKey : FileKey
-                fileKey =
-                    FileKey module_.path
+                moduleKey : ModuleKey
+                moduleKey =
+                    ModuleKey module_.path
 
                 moduleNameNode_ : Node ModuleName
                 moduleNameNode_ =
@@ -864,7 +864,7 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache project 
                     case schema.traversalType of
                         AllModulesInParallel ->
                             schema.context.fromProjectToModule
-                                fileKey
+                                moduleKey
                                 moduleNameNode_
                                 initialContext
 
@@ -876,7 +876,7 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache project 
                                             |> Maybe.map .context
                                     )
                                 |> List.foldl schema.context.foldProjectContexts initialContext
-                                |> schema.context.fromProjectToModule fileKey moduleNameNode_
+                                |> schema.context.fromProjectToModule moduleKey moduleNameNode_
 
                 moduleVisitor : ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
                 moduleVisitor =
@@ -894,7 +894,7 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache project 
             , errors = List.map (setFilePathIfUnset module_) fileErrors
             , context =
                 schema.context.fromModuleToProject
-                    fileKey
+                    moduleKey
                     moduleNameNode_
                     context
             }
@@ -1921,12 +1921,12 @@ error { message, details } range =
 key in order to use the [`errorForFile`](#errorForFile) function. This is to
 prevent creating errors for modules you have not visited, or files that do not exist.
 
-You can get a `FileKey` from the `fromProjectToModule` and `fromModuleToProject`
+You can get a `ModuleKey` from the `fromProjectToModule` and `fromModuleToProject`
 functions that you define when using [`newProjectRuleSchema`](#newProjectRuleSchema).
 
 -}
-type FileKey
-    = FileKey String
+type ModuleKey
+    = ModuleKey String
 
 
 {-| TODO documentation
@@ -1949,8 +1949,8 @@ by the tests automatically.
             (Node.range node)
 
 -}
-errorForFile : FileKey -> { message : String, details : List String } -> Range -> Error
-errorForFile (FileKey path) { message, details } range =
+errorForFile : ModuleKey -> { message : String, details : List String } -> Range -> Error
+errorForFile (ModuleKey path) { message, details } range =
     Error
         { message = message
         , ruleName = ""
@@ -1962,8 +1962,8 @@ errorForFile (FileKey path) { message, details } range =
 
 
 {-| A key to be able to report an error for the `elm.json` file. You need this
-key in order to use the [`errorForElmJson`](#errorForElmJson) function. This is to
-prevent creating errors for it if you have not visited it.
+key in order to use the [`errorForElmJson`](#errorForElmJson) function. This is
+to prevent creating errors for it if you have not visited it.
 
 You can get a `ElmJsonKey` using the [`withProjectElmJsonVisitor`](#withProjectElmJsonVisitor) function.
 

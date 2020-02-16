@@ -106,13 +106,13 @@ initProjectContext =
     }
 
 
-fromProjectToModule : Rule.FileKey -> Node ModuleName -> ProjectContext -> ModuleContext
+fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> ProjectContext -> ModuleContext
 fromProjectToModule _ _ projectContext =
     projectContext.importedModuleNames
 
 
-fromModuleToProject : Rule.FileKey -> Node ModuleName -> ModuleContext -> ProjectContext
-fromModuleToProject fileKey moduleName importedModuleNames =
+fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> ModuleContext -> ProjectContext
+fromModuleToProject moduleKey moduleName importedModuleNames =
     { moduleNameToDependency = Dict.empty
     , directProjectDependencies = Set.empty
     , importedModuleNames = importedModuleNames

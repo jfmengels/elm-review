@@ -241,8 +241,8 @@ addModuleVisitors setterGetter schema =
 --     ->
 --         { moduleVisitorSchema : Rule.ModuleRuleSchema Rule.ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Rule.ModuleRuleSchema Rule.ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
 --         , initProjectContext : projectContext
---         , fromProjectToModule : Rule.FileKey -> Node ModuleName -> projectContext -> moduleContext
---         , fromModuleToProject : Rule.FileKey -> Node ModuleName -> moduleContext -> projectContext
+--         , fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> projectContext -> moduleContext
+--         , fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> moduleContext -> projectContext
 --         , foldProjectContexts : projectContext -> projectContext -> projectContext
 --         }
 --     -> Rule.ProjectRuleSchema projectContext moduleContext

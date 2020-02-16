@@ -142,12 +142,12 @@ rule =
                     |> Rule.withFinalModuleEvaluation finalEvaluation
         , initProjectContext = { scope = Scope.initProjectContext }
         , fromProjectToModule =
-            \fileKey moduleNameNode projectContext ->
+            \moduleKey moduleNameNode projectContext ->
                 { scope = Scope.fromProjectToModule projectContext.scope
                 , text = ""
                 }
         , fromModuleToProject =
-            \fileKey moduleNameNode moduleContext ->
+            \moduleKey moduleNameNode moduleContext ->
                 { scope = Scope.fromModuleToProject moduleNameNode moduleContext.scope
                 }
         , foldProjectContexts = \a b -> { scope = Scope.foldProjectContexts a.scope b.scope }

@@ -133,12 +133,12 @@ initProjectContext =
     }
 
 
-fromProjectToModule : Rule.FileKey -> Node ModuleName -> ProjectContext -> ModuleContext
+fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> ProjectContext -> ModuleContext
 fromProjectToModule _ _ projectContext =
     projectContext
 
 
-fromModuleToProject : Rule.FileKey -> Node ModuleName -> ModuleContext -> ProjectContext
+fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> ModuleContext -> ProjectContext
 fromModuleToProject _ _ moduleContext =
     moduleContext
 
