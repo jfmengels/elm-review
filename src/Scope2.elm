@@ -284,9 +284,18 @@ pairWithNoErrors fn visited context =
 -- DEPENDENCIES
 
 
-dependenciesVisitor : Dict String Elm.Docs.Module -> InnerProjectContext -> InnerProjectContext
+dependenciesVisitor : Dict String (List Elm.Docs.Module) -> InnerProjectContext -> InnerProjectContext
 dependenciesVisitor dependencies innerContext =
-    { innerContext | dependencies = dependencies }
+    let
+        dependencyModules : Dict String Elm.Docs.Module
+        dependencyModules =
+            dependencies
+                |> Dict.values
+                |> List.concatMap identity
+                |> List.map (\dependencyModule -> ( dependencyModule.name, dependencyModule ))
+                |> Dict.fromList
+    in
+    { innerContext | dependencies = dependencyModules }
 
 
 registerPrelude : InnerModuleContext -> InnerModuleContext

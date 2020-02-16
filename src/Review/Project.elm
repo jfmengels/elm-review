@@ -62,7 +62,7 @@ type Project
         { modules : List ProjectModule
         , filesThatFailedToParse : List { path : String, source : String }
         , elmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
-        , dependencyModules : Dict String Elm.Docs.Module
+        , dependencyModules : Dict String (List Elm.Docs.Module)
         , moduleGraph : Maybe (Graph ModuleName ())
         }
 
@@ -316,12 +316,10 @@ withDependency dependency (Project project) =
     Project
         { project
             | dependencyModules =
-                Dict.union
+                Dict.insert
+                    dependency.packageName
+                    dependency.modules
                     project.dependencyModules
-                    (dependency.modules
-                        |> List.map (\module_ -> ( module_.name, module_ ))
-                        |> Dict.fromList
-                    )
         }
         |> recomputeModuleGraphIfNeeded
 
@@ -343,7 +341,7 @@ package, so you will need to install and use it to gain access to the dependency
 information.
 
 -}
-dependencyModules : Project -> Dict String Elm.Docs.Module
+dependencyModules : Project -> Dict String (List Elm.Docs.Module)
 dependencyModules (Project project) =
     project.dependencyModules
 

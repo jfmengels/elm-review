@@ -6,7 +6,7 @@ import Elm.Type as Type
 
 elmCore : { packageName : String, modules : List Elm.Docs.Module }
 elmCore =
-    { packageName = "elm/html"
+    { packageName = "elm/core"
     , modules =
         [ { name = "Basics"
           , comment = ""

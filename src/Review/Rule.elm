@@ -255,7 +255,7 @@ type ModuleRuleSchema configuration context
         { name : String
         , initialContext : context
         , elmJsonVisitors : List (Maybe Elm.Project.Project -> context -> context)
-        , dependenciesVisitors : List (Dict String Elm.Docs.Module -> context -> context)
+        , dependenciesVisitors : List (Dict String (List Elm.Docs.Module) -> context -> context)
         , moduleDefinitionVisitors : List (Node Module -> context -> ( List Error, context ))
         , commentsVisitors : List (List (Node String) -> context -> ( List Error, context ))
         , importVisitors : List (Node Import -> context -> ( List Error, context ))
@@ -678,7 +678,7 @@ type ProjectRuleSchema projectContext moduleContext
             }
         , moduleVisitorSchema : ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
         , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> projectContext)
-        , dependenciesVisitors : List (Dict String Elm.Docs.Module -> projectContext -> projectContext)
+        , dependenciesVisitors : List (Dict String (List Elm.Docs.Module) -> projectContext -> projectContext)
         , finalEvaluationFns : List (projectContext -> List Error)
         , traversalType : TraversalType
         }
@@ -748,7 +748,7 @@ withProjectElmJsonVisitor visitor (ProjectRuleSchema schema) =
 {-| TODO documentation
 -}
 withProjectDependenciesVisitor :
-    (Dict String Elm.Docs.Module -> projectContext -> projectContext)
+    (Dict String (List Elm.Docs.Module) -> projectContext -> projectContext)
     -> ProjectRuleSchema projectContext moduleContext
     -> ProjectRuleSchema projectContext moduleContext
 withProjectDependenciesVisitor visitor (ProjectRuleSchema schema) =
@@ -1472,7 +1472,7 @@ withModuleElmJsonVisitor visitor (ModuleRuleSchema schema) =
 {-| TODO
 -}
 withModuleDependenciesVisitor :
-    (Dict String Elm.Docs.Module -> moduleContext -> moduleContext)
+    (Dict String (List Elm.Docs.Module) -> moduleContext -> moduleContext)
     -> ModuleRuleSchema { anything | withModuleDependenciesVisitor : () } moduleContext
     -> ModuleRuleSchema { anything | withModuleDependenciesVisitor : () } moduleContext
 withModuleDependenciesVisitor visitor (ModuleRuleSchema schema) =
