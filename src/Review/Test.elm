@@ -9,12 +9,10 @@ module Review.Test exposing
     import Test exposing (Test, describe, test)
     import The.Rule.You.Want.To.Test exposing (rule)
 
-
-    -- In this example, the rule we're testing is `NoDebug`
     tests : Test
     tests =
-        describe "NoDebug"
-            [ test "should not report calls to normal functions" <|
+        describe "The.Rule.You.Want.To.Test"
+            [ test "should not report anything when <condition>" <|
                 \() ->
                     """module A exposing (..)
     a = foo n"""
@@ -28,6 +26,7 @@ module Review.Test exposing
                         |> Review.Test.expectErrors
                             [ Review.Test.error
                                 { message = "Remove the use of `Debug` before shipping to production"
+                                , details = [ "Details about the error" ]
                                 , under = "Debug.log"
                                 }
                             ]
@@ -506,12 +505,10 @@ like `expectErrors []`.
     import Test exposing (Test, describe, test)
     import The.Rule.You.Want.To.Test exposing (rule)
 
-
-    -- In this example, the rule we're testing is `NoDebug`
     tests : Test
     tests =
-        describe "NoDebug"
-            [ test "should not report calls to normal functions" <|
+        describe "The.Rule.You.Want.To.Test"
+            [ test "should not report anything when <condition>" <|
                 \() ->
                     """module A exposing (..)
     a = foo n"""
@@ -550,19 +547,19 @@ an error at the end of the source code.
     import Test exposing (Test, describe, test)
     import The.Rule.You.Want.To.Test exposing (rule)
 
-
-    -- In this example, the rule we're testing is `NoDebug`
     tests : Test
     tests =
-        describe "NoDebug"
+        describe "The.Rule.You.Want.To.Test"
             [ test "should report Debug.log use" <|
                 \() ->
                     """module A exposing (..)
-    a = Debug.log "some" "message\""""
+    a = Debug.log "some" "message"
+    """
                         |> Review.Test.run rule
                         |> Review.Test.expectErrors
                             [ Review.Test.error
                                 { message = "Remove the use of `Debug` before shipping to production"
+                                , details = [ "Details about the error" ]
                                 , under = "Debug.log"
                                 }
                             ]
@@ -609,7 +606,7 @@ an error at the end of the source code.
 
     all : Test
     all =
-        test "The.Rule.You.Want.To.Test" <|
+        test "should report an error when a module uses `Debug.log`" <|
             \() ->
                 [ """
     module ModuleA exposing (a)
@@ -621,6 +618,7 @@ an error at the end of the source code.
                         [ ( "ModuleB"
                           , [ Review.Test.error
                                 { message = "Remove the use of `Debug` before shipping to production"
+                                , details = [ "Details about the error" ]
                                 , under = "Debug.log"
                                 }
                             ]
@@ -676,7 +674,7 @@ lines will appear if the error appeared in an editor.
 
     tests : Test
     tests =
-        describe "NoDebug"
+        describe "The.Rule.You.Want.To.Test"
             [ test "should report Debug.log use" <|
                 \() ->
                     """module A exposing (..)
@@ -685,6 +683,7 @@ lines will appear if the error appeared in an editor.
                         |> Review.Test.expectErrors
                             [ Review.Test.error
                                 { message = "Remove the use of `Debug` before shipping to production"
+                                , details = [ "Details about the error" ]
                                 , under = "Debug.log"
                                 }
                             ]
@@ -712,7 +711,7 @@ is only necessary when the `under` field is ambiguous.
 
     tests : Test
     tests =
-        describe "NoDebug"
+        describe "The.Rule.You.Want.To.Test"
             [ test "should report multiple Debug.log calls" <|
                 \() ->
                     """module A exposing (..)
@@ -723,11 +722,13 @@ is only necessary when the `under` field is ambiguous.
                         |> Review.Test.expectErrors
                             [ Review.Test.error
                                 { message = "Remove the use of `Debug` before shipping to production"
+                                , details = [ "Details about the error" ]
                                 , under = "Debug.log"
                                 }
                                 |> Review.Test.atExactly { start = { row = 4, column = 5 }, end = { row = 4, column = 14 } }
                             , Review.Test.error
                                 { message = "Remove the use of `Debug` before shipping to production"
+                                , details = [ "Details about the error" ]
                                 , under = "Debug.log"
                                 }
                                 |> Review.Test.atExactly { start = { row = 5, column = 5 }, end = { row = 5, column = 14 } }
@@ -754,7 +755,7 @@ it doesn't, you should not use `withFixes`.
 
     tests : Test
     tests =
-        describe "NoDebug"
+        describe "The.Rule.You.Want.To.Test"
             [ test "should report multiple Debug.log calls" <|
                 \() ->
                     """module A exposing (..)
@@ -765,6 +766,7 @@ it doesn't, you should not use `withFixes`.
                         |> Review.Test.expectErrors
                             [ Review.Test.error
                                 { message = "Remove the use of `Debug` before shipping to production"
+                                , details = [ "Details about the error" ]
                                 , under = "Debug.log"
                                 }
                                 |> Review.Test.whenFixed """module SomeModule exposing (b)
