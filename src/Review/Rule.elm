@@ -8,6 +8,7 @@ module Review.Rule exposing
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation, withContextFromImportedModules
     , Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, ModuleKey, errorForFile, ElmJsonKey, errorForElmJson
     , withFixes
+    , ignoreErrorsForDirectories, ignoreErrorsForFiles
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -208,6 +209,25 @@ For more information on automatic fixing, read the documentation for [`Review.Fi
 
 @docs withFixes
 
+
+## Configuring exceptions
+
+There are situations where you don't want review rules to report errors:
+
+1.  You copied and updated over an external library because one of your needs wasn't met, and you don't want to modify it more than necessary.
+2.  Your project contains generated source code, over which you have no control or for which you do not care that some rules are enforced (like the reports of unused variables).
+3.  You want to enable a rule to solve a pain point, but there are too many errors in the project for you to fix in one go. You might then want to ignore the parts of the project where the problem has not yet been solved.
+
+You can use the following functions to ignore errors in directories or files.
+
+**NOTE**: Even though they can be used to disable any errors, I **strongly recommend against**
+doing so if you are not in the situations listed above. I highly recommend you
+leave a comment explaining the reason why you use these functions, or to
+communicate with your colleagues if you see them adding exceptions without
+reason or seemingly inappropriately.
+
+@docs ignoreErrorsForDirectories, ignoreErrorsForFiles
+
 -}
 
 import Dict exposing (Dict)
@@ -222,6 +242,7 @@ import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Graph exposing (Graph)
 import IntDict
+import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix exposing (Fix)
 import Review.Project exposing (Project, ProjectModule)
 import Set exposing (Set)
@@ -233,7 +254,7 @@ TODO Link to "creating a module rule" and project rule instead
 See [`newModuleRuleSchema`](#newModuleRuleSchema), and [`newProjectRuleSchema`](#newProjectRuleSchema) for how to create one.
 -}
 type Rule
-    = Rule String (Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, Rule ))
+    = Rule String Exceptions (Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, Rule ))
 
 
 {-| Represents a schema for a module [`Rule`](#Rule).
@@ -389,10 +410,10 @@ review rules project =
 runRules : List Rule -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, List Rule )
 runRules rules project nodeContexts =
     List.foldl
-        (\(Rule _ fn) ( errors, previousRules ) ->
+        (\(Rule _ exceptions fn) ( errors, previousRules ) ->
             let
                 ( ruleErrors, ruleWithCache ) =
-                    fn project nodeContexts
+                    fn exceptions project nodeContexts
             in
             ( List.concat [ ruleErrors, errors ], ruleWithCache :: previousRules )
         )
@@ -517,7 +538,7 @@ fromModuleRuleSchema ((ModuleRuleSchema { name }) as schema) =
     runModuleRule
         (reverseVisitors schema)
         newModuleRuleCache
-        |> Rule name
+        |> Rule name Exceptions.init
 
 
 reverseVisitors : ModuleRuleSchema anything moduleContext -> ModuleRuleSchema anything moduleContext
@@ -554,8 +575,8 @@ newModuleRuleCache =
     }
 
 
-runModuleRule : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleCache moduleContext -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, Rule )
-runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache project _ =
+runModuleRule : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleCache moduleContext -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, Rule )
+runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache exceptions project _ =
     let
         initialContext : moduleContext
         initialContext =
@@ -580,6 +601,12 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache proj
         computeErrors_ =
             computeErrors moduleRuleSchema project initialContext
 
+        modulesToAnalyze : List ProjectModule
+        modulesToAnalyze =
+            project
+                |> Review.Project.modules
+                |> Exceptions.apply exceptions .path
+
         moduleResults : ModuleRuleResultCache
         moduleResults =
             List.foldl
@@ -597,7 +624,7 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache proj
                                 Dict.insert module_.path { source = module_.source, errors = computeErrors_ module_ } cache
                 )
                 startCache.moduleResults
-                (Review.Project.modules project)
+                modulesToAnalyze
 
         errors : List Error
         errors =
@@ -609,7 +636,7 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache proj
     , runModuleRule
         moduleRuleSchema
         { startCache | moduleResults = moduleResults }
-        |> Rule schema.name
+        |> Rule schema.name exceptions
     )
 
 
@@ -722,6 +749,7 @@ newProjectRuleSchema name_ { moduleVisitorSchema, initProjectContext, fromProjec
 fromProjectRuleSchema : ProjectRuleSchema projectContext moduleContext -> Rule
 fromProjectRuleSchema (ProjectRuleSchema schema) =
     Rule schema.name
+        Exceptions.init
         (runProjectRule
             (ProjectRuleSchema
                 { schema
@@ -803,8 +831,8 @@ type alias ProjectRuleCache projectContext =
         }
 
 
-runProjectRule : ProjectRuleSchema projectContext moduleContext -> ProjectRuleCache projectContext -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, Rule )
-runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache project nodeContexts =
+runProjectRule : ProjectRuleSchema projectContext moduleContext -> ProjectRuleCache projectContext -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, Rule )
+runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptions project nodeContexts =
     let
         graph : Graph ModuleName ()
         graph =
@@ -920,12 +948,13 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache project 
 
         errors : List Error
         errors =
-            List.concat
-                [ List.concatMap Tuple.first contextsAndErrorsPerFile
-                , errorsFromFinalEvaluationForProject wrappedSchema initialContext contextsAndErrorsPerFile
-                ]
+            [ List.concatMap Tuple.first contextsAndErrorsPerFile
+            , errorsFromFinalEvaluationForProject wrappedSchema initialContext contextsAndErrorsPerFile
+            ]
+                |> List.concat
+                |> Exceptions.apply exceptions errorFilePath
     in
-    ( errors, Rule schema.name (runProjectRule wrappedSchema newCache) )
+    ( errors, Rule schema.name exceptions (runProjectRule wrappedSchema newCache) )
 
 
 setRuleName : String -> Error -> Error
@@ -2084,6 +2113,83 @@ errorFixes (Error err) =
 errorFilePath : Error -> String
 errorFilePath (Error err) =
     err.filePath
+
+
+
+-- EXCEPTION CONFIGURATION
+
+
+{-| Ignore the errors reported for modules in specific directories of the project.
+
+Use it when you don't want to get review errors for generated source code or for
+libraries that you forked and copied over to your project.
+
+    config : List Rule
+    config =
+        [ Some.Rule.rule
+            |> Rule.ignoreErrorsForDirectories [ "generated-source/", "vendor/" ]
+        , Some.Other.Rule.rule
+        ]
+
+If you want to ignore some directories for all of your rules, you can apply
+`ignoreErrorsForDirectories` like this:
+
+    config : List Rule
+    config =
+        [ Some.Rule.rule
+        , Some.Other.Rule.rule
+        ]
+            |> List.map (Rule.ignoreErrorsForDirectories [ "generated-source/", "vendor/" ])
+
+The paths should be relative to the `elm.json` file, just like the ones for the
+`elm.json`'s `source-directories`.
+
+You can apply `ignoreErrorsForDirectories`several times for a rule, to add more
+ignored directories.
+
+-}
+ignoreErrorsForDirectories : List String -> Rule -> Rule
+ignoreErrorsForDirectories directories (Rule name exceptions fn) =
+    Rule
+        name
+        (Exceptions.addDirectories directories exceptions)
+        fn
+
+
+{-| Ignore the errors reported for specific.
+Use it when you don't want to review generated source code or files from external
+sources that you copied over to your project and don't want to be touched.
+
+    config : List Rule
+    config =
+        [ Some.Rule.rule
+            |> Rule.ignoreErrorsForFiles [ "src/Some/File.elm" ]
+        , Some.Other.Rule.rule
+        ]
+
+If you want to ignore some files for all of your rules, you can apply
+`ignoreErrorsForFiles` like this:
+
+    config : List Rule
+    config =
+        [ Some.Rule.rule
+        , Some.Other.Rule.rule
+        ]
+            |> List.map (Rule.ignoreErrorsForFiles [ "src/Some/File.elm" ])
+
+The paths should be relative to the `elm.json` file, just like the ones for the
+`elm.json`'s `source-directories`.
+
+You can apply `ignoreErrorsForFiles` several times for a rule, to add more
+ignored files.
+
+-}
+ignoreErrorsForFiles : List String -> Rule -> Rule
+ignoreErrorsForFiles files (Rule name exceptions fn) =
+    Rule
+        name
+        (Exceptions.addFiles files exceptions)
+        fn
 
 
 

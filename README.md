@@ -154,7 +154,7 @@ much less useful when something should not appear only 99% of the time, as there
 is no good solution for handling exceptions (`elm-review` doesn't offer an option
 for disabling a rule locally, see why [here](#is-there-a-way-to-ignore-an-error-or-disable-a-rule-only-in-some-locations-)).
 If you really need to make exceptions, they should be written in the rule itself
-or defined in the rule's parameters.
+or defined in the rule's parameters and/or configuration.
 
 First of all, if you have never encountered a problem with a pattern before,
 then you probably don't need to forbid it. There are chances the problem will
@@ -203,7 +203,12 @@ When wondering whether to write or enable a rule, I suggest using this checklist
 
 ## Is there a way to ignore an error or disable a rule only in some locations?
 
-There is none at the moment, for several reasons:
+You can prevent errors from being reported by either changing the implementation
+of your rules or by [configuring exceptions](./Rule-Review#configuring-exceptions)
+for directories or for files.
+
+It is however not possible to ignore errors on a case-by-case basis, for several reasons:
+
   - The most practical way to locally disable a rule would probably be through
   comments, like [how `ESLint` does it](https://eslint.org/docs/user-guide/configuring#disabling-rules-with-inline-comments).
   But since [elm-format](https://github.com/avh4/elm-format) would move the
@@ -214,12 +219,12 @@ There is none at the moment, for several reasons:
   create additional guarantees in your codebase, and it is possible to ignore it,
   then you will want a second system to ensure those rules are never ignored.
   - When people encounter a review error, quite often they will try to disable
-  it by default, because they don't agree with the rule, or because they think
-  they will fix it later or not at all. Just like we learned with the compiler
-  errors, some problems require us to do some additional work for good reasons,
-  and I think this should apply to errors reported by `elm-review` too. Obviously,
-  not being able to ignore a rule means that the bar to write or enable a rule
-  should be even higher.
+  it by default, because they disagree with the rule, are annoyed by it or
+  because they think they will fix it later or not at all. Just like we learned
+  with the compiler errors, some problems require us to do some additional
+  work for good reasons, and I think this should apply to errors reported by
+  `elm-review` too. Obviously, not being able to ignore an error means that the
+  bar to write or enable a rule should be even higher.
   - The more I think about it, the more I think that if you need to make an
   exception to your rule somewhere, then maybe the rule is not worth enforcing
   in the first place, and that you should probably remove it from your

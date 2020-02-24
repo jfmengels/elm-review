@@ -17,7 +17,7 @@ import NoUnused.Variables
 import NoUnusedDependencies
 import NoUnusedExports
 import NoUnusedModules
-import Review.Rule exposing (Rule)
+import Review.Rule as Rule exposing (Rule)
 
 
 config : List Rule
