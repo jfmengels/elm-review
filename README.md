@@ -2,7 +2,7 @@
 
 ![](https://travis-ci.com/jfmengels/elm-review.svg?branch=master)
 
-`elm-review` analyzes [Elm](https://elm-lang.org/) source code, to add additional guarantees to your project.
+`elm-review` analyzes [Elm](https://elm-lang.org/) projects, to add additional guarantees to your project.
 
 ![elm-review reporter output](https://github.com/jfmengels/elm-review/blob/master/documentation/images/elm-review-report.png?raw=true)
 

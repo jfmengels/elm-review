@@ -21,32 +21,8 @@ and turns each module into an [Abstract Syntax Tree (AST)](https://en.wikipedia.
 (a tree-like structure which represents your source code) using the
 [`elm-syntax` package](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/).
 
-`elm-review` then feeds all this data into `review rules` that then report problems.
-The way that review rules consume the data depends on its type, a "module rule" or "project rule".
-
-Then, for each module and rule, it will give the details of your project (like the `elm.json` file) and the
-contents of the file to analyze to the rule. The order in which things get passed to the rule is the following:
-
-  - Read project-related info (only collect data in the context in these steps)
-      - The `elm.json` file, visited by [`withModuleElmJsonVisitor`](#withModuleElmJsonVisitor)
-      - The definition for dependencies, visited by [`withModuleDependenciesVisitor`](#withModuleDependenciesVisitor)
-  - Visit the file (in the following order)
-      - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
-      - The module's list of comments, visited by [`withSimpleCommentsVisitor`](#withSimpleCommentsVisitor) and [`withCommentsVisitor`](#withCommentsVisitor)
-      - Each import, visited by [`withSimpleImportVisitor`](#withSimpleImportVisitor) and [`withImportVisitor`](#withImportVisitor)
-      - The list of declarations, visited by [`withDeclarationListVisitor`](#withDeclarationListVisitor)
-      - Each declaration, visited by [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) and [`withDeclarationVisitor`](#withDeclarationVisitor).
-        Before evaluating the next declaration, the expression contained in the declaration
-        will be visited recursively by [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) and [`withExpressionVisitor`](#withExpressionVisitor)
-      - A final evaluation is made when the module has fully been visited, using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation)
-
-Evaluating a node means two things:
-
-  - Detecting patterns and reporting errors
-  - Collecting data in a `context` to have more information available in a later
-    node evaluation. This is only available using "non-simple with\*" visitors.
-    I recommend using the "simple with\*" visitors if you don't need to collect
-    data, as they are simpler to use
+`elm-review` then feeds all this data into `review rules`, that traverse them to report problems.
+The way that review rules consume the data depends on its type, a ["module rule"](#creating-a-module-rule) or ["project rule"](#creating-a-project-rule).
 
 `elm-review` relies on the [`elm-syntax`package](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/),
 and all the node types you'll see will be coming from there. You are likely to
@@ -175,6 +151,28 @@ If you do need that information, you should create a [project rule](#creating-a-
 If you are new to writing rules, I would recommend learning how to build a module rule first, as they are in practice a
 simpler version of project rules.
 
+The traversal of a module rule is the following:
+
+  - Read project-related info (only collect data in the context in these steps)
+      - The `elm.json` file, visited by [`withModuleElmJsonVisitor`](#withModuleElmJsonVisitor)
+      - The definition for dependencies, visited by [`withModuleDependenciesVisitor`](#withModuleDependenciesVisitor)
+  - Visit the file (in the following order)
+      - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
+      - The module's list of comments, visited by [`withSimpleCommentsVisitor`](#withSimpleCommentsVisitor) and [`withCommentsVisitor`](#withCommentsVisitor)
+      - Each import, visited by [`withSimpleImportVisitor`](#withSimpleImportVisitor) and [`withImportVisitor`](#withImportVisitor)
+      - The list of declarations, visited by [`withDeclarationListVisitor`](#withDeclarationListVisitor)
+      - Each declaration, visited by [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) and [`withDeclarationVisitor`](#withDeclarationVisitor).
+        Before evaluating the next declaration, the expression contained in the declaration
+        will be visited recursively by [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) and [`withExpressionVisitor`](#withExpressionVisitor)
+      - A final evaluation is made when the module has fully been visited, using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation)
+
+Evaluating/visiting a node means two things:
+
+  - Detecting patterns and reporting errors
+  - Collecting data in a `context` to have more information available in a later
+    node evaluation. You can only use the context and update it with "non-simple with\*" visitor functions.
+    I recommend using the "simple with\*" visitor functions if you don't need to do either, as they are simpler to use
+
 @docs ModuleRuleSchema, newModuleRuleSchema, fromModuleRuleSchema
 
 
@@ -194,6 +192,50 @@ simpler version of project rules.
 
 
 ## Creating a project rule
+
+Similar to a module rule, a project rule looks at modules once at a time, but when
+it finishes looking at a file and reporting errors, it stores parts of the context
+which can be used for in other files or in the final project evaluation.
+
+This means that we can access data collected from a different module when visiting
+another module, and when doing the final evaluation, have access to the same
+knowledge of the project as the compiler does.
+
+In module rules, there is the concept of `context`. In project rules, you have it
+too, but in the form of `module context` and `project context`. The former is
+the context for when we are analyzing the contents of a module (it is really just
+the module rule's context, if you understood module rules), and the latter is
+the context for the global context. During the analysis of a project rule, we will
+keep switching between the two using the arguments of [`newProjectRuleSchema`](#newProjectRuleSchema),
+because all information from the module context is not relevant for the project context.
+
+TODO Explain about project context and module context,how contexts are folded, made available, etc.
+
+The traversal of a project rule happens in the same order as for modules rules,
+but there are some changes, and different visitors are used for things that relate
+to the project rather than for individual modules.
+
+
+### 1 - Load project related data
+
+Before looking at modules...TODO
+
+  - Read project-related info (only collect data in the context in these steps)
+      - The `elm.json` file, visited by [`withModuleElmJsonVisitor`](#withModuleElmJsonVisitor)
+      - The definition for dependencies, visited by [`withModuleDependenciesVisitor`](#withModuleDependenciesVisitor)
+  - Visit the file (in the following order)
+      - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
+      - The module's list of comments, visited by [`withSimpleCommentsVisitor`](#withSimpleCommentsVisitor) and [`withCommentsVisitor`](#withCommentsVisitor)
+      - Each import, visited by [`withSimpleImportVisitor`](#withSimpleImportVisitor) and [`withImportVisitor`](#withImportVisitor)
+      - The list of declarations, visited by [`withDeclarationListVisitor`](#withDeclarationListVisitor)
+      - Each declaration, visited by [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) and [`withDeclarationVisitor`](#withDeclarationVisitor).
+        Before evaluating the next declaration, the expression contained in the declaration
+        will be visited recursively by [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) and [`withExpressionVisitor`](#withExpressionVisitor)
+      - A final evaluation is made when the module has fully been visited, using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation)
+  - A final evaluation is made when the module has fully been visited, using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation)
+
+You can't use [`withModuleElmJsonVisitor`](#withModuleElmJsonVisitor) or [`withModuleDependenciesVisitor`](#withModuleDependenciesVisitor)
+in project rules. Instead, you should use [`withProjectElmJsonVisitor`](#withProjectElmJsonVisitor) or [`withProjectDependenciesVisitor`](#withProjectDependenciesVisitor).
 
 @docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation, withContextFromImportedModules
 
@@ -248,10 +290,11 @@ import Review.Project exposing (Project, ProjectModule)
 import Set exposing (Set)
 
 
-{-| Represents a construct able to analyze modules from a project and report
+{-| Represents a construct able to analyze a project and report
 unwanted patterns.
-TODO Link to "creating a module rule" and project rule instead
-See [`newModuleRuleSchema`](#newModuleRuleSchema), and [`newProjectRuleSchema`](#newProjectRuleSchema) for how to create one.
+
+See how to create a [module rule](#creating-a-module-rule) or a [project rule](#creating-a-project-rule).
+
 -}
 type Rule
     = Rule String Exceptions (Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, Rule ))
@@ -302,7 +345,7 @@ type alias InAndOut visitor =
 
 {-| Review a project and gives back the errors raised by the given rules.
 
-Note that you won't need to use this function when writing a function. You should
+Note that you won't need to use this function when writing a rule. You should
 only need it if you try to make `elm-review` run in a new environment.
 
     import Review.File exposing (ProjectModule)
@@ -335,8 +378,8 @@ review the project after a file has changed, you may want to store the rules in
 your `Model`.
 
 The rules are functions, so doing so will make your model unable to be
-exported/imported with `elm/browser`'s debugger, and may cause a crash if yu try
-to compare them or compare the model that holds them.
+exported/imported with `elm/browser`'s debugger, and may cause a crash if you try
+to compare them or the model that holds them.
 
 -}
 review : List Rule -> Project -> ( List Error, List Rule )
