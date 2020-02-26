@@ -1248,7 +1248,7 @@ and report patterns. The declarations will be visited in the order of their defi
 The following example forbids declaring a function or a value without a type
 annotation.
 
-    import Elm.Syntax.Declaration exposing (Declaration(..))
+    import Elm.Syntax.Declaration as Declaration exposing (Declaration)
     import Elm.Syntax.Node as Node exposing (Node)
     import Review.Rule as Rule exposing (Error, Rule)
 
@@ -1261,7 +1261,7 @@ annotation.
     declarationVisitor : Node Declaration -> List Error
     declarationVisitor node =
         case Node.value node of
-            FunctionDeclaration { signature, declaration } ->
+            Declaration.FunctionDeclaration { signature, declaration } ->
                 case signature of
                     Just _ ->
                         []
@@ -1311,7 +1311,7 @@ child, the first child's children (and so on), then the second child (and so on)
 
 The following example forbids using the Debug module.
 
-    import Elm.Syntax.Expression exposing (Expression(..))
+    import Elm.Syntax.Expression as Expression exposing (Expression)
     import Elm.Syntax.Node as Node exposing (Node)
     import Review.Rule as Rule exposing (Error, Rule)
 
@@ -1324,7 +1324,7 @@ The following example forbids using the Debug module.
     expressionVisitor : Node Expression -> List Error
     expressionVisitor node =
         case Node.value node of
-            FunctionOrValue moduleName fnName ->
+            Expression.FunctionOrValue moduleName fnName ->
                 if List.member "Debug" moduleName then
                     [ Rule.error
                         { message = "Remove the use of `Debug` before shipping to production"
@@ -1385,10 +1385,10 @@ The `context` you choose needs to be of the same type for all visitors. In pract
 it is similar to a `Model` for a rule.
 
 The following example forbids calling `Rule.newModuleRuleSchema` with a name that is not
-the same as the module's name (forbidding `Rule.newModuleRuleSchema "NoSomething"` when the
-module name is `Review.Rule.NoSomethingElse`).
+the same as the module's name (forbidding `Rule.newModuleRuleSchema "OtherRuleName"` when the
+module name is `RuleName`).
 
-    import Elm.Syntax.Expression exposing (Expression(..))
+    import Elm.Syntax.Expression as Expression exposing (Expression)
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
     import Review.Rule as Rule exposing (Direction, Error, Rule)
@@ -1420,9 +1420,9 @@ module name is `Review.Rule.NoSomethingElse`).
     expressionVisitor : Node Expression -> Direction -> Context -> ( List Error, Context )
     expressionVisitor node direction context =
         case ( direction, Node.value node ) of
-            ( Rule.OnEnter, Application (function :: ruleNameNode :: _) ) ->
+            ( Rule.OnEnter, Expression.Application (function :: ruleNameNode :: _) ) ->
                 case ( Node.value function, Node.value ruleNameNode ) of
-                    ( FunctionOrValue [ "Rule" ] "newModuleRuleSchema", Literal ruleName ) ->
+                    ( Expression.FunctionOrValue [ "Rule" ] "newModuleRuleSchema", Expression.Literal ruleName ) ->
                         if Just ruleName /= context then
                             let
                                 suggestedName : String
@@ -1553,10 +1553,10 @@ withModuleDependenciesVisitor visitor (ModuleRuleSchema schema) =
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the `File`'s
 [module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`), collect data in the `context` and/or report patterns.
 
-The following example forbids the use of `Html.button` except in the "Button" file.
+The following example forbids the use of `Html.button` except in the "Button" module.
 The example is simplified to only forbid the use of the `Html.button` expression.
 
-    import Elm.Syntax.Expression exposing (Expression(..))
+    import Elm.Syntax.Expression as Expression exposing (Expression)
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
     import Review.Rule as Rule exposing (Direction, Error, Rule)
@@ -1588,7 +1588,7 @@ The example is simplified to only forbid the use of the `Html.button` expression
 
             ( Rule.OnEnter, HtmlButtonIsForbidden ) ->
                 case Node.value node of
-                    FunctionOrValue [ "Html" ] "button" ->
+                    Expression.FunctionOrValue [ "Html" ] "button" ->
                         ( [ Rule.error
                                 { message = "Do not use `Html.button` directly"
                                 , details = [ "At fruits.com, we've built a nice `Button` module that suits our needs better. Using this module instead of `Html.button` ensures we have a consistent button experience across the website." ]
@@ -1704,7 +1704,7 @@ collect data and/or report patterns. The declarations will be visited in the ord
 The following example forbids exposing a function or a value without it having a
 type annotation.
 
-    import Elm.Syntax.Declaration exposing (Declaration(..))
+    import Elm.Syntax.Declaration as Declaration exposing (Declaration)
     import Elm.Syntax.Exposing as Exposing
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
@@ -1742,7 +1742,7 @@ type annotation.
     declarationVisitor : Node Declaration -> Direction -> ExposedFunctions -> ( List Error, ExposedFunctions )
     declarationVisitor node direction context =
         case ( direction, Node.value node ) of
-            ( Rule.OnEnter, FunctionDeclaration { documentation, declaration } ) ->
+            ( Rule.OnEnter, Declaration.FunctionDeclaration { documentation, declaration } ) ->
                 let
                     functionName : String
                     functionName =
@@ -1814,8 +1814,8 @@ expression will be visited, then its first child, the first child's children
 The following example forbids the use of `Debug.log` even when it is imported like
 `import Debug exposing (log)`.
 
-    import Elm.Syntax.Exposing as Exposing exposing (TopLevelExpose(..))
-    import Elm.Syntax.Expression exposing (Expression(..))
+    import Elm.Syntax.Exposing as Exposing exposing (TopLevelExpose)
+    import Elm.Syntax.Expression as Expression exposing (Expression)
     import Elm.Syntax.Import exposing (Import)
     import Elm.Syntax.Node as Node exposing (Node)
     import Review.Rule as Rule exposing (Direction, Error, Rule)
@@ -1842,7 +1842,7 @@ The following example forbids the use of `Debug.log` even when it is imported li
                     isLogFunction : Node Exposing.TopLevelExpose -> Bool
                     isLogFunction exposeNode =
                         case Node.value exposeNode of
-                            FunctionExpose "log" ->
+                            Exposing.FunctionExpose "log" ->
                                 True
 
                             _ ->
@@ -1865,7 +1865,7 @@ The following example forbids the use of `Debug.log` even when it is imported li
 
             DebugLogWasImported ->
                 case ( direction, Node.value node ) of
-                    ( Rule.OnEnter, FunctionOrValue [] "log" ) ->
+                    ( Rule.OnEnter, Expression.FunctionOrValue [] "log" ) ->
                         ( [ Rule.error
                                 { message = "Remove the use of `Debug` before shipping to production"
                                 , details = [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing its use before committing and attempting to push to production." ]
