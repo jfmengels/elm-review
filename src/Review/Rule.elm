@@ -2190,6 +2190,37 @@ The paths should be relative to the `elm.json` file, just like the ones for the
 You can apply `ignoreErrorsForDirectories`several times for a rule, to add more
 ignored directories.
 
+You can also use it when writing a rule. We can hardcode in the rule that a rule
+is not applicable to a folder, like `tests/` for instance. The following example
+forbids using `Debug.todo` anywhere in the code, except in tests.
+
+    import Elm.Syntax.Expression as Expression exposing (Expression)
+    import Elm.Syntax.Node as Node exposing (Node)
+    import Review.Rule as Rule exposing (Error, Rule)
+
+    rule : Rule
+    rule =
+        Rule.newModuleRuleSchema "NoDebugEvenIfImported" DebugLogWasNotImported
+            |> Rule.withExpressionVisitor expressionVisitor
+            |> Rule.fromModuleRuleSchema
+            |> Rule.ignoreErrorsForDirectories [ "tests/" ]
+
+    expressionVisitor : Node Expression -> List Error
+    expressionVisitor node =
+        case Node.value node of
+            Expression.FunctionOrValue [ "Debug" ] "todo" ->
+                ( [ Rule.error
+                        { message = "Remove the use of `Debug.todo` before shipping to production"
+                        , details = [ "`Debug.todo` is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing its use before committing and attempting to push to production." ]
+                        }
+                        (Node.range node)
+                  ]
+                , context
+                )
+
+            _ ->
+                ( [], context )
+
 -}
 ignoreErrorsForDirectories : List String -> Rule -> Rule
 ignoreErrorsForDirectories directories (Rule name exceptions fn) =
@@ -2199,7 +2230,7 @@ ignoreErrorsForDirectories directories (Rule name exceptions fn) =
         fn
 
 
-{-| Ignore the errors reported for specific.
+{-| Ignore the errors reported for specific file paths.
 Use it when you don't want to review generated source code or files from external
 sources that you copied over to your project and don't want to be touched.
 
@@ -2225,6 +2256,37 @@ The paths should be relative to the `elm.json` file, just like the ones for the
 
 You can apply `ignoreErrorsForFiles` several times for a rule, to add more
 ignored files.
+
+You can also use it when writing a rule. We can simplify the example from [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
+by hardcoding an exception into the rule (that forbids the use of `Html.button` except in the "Button" module).
+
+    import Elm.Syntax.Expression as Expression exposing (Expression)
+    import Elm.Syntax.Module as Module exposing (Module)
+    import Elm.Syntax.Node as Node exposing (Node)
+    import Review.Rule as Rule exposing (Direction, Error, Rule)
+
+    rule : Rule
+    rule =
+        Rule.newModuleRuleSchema "NoHtmlButton"
+            |> Rule.withSimpleExpressionVisitor expressionVisitor
+            |> Rule.fromModuleRuleSchema
+            |> Rule.ignoreErrorsForFiles [ "src/Button.elm" ]
+
+    expressionVisitor : Node Expression -> List Error
+    expressionVisitor node context =
+        case Node.value node of
+            Expression.FunctionOrValue [ "Html" ] "button" ->
+                ( [ Rule.error
+                        { message = "Do not use `Html.button` directly"
+                        , details = [ "At fruits.com, we've built a nice `Button` module that suits our needs better. Using this module instead of `Html.button` ensures we have a consistent button experience across the website." ]
+                        }
+                        (Node.range node)
+                  ]
+                , context
+                )
+
+            _ ->
+                ( [], context )
 
 -}
 ignoreErrorsForFiles : List String -> Rule -> Rule
