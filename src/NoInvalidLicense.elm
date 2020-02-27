@@ -34,7 +34,7 @@ import Set exposing (Set)
 rule : Configuration -> Rule
 rule configuration =
     Rule.newProjectRuleSchema "NoInvalidLicense"
-        { moduleVisitorSchema = moduleVisitorSchema
+        { moduleVisitor = moduleVisitor
         , initProjectContext = initProjectContext
         , fromProjectToModule = fromProjectToModule
         , fromModuleToProject = fromModuleToProject
@@ -52,8 +52,8 @@ type alias Configuration =
     }
 
 
-moduleVisitorSchema : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
-moduleVisitorSchema schema =
+moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
+moduleVisitor schema =
     schema
         |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ))
 

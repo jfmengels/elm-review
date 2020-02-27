@@ -22,15 +22,20 @@ and turns each module into an [Abstract Syntax Tree (AST)](https://en.wikipedia.
 [`elm-syntax` package](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/).
 
 `elm-review` then feeds all this data into `review rules`, that traverse them to report problems.
-The way that review rules consume the data depends on its type, a ["module rule"](#creating-a-module-rule) or ["project rule"](#creating-a-project-rule).
+The way that review rules go through the data depends on whether it is a [module rule](#creating-a-module-rule) or a [project rule](#creating-a-project-rule).
 
-`elm-review` relies on the [`elm-syntax`package](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/),
+`elm-review` relies on the [`elm-syntax` package](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/),
 and all the node types you'll see will be coming from there. You are likely to
 need to have the documentation for that package open when writing a rule.
 
-There are plenty of examples in the documentation for each visitor function,
-and you can also look at the source code for existing rules to better grasp how
-rules work.
+There are plenty of examples in this documentation, and you can also look at the
+source code of existing rules to better grasp how they work.
+
+**NOTE**: These examples are only here to showcase how to write rules and how a function can
+be used. They are not necessarily good rules to enforce. See the
+[section on whether to write a rule](./#when-to-write-or-enable-a-rule) for more on that.
+Even if you think they are good ideas to enforce, they are often not complete, as there are other
+patterns you would want to forbid, but that are not handled by the example.
 
 
 # What makes a good rule
@@ -95,7 +100,7 @@ If published in a package, the rule documentation should explain when not to
 enable the rule in the user's review configuration. For instance, for a rule that
 makes sure that a package is publishable by ensuring that all docs are valid,
 the rule might say something along the lines of "If you are writing an
-application, then you should not use this rule.".
+application, then you should not use this rule".
 
 Additionally, it could give a few examples of patterns that will be reported and
 of patterns that will not be reported, so that users can have a better grasp of
@@ -119,18 +124,6 @@ provides. If you don't understand the AST it provides, you will have a hard time
 implementing the rule you wish to create.
 
 
-# Writing a Rule
-
-**NOTE**: There are a lot of rule examples in the documentation of the functions
-below. They are only here to showcase how to write rules and how a function can
-be used. The rule examples are not necessarily good rules to enforce. See the
-[section on whether to write a rule](./#when-to-write-or-enable-a-rule) for more on that. Even if you think
-they are good ideas to enforce, they are often not complete, as there are other
-patterns you would want to forbid, but that are not handled by the example.
-
-There are several ways to write rules, depending on what information you need to collect to write the rule.
-
-
 ## Definition
 
 @docs Rule
@@ -141,9 +134,12 @@ There are several ways to write rules, depending on what information you need to
 @docs review
 
 
+# Writing a Rule
+
+
 ## Creating a module rule
 
-A "module rule" looks at modules (i.e. files) once at a time. When it finishes looking at a file and reporting errors,
+A "module rule" looks at modules (i.e. files) one by one. When it finishes looking at a file and reporting errors,
 it forgets everything about the file it just analyzed before starting to look at a different file. You should create one of these if you
 do not need to know the contents of a different module in the project, such as what functions are exposed.
 If you do need that information, you should create a [project rule](#creating-a-project-rule).
@@ -192,50 +188,6 @@ Evaluating/visiting a node means two things:
 
 
 ## Creating a project rule
-
-Similar to a module rule, a project rule looks at modules once at a time, but when
-it finishes looking at a file and reporting errors, it stores parts of the context
-which can be used for in other files or in the final project evaluation.
-
-This means that we can access data collected from a different module when visiting
-another module, and when doing the final evaluation, have access to the same
-knowledge of the project as the compiler does.
-
-In module rules, there is the concept of `context`. In project rules, you have it
-too, but in the form of `module context` and `project context`. The former is
-the context for when we are analyzing the contents of a module (it is really just
-the module rule's context, if you understood module rules), and the latter is
-the context for the global context. During the analysis of a project rule, we will
-keep switching between the two using the arguments of [`newProjectRuleSchema`](#newProjectRuleSchema),
-because all information from the module context is not relevant for the project context.
-
-TODO Explain about project context and module context,how contexts are folded, made available, etc.
-
-The traversal of a project rule happens in the same order as for modules rules,
-but there are some changes, and different visitors are used for things that relate
-to the project rather than for individual modules.
-
-
-### 1 - Load project related data
-
-Before looking at modules...TODO
-
-  - Read project-related info (only collect data in the context in these steps)
-      - The `elm.json` file, visited by [`withModuleElmJsonVisitor`](#withModuleElmJsonVisitor)
-      - The definition for dependencies, visited by [`withModuleDependenciesVisitor`](#withModuleDependenciesVisitor)
-  - Visit the file (in the following order)
-      - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
-      - The module's list of comments, visited by [`withSimpleCommentsVisitor`](#withSimpleCommentsVisitor) and [`withCommentsVisitor`](#withCommentsVisitor)
-      - Each import, visited by [`withSimpleImportVisitor`](#withSimpleImportVisitor) and [`withImportVisitor`](#withImportVisitor)
-      - The list of declarations, visited by [`withDeclarationListVisitor`](#withDeclarationListVisitor)
-      - Each declaration, visited by [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) and [`withDeclarationVisitor`](#withDeclarationVisitor).
-        Before evaluating the next declaration, the expression contained in the declaration
-        will be visited recursively by [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) and [`withExpressionVisitor`](#withExpressionVisitor)
-      - A final evaluation is made when the module has fully been visited, using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation)
-  - A final evaluation is made when the module has fully been visited, using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation)
-
-You can't use [`withModuleElmJsonVisitor`](#withModuleElmJsonVisitor) or [`withModuleDependenciesVisitor`](#withModuleDependenciesVisitor)
-in project rules. Instead, you should use [`withProjectElmJsonVisitor`](#withProjectElmJsonVisitor) or [`withProjectDependenciesVisitor`](#withProjectDependenciesVisitor).
 
 @docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation, withContextFromImportedModules
 
@@ -527,7 +479,7 @@ type Direction
     | OnExit
 
 
-{-| Creates a new schema for a rule. Will require calling [`fromModuleRuleSchema`](#fromModuleRuleSchema)
+{-| Creates a schema for a module rule. Will require calling [`fromModuleRuleSchema`](#fromModuleRuleSchema)
 to create a usable [`Rule`](#Rule). Use "with\*" functions from this module, like
 [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) or [`withSimpleImportVisitor`](#withSimpleImportVisitor)
 to make it report something.
@@ -734,7 +686,19 @@ makeFinalEvaluation finalEvaluationFns ( previousErrors, context ) =
 -- PROJECT RULES
 
 
-{-| TODO
+{-| Represents a schema for a project [`Rule`](#Rule).
+
+Similar to a module rule, a project rule looks at modules one by one, but when
+it finishes looking at a file and reporting errors, it stores parts of the context
+which can be used for in other files or in the final project evaluation.
+
+This means that we can access data collected from a different module when visiting
+another module, and when doing the final evaluation, have access to the same
+knowledge of the project as the compiler does.
+
+See the documentation for [`newProjectRuleSchema`](#newProjectRuleSchema) for
+how to create a project rule.
+
 -}
 type ProjectRuleSchema projectContext moduleContext
     = ProjectRuleSchema
@@ -745,7 +709,7 @@ type ProjectRuleSchema projectContext moduleContext
             , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
             , foldProjectContexts : projectContext -> projectContext -> projectContext
             }
-        , moduleVisitorSchema : ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
+        , moduleVisitor : ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
         , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> projectContext)
         , dependenciesVisitors : List (Dict String Review.Project.Dependency -> projectContext -> projectContext)
         , finalEvaluationFns : List (projectContext -> List Error)
@@ -758,19 +722,200 @@ type TraversalType
     | ImportedModulesFirst
 
 
-{-| TODO
+{-| Creates a schema for a project rule. Will require calling [`fromProjectRuleSchema`](#fromProjectRuleSchema)
+to create a usable [`Rule`](#Rule).
+
+The traversal of a project rule happens in the same order as for modules rules,
+but there are some changes, and different visitors are used for things that relate
+to the project rather than for individual modules.
+
+In module rules, there is the concept of `context`. In project rules, you have it
+too, but in the form of `module context` and `project context`. The former is
+the context for when we are analyzing the contents of a module (it is really just
+the module rule's context, if you understood module rules), and the latter is
+the context for the global context. During the analysis of a project rule, we will
+keep switching between the two using the arguments of [`newProjectRuleSchema`](#newProjectRuleSchema),
+because all information from the module context is not relevant for the project context and vice-versa.
+
+Let's go through an example of a rule that reports unused modules.
+
+    import Review.Rule as Rule exposing (Rule)
+
+    rule : Rule
+    rule =
+        Rule.newProjectRuleSchema "NoUnused.Modules"
+            { moduleVisitor = moduleVisitor
+            , initProjectContext = initProjectContext
+            , fromProjectToModule = fromProjectToModule
+            , fromModuleToProject = fromModuleToProject
+            , foldProjectContexts = foldProjectContexts
+            }
+            |> Rule.withProjectElmJsonVisitor elmJsonVisitor
+            |> Rule.withFinalProjectEvaluation finalProjectEvaluation
+            |> Rule.fromProjectRuleSchema
+
+    moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
+    moduleVisitor schema =
+        schema
+            |> Rule.withImportVisitor importVisitor
+            |> Rule.withDeclarationListVisitor declarationListVisitor
+
+The rule will work like this:
+
+  - We will visit the `elm.json` ([`withProjectElmJsonVisitor`](#withProjectElmJsonVisitor)) to determine whether this project is a package
+    or an application. If it's a package, we will mark the exposed modules as used.
+  - We will visit every module (`moduleVisitor`), and for every one:
+      - If the project is an application, mark the module as used if it contains a `main` function.
+      - Go through the imports, and for every one, mark the imported module as used.
+      - Mark the module as among the modules to potentially report.
+  - In the final project evaluation ([`withFinalProjectEvaluation`](#withFinalProjectEvaluation)),
+    we will create an error for every module to be reported that was not marked as used.
+
+You define how you want to visit each file with `moduleVisitor`. `moduleVisitor` is a module rule schema, meaning you can use all the
+same visitors as for module rules. The exception are the following visitors, which
+are replaced by functions that you need to use on the project rule schema.
+
+  - [`withModuleElmJsonVisitor`](#withModuleElmJsonVisitor), replaced by [`withProjectElmJsonVisitor`](#withProjectElmJsonVisitor)
+  - [`withModuleDependenciesVisitor`](#withModuleDependenciesVisitor), replaced by [`withProjectDependenciesVisitor`](#withProjectDependenciesVisitor)
+  - [`withFinalModuleEvaluation`](#withFinalModuleEvaluation), replaced by [`withFinalProjectEvaluation`](#withFinalProjectEvaluation)
+
+Let's look at the data that we will be working with.
+
+    import Dict exposing (Dict)
+    import Elm.Syntax.ModuleName exposing (ModuleName)
+    import Elm.Syntax.Range exposing (Range)
+    import Set exposing (Set)
+
+    type alias ProjectContext =
+        { declaredModules :
+            Dict ModuleName
+                { moduleKey : Rule.ModuleKey
+                , moduleNameLocation : Range
+                }
+        , usedModules : Set ModuleName
+        , isPackage : Bool
+        }
+
+    type alias ModuleContext =
+        { importedModules : Set ModuleName
+        , containsMainFunction : Bool
+        , isPackage : Bool
+        }
+
+At the project level, we are interested in 3 things. 1) The declared modules
+that may have to be reported. This is a dictionary containing a [`Rule.ModuleKey`](#ModuleKey),
+which we need to report errors in the final module evaluation. 2) The set of used modules.
+
+that contains
+ok
+
+    initProjectContext : ProjectContext
+    initProjectContext =
+        { declaredModules = Dict.empty
+        , usedModules = Set.empty
+        }
+
+`initProjectContext` defines the initial value for the project context.
+It's equivalent to the second argument of ['newModuleRuleSchema'](#newModuleRuleSchema).
+
+    fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> ProjectContext -> ModuleContext
+    fromProjectToModule moduleKey moduleNameNode projectContext =
+        { importedModules = Set.empty
+        , containsMainFunction = False
+        }
+
+`fromProjectToModule` determines how we initialize the module context before
+starting the visit of a file, based on a project context.
+If [`withContextFromImportedModules`](#withContextFromImportedModules) is used,
+the project context will be the merged project contexts of all the imported modules.
+If not, it is the initial context (after traversal of the `elm.json` and dependencies).
+
+This function also gives you access to the module key for the file that TODO
+
+    fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> ModuleContext -> ProjectContext
+    fromModuleToProject moduleKey moduleName moduleContext =
+        { modules =
+            Dict.singleton
+                (Node.value moduleName)
+                { moduleKey = moduleKey, moduleNameLocation = Node.range moduleName }
+        , usedModules =
+            if Set.member [ "Test" ] moduleContext.importedModules || moduleContext.containsMainFunction then
+                Set.insert (Node.value moduleName) moduleContext.importedModules
+
+            else
+                moduleContext.importedModules
+        , isPackage = moduleContext.isPackage
+        }
+
+    foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
+    foldProjectContexts newContext previousContext =
+        { modules = Dict.union previousContext.modules newContext.modules
+        , usedModules = Set.union previousContext.usedModules newContext.usedModules
+        , isPackage = previousContext.isPackage
+        }
+
+`foldProjectContexts` is how we fold/reduce/merge the project contexts. The arguments
+are in the same order as [`List.foldl`](https://package.elm-lang.org/packages/elm/core/latest/List#foldl),
+meaning the initial/accumulated value is the second. It may help to imagine that
+the second argument is `initProjectContext`.
+
+You may have wondered why we have a collection of declared modules and another
+of used modules, and not a single collection where we remove modules every time
+we see an import instead.
+It's because underneath, we run a `MapReduce`-like algorithm. This brings many
+benefits, but only works well with data that you can "add" / "fold". Here, we can add the
+declared modules together, the used modules together, and after having visited
+all the modules, we will end with a single project context which contains all the
+declared and and all the used modules.
+
+**NOTE**: I say "add", but if you use [`withContextFromImportedModules`](#withContextFromImportedModules)
+it is actually pretty important that you do not simply add them (think `List.concat`),
+and instead merge them (think `Set.union` or `Dict.union`), because you might
+fold the same context several times. More details in that
+[function's documentation](#withContextFromImportedModules).
+
+TODO Explain about
+
+  - project context and module context
+  - how contexts are folded
+  - made available
+  - module key
+  - moduleVisitor
+
+
+### 1 - Load project related data
+
+Before looking at modules...TODO
+
+  - Read project-related info (only collect data in the context in these steps)
+      - The `elm.json` file, visited by [`withModuleElmJsonVisitor`](#withModuleElmJsonVisitor)
+      - The definition for dependencies, visited by [`withModuleDependenciesVisitor`](#withModuleDependenciesVisitor)
+  - Visit the file (in the following order)
+      - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
+      - The module's list of comments, visited by [`withSimpleCommentsVisitor`](#withSimpleCommentsVisitor) and [`withCommentsVisitor`](#withCommentsVisitor)
+      - Each import, visited by [`withSimpleImportVisitor`](#withSimpleImportVisitor) and [`withImportVisitor`](#withImportVisitor)
+      - The list of declarations, visited by [`withDeclarationListVisitor`](#withDeclarationListVisitor)
+      - Each declaration, visited by [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) and [`withDeclarationVisitor`](#withDeclarationVisitor).
+        Before evaluating the next declaration, the expression contained in the declaration
+        will be visited recursively by [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) and [`withExpressionVisitor`](#withExpressionVisitor)
+      - A final evaluation is made when the module has fully been visited, using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation)
+  - A final evaluation is made when the module has fully been visited, using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation)
+
+You can't use [`withModuleElmJsonVisitor`](#withModuleElmJsonVisitor) or [`withModuleDependenciesVisitor`](#withModuleDependenciesVisitor)
+in project rules. Instead, you should use [`withProjectElmJsonVisitor`](#withProjectElmJsonVisitor) or [`withProjectDependenciesVisitor`](#withProjectDependenciesVisitor).
+
 -}
 newProjectRuleSchema :
     String
     ->
-        { moduleVisitorSchema : ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
+        { moduleVisitor : ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
         , initProjectContext : projectContext
         , fromProjectToModule : ModuleKey -> Node ModuleName -> projectContext -> moduleContext
         , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
         , foldProjectContexts : projectContext -> projectContext -> projectContext
         }
     -> ProjectRuleSchema projectContext moduleContext
-newProjectRuleSchema name_ { moduleVisitorSchema, initProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts } =
+newProjectRuleSchema name_ { moduleVisitor, initProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts } =
     ProjectRuleSchema
         { name = name_
         , context =
@@ -779,7 +924,7 @@ newProjectRuleSchema name_ { moduleVisitorSchema, initProjectContext, fromProjec
             , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
             }
-        , moduleVisitorSchema = moduleVisitorSchema
+        , moduleVisitor = moduleVisitor
         , elmJsonVisitors = []
         , dependenciesVisitors = []
         , finalEvaluationFns = []
@@ -952,7 +1097,7 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
                 moduleVisitor : ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
                 moduleVisitor =
                     emptySchema "" initialModuleContext
-                        |> schema.moduleVisitorSchema
+                        |> schema.moduleVisitor
                         |> reverseVisitors
 
                 ( fileErrors, context ) =

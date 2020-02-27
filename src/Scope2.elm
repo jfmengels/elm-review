@@ -52,7 +52,7 @@ import Review.Rule as Rule exposing (Direction, Error)
    Wrap the following in a helper from Scope:
 
       Scope.addVisitors setterGetter
-       ({ moduleVisitorSchema =
+       ({ moduleVisitor =
            \schema ->
                schema
                    |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
@@ -225,7 +225,7 @@ addModuleVisitors schema =
 --             }
 --         }
 --     ->
---         { moduleVisitorSchema : Rule.ModuleRuleSchema Rule.ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Rule.ModuleRuleSchema Rule.ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
+--         { moduleVisitor : Rule.ModuleRuleSchema Rule.ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Rule.ModuleRuleSchema Rule.ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
 --         , initProjectContext : projectContext
 --         , fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> projectContext -> moduleContext
 --         , fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> moduleContext -> projectContext

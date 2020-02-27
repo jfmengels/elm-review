@@ -16,7 +16,7 @@ type alias Context =
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "TestRule"
-        { moduleVisitorSchema = moduleVisitorSchema
+        { moduleVisitor = moduleVisitor
         , initProjectContext = initProjectContext
         , fromProjectToModule = fromProjectToModule
         , fromModuleToProject = fromModuleToProject
@@ -27,8 +27,8 @@ rule =
         |> Rule.fromProjectRuleSchema
 
 
-moduleVisitorSchema : Rule.ModuleRuleSchema {} Context -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } Context
-moduleVisitorSchema schema =
+moduleVisitor : Rule.ModuleRuleSchema {} Context -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } Context
+moduleVisitor schema =
     schema
         |> Rule.withModuleDefinitionVisitor (\moduleNode context -> ( [], context ))
 

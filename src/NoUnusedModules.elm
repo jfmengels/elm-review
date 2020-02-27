@@ -47,7 +47,7 @@ unused modules in your application or package.
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "NoUnused.Modules"
-        { moduleVisitorSchema = moduleVisitorSchema
+        { moduleVisitor = moduleVisitor
         , initProjectContext = initProjectContext
         , fromProjectToModule = fromProjectToModule
         , fromModuleToProject = fromModuleToProject
@@ -58,8 +58,8 @@ rule =
         |> Rule.fromProjectRuleSchema
 
 
-moduleVisitorSchema : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
-moduleVisitorSchema schema =
+moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
+moduleVisitor schema =
     schema
         |> Rule.withImportVisitor importVisitor
         |> Rule.withDeclarationListVisitor declarationListVisitor

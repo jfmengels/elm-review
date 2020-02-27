@@ -127,7 +127,7 @@ project =
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "TestRule"
-        { moduleVisitorSchema =
+        { moduleVisitor =
             \schema ->
                 schema
                     |> Scope.addModuleVisitors
