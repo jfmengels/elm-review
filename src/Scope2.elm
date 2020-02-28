@@ -41,7 +41,7 @@ import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
 import NonemptyList exposing (Nonempty)
 import Review.Project
-import Review.Rule as Rule exposing (Direction, Error)
+import Review.Rule as Rule exposing (Direction)
 
 
 
@@ -260,7 +260,7 @@ mapInnerModuleContext visitor visitedElement outerContext =
     { outerContext | scope = ModuleContext innerContext }
 
 
-pairWithNoErrors : (visited -> context -> context) -> visited -> context -> ( List Error, context )
+pairWithNoErrors : (visited -> context -> context) -> visited -> context -> ( List nothing, context )
 pairWithNoErrors fn visited context =
     ( [], fn visited context )
 

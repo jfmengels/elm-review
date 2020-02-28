@@ -165,7 +165,7 @@ elmJsonVisitor maybeProject projectContext =
 -- IMPORT VISITOR
 
 
-importVisitor : Node Import -> ModuleContext -> ( List Error, ModuleContext )
+importVisitor : Node Import -> ModuleContext -> ( List nothing, ModuleContext )
 importVisitor node importedModuleNames =
     ( []
     , Set.insert (moduleNameForImport node) importedModuleNames

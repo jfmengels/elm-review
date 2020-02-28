@@ -34,7 +34,7 @@ import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range
 import NonemptyList exposing (Nonempty)
 import Review.Project
-import Review.Rule as Rule exposing (Direction, Error)
+import Review.Rule as Rule exposing (Direction)
 
 
 
@@ -130,7 +130,7 @@ mapInnerContext visitor visitedElement outerContext =
     { outerContext | scope = Context innerContext }
 
 
-pairWithNoErrors : (visited -> context -> context) -> visited -> context -> ( List Error, context )
+pairWithNoErrors : (visited -> context -> context) -> visited -> context -> ( List nothing, context )
 pairWithNoErrors fn visited context =
     ( [], fn visited context )
 

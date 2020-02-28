@@ -34,7 +34,7 @@ initialContext =
     }
 
 
-moduleDefinitionVisitor : Node Module -> Context -> ( List Error, Context )
+moduleDefinitionVisitor : Node Module -> Context -> ( List nothing, Context )
 moduleDefinitionVisitor node context =
     if (Node.value node |> Module.moduleName) == [ "Button" ] then
         ( [], { context | allowed = HtmlButtonIsAllowed } )

@@ -188,7 +188,7 @@ variableTypeWarning value =
             " (Warning: Removing this port may break your application if it is used in the JS code)"
 
 
-moduleDefinitionVisitor : Node Module -> Context -> ( List Error, Context )
+moduleDefinitionVisitor : Node Module -> Context -> ( List nothing, Context )
 moduleDefinitionVisitor (Node _ moduleNode) context =
     case Module.exposingList moduleNode of
         All _ ->
@@ -218,7 +218,7 @@ moduleDefinitionVisitor (Node _ moduleNode) context =
             ( [], markAllAsUsed names context )
 
 
-importVisitor : Node Import -> Context -> ( List Error, Context )
+importVisitor : Node Import -> Context -> ( List nothing, Context )
 importVisitor ((Node range { exposingList, moduleAlias, moduleName }) as importNode) context =
     case exposingList of
         Nothing ->
@@ -468,7 +468,7 @@ getUsedModulesFromPattern patternNode =
             getUsedModulesFromPattern pattern
 
 
-declarationVisitor : Node Declaration -> Direction -> Context -> ( List Error, Context )
+declarationVisitor : Node Declaration -> Direction -> Context -> ( List nothing, Context )
 declarationVisitor node direction context =
     case ( direction, Node.value node ) of
         ( Rule.OnEnter, FunctionDeclaration function ) ->

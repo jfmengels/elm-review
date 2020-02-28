@@ -178,7 +178,7 @@ error ( moduleName, { moduleKey, moduleNameLocation } ) =
 -- IMPORT VISITOR
 
 
-importVisitor : Node Import -> ModuleContext -> ( List Error, ModuleContext )
+importVisitor : Node Import -> ModuleContext -> ( List nothing, ModuleContext )
 importVisitor node context =
     ( []
     , { context | importedModules = Set.insert (moduleNameForImport node) context.importedModules }
@@ -197,7 +197,7 @@ moduleNameForImport node =
 -- DECLARATION LIST VISITOR
 
 
-declarationListVisitor : List (Node Declaration) -> ModuleContext -> ( List Error, ModuleContext )
+declarationListVisitor : List (Node Declaration) -> ModuleContext -> ( List nothing, ModuleContext )
 declarationListVisitor list context =
     if context.isPackage then
         ( [], context )

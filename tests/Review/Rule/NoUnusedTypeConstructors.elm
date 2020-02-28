@@ -106,7 +106,7 @@ error node =
         (Node.range node)
 
 
-moduleDefinitionVisitor : Node Module -> Context -> ( List Error, Context )
+moduleDefinitionVisitor : Node Module -> Context -> ( List nothing, Context )
 moduleDefinitionVisitor moduleNode context =
     case Module.exposingList (Node.value moduleNode) of
         All _ ->
@@ -140,7 +140,7 @@ moduleDefinitionVisitor moduleNode context =
             )
 
 
-declarationVisitor : Node Declaration -> Direction -> Context -> ( List Error, Context )
+declarationVisitor : Node Declaration -> Direction -> Context -> ( List nothing, Context )
 declarationVisitor node direction context =
     case ( direction, Node.value node ) of
         ( Rule.OnEnter, CustomTypeDeclaration { name, constructors } ) ->
@@ -175,7 +175,7 @@ declarationVisitor node direction context =
             ( [], context )
 
 
-expressionVisitor : Node Expression -> Direction -> Context -> ( List Error, Context )
+expressionVisitor : Node Expression -> Direction -> Context -> ( List nothing, Context )
 expressionVisitor node direction context =
     if context.exposesEverything then
         ( [], context )

@@ -270,7 +270,7 @@ removeReviewConfig moduleName dict =
 -- MODULE DEFINITION VISITOR
 
 
-moduleDefinitionVisitor : Node Module -> ModuleContext -> ( List Error, ModuleContext )
+moduleDefinitionVisitor : Node Module -> ModuleContext -> ( List nothing, ModuleContext )
 moduleDefinitionVisitor moduleNode moduleContext =
     case Module.exposingList (Node.value moduleNode) of
         Exposing.All _ ->
@@ -305,7 +305,7 @@ exposedElements nodes =
 -- DECLARATION LIST VISITOR
 
 
-declarationListVisitor : List (Node Declaration) -> ModuleContext -> ( List Error, ModuleContext )
+declarationListVisitor : List (Node Declaration) -> ModuleContext -> ( List nothing, ModuleContext )
 declarationListVisitor declarations moduleContext =
     let
         declaredNames : Set String
