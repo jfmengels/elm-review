@@ -804,10 +804,7 @@ Let's look at the data that we will be working with.
 
 At the project level, we are interested in 3 things. 1) The declared modules
 that may have to be reported. This is a dictionary containing a [`Rule.ModuleKey`](#ModuleKey),
-which we need to report errors in the final module evaluation. 2) The set of used modules.
-
-that contains
-ok
+which we need to report errors in the final module evaluation. 2) The set of modules for which we found an import. 3) whether the project is a package.
 
     initProjectContext : ProjectContext
     initProjectContext =
