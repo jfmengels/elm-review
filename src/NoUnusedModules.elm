@@ -53,7 +53,7 @@ rule =
         , fromModuleToProject = fromModuleToProject
         , foldProjectContexts = foldProjectContexts
         }
-        |> Rule.withProjectElmJsonVisitor elmJsonVisitor
+        |> Rule.withElmJsonProjectVisitor elmJsonVisitor
         |> Rule.withFinalProjectEvaluation finalEvaluationForProject
         |> Rule.fromProjectRuleSchema
 

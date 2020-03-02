@@ -40,7 +40,7 @@ rule configuration =
         , fromModuleToProject = fromModuleToProject
         , foldProjectContexts = foldProjectContexts
         }
-        |> Rule.withProjectElmJsonVisitor elmJsonVisitor
+        |> Rule.withElmJsonProjectVisitor elmJsonVisitor
         |> Rule.withProjectDependenciesVisitor dependenciesVisitor
         |> Rule.withFinalProjectEvaluation (finalEvaluationForProject configuration)
         |> Rule.fromProjectRuleSchema

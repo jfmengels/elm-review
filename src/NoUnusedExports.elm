@@ -62,7 +62,7 @@ rule =
         }
         |> Scope.addProjectVisitors
         |> Rule.withContextFromImportedModules
-        |> Rule.withProjectElmJsonVisitor elmJsonVisitor
+        |> Rule.withElmJsonProjectVisitor elmJsonVisitor
         |> Rule.withFinalProjectEvaluation finalEvaluationForProject
         |> Rule.fromProjectRuleSchema
 

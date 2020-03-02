@@ -5,7 +5,7 @@ module Review.Rule exposing
     , withSimpleModuleDefinitionVisitor, withSimpleCommentsVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
     , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withModuleDependenciesVisitor
-    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation, withContextFromImportedModules
+    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withElmJsonProjectVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation, withContextFromImportedModules
     , Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, ModuleKey, errorForFile, ElmJsonKey, errorForElmJson
     , withFixes
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
@@ -189,7 +189,7 @@ Evaluating/visiting a node means two things:
 
 ## Creating a project rule
 
-@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withProjectElmJsonVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation, withContextFromImportedModules
+@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withElmJsonProjectVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation, withContextFromImportedModules
 
 
 ## Errors
@@ -750,7 +750,7 @@ Let's go through an example of a rule that reports unused modules.
             , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
             }
-            |> Rule.withProjectElmJsonVisitor elmJsonVisitor
+            |> Rule.withElmJsonProjectVisitor elmJsonVisitor
             |> Rule.withFinalProjectEvaluation finalProjectEvaluation
             |> Rule.fromProjectRuleSchema
 
@@ -762,7 +762,7 @@ Let's go through an example of a rule that reports unused modules.
 
 The rule will work like this:
 
-  - We will visit the `elm.json` ([`withProjectElmJsonVisitor`](#withProjectElmJsonVisitor)) to determine whether this project is a package
+  - We will visit the `elm.json` ([`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor)) to determine whether this project is a package
     or an application. If it's a package, we will mark the exposed modules as used.
   - We will visit every module (`moduleVisitor`), and for every one:
       - If the project is an application, mark the module as used if it contains a `main` function.
@@ -775,7 +775,7 @@ You define how you want to visit each file with `moduleVisitor`. `moduleVisitor`
 same visitors as for module rules. The exception are the following visitors, which
 are replaced by functions that you need to use on the project rule schema.
 
-  - [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor), replaced by [`withProjectElmJsonVisitor`](#withProjectElmJsonVisitor)
+  - [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor), replaced by [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor)
   - [`withModuleDependenciesVisitor`](#withModuleDependenciesVisitor), replaced by [`withProjectDependenciesVisitor`](#withProjectDependenciesVisitor)
   - [`withFinalModuleEvaluation`](#withFinalModuleEvaluation), replaced by [`withFinalProjectEvaluation`](#withFinalProjectEvaluation)
 
@@ -899,7 +899,7 @@ Before looking at modules...TODO
   - A final evaluation is made when the module has fully been visited, using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation)
 
 You can't use [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor) or [`withModuleDependenciesVisitor`](#withModuleDependenciesVisitor)
-in project rules. Instead, you should use [`withProjectElmJsonVisitor`](#withProjectElmJsonVisitor) or [`withProjectDependenciesVisitor`](#withProjectDependenciesVisitor).
+in project rules. Instead, you should use [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor) or [`withProjectDependenciesVisitor`](#withProjectDependenciesVisitor).
 
 -}
 newProjectRuleSchema :
@@ -949,11 +949,11 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
 
 {-| TODO documentation
 -}
-withProjectElmJsonVisitor :
+withElmJsonProjectVisitor :
     (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> projectContext)
     -> ProjectRuleSchema projectContext moduleContext
     -> ProjectRuleSchema projectContext moduleContext
-withProjectElmJsonVisitor visitor (ProjectRuleSchema schema) =
+withElmJsonProjectVisitor visitor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
 
 
@@ -985,7 +985,7 @@ When you finish analyzing a module, the `moduleContext` is turned into a `projec
 through [`fromModuleToProject`](#newProjectRuleSchema). Before analyzing a file,
 the `projectContext`s of its imported modules get folded into a single one
 starting with the initial context (that may have visited the
-[`elm.json` file](#withProjectElmJsonVisitor) and/or the [project's dependencies](#withProjectDependenciesVisitor))
+[`elm.json` file](#withElmJsonProjectVisitor) and/or the [project's dependencies](#withProjectDependenciesVisitor))
 using [`foldProjectContexts`](#newProjectRuleSchema).
 
 If there is information about another module that you wish to access, you should
@@ -2179,7 +2179,7 @@ errorForFile (ModuleKey path) { message, details } range =
 key in order to use the [`errorForElmJson`](#errorForElmJson) function. This is
 to prevent creating errors for it if you have not visited it.
 
-You can get a `ElmJsonKey` using the [`withProjectElmJsonVisitor`](#withProjectElmJsonVisitor) function.
+You can get a `ElmJsonKey` using the [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor) function.
 
 -}
 type ElmJsonKey

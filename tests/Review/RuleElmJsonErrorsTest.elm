@@ -22,7 +22,7 @@ rule =
         , fromModuleToProject = fromModuleToProject
         , foldProjectContexts = foldProjectContexts
         }
-        |> Rule.withProjectElmJsonVisitor (\elmJson _ -> elmJson |> Maybe.map .elmJsonKey)
+        |> Rule.withElmJsonProjectVisitor (\elmJson _ -> elmJson |> Maybe.map .elmJsonKey)
         |> Rule.withFinalProjectEvaluation finalEvaluationForProject
         |> Rule.fromProjectRuleSchema
 
