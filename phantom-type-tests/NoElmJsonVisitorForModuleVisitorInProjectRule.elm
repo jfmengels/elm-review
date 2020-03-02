@@ -1,6 +1,6 @@
 module NoWithInitialContextAfterHavingAddedAVisitor exposing (rule)
 
-{-| We want to forbid module visitors from using `withModuleElmJsonVisitor`.
+{-| We want to forbid module visitors from using `withElmJsonModuleVisitor`.
 
 
 # Rule

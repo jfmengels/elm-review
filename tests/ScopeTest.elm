@@ -34,7 +34,7 @@ baseRule :
     Rule.ModuleRuleSchema
         { hasAtLeastOneVisitor : ()
         , withModuleDependenciesVisitor : ()
-        , withModuleElmJsonVisitor : ()
+        , withElmJsonModuleVisitor : ()
         }
         Context
 baseRule =

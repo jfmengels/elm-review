@@ -274,7 +274,7 @@ precomputeModuleGraph ((Project p) as project) =
 
 {-| Add the content of the `elm.json` file to the project details, making it
 available for rules to access using
-[`Review.Rule.withModuleElmJsonVisitor`](./Review-Rule#withModuleElmJsonVisitor) and
+[`Review.Rule.withElmJsonModuleVisitor`](./Review-Rule#withElmJsonModuleVisitor) and
 [`Review.Rule.withProjectElmJsonVisitor`](./Review-Rule#withProjectElmJsonVisitor).
 
 The `raw` value should be the raw JSON as a string, and `contents` corresponds to

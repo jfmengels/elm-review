@@ -21,7 +21,7 @@ all =
                     rule : Rule
                     rule =
                         Rule.newModuleRuleSchema "TestRule" "\n0 - initial context"
-                            |> Rule.withModuleElmJsonVisitor (\_ context -> context ++ "\n1 - withModuleElmJsonVisitor")
+                            |> Rule.withElmJsonModuleVisitor (\_ context -> context ++ "\n1 - withElmJsonModuleVisitor")
                             |> Rule.withModuleDependenciesVisitor (\_ context -> context ++ "\n2 - withModuleDependenciesVisitor")
                             |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ++ "\n3 - withModuleDefinitionVisitor" ))
                             |> Rule.withImportVisitor (\_ context -> ( [], context ++ "\n4 - withImportVisitor" ))
@@ -64,7 +64,7 @@ a = 1
                         [ Review.Test.error
                             { message = """
 0 - initial context
-1 - withModuleElmJsonVisitor
+1 - withElmJsonModuleVisitor
 2 - withModuleDependenciesVisitor
 3 - withModuleDefinitionVisitor
 4 - withImportVisitor
