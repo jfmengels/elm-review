@@ -174,7 +174,7 @@ addProjectVisitors : Rule.ProjectRuleSchema { projectContext | scope : ProjectCo
 addProjectVisitors schema =
     schema
         |> Rule.withContextFromImportedModules
-        |> Rule.withProjectDependenciesVisitor (mapInnerProjectContext dependenciesVisitor)
+        |> Rule.withDependenciesProjectVisitor (mapInnerProjectContext dependenciesVisitor)
 
 
 addModuleVisitors : Rule.ModuleRuleSchema anything { moduleContext | scope : ModuleContext } -> Rule.ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } { moduleContext | scope : ModuleContext }
