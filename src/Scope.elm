@@ -83,11 +83,11 @@ emptyScope =
 
 
 addVisitors :
-    Rule.ModuleRuleSchema { anything | withModuleDependenciesVisitor : () } { context | scope : Context }
-    -> Rule.ModuleRuleSchema { anything | withModuleDependenciesVisitor : (), hasAtLeastOneVisitor : () } { context | scope : Context }
+    Rule.ModuleRuleSchema { anything | withDependenciesModuleVisitor : () } { context | scope : Context }
+    -> Rule.ModuleRuleSchema { anything | withDependenciesModuleVisitor : (), hasAtLeastOneVisitor : () } { context | scope : Context }
 addVisitors schema =
     schema
-        |> Rule.withModuleDependenciesVisitor
+        |> Rule.withDependenciesModuleVisitor
             (mapInnerContext dependenciesVisitor)
         |> Rule.withImportVisitor
             (mapInnerContext importVisitor |> pairWithNoErrors)

@@ -4,7 +4,7 @@ module Review.Rule exposing
     , ModuleRuleSchema, newModuleRuleSchema, fromModuleRuleSchema
     , withSimpleModuleDefinitionVisitor, withSimpleCommentsVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
     , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalModuleEvaluation
-    , withElmJsonModuleVisitor, withModuleDependenciesVisitor
+    , withElmJsonModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withElmJsonProjectVisitor, withProjectDependenciesVisitor, withFinalProjectEvaluation, withContextFromImportedModules
     , Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, ModuleKey, errorForFile, ElmJsonKey, errorForElmJson
     , withFixes
@@ -151,7 +151,7 @@ The traversal of a module rule is the following:
 
   - Read project-related info (only collect data in the context in these steps)
       - The `elm.json` file, visited by [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor)
-      - The definition for dependencies, visited by [`withModuleDependenciesVisitor`](#withModuleDependenciesVisitor)
+      - The definition for dependencies, visited by [`withDependenciesModuleVisitor`](#withDependenciesModuleVisitor)
   - Visit the file (in the following order)
       - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
       - The module's list of comments, visited by [`withSimpleCommentsVisitor`](#withSimpleCommentsVisitor) and [`withCommentsVisitor`](#withCommentsVisitor)
@@ -184,7 +184,7 @@ Evaluating/visiting a node means two things:
 
 ## Builder functions to analyze the project's data
 
-@docs withElmJsonModuleVisitor, withModuleDependenciesVisitor
+@docs withElmJsonModuleVisitor, withDependenciesModuleVisitor
 
 
 ## Creating a project rule
@@ -521,7 +521,7 @@ take a look at [`withInitialContext`](#withInitialContext) and "with\*" function
 newModuleRuleSchema :
     String
     -> moduleContext
-    -> ModuleRuleSchema { withElmJsonModuleVisitor : (), withModuleDependenciesVisitor : () } moduleContext
+    -> ModuleRuleSchema { withElmJsonModuleVisitor : (), withDependenciesModuleVisitor : () } moduleContext
 newModuleRuleSchema name_ moduleContext =
     emptySchema name_ moduleContext
 
@@ -776,7 +776,7 @@ same visitors as for module rules. The exception are the following visitors, whi
 are replaced by functions that you need to use on the project rule schema.
 
   - [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor), replaced by [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor)
-  - [`withModuleDependenciesVisitor`](#withModuleDependenciesVisitor), replaced by [`withProjectDependenciesVisitor`](#withProjectDependenciesVisitor)
+  - [`withDependenciesModuleVisitor`](#withDependenciesModuleVisitor), replaced by [`withProjectDependenciesVisitor`](#withProjectDependenciesVisitor)
   - [`withFinalModuleEvaluation`](#withFinalModuleEvaluation), replaced by [`withFinalProjectEvaluation`](#withFinalProjectEvaluation)
 
 Let's look at the data that we will be working with.
@@ -886,7 +886,7 @@ Before looking at modules...TODO
 
   - Read project-related info (only collect data in the context in these steps)
       - The `elm.json` file, visited by [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor)
-      - The definition for dependencies, visited by [`withModuleDependenciesVisitor`](#withModuleDependenciesVisitor)
+      - The definition for dependencies, visited by [`withDependenciesModuleVisitor`](#withDependenciesModuleVisitor)
   - Visit the file (in the following order)
       - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
       - The module's list of comments, visited by [`withSimpleCommentsVisitor`](#withSimpleCommentsVisitor) and [`withCommentsVisitor`](#withCommentsVisitor)
@@ -898,7 +898,7 @@ Before looking at modules...TODO
       - A final evaluation is made when the module has fully been visited, using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation)
   - A final evaluation is made when the module has fully been visited, using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation)
 
-You can't use [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor) or [`withModuleDependenciesVisitor`](#withModuleDependenciesVisitor)
+You can't use [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor) or [`withDependenciesModuleVisitor`](#withDependenciesModuleVisitor)
 in project rules. Instead, you should use [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor) or [`withProjectDependenciesVisitor`](#withProjectDependenciesVisitor).
 
 -}
@@ -1684,11 +1684,11 @@ withElmJsonModuleVisitor visitor (ModuleRuleSchema schema) =
 
 {-| TODO
 -}
-withModuleDependenciesVisitor :
+withDependenciesModuleVisitor :
     (Dict String Review.Project.Dependency -> moduleContext -> moduleContext)
-    -> ModuleRuleSchema { anything | withModuleDependenciesVisitor : () } moduleContext
-    -> ModuleRuleSchema { anything | withModuleDependenciesVisitor : () } moduleContext
-withModuleDependenciesVisitor visitor (ModuleRuleSchema schema) =
+    -> ModuleRuleSchema { anything | withDependenciesModuleVisitor : () } moduleContext
+    -> ModuleRuleSchema { anything | withDependenciesModuleVisitor : () } moduleContext
+withDependenciesModuleVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | dependenciesVisitors = visitor :: schema.dependenciesVisitors }
 
 
