@@ -20,7 +20,7 @@ module Review.Test.ErrorMessage exposing
 -}
 
 import Elm.Syntax.Range exposing (Range)
-import ListExtra
+import Vendor.ListExtra
 import Review.Rule as Rule exposing (Error)
 
 
