@@ -107,12 +107,12 @@ import Elm.Syntax.Module as Module
 import Elm.Syntax.Node as Node
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
-import Vendor.ListExtra
 import Review.Fix as Fix
 import Review.Project as Project exposing (Project, ProjectModule)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test.ErrorMessage as ErrorMessage
 import Set exposing (Set)
+import Vendor.ListExtra as ListExtra
 
 
 

@@ -128,7 +128,7 @@ in the context of your rule.
 import Array
 import Elm.Parser
 import Elm.Syntax.Range exposing (Range)
-import Vendor.ListExtra
+import Vendor.ListExtra as ListExtra
 
 
 

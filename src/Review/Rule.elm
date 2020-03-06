@@ -234,12 +234,12 @@ import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
-import Graph exposing (Graph)
-import IntDict
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix exposing (Fix)
 import Review.Project exposing (Project, ProjectModule)
 import Set exposing (Set)
+import Vendor.Graph as Graph exposing (Graph)
+import Vendor.IntDict as IntDict
 
 
 {-| Represents a construct able to analyze a project and report

@@ -47,8 +47,8 @@ import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
 import Elm.Version
-import Graph exposing (Graph)
 import Review.Dependencies
+import Vendor.Graph as Graph exposing (Graph)
 
 
 
@@ -219,24 +219,14 @@ filesThatFailedToParse (Project project) =
 
 
 {-| Get the module graph for the project in the form of a
-[`elm-community/graph` Graph].
+[`elm-community/graph` Graph]. This is used by `Review.Rule` internally.
 
-The value contained in the [`Node`]s correspond to the module name, where the
-name is split by the `.` symbol. So the module `Some.Module` would correspond to
-`[ "Some", "Module" ]`.
-
-[`Edge`]s in this graph mean that a module is imported by another module: If there
-is an edge going from `[ "Some", "Module" ]` to `[ "Other", "Module" ]`, then
-module `Other.Module` is importing module `Some.Module`.
-
-Note that the graph will be computed every time this function is called, and that
-every rule may call this function once per review. To avoid this computation at
-every call, you can use [`precomputeModuleGraph`].
+The dependency is actually copied into the project, which means that you won't
+be able to use this value, even if you add `elm-community/graph` as a dependency.
+This is an unfortunately visible implementation detail, it is not meant for you
+to use.
 
 [`elm-community/graph` Graph]: https://package.elm-lang.org/packages/elm-community/graph/6.0.0/Graph#Graph
-[`Node`]: https://package.elm-lang.org/packages/elm-community/graph/6.0.0/Graph#Node
-[`Edge`]: https://package.elm-lang.org/packages/elm-community/graph/6.0.0/Graph#Edge
-[`precomputeModuleGraph`]: #precomputeModuleGraph
 
 -}
 moduleGraph : Project -> Graph (List String) ()

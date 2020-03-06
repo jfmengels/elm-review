@@ -29,3 +29,4 @@ config =
     , NoUnusedExports.rule
     , NoUnusedModules.rule
     ]
+        |> List.map (Rule.ignoreErrorsForDirectories [ "src/Vendor/" ])

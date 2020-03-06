@@ -20,8 +20,8 @@ module Review.Test.ErrorMessage exposing
 -}
 
 import Elm.Syntax.Range exposing (Range)
-import Vendor.ListExtra
 import Review.Rule as Rule exposing (Error)
+import Vendor.ListExtra as ListExtra
 
 
 {-| An expectation for an error. Use [`error`](#error) to create one.
