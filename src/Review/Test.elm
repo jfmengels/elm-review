@@ -320,57 +320,61 @@ interested in project related details, then you should use [`runOnModules`](#run
 -}
 runOnModulesWithProjectData : Project -> Rule -> List String -> ReviewResult
 runOnModulesWithProjectData project rule sources =
-    let
-        projectWithModules : Project
-        projectWithModules =
-            sources
-                |> List.indexedMap
-                    (\index source ->
-                        { path = "TestContent_" ++ String.fromInt index ++ ".elm"
-                        , source = source
+    if List.isEmpty sources then
+        FailedRun ErrorMessage.missingSources
+
+    else
+        let
+            projectWithModules : Project
+            projectWithModules =
+                sources
+                    |> List.indexedMap
+                        (\index source ->
+                            { path = "TestContent_" ++ String.fromInt index ++ ".elm"
+                            , source = source
+                            }
+                        )
+                    |> List.foldl Project.addModule project
+        in
+        case Project.filesThatFailedToParse projectWithModules of
+            { source } :: _ ->
+                let
+                    fileAndIndex : { source : String, index : Int }
+                    fileAndIndex =
+                        { source = source
+                        , index = indexOf source sources |> Maybe.withDefault -1
                         }
-                    )
-                |> List.foldl Project.addModule project
-    in
-    case Project.filesThatFailedToParse projectWithModules of
-        { source } :: _ ->
-            let
-                fileAndIndex : { source : String, index : Int }
-                fileAndIndex =
-                    { source = source
-                    , index = indexOf source sources |> Maybe.withDefault -1
-                    }
-            in
-            FailedRun <| ErrorMessage.parsingFailure (List.length sources == 1) fileAndIndex
+                in
+                FailedRun <| ErrorMessage.parsingFailure (List.length sources == 1) fileAndIndex
 
-        [] ->
-            let
-                modules : List ProjectModule
-                modules =
-                    Project.modules projectWithModules
-            in
-            case findDuplicateModuleNames Set.empty modules of
-                Just moduleName ->
-                    FailedRun <| ErrorMessage.duplicateModuleName moduleName
+            [] ->
+                let
+                    modules : List ProjectModule
+                    modules =
+                        Project.modules projectWithModules
+                in
+                case findDuplicateModuleNames Set.empty modules of
+                    Just moduleName ->
+                        FailedRun <| ErrorMessage.duplicateModuleName moduleName
 
-                Nothing ->
-                    let
-                        errors : List Error
-                        errors =
-                            projectWithModules
-                                |> Rule.review [ rule ]
-                                |> Tuple.first
-                    in
-                    case ListExtra.find (\err_ -> Rule.errorFilePath err_ == "GLOBAL ERROR") errors of
-                        Just globalError ->
-                            FailedRun <| ErrorMessage.globalErrorInTest globalError
+                    Nothing ->
+                        let
+                            errors : List Error
+                            errors =
+                                projectWithModules
+                                    |> Rule.review [ rule ]
+                                    |> Tuple.first
+                        in
+                        case ListExtra.find (\err_ -> Rule.errorFilePath err_ == "GLOBAL ERROR") errors of
+                            Just globalError ->
+                                FailedRun <| ErrorMessage.globalErrorInTest globalError
 
-                        Nothing ->
-                            List.concat
-                                [ List.map (moduleToRunResult errors) modules
-                                , elmJsonRunResult errors projectWithModules
-                                ]
-                                |> SuccessfulRun
+                            Nothing ->
+                                List.concat
+                                    [ List.map (moduleToRunResult errors) modules
+                                    , elmJsonRunResult errors projectWithModules
+                                    ]
+                                    |> SuccessfulRun
 
 
 moduleToRunResult : List Error -> ProjectModule -> SuccessfulRunResult

@@ -2,7 +2,7 @@ module Review.Test.ErrorMessage exposing
     ( ExpectedErrorData
     , parsingFailure, globalErrorInTest, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
     , underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
-    , needToUsedExpectErrorsForModules, duplicateModuleName, unknownModulesInExpectedErrors
+    , needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
     , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
     )
 
@@ -14,7 +14,7 @@ module Review.Test.ErrorMessage exposing
 @docs ExpectedErrorData
 @docs parsingFailure, globalErrorInTest, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
 @docs underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
-@docs needToUsedExpectErrorsForModules, duplicateModuleName, unknownModulesInExpectedErrors
+@docs needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
 @docs missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
 
 -}
@@ -307,6 +307,17 @@ module B exposing (..)
       |> Review.Test.expectErrorsForModules
           [ ( "B", [ Review.Test.error someError ] )
           ]"""
+
+
+missingSources : String
+missingSources =
+    """MISSING SOURCES
+
+You used `runOnModules` or `runOnModulesWithProjectData` with an empty list
+of sources files.
+
+I need sources to reviewing, because reviewing an empty project does not
+make much sense to me."""
 
 
 duplicateModuleName : List String -> String

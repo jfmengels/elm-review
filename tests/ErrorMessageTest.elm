@@ -24,6 +24,7 @@ all =
         , tooManyErrorsTest
         , locationIsAmbiguousInSourceCodeTest
         , needToUsedExpectErrorsForModulesTest
+        , missingSourcesTest
         , duplicateModuleNameTest
         , unknownModulesInExpectedErrorsTest
         , missingFixesTest
@@ -691,6 +692,22 @@ module B exposing (..)
       |> Review.Test.expectErrorsForModules
           [ ( "B", [ Review.Test.error someError ] )
           ]"""
+
+
+missingSourcesTest : Test
+missingSourcesTest =
+    test "missingSources" <|
+        \() ->
+            ErrorMessage.missingSources
+                |> expectMessageEqual """
+MISSING SOURCES
+
+You used `runOnModules` or `runOnModulesWithProjectData` with an empty list
+of sources files.
+
+I need sources to reviewing, because reviewing an empty project does not
+make much sense to me.
+"""
 
 
 duplicateModuleNameTest : Test
