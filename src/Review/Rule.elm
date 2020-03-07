@@ -516,7 +516,7 @@ take a look at [`withInitialContext`](#withInitialContext) and "with\*" function
 newModuleRuleSchema :
     String
     -> moduleContext
-    -> ModuleRuleSchema { withElmJsonModuleVisitor : (), withDependenciesModuleVisitor : () } moduleContext
+    -> ModuleRuleSchema { canCollectProjectData : () } moduleContext
 newModuleRuleSchema name_ moduleContext =
     emptySchema name_ moduleContext
 
@@ -1671,8 +1671,8 @@ The following example forbids exposing a file in an "Internal" directory in your
 -}
 withElmJsonModuleVisitor :
     (Maybe Elm.Project.Project -> moduleContext -> moduleContext)
-    -> ModuleRuleSchema { anything | withElmJsonModuleVisitor : () } moduleContext
-    -> ModuleRuleSchema { anything | withElmJsonModuleVisitor : () } moduleContext
+    -> ModuleRuleSchema { anything | canCollectProjectData : () } moduleContext
+    -> ModuleRuleSchema { anything | canCollectProjectData : () } moduleContext
 withElmJsonModuleVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
 
@@ -1681,8 +1681,8 @@ withElmJsonModuleVisitor visitor (ModuleRuleSchema schema) =
 -}
 withDependenciesModuleVisitor :
     (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
-    -> ModuleRuleSchema { anything | withDependenciesModuleVisitor : () } moduleContext
-    -> ModuleRuleSchema { anything | withDependenciesModuleVisitor : () } moduleContext
+    -> ModuleRuleSchema { anything | canCollectProjectData : () } moduleContext
+    -> ModuleRuleSchema { anything | canCollectProjectData : () } moduleContext
 withDependenciesModuleVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | dependenciesVisitors = visitor :: schema.dependenciesVisitors }
 

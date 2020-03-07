@@ -33,8 +33,7 @@ testRule rule string =
 baseRule :
     Rule.ModuleRuleSchema
         { hasAtLeastOneVisitor : ()
-        , withDependenciesModuleVisitor : ()
-        , withElmJsonModuleVisitor : ()
+        , canCollectProjectData : ()
         }
         Context
 baseRule =
