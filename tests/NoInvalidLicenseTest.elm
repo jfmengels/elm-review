@@ -1,10 +1,12 @@
 module NoInvalidLicenseTest exposing (all)
 
+import Elm.Docs
 import Elm.Project
 import Elm.Version
 import Json.Decode as Decode
 import NoInvalidLicense exposing (rule)
 import Review.Project as Project exposing (Project)
+import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Test
 import Test exposing (Test, describe, test)
 
@@ -26,7 +28,7 @@ createElmJson rawElmJson =
             }
 
         Err _ ->
-            createElmJson rawElmJson
+            Debug.todo "Invalid elm.json supplied to test"
 
 
 applicationElmJson : String
@@ -52,36 +54,50 @@ applicationElmJson =
 }"""
 
 
-dependency : String -> Project.Dependency
+dependency : String -> Dependency
 dependency license =
-    { name = "author/dependency"
-    , version = Elm.Version.one
-    , modules =
-        [ { name = "Foo"
-          , comment = ""
-          , unions = []
-          , aliases = []
-          , values = []
-          , binops = []
-          }
-        ]
-    , elmJson = .project <| createElmJson ("""
+    let
+        modules : List Elm.Docs.Module
+        modules =
+            [ { name = "Foo"
+              , comment = ""
+              , unions = []
+              , aliases = []
+              , values = []
+              , binops = []
+              }
+            ]
+
+        rawElmJson : String
+        rawElmJson =
+            """
 {
-    "type": "package",
-    "name": "author/dependency",
-    "summary": "Summary",
-    "license": \"""" ++ license ++ """",
-    "version": "1.0.0",
-    "exposed-modules": [
-        "Foo"
-    ],
-    "elm-version": "0.19.0 <= v < 0.20.0",
-    "dependencies": {
-        "elm/core": "1.0.0 <= v < 2.0.0"
-    },
-    "test-dependencies": {}
-}""")
-    }
+"type": "package",
+"name": "author/dependency",
+"summary": "Summary",
+"license": \"""" ++ license ++ """",
+"version": "1.0.0",
+"exposed-modules": [
+  "Foo"
+],
+"elm-version": "0.19.0 <= v < 0.20.0",
+"dependencies": {
+  "elm/core": "1.0.0 <= v < 2.0.0"
+},
+"test-dependencies": {}
+}
+"""
+
+        elmJson : Elm.Project.Project
+        elmJson =
+            createElmJson rawElmJson
+                |> .project
+    in
+    Dependency.create
+        "author/dependency"
+        Elm.Version.one
+        elmJson
+        modules
 
 
 sourceCode : String

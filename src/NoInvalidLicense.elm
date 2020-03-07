@@ -16,7 +16,7 @@ import Elm.Project
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
-import Review.Project
+import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
@@ -58,7 +58,7 @@ moduleVisitor schema =
         |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ))
 
 
-dependenciesVisitor : Dict String Review.Project.Dependency -> ProjectContext -> ProjectContext
+dependenciesVisitor : Dict String Dependency -> ProjectContext -> ProjectContext
 dependenciesVisitor dependencies projectContext =
     let
         licenses : Dict String String
@@ -67,7 +67,7 @@ dependenciesVisitor dependencies projectContext =
                 |> Dict.toList
                 |> List.filterMap
                     (\( packageName, dependency ) ->
-                        case dependency.elmJson of
+                        case Dependency.elmJson dependency of
                             Elm.Project.Package { license } ->
                                 Just ( packageName, Elm.License.toString license )
 

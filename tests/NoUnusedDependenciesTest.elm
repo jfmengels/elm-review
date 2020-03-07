@@ -1,10 +1,12 @@
 module NoUnusedDependenciesTest exposing (all)
 
+import Elm.Docs
 import Elm.Project
 import Elm.Version
 import Json.Decode as Decode
 import NoUnusedDependencies exposing (rule)
 import Review.Project as Project exposing (Project)
+import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Test
 import Test exposing (Test, describe, test)
 
@@ -27,7 +29,7 @@ createElmJson rawElmJson =
             }
 
         Err _ ->
-            createElmJson rawElmJson
+            Debug.todo "Invalid elm.json supplied to test"
 
 
 applicationElmJson : String
@@ -76,68 +78,84 @@ packageElmJson =
 }"""
 
 
-packageWithFoo : Project.Dependency
+packageWithFoo : Dependency
 packageWithFoo =
-    { name = "author/package-with-foo"
-    , version = Elm.Version.one
-    , modules =
-        [ { name = "Foo"
-          , comment = ""
-          , unions = []
-          , aliases = []
-          , values = []
-          , binops = []
-          }
-        ]
-    , elmJson = .project <| createElmJson """
-{
-    "type": "package",
-    "name": "author/package-with-foo",
-    "summary": "Summary",
-    "license": "BSD-3-Clause",
-    "version": "1.0.0",
-    "exposed-modules": [
-        "Foo"
-    ],
-    "elm-version": "0.19.0 <= v < 0.20.0",
-    "dependencies": {
-        "elm/core": "1.0.0 <= v < 2.0.0"
-    },
-    "test-dependencies": {}
-}"""
-    }
+    let
+        modules : List Elm.Docs.Module
+        modules =
+            [ { name = "Foo"
+              , comment = ""
+              , unions = []
+              , aliases = []
+              , values = []
+              , binops = []
+              }
+            ]
+
+        elmJson : Elm.Project.Project
+        elmJson =
+            .project <| createElmJson """
+  {
+      "type": "package",
+      "name": "author/package-with-foo",
+      "summary": "Summary",
+      "license": "BSD-3-Clause",
+      "version": "1.0.0",
+      "exposed-modules": [
+          "Foo"
+      ],
+      "elm-version": "0.19.0 <= v < 0.20.0",
+      "dependencies": {
+          "elm/core": "1.0.0 <= v < 2.0.0"
+      },
+      "test-dependencies": {}
+  }"""
+    in
+    Dependency.create
+        "author/package-with-foo"
+        Elm.Version.one
+        elmJson
+        modules
 
 
-packageWithBar : Project.Dependency
+packageWithBar : Dependency
 packageWithBar =
-    { name = "author/package-with-bar"
-    , version = Elm.Version.one
-    , modules =
-        [ { name = "Bar"
-          , comment = ""
-          , unions = []
-          , aliases = []
-          , values = []
-          , binops = []
-          }
-        ]
-    , elmJson = .project <| createElmJson """
+    let
+        modules : List Elm.Docs.Module
+        modules =
+            [ { name = "Bar"
+              , comment = ""
+              , unions = []
+              , aliases = []
+              , values = []
+              , binops = []
+              }
+            ]
+
+        elmJson : Elm.Project.Project
+        elmJson =
+            .project <| createElmJson """
 {
-    "type": "package",
-    "name": "author/package-with-bar",
-    "summary": "Summary",
-    "license": "BSD-3-Clause",
-    "version": "1.0.0",
-    "exposed-modules": [
-        "Bar"
-    ],
-    "elm-version": "0.19.0 <= v < 0.20.0",
-    "dependencies": {
-        "elm/core": "1.0.0 <= v < 2.0.0"
-    },
-    "test-dependencies": {}
+  "type": "package",
+  "name": "author/package-with-bar",
+  "summary": "Summary",
+  "license": "BSD-3-Clause",
+  "version": "1.0.0",
+  "exposed-modules": [
+      "Bar"
+  ],
+  "elm-version": "0.19.0 <= v < 0.20.0",
+  "dependencies": {
+      "elm/core": "1.0.0 <= v < 2.0.0"
+  },
+  "test-dependencies": {}
 }"""
-    }
+    in
+    Dependency.create
+        "author/package-with-bar"
+        Elm.Version.one
+        elmJson
+        modules
 
 
 details : List String

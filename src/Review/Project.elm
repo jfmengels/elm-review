@@ -46,7 +46,7 @@ import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
 import Review.Dependencies
-import Review.Project.Dependency exposing (Dependency)
+import Review.Project.Dependency as Dependency exposing (Dependency)
 import Vendor.Graph as Graph exposing (Graph)
 
 
@@ -303,7 +303,7 @@ withDependency dependency (Project project) =
         { project
             | dependencies =
                 Dict.insert
-                    dependency.name
+                    (Dependency.name dependency)
                     dependency
                     project.dependencies
         }

@@ -33,7 +33,7 @@ import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range
 import NonemptyList exposing (Nonempty)
-import Review.Project
+import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Rule as Rule exposing (Direction)
 
 
@@ -139,14 +139,14 @@ pairWithNoErrors fn visited context =
 -- DEPENDENCIES
 
 
-dependenciesVisitor : Dict String Review.Project.Dependency -> InnerContext -> InnerContext
+dependenciesVisitor : Dict String Dependency -> InnerContext -> InnerContext
 dependenciesVisitor dependencies innerContext =
     let
         dependenciesModules : Dict String Elm.Docs.Module
         dependenciesModules =
             dependencies
                 |> Dict.values
-                |> List.concatMap .modules
+                |> List.concatMap Dependency.modules
                 |> List.map (\dependencyModule -> ( dependencyModule.name, dependencyModule ))
                 |> Dict.fromList
     in

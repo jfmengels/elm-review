@@ -40,7 +40,7 @@ import Elm.Syntax.Signature exposing (Signature)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
 import NonemptyList exposing (Nonempty)
-import Review.Project.Dependency exposing (Dependency)
+import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Rule as Rule exposing (Direction)
 
 
@@ -276,7 +276,7 @@ dependenciesVisitor dependencies innerContext =
         dependenciesModules =
             dependencies
                 |> Dict.values
-                |> List.concatMap .modules
+                |> List.concatMap Dependency.modules
                 |> List.map (\dependencyModule -> ( dependencyModule.name, dependencyModule ))
                 |> Dict.fromList
     in

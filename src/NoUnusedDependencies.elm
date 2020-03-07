@@ -16,7 +16,7 @@ import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
-import Review.Project.Dependency exposing (Dependency)
+import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
@@ -73,8 +73,8 @@ dependenciesVisitor dependencies projectContext =
             dependencies
                 |> Dict.toList
                 |> List.concatMap
-                    (\( packageName, { modules } ) ->
-                        List.map (\{ name } -> ( name, packageName )) modules
+                    (\( packageName, dependency ) ->
+                        List.map (\{ name } -> ( name, packageName )) (Dependency.modules dependency)
                     )
                 |> Dict.fromList
     in
