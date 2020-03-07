@@ -2,7 +2,7 @@ module Review.Project exposing
     ( Project, new
     , ProjectModule, addModule, addParsedModule, removeModule, modules, filesThatFailedToParse, moduleGraph, precomputeModuleGraph
     , withElmJson, elmJson
-    , Dependency, withDependency, removeDependencies, dependencies
+    , withDependency, removeDependencies, dependencies
     )
 
 {-| Represents the contents of the project to be analyzed. This information will
@@ -33,12 +33,11 @@ in existing environments like the CLI tool.
 
 # Project dependencies
 
-@docs Dependency, withDependency, removeDependencies, dependencies
+@docs withDependency, removeDependencies, dependencies
 
 -}
 
 import Dict exposing (Dict)
-import Elm.Docs
 import Elm.Parser as Parser
 import Elm.Processing
 import Elm.Project
@@ -46,8 +45,8 @@ import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
-import Elm.Version
 import Review.Dependencies
+import Review.Project.Dependency exposing (Dependency)
 import Vendor.Graph as Graph exposing (Graph)
 
 
@@ -287,20 +286,6 @@ information inside the `elm.json` file.
 elmJson : Project -> Maybe { path : String, raw : String, project : Elm.Project.Project }
 elmJson (Project project) =
     project.elmJson
-
-
-
--- PROJECT DEPENDENCIES
-
-
-{-| TODO Documentation
--}
-type alias Dependency =
-    { name : String
-    , version : Elm.Version.Version
-    , elmJson : Elm.Project.Project
-    , modules : List Elm.Docs.Module
-    }
 
 
 {-| Add a dependency to the project. These will be available for rules to make

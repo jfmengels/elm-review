@@ -237,6 +237,7 @@ import Elm.Syntax.Range exposing (Range)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix exposing (Fix)
 import Review.Project exposing (Project, ProjectModule)
+import Review.Project.Dependency
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
@@ -270,7 +271,7 @@ type ModuleRuleSchema configuration context
         { name : String
         , initialContext : context
         , elmJsonVisitors : List (Maybe Elm.Project.Project -> context -> context)
-        , dependenciesVisitors : List (Dict String Review.Project.Dependency -> context -> context)
+        , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> context -> context)
         , moduleDefinitionVisitors : List (Node Module -> context -> ( List Error, context ))
         , commentsVisitors : List (List (Node String) -> context -> ( List Error, context ))
         , importVisitors : List (Node Import -> context -> ( List Error, context ))
@@ -705,7 +706,7 @@ type ProjectRuleSchema projectContext moduleContext
             }
         , moduleVisitor : ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
         , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> projectContext)
-        , dependenciesVisitors : List (Dict String Review.Project.Dependency -> projectContext -> projectContext)
+        , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> projectContext)
         , finalEvaluationFns : List (projectContext -> List Error)
         , traversalType : TraversalType
         }
@@ -954,7 +955,7 @@ withElmJsonProjectVisitor visitor (ProjectRuleSchema schema) =
 {-| TODO documentation
 -}
 withDependenciesProjectVisitor :
-    (Dict String Review.Project.Dependency -> projectContext -> projectContext)
+    (Dict String Review.Project.Dependency.Dependency -> projectContext -> projectContext)
     -> ProjectRuleSchema projectContext moduleContext
     -> ProjectRuleSchema projectContext moduleContext
 withDependenciesProjectVisitor visitor (ProjectRuleSchema schema) =
@@ -1679,7 +1680,7 @@ withElmJsonModuleVisitor visitor (ModuleRuleSchema schema) =
 {-| TODO
 -}
 withDependenciesModuleVisitor :
-    (Dict String Review.Project.Dependency -> moduleContext -> moduleContext)
+    (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
     -> ModuleRuleSchema { anything | withDependenciesModuleVisitor : () } moduleContext
     -> ModuleRuleSchema { anything | withDependenciesModuleVisitor : () } moduleContext
 withDependenciesModuleVisitor visitor (ModuleRuleSchema schema) =

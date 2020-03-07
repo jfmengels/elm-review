@@ -7,6 +7,7 @@
     "exposed-modules": [
         "Review.Rule",
         "Review.Project",
+        "Review.Project.Dependency",
         "Review.Fix",
         "Review.Test"
     ],

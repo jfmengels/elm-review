@@ -40,7 +40,7 @@ import Elm.Syntax.Signature exposing (Signature)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
 import NonemptyList exposing (Nonempty)
-import Review.Project
+import Review.Project.Dependency exposing (Dependency)
 import Review.Rule as Rule exposing (Direction)
 
 
@@ -269,7 +269,7 @@ pairWithNoErrors fn visited context =
 -- DEPENDENCIES
 
 
-dependenciesVisitor : Dict String Review.Project.Dependency -> InnerProjectContext -> InnerProjectContext
+dependenciesVisitor : Dict String Dependency -> InnerProjectContext -> InnerProjectContext
 dependenciesVisitor dependencies innerContext =
     let
         dependenciesModules : Dict String Elm.Docs.Module
