@@ -2280,8 +2280,8 @@ errorRange (Error err) =
     err.range
 
 
-{-| Get the [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range)
-of an [`Error`](#Error).
+{-| Get the automatic [`fixes`](./Review-Fix#Fix) of an [`Error`](#Error), if it
+defined any.
 -}
 errorFixes : Error -> Maybe (List Fix)
 errorFixes (Error err) =
