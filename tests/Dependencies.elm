@@ -3,7 +3,6 @@ module Dependencies exposing (elmCore, elmHtml)
 import Elm.Docs
 import Elm.Project
 import Elm.Type as Type
-import Elm.Version
 import Json.Decode as Decode
 import Review.Project.Dependency as Dependency exposing (Dependency)
 
@@ -128,7 +127,6 @@ elmCore =
     in
     Dependency.create
         "elm/core"
-        Elm.Version.one
         elmJson
         modules
 
@@ -191,6 +189,5 @@ elmHtml =
     in
     Dependency.create
         "elm/html"
-        Elm.Version.one
         elmJson
         modules

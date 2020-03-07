@@ -2,7 +2,6 @@ module NoInvalidLicenseTest exposing (all)
 
 import Elm.Docs
 import Elm.Project
-import Elm.Version
 import Json.Decode as Decode
 import NoInvalidLicense exposing (rule)
 import Review.Project as Project exposing (Project)
@@ -95,7 +94,6 @@ dependency license =
     in
     Dependency.create
         "author/dependency"
-        Elm.Version.one
         elmJson
         modules
 

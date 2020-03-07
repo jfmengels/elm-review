@@ -16,7 +16,6 @@ module Review.Project.Dependency exposing
 
 import Elm.Docs
 import Elm.Project
-import Elm.Version
 
 
 
@@ -28,7 +27,6 @@ import Elm.Version
 type Dependency
     = Dependency
         { name : String
-        , version : Elm.Version.Version
         , elmJson : Elm.Project.Project
         , modules : List Elm.Docs.Module
         }
@@ -36,11 +34,10 @@ type Dependency
 
 {-| TODO Documentation
 -}
-create : String -> Elm.Version.Version -> Elm.Project.Project -> List Elm.Docs.Module -> Dependency
-create name_ version_ elmJson_ modules_ =
+create : String -> Elm.Project.Project -> List Elm.Docs.Module -> Dependency
+create name_ elmJson_ modules_ =
     Dependency
         { name = name_
-        , version = version_
         , elmJson = elmJson_
         , modules = modules_
         }

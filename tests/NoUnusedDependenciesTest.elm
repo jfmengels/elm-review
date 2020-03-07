@@ -2,7 +2,6 @@ module NoUnusedDependenciesTest exposing (all)
 
 import Elm.Docs
 import Elm.Project
-import Elm.Version
 import Json.Decode as Decode
 import NoUnusedDependencies exposing (rule)
 import Review.Project as Project exposing (Project)
@@ -113,7 +112,6 @@ packageWithFoo =
     in
     Dependency.create
         "author/package-with-foo"
-        Elm.Version.one
         elmJson
         modules
 
@@ -153,7 +151,6 @@ packageWithBar =
     in
     Dependency.create
         "author/package-with-bar"
-        Elm.Version.one
         elmJson
         modules
 
