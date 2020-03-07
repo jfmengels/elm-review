@@ -336,38 +336,26 @@ to compare them or the model that holds them.
 -}
 review : List Rule -> Project -> ( List Error, List Rule )
 review rules project =
-    case Review.Project.modules project |> duplicateModuleNames Dict.empty of
-        Nothing ->
-            let
-                sortedModules : Result (Graph.Edge ()) (List (Graph.NodeContext ModuleName ()))
-                sortedModules =
-                    project
-                        |> Review.Project.moduleGraph
-                        |> Graph.checkAcyclic
-                        |> Result.map Graph.topologicalSort
-            in
-            case sortedModules of
-                Ok nodeContexts ->
+    case project |> Review.Project.filesThatFailedToParse of
+        [] ->
+            case Review.Project.modules project |> duplicateModuleNames Dict.empty of
+                Just duplicate ->
                     let
-                        ( ruleErrors, rulesWithCache ) =
-                            runRules rules project nodeContexts
+                        paths : String
+                        paths =
+                            duplicate.paths
+                                |> List.sort
+                                |> List.map (\s -> "\n  - " ++ s)
+                                |> String.join ""
                     in
-                    ( List.concat
-                        [ ruleErrors
-                        , project
-                            |> Review.Project.filesThatFailedToParse
-                            |> List.map parsingError
-                        ]
-                    , rulesWithCache
-                    )
-
-                Err _ ->
                     ( [ Error
                             { filePath = "GLOBAL ERROR"
                             , ruleName = "Incorrect project"
-                            , message = "Import cycle discovered"
+                            , message = "Found several modules named `" ++ String.join "." duplicate.moduleName ++ "`"
                             , details =
-                                [ "I detected an import cycle in your project. This prevents me from working correctly, and results in a error for the Elm compiler anyway. Please resolve it using the compiler's suggestions, then try running `elm-review` again."
+                                [ "I found several modules with the name `" ++ String.join "." duplicate.moduleName ++ "`. Depending on how I choose to resolve this, I might give you different reports. Since this is a compiler error anyway, I require this problem to be solved. Please fix this then try running `elm-review` again."
+                                , "Here are the paths to some of the files that share a module name:" ++ paths
+                                , "It is possible that you requested me to look at several projects, and that modules from each project share the same name. I don't recommend reviewing several projects at the same time, as I can only handle one `elm.json`. I instead suggest running `elm-review` twice, once for each project."
                                 ]
                             , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
                             , fixes = Nothing
@@ -376,30 +364,36 @@ review rules project =
                     , rules
                     )
 
-        Just duplicate ->
-            let
-                paths : String
-                paths =
-                    duplicate.paths
-                        |> List.sort
-                        |> List.map (\s -> "\n  - " ++ s)
-                        |> String.join ""
-            in
-            ( [ Error
-                    { filePath = "GLOBAL ERROR"
-                    , ruleName = "Incorrect project"
-                    , message = "Found several modules named `" ++ String.join "." duplicate.moduleName ++ "`"
-                    , details =
-                        [ "I found several modules with the name `" ++ String.join "." duplicate.moduleName ++ "`. Depending on how I choose to resolve this, I might give you different reports. Since this is a compiler error anyway, I require this problem to be solved. Please fix this then try running `elm-review` again."
-                        , "Here are the paths to some of the files that share a module name:" ++ paths
-                        , "It is possible that you requested me to look at several projects, and that modules from each project share the same name. I don't recommend reviewing several projects at the same time, as I can only handle one `elm.json`. I instead suggest running `elm-review` twice, once for each project."
-                        ]
-                    , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
-                    , fixes = Nothing
-                    }
-              ]
-            , rules
-            )
+                Nothing ->
+                    let
+                        sortedModules : Result (Graph.Edge ()) (List (Graph.NodeContext ModuleName ()))
+                        sortedModules =
+                            project
+                                |> Review.Project.moduleGraph
+                                |> Graph.checkAcyclic
+                                |> Result.map Graph.topologicalSort
+                    in
+                    case sortedModules of
+                        Err _ ->
+                            ( [ Error
+                                    { filePath = "GLOBAL ERROR"
+                                    , ruleName = "Incorrect project"
+                                    , message = "Import cycle discovered"
+                                    , details =
+                                        [ "I detected an import cycle in your project. This prevents me from working correctly, and results in a error for the Elm compiler anyway. Please resolve it using the compiler's suggestions, then try running `elm-review` again."
+                                        ]
+                                    , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
+                                    , fixes = Nothing
+                                    }
+                              ]
+                            , rules
+                            )
+
+                        Ok nodeContexts ->
+                            runRules rules project nodeContexts
+
+        filesThatFailedToParse ->
+            ( List.map parsingError filesThatFailedToParse, rules )
 
 
 runRules : List Rule -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, List Rule )
@@ -2216,6 +2210,7 @@ parsingError rawFile =
         , message = rawFile.path ++ " is not a correct Elm file"
         , details =
             [ "I could not understand the content of this file, and this prevents me from analyzing it. It is highly likely that the content of the file is not correct Elm code."
+            , "I need this file to be fixed before analyzing the rest of the project. If I didn't, I would potentially report incorrect things."
             , "Hint: Try running `elm make`. The compiler should give you better hints on how to resolve the problem."
             ]
         , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
