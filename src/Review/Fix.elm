@@ -10,16 +10,20 @@ When creating a [`Review.Rule.Error`](./Review-Rule#Error), you can provide an a
 fix for the error using [`Review.Rule.withFixes`](./Review-Rule#withFixes) so that the
 user doesn't need to fix the problem themselves.
 
-In the [CLI](https://github.com/jfmengels/node-elm-review), the user can ask to
-fix the errors automatically, and in doing so, they will be presented by a fix
-which they can accept or refuse. If the fix gets refused, then the next fixable
-error will be presented. Otherwise, if the fix gets accepted, the file will be
-applied and the fixed file content get analyzed again by the different rules in
-the user's configuration, and then another fix will be presented. When there are
-no more fixable errors, the remaining errors will be reported, just like when
-the user doesn't request errors to be automatically fixed.
+In the [CLI], the user can ask to fix the errors automatically, and in doing so,
+they will be presented by a fix which they can accept or refuse. If the fix gets
+refused, then the next fixable error will be presented. Otherwise, if the fix
+gets accepted, the file will be applied and the fixed file content get analyzed
+again by the different rules in the user's configuration, and then another fix
+will be presented. When there are no more fixable errors, the remaining errors
+will be reported, just like when the user doesn't request errors to be automatically
+fixed.
 
 In summary, errors will be presented one by one and the user will validate them.
+The [CLI] also proposes an option to fix all the errors, which applies each fix
+one by one and then asks the user to confirm the cummulated fix.
+
+Automatic fixes for the `elm.json` are ignored and won't be applied.
 
 
 # Guidelines
@@ -27,7 +31,7 @@ In summary, errors will be presented one by one and the user will validate them.
 An automatic fix, when applied, should resolve the reported error completely.
 This means that when the automatic fix is applied, the user should not have to
 think about the error anymore or have to do additional work. Imagine if the user
-applies a lot of automatic fixes all at once, we don't want them to have to
+applies a lot of automatic fixes all at once. We don't want them to have to
 remember having to do something, otherwise we may have just offloaded a lot of
 work that they may forget to do. In that case, it is better not to provide a fix
 at all, so that they keep a reminder and the details of how to fix the problem.
@@ -122,6 +126,8 @@ in the context of your rule.
 # Applying fixes
 
 @docs FixResult, Problem, fix
+
+[CLI]: https://github.com/jfmengels/node-elm-review
 
 -}
 

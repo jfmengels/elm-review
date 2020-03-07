@@ -2237,6 +2237,8 @@ If you pass `withFixes` an empty list, the error will be considered as having no
 automatic fix available. Calling `withFixes` several times on an error will
 overwrite the previous fixes.
 
+Fixes for the `elm.json` file will be ignored.
+
 **Note**: Each fix applies on a location in the code, defined by a range. To avoid an
 unpredictable result, those ranges may not overlap. The order of the fixes does
 not matter.
@@ -2244,7 +2246,7 @@ not matter.
 -}
 withFixes : List Fix -> Error -> Error
 withFixes fixes (Error err) =
-    if List.isEmpty fixes then
+    if List.isEmpty fixes || String.endsWith ".json" err.filePath then
         Error { err | fixes = Nothing }
 
     else
