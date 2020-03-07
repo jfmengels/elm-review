@@ -11,7 +11,8 @@ when inside the directory containing this file.
 
 -}
 
-import NoDebug
+import NoDebugLog
+import NoDebugTodoOrToString
 import NoUnused.CustomTypeConstructors
 import NoUnused.Variables
 import NoUnusedDependencies
@@ -22,7 +23,9 @@ import Review.Rule as Rule exposing (Rule)
 
 config : List Rule
 config =
-    [ NoDebug.rule
+    [ NoDebugLog.rule
+    , NoDebugTodoOrToString.rule
+        |> Rule.ignoreErrorsForDirectories [ "tests/" ]
     , NoUnused.CustomTypeConstructors.rule
     , NoUnused.Variables.rule
     , NoUnusedDependencies.rule
