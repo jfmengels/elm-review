@@ -8,9 +8,13 @@ module Review.Project exposing
 {-| Represents the contents of the project to be analyzed. This information will
 then be fed to the review rules.
 
-Looking at this module is useful if you try to make `elm-review` run in a new environment,
-but you can safely ignore it if you just want to write a review rule or run it
-in existing environments like the CLI tool.
+You may need to use use this module if you want
+
+  - to create test cases where the project is in a certain configuration
+  - to make `elm-review` run in a new environment
+
+You can safely ignore this module if you just want to write a review rule that
+does not look at project information (like the `elm.json`, dependencies, ...).
 
 
 # Project
