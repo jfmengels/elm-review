@@ -74,6 +74,7 @@ rule : Rule
 rule =
     Rule.newModuleRuleSchema "NoUnused.CustomTypeConstructors" initialContext
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
+        |> Rule.withDeclarationListVisitor declarationListVisitor
         |> Rule.withDeclarationVisitor declarationVisitor
         |> Rule.withExpressionVisitor expressionVisitor
         |> Rule.withFinalModuleEvaluation finalEvaluation
@@ -85,6 +86,7 @@ type alias Context =
     , exposesEverything : Bool
     , declaredTypesWithConstructors : Dict String (Node String)
     , usedFunctionOrValues : Set String
+    , phantomVariables : List ( String, Int )
     }
 
 
@@ -94,6 +96,7 @@ initialContext =
     , exposesEverything = False
     , declaredTypesWithConstructors = Dict.empty
     , usedFunctionOrValues = Set.empty
+    , phantomVariables = []
     }
 
 
@@ -108,6 +111,10 @@ error node =
             ]
         }
         (Node.range node)
+
+
+
+-- MODULE DEFINITION VISITOR
 
 
 moduleDefinitionVisitor : Node Module -> Context -> ( List nothing, Context )
@@ -144,6 +151,72 @@ moduleDefinitionVisitor moduleNode context =
             )
 
 
+
+-- DECLARATION LIST VISITOR
+
+
+declarationListVisitor : List (Node Declaration) -> Context -> ( List nothing, Context )
+declarationListVisitor nodes context =
+    ( [], List.foldl register context nodes )
+
+
+register : Node Declaration -> Context -> Context
+register node context =
+    case Node.value node of
+        Declaration.CustomTypeDeclaration { name, generics, constructors } ->
+            let
+                nonPhantomVariables : Set String
+                nonPhantomVariables =
+                    constructors
+                        |> List.concatMap (Node.value >> .arguments)
+                        |> List.concatMap collectGenericsFromTypeAnnotation
+                        |> Set.fromList
+
+                phantomVariables : List ( String, Int )
+                phantomVariables =
+                    generics
+                        |> List.map Node.value
+                        |> List.indexedMap Tuple.pair
+                        |> List.filter (\( _, genericName ) -> not <| Set.member genericName nonPhantomVariables)
+                        |> List.map (\( indexOfPhantomVariable, _ ) -> ( Node.value name, indexOfPhantomVariable ))
+            in
+            { context | phantomVariables = phantomVariables ++ context.phantomVariables }
+
+        _ ->
+            context
+
+
+collectGenericsFromTypeAnnotation : Node TypeAnnotation -> List String
+collectGenericsFromTypeAnnotation node =
+    case Node.value node of
+        TypeAnnotation.FunctionTypeAnnotation a b ->
+            collectGenericsFromTypeAnnotation a ++ collectGenericsFromTypeAnnotation b
+
+        TypeAnnotation.Typed nameNode params ->
+            List.concatMap collectGenericsFromTypeAnnotation params
+
+        TypeAnnotation.Record list ->
+            list
+                |> List.concatMap (Node.value >> Tuple.second >> collectGenericsFromTypeAnnotation)
+
+        TypeAnnotation.GenericRecord name list ->
+            Node.value list
+                |> List.concatMap (Node.value >> Tuple.second >> collectGenericsFromTypeAnnotation)
+
+        TypeAnnotation.Tupled list ->
+            List.concatMap collectGenericsFromTypeAnnotation list
+
+        TypeAnnotation.GenericType var ->
+            [ var ]
+
+        TypeAnnotation.Unit ->
+            []
+
+
+
+-- DECLARATION VISITOR
+
+
 declarationVisitor : Node Declaration -> Direction -> Context -> ( List nothing, Context )
 declarationVisitor node direction context =
     case ( direction, Node.value node ) of
@@ -175,8 +248,68 @@ declarationVisitor node direction context =
                 in
                 ( [], newContext )
 
+        ( Rule.OnEnter, Declaration.FunctionDeclaration function ) ->
+            -- TODO Now find the types that were in the stead of a phantom variable
+            let
+                foo =
+                    Debug.log "" <|
+                        case function.signature of
+                            Just signature ->
+                                signature
+                                    |> Node.value
+                                    |> .typeAnnotation
+                                    |> collectXYZ
+
+                            Nothing ->
+                                []
+            in
+            --
+            --     usedFunctionOrValues : Set String
+            --     usedFunctionOrValues =
+            --         List.foldl
+            --             Set.insert
+            --             context.usedFunctionOrValues
+            --             namesUsedInTypeAnnotation
+            -- in
+            -- ( [], { context | usedFunctionOrValues = usedFunctionOrValues } )
+            ( [], { context | usedFunctionOrValues = Set.union (Set.fromList foo) context.usedFunctionOrValues } )
+
         _ ->
             ( [], context )
+
+
+collectXYZ : Node TypeAnnotation -> List String
+collectXYZ node =
+    case Node.value node of
+        TypeAnnotation.FunctionTypeAnnotation a b ->
+            collectXYZ a ++ collectXYZ b
+
+        TypeAnnotation.Typed (Node.Node _ ( [], name )) params ->
+            name :: List.concatMap collectXYZ params
+
+        TypeAnnotation.Typed nameNode params ->
+            List.concatMap collectXYZ params
+
+        TypeAnnotation.Record list ->
+            list
+                |> List.concatMap (Node.value >> Tuple.second >> collectXYZ)
+
+        TypeAnnotation.GenericRecord name list ->
+            Node.value list
+                |> List.concatMap (Node.value >> Tuple.second >> collectXYZ)
+
+        TypeAnnotation.Tupled list ->
+            List.concatMap collectXYZ list
+
+        TypeAnnotation.GenericType var ->
+            []
+
+        TypeAnnotation.Unit ->
+            []
+
+
+
+-- EXPRESSION VISITOR
 
 
 expressionVisitor : Node Expression -> Direction -> Context -> ( List nothing, Context )
@@ -191,6 +324,10 @@ expressionVisitor node direction context =
 
             _ ->
                 ( [], context )
+
+
+
+-- FINAL EVALUATION
 
 
 finalEvaluation : Context -> List Error

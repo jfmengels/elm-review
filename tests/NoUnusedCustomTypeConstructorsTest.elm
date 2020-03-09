@@ -18,67 +18,88 @@ details =
     ]
 
 
-tests : List Test
-tests =
-    [ test "should not report non-exposed variables" <|
-        \() ->
-            testRule """module A exposing (b)
+all : Test
+all =
+    describe "NoUnusedCustomTypeConstructors"
+        [ unusedTests, phantomTypeTests ]
+
+
+unusedTests : Test
+unusedTests =
+    describe "Unused variables"
+        [ test "should not report non-exposed variables" <|
+            \() ->
+                testRule """module A exposing (b)
 a = 1"""
-                |> Review.Test.expectNoErrors
-    , test "should not report used type constructors" <|
-        \() ->
-            testRule """module A exposing (b)
+                    |> Review.Test.expectNoErrors
+        , test "should not report used type constructors" <|
+            \() ->
+                testRule """module A exposing (b)
 type Foo = Bar | Baz
 a = Bar
 b = Baz"""
-                |> Review.Test.expectNoErrors
-    , test "should not report unused type constructors when module is exposing all" <|
-        \() ->
-            testRule """module A exposing (..)
+                    |> Review.Test.expectNoErrors
+        , test "should not report unused type constructors when module is exposing all" <|
+            \() ->
+                testRule """module A exposing (..)
 type Foo = Bar | Baz
 """
-                |> Review.Test.expectNoErrors
-    , test "should not report unused type constructors when module is exposing the constructors of that type" <|
-        \() ->
-            testRule """module A exposing (Foo(..))
+                    |> Review.Test.expectNoErrors
+        , test "should not report unused type constructors when module is exposing the constructors of that type" <|
+            \() ->
+                testRule """module A exposing (Foo(..))
 type Foo = Bar | Baz
 """
-                |> Review.Test.expectNoErrors
-    , test "should report unused type constructors" <|
-        \() ->
-            testRule """module A exposing (b)
+                    |> Review.Test.expectNoErrors
+        , test "should report unused type constructors" <|
+            \() ->
+                testRule """module A exposing (b)
 type Foo = Bar | Baz"""
-                |> Review.Test.expectErrors
-                    [ Review.Test.error
-                        { message = "Type constructor `Bar` is not used."
-                        , details = details
-                        , under = "Bar"
-                        }
-                    , Review.Test.error
-                        { message = "Type constructor `Baz` is not used."
-                        , details = details
-                        , under = "Baz"
-                        }
-                    ]
-    , test "should report unused type constructors, even if the type is exposed" <|
-        \() ->
-            testRule """module A exposing (Foo)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Type constructor `Bar` is not used."
+                            , details = details
+                            , under = "Bar"
+                            }
+                        , Review.Test.error
+                            { message = "Type constructor `Baz` is not used."
+                            , details = details
+                            , under = "Baz"
+                            }
+                        ]
+        , test "should report unused type constructors, even if the type is exposed" <|
+            \() ->
+                testRule """module A exposing (Foo)
 type Foo = Bar | Baz"""
-                |> Review.Test.expectErrors
-                    [ Review.Test.error
-                        { message = "Type constructor `Bar` is not used."
-                        , details = details
-                        , under = "Bar"
-                        }
-                    , Review.Test.error
-                        { message = "Type constructor `Baz` is not used."
-                        , details = details
-                        , under = "Baz"
-                        }
-                    ]
-    ]
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Type constructor `Bar` is not used."
+                            , details = details
+                            , under = "Bar"
+                            }
+                        , Review.Test.error
+                            { message = "Type constructor `Baz` is not used."
+                            , details = details
+                            , under = "Baz"
+                            }
+                        ]
+        ]
 
 
-all : Test
-all =
-    describe "NoUnusedCustomTypeConstructors" tests
+phantomTypeTests : Test
+phantomTypeTests =
+    Test.only <|
+        describe "Phantom type"
+            [ test "should not report what seems to be a phantom type, when it is used in the stead of a phantom variable" <|
+                \() ->
+                    testRule """module A exposing (id)
+type User = User
+type Id a = Id
+
+id : Id User
+id = Id
+"""
+                        |> Review.Test.expectNoErrors
+
+            -- Same for let..in declarations
+            ]
