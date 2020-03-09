@@ -323,14 +323,7 @@ removeDependencies (Project project) =
         |> recomputeModuleGraphIfNeeded
 
 
-{-| TODO Rewrite documentation
-Get the modules for every dependency in the project.
-
-This will give you a `Elm.Docs.Module` type from the
-[`elm/project-metadata-utils`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.0/Elm-Docs)
-package, so you will need to install and use it to gain access to the dependency
-information.
-
+{-| Get the [dependencies](./Review-Project-Dependency#Dependency) of the project.
 -}
 dependencies : Project -> Dict String Dependency
 dependencies (Project project) =
