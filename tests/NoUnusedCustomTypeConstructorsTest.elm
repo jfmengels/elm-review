@@ -29,31 +29,31 @@ unusedTests =
     describe "Unused variables"
         [ test "should not report non-exposed variables" <|
             \() ->
-                testRule """module A exposing (b)
+                testRule """module MyModule exposing (b)
 a = 1"""
                     |> Review.Test.expectNoErrors
         , test "should not report used type constructors" <|
             \() ->
-                testRule """module A exposing (b)
+                testRule """module MyModule exposing (b)
 type Foo = Bar | Baz
 a = Bar
 b = Baz"""
                     |> Review.Test.expectNoErrors
         , test "should not report unused type constructors when module is exposing all" <|
             \() ->
-                testRule """module A exposing (..)
+                testRule """module MyModule exposing (..)
 type Foo = Bar | Baz
 """
                     |> Review.Test.expectNoErrors
         , test "should not report unused type constructors when module is exposing the constructors of that type" <|
             \() ->
-                testRule """module A exposing (Foo(..))
+                testRule """module MyModule exposing (Foo(..))
 type Foo = Bar | Baz
 """
                     |> Review.Test.expectNoErrors
         , test "should report unused type constructors" <|
             \() ->
-                testRule """module A exposing (b)
+                testRule """module MyModule exposing (b)
 type Foo = Bar | Baz"""
                     |> Review.Test.expectErrors
                         [ Review.Test.error
@@ -69,7 +69,7 @@ type Foo = Bar | Baz"""
                         ]
         , test "should report unused type constructors, even if the type is exposed" <|
             \() ->
-                testRule """module A exposing (Foo)
+                testRule """module MyModule exposing (Foo)
 type Foo = Bar | Baz"""
                     |> Review.Test.expectErrors
                         [ Review.Test.error
@@ -88,18 +88,135 @@ type Foo = Bar | Baz"""
 
 phantomTypeTests : Test
 phantomTypeTests =
-    Test.only <|
-        describe "Phantom type"
-            [ test "should not report what seems to be a phantom type, when it is used in the stead of a phantom variable" <|
-                \() ->
-                    testRule """module A exposing (id)
+    describe "Phantom type"
+        [ test "should not report a custom type with one constructor, when it is used in the stead of a phantom variable" <|
+            \() ->
+                testRule """module MyModule exposing (id)
 type User = User
 type Id a = Id
 
 id : Id User
 id = Id
 """
-                        |> Review.Test.expectNoErrors
+                    |> Review.Test.expectNoErrors
+        , test "should not report a custom type with one constructor, when it is used in the stead of a phantom variable in a let variable" <|
+            \() ->
+                testRule """module MyModule exposing (id)
+type User = User
+type Id a = Id
 
-            -- Same for let..in declarations
-            ]
+
+id =
+  let
+    a : Id User
+    a = Id
+  in
+  a
+"""
+                    |> Review.Test.expectNoErrors
+        , test "should report a custom type with multiple constructors, when it is used in the stead of a phantom variable" <|
+            \() ->
+                testRule """module MyModule exposing (id)
+type Something = A | B
+type Id a = Id
+
+id : Id Something
+id = Id
+"""
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Type constructor `A` is not used."
+                            , details = details
+                            , under = "A"
+                            }
+                        , Review.Test.error
+                            { message = "Type constructor `B` is not used."
+                            , details = details
+                            , under = "B"
+                            }
+                        ]
+        , test "should report a custom type with one constructor, when there is a phantom type available but it isn't used" <|
+            \() ->
+                testRule """module MyModule exposing (id)
+type User = User
+type Id a = Id
+id = Id
+"""
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Type constructor `User` is not used."
+                            , details = details
+                            , under = "User"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 13 }, end = { row = 2, column = 17 } }
+                        ]
+        , test "should report a custom type with one constructor when the constructor is named differently than the type, even when it is used in the stead of a phantom variable" <|
+            \() ->
+                testRule """module MyModule exposing (id)
+type User = UserConstructor
+type Id a = Id
+
+id : Id User
+id = Id
+"""
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Type constructor `UserConstructor` is not used."
+                            , details = details
+                            , under = "UserConstructor"
+                            }
+                        ]
+        , test "should report a custom type with one constructor, when it is used in the stead of a non-phantom variable" <|
+            \() ->
+                testRule """module MyModule exposing (id)
+type User = User
+type Id a = Id a
+
+id : Id User
+id = Id
+"""
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Type constructor `User` is not used."
+                            , details = details
+                            , under = "User"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 13 }, end = { row = 2, column = 17 } }
+                        ]
+        , test "should report a custom type with a type variable, when it is used in the stead of a phantom variable" <|
+            \() ->
+                testRule """module MyModule exposing (id)
+type User something = User
+type Id a = Id a
+
+id : Id (User otherThing)
+id = Id
+"""
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Type constructor `User` is not used."
+                            , details = details
+                            , under = "User"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 27 } }
+                        ]
+        , test "should report a custom type with one constructor that has arguments, when it is used in the stead of a phantom variable" <|
+            \() ->
+                testRule """module MyModule exposing (id)
+type User = User Something
+type Id a = Id a
+
+id : Id User
+id = Id
+"""
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Type constructor `User` is not used."
+                            , details = details
+                            , under = "User"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 13 }, end = { row = 2, column = 17 } }
+                        ]
+
+        -- TODO Handle phantom types from other modules
+        ]

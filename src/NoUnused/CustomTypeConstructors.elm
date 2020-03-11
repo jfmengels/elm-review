@@ -15,6 +15,7 @@ import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.Signature as Signature exposing (Signature)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Review.Rule as Rule exposing (Direction, Error, Rule)
 import Set exposing (Set)
@@ -186,33 +187,6 @@ register node context =
             context
 
 
-collectGenericsFromTypeAnnotation : Node TypeAnnotation -> List String
-collectGenericsFromTypeAnnotation node =
-    case Node.value node of
-        TypeAnnotation.FunctionTypeAnnotation a b ->
-            collectGenericsFromTypeAnnotation a ++ collectGenericsFromTypeAnnotation b
-
-        TypeAnnotation.Typed nameNode params ->
-            List.concatMap collectGenericsFromTypeAnnotation params
-
-        TypeAnnotation.Record list ->
-            list
-                |> List.concatMap (Node.value >> Tuple.second >> collectGenericsFromTypeAnnotation)
-
-        TypeAnnotation.GenericRecord name list ->
-            Node.value list
-                |> List.concatMap (Node.value >> Tuple.second >> collectGenericsFromTypeAnnotation)
-
-        TypeAnnotation.Tupled list ->
-            List.concatMap collectGenericsFromTypeAnnotation list
-
-        TypeAnnotation.GenericType var ->
-            [ var ]
-
-        TypeAnnotation.Unit ->
-            []
-
-
 
 -- DECLARATION VISITOR
 
@@ -249,63 +223,10 @@ declarationVisitor node direction context =
                 ( [], newContext )
 
         ( Rule.OnEnter, Declaration.FunctionDeclaration function ) ->
-            -- TODO Now find the types that were in the stead of a phantom variable
-            let
-                foo =
-                    Debug.log "" <|
-                        case function.signature of
-                            Just signature ->
-                                signature
-                                    |> Node.value
-                                    |> .typeAnnotation
-                                    |> collectXYZ
-
-                            Nothing ->
-                                []
-            in
-            --
-            --     usedFunctionOrValues : Set String
-            --     usedFunctionOrValues =
-            --         List.foldl
-            --             Set.insert
-            --             context.usedFunctionOrValues
-            --             namesUsedInTypeAnnotation
-            -- in
-            -- ( [], { context | usedFunctionOrValues = usedFunctionOrValues } )
-            ( [], { context | usedFunctionOrValues = Set.union (Set.fromList foo) context.usedFunctionOrValues } )
+            ( [], markPhantomTypesFromTypeSignatureAsUsed function.signature context )
 
         _ ->
             ( [], context )
-
-
-collectXYZ : Node TypeAnnotation -> List String
-collectXYZ node =
-    case Node.value node of
-        TypeAnnotation.FunctionTypeAnnotation a b ->
-            collectXYZ a ++ collectXYZ b
-
-        TypeAnnotation.Typed (Node.Node _ ( [], name )) params ->
-            name :: List.concatMap collectXYZ params
-
-        TypeAnnotation.Typed nameNode params ->
-            List.concatMap collectXYZ params
-
-        TypeAnnotation.Record list ->
-            list
-                |> List.concatMap (Node.value >> Tuple.second >> collectXYZ)
-
-        TypeAnnotation.GenericRecord name list ->
-            Node.value list
-                |> List.concatMap (Node.value >> Tuple.second >> collectXYZ)
-
-        TypeAnnotation.Tupled list ->
-            List.concatMap collectXYZ list
-
-        TypeAnnotation.GenericType var ->
-            []
-
-        TypeAnnotation.Unit ->
-            []
 
 
 
@@ -321,6 +242,21 @@ expressionVisitor node direction context =
         case ( direction, Node.value node ) of
             ( Rule.OnEnter, Expression.FunctionOrValue [] name ) ->
                 ( [], { context | usedFunctionOrValues = Set.insert name context.usedFunctionOrValues } )
+
+            ( Rule.OnEnter, Expression.LetExpression { declarations } ) ->
+                ( []
+                , declarations
+                    |> List.filterMap
+                        (\declaration ->
+                            case Node.value declaration of
+                                Expression.LetFunction function ->
+                                    Just function.signature
+
+                                Expression.LetDestructuring _ _ ->
+                                    Nothing
+                        )
+                    |> List.foldl markPhantomTypesFromTypeSignatureAsUsed context
+                )
 
             _ ->
                 ( [], context )
@@ -340,3 +276,114 @@ finalEvaluation context =
             |> Dict.filter (\name _ -> not <| Set.member name context.usedFunctionOrValues)
             |> Dict.toList
             |> List.map (\( _, node ) -> error node)
+
+
+
+-- TYPE ANNOTATION UTILITARY FUNCTIONS
+
+
+markPhantomTypesFromTypeSignatureAsUsed : Maybe (Node Signature) -> Context -> Context
+markPhantomTypesFromTypeSignatureAsUsed maybeSignature context =
+    let
+        used : List String
+        used =
+            case maybeSignature of
+                Just signature ->
+                    signature
+                        |> Node.value
+                        |> .typeAnnotation
+                        |> collectTypesUsedAsPhantomVariables context.phantomVariables
+
+                Nothing ->
+                    []
+    in
+    { context | usedFunctionOrValues = Set.union (Set.fromList used) context.usedFunctionOrValues }
+
+
+collectGenericsFromTypeAnnotation : Node TypeAnnotation -> List String
+collectGenericsFromTypeAnnotation node =
+    case Node.value node of
+        TypeAnnotation.FunctionTypeAnnotation a b ->
+            collectGenericsFromTypeAnnotation a ++ collectGenericsFromTypeAnnotation b
+
+        TypeAnnotation.Typed nameNode params ->
+            List.concatMap collectGenericsFromTypeAnnotation params
+
+        TypeAnnotation.Record list ->
+            list
+                |> List.concatMap (Node.value >> Tuple.second >> collectGenericsFromTypeAnnotation)
+
+        TypeAnnotation.GenericRecord name list ->
+            Node.value list
+                |> List.concatMap (Node.value >> Tuple.second >> collectGenericsFromTypeAnnotation)
+
+        TypeAnnotation.Tupled list ->
+            List.concatMap collectGenericsFromTypeAnnotation list
+
+        TypeAnnotation.GenericType var ->
+            [ var ]
+
+        TypeAnnotation.Unit ->
+            []
+
+
+collectTypesUsedAsPhantomVariables : List ( String, Int ) -> Node TypeAnnotation -> List String
+collectTypesUsedAsPhantomVariables phantomVariables node =
+    case Node.value node of
+        TypeAnnotation.FunctionTypeAnnotation a b ->
+            collectTypesUsedAsPhantomVariables phantomVariables a
+                ++ collectTypesUsedAsPhantomVariables phantomVariables b
+
+        TypeAnnotation.Typed (Node.Node _ ( [], name )) params ->
+            let
+                typesUsedInThePhantomVariablePosition : List String
+                typesUsedInThePhantomVariablePosition =
+                    phantomVariables
+                        |> List.filter (\( type_, _ ) -> type_ == name)
+                        |> List.filterMap
+                            (\( _, index ) ->
+                                case listAtIndex index params |> Maybe.map Node.value of
+                                    Just (TypeAnnotation.Typed (Node.Node _ ( [], typeName )) []) ->
+                                        Just typeName
+
+                                    _ ->
+                                        Nothing
+                            )
+            in
+            List.concat
+                [ typesUsedInThePhantomVariablePosition
+                , List.concatMap (collectTypesUsedAsPhantomVariables phantomVariables) params
+                ]
+
+        TypeAnnotation.Typed nameNode params ->
+            List.concatMap (collectTypesUsedAsPhantomVariables phantomVariables) params
+
+        TypeAnnotation.Record list ->
+            list
+                |> List.concatMap (Node.value >> Tuple.second >> collectTypesUsedAsPhantomVariables phantomVariables)
+
+        TypeAnnotation.GenericRecord name list ->
+            Node.value list
+                |> List.concatMap (Node.value >> Tuple.second >> collectTypesUsedAsPhantomVariables phantomVariables)
+
+        TypeAnnotation.Tupled list ->
+            List.concatMap (collectTypesUsedAsPhantomVariables phantomVariables) list
+
+        TypeAnnotation.GenericType var ->
+            []
+
+        TypeAnnotation.Unit ->
+            []
+
+
+listAtIndex : Int -> List a -> Maybe a
+listAtIndex index list =
+    case ( index, list ) of
+        ( 0, a :: [] ) ->
+            Just a
+
+        ( _, [] ) ->
+            Nothing
+
+        ( n, _ :: rest ) ->
+            listAtIndex (n - 1) rest
