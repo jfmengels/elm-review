@@ -21,6 +21,7 @@ import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Signature exposing (Signature)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Review.Rule as Rule exposing (Direction, Error, Rule)
+import Scope2 as Scope
 import Set exposing (Set)
 
 
@@ -83,6 +84,7 @@ rule =
         , fromModuleToProject = fromModuleToProject
         , foldProjectContexts = foldProjectContexts
         }
+        |> Scope.addProjectVisitors
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
         |> Rule.fromProjectRuleSchema
 
@@ -92,12 +94,14 @@ rule =
 
 
 type alias ProjectContext =
-    { exposedModules : Set String
+    { scope : Scope.ProjectContext
+    , exposedModules : Set String
     }
 
 
 type alias ModuleContext =
-    { exposedCustomTypesWithConstructors : Set String
+    { scope : Scope.ModuleContext
+    , exposedCustomTypesWithConstructors : Set String
     , isExposed : Bool
     , exposesEverything : Bool
     , declaredTypesWithConstructors : Dict String (Dict String (Node String))
@@ -108,13 +112,15 @@ type alias ModuleContext =
 
 initProjectContext : ProjectContext
 initProjectContext =
-    { exposedModules = Set.empty
+    { scope = Scope.initProjectContext
+    , exposedModules = Set.empty
     }
 
 
 fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> ProjectContext -> ModuleContext
 fromProjectToModule _ (Node.Node _ moduleName) projectContext =
-    { exposedCustomTypesWithConstructors = Set.empty
+    { scope = Scope.fromProjectToModule projectContext.scope
+    , exposedCustomTypesWithConstructors = Set.empty
     , isExposed = Set.member (String.join "." moduleName) projectContext.exposedModules
     , exposesEverything = False
     , declaredTypesWithConstructors = Dict.empty
@@ -124,14 +130,17 @@ fromProjectToModule _ (Node.Node _ moduleName) projectContext =
 
 
 fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> ModuleContext -> ProjectContext
-fromModuleToProject _ _ moduleContext =
-    { exposedModules = Set.empty
+fromModuleToProject _ moduleName moduleContext =
+    { scope = Scope.fromModuleToProject moduleName moduleContext.scope
+    , exposedModules = Set.empty
     }
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
-foldProjectContexts _ previousContext =
-    previousContext
+foldProjectContexts newContext previousContext =
+    { scope = Scope.foldProjectContexts previousContext.scope newContext.scope
+    , exposedModules = previousContext.exposedModules
+    }
 
 
 error : Node String -> Error
