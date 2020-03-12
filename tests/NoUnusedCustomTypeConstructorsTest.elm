@@ -363,4 +363,42 @@ type Foo = Bar | Baz
 """
                     |> Review.Test.runWithProjectData packageProject rule
                     |> Review.Test.expectNoErrors
+        , test "should report unused type constructors when package module is exposing the constructors of that type and module is not exposed" <|
+            \() ->
+                """
+module MyModule exposing (Foo(..))
+type Foo = Bar | Baz
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Type constructor `Bar` is not used."
+                            , details = details
+                            , under = "Bar"
+                            }
+                        , Review.Test.error
+                            { message = "Type constructor `Baz` is not used."
+                            , details = details
+                            , under = "Baz"
+                            }
+                        ]
+        , test "should report unused type constructors when application module is exposing the constructors" <|
+            \() ->
+                """
+module MyModule exposing (Foo(..))
+type Foo = Bar | Baz
+"""
+                    |> Review.Test.runWithProjectData applicationProject rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Type constructor `Bar` is not used."
+                            , details = details
+                            , under = "Bar"
+                            }
+                        , Review.Test.error
+                            { message = "Type constructor `Baz` is not used."
+                            , details = details
+                            , under = "Baz"
+                            }
+                        ]
         ]

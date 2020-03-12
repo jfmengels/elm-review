@@ -100,7 +100,7 @@ type alias ModuleContext =
     { exposedCustomTypesWithConstructors : Set String
     , isExposed : Bool
     , exposesEverything : Bool
-    , declaredTypesWithConstructors : Dict String (Node String)
+    , declaredTypesWithConstructors : Dict String (Dict String (Node String))
     , usedFunctionOrValues : Set String
     , phantomVariables : List ( String, Int )
     }
@@ -192,7 +192,7 @@ moduleVisitor schema =
         |> Rule.withDeclarationListVisitor declarationListVisitor
         |> Rule.withDeclarationVisitor declarationVisitor
         |> Rule.withExpressionVisitor expressionVisitor
-        |> Rule.withFinalModuleEvaluation finalEvaluation
+        |> Rule.withFinalModuleEvaluation finalModuleEvaluation
 
 
 
@@ -213,12 +213,7 @@ moduleDefinitionVisitor moduleNode context =
                         (\node ->
                             case Node.value node of
                                 Exposing.TypeExpose { name, open } ->
-                                    case open of
-                                        Just _ ->
-                                            Just name
-
-                                        Nothing ->
-                                            Nothing
+                                    Just name
 
                                 _ ->
                                     Nothing
@@ -276,32 +271,37 @@ declarationVisitor : Node Declaration -> Direction -> ModuleContext -> ( List no
 declarationVisitor node direction context =
     case ( direction, Node.value node ) of
         ( Rule.OnEnter, Declaration.CustomTypeDeclaration { name, constructors } ) ->
-            if Set.member (Node.value name) context.exposedCustomTypesWithConstructors then
-                ( [], context )
-
-            else
-                let
-                    newContext : ModuleContext
-                    newContext =
-                        List.foldl
-                            (\constructor ctx ->
-                                let
-                                    nameNode : Node String
-                                    nameNode =
-                                        (Node.value constructor).name
-                                in
-                                { ctx
-                                    | declaredTypesWithConstructors =
-                                        Dict.insert
-                                            (Node.value nameNode)
-                                            nameNode
-                                            ctx.declaredTypesWithConstructors
-                                }
-                            )
-                            context
-                            constructors
-                in
-                ( [], newContext )
+            -- if Set.member (Node.value name) context.exposedCustomTypesWithConstructors then
+            --     ( [], context )
+            --
+            -- else
+            let
+                constructorsForCustomType : Dict String (Node String)
+                constructorsForCustomType =
+                    List.foldl
+                        (\constructor dict ->
+                            let
+                                nameNode : Node String
+                                nameNode =
+                                    (Node.value constructor).name
+                            in
+                            Dict.insert
+                                (Node.value nameNode)
+                                nameNode
+                                dict
+                        )
+                        Dict.empty
+                        constructors
+            in
+            ( []
+            , { context
+                | declaredTypesWithConstructors =
+                    Dict.insert
+                        (Node.value name)
+                        constructorsForCustomType
+                        context.declaredTypesWithConstructors
+              }
+            )
 
         ( Rule.OnEnter, Declaration.FunctionDeclaration function ) ->
             ( [], markPhantomTypesFromTypeSignatureAsUsed function.signature context )
@@ -344,19 +344,25 @@ expressionVisitor node direction context =
 
 
 
--- FINAL EVALUATION
+-- FINAL MODULE EVALUATION
 
 
-finalEvaluation : ModuleContext -> List Error
-finalEvaluation context =
+finalModuleEvaluation : ModuleContext -> List Error
+finalModuleEvaluation context =
     if context.exposesEverything && context.isExposed then
         []
 
     else
         context.declaredTypesWithConstructors
-            |> Dict.filter (\name _ -> not <| Set.member name context.usedFunctionOrValues)
-            |> Dict.toList
-            |> List.map (\( _, node ) -> error node)
+            |> Dict.filter (\customTypeName _ -> not (context.isExposed && Set.member customTypeName context.exposedCustomTypesWithConstructors))
+            |> Dict.values
+            |> List.concatMap
+                (\dict ->
+                    dict
+                        |> Dict.filter (\name _ -> not (Set.member name context.usedFunctionOrValues || (context.isExposed && Set.member name context.exposedCustomTypesWithConstructors)))
+                        |> Dict.toList
+                        |> List.map (\( _, node ) -> error node)
+                )
 
 
 
