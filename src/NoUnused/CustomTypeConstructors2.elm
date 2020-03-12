@@ -10,13 +10,15 @@ module NoUnused.CustomTypeConstructors2 exposing (rule)
 -}
 
 import Dict exposing (Dict)
+import Elm.Module
+import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
-import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
+import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
-import Elm.Syntax.Signature as Signature exposing (Signature)
+import Elm.Syntax.Signature exposing (Signature)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Review.Rule as Rule exposing (Direction, Error, Rule)
 import Set exposing (Set)
@@ -81,6 +83,7 @@ rule =
         , fromModuleToProject = fromModuleToProject
         , foldProjectContexts = foldProjectContexts
         }
+        |> Rule.withElmJsonProjectVisitor elmJsonVisitor
         |> Rule.fromProjectRuleSchema
 
 
@@ -89,12 +92,13 @@ rule =
 
 
 type alias ProjectContext =
-    { exposedModules : Set ModuleName
+    { exposedModules : Set String
     }
 
 
 type alias ModuleContext =
     { exposedCustomTypesWithConstructors : Set String
+    , isExposed : Bool
     , exposesEverything : Bool
     , declaredTypesWithConstructors : Dict String (Node String)
     , usedFunctionOrValues : Set String
@@ -109,8 +113,9 @@ initProjectContext =
 
 
 fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> ProjectContext -> ModuleContext
-fromProjectToModule _ _ projectContext =
+fromProjectToModule _ (Node.Node _ moduleName) projectContext =
     { exposedCustomTypesWithConstructors = Set.empty
+    , isExposed = Set.member (String.join "." moduleName) projectContext.exposedModules
     , exposesEverything = False
     , declaredTypesWithConstructors = Dict.empty
     , usedFunctionOrValues = Set.empty
@@ -140,6 +145,39 @@ error node =
             ]
         }
         (Node.range node)
+
+
+
+-- ELM.JSON VISITOR
+
+
+elmJsonVisitor : Maybe { elmJsonKey : Rule.ElmJsonKey, project : Elm.Project.Project } -> ProjectContext -> ProjectContext
+elmJsonVisitor maybeElmJson projectContext =
+    case maybeElmJson |> Maybe.map .project of
+        Just (Elm.Project.Package package) ->
+            let
+                exposedModules : List Elm.Module.Name
+                exposedModules =
+                    case package.exposed of
+                        Elm.Project.ExposedList list ->
+                            list
+
+                        Elm.Project.ExposedDict list ->
+                            List.concatMap Tuple.second list
+
+                exposedNames : Set String
+                exposedNames =
+                    exposedModules
+                        |> List.map Elm.Module.toString
+                        |> Set.fromList
+            in
+            { projectContext | exposedModules = exposedNames }
+
+        Just (Elm.Project.Application _) ->
+            projectContext
+
+        Nothing ->
+            projectContext
 
 
 
@@ -311,7 +349,7 @@ expressionVisitor node direction context =
 
 finalEvaluation : ModuleContext -> List Error
 finalEvaluation context =
-    if context.exposesEverything then
+    if context.exposesEverything && context.isExposed then
         []
 
     else

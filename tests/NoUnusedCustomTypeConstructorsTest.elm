@@ -4,7 +4,7 @@ import Elm.Project
 import Json.Decode as Decode
 import NoUnused.CustomTypeConstructors2 exposing (rule)
 import Review.Project as Project exposing (Project)
-import Review.Test exposing (ReviewResult)
+import Review.Test
 import Test exposing (Test, describe, test)
 
 
@@ -92,23 +92,9 @@ all =
     describe "NoUnusedCustomTypeConstructors"
         [ unusedTests "package project" packageProject
         , unusedTests "application project" applicationProject
-        , exposingTypeConstructors
         , phantomTypeTests "package project" packageProject
         , phantomTypeTests "application project" applicationProject
-        ]
-
-
-exposingTypeConstructors : Test
-exposingTypeConstructors =
-    describe "Exposed constructors"
-        [ test "should not report unused type constructors when package module is exposing all and module is exposed" <|
-            \() ->
-                """
-module MyModule exposing (..)
-type Foo = Bar | Baz
-"""
-                    |> Review.Test.runWithProjectData packageProject rule
-                    |> Review.Test.expectNoErrors
+        , crossModuleTests
         ]
 
 
@@ -129,22 +115,6 @@ module MyModule exposing (b)
 type Foo = Bar | Baz
 a = Bar
 b = Baz"""
-                    |> Review.Test.runWithProjectData project rule
-                    |> Review.Test.expectNoErrors
-        , test "should not report unused type constructors when module is exposing all" <|
-            \() ->
-                """
-module MyModule exposing (..)
-type Foo = Bar | Baz
-"""
-                    |> Review.Test.runWithProjectData project rule
-                    |> Review.Test.expectNoErrors
-        , test "should not report unused type constructors when module is exposing the constructors of that type" <|
-            \() ->
-                """
-module MyModule exposing (Foo(..))
-type Foo = Bar | Baz
-"""
                     |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectNoErrors
         , test "should report unused type constructors" <|
@@ -333,4 +303,64 @@ id = Id
                             }
                             |> Review.Test.atExactly { start = { row = 3, column = 13 }, end = { row = 3, column = 17 } }
                         ]
+        ]
+
+
+crossModuleTests : Test
+crossModuleTests =
+    describe "Exposed constructors"
+        [ test "should not report unused type constructors when a package module is exposing all and module is exposed" <|
+            \() ->
+                """
+module Exposed exposing (..)
+type Foo = Bar | Baz
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
+        , test "should report unused type constructors when a package module is exposing all and module is not exposed" <|
+            \() ->
+                """
+module MyModule exposing (..)
+type Foo = Bar | Baz
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Type constructor `Bar` is not used."
+                            , details = details
+                            , under = "Bar"
+                            }
+                        , Review.Test.error
+                            { message = "Type constructor `Baz` is not used."
+                            , details = details
+                            , under = "Baz"
+                            }
+                        ]
+        , test "should report unused type constructors when an application module is exposing all" <|
+            \() ->
+                """
+module MyModule exposing (..)
+type Foo = Bar | Baz
+"""
+                    |> Review.Test.runWithProjectData applicationProject rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Type constructor `Bar` is not used."
+                            , details = details
+                            , under = "Bar"
+                            }
+                        , Review.Test.error
+                            { message = "Type constructor `Baz` is not used."
+                            , details = details
+                            , under = "Baz"
+                            }
+                        ]
+        , test "should not report unused type constructors when package module is exposing the constructors of that type and module is exposed" <|
+            \() ->
+                """
+module Exposed exposing (Foo(..))
+type Foo = Bar | Baz
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
         ]
