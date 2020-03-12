@@ -14,6 +14,7 @@ import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Module as Module exposing (Module)
+import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Signature as Signature exposing (Signature)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
@@ -73,16 +74,25 @@ in your editor, rather than when running your tests or [elm-xref](https://github
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoUnused.CustomTypeConstructors" initialContext
-        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-        |> Rule.withDeclarationListVisitor declarationListVisitor
-        |> Rule.withDeclarationVisitor declarationVisitor
-        |> Rule.withExpressionVisitor expressionVisitor
-        |> Rule.withFinalModuleEvaluation finalEvaluation
-        |> Rule.fromModuleRuleSchema
+    Rule.newProjectRuleSchema "NoUnused.CustomTypeConstructors"
+        { moduleVisitor = moduleVisitor
+        , initProjectContext = initProjectContext
+        , fromProjectToModule = fromProjectToModule
+        , fromModuleToProject = fromModuleToProject
+        , foldProjectContexts = foldProjectContexts
+        }
+        |> Rule.fromProjectRuleSchema
 
 
-type alias Context =
+
+-- CONTEXT
+
+
+type alias ProjectContext =
+    {}
+
+
+type alias ModuleContext =
     { exposedCustomTypesWithConstructors : Set String
     , exposesEverything : Bool
     , declaredTypesWithConstructors : Dict String (Node String)
@@ -91,14 +101,29 @@ type alias Context =
     }
 
 
-initialContext : Context
-initialContext =
+initProjectContext : ProjectContext
+initProjectContext =
+    {}
+
+
+fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> ProjectContext -> ModuleContext
+fromProjectToModule _ _ projectContext =
     { exposedCustomTypesWithConstructors = Set.empty
     , exposesEverything = False
     , declaredTypesWithConstructors = Dict.empty
     , usedFunctionOrValues = Set.empty
     , phantomVariables = []
     }
+
+
+fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> ModuleContext -> ProjectContext
+fromModuleToProject _ _ moduleContext =
+    {}
+
+
+foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
+foldProjectContexts _ previousContext =
+    previousContext
 
 
 error : Node String -> Error
@@ -115,10 +140,25 @@ error node =
 
 
 
+-- MODULE VISITOR
+
+
+moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
+moduleVisitor schema =
+    schema
+        |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ))
+        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
+        |> Rule.withDeclarationListVisitor declarationListVisitor
+        |> Rule.withDeclarationVisitor declarationVisitor
+        |> Rule.withExpressionVisitor expressionVisitor
+        |> Rule.withFinalModuleEvaluation finalEvaluation
+
+
+
 -- MODULE DEFINITION VISITOR
 
 
-moduleDefinitionVisitor : Node Module -> Context -> ( List nothing, Context )
+moduleDefinitionVisitor : Node Module -> ModuleContext -> ( List nothing, ModuleContext )
 moduleDefinitionVisitor moduleNode context =
     case Module.exposingList (Node.value moduleNode) of
         Exposing.All _ ->
@@ -156,12 +196,12 @@ moduleDefinitionVisitor moduleNode context =
 -- DECLARATION LIST VISITOR
 
 
-declarationListVisitor : List (Node Declaration) -> Context -> ( List nothing, Context )
+declarationListVisitor : List (Node Declaration) -> ModuleContext -> ( List nothing, ModuleContext )
 declarationListVisitor nodes context =
     ( [], List.foldl register context nodes )
 
 
-register : Node Declaration -> Context -> Context
+register : Node Declaration -> ModuleContext -> ModuleContext
 register node context =
     case Node.value node of
         Declaration.CustomTypeDeclaration { name, generics, constructors } ->
@@ -191,7 +231,7 @@ register node context =
 -- DECLARATION VISITOR
 
 
-declarationVisitor : Node Declaration -> Direction -> Context -> ( List nothing, Context )
+declarationVisitor : Node Declaration -> Direction -> ModuleContext -> ( List nothing, ModuleContext )
 declarationVisitor node direction context =
     case ( direction, Node.value node ) of
         ( Rule.OnEnter, Declaration.CustomTypeDeclaration { name, constructors } ) ->
@@ -200,7 +240,7 @@ declarationVisitor node direction context =
 
             else
                 let
-                    newContext : Context
+                    newContext : ModuleContext
                     newContext =
                         List.foldl
                             (\constructor ctx ->
@@ -233,7 +273,7 @@ declarationVisitor node direction context =
 -- EXPRESSION VISITOR
 
 
-expressionVisitor : Node Expression -> Direction -> Context -> ( List nothing, Context )
+expressionVisitor : Node Expression -> Direction -> ModuleContext -> ( List nothing, ModuleContext )
 expressionVisitor node direction context =
     if context.exposesEverything then
         ( [], context )
@@ -266,7 +306,7 @@ expressionVisitor node direction context =
 -- FINAL EVALUATION
 
 
-finalEvaluation : Context -> List Error
+finalEvaluation : ModuleContext -> List Error
 finalEvaluation context =
     if context.exposesEverything then
         []
@@ -282,7 +322,7 @@ finalEvaluation context =
 -- TYPE ANNOTATION UTILITARY FUNCTIONS
 
 
-markPhantomTypesFromTypeSignatureAsUsed : Maybe (Node Signature) -> Context -> Context
+markPhantomTypesFromTypeSignatureAsUsed : Maybe (Node Signature) -> ModuleContext -> ModuleContext
 markPhantomTypesFromTypeSignatureAsUsed maybeSignature context =
     let
         used : List String

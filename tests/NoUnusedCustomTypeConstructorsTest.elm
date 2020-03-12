@@ -103,7 +103,8 @@ exposingTypeConstructors =
     describe "Exposed constructors"
         [ test "should not report unused type constructors when package module is exposing all and module is exposed" <|
             \() ->
-                """module MyModule exposing (..)
+                """
+module MyModule exposing (..)
 type Foo = Bar | Baz
 """
                     |> Review.Test.runWithProjectData packageProject rule
@@ -116,13 +117,15 @@ unusedTests typeOfProject project =
     describe ("Unused variables for " ++ typeOfProject)
         [ test "should not report non-exposed variables" <|
             \() ->
-                """module MyModule exposing (b)
+                """
+module MyModule exposing (b)
 a = 1"""
                     |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectNoErrors
         , test "should not report used type constructors" <|
             \() ->
-                """module MyModule exposing (b)
+                """
+module MyModule exposing (b)
 type Foo = Bar | Baz
 a = Bar
 b = Baz"""
@@ -130,21 +133,24 @@ b = Baz"""
                     |> Review.Test.expectNoErrors
         , test "should not report unused type constructors when module is exposing all" <|
             \() ->
-                """module MyModule exposing (..)
+                """
+module MyModule exposing (..)
 type Foo = Bar | Baz
 """
                     |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectNoErrors
         , test "should not report unused type constructors when module is exposing the constructors of that type" <|
             \() ->
-                """module MyModule exposing (Foo(..))
+                """
+module MyModule exposing (Foo(..))
 type Foo = Bar | Baz
 """
                     |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectNoErrors
         , test "should report unused type constructors" <|
             \() ->
-                """module MyModule exposing (b)
+                """
+module MyModule exposing (b)
 type Foo = Bar | Baz"""
                     |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectErrors
@@ -161,7 +167,8 @@ type Foo = Bar | Baz"""
                         ]
         , test "should report unused type constructors, even if the type is exposed" <|
             \() ->
-                """module MyModule exposing (Foo)
+                """
+module MyModule exposing (Foo)
 type Foo = Bar | Baz"""
                     |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectErrors
@@ -184,7 +191,8 @@ phantomTypeTests typeOfProject project =
     describe ("Phantom type for " ++ typeOfProject)
         [ test "should not report a custom type with one constructor, when it is used in the stead of a phantom variable" <|
             \() ->
-                """module MyModule exposing (id)
+                """
+module MyModule exposing (id)
 type User = User
 type Id a = Id
 
@@ -195,7 +203,8 @@ id = Id
                     |> Review.Test.expectNoErrors
         , test "should not report a custom type with one constructor, when it is used in the stead of a phantom variable in a let variable" <|
             \() ->
-                """module MyModule exposing (id)
+                """
+module MyModule exposing (id)
 type User = User
 type Id a = Id
 
@@ -211,7 +220,8 @@ id =
                     |> Review.Test.expectNoErrors
         , test "should report a custom type with multiple constructors, when it is used in the stead of a phantom variable" <|
             \() ->
-                """module MyModule exposing (id)
+                """
+module MyModule exposing (id)
 type Something = A | B
 type Id a = Id
 
@@ -233,7 +243,8 @@ id = Id
                         ]
         , test "should report a custom type with one constructor, when there is a phantom type available but it isn't used" <|
             \() ->
-                """module MyModule exposing (id)
+                """
+module MyModule exposing (id)
 type User = User
 type Id a = Id
 id = Id
@@ -245,11 +256,12 @@ id = Id
                             , details = details
                             , under = "User"
                             }
-                            |> Review.Test.atExactly { start = { row = 2, column = 13 }, end = { row = 2, column = 17 } }
+                            |> Review.Test.atExactly { start = { row = 3, column = 13 }, end = { row = 3, column = 17 } }
                         ]
         , test "should report a custom type with one constructor when the constructor is named differently than the type, even when it is used in the stead of a phantom variable" <|
             \() ->
-                """module MyModule exposing (id)
+                """
+module MyModule exposing (id)
 type User = UserConstructor
 type Id a = Id
 
@@ -266,7 +278,8 @@ id = Id
                         ]
         , test "should report a custom type with one constructor, when it is used in the stead of a non-phantom variable" <|
             \() ->
-                """module MyModule exposing (id)
+                """
+module MyModule exposing (id)
 type User = User
 type Id a = Id a
 
@@ -280,11 +293,12 @@ id = Id
                             , details = details
                             , under = "User"
                             }
-                            |> Review.Test.atExactly { start = { row = 2, column = 13 }, end = { row = 2, column = 17 } }
+                            |> Review.Test.atExactly { start = { row = 3, column = 13 }, end = { row = 3, column = 17 } }
                         ]
         , test "should report a custom type with a type variable, when it is used in the stead of a phantom variable" <|
             \() ->
-                """module MyModule exposing (id)
+                """
+module MyModule exposing (id)
 type User something = User
 type Id a = Id a
 
@@ -298,11 +312,12 @@ id = Id
                             , details = details
                             , under = "User"
                             }
-                            |> Review.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 27 } }
+                            |> Review.Test.atExactly { start = { row = 3, column = 23 }, end = { row = 3, column = 27 } }
                         ]
         , test "should report a custom type with one constructor that has arguments, when it is used in the stead of a phantom variable" <|
             \() ->
-                """module MyModule exposing (id)
+                """
+module MyModule exposing (id)
 type User = User Something
 type Id a = Id a
 
@@ -316,6 +331,6 @@ id = Id
                             , details = details
                             , under = "User"
                             }
-                            |> Review.Test.atExactly { start = { row = 2, column = 13 }, end = { row = 2, column = 17 } }
+                            |> Review.Test.atExactly { start = { row = 3, column = 13 }, end = { row = 3, column = 17 } }
                         ]
         ]
