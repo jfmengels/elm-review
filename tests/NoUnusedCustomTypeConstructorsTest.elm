@@ -1,13 +1,82 @@
 module NoUnusedCustomTypeConstructorsTest exposing (all)
 
+import Elm.Project
+import Json.Decode as Decode
 import NoUnused.CustomTypeConstructors exposing (rule)
+import Review.Project as Project exposing (Project)
 import Review.Test exposing (ReviewResult)
 import Test exposing (Test, describe, test)
 
 
-testRule : String -> ReviewResult
-testRule =
-    Review.Test.run rule
+packageProject : Project
+packageProject =
+    Project.new
+        |> Project.withElmJson (createElmJson packageElmJson)
+
+
+applicationProject : Project
+applicationProject =
+    Project.new
+        |> Project.withElmJson (createElmJson applicationElmJson)
+
+
+createElmJson : String -> { path : String, raw : String, project : Elm.Project.Project }
+createElmJson rawElmJson =
+    case Decode.decodeString Elm.Project.decoder rawElmJson of
+        Ok elmJson ->
+            { path = "elm.json"
+            , raw = rawElmJson
+            , project = elmJson
+            }
+
+        Err _ ->
+            Debug.todo "Invalid elm.json supplied to test"
+
+
+applicationElmJson : String
+applicationElmJson =
+    """
+{
+    "type": "application",
+    "source-directories": [
+        "src"
+    ],
+    "elm-version": "0.19.1",
+    "dependencies": {
+        "direct": {
+            "elm/core": "1.0.0",
+            "author/package-with-foo": "1.0.0",
+            "author/package-with-bar": "1.0.0"
+        },
+        "indirect": {}
+    },
+    "test-dependencies": {
+        "direct": {},
+        "indirect": {}
+    }
+}"""
+
+
+packageElmJson : String
+packageElmJson =
+    """
+{
+    "type": "package",
+    "name": "author/package",
+    "summary": "Summary",
+    "license": "BSD-3-Clause",
+    "version": "1.0.0",
+    "exposed-modules": [
+        "Exposed"
+    ],
+    "elm-version": "0.19.0 <= v < 0.20.0",
+    "dependencies": {
+        "elm/core": "1.0.0 <= v < 2.0.0",
+        "author/package-with-foo": "1.0.0 <= v < 2.0.0",
+        "author/package-with-bar": "1.0.0 <= v < 2.0.0"
+    },
+    "test-dependencies": {}
+}"""
 
 
 details : List String
@@ -21,40 +90,63 @@ details =
 all : Test
 all =
     describe "NoUnusedCustomTypeConstructors"
-        [ unusedTests, phantomTypeTests ]
+        [ unusedTests "package project" packageProject
+        , unusedTests "application project" applicationProject
+        , exposingTypeConstructors
+        , phantomTypeTests "package project" packageProject
+        , phantomTypeTests "application project" applicationProject
+        ]
 
 
-unusedTests : Test
-unusedTests =
-    describe "Unused variables"
+exposingTypeConstructors : Test
+exposingTypeConstructors =
+    describe "Exposed constructors"
+        [ test "should not report unused type constructors when package module is exposing all and module is exposed" <|
+            \() ->
+                """module MyModule exposing (..)
+type Foo = Bar | Baz
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
+        ]
+
+
+unusedTests : String -> Project -> Test
+unusedTests typeOfProject project =
+    describe ("Unused variables for " ++ typeOfProject)
         [ test "should not report non-exposed variables" <|
             \() ->
-                testRule """module MyModule exposing (b)
+                """module MyModule exposing (b)
 a = 1"""
+                    |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectNoErrors
         , test "should not report used type constructors" <|
             \() ->
-                testRule """module MyModule exposing (b)
+                """module MyModule exposing (b)
 type Foo = Bar | Baz
 a = Bar
 b = Baz"""
+                    |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectNoErrors
         , test "should not report unused type constructors when module is exposing all" <|
             \() ->
-                testRule """module MyModule exposing (..)
+                """module MyModule exposing (..)
 type Foo = Bar | Baz
 """
+                    |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectNoErrors
         , test "should not report unused type constructors when module is exposing the constructors of that type" <|
             \() ->
-                testRule """module MyModule exposing (Foo(..))
+                """module MyModule exposing (Foo(..))
 type Foo = Bar | Baz
 """
+                    |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectNoErrors
         , test "should report unused type constructors" <|
             \() ->
-                testRule """module MyModule exposing (b)
+                """module MyModule exposing (b)
 type Foo = Bar | Baz"""
+                    |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `Bar` is not used."
@@ -69,8 +161,9 @@ type Foo = Bar | Baz"""
                         ]
         , test "should report unused type constructors, even if the type is exposed" <|
             \() ->
-                testRule """module MyModule exposing (Foo)
+                """module MyModule exposing (Foo)
 type Foo = Bar | Baz"""
+                    |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `Bar` is not used."
@@ -86,22 +179,23 @@ type Foo = Bar | Baz"""
         ]
 
 
-phantomTypeTests : Test
-phantomTypeTests =
-    describe "Phantom type"
+phantomTypeTests : String -> Project -> Test
+phantomTypeTests typeOfProject project =
+    describe ("Phantom type for " ++ typeOfProject)
         [ test "should not report a custom type with one constructor, when it is used in the stead of a phantom variable" <|
             \() ->
-                testRule """module MyModule exposing (id)
+                """module MyModule exposing (id)
 type User = User
 type Id a = Id
 
 id : Id User
 id = Id
 """
+                    |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectNoErrors
         , test "should not report a custom type with one constructor, when it is used in the stead of a phantom variable in a let variable" <|
             \() ->
-                testRule """module MyModule exposing (id)
+                """module MyModule exposing (id)
 type User = User
 type Id a = Id
 
@@ -113,16 +207,18 @@ id =
   in
   a
 """
+                    |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectNoErrors
         , test "should report a custom type with multiple constructors, when it is used in the stead of a phantom variable" <|
             \() ->
-                testRule """module MyModule exposing (id)
+                """module MyModule exposing (id)
 type Something = A | B
 type Id a = Id
 
 id : Id Something
 id = Id
 """
+                    |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `A` is not used."
@@ -137,11 +233,12 @@ id = Id
                         ]
         , test "should report a custom type with one constructor, when there is a phantom type available but it isn't used" <|
             \() ->
-                testRule """module MyModule exposing (id)
+                """module MyModule exposing (id)
 type User = User
 type Id a = Id
 id = Id
 """
+                    |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `User` is not used."
@@ -152,13 +249,14 @@ id = Id
                         ]
         , test "should report a custom type with one constructor when the constructor is named differently than the type, even when it is used in the stead of a phantom variable" <|
             \() ->
-                testRule """module MyModule exposing (id)
+                """module MyModule exposing (id)
 type User = UserConstructor
 type Id a = Id
 
 id : Id User
 id = Id
 """
+                    |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `UserConstructor` is not used."
@@ -168,13 +266,14 @@ id = Id
                         ]
         , test "should report a custom type with one constructor, when it is used in the stead of a non-phantom variable" <|
             \() ->
-                testRule """module MyModule exposing (id)
+                """module MyModule exposing (id)
 type User = User
 type Id a = Id a
 
 id : Id User
 id = Id
 """
+                    |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `User` is not used."
@@ -185,13 +284,14 @@ id = Id
                         ]
         , test "should report a custom type with a type variable, when it is used in the stead of a phantom variable" <|
             \() ->
-                testRule """module MyModule exposing (id)
+                """module MyModule exposing (id)
 type User something = User
 type Id a = Id a
 
 id : Id (User otherThing)
 id = Id
 """
+                    |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `User` is not used."
@@ -202,13 +302,14 @@ id = Id
                         ]
         , test "should report a custom type with one constructor that has arguments, when it is used in the stead of a phantom variable" <|
             \() ->
-                testRule """module MyModule exposing (id)
+                """module MyModule exposing (id)
 type User = User Something
 type Id a = Id a
 
 id : Id User
 id = Id
 """
+                    |> Review.Test.runWithProjectData project rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `User` is not used."
@@ -217,6 +318,4 @@ id = Id
                             }
                             |> Review.Test.atExactly { start = { row = 2, column = 13 }, end = { row = 2, column = 17 } }
                         ]
-
-        -- TODO Handle phantom types from other modules
         ]
