@@ -1,4 +1,4 @@
-module NoUnused.CustomTypeConstructors exposing (rule)
+module NoUnused.CustomTypeConstructors2 exposing (rule)
 
 {-| Forbid having unused custom type constructors in a file.
 
@@ -89,7 +89,8 @@ rule =
 
 
 type alias ProjectContext =
-    {}
+    { exposedModules : Set ModuleName
+    }
 
 
 type alias ModuleContext =
@@ -103,7 +104,8 @@ type alias ModuleContext =
 
 initProjectContext : ProjectContext
 initProjectContext =
-    {}
+    { exposedModules = Set.empty
+    }
 
 
 fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> ProjectContext -> ModuleContext
@@ -118,7 +120,8 @@ fromProjectToModule _ _ projectContext =
 
 fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> ModuleContext -> ProjectContext
 fromModuleToProject _ _ moduleContext =
-    {}
+    { exposedModules = Set.empty
+    }
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext

@@ -13,7 +13,7 @@ when inside the directory containing this file.
 
 import NoDebugLog
 import NoDebugTodoOrToString
-import NoUnused.CustomTypeConstructors
+import NoUnused.CustomTypeConstructors2
 import NoUnused.Variables
 import NoUnusedDependencies
 import NoUnusedExports
@@ -26,7 +26,7 @@ config =
     [ NoDebugLog.rule
     , NoDebugTodoOrToString.rule
         |> Rule.ignoreErrorsForDirectories [ "tests/" ]
-    , NoUnused.CustomTypeConstructors.rule
+    , NoUnused.CustomTypeConstructors2.rule
     , NoUnused.Variables.rule
     , NoUnusedDependencies.rule
     , NoUnusedExports.rule
