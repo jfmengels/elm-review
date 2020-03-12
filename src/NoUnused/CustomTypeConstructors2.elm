@@ -86,7 +86,22 @@ rule =
         }
         |> Scope.addProjectVisitors
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
+        |> Rule.withFinalProjectEvaluation finalProjectEvaluation
         |> Rule.fromProjectRuleSchema
+
+
+
+-- MODULE VISITOR
+
+
+moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
+moduleVisitor schema =
+    schema
+        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
+        |> Rule.withDeclarationListVisitor declarationListVisitor
+        |> Rule.withDeclarationVisitor declarationVisitor
+        |> Rule.withExpressionVisitor expressionVisitor
+        |> Rule.withFinalModuleEvaluation finalModuleEvaluation
 
 
 
@@ -96,6 +111,7 @@ rule =
 type alias ProjectContext =
     { scope : Scope.ProjectContext
     , exposedModules : Set String
+    , exposedConstructors : Dict String { moduleKey : Rule.ModuleKey, constructors : Dict String (Node String) }
     }
 
 
@@ -114,6 +130,7 @@ initProjectContext : ProjectContext
 initProjectContext =
     { scope = Scope.initProjectContext
     , exposedModules = Set.empty
+    , exposedConstructors = Dict.empty
     }
 
 
@@ -133,6 +150,9 @@ fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> ModuleContext -> Proj
 fromModuleToProject _ moduleName moduleContext =
     { scope = Scope.fromModuleToProject moduleName moduleContext.scope
     , exposedModules = Set.empty
+
+    -- TODO
+    , exposedConstructors = Dict.empty
     }
 
 
@@ -140,6 +160,9 @@ foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts newContext previousContext =
     { scope = Scope.foldProjectContexts previousContext.scope newContext.scope
     , exposedModules = previousContext.exposedModules
+
+    -- TODO
+    , exposedConstructors = previousContext.exposedConstructors
     }
 
 
@@ -187,21 +210,6 @@ elmJsonVisitor maybeElmJson projectContext =
 
         Nothing ->
             projectContext
-
-
-
--- MODULE VISITOR
-
-
-moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
-moduleVisitor schema =
-    schema
-        |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ))
-        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-        |> Rule.withDeclarationListVisitor declarationListVisitor
-        |> Rule.withDeclarationVisitor declarationVisitor
-        |> Rule.withExpressionVisitor expressionVisitor
-        |> Rule.withFinalModuleEvaluation finalModuleEvaluation
 
 
 
@@ -358,6 +366,7 @@ expressionVisitor node direction context =
 
 finalModuleEvaluation : ModuleContext -> List Error
 finalModuleEvaluation context =
+    -- TODO Turn this into a finalProjectEvaluation
     if context.exposesEverything && context.isExposed then
         []
 
@@ -372,6 +381,43 @@ finalModuleEvaluation context =
                         |> Dict.toList
                         |> List.map (\( _, node ) -> error node)
                 )
+
+
+constructorsToWarnAbout : ModuleContext -> Dict String (Dict String (Node String))
+constructorsToWarnAbout context =
+    Dict.empty
+
+
+a = )
+
+
+
+-- FINAL PROJECT EVALUATION
+
+
+finalProjectEvaluation : ProjectContext -> List Error
+finalProjectEvaluation context =
+    -- let
+    --     _ =
+    --         context.exposedConstructors
+    --             |> Dict.filter (\moduleName { moduleKey, constructors, exposedConstructors } -> True)
+    -- in
+    -- TODO Turn this into a finalProjectEvaluation
+    -- if context.exposesEverything && context.isExposed then
+    --     []
+    --
+    -- else
+    --     context.declaredTypesWithConstructors
+    --         |> Dict.filter (\customTypeName _ -> not (context.isExposed && Set.member customTypeName context.exposedCustomTypesWithConstructors))
+    --         |> Dict.values
+    --         |> List.concatMap
+    --             (\dict ->
+    --                 dict
+    --                     |> Dict.filter (\name _ -> not (Set.member name context.usedFunctionOrValues || (context.isExposed && Set.member name context.exposedCustomTypesWithConstructors)))
+    --                     |> Dict.toList
+    --                     |> List.map (\( _, node ) -> error node)
+    --             )
+    []
 
 
 

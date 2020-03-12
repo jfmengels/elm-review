@@ -95,6 +95,7 @@ all =
         , phantomTypeTests "package project" packageProject
         , phantomTypeTests "application project" applicationProject
         , crossModuleTests
+        , usingConstructorsFromOtherModules "package project" packageProject
         ]
 
 
@@ -402,3 +403,22 @@ type Foo = Bar | Baz
                             }
                         ]
         ]
+
+
+usingConstructorsFromOtherModules : String -> Project -> Test
+usingConstructorsFromOtherModules typeOfProject project =
+    Test.skip <|
+        describe ("Using constructors from others modules (" ++ typeOfProject ++ ")")
+            [ test "should not report type constructors used in other files when module is exposing the constructors of that type (qualifed import)" <|
+                \() ->
+                    [ """
+module MyModule exposing (Foo(..))
+type Foo = Bar | Baz
+""", """
+module OtherModule exposing (a)
+import MyModule
+a = [ MyModule.Bar, MyModule.Baz ]
+""" ]
+                        |> Review.Test.runOnModulesWithProjectData project rule
+                        |> Review.Test.expectNoErrors
+            ]
