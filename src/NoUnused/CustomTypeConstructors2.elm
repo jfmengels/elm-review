@@ -388,9 +388,6 @@ constructorsToWarnAbout context =
     Dict.empty
 
 
-a = )
-
-
 
 -- FINAL PROJECT EVALUATION
 
