@@ -589,7 +589,7 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache exce
 
         computeErrors_ : ProjectModule -> List Error
         computeErrors_ =
-            computeErrors moduleRuleSchema project initialContext
+            computeErrors moduleRuleSchema initialContext
 
         modulesToAnalyze : List ProjectModule
         modulesToAnalyze =
@@ -630,8 +630,8 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache exce
     )
 
 
-computeErrors : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext -> Project -> moduleContext -> ProjectModule -> List Error
-computeErrors (ModuleRuleSchema schema) project initialContext =
+computeErrors : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext ->  moduleContext -> ProjectModule -> List Error
+computeErrors (ModuleRuleSchema schema) initialContext =
     let
         declarationVisitors : InAndOut (DirectedVisitor Declaration moduleContext)
         declarationVisitors =
@@ -1016,24 +1016,22 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
     let
         graph : Graph ModuleName ()
         graph =
-            project
-                |> Review.Project.moduleGraph
-    in
-    let
+            Review.Project.moduleGraph project
+
+        elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
+        elmJsonData =
+            Review.Project.elmJson project
+                |> Maybe.map
+                    (\elmJson ->
+                        { elmJsonKey = ElmJsonKey { path = elmJson.path, raw = elmJson.raw }
+                        , project = elmJson.project
+                        }
+                    )
+
         initialContext : projectContext
         initialContext =
             schema.context.initProjectContext
-                |> accumulateContext schema.elmJsonVisitors
-                    (case Review.Project.elmJson project of
-                        Just elmJson ->
-                            Just
-                                { elmJsonKey = ElmJsonKey { path = elmJson.path, raw = elmJson.raw }
-                                , project = elmJson.project
-                                }
-
-                        Nothing ->
-                            Nothing
-                    )
+                |> accumulateContext schema.elmJsonVisitors elmJsonData
                 |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencies project)
 
         modules : Dict ModuleName ProjectModule

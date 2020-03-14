@@ -420,19 +420,42 @@ a = [ MyModule.Bar, MyModule.Baz ]
 """ ]
                     |> Review.Test.runOnModulesWithProjectData project rule
                     |> Review.Test.expectNoErrors
-        , Test.skip <|
-            test "should not report type constructors used in other files when module is exposing the constructors of that type (exposing the constructors)" <|
-                \() ->
-                    [ """
+        , test "should not report type constructors used in other files when module is exposing the constructors of that type (qualified import, aliasing the module name)" <|
+            \() ->
+                [ """
+module MyModule exposing (Foo(..))
+type Foo = Bar | Baz
+""", """
+module OtherModule exposing (a)
+import MyModule as M
+a = [ M.Bar, M.Baz ]
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData project rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report type constructors used in other files when module is exposing the constructors of that type (exposing the constructors)" <|
+            \() ->
+                [ """
 module MyModule exposing (Foo(..))
 type Foo = Bar | Baz
 """, """
 module OtherModule exposing (a)
 import MyModule exposing (Foo(..))
-a = [ MyModule.Bar, MyModule.Baz ]
+a = [ Bar, Baz ]
 """ ]
-                        |> Review.Test.runOnModulesWithProjectData project rule
-                        |> Review.Test.expectNoErrors
+                    |> Review.Test.runOnModulesWithProjectData project rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report type constructors used in other files when module is exposing the constructors of that type (nested module name)" <|
+            \() ->
+                [ """
+module My.Module exposing (Foo(..))
+type Foo = Bar | Baz
+""", """
+module OtherModule exposing (a)
+import My.Module
+a = [ My.Module.Bar, My.Module.Baz ]
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData project rule
+                    |> Review.Test.expectNoErrors
 
         -- TODO Handle aliasing of module (will need to use Scope)
         -- TODO Handle phantom types use in other files

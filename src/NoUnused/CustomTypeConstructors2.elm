@@ -403,16 +403,16 @@ registerUsedFunctionOrValue moduleName name moduleContext =
 
     else
         let
-            realModuleName : ModuleName
+            realModuleName : ModuleNameAsString
             realModuleName =
                 Scope.realFunctionOrType moduleName name moduleContext.scope
                     |> Tuple.first
+                    |> String.join "."
 
             usedFunctionsOrValues : Dict ModuleNameAsString (Set ConstructorName)
             usedFunctionsOrValues =
                 Dict.update
-                    -- TODO Use Scope.reaflFunctionOrName
-                    (String.join "." realModuleName)
+                    realModuleName
                     (\maybeSet ->
                         case maybeSet of
                             Just set ->

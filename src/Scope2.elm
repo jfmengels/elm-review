@@ -88,16 +88,12 @@ type alias InnerModuleContext =
     , dependenciesModules : Dict String Elm.Docs.Module
     , modules : Dict ModuleName Elm.Docs.Module
     , exposesEverything : Bool
-    , exposedNames : Dict String { range : Range, exposedElement : ExposedElement }
+    , exposedNames : Dict String Range
     , exposedUnions : List Elm.Docs.Union
     , exposedAliases : List Elm.Docs.Alias
     , exposedValues : List Elm.Docs.Value
     , exposedBinops : List Elm.Docs.Binop
     }
-
-
-type ExposedElement
-    = Function
 
 
 type alias Scope =
@@ -468,9 +464,12 @@ registerExposed declaration innerContext =
                     | exposedUnions =
                         { name = Node.value type_.name
                         , comment = ""
+
+                        -- TODO
                         , args = []
                         , tags =
                             type_.constructors
+                                -- TODO Constructor args?
                                 |> List.map (\constructor -> ( Node.value (Node.value constructor).name, [] ))
                         }
                             :: innerContext.exposedUnions
@@ -566,21 +565,20 @@ moduleDefinitionVisitor node innerContext =
             { innerContext | exposedNames = exposedElements list }
 
 
-exposedElements : List (Node Exposing.TopLevelExpose) -> Dict String { range : Range, exposedElement : ExposedElement }
+exposedElements : List (Node Exposing.TopLevelExpose) -> Dict String Range
 exposedElements nodes =
     nodes
         |> List.filterMap
             (\node ->
                 case Node.value node of
                     Exposing.FunctionExpose name ->
-                        Just <| ( name, { range = Node.range node, exposedElement = Function } )
+                        Just ( name, Node.range node )
 
                     Exposing.TypeOrAliasExpose name ->
-                        Just <| ( name, { range = Node.range node, exposedElement = Function } )
+                        Just ( name, Node.range node )
 
                     Exposing.TypeExpose { name } ->
-                        -- TODO
-                        Nothing
+                        Just ( name, Node.range node )
 
                     Exposing.InfixExpose name ->
                         Nothing
@@ -677,6 +675,7 @@ registerImportExposed import_ innerContext =
                         exposedValues : Dict String (List String)
                         exposedValues =
                             topLevelExposeList
+                                -- TODO HERE We notice that the module has no tags or union, even though it should
                                 |> List.concatMap (namesFromExposingList module_)
                                 |> List.map (\name -> ( name, moduleName ))
                                 |> Dict.fromList
