@@ -97,32 +97,52 @@ rule =
 moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor schema =
     schema
+        |> Scope.addModuleVisitors
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withDeclarationListVisitor declarationListVisitor
         |> Rule.withDeclarationVisitor declarationVisitor
         |> Rule.withExpressionVisitor expressionVisitor
-        |> Rule.withFinalModuleEvaluation finalModuleEvaluation
 
 
 
 -- CONTEXT
 
 
+type alias ModuleNameAsString =
+    String
+
+
+type alias CustomTypeName =
+    String
+
+
+type alias ConstructorName =
+    String
+
+
+type ExposedConstructors
+    = ExposedConstructors
+        { moduleKey : Rule.ModuleKey
+        , customTypes : Dict CustomTypeName (Dict ConstructorName (Node ConstructorName))
+        }
+
+
 type alias ProjectContext =
     { scope : Scope.ProjectContext
-    , exposedModules : Set String
-    , exposedConstructors : Dict String { moduleKey : Rule.ModuleKey, constructors : Dict String (Node String) }
+    , exposedModules : Set ModuleNameAsString
+    , exposedConstructors : Dict ModuleNameAsString ExposedConstructors
+    , usedConstructors : Dict ModuleNameAsString (Set ConstructorName)
     }
 
 
 type alias ModuleContext =
     { scope : Scope.ModuleContext
-    , exposedCustomTypesWithConstructors : Set String
+    , exposedCustomTypesWithConstructors : Set CustomTypeName
     , isExposed : Bool
     , exposesEverything : Bool
-    , declaredTypesWithConstructors : Dict String (Dict String (Node String))
-    , usedFunctionOrValues : Set String
-    , phantomVariables : List ( String, Int )
+    , declaredTypesWithConstructors : Dict CustomTypeName (Dict ConstructorName (Node ConstructorName))
+    , usedFunctionsOrValues : Dict ModuleNameAsString (Set ConstructorName)
+    , phantomVariables : List ( CustomTypeName, Int )
     }
 
 
@@ -131,6 +151,7 @@ initProjectContext =
     { scope = Scope.initProjectContext
     , exposedModules = Set.empty
     , exposedConstructors = Dict.empty
+    , usedConstructors = Dict.empty
     }
 
 
@@ -141,18 +162,42 @@ fromProjectToModule _ (Node.Node _ moduleName) projectContext =
     , isExposed = Set.member (String.join "." moduleName) projectContext.exposedModules
     , exposesEverything = False
     , declaredTypesWithConstructors = Dict.empty
-    , usedFunctionOrValues = Set.empty
+    , usedFunctionsOrValues = Dict.empty
     , phantomVariables = []
     }
 
 
 fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> ModuleContext -> ProjectContext
-fromModuleToProject _ moduleName moduleContext =
+fromModuleToProject moduleKey moduleName moduleContext =
+    let
+        localUsed : Set ConstructorName
+        localUsed =
+            moduleContext.usedFunctionsOrValues
+                |> Dict.get ""
+                |> Maybe.withDefault Set.empty
+
+        moduleNameAsString : ModuleNameAsString
+        moduleNameAsString =
+            String.join "." <| Node.value moduleName
+    in
     { scope = Scope.fromModuleToProject moduleName moduleContext.scope
     , exposedModules = Set.empty
+    , exposedConstructors =
+        if moduleContext.isExposed then
+            Dict.empty
 
-    -- TODO
-    , exposedConstructors = Dict.empty
+        else
+            Dict.singleton
+                moduleNameAsString
+                (ExposedConstructors
+                    { moduleKey = moduleKey
+                    , customTypes = moduleContext.declaredTypesWithConstructors
+                    }
+                )
+    , usedConstructors =
+        moduleContext.usedFunctionsOrValues
+            |> Dict.remove ""
+            |> Dict.insert moduleNameAsString localUsed
     }
 
 
@@ -162,21 +207,16 @@ foldProjectContexts newContext previousContext =
     , exposedModules = previousContext.exposedModules
 
     -- TODO
-    , exposedConstructors = previousContext.exposedConstructors
+    , exposedConstructors = Dict.union newContext.exposedConstructors previousContext.exposedConstructors
+    , usedConstructors =
+        Dict.merge
+            Dict.insert
+            (\key newUsed previousUsed dict -> Dict.insert key (Set.union newUsed previousUsed) dict)
+            Dict.insert
+            newContext.usedConstructors
+            previousContext.usedConstructors
+            Dict.empty
     }
-
-
-error : Node String -> Error
-error node =
-    Rule.error
-        { message = "Type constructor `" ++ Node.value node ++ "` is not used."
-        , details =
-            [ "This type constructor is never used. It might be handled everywhere it might appear, but there is no location where this value actually gets created."
-            , "You should either use this value somewhere, or remove it at the location I pointed at."
-            , "If you remove it, you may find that other pieces of code are never used, and can themselves be removed too. This could end up simplifying your code a lot."
-            ]
-        }
-        (Node.range node)
 
 
 
@@ -332,60 +372,68 @@ declarationVisitor node direction context =
 
 
 expressionVisitor : Node Expression -> Direction -> ModuleContext -> ( List nothing, ModuleContext )
-expressionVisitor node direction context =
-    if context.exposesEverything then
-        ( [], context )
+expressionVisitor node direction moduleContext =
+    case ( direction, Node.value node ) of
+        ( Rule.OnEnter, Expression.FunctionOrValue moduleName name ) ->
+            ( [], registerUsedFunctionOrValue moduleName name moduleContext )
+
+        ( Rule.OnEnter, Expression.LetExpression { declarations } ) ->
+            ( []
+            , declarations
+                |> List.filterMap
+                    (\declaration ->
+                        case Node.value declaration of
+                            Expression.LetFunction function ->
+                                Just function.signature
+
+                            Expression.LetDestructuring _ _ ->
+                                Nothing
+                    )
+                |> List.foldl markPhantomTypesFromTypeSignatureAsUsed moduleContext
+            )
+
+        _ ->
+            ( [], moduleContext )
+
+
+registerUsedFunctionOrValue : List String -> ConstructorName -> ModuleContext -> ModuleContext
+registerUsedFunctionOrValue moduleName name moduleContext =
+    if not (isCapitalized name) then
+        moduleContext
 
     else
-        case ( direction, Node.value node ) of
-            ( Rule.OnEnter, Expression.FunctionOrValue [] name ) ->
-                ( [], { context | usedFunctionOrValues = Set.insert name context.usedFunctionOrValues } )
+        let
+            realModuleName : ModuleName
+            realModuleName =
+                Scope.realFunctionOrType moduleName name moduleContext.scope
+                    |> Tuple.first
 
-            ( Rule.OnEnter, Expression.LetExpression { declarations } ) ->
-                ( []
-                , declarations
-                    |> List.filterMap
-                        (\declaration ->
-                            case Node.value declaration of
-                                Expression.LetFunction function ->
-                                    Just function.signature
+            usedFunctionsOrValues : Dict ModuleNameAsString (Set ConstructorName)
+            usedFunctionsOrValues =
+                Dict.update
+                    -- TODO Use Scope.reaflFunctionOrName
+                    (String.join "." realModuleName)
+                    (\maybeSet ->
+                        case maybeSet of
+                            Just set ->
+                                Just (Set.insert name set)
 
-                                Expression.LetDestructuring _ _ ->
-                                    Nothing
-                        )
-                    |> List.foldl markPhantomTypesFromTypeSignatureAsUsed context
-                )
-
-            _ ->
-                ( [], context )
-
-
-
--- FINAL MODULE EVALUATION
+                            Nothing ->
+                                Just (Set.singleton name)
+                    )
+                    moduleContext.usedFunctionsOrValues
+        in
+        { moduleContext | usedFunctionsOrValues = usedFunctionsOrValues }
 
 
-finalModuleEvaluation : ModuleContext -> List Error
-finalModuleEvaluation context =
-    -- TODO Turn this into a finalProjectEvaluation
-    if context.exposesEverything && context.isExposed then
-        []
+isCapitalized : String -> Bool
+isCapitalized name =
+    case String.uncons name of
+        Just ( char, _ ) ->
+            Char.isUpper char
 
-    else
-        context.declaredTypesWithConstructors
-            |> Dict.filter (\customTypeName _ -> not (context.isExposed && Set.member customTypeName context.exposedCustomTypesWithConstructors))
-            |> Dict.values
-            |> List.concatMap
-                (\dict ->
-                    dict
-                        |> Dict.filter (\name _ -> not (Set.member name context.usedFunctionOrValues || (context.isExposed && Set.member name context.exposedCustomTypesWithConstructors)))
-                        |> Dict.toList
-                        |> List.map (\( _, node ) -> error node)
-                )
-
-
-constructorsToWarnAbout : ModuleContext -> Dict String (Dict String (Node String))
-constructorsToWarnAbout context =
-    Dict.empty
+        Nothing ->
+            False
 
 
 
@@ -393,50 +441,95 @@ constructorsToWarnAbout context =
 
 
 finalProjectEvaluation : ProjectContext -> List Error
-finalProjectEvaluation context =
-    -- let
-    --     _ =
-    --         context.exposedConstructors
-    --             |> Dict.filter (\moduleName { moduleKey, constructors, exposedConstructors } -> True)
-    -- in
-    -- TODO Turn this into a finalProjectEvaluation
-    -- if context.exposesEverything && context.isExposed then
-    --     []
-    --
-    -- else
-    --     context.declaredTypesWithConstructors
-    --         |> Dict.filter (\customTypeName _ -> not (context.isExposed && Set.member customTypeName context.exposedCustomTypesWithConstructors))
-    --         |> Dict.values
-    --         |> List.concatMap
-    --             (\dict ->
-    --                 dict
-    --                     |> Dict.filter (\name _ -> not (Set.member name context.usedFunctionOrValues || (context.isExposed && Set.member name context.exposedCustomTypesWithConstructors)))
-    --                     |> Dict.toList
-    --                     |> List.map (\( _, node ) -> error node)
-    --             )
-    []
+finalProjectEvaluation projectContext =
+    projectContext.exposedConstructors
+        |> Dict.toList
+        |> List.concatMap
+            (\( moduleName, ExposedConstructors { moduleKey, customTypes } ) ->
+                let
+                    usedConstructors : Set ConstructorName
+                    usedConstructors =
+                        Dict.get moduleName projectContext.usedConstructors
+                            |> Maybe.withDefault Set.empty
+                in
+                customTypes
+                    |> Dict.toList
+                    |> List.concatMap
+                        (\( customTypeName, constructors ) ->
+                            constructors
+                                |> Dict.filter (\constructorName _ -> not <| Set.member constructorName usedConstructors)
+                                |> Dict.values
+                                |> List.map (errorForModule moduleKey)
+                        )
+            )
 
 
 
--- TYPE ANNOTATION UTILITARY FUNCTIONS
+-- ERROR
+
+
+errorInformation : Node String -> { message : String, details : List String }
+errorInformation node =
+    { message = "Type constructor `" ++ Node.value node ++ "` is not used."
+    , details =
+        [ "This type constructor is never used. It might be handled everywhere it might appear, but there is no location where this value actually gets created."
+        , "You should either use this value somewhere, or remove it at the location I pointed at."
+        , "If you remove it, you may find that other pieces of code are never used, and can themselves be removed too. This could end up simplifying your code a lot."
+        ]
+    }
+
+
+errorForModule : Rule.ModuleKey -> Node String -> Error
+errorForModule moduleKey node =
+    Rule.errorForFile
+        moduleKey
+        (errorInformation node)
+        (Node.range node)
+
+
+
+-- TYPE ANNOTATION UTILITY FUNCTIONS
 
 
 markPhantomTypesFromTypeSignatureAsUsed : Maybe (Node Signature) -> ModuleContext -> ModuleContext
-markPhantomTypesFromTypeSignatureAsUsed maybeSignature context =
+markPhantomTypesFromTypeSignatureAsUsed maybeSignature moduleContext =
     let
-        used : List String
+        used : List ( ModuleName, CustomTypeName )
         used =
             case maybeSignature of
                 Just signature ->
                     signature
                         |> Node.value
                         |> .typeAnnotation
-                        |> collectTypesUsedAsPhantomVariables context.phantomVariables
+                        |> collectTypesUsedAsPhantomVariables moduleContext.phantomVariables
 
                 Nothing ->
                     []
+
+        usedFunctionsOrValues : Dict ModuleNameAsString (Set ConstructorName)
+        usedFunctionsOrValues =
+            List.foldl
+                insertIntoUsedFunctionsOrValues
+                moduleContext.usedFunctionsOrValues
+                used
     in
-    { context | usedFunctionOrValues = Set.union (Set.fromList used) context.usedFunctionOrValues }
+    { moduleContext | usedFunctionsOrValues = usedFunctionsOrValues }
+
+
+insertIntoUsedFunctionsOrValues : ( ModuleName, ConstructorName ) -> Dict ModuleNameAsString (Set ConstructorName) -> Dict ModuleNameAsString (Set ConstructorName)
+insertIntoUsedFunctionsOrValues ( moduleName, constructorName ) dict =
+    Dict.update
+        -- TODO Use Scope.reaflFunctionOrName
+        (String.join "." moduleName)
+        (\maybeSet ->
+            case maybeSet of
+                Just set ->
+                    Just (Set.insert constructorName set)
+
+                Nothing ->
+                    Just (Set.singleton constructorName)
+        )
+        dict
 
 
 collectGenericsFromTypeAnnotation : Node TypeAnnotation -> List String
@@ -445,14 +538,14 @@ collectGenericsFromTypeAnnotation node =
         TypeAnnotation.FunctionTypeAnnotation a b ->
             collectGenericsFromTypeAnnotation a ++ collectGenericsFromTypeAnnotation b
 
-        TypeAnnotation.Typed nameNode params ->
+        TypeAnnotation.Typed _ params ->
             List.concatMap collectGenericsFromTypeAnnotation params
 
         TypeAnnotation.Record list ->
             list
                 |> List.concatMap (Node.value >> Tuple.second >> collectGenericsFromTypeAnnotation)
 
-        TypeAnnotation.GenericRecord name list ->
+        TypeAnnotation.GenericRecord _ list ->
             Node.value list
                 |> List.concatMap (Node.value >> Tuple.second >> collectGenericsFromTypeAnnotation)
 
@@ -466,7 +559,7 @@ collectGenericsFromTypeAnnotation node =
             []
 
 
-collectTypesUsedAsPhantomVariables : List ( String, Int ) -> Node TypeAnnotation -> List String
+collectTypesUsedAsPhantomVariables : List ( CustomTypeName, Int ) -> Node TypeAnnotation -> List ( ModuleName, CustomTypeName )
 collectTypesUsedAsPhantomVariables phantomVariables node =
     case Node.value node of
         TypeAnnotation.FunctionTypeAnnotation a b ->
@@ -475,7 +568,7 @@ collectTypesUsedAsPhantomVariables phantomVariables node =
 
         TypeAnnotation.Typed (Node.Node _ ( [], name )) params ->
             let
-                typesUsedInThePhantomVariablePosition : List String
+                typesUsedInThePhantomVariablePosition : List ( ModuleName, CustomTypeName )
                 typesUsedInThePhantomVariablePosition =
                     phantomVariables
                         |> List.filter (\( type_, _ ) -> type_ == name)
@@ -483,7 +576,7 @@ collectTypesUsedAsPhantomVariables phantomVariables node =
                             (\( _, index ) ->
                                 case listAtIndex index params |> Maybe.map Node.value of
                                     Just (TypeAnnotation.Typed (Node.Node _ ( [], typeName )) []) ->
-                                        Just typeName
+                                        Just ( [], typeName )
 
                                     _ ->
                                         Nothing
@@ -494,21 +587,21 @@ collectTypesUsedAsPhantomVariables phantomVariables node =
                 , List.concatMap (collectTypesUsedAsPhantomVariables phantomVariables) params
                 ]
 
-        TypeAnnotation.Typed nameNode params ->
+        TypeAnnotation.Typed _ params ->
             List.concatMap (collectTypesUsedAsPhantomVariables phantomVariables) params
 
         TypeAnnotation.Record list ->
             list
                 |> List.concatMap (Node.value >> Tuple.second >> collectTypesUsedAsPhantomVariables phantomVariables)
 
-        TypeAnnotation.GenericRecord name list ->
+        TypeAnnotation.GenericRecord _ list ->
             Node.value list
                 |> List.concatMap (Node.value >> Tuple.second >> collectTypesUsedAsPhantomVariables phantomVariables)
 
         TypeAnnotation.Tupled list ->
             List.concatMap (collectTypesUsedAsPhantomVariables phantomVariables) list
 
-        TypeAnnotation.GenericType var ->
+        TypeAnnotation.GenericType _ ->
             []
 
         TypeAnnotation.Unit ->
