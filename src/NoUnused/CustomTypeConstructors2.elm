@@ -132,6 +132,7 @@ type alias ProjectContext =
     , exposedModules : Set ModuleNameAsString
     , exposedConstructors : Dict ModuleNameAsString ExposedConstructors
     , usedConstructors : Dict ModuleNameAsString (Set ConstructorName)
+    , phantomVariables : Dict ModuleName (List ( CustomTypeName, Int ))
     }
 
 
@@ -140,9 +141,10 @@ type alias ModuleContext =
     , exposedCustomTypesWithConstructors : Set CustomTypeName
     , isExposed : Bool
     , exposesEverything : Bool
+    , exposedConstructors : Dict ModuleNameAsString ExposedConstructors
     , declaredTypesWithConstructors : Dict CustomTypeName (Dict ConstructorName (Node ConstructorName))
     , usedFunctionsOrValues : Dict ModuleNameAsString (Set ConstructorName)
-    , phantomVariables : List ( CustomTypeName, Int )
+    , phantomVariables : Dict ModuleName (List ( CustomTypeName, Int ))
     }
 
 
@@ -152,6 +154,7 @@ initProjectContext =
     , exposedModules = Set.empty
     , exposedConstructors = Dict.empty
     , usedConstructors = Dict.empty
+    , phantomVariables = Dict.empty
     }
 
 
@@ -160,10 +163,11 @@ fromProjectToModule _ (Node.Node _ moduleName) projectContext =
     { scope = Scope.fromProjectToModule projectContext.scope
     , exposedCustomTypesWithConstructors = Set.empty
     , isExposed = Set.member (String.join "." moduleName) projectContext.exposedModules
+    , exposedConstructors = projectContext.exposedConstructors
     , exposesEverything = False
     , declaredTypesWithConstructors = Dict.empty
     , usedFunctionsOrValues = Dict.empty
-    , phantomVariables = []
+    , phantomVariables = projectContext.phantomVariables
     }
 
 
@@ -175,6 +179,12 @@ fromModuleToProject moduleKey moduleName moduleContext =
             moduleContext.usedFunctionsOrValues
                 |> Dict.get ""
                 |> Maybe.withDefault Set.empty
+
+        localPhantomTypes : List ( CustomTypeName, Int )
+        localPhantomTypes =
+            moduleContext.phantomVariables
+                |> Dict.get []
+                |> Maybe.withDefault []
 
         moduleNameAsString : ModuleNameAsString
         moduleNameAsString =
@@ -198,6 +208,10 @@ fromModuleToProject moduleKey moduleName moduleContext =
         moduleContext.usedFunctionsOrValues
             |> Dict.remove ""
             |> Dict.insert moduleNameAsString localUsed
+    , phantomVariables =
+        moduleContext.phantomVariables
+            |> Dict.remove []
+            |> Dict.insert (Node.value moduleName) localPhantomTypes
     }
 
 
@@ -205,8 +219,6 @@ foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts newContext previousContext =
     { scope = Scope.foldProjectContexts previousContext.scope newContext.scope
     , exposedModules = previousContext.exposedModules
-
-    -- TODO
     , exposedConstructors = Dict.union newContext.exposedConstructors previousContext.exposedConstructors
     , usedConstructors =
         Dict.merge
@@ -216,6 +228,7 @@ foldProjectContexts newContext previousContext =
             newContext.usedConstructors
             previousContext.usedConstructors
             Dict.empty
+    , phantomVariables = Dict.union newContext.phantomVariables previousContext.phantomVariables
     }
 
 
@@ -313,8 +326,21 @@ register node context =
                         |> List.indexedMap Tuple.pair
                         |> List.filter (\( _, genericName ) -> not <| Set.member genericName nonPhantomVariables)
                         |> List.map (\( indexOfPhantomVariable, _ ) -> ( Node.value name, indexOfPhantomVariable ))
+
+                newPhantomVariables =
+                    Dict.update
+                        []
+                        (\maybeSet ->
+                            case maybeSet of
+                                Just old ->
+                                    Just (phantomVariables ++ old)
+
+                                Nothing ->
+                                    Just phantomVariables
+                        )
+                        context.phantomVariables
             in
-            { context | phantomVariables = phantomVariables ++ context.phantomVariables }
+            { context | phantomVariables = newPhantomVariables }
 
         _ ->
             context
@@ -328,10 +354,6 @@ declarationVisitor : Node Declaration -> Direction -> ModuleContext -> ( List no
 declarationVisitor node direction context =
     case ( direction, Node.value node ) of
         ( Rule.OnEnter, Declaration.CustomTypeDeclaration { name, constructors } ) ->
-            -- if Set.member (Node.value name) context.exposedCustomTypesWithConstructors then
-            --     ( [], context )
-            --
-            -- else
             let
                 constructorsForCustomType : Dict String (Node String)
                 constructorsForCustomType =
@@ -403,27 +425,17 @@ registerUsedFunctionOrValue moduleName name moduleContext =
 
     else
         let
-            realModuleName : ModuleNameAsString
+            realModuleName : ModuleName
             realModuleName =
                 Scope.realFunctionOrType moduleName name moduleContext.scope
                     |> Tuple.first
-                    |> String.join "."
-
-            usedFunctionsOrValues : Dict ModuleNameAsString (Set ConstructorName)
-            usedFunctionsOrValues =
-                Dict.update
-                    realModuleName
-                    (\maybeSet ->
-                        case maybeSet of
-                            Just set ->
-                                Just (Set.insert name set)
-
-                            Nothing ->
-                                Just (Set.singleton name)
-                    )
-                    moduleContext.usedFunctionsOrValues
         in
-        { moduleContext | usedFunctionsOrValues = usedFunctionsOrValues }
+        { moduleContext
+            | usedFunctionsOrValues =
+                insertIntoUsedFunctionsOrValues
+                    ( realModuleName, name )
+                    moduleContext.usedFunctionsOrValues
+        }
 
 
 isCapitalized : String -> Bool
@@ -453,9 +465,9 @@ finalProjectEvaluation projectContext =
                             |> Maybe.withDefault Set.empty
                 in
                 customTypes
-                    |> Dict.toList
+                    |> Dict.values
                     |> List.concatMap
-                        (\( customTypeName, constructors ) ->
+                        (\constructors ->
                             constructors
                                 |> Dict.filter (\constructorName _ -> not <| Set.member constructorName usedConstructors)
                                 |> Dict.values
@@ -501,7 +513,7 @@ markPhantomTypesFromTypeSignatureAsUsed maybeSignature moduleContext =
                     signature
                         |> Node.value
                         |> .typeAnnotation
-                        |> collectTypesUsedAsPhantomVariables moduleContext.phantomVariables
+                        |> collectTypesUsedAsPhantomVariables moduleContext.scope moduleContext.phantomVariables
 
                 Nothing ->
                     []
@@ -519,7 +531,6 @@ markPhantomTypesFromTypeSignatureAsUsed maybeSignature moduleContext =
 insertIntoUsedFunctionsOrValues : ( ModuleName, ConstructorName ) -> Dict ModuleNameAsString (Set ConstructorName) -> Dict ModuleNameAsString (Set ConstructorName)
 insertIntoUsedFunctionsOrValues ( moduleName, constructorName ) dict =
     Dict.update
-        -- TODO Use Scope.reaflFunctionOrName
         (String.join "." moduleName)
         (\maybeSet ->
             case maybeSet of
@@ -559,24 +570,31 @@ collectGenericsFromTypeAnnotation node =
             []
 
 
-collectTypesUsedAsPhantomVariables : List ( CustomTypeName, Int ) -> Node TypeAnnotation -> List ( ModuleName, CustomTypeName )
-collectTypesUsedAsPhantomVariables phantomVariables node =
+collectTypesUsedAsPhantomVariables : Scope.ModuleContext -> Dict ModuleName (List ( CustomTypeName, Int )) -> Node TypeAnnotation -> List ( ModuleName, CustomTypeName )
+collectTypesUsedAsPhantomVariables scope phantomVariables node =
     case Node.value node of
         TypeAnnotation.FunctionTypeAnnotation a b ->
-            collectTypesUsedAsPhantomVariables phantomVariables a
-                ++ collectTypesUsedAsPhantomVariables phantomVariables b
+            collectTypesUsedAsPhantomVariables scope phantomVariables a
+                ++ collectTypesUsedAsPhantomVariables scope phantomVariables b
 
-        TypeAnnotation.Typed (Node.Node _ ( [], name )) params ->
+        TypeAnnotation.Typed (Node.Node _ ( moduleNameOfPhantomContainer, name )) params ->
             let
+                realModuleNameOfPhantomContainer : ModuleName
+                realModuleNameOfPhantomContainer =
+                    Scope.realFunctionOrType moduleNameOfPhantomContainer name scope
+                        |> Tuple.first
+
                 typesUsedInThePhantomVariablePosition : List ( ModuleName, CustomTypeName )
                 typesUsedInThePhantomVariablePosition =
-                    phantomVariables
+                    Dict.get realModuleNameOfPhantomContainer phantomVariables
+                        |> Maybe.withDefault []
                         |> List.filter (\( type_, _ ) -> type_ == name)
                         |> List.filterMap
                             (\( _, index ) ->
                                 case listAtIndex index params |> Maybe.map Node.value of
-                                    Just (TypeAnnotation.Typed (Node.Node _ ( [], typeName )) []) ->
-                                        Just ( [], typeName )
+                                    Just (TypeAnnotation.Typed (Node.Node _ ( moduleNameOfPhantomVariable, typeName )) _) ->
+                                        Just <|
+                                            Scope.realFunctionOrType moduleNameOfPhantomVariable typeName scope
 
                                     _ ->
                                         Nothing
@@ -584,22 +602,19 @@ collectTypesUsedAsPhantomVariables phantomVariables node =
             in
             List.concat
                 [ typesUsedInThePhantomVariablePosition
-                , List.concatMap (collectTypesUsedAsPhantomVariables phantomVariables) params
+                , List.concatMap (collectTypesUsedAsPhantomVariables scope phantomVariables) params
                 ]
-
-        TypeAnnotation.Typed _ params ->
-            List.concatMap (collectTypesUsedAsPhantomVariables phantomVariables) params
 
         TypeAnnotation.Record list ->
             list
-                |> List.concatMap (Node.value >> Tuple.second >> collectTypesUsedAsPhantomVariables phantomVariables)
+                |> List.concatMap (Node.value >> Tuple.second >> collectTypesUsedAsPhantomVariables scope phantomVariables)
 
         TypeAnnotation.GenericRecord _ list ->
             Node.value list
-                |> List.concatMap (Node.value >> Tuple.second >> collectTypesUsedAsPhantomVariables phantomVariables)
+                |> List.concatMap (Node.value >> Tuple.second >> collectTypesUsedAsPhantomVariables scope phantomVariables)
 
         TypeAnnotation.Tupled list ->
-            List.concatMap (collectTypesUsedAsPhantomVariables phantomVariables) list
+            List.concatMap (collectTypesUsedAsPhantomVariables scope phantomVariables) list
 
         TypeAnnotation.GenericType _ ->
             []

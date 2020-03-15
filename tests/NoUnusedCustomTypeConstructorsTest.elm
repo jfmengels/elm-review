@@ -304,6 +304,69 @@ id = Id
                             }
                             |> Review.Test.atExactly { start = { row = 3, column = 13 }, end = { row = 3, column = 17 } }
                         ]
+        , test "should not report a phantom type if it is used in another module (directly imported)" <|
+            \() ->
+                [ """
+module MyModule exposing (User(..))
+type User = User Something
+""", """
+module OtherModule exposing (id)
+import MyModule exposing (User)
+type Id a = Id
+
+id : Id User
+id = Id
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData project rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report a phantom type if it is used in another module (qualified imported)" <|
+            \() ->
+                [ """
+module MyModule exposing (User(..))
+type User = User Something
+""", """
+module OtherModule exposing (id)
+import MyModule
+type Id a = Id
+
+id : Id MyModule.User
+id = Id
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData project rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report a phantom type if both container and phantom type are defined in another module" <|
+            \() ->
+                [ """
+module Id exposing (Id(..))
+import MyModule
+type Id a = Id
+""", """
+module MyModule exposing (User(..))
+type User = User Something
+""", """
+module OtherModule exposing (id)
+import Id
+
+id : Id.Id MyModule.User
+id = Id.Id
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData project rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report a phantom type if it is used in another module even when constructors are not exposed" <|
+            \() ->
+                [ """
+module MyModule exposing (User)
+type User = User Something
+""", """
+module OtherModule exposing (id)
+import MyModule exposing (User)
+type Id a = Id
+
+id : Id User
+id = Id
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData project rule
+                    |> Review.Test.expectNoErrors
         ]
 
 
@@ -456,7 +519,4 @@ a = [ My.Module.Bar, My.Module.Baz ]
 """ ]
                     |> Review.Test.runOnModulesWithProjectData project rule
                     |> Review.Test.expectNoErrors
-
-        -- TODO Handle aliasing of module (will need to use Scope)
-        -- TODO Handle phantom types use in other files
         ]

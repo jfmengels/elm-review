@@ -934,12 +934,8 @@ realFunctionOrType moduleName functionOrType (ModuleContext context) =
             []
 
           else
-            case Dict.get functionOrType context.importedFunctionOrTypes of
-                Just importedFunctionOrType ->
-                    importedFunctionOrType
-
-                Nothing ->
-                    []
+            Dict.get functionOrType context.importedFunctionOrTypes
+                |> Maybe.withDefault []
         , functionOrType
         )
 
