@@ -167,7 +167,7 @@ finalEvaluationForProject { modules, usedModules } =
 
 error : ( ModuleName, { moduleKey : Rule.ModuleKey, moduleNameLocation : Range } ) -> Error
 error ( moduleName, { moduleKey, moduleNameLocation } ) =
-    Rule.errorForFile moduleKey
+    Rule.errorForModule moduleKey
         { message = "Module `" ++ String.join "." moduleName ++ "` is never used."
         , details = [ "This module is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
         }

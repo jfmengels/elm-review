@@ -493,7 +493,7 @@ errorInformation node =
 
 errorForModule : Rule.ModuleKey -> Node String -> Error
 errorForModule moduleKey node =
-    Rule.errorForFile
+    Rule.errorForModule
         moduleKey
         (errorInformation node)
         (Node.range node)

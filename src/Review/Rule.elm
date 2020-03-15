@@ -6,7 +6,7 @@ module Review.Rule exposing
     , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withElmJsonProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
-    , Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, ModuleKey, errorForFile, ElmJsonKey, errorForElmJson
+    , Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, ModuleKey, errorForModule, ElmJsonKey, errorForElmJson
     , withFixes
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     )
@@ -194,7 +194,7 @@ Evaluating/visiting a node means two things:
 
 ## Errors
 
-@docs Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, ModuleKey, errorForFile, ElmJsonKey, errorForElmJson
+@docs Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, ModuleKey, errorForModule, ElmJsonKey, errorForElmJson
 
 
 ## Automatic fixing
@@ -630,7 +630,7 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache exce
     )
 
 
-computeErrors : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext ->  moduleContext -> ProjectModule -> List Error
+computeErrors : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext -> moduleContext -> ProjectModule -> List Error
 computeErrors (ModuleRuleSchema schema) initialContext =
     let
         declarationVisitors : InAndOut (DirectedVisitor Declaration moduleContext)
@@ -963,6 +963,9 @@ withDependenciesProjectVisitor visitor (ProjectRuleSchema schema) =
 
 
 {-| TODO documentation
+
+Warn not to create errors using the error function, but using errorForModule instead.
+
 -}
 withFinalProjectEvaluation :
     (projectContext -> List Error)
@@ -1320,6 +1323,7 @@ withSimpleModuleDefinitionVisitor visitor schema =
 
 
 {-| TODO documentation
+Add example that forbids TODOs for instance.
 -}
 withSimpleCommentsVisitor : (List (Node String) -> List Error) -> ModuleRuleSchema anything moduleContext -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext
 withSimpleCommentsVisitor visitor schema =
@@ -2088,7 +2092,7 @@ type Error
         }
 
 
-{-| Creates an [`Error`](#Error). Use it when you find a pattern that the rule should forbid.
+{-| Create an [`Error`](#Error). Use it when you find a pattern that the rule should forbid.
 
 The `message` and `details` represent the [message you want to display to the user].
 The `details` is a list of paragraphs, and each item will be visually separated
@@ -2125,7 +2129,7 @@ error { message, details } range =
 
 
 {-| A key to be able to report an error for a specific module. You need such a
-key in order to use the [`errorForFile`](#errorForFile) function. This is to
+key in order to use the [`errorForModule`](#errorForModule) function. This is to
 prevent creating errors for modules you have not visited, or files that do not exist.
 
 You can get a `ModuleKey` from the `fromProjectToModule` and `fromModuleToProject`
@@ -2136,28 +2140,15 @@ type ModuleKey
     = ModuleKey String
 
 
-{-| TODO documentation
+{-| Just like [`error`](#error), create an [`Error`](#Error) but for a specific module, instead of the module that is being
+visited.
 
-Creates an [`Error`](#Error). Use it when you find a pattern that the rule should forbid.
-It takes the [message you want to display to the user](#a-helpful-error-message-and-details), and a [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range),
-which is the location where the error should be shown (under which to put the squiggly lines in an editor).
-In most cases, you can get it using [`Node.range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#range).
-
-The `details` is a list of strings, and each item will be visually separated
-when shown to the user. The details may not be empty, and this will be enforced
-by the tests automatically.
-
-    error : Node a -> Error
-    error node =
-        Rule.error
-            { message = "Remove the use of `Debug` before shipping to production"
-            , details = [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing its use before committing and attempting to push to production." ]
-            }
-            (Node.range node)
+You will need a [`ModuleKey`](#ModuleKey), which you can get from the `fromProjectToModule` and `fromModuleToProject`
+functions that you define when using [`newProjectRuleSchema`](#newProjectRuleSchema).
 
 -}
-errorForFile : ModuleKey -> { message : String, details : List String } -> Range -> Error
-errorForFile (ModuleKey path) { message, details } range =
+errorForModule : ModuleKey -> { message : String, details : List String } -> Range -> Error
+errorForModule (ModuleKey path) { message, details } range =
     Error
         { message = message
         , ruleName = ""
@@ -2182,7 +2173,14 @@ type ElmJsonKey
         }
 
 
-{-| TODO Documentation
+{-| Just like [`error`](#error), create an [`Error`](#Error) but for a specific module, instead of the module that is being
+visited.
+
+You will need a [`ElmJsonKey`](#ElmJsonKey), which you can get from the [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor)
+function.
+
+Fixes added to errors for the `elm.json` file are automatically ignored.
+
 -}
 errorForElmJson : ElmJsonKey -> (String -> { message : String, details : List String, range : Range }) -> Error
 errorForElmJson (ElmJsonKey { path, raw }) getErrorInfo =

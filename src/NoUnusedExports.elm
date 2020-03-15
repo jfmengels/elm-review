@@ -228,7 +228,7 @@ finalEvaluationForProject projectContext =
                                         ExposedType ->
                                             "Exposed type"
                             in
-                            Rule.errorForFile moduleKey
+                            Rule.errorForModule moduleKey
                                 { message = what ++ " `" ++ name ++ "` is never used outside this module."
                                 , details = [ "This exposed element is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
                                 }
