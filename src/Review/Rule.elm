@@ -957,7 +957,12 @@ withElmJsonProjectVisitor visitor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
 
 
-{-| TODO documentation
+{-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will visit the project's
+[dependencies](./Review-Project-Dependency).
+
+It works exactly like [`withDependenciesModuleVisitor`](#withDependenciesModuleVisitor). The visitor will be called before any
+module is evaluated.
+
 -}
 withDependenciesProjectVisitor :
     (Dict String Review.Project.Dependency.Dependency -> projectContext -> projectContext)
@@ -1689,7 +1694,12 @@ withElmJsonModuleVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
 
 
-{-| TODO
+{-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will visit the project's
+[dependencies](./Review-Project-Dependency).
+
+You can use this look at the modules contained in dependencies, which can make the rule very precise when it targets
+specific functions.
+
 -}
 withDependenciesModuleVisitor :
     (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
