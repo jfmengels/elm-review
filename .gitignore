@@ -4,3 +4,4 @@ demo/elm.js
 node_modules/
 demo/index.html
 .coverage
+.idea/
