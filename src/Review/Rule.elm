@@ -1302,7 +1302,7 @@ moduleNameNode node =
             data.moduleName
 
 
-{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the `File`'s [module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`) and report patterns.
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's [module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`) and report patterns.
 
 The following example forbids having `_` in any part of a module name.
 
@@ -1338,15 +1338,52 @@ withSimpleModuleDefinitionVisitor visitor schema =
     withModuleDefinitionVisitor (\node moduleContext -> ( visitor node, moduleContext )) schema
 
 
-{-| TODO documentation
-Add example that forbids TODOs for instance.
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's comments.
+
+This visitor will give you access to the list of all comments in the file all at once.
+
+The following example forbids words like "TODO" appearing in a comment.
+
+    import Elm.Syntax.Node as Node exposing (Node)
+    import Elm.Syntax.Range exposing (Range)
+    import Review.Rule as Rule exposing (Error, Rule)
+
+    rule : Rule
+    rule =
+        Rule.newModuleRuleSchema "NoTodoComment" ()
+            |> Rule.withSimpleCommentsVisitor commentsVisitor
+            |> Rule.fromModuleRuleSchema
+
+    commentsVisitor : List (Node String) -> List Error
+    commentsVisitor comments =
+        comments
+            |> List.concatMap
+                (\commentNode ->
+                    String.indexes "TODO" (Node.value commentNode)
+                        |> List.map (errorAtPosition (Node.range commentNode))
+                )
+
+    errorAtPosition : Range -> Int -> Error
+    errorAtPosition range index =
+        Rule.error
+            { message = "TODO needs to be handled"
+            , details = [ "At fruits.com, we prefer not to have lingering TODO comments. Either fix the TODO now or create an issue for it." ]
+            }
+            -- Here you would ideally only target the TODO keyword
+            -- or the line it appears on,
+            -- so you would change `range` using `index`.
+            range
+
+Note: `withSimpleCommentsVisitor` is a simplified version of [`withCommentsVisitor`](#withCommentsVisitor),
+which isn't passed a `context` and doesn't return one. You can use `withCommentsVisitor` even if you use "non-simple with\*" functions.
+
 -}
 withSimpleCommentsVisitor : (List (Node String) -> List Error) -> ModuleRuleSchema anything moduleContext -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext
 withSimpleCommentsVisitor visitor schema =
     withCommentsVisitor (\node moduleContext -> ( visitor node, moduleContext )) schema
 
 
-{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the `File`'s [import statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Import) (`import Html as H exposing (div)`) in order of their definition and report patterns.
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's [import statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Import) (`import Html as H exposing (div)`) in order of their definition and report patterns.
 
 The following example forbids using the core Html package and suggests using
 `elm-css` instead.
@@ -1395,7 +1432,7 @@ withSimpleImportVisitor visitor schema =
     withImportVisitor (\node moduleContext -> ( visitor node, moduleContext )) schema
 
 
-{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the `File`'s
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
 [declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Declaration)
 (`someVar = add 1 2`, `type Bool = True | False`, `port output : Json.Encode.Value -> Cmd msg`)
 and report patterns. The declarations will be visited in the order of their definition.
@@ -1458,7 +1495,7 @@ withSimpleDeclarationVisitor visitor schema =
         schema
 
 
-{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the `File`'s
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
 [expressions](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Expression)
 (`1`, `True`, `add 1 2`, `1 + 2`). The expressions are visited in pre-order
 depth-first search, meaning that an expression will be visited, then its first
@@ -1709,7 +1746,7 @@ withDependenciesModuleVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | dependenciesVisitors = visitor :: schema.dependenciesVisitors }
 
 
-{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the `File`'s
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
 [module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`), collect data in the `context` and/or report patterns.
 
 The following example forbids the use of `Html.button` except in the "Button" module.
@@ -1772,14 +1809,21 @@ withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | moduleDefinitionVisitors = visitor :: schema.moduleDefinitionVisitors }
 
 
-{-| TODO documentation
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's comments, collect data in
+the `context` and/or report patterns.
+
+This visitor will give you access to the list of all comments in the file all at once.
+
+Tip: If you do not need to collect data in this visitor, you may wish to use the
+simpler [`withSimpleCommentsVisitor`](#withSimpleCommentsVisitor) function.
+
 -}
 withCommentsVisitor : (List (Node String) -> moduleContext -> ( List Error, moduleContext )) -> ModuleRuleSchema anything moduleContext -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext
 withCommentsVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | commentsVisitors = visitor :: schema.commentsVisitors }
 
 
-{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the `File`'s
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
 [import statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Import)
 (`import Html as H exposing (div)`) in order of their definition, collect data
 in the `context` and/or report patterns.
@@ -1855,7 +1899,7 @@ withImportVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | importVisitors = visitor :: schema.importVisitors }
 
 
-{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the `File`'s
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
 [declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Declaration)
 (`someVar = add 1 2`, `type Bool = True | False`, `port output : Json.Encode.Value -> Cmd msg`),
 collect data and/or report patterns. The declarations will be visited in the order of their definition.
@@ -1944,7 +1988,7 @@ withDeclarationVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | declarationVisitors = visitor :: schema.declarationVisitors }
 
 
-{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the `File`'s
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
 [declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Declaration)
 (`someVar = add 1 2`, `type Bool = True | False`, `port output : Json.Encode.Value -> Cmd msg`),
 collect data and/or report patterns.
@@ -1963,7 +2007,7 @@ withDeclarationListVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | declarationListVisitors = visitor :: schema.declarationListVisitors }
 
 
-{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the `File`'s
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
 [expressions](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Expression)
 (`1`, `True`, `add 1 2`, `1 + 2`), collect data in the `context` and/or report patterns.
 The expressions are visited in pre-order depth-first search, meaning that an
