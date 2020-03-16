@@ -942,7 +942,12 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
         )
 
 
-{-| TODO documentation
+{-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will visit the project's
+[`elm.json`](https://package.elm-lang.org/packages/elm/project-metadata-utils/latest/Elm-Project) file.
+
+It works exactly like [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor). The visitor will be called before any
+module is evaluated.
+
 -}
 withElmJsonProjectVisitor :
     (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> projectContext)
@@ -1611,7 +1616,6 @@ emptySchema name_ initialContext =
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the project's
 [`elm.json`](https://package.elm-lang.org/packages/elm/project-metadata-utils/latest/Elm-Project) file.
-information, such as the contents of the `elm.json` file, to collect data (`module SomeModuleName exposing (a, b)`), collect data in the `context` and/or report patterns.
 
 The following example forbids exposing a file in an "Internal" directory in your `elm.json` file.
 
