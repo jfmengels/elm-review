@@ -967,9 +967,15 @@ withDependenciesProjectVisitor visitor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | dependenciesVisitors = visitor :: schema.dependenciesVisitors }
 
 
-{-| TODO documentation
+{-| Add a function that makes a final evaluation of the project based only on the
+data that was collected in the `projectContext`. This can be useful if you can't report something until you have visited
+all the files in the project.
 
-Warn not to create errors using the error function, but using errorForModule instead.
+It works similarly [`withFinalModuleEvaluation`](#withFinalModuleEvaluation).
+
+**NOTE**: Do not create errors using the [`error`](#error) function using `withFinalProjectEvaluation`, but using [`errorForModule`](#errorForModule)
+instead. When the project is evaluated in this function, you are not in the "context" of an Elm module (the idiomatic "context", not `projectContext` or `moduleContext`).
+That means that if you call [`error`](#error), we won't know which module to associate the error to.
 
 -}
 withFinalProjectEvaluation :
@@ -2024,6 +2030,9 @@ The following example forbids the use of `Debug.log` even when it is imported li
 Tip: If you do not need to collect or use the `context` in this visitor, you may wish to use the
 simpler [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) function.
 
+TODO Explain that errors can be duplicated if you do not check Direction.
+TODO Explain about `Direction`?
+
 -}
 withExpressionVisitor : (Node Expression -> Direction -> moduleContext -> ( List Error, moduleContext )) -> ModuleRuleSchema anything moduleContext -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext
 withExpressionVisitor visitor (ModuleRuleSchema schema) =
@@ -2031,7 +2040,7 @@ withExpressionVisitor visitor (ModuleRuleSchema schema) =
 
 
 {-| Add a function that makes a final evaluation of the module based only on the
-data that was collected in the `context`. This can be useful if you can't or if
+data that was collected in the `moduleContext`. This can be useful if you can't or if
 it is hard to determine something as you traverse the file.
 
 The following example forbids importing both `Element` (`elm-ui`) and
