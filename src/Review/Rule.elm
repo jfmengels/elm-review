@@ -924,7 +924,7 @@ newProjectRuleSchema name_ { moduleVisitor, initProjectContext, fromProjectToMod
         }
 
 
-{-| TODO documentation
+{-| Create a [`Rule`](#Rule) from a configured [`ProjectRuleSchema`](#ProjectRuleSchema).
 -}
 fromProjectRuleSchema : ProjectRuleSchema projectContext moduleContext -> Rule
 fromProjectRuleSchema (ProjectRuleSchema schema) =
