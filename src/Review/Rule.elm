@@ -1904,6 +1904,13 @@ withImportVisitor visitor (ModuleRuleSchema schema) =
 (`someVar = add 1 2`, `type Bool = True | False`, `port output : Json.Encode.Value -> Cmd msg`),
 collect data and/or report patterns. The declarations will be visited in the order of their definition.
 
+Contrary to [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor), the
+visitor function will be called twice with different [`Direction`](#Direction)
+values. It will be visited with `OnEnter`, then the children will be visited,
+and then it will be visited again with `OnExit`. If you do not check the value of
+the `Direction` parameter, you might end up with duplicate errors and/or an
+unexpected `moduleContext`. Read more about [`Direction` here](#Direction).
+
 The following example forbids exposing a function or a value without it having a
 type annotation.
 
@@ -2014,6 +2021,13 @@ The expressions are visited in pre-order depth-first search, meaning that an
 expression will be visited, then its first child, the first child's children
 (and so on), then the second child (and so on).
 
+Contrary to [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor), the
+visitor function will be called twice with different [`Direction`](#Direction)
+values. It will be visited with `OnEnter`, then the children will be visited,
+and then it will be visited again with `OnExit`. If you do not check the value of
+the `Direction` parameter, you might end up with duplicate errors and/or an
+unexpected `moduleContext`. Read more about [`Direction` here](#Direction).
+
 The following example forbids the use of `Debug.log` even when it is imported like
 `import Debug exposing (log)`.
 
@@ -2083,9 +2097,6 @@ The following example forbids the use of `Debug.log` even when it is imported li
 
 Tip: If you do not need to collect or use the `context` in this visitor, you may wish to use the
 simpler [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) function.
-
-TODO Explain that errors can be duplicated if you do not check Direction.
-TODO Explain about `Direction`?
 
 -}
 withExpressionVisitor : (Node Expression -> Direction -> moduleContext -> ( List Error, moduleContext )) -> ModuleRuleSchema anything moduleContext -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext
