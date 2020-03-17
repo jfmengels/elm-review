@@ -479,19 +479,29 @@ to create a usable [`Rule`](#Rule). Use "with\*" functions from this module, lik
 [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) or [`withSimpleImportVisitor`](#withSimpleImportVisitor)
 to make it report something.
 
+The first argument is the rule name. I _highly_ recommend naming it just like the
+module name (including all the `.` there may be).
+
+The second argument is the initial `moduleContext`, i.e. the data that the rule will
+accumulate as the module will be traversed, and allows the rule to know/remember
+what happens in other parts of the module. If you don't need a context, I
+recommend specifying `()`, and using functions from this module with names
+starting with "withSimple".
+
+    module My.Rule.Name exposing (rule)
+
     import Review.Rule as Rule exposing (Rule)
 
     rule : Rule
     rule =
-        Rule.newModuleRuleSchema "NoDebug" ()
+        Rule.newModuleRuleSchema "My.Rule.Name" ()
             |> Rule.withSimpleExpressionVisitor expressionVisitor
             |> Rule.withSimpleImportVisitor importVisitor
             |> Rule.fromModuleRuleSchema
 
-TODO Update this text
-If you wish to build a [`Rule`](#Rule) that collects data as the file gets traversed,
-take a look at [`withInitialContext`](#withInitialContext) and "with\*" functions without
-"Simple" in their name, like [`withExpressionVisitor`](#withExpressionVisitor),
+If you do need information from other parts of the module, then you should specify
+an initial context, and I recommend using "with\*" functions without "Simple" in
+their name, like [`withExpressionVisitor`](#withExpressionVisitor),
 [`withImportVisitor`](#withImportVisitor) or [`withFinalModuleEvaluation`](#withFinalModuleEvaluation).
 
     import Review.Rule as Rule exposing (Rule)
