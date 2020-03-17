@@ -1380,7 +1380,7 @@ The following example forbids words like "TODO" appearing in a comment.
             , details = [ "At fruits.com, we prefer not to have lingering TODO comments. Either fix the TODO now or create an issue for it." ]
             }
             -- Here you would ideally only target the TODO keyword
-            -- or the line it appears on,
+            -- or the rest of the line it appears on,
             -- so you would change `range` using `index`.
             range
 
