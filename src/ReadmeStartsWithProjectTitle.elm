@@ -78,7 +78,7 @@ readmeVisitor : Maybe { readmeKey : Rule.ReadmeKey, content : String } -> Projec
 readmeVisitor maybeReadme context =
     case ( maybeReadme, context.projectTitle ) of
         ( Just { readmeKey, content }, Just projectName ) ->
-            if String.startsWith ("# " ++ projectName) content then
+            if not <| String.startsWith ("# " ++ projectName) content then
                 let
                     range : Range
                     range =

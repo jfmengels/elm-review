@@ -1,6 +1,6 @@
 module Review.Test exposing
     ( ReviewResult, run, runWithProjectData, runOnModules, runOnModulesWithProjectData
-    , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson
+    , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme
     )
 
 {-| Module that helps you test your rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/).
@@ -98,7 +98,7 @@ for this module.
 
 # Making assertions
 
-@docs ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson
+@docs ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme
 
 -}
 
@@ -373,6 +373,7 @@ runOnModulesWithProjectData project rule sources =
                                 List.concat
                                     [ List.map (moduleToRunResult errors) modules
                                     , elmJsonRunResult errors projectWithModules
+                                    , readmeRunResult errors projectWithModules
                                     ]
                                     |> SuccessfulRun
 
@@ -403,6 +404,25 @@ elmJsonRunResult errors project =
                 errorsForElmJson ->
                     [ { moduleName = elmJsonData.path
                       , inspector = codeInspectorForSource elmJsonData.raw
+                      , errors = errorsForElmJson
+                      }
+                    ]
+
+        Nothing ->
+            []
+
+
+readmeRunResult : List Error -> Project -> List SuccessfulRunResult
+readmeRunResult errors project =
+    case Project.readme project of
+        Just readme ->
+            case List.filter (\error_ -> Rule.errorFilePath error_ == readme.path) errors of
+                [] ->
+                    []
+
+                errorsForElmJson ->
+                    [ { moduleName = readme.path
+                      , inspector = codeInspectorForSource readme.content
                       , errors = errorsForElmJson
                       }
                     ]
@@ -701,6 +721,42 @@ location is incorrect.
 expectErrorsForElmJson : List ExpectedError -> ReviewResult -> Expectation
 expectErrorsForElmJson expectedErrors reviewResult =
     expectErrorsForModules [ ( "elm.json", expectedErrors ) ] reviewResult
+
+
+{-| TODO Documentation
+Assert that the rule reported some errors for the `elm.json` file, by specifying which ones.
+
+    test "report an error when a module is unused" <|
+        \() ->
+            """
+    module ModuleA exposing (a)
+    a = 1"""
+                |> Review.Test.runWithProjectData rule
+                |> Review.Test.expectErrorsForElmJson
+                    [ Review.Test.error
+                        { message = "Unused dependency `author/package`"
+                        , details = [ "Details about the error" ]
+                        , under = "Debug.log"
+                        }
+                    ]
+
+Alternatively, or if you need to specify errors for other files too, you can use [`expectErrorsForModules`](#expectErrorsForModules), specifying `elm.json` as the module name.
+
+    sourceCode
+        |> Review.Test.runOnModules rule
+        |> Review.Test.expectErrorsForModules
+            [ ( "ModuleB", [ Review.Test.error someErrorModuleB ] )
+            , ( "elm.json", [ Review.Test.error someErrorForElmJson ] )
+            ]
+
+Assert which errors are reported using [`error`](#error). The test will fail if
+a different number of errors than expected are reported, or if the message or the
+location is incorrect.
+
+-}
+expectErrorsForReadme : List ExpectedError -> ReviewResult -> Expectation
+expectErrorsForReadme expectedErrors reviewResult =
+    expectErrorsForModules [ ( "README.md", expectedErrors ) ] reviewResult
 
 
 {-| Create an expectation for an error.

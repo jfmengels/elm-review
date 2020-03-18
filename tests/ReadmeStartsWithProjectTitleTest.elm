@@ -64,15 +64,12 @@ all =
                     |> Project.withElmJson (createElmJson packageElmJson)
                     |> Project.withReadme { path = "README.md", content = "Hello everybody\nThis is a good project" }
                     |> testRule
-                    |> Review.Test.expectErrorsForModules
-                        [ ( "README.md"
-                          , [ Review.Test.error
-                                { message = "TODO"
-                                , details = [ "TODO" ]
-                                , under = "Hello "
-                                }
-                            ]
-                          )
+                    |> Review.Test.expectErrorsForReadme
+                        [ Review.Test.error
+                            { message = "TODO"
+                            , details = [ "TODO" ]
+                            , under = "Hello everybody"
+                            }
                         ]
         , test "should not report an error if the README.md file starts with the project name" <|
             \() ->
