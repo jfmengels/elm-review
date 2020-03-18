@@ -1069,10 +1069,6 @@ type alias ProjectRuleCache projectContext =
 runProjectRule : ProjectRuleSchema projectContext moduleContext -> ProjectRuleCache projectContext -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, Rule )
 runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptions project nodeContexts =
     let
-        graph : Graph ModuleName ()
-        graph =
-            Review.Project.moduleGraph project
-
         elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
         elmJsonData =
             Review.Project.elmJson project
@@ -1099,6 +1095,46 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
                 |> accumulateWithListOfVisitors schema.readmeVisitors readmeData
                 |> accumulateWithListOfVisitors schema.dependenciesVisitors (Review.Project.dependencies project)
 
+        newCache : ProjectRuleCache projectContext
+        newCache =
+            if List.isEmpty schema.moduleVisitorCreators then
+                startCache
+
+            else
+                computeModules wrappedSchema project initialContext nodeContexts startCache
+
+        contextsAndErrorsPerFile : List ( List Error, projectContext )
+        contextsAndErrorsPerFile =
+            newCache
+                |> Dict.values
+                |> List.map (\cacheEntry -> ( cacheEntry.errors, cacheEntry.context ))
+
+        errors : List Error
+        errors =
+            [ projectRelatedErrors
+            , List.concatMap Tuple.first contextsAndErrorsPerFile
+            , errorsFromFinalEvaluationForProject wrappedSchema initialContext contextsAndErrorsPerFile
+            ]
+                |> List.concat
+                |> Exceptions.apply exceptions errorFilePath
+    in
+    ( errors, Rule schema.name exceptions (runProjectRule wrappedSchema newCache) )
+
+
+computeModules : ProjectRuleSchema projectContext moduleContext -> Project -> projectContext -> List (Graph.NodeContext ModuleName ()) -> ProjectRuleCache projectContext -> ProjectRuleCache projectContext
+computeModules (ProjectRuleSchema schema) project initialContext nodeContexts startCache =
+    let
+        graph : Graph ModuleName ()
+        graph =
+            Review.Project.moduleGraph project
+
+        projectModulePaths : Set String
+        projectModulePaths =
+            project
+                |> Review.Project.modules
+                |> List.map .path
+                |> Set.fromList
+
         modules : Dict ModuleName ProjectModule
         modules =
             project
@@ -1112,12 +1148,10 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
                     )
                     Dict.empty
 
-        projectModulePaths : Set String
-        projectModulePaths =
-            project
-                |> Review.Project.modules
-                |> List.map .path
-                |> Set.fromList
+        newStartCache : ProjectRuleCache projectContext
+        newStartCache =
+            startCache
+                |> Dict.filter (\path _ -> Set.member path projectModulePaths)
 
         dummyInitialContext : moduleContext
         dummyInitialContext =
@@ -1182,36 +1216,12 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
                     moduleNameNode_
                     context
             }
-
-        newStartCache : ProjectRuleCache projectContext
-        newStartCache =
-            startCache
-                |> Dict.filter (\path _ -> Set.member path projectModulePaths)
-
-        newCache : ProjectRuleCache projectContext
-        newCache =
-            List.foldl
-                (computeModuleAndCacheResult schema.traversalType modules graph computeModule)
-                ( newStartCache, Set.empty )
-                nodeContexts
-                |> Tuple.first
-
-        contextsAndErrorsPerFile : List ( List Error, projectContext )
-        contextsAndErrorsPerFile =
-            newCache
-                |> Dict.values
-                |> List.map (\cacheEntry -> ( cacheEntry.errors, cacheEntry.context ))
-
-        errors : List Error
-        errors =
-            [ projectRelatedErrors
-            , List.concatMap Tuple.first contextsAndErrorsPerFile
-            , errorsFromFinalEvaluationForProject wrappedSchema initialContext contextsAndErrorsPerFile
-            ]
-                |> List.concat
-                |> Exceptions.apply exceptions errorFilePath
     in
-    ( errors, Rule schema.name exceptions (runProjectRule wrappedSchema newCache) )
+    List.foldl
+        (computeModuleAndCacheResult schema.traversalType modules graph computeModule)
+        ( newStartCache, Set.empty )
+        nodeContexts
+        |> Tuple.first
 
 
 setRuleName : String -> Error -> Error
