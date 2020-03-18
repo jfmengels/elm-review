@@ -4,9 +4,9 @@ module Review.Rule exposing
     , ModuleRuleSchema, newModuleRuleSchema, fromModuleRuleSchema
     , withSimpleModuleDefinitionVisitor, withSimpleCommentsVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
     , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalModuleEvaluation
-    , withElmJsonModuleVisitor, withDependenciesModuleVisitor
-    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withElmJsonProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
-    , Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, ModuleKey, errorForModule, ElmJsonKey, errorForElmJson
+    , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
+    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
+    , Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, ModuleKey, errorForModule, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme
     , withFixes
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     )
@@ -151,6 +151,7 @@ The traversal of a module rule is the following:
 
   - Read project-related info (only collect data in the context in these steps)
       - The `elm.json` file, visited by [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor)
+      - The `README.md` file, visited by [`withReadmeModuleVisitor`](#withReadmeModuleVisitor)
       - The definition for dependencies, visited by [`withDependenciesModuleVisitor`](#withDependenciesModuleVisitor)
   - Visit the file (in the following order)
       - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
@@ -184,17 +185,17 @@ Evaluating/visiting a node means two things:
 
 ## Builder functions to analyze the project's data
 
-@docs withElmJsonModuleVisitor, withDependenciesModuleVisitor
+@docs withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
 
 
 ## Creating a project rule
 
-@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withElmJsonProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
+@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
 
 
 ## Errors
 
-@docs Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, ModuleKey, errorForModule, ElmJsonKey, errorForElmJson
+@docs Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, ModuleKey, errorForModule, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme
 
 
 ## Automatic fixing
@@ -271,6 +272,7 @@ type ModuleRuleSchema configuration context
         { name : String
         , initialContext : context
         , elmJsonVisitors : List (Maybe Elm.Project.Project -> context -> context)
+        , readmeVisitors : List (Maybe String -> context -> context)
         , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> context -> context)
         , moduleDefinitionVisitors : List (Node Module -> context -> ( List Error, context ))
         , commentsVisitors : List (List (Node String) -> context -> ( List Error, context ))
@@ -546,6 +548,7 @@ reverseVisitors (ModuleRuleSchema schema) =
     ModuleRuleSchema
         { schema
             | elmJsonVisitors = List.reverse schema.elmJsonVisitors
+            , readmeVisitors = List.reverse schema.readmeVisitors
             , dependenciesVisitors = List.reverse schema.dependenciesVisitors
             , moduleDefinitionVisitors = List.reverse schema.moduleDefinitionVisitors
             , commentsVisitors = List.reverse schema.commentsVisitors
@@ -582,6 +585,7 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache exce
         initialContext =
             schema.initialContext
                 |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project |> Maybe.map .project)
+                |> accumulateContext schema.readmeVisitors (Review.Project.readme project |> Maybe.map .content)
                 |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencies project)
 
         startCache : ModuleRuleCache moduleContext
@@ -716,6 +720,7 @@ type ProjectRuleSchema projectContext moduleContext
             }
         , moduleVisitor : ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
         , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> projectContext)
+        , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List Error, projectContext ))
         , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> projectContext)
         , finalEvaluationFns : List (projectContext -> List Error)
         , traversalType : TraversalType
@@ -890,8 +895,10 @@ TODO Explain about
 Before looking at modules...TODO
 
   - Read project-related info (only collect data in the context in these steps)
-      - The `elm.json` file, visited by [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor)
-      - The definition for dependencies, visited by [`withDependenciesModuleVisitor`](#withDependenciesModuleVisitor)
+      - The `elm.json` file, visited by [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor)
+      - The `README.md` file, visited by [`withReadmeProjectVisitor`](#withReadmeProjectVisitor)
+      - The definition for dependencies, visited by [`withDependenciesProjectVisitor`](#withDependenciesProjectVisitor)
+
   - Visit the file (in the following order)
       - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
       - The module's list of comments, visited by [`withSimpleCommentsVisitor`](#withSimpleCommentsVisitor) and [`withCommentsVisitor`](#withCommentsVisitor)
@@ -901,6 +908,7 @@ Before looking at modules...TODO
         Before evaluating the next declaration, the expression contained in the declaration
         will be visited recursively by [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) and [`withExpressionVisitor`](#withExpressionVisitor)
       - A final evaluation is made when the module has fully been visited, using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation)
+
   - A final evaluation is made when the module has fully been visited, using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation)
 
 You can't use [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor) or [`withDependenciesModuleVisitor`](#withDependenciesModuleVisitor)
@@ -928,6 +936,7 @@ newProjectRuleSchema name_ { moduleVisitor, initProjectContext, fromProjectToMod
             }
         , moduleVisitor = moduleVisitor
         , elmJsonVisitors = []
+        , readmeVisitors = []
         , dependenciesVisitors = []
         , finalEvaluationFns = []
         , traversalType = AllModulesInParallel
@@ -944,6 +953,7 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
             (ProjectRuleSchema
                 { schema
                     | elmJsonVisitors = List.reverse schema.elmJsonVisitors
+                    , readmeVisitors = List.reverse schema.readmeVisitors
                     , dependenciesVisitors = List.reverse schema.dependenciesVisitors
                     , finalEvaluationFns = List.reverse schema.finalEvaluationFns
                 }
@@ -965,6 +975,22 @@ withElmJsonProjectVisitor :
     -> ProjectRuleSchema projectContext moduleContext
 withElmJsonProjectVisitor visitor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
+
+
+{-| TODO Documentation
+Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will visit the project's
+[`elm.json`](https://package.elm-lang.org/packages/elm/project-metadata-utils/latest/Elm-Project) file.
+
+It works exactly like [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor). The visitor will be called before any
+module is evaluated.
+
+-}
+withReadmeProjectVisitor :
+    (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List Error, projectContext ))
+    -> ProjectRuleSchema projectContext moduleContext
+    -> ProjectRuleSchema projectContext moduleContext
+withReadmeProjectVisitor visitor (ProjectRuleSchema schema) =
+    ProjectRuleSchema { schema | readmeVisitors = visitor :: schema.readmeVisitors }
 
 
 {-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will visit the project's
@@ -1057,12 +1083,26 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
                         }
                     )
 
-        initialContext : projectContext
-        initialContext =
+        readmeData : Maybe { readmeKey : ReadmeKey, content : String }
+        readmeData =
+            Review.Project.readme project
+                |> Maybe.map
+                    (\readme ->
+                        { readmeKey = ReadmeKey { path = readme.path, content = readme.content }
+                        , content = readme.content
+                        }
+                    )
+
+        foo1 =
             schema.context.initProjectContext
                 |> accumulateContext schema.elmJsonVisitors elmJsonData
-                |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencies project)
 
+        ( projectRelatedErrors, initialContext ) =
+            ( [], foo1 )
+                |> accumulateWithListOfVisitors schema.readmeVisitors readmeData
+
+        -- TODO Re-add
+        --|> accumulateContext schema.dependenciesVisitors (Review.Project.dependencies project)
         modules : Dict ModuleName ProjectModule
         modules =
             project
@@ -1155,7 +1195,8 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
 
         errors : List Error
         errors =
-            [ List.concatMap Tuple.first contextsAndErrorsPerFile
+            [ projectRelatedErrors
+            , List.concatMap Tuple.first contextsAndErrorsPerFile
             , errorsFromFinalEvaluationForProject wrappedSchema initialContext contextsAndErrorsPerFile
             ]
                 |> List.concat
@@ -1661,6 +1702,7 @@ emptySchema name_ initialContext =
         { name = name_
         , initialContext = initialContext
         , elmJsonVisitors = []
+        , readmeVisitors = []
         , dependenciesVisitors = []
         , moduleDefinitionVisitors = []
         , commentsVisitors = []
@@ -1739,6 +1781,16 @@ withElmJsonModuleVisitor :
     -> ModuleRuleSchema { anything | canCollectProjectData : () } moduleContext
 withElmJsonModuleVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
+
+
+{-| TODO Documentation
+-}
+withReadmeModuleVisitor :
+    (Maybe String -> moduleContext -> moduleContext)
+    -> ModuleRuleSchema { anything | canCollectProjectData : () } moduleContext
+    -> ModuleRuleSchema { anything | canCollectProjectData : () } moduleContext
+withReadmeModuleVisitor visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | readmeVisitors = visitor :: schema.readmeVisitors }
 
 
 {-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will visit the project's
@@ -2287,6 +2339,42 @@ errorForElmJson (ElmJsonKey { path, raw }) getErrorInfo =
         }
 
 
+{-| TODO Documentation
+A key to be able to report an error for the `elm.json` file. You need this
+key in order to use the [`errorForElmJson`](#errorForElmJson) function. This is
+to prevent creating errors for it if you have not visited it.
+
+You can get a `ElmJsonKey` using the [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor) function.
+
+-}
+type ReadmeKey
+    = ReadmeKey
+        { path : String
+        , content : String
+        }
+
+
+{-| Just like [`error`](#error), create an [`Error`](#Error) but for a specific module, instead of the module that is being
+visited.
+
+You will need a [`ElmJsonKey`](#ElmJsonKey), which you can get from the [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor)
+function.
+
+Fixes added to errors for the `elm.json` file are automatically ignored.
+
+-}
+errorForReadme : ReadmeKey -> { message : String, details : List String } -> Range -> Error
+errorForReadme (ReadmeKey { path }) { message, details } range =
+    Error
+        { message = message
+        , ruleName = ""
+        , filePath = path
+        , details = details
+        , range = range
+        , fixes = Nothing
+        }
+
+
 parsingError : { path : String, source : String } -> Error
 parsingError rawFile =
     Error
@@ -2584,10 +2672,10 @@ visitNodeWithListOfVisitorsAndDirection direction visitors node initialErrorsAnd
 
 
 accumulateWithListOfVisitors :
-    List (a -> moduleContext -> ( List Error, moduleContext ))
+    List (a -> context -> ( List Error, context ))
     -> a
-    -> ( List Error, moduleContext )
-    -> ( List Error, moduleContext )
+    -> ( List Error, context )
+    -> ( List Error, context )
 accumulateWithListOfVisitors visitors element initialErrorsAndContext =
     List.foldl
         (\visitor -> accumulate (visitor element))
@@ -2730,7 +2818,7 @@ functionToExpression function =
         |> .expression
 
 
-accumulateList : (Node a -> moduleContext -> ( List Error, moduleContext )) -> List (Node a) -> ( List Error, moduleContext ) -> ( List Error, moduleContext )
+accumulateList : (Node a -> context -> ( List Error, context )) -> List (Node a) -> ( List Error, context ) -> ( List Error, context )
 accumulateList visitor nodes ( previousErrors, previousContext ) =
     List.foldl
         (\node -> accumulate (visitor node))
@@ -2740,7 +2828,7 @@ accumulateList visitor nodes ( previousErrors, previousContext ) =
 
 {-| Concatenate the errors of the previous step and of the last step, and take the last step's context.
 -}
-accumulate : (moduleContext -> ( List Error, moduleContext )) -> ( List Error, moduleContext ) -> ( List Error, moduleContext )
+accumulate : (context -> ( List Error, context )) -> ( List Error, context ) -> ( List Error, context )
 accumulate visitor ( previousErrors, previousContext ) =
     let
         ( newErrors, newContext ) =
