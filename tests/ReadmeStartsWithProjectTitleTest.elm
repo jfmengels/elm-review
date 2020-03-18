@@ -58,42 +58,27 @@ all =
                 Project.new
                     |> testRule
                     |> Review.Test.expectNoErrors
-        , test "should report an error if there is no README.md file" <|
-            \() ->
-                Project.new
-                    |> Project.withElmJson (createElmJson packageElmJson)
-                    |> testRule
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "TODO"
-                            , details = [ "TODO" ]
-                            , under = "module"
-                            }
-                        ]
         , test "should report an error if the README.md file doesn't start with the project name" <|
             \() ->
                 Project.new
                     |> Project.withElmJson (createElmJson packageElmJson)
-                    -- TODO Add README
+                    |> Project.withReadme { path = "README.md", content = "Hello everybody\nThis is a good project" }
                     |> testRule
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "TODO"
-                            , details = [ "TODO" ]
-                            , under = "module"
-                            }
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "README.md"
+                          , [ Review.Test.error
+                                { message = "TODO"
+                                , details = [ "TODO" ]
+                                , under = "Hello "
+                                }
+                            ]
+                          )
                         ]
         , test "should not report an error if the README.md file starts with the project name" <|
             \() ->
                 Project.new
                     |> Project.withElmJson (createElmJson packageElmJson)
-                    -- TODO Add README
+                    |> Project.withReadme { path = "README.md", content = "# author/packagename\nHello everybody\nThis is a good project" }
                     |> testRule
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = "TODO"
-                            , details = [ "TODO" ]
-                            , under = "module"
-                            }
-                        ]
+                    |> Review.Test.expectNoErrors
         ]
