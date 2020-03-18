@@ -45,7 +45,7 @@ untilEndOfLine node index =
         linesBeforeComment =
             node
                 |> Node.value
-                |> String.slice 0 index
+                |> String.left index
                 |> String.split "\n"
 
         startColumn : Int
