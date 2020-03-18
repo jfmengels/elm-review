@@ -13,6 +13,7 @@ when inside the directory containing this file.
 
 import NoDebugLog
 import NoDebugTodoOrToString
+import NoTodoComment
 import NoUnused.CustomTypeConstructors2
 import NoUnused.Variables
 import NoUnusedDependencies
@@ -31,5 +32,6 @@ config =
     , NoUnusedDependencies.rule
     , NoUnusedExports.rule
     , NoUnusedModules.rule
+    , NoTodoComment.rule
     ]
         |> List.map (Rule.ignoreErrorsForDirectories [ "src/Vendor/" ])
