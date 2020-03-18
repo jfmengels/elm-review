@@ -171,7 +171,7 @@ registerMultipleAsUsed usedElements moduleContext =
 -- ELM JSON VISITOR
 
 
-elmJsonVisitor : Maybe { a | project : Elm.Project.Project } -> ProjectContext -> ProjectContext
+elmJsonVisitor : Maybe { a | project : Elm.Project.Project } -> ProjectContext -> ( List nothing, ProjectContext )
 elmJsonVisitor maybeProject projectContext =
     case maybeProject |> Maybe.map .project of
         Just (Elm.Project.Package { exposed }) ->
@@ -185,16 +185,18 @@ elmJsonVisitor maybeProject projectContext =
                         Elm.Project.ExposedDict fakeDict ->
                             List.concatMap Tuple.second fakeDict
             in
-            { projectContext
+            ( []
+            , { projectContext
                 | projectType =
                     exposedModuleNames
                         |> List.map (Elm.Module.toString >> String.split ".")
                         |> Set.fromList
                         |> IsPackage
-            }
+              }
+            )
 
         _ ->
-            { projectContext | projectType = IsApplication }
+            ( [], { projectContext | projectType = IsApplication } )
 
 
 

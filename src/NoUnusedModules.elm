@@ -131,7 +131,7 @@ foldProjectContexts newContext previousContext =
 -- PROJECT VISITORS
 
 
-elmJsonVisitor : Maybe { a | project : Project } -> ProjectContext -> ProjectContext
+elmJsonVisitor : Maybe { a | project : Project } -> ProjectContext -> ( List nothing, ProjectContext )
 elmJsonVisitor maybeProject projectContext =
     let
         ( exposedModules, isPackage ) =
@@ -147,14 +147,16 @@ elmJsonVisitor maybeProject projectContext =
                 _ ->
                     ( [], False )
     in
-    { projectContext
+    ( []
+    , { projectContext
         | usedModules =
             exposedModules
                 |> List.map (Elm.Module.toString >> String.split ".")
                 |> Set.fromList
                 |> Set.union projectContext.usedModules
         , isPackage = isPackage
-    }
+      }
+    )
 
 
 finalEvaluationForProject : ProjectContext -> List Error

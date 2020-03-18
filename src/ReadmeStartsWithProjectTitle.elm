@@ -60,14 +60,14 @@ foldProjectContexts _ previousContext =
 -- elm.json VISITOR
 
 
-elmJsonVisitor : Maybe { a | project : Elm.Project.Project } -> ProjectContext -> ProjectContext
+elmJsonVisitor : Maybe { a | project : Elm.Project.Project } -> ProjectContext -> ( List nothing, ProjectContext )
 elmJsonVisitor maybeProject projectContext =
     case maybeProject |> Maybe.map .project of
         Just (Elm.Project.Package pkg) ->
-            { projectTitle = Just <| Elm.Package.toString pkg.name }
+            ( [], { projectTitle = Just <| Elm.Package.toString pkg.name } )
 
         _ ->
-            projectContext
+            ( [], projectContext )
 
 
 

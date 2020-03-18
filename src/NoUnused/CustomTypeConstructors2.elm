@@ -236,7 +236,7 @@ foldProjectContexts newContext previousContext =
 -- ELM.JSON VISITOR
 
 
-elmJsonVisitor : Maybe { elmJsonKey : Rule.ElmJsonKey, project : Elm.Project.Project } -> ProjectContext -> ProjectContext
+elmJsonVisitor : Maybe { elmJsonKey : Rule.ElmJsonKey, project : Elm.Project.Project } -> ProjectContext -> ( List nothing, ProjectContext )
 elmJsonVisitor maybeElmJson projectContext =
     case maybeElmJson |> Maybe.map .project of
         Just (Elm.Project.Package package) ->
@@ -256,13 +256,13 @@ elmJsonVisitor maybeElmJson projectContext =
                         |> List.map Elm.Module.toString
                         |> Set.fromList
             in
-            { projectContext | exposedModules = exposedNames }
+            ( [], { projectContext | exposedModules = exposedNames } )
 
         Just (Elm.Project.Application _) ->
-            projectContext
+            ( [], projectContext )
 
         Nothing ->
-            projectContext
+            ( [], projectContext )
 
 
 

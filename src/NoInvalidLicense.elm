@@ -83,7 +83,7 @@ dependenciesVisitor dependencies projectContext =
 -- PROJECT VISITORS
 
 
-elmJsonVisitor : Maybe { elmJsonKey : Rule.ElmJsonKey, project : Elm.Project.Project } -> ProjectContext -> ProjectContext
+elmJsonVisitor : Maybe { elmJsonKey : Rule.ElmJsonKey, project : Elm.Project.Project } -> ProjectContext -> ( List nothing, ProjectContext )
 elmJsonVisitor maybeProject projectContext =
     case maybeProject of
         Just { elmJsonKey, project } ->
@@ -101,13 +101,15 @@ elmJsonVisitor maybeProject projectContext =
                                 |> List.map (Tuple.first >> Elm.Package.toString)
                                 |> Set.fromList
             in
-            { projectContext
+            ( []
+            , { projectContext
                 | elmJsonKey = Just elmJsonKey
                 , directProjectDependencies = directProjectDependencies
-            }
+              }
+            )
 
         Nothing ->
-            projectContext
+            ( [], projectContext )
 
 
 

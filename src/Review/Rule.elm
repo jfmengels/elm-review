@@ -719,7 +719,7 @@ type ProjectRuleSchema projectContext moduleContext
             , foldProjectContexts : projectContext -> projectContext -> projectContext
             }
         , moduleVisitor : ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
-        , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> projectContext)
+        , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List Error, projectContext ))
         , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List Error, projectContext ))
         , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List Error, projectContext ))
         , finalEvaluationFns : List (projectContext -> List Error)
@@ -970,7 +970,7 @@ module is evaluated.
 
 -}
 withElmJsonProjectVisitor :
-    (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> projectContext)
+    (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List Error, projectContext ))
     -> ProjectRuleSchema projectContext moduleContext
     -> ProjectRuleSchema projectContext moduleContext
 withElmJsonProjectVisitor visitor (ProjectRuleSchema schema) =
@@ -1093,12 +1093,9 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
                         }
                     )
 
-        foo1 =
-            schema.context.initProjectContext
-                |> accumulateContext schema.elmJsonVisitors elmJsonData
-
         ( projectRelatedErrors, initialContext ) =
-            ( [], foo1 )
+            ( [], schema.context.initProjectContext )
+                |> accumulateWithListOfVisitors schema.elmJsonVisitors elmJsonData
                 |> accumulateWithListOfVisitors schema.readmeVisitors readmeData
                 |> accumulateWithListOfVisitors schema.dependenciesVisitors (Review.Project.dependencies project)
 
