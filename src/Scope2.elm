@@ -232,7 +232,7 @@ addModuleVisitors schema =
 --     Rule.newProjectRuleSchema name
 
 
-mapInnerProjectContext : (visitedElement -> InnerProjectContext -> InnerProjectContext) -> visitedElement -> { projectContext | scope : ProjectContext } -> { projectContext | scope : ProjectContext }
+mapInnerProjectContext : (visitedElement -> InnerProjectContext -> InnerProjectContext) -> visitedElement -> { projectContext | scope : ProjectContext } -> ( List nothing, { projectContext | scope : ProjectContext } )
 mapInnerProjectContext visitor visitedElement outerContext =
     let
         innerContext : InnerProjectContext
@@ -241,7 +241,7 @@ mapInnerProjectContext visitor visitedElement outerContext =
                 |> unboxProjectContext
                 |> visitor visitedElement
     in
-    { outerContext | scope = ProjectContext innerContext }
+    ( [], { outerContext | scope = ProjectContext innerContext } )
 
 
 mapInnerModuleContext : (visitedElement -> InnerModuleContext -> InnerModuleContext) -> visitedElement -> { moduleContext | scope : ModuleContext } -> { moduleContext | scope : ModuleContext }

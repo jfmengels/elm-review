@@ -58,7 +58,7 @@ moduleVisitor schema =
         |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ))
 
 
-dependenciesVisitor : Dict String Dependency -> ProjectContext -> ProjectContext
+dependenciesVisitor : Dict String Dependency -> ProjectContext -> ( List nothing, ProjectContext )
 dependenciesVisitor dependencies projectContext =
     let
         licenses : Dict String String
@@ -76,7 +76,7 @@ dependenciesVisitor dependencies projectContext =
                     )
                 |> Dict.fromList
     in
-    { projectContext | licenses = licenses }
+    ( [], { projectContext | licenses = licenses } )
 
 
 

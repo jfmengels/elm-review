@@ -65,7 +65,7 @@ moduleVisitor schema =
         |> Rule.withImportVisitor importVisitor
 
 
-dependenciesVisitor : Dict String Dependency -> ProjectContext -> ProjectContext
+dependenciesVisitor : Dict String Dependency -> ProjectContext -> ( List nothing, ProjectContext )
 dependenciesVisitor dependencies projectContext =
     let
         moduleNameToDependency : Dict String String
@@ -78,7 +78,7 @@ dependenciesVisitor dependencies projectContext =
                     )
                 |> Dict.fromList
     in
-    { projectContext | moduleNameToDependency = moduleNameToDependency }
+    ( [], { projectContext | moduleNameToDependency = moduleNameToDependency } )
 
 
 

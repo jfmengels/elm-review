@@ -721,7 +721,7 @@ type ProjectRuleSchema projectContext moduleContext
         , moduleVisitor : ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
         , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> projectContext)
         , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List Error, projectContext ))
-        , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> projectContext)
+        , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List Error, projectContext ))
         , finalEvaluationFns : List (projectContext -> List Error)
         , traversalType : TraversalType
         }
@@ -1001,7 +1001,7 @@ module is evaluated.
 
 -}
 withDependenciesProjectVisitor :
-    (Dict String Review.Project.Dependency.Dependency -> projectContext -> projectContext)
+    (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List Error, projectContext ))
     -> ProjectRuleSchema projectContext moduleContext
     -> ProjectRuleSchema projectContext moduleContext
 withDependenciesProjectVisitor visitor (ProjectRuleSchema schema) =
@@ -1100,9 +1100,8 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
         ( projectRelatedErrors, initialContext ) =
             ( [], foo1 )
                 |> accumulateWithListOfVisitors schema.readmeVisitors readmeData
+                |> accumulateWithListOfVisitors schema.dependenciesVisitors (Review.Project.dependencies project)
 
-        -- TODO Re-add
-        --|> accumulateContext schema.dependenciesVisitors (Review.Project.dependencies project)
         modules : Dict ModuleName ProjectModule
         modules =
             project
