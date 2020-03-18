@@ -234,7 +234,7 @@ import Elm.Syntax.Infix as Infix
 import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
-import Elm.Syntax.Range exposing (Range)
+import Elm.Syntax.Range as Range exposing (Range)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix exposing (Fix)
 import Review.Project exposing (Project, ProjectModule)
@@ -1119,6 +1119,23 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
                 |> List.map .path
                 |> Set.fromList
 
+        dummyInitialContext : moduleContext
+        dummyInitialContext =
+            schema.context.fromProjectToModule
+                (ModuleKey "dummy")
+                (Node.Node Range.emptyRange [ "Dummy" ])
+                initialContext
+
+        moduleVisitor : ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
+        moduleVisitor =
+            List.foldl
+                (\addVisitors (ModuleRuleSchema moduleVisitorSchema) ->
+                    addVisitors (ModuleRuleSchema moduleVisitorSchema)
+                )
+                (emptySchema "" dummyInitialContext)
+                schema.moduleVisitorCreators
+                |> reverseVisitors
+
         -- TODO make it so we don't compute modules at all if there are no module visitors
         -- We can probably do that by setting an initial context, and then just replacing in the call to visitModuleForProjectRule
         computeModule : ProjectRuleCache projectContext -> List ProjectModule -> ProjectModule -> { source : String, errors : List Error, context : projectContext }
@@ -1150,17 +1167,6 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
                                     )
                                 |> List.foldl schema.context.foldProjectContexts initialContext
                                 |> schema.context.fromProjectToModule moduleKey moduleNameNode_
-
-                -- TODO Make it so that we only compute the module visitors once
-                moduleVisitor : ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
-                moduleVisitor =
-                    List.foldl
-                        (\addVisitors (ModuleRuleSchema moduleVisitorSchema) ->
-                            addVisitors (ModuleRuleSchema moduleVisitorSchema)
-                        )
-                        (emptySchema "" initialModuleContext)
-                        schema.moduleVisitorCreators
-                        |> reverseVisitors
 
                 ( fileErrors, context ) =
                     visitModuleForProjectRule
