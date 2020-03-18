@@ -32,6 +32,8 @@ config =
     , NoUnusedDependencies.rule
     , NoUnusedExports.rule
     , NoUnusedModules.rule
-    , NoTodoComment.rule
+
+    --, NoTodoComment.rule
+    --    |> Rule.ignoreErrorsForFiles [ "NoTodoComment" ]
     ]
         |> List.map (Rule.ignoreErrorsForDirectories [ "src/Vendor/" ])
