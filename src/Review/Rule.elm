@@ -718,7 +718,7 @@ type ProjectRuleSchema projectContext moduleContext
             , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
             , foldProjectContexts : projectContext -> projectContext -> projectContext
             }
-        , moduleVisitor : ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
+        , moduleVisitorCreators : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
         , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List Error, projectContext ))
         , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List Error, projectContext ))
         , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List Error, projectContext ))
@@ -934,7 +934,7 @@ newProjectRuleSchema name_ { moduleVisitor, initProjectContext, fromProjectToMod
             , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
             }
-        , moduleVisitor = moduleVisitor
+        , moduleVisitorCreators = [ moduleVisitor ]
         , elmJsonVisitors = []
         , readmeVisitors = []
         , dependenciesVisitors = []
@@ -1119,6 +1119,8 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
                 |> List.map .path
                 |> Set.fromList
 
+        -- TODO make it so we don't compute modules at all if there are no module visitors
+        -- We can probably do that by setting an initial context, and then just replacing in the call to visitModuleForProjectRule
         computeModule : ProjectRuleCache projectContext -> List ProjectModule -> ProjectModule -> { source : String, errors : List Error, context : projectContext }
         computeModule cache importedModules module_ =
             let
@@ -1149,10 +1151,15 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
                                 |> List.foldl schema.context.foldProjectContexts initialContext
                                 |> schema.context.fromProjectToModule moduleKey moduleNameNode_
 
+                -- TODO Make it so that we only compute the module visitors once
                 moduleVisitor : ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
                 moduleVisitor =
-                    emptySchema "" initialModuleContext
-                        |> schema.moduleVisitor
+                    List.foldl
+                        (\addVisitors (ModuleRuleSchema moduleVisitorSchema) ->
+                            addVisitors (ModuleRuleSchema moduleVisitorSchema)
+                        )
+                        (emptySchema "" initialModuleContext)
+                        schema.moduleVisitorCreators
                         |> reverseVisitors
 
                 ( fileErrors, context ) =
@@ -1286,7 +1293,7 @@ noImportedModulesHaveANewContext importedModules invalidatedModules =
         |> Set.isEmpty
 
 
-visitModuleForProjectRule : ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext -> moduleContext -> ProjectModule -> ( List Error, moduleContext )
+visitModuleForProjectRule : ModuleRuleSchema a moduleContext -> moduleContext -> ProjectModule -> ( List Error, moduleContext )
 visitModuleForProjectRule (ModuleRuleSchema schema) =
     let
         declarationVisitors : InAndOut (DirectedVisitor Declaration moduleContext)
