@@ -13,8 +13,6 @@ import Dict exposing (Dict)
 import Elm.License
 import Elm.Package
 import Elm.Project
-import Elm.Syntax.ModuleName exposing (ModuleName)
-import Elm.Syntax.Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Rule as Rule exposing (Error, Rule)
@@ -34,12 +32,6 @@ import Set exposing (Set)
 rule : Configuration -> Rule
 rule configuration =
     Rule.newProjectRuleSchema "NoInvalidLicense" initialProjectContext
-        |> Rule.withModuleVisitor moduleVisitor
-        |> Rule.withModuleContext
-            { fromProjectToModule = fromProjectToModule
-            , fromModuleToProject = fromModuleToProject
-            , foldProjectContexts = foldProjectContexts
-            }
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
         |> Rule.withDependenciesProjectVisitor dependenciesVisitor
         |> Rule.withFinalProjectEvaluation (finalEvaluationForProject configuration)
@@ -50,12 +42,6 @@ type alias Configuration =
     { allowed : List String
     , forbidden : List String
     }
-
-
-moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
-moduleVisitor schema =
-    schema
-        |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ))
 
 
 dependenciesVisitor : Dict String Dependency -> ProjectContext -> ( List nothing, ProjectContext )
@@ -123,31 +109,12 @@ type alias ProjectContext =
     }
 
 
-type alias ModuleContext =
-    ProjectContext
-
-
 initialProjectContext : ProjectContext
 initialProjectContext =
     { elmJsonKey = Nothing
     , licenses = Dict.empty
     , directProjectDependencies = Set.empty
     }
-
-
-fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> ProjectContext -> ModuleContext
-fromProjectToModule _ _ projectContext =
-    projectContext
-
-
-fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> ModuleContext -> ProjectContext
-fromModuleToProject _ _ moduleContext =
-    moduleContext
-
-
-foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
-foldProjectContexts _ previousContext =
-    previousContext
 
 
 

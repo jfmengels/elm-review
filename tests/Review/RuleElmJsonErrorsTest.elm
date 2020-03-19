@@ -16,41 +16,14 @@ type alias Context =
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "TestRule" initialProjectContext
-        |> Rule.withModuleVisitor moduleVisitor
-        |> Rule.withModuleContext
-            { fromProjectToModule = fromProjectToModule
-            , fromModuleToProject = fromModuleToProject
-            , foldProjectContexts = foldProjectContexts
-            }
         |> Rule.withElmJsonProjectVisitor (\elmJson _ -> ( [], elmJson |> Maybe.map .elmJsonKey ))
         |> Rule.withFinalProjectEvaluation finalEvaluationForProject
         |> Rule.fromProjectRuleSchema
 
 
-moduleVisitor : Rule.ModuleRuleSchema {} Context -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } Context
-moduleVisitor schema =
-    schema
-        |> Rule.withModuleDefinitionVisitor (\moduleNode context -> ( [], context ))
-
-
 initialProjectContext : Context
 initialProjectContext =
     Nothing
-
-
-fromProjectToModule : a -> b -> Context -> Context
-fromProjectToModule _ _ projectContext =
-    projectContext
-
-
-fromModuleToProject : a -> b -> Context -> Context
-fromModuleToProject _ _ moduleContext =
-    moduleContext
-
-
-foldProjectContexts : Context -> Context -> Context
-foldProjectContexts newContext previousContext =
-    previousContext
 
 
 finalEvaluationForProject : Context -> List Rule.Error

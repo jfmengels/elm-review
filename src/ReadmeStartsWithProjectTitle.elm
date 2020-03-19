@@ -9,21 +9,9 @@ import Review.Rule as Rule exposing (Error, Rule)
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "ReadmeStartsWithProjectTitle" initialProjectContext
-        |> Rule.withModuleVisitor moduleVisitor
-        |> Rule.withModuleContext
-            { fromProjectToModule = fromProjectToModule
-            , fromModuleToProject = fromModuleToProject
-            , foldProjectContexts = foldProjectContexts
-            }
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
         |> Rule.withReadmeProjectVisitor readmeVisitor
         |> Rule.fromProjectRuleSchema
-
-
-moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
-moduleVisitor schema =
-    schema
-        |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ))
 
 
 type alias ProjectContext =
@@ -35,25 +23,6 @@ initialProjectContext : ProjectContext
 initialProjectContext =
     { projectTitle = Nothing
     }
-
-
-type alias ModuleContext =
-    ProjectContext
-
-
-fromProjectToModule : Rule.ModuleKey -> a -> ProjectContext -> ModuleContext
-fromProjectToModule _ _ projectContext =
-    projectContext
-
-
-fromModuleToProject : Rule.ModuleKey -> a -> ModuleContext -> ProjectContext
-fromModuleToProject _ _ moduleContext =
-    moduleContext
-
-
-foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
-foldProjectContexts _ previousContext =
-    previousContext
 
 
 
