@@ -127,6 +127,7 @@ project =
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "TestRule" { scope = Scope.initialProjectContext }
+        |> Scope.addProjectVisitors
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContext
             { fromProjectToModule =
@@ -140,14 +141,12 @@ rule =
                     }
             , foldProjectContexts = \a b -> { scope = Scope.foldProjectContexts a.scope b.scope }
             }
-        |> Scope.addProjectVisitors
         |> Rule.fromProjectRuleSchema
 
 
 moduleVisitor : Rule.ModuleRuleSchema anything ModuleContext -> Rule.ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor schema =
     schema
-        |> Scope.addModuleVisitors
         |> Rule.withDeclarationVisitor declarationVisitor
         |> Rule.withExpressionVisitor expressionVisitor
         |> Rule.withFinalModuleEvaluation finalEvaluation

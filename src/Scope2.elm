@@ -1,6 +1,6 @@
 module Scope2 exposing
     ( ProjectContext, ModuleContext
-    , addProjectVisitors, addModuleVisitors, initialProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
+    , addProjectVisitors, initialProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
     , realFunctionOrType
     )
 
@@ -166,11 +166,12 @@ emptyScope =
     }
 
 
-addProjectVisitors : Rule.ProjectRuleSchema { projectContext | scope : ProjectContext } moduleContext -> Rule.ProjectRuleSchema { projectContext | scope : ProjectContext } moduleContext
+addProjectVisitors : Rule.ProjectRuleSchema { projectContext | scope : ProjectContext } { moduleContext | scope : ModuleContext } -> Rule.ProjectRuleSchema { projectContext | scope : ProjectContext } { moduleContext | scope : ModuleContext }
 addProjectVisitors schema =
     schema
         |> Rule.withContextFromImportedModules
         |> Rule.withDependenciesProjectVisitor (mapInnerProjectContext dependenciesVisitor)
+        |> Rule.withModuleVisitor addModuleVisitors
 
 
 addModuleVisitors : Rule.ModuleRuleSchema anything { moduleContext | scope : ModuleContext } -> Rule.ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } { moduleContext | scope : ModuleContext }
