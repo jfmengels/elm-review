@@ -1,4 +1,4 @@
-module NoWithInitialContextAfterHavingAddedAVisitor exposing (rule)
+module NoElmJsonVisitorForModuleVisitorInProjectRule exposing (rule)
 
 {-| We want to forbid module visitors from using `withElmJsonModuleVisitor`.
 
@@ -9,21 +9,24 @@ module NoWithInitialContextAfterHavingAddedAVisitor exposing (rule)
 
 -}
 
-import Dict exposing (Dict)
-import Elm.Module
-import Elm.Project exposing (Project)
-import Elm.Syntax.Declaration as Declaration exposing (Declaration)
-import Elm.Syntax.Import exposing (Import)
-import Elm.Syntax.ModuleName exposing (ModuleName)
-import Elm.Syntax.Node as Node exposing (Node)
-import Elm.Syntax.Range exposing (Range)
-import Review.Rule as Rule exposing (Error, Rule)
-import Set exposing (Set)
+import Review.Rule as Rule exposing (Rule)
 
 
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoWithInitialContextAfterHavingAddedAVisitor" ()
-        |> Rule.withDependenciesModuleVisitor (\_ context -> context)
-        |> Rule.withDeclarationListVisitor (\_ context -> ( [], context ))
-        |> Rule.fromModuleRuleSchema
+    Rule.newProjectRuleSchema "NoElmJsonVisitorForModuleVisitorInProjectRule" ()
+        |> Rule.withModuleVisitor moduleVisitor
+        |> Rule.withModuleContext
+            { fromProjectToModule = \_ _ () -> ()
+            , fromModuleToProject = \_ _ () -> ()
+            , foldProjectContexts = \_ () -> ()
+            }
+        |> Rule.withFinalProjectEvaluation (\_ -> [])
+        |> Rule.fromProjectRuleSchema
+
+
+moduleVisitor : Rule.ModuleRuleSchema {} () -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ()
+moduleVisitor schema =
+    schema
+        |> Rule.withElmJsonModuleVisitor (\_ () -> ())
+        |> Rule.withModuleDefinitionVisitor (\_ () -> ( [], () ))

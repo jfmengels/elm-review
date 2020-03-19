@@ -1,0 +1,15 @@
+-- TYPE MISMATCH ----------- ./NoElmJsonVisitorForModuleVisitorInProjectRule.elm
+
+This function cannot handle the argument sent through the (|>) pipe:
+
+30|     schema
+31|         |> Rule.withElmJsonModuleVisitor (\_ () -> ())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The argument is:
+
+    Rule.ModuleRuleSchema {} ()
+
+But (|>) is piping it to a function that expects:
+
+    Rule.ModuleRuleSchema { anything | canCollectProjectData : () } ()
+
