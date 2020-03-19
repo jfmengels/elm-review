@@ -1,0 +1,22 @@
+-- TYPE MISMATCH ---------- ./No_WithModuleVisitor_Without_WithModuleContext.elm
+
+This function cannot handle the argument sent through the (|>) pipe:
+
+11|     Rule.newProjectRuleSchema "No_WithModuleVisitor_Without_WithModuleContext" ()
+12|         |> Rule.withModuleVisitor moduleVisitor
+13|         |> Rule.fromProjectRuleSchema
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+The argument is:
+
+    Rule.ProjectRuleSchema
+        ()
+        ()
+        { canAddModuleVisitor : (), withModuleContext : Rule.NotNeeded }
+
+But (|>) is piping it to a function that expects:
+
+    Rule.ProjectRuleSchema
+        ()
+        ()
+        { canAddModuleVisitor : (), withModuleContext : Rule.NotNeeded }
+

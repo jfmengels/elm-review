@@ -1,0 +1,30 @@
+-- TYPE MISMATCH ------------ ./No_WithModuleVisitor_After_WithModuleContext.elm
+
+This function cannot handle the argument sent through the (|>) pipe:
+
+11|     Rule.newProjectRuleSchema "No_WithModuleVisitor_After_WithModuleContext" ()
+12|         |> Rule.withModuleVisitor moduleVisitor
+13|         |> Rule.withModuleContext
+14|             { fromProjectToModule = \_ _ () -> ()
+15|             , fromModuleToProject = \_ _ () -> ()
+16|             , foldProjectContexts = \_ () -> ()
+17|             }
+18|         |> Rule.withModuleVisitor moduleVisitor
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The argument is:
+
+    Rule.ProjectRuleSchema () () { withModuleContext : Rule.NotNeeded }
+
+But (|>) is piping it to a function that expects:
+
+    Rule.ProjectRuleSchema
+        ()
+        ()
+        { a | canAddModuleVisitor : (), withModuleContext : Rule.NotNeeded }
+
+Hint: Seems like a record field typo. Maybe canAddModuleVisitor should be
+withModuleContext?
+
+Hint: Can more type annotations be added? Type annotations always help me give
+more specific messages, and I think they could help a lot in this case!
+
