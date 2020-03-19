@@ -9,8 +9,8 @@ import Review.Rule as Rule exposing (Error, Rule)
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "ReadmeStartsWithProjectTitle"
+        initialProjectContext
         { moduleVisitor = moduleVisitor
-        , initProjectContext = initProjectContext
         , fromProjectToModule = fromProjectToModule
         , fromModuleToProject = fromModuleToProject
         , foldProjectContexts = foldProjectContexts
@@ -31,8 +31,8 @@ type alias ProjectContext =
     }
 
 
-initProjectContext : ProjectContext
-initProjectContext =
+initialProjectContext : ProjectContext
+initialProjectContext =
     { projectTitle = Nothing
     }
 

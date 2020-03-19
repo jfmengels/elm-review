@@ -16,8 +16,8 @@ type alias Context =
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "TestRule"
+        initialProjectContext
         { moduleVisitor = moduleVisitor
-        , initProjectContext = initProjectContext
         , fromProjectToModule = fromProjectToModule
         , fromModuleToProject = fromModuleToProject
         , foldProjectContexts = foldProjectContexts
@@ -33,8 +33,8 @@ moduleVisitor schema =
         |> Rule.withModuleDefinitionVisitor (\moduleNode context -> ( [], context ))
 
 
-initProjectContext : Context
-initProjectContext =
+initialProjectContext : Context
+initialProjectContext =
     Nothing
 
 

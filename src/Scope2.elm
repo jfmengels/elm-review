@@ -1,6 +1,6 @@
 module Scope2 exposing
     ( ProjectContext, ModuleContext
-    , addProjectVisitors, addModuleVisitors, initProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
+    , addProjectVisitors, addModuleVisitors, initialProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
     , realFunctionOrType
     )
 
@@ -14,7 +14,7 @@ module Scope2 exposing
 
 # Usage
 
-@docs addProjectVisitors, addModuleVisitors, initProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
+@docs addProjectVisitors, addModuleVisitors, initialProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
 
 
 # Access
@@ -56,7 +56,7 @@ import Review.Rule as Rule exposing (Direction)
            \schema ->
                schema
                    |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-       , initProjectContext = initProjectContext
+
        , fromProjectToModule = fromProjectToModule
        , fromModuleToProject = fromModuleToProject
        , foldProjectContexts = foldProjectContexts
@@ -107,8 +107,8 @@ type alias Scope =
 -- USAGE
 
 
-initProjectContext : ProjectContext
-initProjectContext =
+initialProjectContext : ProjectContext
+initialProjectContext =
     ProjectContext
         { dependenciesModules = Dict.empty
         , modules = Dict.empty
@@ -222,7 +222,6 @@ addModuleVisitors schema =
 --         }
 --     ->
 --         { moduleVisitor : Rule.ModuleRuleSchema Rule.ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Rule.ModuleRuleSchema Rule.ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
---         , initProjectContext : projectContext
 --         , fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> projectContext -> moduleContext
 --         , fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> moduleContext -> projectContext
 --         , foldProjectContexts : projectContext -> projectContext -> projectContext

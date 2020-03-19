@@ -712,9 +712,9 @@ how to create a project rule.
 type ProjectRuleSchema projectContext moduleContext
     = ProjectRuleSchema
         { name : String
+        , initialProjectContext : projectContext
         , context :
-            { initProjectContext : projectContext
-            , fromProjectToModule : ModuleKey -> Node ModuleName -> projectContext -> moduleContext
+            { fromProjectToModule : ModuleKey -> Node ModuleName -> projectContext -> moduleContext
             , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
             , foldProjectContexts : projectContext -> projectContext -> projectContext
             }
@@ -768,8 +768,8 @@ Let's go through an example of a rule that reports unused modules.
     rule : Rule
     rule =
         Rule.newProjectRuleSchema "NoUnused.Modules"
+            initialProjectContext
             { moduleVisitor = moduleVisitor
-            , initProjectContext = initProjectContext
             , fromProjectToModule = fromProjectToModule
             , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
@@ -830,13 +830,13 @@ At the project level, we are interested in 3 things. 1) The declared modules
 that may have to be reported. This is a dictionary containing a [`Rule.ModuleKey`](#ModuleKey),
 which we need to report errors in the final module evaluation. 2) The set of modules for which we found an import. 3) whether the project is a package.
 
-    initProjectContext : ProjectContext
-    initProjectContext =
+    initialProjectContext : ProjectContext
+    initialProjectContext =
         { declaredModules = Dict.empty
         , usedModules = Set.empty
         }
 
-`initProjectContext` defines the initial value for the project context.
+`initialProjectContext` defines the initial value for the project context.
 It's equivalent to the second argument of ['newModuleRuleSchema'](#newModuleRuleSchema).
 
     fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> ProjectContext -> ModuleContext
@@ -878,7 +878,7 @@ This function also gives you access to the module key for the file that TODO
 `foldProjectContexts` is how we fold/reduce/merge the project contexts. The arguments
 are in the same order as [`List.foldl`](https://package.elm-lang.org/packages/elm/core/latest/List#foldl),
 meaning the initial/accumulated value is the second. It may help to imagine that
-the second argument is `initProjectContext`.
+the second argument is `initialProjectContext`.
 
 You may have wondered why we have a collection of declared modules and another
 of used modules, and not a single collection where we remove modules every time
@@ -931,20 +931,20 @@ in project rules. Instead, you should use [`withElmJsonProjectVisitor`](#withElm
 -}
 newProjectRuleSchema :
     String
+    -> projectContext
     ->
         { moduleVisitor : ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
-        , initProjectContext : projectContext
         , fromProjectToModule : ModuleKey -> Node ModuleName -> projectContext -> moduleContext
         , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
         , foldProjectContexts : projectContext -> projectContext -> projectContext
         }
     -> ProjectRuleSchema projectContext moduleContext
-newProjectRuleSchema name_ { moduleVisitor, initProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts } =
+newProjectRuleSchema name_ initialProjectContext { moduleVisitor, fromProjectToModule, fromModuleToProject, foldProjectContexts } =
     ProjectRuleSchema
         { name = name_
+        , initialProjectContext = initialProjectContext
         , context =
-            { initProjectContext = initProjectContext
-            , fromProjectToModule = fromProjectToModule
+            { fromProjectToModule = fromProjectToModule
             , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
             }
@@ -1159,7 +1159,7 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
                     )
 
         ( projectRelatedErrors, initialContext ) =
-            ( [], schema.context.initProjectContext )
+            ( [], schema.initialProjectContext )
                 |> accumulateWithListOfVisitors schema.elmJsonVisitors elmJsonData
                 |> accumulateWithListOfVisitors schema.readmeVisitors readmeData
                 |> accumulateWithListOfVisitors schema.dependenciesVisitors (Review.Project.dependencies project)

@@ -54,8 +54,8 @@ unused modules in your application or package.
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "NoUnused.Exports"
+        initialProjectContext
         { moduleVisitor = moduleVisitor
-        , initProjectContext = initProjectContext
         , fromProjectToModule = fromProjectToModule
         , fromModuleToProject = fromModuleToProject
         , foldProjectContexts = foldProjectContexts
@@ -112,9 +112,9 @@ type alias ModuleContext =
     }
 
 
-initProjectContext : ProjectContext
-initProjectContext =
-    { scope = Scope.initProjectContext
+initialProjectContext : ProjectContext
+initialProjectContext =
+    { scope = Scope.initialProjectContext
     , projectType = IsApplication
     , modules = Dict.empty
     , used = Set.empty

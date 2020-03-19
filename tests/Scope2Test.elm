@@ -127,6 +127,7 @@ project =
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "TestRule"
+        { scope = Scope.initialProjectContext }
         { moduleVisitor =
             \schema ->
                 schema
@@ -134,7 +135,6 @@ rule =
                     |> Rule.withDeclarationVisitor declarationVisitor
                     |> Rule.withExpressionVisitor expressionVisitor
                     |> Rule.withFinalModuleEvaluation finalEvaluation
-        , initProjectContext = { scope = Scope.initProjectContext }
         , fromProjectToModule =
             \moduleKey moduleNameNode projectContext ->
                 { scope = Scope.fromProjectToModule projectContext.scope

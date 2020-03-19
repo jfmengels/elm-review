@@ -47,8 +47,8 @@ unused modules in your application or package.
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "NoUnused.Dependencies"
+        initialProjectContext
         { moduleVisitor = moduleVisitor
-        , initProjectContext = initProjectContext
         , fromProjectToModule = fromProjectToModule
         , fromModuleToProject = fromModuleToProject
         , foldProjectContexts = foldProjectContexts
@@ -97,8 +97,8 @@ type alias ModuleContext =
     Set String
 
 
-initProjectContext : ProjectContext
-initProjectContext =
+initialProjectContext : ProjectContext
+initialProjectContext =
     { moduleNameToDependency = Dict.empty
     , directProjectDependencies = Set.empty
     , importedModuleNames = Set.empty

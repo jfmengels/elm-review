@@ -78,8 +78,8 @@ in your editor, rather than when running your tests or [elm-xref](https://github
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "NoUnused.CustomTypeConstructors"
+        initialProjectContext
         { moduleVisitor = moduleVisitor
-        , initProjectContext = initProjectContext
         , fromProjectToModule = fromProjectToModule
         , fromModuleToProject = fromModuleToProject
         , foldProjectContexts = foldProjectContexts
@@ -148,9 +148,9 @@ type alias ModuleContext =
     }
 
 
-initProjectContext : ProjectContext
-initProjectContext =
-    { scope = Scope.initProjectContext
+initialProjectContext : ProjectContext
+initialProjectContext =
+    { scope = Scope.initialProjectContext
     , exposedModules = Set.empty
     , exposedConstructors = Dict.empty
     , usedConstructors = Dict.empty

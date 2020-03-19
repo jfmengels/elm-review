@@ -34,8 +34,8 @@ import Set exposing (Set)
 rule : Configuration -> Rule
 rule configuration =
     Rule.newProjectRuleSchema "NoInvalidLicense"
+        initialProjectContext
         { moduleVisitor = moduleVisitor
-        , initProjectContext = initProjectContext
         , fromProjectToModule = fromProjectToModule
         , fromModuleToProject = fromModuleToProject
         , foldProjectContexts = foldProjectContexts
@@ -127,8 +127,8 @@ type alias ModuleContext =
     ProjectContext
 
 
-initProjectContext : ProjectContext
-initProjectContext =
+initialProjectContext : ProjectContext
+initialProjectContext =
     { elmJsonKey = Nothing
     , licenses = Dict.empty
     , directProjectDependencies = Set.empty
