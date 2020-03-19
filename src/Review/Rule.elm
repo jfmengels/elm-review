@@ -719,11 +719,25 @@ type ProjectRuleSchema projectContext moduleContext
             , foldProjectContexts : projectContext -> projectContext -> projectContext
             }
         , moduleVisitorCreators : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
+        , moduleVisitor : ModuleVisitor projectContext moduleContext
         , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List Error, projectContext ))
         , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List Error, projectContext ))
         , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List Error, projectContext ))
         , finalEvaluationFns : List (projectContext -> List Error)
         , traversalType : TraversalType
+        }
+
+
+type ModuleVisitor projectContext moduleContext
+    = NoModuleVisitor
+    | HasVisitors (List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext))
+    | IsPrepared
+        { visitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
+        , moduleContext :
+            { fromProjectToModule : ModuleKey -> Node ModuleName -> projectContext -> moduleContext
+            , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
+            , foldProjectContexts : projectContext -> projectContext -> projectContext
+            }
         }
 
 
@@ -935,6 +949,7 @@ newProjectRuleSchema name_ { moduleVisitor, initProjectContext, fromProjectToMod
             , foldProjectContexts = foldProjectContexts
             }
         , moduleVisitorCreators = [ moduleVisitor ]
+        , moduleVisitor = NoModuleVisitor
         , elmJsonVisitors = []
         , readmeVisitors = []
         , dependenciesVisitors = []
@@ -970,7 +985,50 @@ withModuleVisitors :
     -> ProjectRuleSchema projectContext moduleContext
     -> ProjectRuleSchema projectContext moduleContext
 withModuleVisitors visitor (ProjectRuleSchema schema) =
-    ProjectRuleSchema { schema | moduleVisitorCreators = visitor :: schema.moduleVisitorCreators }
+    let
+        previousModuleVisitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
+        previousModuleVisitors =
+            case schema.moduleVisitor of
+                NoModuleVisitor ->
+                    []
+
+                HasVisitors list ->
+                    list
+
+                IsPrepared _ ->
+                    []
+    in
+    ProjectRuleSchema
+        { schema
+            | moduleVisitorCreators = visitor :: schema.moduleVisitorCreators
+            , moduleVisitor = HasVisitors (visitor :: previousModuleVisitors)
+        }
+
+
+{-| TODO Documentation
+-}
+withModuleContext :
+    { fromProjectToModule : ModuleKey -> Node ModuleName -> projectContext -> moduleContext
+    , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
+    , foldProjectContexts : projectContext -> projectContext -> projectContext
+    }
+    -> ProjectRuleSchema projectContext moduleContext
+    -> ProjectRuleSchema projectContext moduleContext
+withModuleContext moduleContext (ProjectRuleSchema schema) =
+    let
+        visitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
+        visitors =
+            case schema.moduleVisitor of
+                NoModuleVisitor ->
+                    []
+
+                HasVisitors list ->
+                    list
+
+                IsPrepared _ ->
+                    []
+    in
+    ProjectRuleSchema { schema | moduleVisitor = IsPrepared { visitors = visitors, moduleContext = moduleContext } }
 
 
 {-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will visit the project's
