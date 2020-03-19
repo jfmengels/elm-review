@@ -718,7 +718,6 @@ type ProjectRuleSchema projectContext moduleContext
             , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
             , foldProjectContexts : projectContext -> projectContext -> projectContext
             }
-        , moduleVisitorCreators : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
         , moduleVisitor : ModuleVisitor projectContext moduleContext
         , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List Error, projectContext ))
         , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List Error, projectContext ))
@@ -948,8 +947,17 @@ newProjectRuleSchema name_ initialProjectContext { moduleVisitor, fromProjectToM
             , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
             }
-        , moduleVisitorCreators = [ moduleVisitor ]
-        , moduleVisitor = NoModuleVisitor
+
+        -- TODO Use NoModuleVisitor
+        , moduleVisitor =
+            IsPrepared
+                { visitors = [ moduleVisitor ]
+                , moduleContext =
+                    { fromProjectToModule = fromProjectToModule
+                    , fromModuleToProject = fromModuleToProject
+                    , foldProjectContexts = foldProjectContexts
+                    }
+                }
         , elmJsonVisitors = []
         , readmeVisitors = []
         , dependenciesVisitors = []
@@ -967,8 +975,7 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
         (runProjectRule
             (ProjectRuleSchema
                 { schema
-                    | moduleVisitorCreators = List.reverse schema.moduleVisitorCreators
-                    , elmJsonVisitors = List.reverse schema.elmJsonVisitors
+                    | elmJsonVisitors = List.reverse schema.elmJsonVisitors
                     , readmeVisitors = List.reverse schema.readmeVisitors
                     , dependenciesVisitors = List.reverse schema.dependenciesVisitors
                     , finalEvaluationFns = List.reverse schema.finalEvaluationFns
@@ -998,11 +1005,7 @@ withModuleVisitors visitor (ProjectRuleSchema schema) =
                 IsPrepared _ ->
                     []
     in
-    ProjectRuleSchema
-        { schema
-            | moduleVisitorCreators = visitor :: schema.moduleVisitorCreators
-            , moduleVisitor = HasVisitors (visitor :: previousModuleVisitors)
-        }
+    ProjectRuleSchema { schema | moduleVisitor = HasVisitors (visitor :: previousModuleVisitors) }
 
 
 {-| TODO Documentation
@@ -1023,7 +1026,7 @@ withModuleContext moduleContext (ProjectRuleSchema schema) =
                     []
 
                 HasVisitors list ->
-                    list
+                    List.reverse list
 
                 IsPrepared _ ->
                     []
@@ -1164,13 +1167,34 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
                 |> accumulateWithListOfVisitors schema.readmeVisitors readmeData
                 |> accumulateWithListOfVisitors schema.dependenciesVisitors (Review.Project.dependencies project)
 
+        moduleVisitors :
+            Maybe
+                { visitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
+                , moduleContext :
+                    { fromProjectToModule : ModuleKey -> Node ModuleName -> projectContext -> moduleContext
+                    , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
+                    , foldProjectContexts : projectContext -> projectContext -> projectContext
+                    }
+                }
+        moduleVisitors =
+            case schema.moduleVisitor of
+                NoModuleVisitor ->
+                    Nothing
+
+                HasVisitors _ ->
+                    Nothing
+
+                IsPrepared visitorInfo ->
+                    Just visitorInfo
+
         newCache : ProjectRuleCache projectContext
         newCache =
-            if List.isEmpty schema.moduleVisitorCreators then
-                startCache
+            case moduleVisitors of
+                Just visitors ->
+                    computeModules wrappedSchema visitors project initialContext nodeContexts startCache
 
-            else
-                computeModules wrappedSchema project initialContext nodeContexts startCache
+                Nothing ->
+                    startCache
 
         contextsAndErrorsPerFile : List ( List Error, projectContext )
         contextsAndErrorsPerFile =
@@ -1190,8 +1214,22 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
     ( errors, Rule schema.name exceptions (runProjectRule wrappedSchema newCache) )
 
 
-computeModules : ProjectRuleSchema projectContext moduleContext -> Project -> projectContext -> List (Graph.NodeContext ModuleName ()) -> ProjectRuleCache projectContext -> ProjectRuleCache projectContext
-computeModules (ProjectRuleSchema schema) project initialContext nodeContexts startCache =
+computeModules :
+    ProjectRuleSchema projectContext moduleContext
+    ->
+        { visitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
+        , moduleContext :
+            { fromProjectToModule : ModuleKey -> Node ModuleName -> projectContext -> moduleContext
+            , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
+            , foldProjectContexts : projectContext -> projectContext -> projectContext
+            }
+        }
+    -> Project
+    -> projectContext
+    -> List (Graph.NodeContext ModuleName ())
+    -> ProjectRuleCache projectContext
+    -> ProjectRuleCache projectContext
+computeModules (ProjectRuleSchema schema) visitors project initialContext nodeContexts startCache =
     let
         graph : Graph ModuleName ()
         graph =
@@ -1236,7 +1274,7 @@ computeModules (ProjectRuleSchema schema) project initialContext nodeContexts st
                     addVisitors (ModuleRuleSchema moduleVisitorSchema)
                 )
                 (emptySchema "" dummyInitialContext)
-                schema.moduleVisitorCreators
+                visitors.visitors
                 |> reverseVisitors
 
         -- TODO make it so we don't compute modules at all if there are no module visitors
