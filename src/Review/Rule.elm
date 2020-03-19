@@ -713,11 +713,6 @@ type ProjectRuleSchema projectContext moduleContext
     = ProjectRuleSchema
         { name : String
         , initialProjectContext : projectContext
-        , context :
-            { fromProjectToModule : ModuleKey -> Node ModuleName -> projectContext -> moduleContext
-            , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
-            , foldProjectContexts : projectContext -> projectContext -> projectContext
-            }
         , moduleVisitor : ModuleVisitor projectContext moduleContext
         , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List Error, projectContext ))
         , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List Error, projectContext ))
@@ -942,11 +937,6 @@ newProjectRuleSchema name_ initialProjectContext { moduleVisitor, fromProjectToM
     ProjectRuleSchema
         { name = name_
         , initialProjectContext = initialProjectContext
-        , context =
-            { fromProjectToModule = fromProjectToModule
-            , fromModuleToProject = fromModuleToProject
-            , foldProjectContexts = foldProjectContexts
-            }
 
         -- TODO Use NoModuleVisitor
         , moduleVisitor =
@@ -1262,7 +1252,7 @@ computeModules (ProjectRuleSchema schema) visitors project initialContext nodeCo
 
         dummyInitialContext : moduleContext
         dummyInitialContext =
-            schema.context.fromProjectToModule
+            visitors.moduleContext.fromProjectToModule
                 (ModuleKey "dummy")
                 (Node.Node Range.emptyRange [ "Dummy" ])
                 initialContext
@@ -1294,7 +1284,7 @@ computeModules (ProjectRuleSchema schema) visitors project initialContext nodeCo
                 initialModuleContext =
                     case schema.traversalType of
                         AllModulesInParallel ->
-                            schema.context.fromProjectToModule
+                            visitors.moduleContext.fromProjectToModule
                                 moduleKey
                                 moduleNameNode_
                                 initialContext
@@ -1306,8 +1296,8 @@ computeModules (ProjectRuleSchema schema) visitors project initialContext nodeCo
                                         Dict.get importedModule.path cache
                                             |> Maybe.map .context
                                     )
-                                |> List.foldl schema.context.foldProjectContexts initialContext
-                                |> schema.context.fromProjectToModule moduleKey moduleNameNode_
+                                |> List.foldl visitors.moduleContext.foldProjectContexts initialContext
+                                |> visitors.moduleContext.fromProjectToModule moduleKey moduleNameNode_
 
                 ( fileErrors, context ) =
                     visitModuleForProjectRule
@@ -1318,7 +1308,7 @@ computeModules (ProjectRuleSchema schema) visitors project initialContext nodeCo
             { source = module_.source
             , errors = List.map (setFilePathIfUnset module_) fileErrors
             , context =
-                schema.context.fromModuleToProject
+                visitors.moduleContext.fromModuleToProject
                     moduleKey
                     moduleNameNode_
                     context
@@ -1450,9 +1440,22 @@ errorsFromFinalEvaluationForProject (ProjectRuleSchema schema) initialContext co
         []
 
     else
-        contextsAndErrorsPerFile
-            |> List.map Tuple.second
-            |> List.foldl schema.context.foldProjectContexts initialContext
+        let
+            finalContext : projectContext
+            finalContext =
+                case schema.moduleVisitor of
+                    NoModuleVisitor ->
+                        initialContext
+
+                    HasVisitors _ ->
+                        initialContext
+
+                    IsPrepared { moduleContext } ->
+                        contextsAndErrorsPerFile
+                            |> List.map Tuple.second
+                            |> List.foldl moduleContext.foldProjectContexts initialContext
+        in
+        finalContext
             |> makeFinalEvaluationForProject schema.finalEvaluationFns
             |> List.map (setRuleName schema.name)
 
