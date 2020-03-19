@@ -6,10 +6,10 @@ module Review.Rule exposing
     , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
-    , Required, NotNeeded
     , Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, ModuleKey, errorForModule, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme
     , withFixes
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
+    , Required, NotNeeded
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -192,7 +192,6 @@ Evaluating/visiting a node means two things:
 ## Creating a project rule
 
 @docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
-@docs Required, NotNeeded
 
 
 ## Errors
@@ -224,6 +223,11 @@ communicate with your colleagues if you see them adding exceptions without
 reason or seemingly inappropriately.
 
 @docs ignoreErrorsForDirectories, ignoreErrorsForFiles
+
+
+# Internals
+
+@docs Required, NotNeeded
 
 -}
 
@@ -981,13 +985,13 @@ withModuleVisitor visitor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | moduleVisitor = HasVisitors (visitor :: previousModuleVisitors) }
 
 
-{-| TODO Documentation
+{-| Used for phantom type constraints. You can safely ignore this type.
 -}
 type Required
     = Required
 
 
-{-| TODO Documentation
+{-| Used for phantom type constraints. You can safely ignore this type.
 -}
 type NotNeeded
     = NotNeeded
