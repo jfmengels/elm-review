@@ -5,7 +5,7 @@ module Review.Rule exposing
     , withSimpleModuleDefinitionVisitor, withSimpleCommentsVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
     , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
-    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
+    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitors, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
     , Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, ModuleKey, errorForModule, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme
     , withFixes
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
@@ -190,7 +190,7 @@ Evaluating/visiting a node means two things:
 
 ## Creating a project rule
 
-@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
+@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitors, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
 
 
 ## Errors
@@ -952,7 +952,8 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
         (runProjectRule
             (ProjectRuleSchema
                 { schema
-                    | elmJsonVisitors = List.reverse schema.elmJsonVisitors
+                    | moduleVisitorCreators = List.reverse schema.moduleVisitorCreators
+                    , elmJsonVisitors = List.reverse schema.elmJsonVisitors
                     , readmeVisitors = List.reverse schema.readmeVisitors
                     , dependenciesVisitors = List.reverse schema.dependenciesVisitors
                     , finalEvaluationFns = List.reverse schema.finalEvaluationFns
@@ -960,6 +961,16 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
             )
             Dict.empty
         )
+
+
+{-| TODO Documentation
+-}
+withModuleVisitors :
+    (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
+    -> ProjectRuleSchema projectContext moduleContext
+    -> ProjectRuleSchema projectContext moduleContext
+withModuleVisitors visitor (ProjectRuleSchema schema) =
+    ProjectRuleSchema { schema | moduleVisitorCreators = visitor :: schema.moduleVisitorCreators }
 
 
 {-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will visit the project's
