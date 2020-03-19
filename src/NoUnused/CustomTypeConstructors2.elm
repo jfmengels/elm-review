@@ -77,14 +77,14 @@ in your editor, rather than when running your tests or [elm-xref](https://github
 -}
 rule : Rule
 rule =
-    Rule.newProjectRuleSchema "NoUnused.CustomTypeConstructors"
-        initialProjectContext
-        { moduleVisitor = moduleVisitor
-        , fromProjectToModule = fromProjectToModule
-        , fromModuleToProject = fromModuleToProject
-        , foldProjectContexts = foldProjectContexts
-        }
+    Rule.newProjectRuleSchema "NoUnused.CustomTypeConstructors" initialProjectContext
         |> Scope.addProjectVisitors
+        |> Rule.withModuleVisitor moduleVisitor
+        |> Rule.withModuleContext
+            { fromProjectToModule = fromProjectToModule
+            , fromModuleToProject = fromModuleToProject
+            , foldProjectContexts = foldProjectContexts
+            }
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
         |> Rule.withFinalProjectEvaluation finalProjectEvaluation
         |> Rule.fromProjectRuleSchema

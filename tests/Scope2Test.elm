@@ -126,28 +126,31 @@ project =
 
 rule : Rule
 rule =
-    Rule.newProjectRuleSchema "TestRule"
-        { scope = Scope.initialProjectContext }
-        { moduleVisitor =
-            \schema ->
-                schema
-                    |> Scope.addModuleVisitors
-                    |> Rule.withDeclarationVisitor declarationVisitor
-                    |> Rule.withExpressionVisitor expressionVisitor
-                    |> Rule.withFinalModuleEvaluation finalEvaluation
-        , fromProjectToModule =
-            \moduleKey moduleNameNode projectContext ->
-                { scope = Scope.fromProjectToModule projectContext.scope
-                , text = ""
-                }
-        , fromModuleToProject =
-            \moduleKey moduleNameNode moduleContext ->
-                { scope = Scope.fromModuleToProject moduleNameNode moduleContext.scope
-                }
-        , foldProjectContexts = \a b -> { scope = Scope.foldProjectContexts a.scope b.scope }
-        }
+    Rule.newProjectRuleSchema "TestRule" { scope = Scope.initialProjectContext }
+        |> Rule.withModuleVisitor moduleVisitor
+        |> Rule.withModuleContext
+            { fromProjectToModule =
+                \_ _ projectContext ->
+                    { scope = Scope.fromProjectToModule projectContext.scope
+                    , text = ""
+                    }
+            , fromModuleToProject =
+                \_ moduleNameNode moduleContext ->
+                    { scope = Scope.fromModuleToProject moduleNameNode moduleContext.scope
+                    }
+            , foldProjectContexts = \a b -> { scope = Scope.foldProjectContexts a.scope b.scope }
+            }
         |> Scope.addProjectVisitors
         |> Rule.fromProjectRuleSchema
+
+
+moduleVisitor : Rule.ModuleRuleSchema anything ModuleContext -> Rule.ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } ModuleContext
+moduleVisitor schema =
+    schema
+        |> Scope.addModuleVisitors
+        |> Rule.withDeclarationVisitor declarationVisitor
+        |> Rule.withExpressionVisitor expressionVisitor
+        |> Rule.withFinalModuleEvaluation finalEvaluation
 
 
 declarationVisitor : Node Declaration -> Rule.Direction -> ModuleContext -> ( List Rule.Error, ModuleContext )

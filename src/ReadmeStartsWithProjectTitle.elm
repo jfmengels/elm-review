@@ -8,13 +8,13 @@ import Review.Rule as Rule exposing (Error, Rule)
 
 rule : Rule
 rule =
-    Rule.newProjectRuleSchema "ReadmeStartsWithProjectTitle"
-        initialProjectContext
-        { moduleVisitor = moduleVisitor
-        , fromProjectToModule = fromProjectToModule
-        , fromModuleToProject = fromModuleToProject
-        , foldProjectContexts = foldProjectContexts
-        }
+    Rule.newProjectRuleSchema "ReadmeStartsWithProjectTitle" initialProjectContext
+        |> Rule.withModuleVisitor moduleVisitor
+        |> Rule.withModuleContext
+            { fromProjectToModule = fromProjectToModule
+            , fromModuleToProject = fromModuleToProject
+            , foldProjectContexts = foldProjectContexts
+            }
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
         |> Rule.withReadmeProjectVisitor readmeVisitor
         |> Rule.fromProjectRuleSchema

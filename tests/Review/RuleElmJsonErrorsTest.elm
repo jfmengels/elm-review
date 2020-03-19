@@ -15,13 +15,13 @@ type alias Context =
 
 rule : Rule
 rule =
-    Rule.newProjectRuleSchema "TestRule"
-        initialProjectContext
-        { moduleVisitor = moduleVisitor
-        , fromProjectToModule = fromProjectToModule
-        , fromModuleToProject = fromModuleToProject
-        , foldProjectContexts = foldProjectContexts
-        }
+    Rule.newProjectRuleSchema "TestRule" initialProjectContext
+        |> Rule.withModuleVisitor moduleVisitor
+        |> Rule.withModuleContext
+            { fromProjectToModule = fromProjectToModule
+            , fromModuleToProject = fromModuleToProject
+            , foldProjectContexts = foldProjectContexts
+            }
         |> Rule.withElmJsonProjectVisitor (\elmJson _ -> ( [], elmJson |> Maybe.map .elmJsonKey ))
         |> Rule.withFinalProjectEvaluation finalEvaluationForProject
         |> Rule.fromProjectRuleSchema

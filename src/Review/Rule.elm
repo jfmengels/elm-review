@@ -5,7 +5,7 @@ module Review.Rule exposing
     , withSimpleModuleDefinitionVisitor, withSimpleCommentsVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
     , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
-    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitors, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
+    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
     , Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, ModuleKey, errorForModule, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme
     , withFixes
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
@@ -190,7 +190,7 @@ Evaluating/visiting a node means two things:
 
 ## Creating a project rule
 
-@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitors, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
+@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
 
 
 ## Errors
@@ -923,31 +923,12 @@ You can't use [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor) or [`withD
 in project rules. Instead, you should use [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor) or [`withDependenciesProjectVisitor`](#withDependenciesProjectVisitor).
 
 -}
-newProjectRuleSchema :
-    String
-    -> projectContext
-    ->
-        { moduleVisitor : ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
-        , fromProjectToModule : ModuleKey -> Node ModuleName -> projectContext -> moduleContext
-        , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
-        , foldProjectContexts : projectContext -> projectContext -> projectContext
-        }
-    -> ProjectRuleSchema projectContext moduleContext
-newProjectRuleSchema name_ initialProjectContext { moduleVisitor, fromProjectToModule, fromModuleToProject, foldProjectContexts } =
+newProjectRuleSchema : String -> projectContext -> ProjectRuleSchema projectContext moduleContext
+newProjectRuleSchema name_ initialProjectContext =
     ProjectRuleSchema
         { name = name_
         , initialProjectContext = initialProjectContext
-
-        -- TODO Use NoModuleVisitor
-        , moduleVisitor =
-            IsPrepared
-                { visitors = [ moduleVisitor ]
-                , moduleContext =
-                    { fromProjectToModule = fromProjectToModule
-                    , fromModuleToProject = fromModuleToProject
-                    , foldProjectContexts = foldProjectContexts
-                    }
-                }
+        , moduleVisitor = NoModuleVisitor
         , elmJsonVisitors = []
         , readmeVisitors = []
         , dependenciesVisitors = []
@@ -977,11 +958,11 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
 
 {-| TODO Documentation
 -}
-withModuleVisitors :
+withModuleVisitor :
     (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
     -> ProjectRuleSchema projectContext moduleContext
     -> ProjectRuleSchema projectContext moduleContext
-withModuleVisitors visitor (ProjectRuleSchema schema) =
+withModuleVisitor visitor (ProjectRuleSchema schema) =
     let
         previousModuleVisitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
         previousModuleVisitors =

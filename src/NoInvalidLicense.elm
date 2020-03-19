@@ -33,13 +33,13 @@ import Set exposing (Set)
 -}
 rule : Configuration -> Rule
 rule configuration =
-    Rule.newProjectRuleSchema "NoInvalidLicense"
-        initialProjectContext
-        { moduleVisitor = moduleVisitor
-        , fromProjectToModule = fromProjectToModule
-        , fromModuleToProject = fromModuleToProject
-        , foldProjectContexts = foldProjectContexts
-        }
+    Rule.newProjectRuleSchema "NoInvalidLicense" initialProjectContext
+        |> Rule.withModuleVisitor moduleVisitor
+        |> Rule.withModuleContext
+            { fromProjectToModule = fromProjectToModule
+            , fromModuleToProject = fromModuleToProject
+            , foldProjectContexts = foldProjectContexts
+            }
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
         |> Rule.withDependenciesProjectVisitor dependenciesVisitor
         |> Rule.withFinalProjectEvaluation (finalEvaluationForProject configuration)

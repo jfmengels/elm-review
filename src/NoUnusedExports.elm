@@ -53,13 +53,13 @@ unused modules in your application or package.
 -}
 rule : Rule
 rule =
-    Rule.newProjectRuleSchema "NoUnused.Exports"
-        initialProjectContext
-        { moduleVisitor = moduleVisitor
-        , fromProjectToModule = fromProjectToModule
-        , fromModuleToProject = fromModuleToProject
-        , foldProjectContexts = foldProjectContexts
-        }
+    Rule.newProjectRuleSchema "NoUnused.Exports" initialProjectContext
+        |> Rule.withModuleVisitor moduleVisitor
+        |> Rule.withModuleContext
+            { fromProjectToModule = fromProjectToModule
+            , fromModuleToProject = fromModuleToProject
+            , foldProjectContexts = foldProjectContexts
+            }
         |> Scope.addProjectVisitors
         |> Rule.withContextFromImportedModules
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
