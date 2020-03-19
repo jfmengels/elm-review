@@ -6,10 +6,10 @@ module Review.Rule exposing
     , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
+    , Required
     , Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, ModuleKey, errorForModule, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme
     , withFixes
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
-    , Required
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -192,6 +192,7 @@ Evaluating/visiting a node means two things:
 ## Creating a project rule
 
 @docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
+@docs Required
 
 
 ## Errors
@@ -924,7 +925,7 @@ You can't use [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor) or [`withD
 in project rules. Instead, you should use [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor) or [`withDependenciesProjectVisitor`](#withDependenciesProjectVisitor).
 
 -}
-newProjectRuleSchema : String -> projectContext -> ProjectRuleSchema projectContext moduleContext { withModuleContext : Required }
+newProjectRuleSchema : String -> projectContext -> ProjectRuleSchema projectContext moduleContext {}
 newProjectRuleSchema name_ initialProjectContext =
     ProjectRuleSchema
         { name = name_
@@ -962,7 +963,7 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
 withModuleVisitor :
     (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
     -> ProjectRuleSchema projectContext moduleContext schemaState
-    -> ProjectRuleSchema projectContext moduleContext schemaState
+    -> ProjectRuleSchema projectContext moduleContext { schemaState | withModuleContext : Required }
 withModuleVisitor visitor (ProjectRuleSchema schema) =
     let
         previousModuleVisitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)

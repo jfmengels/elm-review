@@ -1,0 +1,22 @@
+-- TYPE MISMATCH ---------- ./No_WithModuleContext_Without_WithModuleVisitor.elm
+
+This function cannot handle the argument sent through the (|>) pipe:
+
+12|     Rule.newProjectRuleSchema "No_WithModuleContext_Without_WithModuleVisitor" ()
+13|>        |> Rule.withModuleContext
+14|>            { fromProjectToModule = \_ _ () -> ()
+15|>            , fromModuleToProject = \_ _ () -> ()
+16|>            , foldProjectContexts = \_ () -> ()
+17|>            }
+
+The argument is:
+
+    Rule.ProjectRuleSchema () () {}
+
+But (|>) is piping it to a function that expects:
+
+    Rule.ProjectRuleSchema
+        ()
+        ()
+        { schemaState | withModuleContext : Rule.Required }
+
