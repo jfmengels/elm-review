@@ -1,0 +1,28 @@
+-- TYPE MISMATCH ---------------------------- ./WithModuleContext_AtMostOnce.elm
+
+This function cannot handle the argument sent through the (|>) pipe:
+
+11|     Rule.newProjectRuleSchema "WithModuleContext_AtMostOnce" ()
+12|         |> Rule.withModuleVisitor moduleVisitor
+13|         |> Rule.withModuleContext
+14|             { fromProjectToModule = \_ _ () -> ()
+15|             , fromModuleToProject = \_ _ () -> ()
+16|             , foldProjectContexts = \_ () -> ()
+17|             }
+18|>        |> Rule.withModuleContext
+19|>            { fromProjectToModule = \_ _ () -> ()
+20|>            , fromModuleToProject = \_ _ () -> ()
+21|>            , foldProjectContexts = \_ () -> ()
+22|>            }
+
+The argument is:
+
+    Rule.ProjectRuleSchema () () {}
+
+But (|>) is piping it to a function that expects:
+
+    Rule.ProjectRuleSchema
+        ()
+        ()
+        { schemaState | withModuleContext : Rule.Required }
+

@@ -1,6 +1,6 @@
-module NoElmJsonVisitorForModuleVisitorInProjectRule exposing (rule)
+module WithModuleContext_AtMostOnce exposing (rule)
 
-{-| We want to forbid module visitors from using `withElmJsonModuleVisitor`.
+{-| We want to forbid `Rule.withModuleContext` from being called twice.
 -}
 
 import Review.Rule as Rule exposing (Rule)
@@ -8,8 +8,13 @@ import Review.Rule as Rule exposing (Rule)
 
 rule : Rule
 rule =
-    Rule.newProjectRuleSchema "NoElmJsonVisitorForModuleVisitorInProjectRule" ()
+    Rule.newProjectRuleSchema "WithModuleContext_AtMostOnce" ()
         |> Rule.withModuleVisitor moduleVisitor
+        |> Rule.withModuleContext
+            { fromProjectToModule = \_ _ () -> ()
+            , fromModuleToProject = \_ _ () -> ()
+            , foldProjectContexts = \_ () -> ()
+            }
         |> Rule.withModuleContext
             { fromProjectToModule = \_ _ () -> ()
             , fromModuleToProject = \_ _ () -> ()
@@ -22,5 +27,4 @@ rule =
 moduleVisitor : Rule.ModuleRuleSchema {} () -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ()
 moduleVisitor schema =
     schema
-        |> Rule.withElmJsonModuleVisitor (\_ () -> ())
         |> Rule.withModuleDefinitionVisitor (\_ () -> ( [], () ))

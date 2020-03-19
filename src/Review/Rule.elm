@@ -9,6 +9,7 @@ module Review.Rule exposing
     , Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, ModuleKey, errorForModule, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme
     , withFixes
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
+    , Required
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -923,7 +924,7 @@ You can't use [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor) or [`withD
 in project rules. Instead, you should use [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor) or [`withDependenciesProjectVisitor`](#withDependenciesProjectVisitor).
 
 -}
-newProjectRuleSchema : String -> projectContext -> ProjectRuleSchema projectContext moduleContext schemaState
+newProjectRuleSchema : String -> projectContext -> ProjectRuleSchema projectContext moduleContext { withModuleContext : Required }
 newProjectRuleSchema name_ initialProjectContext =
     ProjectRuleSchema
         { name = name_
@@ -981,12 +982,18 @@ withModuleVisitor visitor (ProjectRuleSchema schema) =
 
 {-| TODO Documentation
 -}
+type Required
+    = Required
+
+
+{-| TODO Documentation
+-}
 withModuleContext :
     { fromProjectToModule : ModuleKey -> Node ModuleName -> projectContext -> moduleContext
     , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
     , foldProjectContexts : projectContext -> projectContext -> projectContext
     }
-    -> ProjectRuleSchema projectContext moduleContext schemaState
+    -> ProjectRuleSchema projectContext moduleContext { schemaState | withModuleContext : Required }
     -> ProjectRuleSchema projectContext moduleContext schemaState
 withModuleContext moduleContext (ProjectRuleSchema schema) =
     let

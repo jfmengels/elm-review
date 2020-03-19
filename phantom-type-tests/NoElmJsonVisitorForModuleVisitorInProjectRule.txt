@@ -2,8 +2,8 @@
 
 This function cannot handle the argument sent through the (|>) pipe:
 
-30|     schema
-31|         |> Rule.withElmJsonModuleVisitor (\_ () -> ())
+24|     schema
+25|         |> Rule.withElmJsonModuleVisitor (\_ () -> ())
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The argument is:
 
