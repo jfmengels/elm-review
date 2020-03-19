@@ -11,13 +11,13 @@ import Test exposing (Test, describe, test)
 packageProject : Project
 packageProject =
     Project.new
-        |> Project.withElmJson (createElmJson packageElmJson)
+        |> Project.addElmJson (createElmJson packageElmJson)
 
 
 applicationProject : Project
 applicationProject =
     Project.new
-        |> Project.withElmJson (createElmJson applicationElmJson)
+        |> Project.addElmJson (createElmJson applicationElmJson)
 
 
 createElmJson : String -> { path : String, raw : String, project : Elm.Project.Project }

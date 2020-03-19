@@ -61,7 +61,7 @@ all =
         , test "should report an error if the README.md file doesn't start with the project name" <|
             \() ->
                 Project.new
-                    |> Project.withElmJson (createElmJson packageElmJson)
+                    |> Project.addElmJson (createElmJson packageElmJson)
                     |> Project.withReadme { path = "README.md", content = "Hello everybody\nThis is a good project" }
                     |> testRule
                     |> Review.Test.expectErrorsForReadme
@@ -74,7 +74,7 @@ all =
         , test "should not report an error if the README.md file starts with the project name" <|
             \() ->
                 Project.new
-                    |> Project.withElmJson (createElmJson packageElmJson)
+                    |> Project.addElmJson (createElmJson packageElmJson)
                     |> Project.withReadme { path = "README.md", content = "# author/packagename\nHello everybody\nThis is a good project" }
                     |> testRule
                     |> Review.Test.expectNoErrors

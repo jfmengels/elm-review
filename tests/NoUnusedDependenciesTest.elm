@@ -13,9 +13,9 @@ import Test exposing (Test, describe, test)
 createProject : String -> Project
 createProject rawElmJson =
     Project.new
-        |> Project.withElmJson (createElmJson rawElmJson)
-        |> Project.withDependency packageWithFoo
-        |> Project.withDependency packageWithBar
+        |> Project.addElmJson (createElmJson rawElmJson)
+        |> Project.addDependency packageWithFoo
+        |> Project.addDependency packageWithBar
 
 
 createElmJson : String -> { path : String, raw : String, project : Elm.Project.Project }

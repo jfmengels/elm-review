@@ -13,8 +13,8 @@ import Test exposing (Test, describe, test)
 createProject : String -> Project
 createProject license =
     Project.new
-        |> Project.withElmJson (createElmJson applicationElmJson)
-        |> Project.withDependency (dependency license)
+        |> Project.addElmJson (createElmJson applicationElmJson)
+        |> Project.addDependency (dependency license)
 
 
 createElmJson : String -> { path : String, raw : String, project : Elm.Project.Project }

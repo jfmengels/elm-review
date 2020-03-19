@@ -54,7 +54,7 @@ a = 1
 project : Project
 project =
     Project.new
-        |> Project.withElmJson applicationElmJson
+        |> Project.addElmJson applicationElmJson
 
 
 elmCore : () -> Elm.Package.Name

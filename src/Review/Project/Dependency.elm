@@ -64,7 +64,7 @@ You could something like the following to create a test project in your tests.
     testProject : Project
     testProject =
         Project.new
-            |> Project.withDependency
+            |> Project.addDependency
 
     dependency : String -> Dependency
     dependency license =

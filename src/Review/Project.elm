@@ -1,9 +1,9 @@
 module Review.Project exposing
     ( Project, new
     , ProjectModule, addModule, addParsedModule, removeModule, modules, filesThatFailedToParse, moduleGraph, precomputeModuleGraph
-    , withElmJson, elmJson
+    , addElmJson, elmJson
     , withReadme, readme
-    , withDependency, removeDependencies, dependencies
+    , addDependency, removeDependencies, dependencies
     )
 
 {-| Represents the contents of the project to be analyzed. This information will
@@ -33,7 +33,7 @@ does not look at project information (like the `elm.json`, dependencies, ...).
 
 # `elm.json`
 
-@docs withElmJson, elmJson
+@docs addElmJson, elmJson
 
 
 # `README.md`
@@ -43,7 +43,7 @@ does not look at project information (like the `elm.json`, dependencies, ...).
 
 # Project dependencies
 
-@docs withDependency, removeDependencies, dependencies
+@docs addDependency, removeDependencies, dependencies
 
 -}
 
@@ -282,8 +282,8 @@ The `raw` value should be the raw JSON as a string, and `contents` corresponds t
 [`elm/project-metadata-utils`'s Project project structure](https://package.elm-lang.org/packages/elm/project-metadata-utils/latest/Elm-Project).
 
 -}
-withElmJson : { path : String, raw : String, project : Elm.Project.Project } -> Project -> Project
-withElmJson elmJson_ (Project project) =
+addElmJson : { path : String, raw : String, project : Elm.Project.Project } -> Project -> Project
+addElmJson elmJson_ (Project project) =
     Project { project | elmJson = Just elmJson_ }
 
 
@@ -342,8 +342,8 @@ associativity of operators, which has an impact on the resulting AST when
 parsing a file.
 
 -}
-withDependency : Dependency -> Project -> Project
-withDependency dependency (Project project) =
+addDependency : Dependency -> Project -> Project
+addDependency dependency (Project project) =
     Project
         { project
             | dependencies =

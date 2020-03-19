@@ -120,8 +120,8 @@ type alias ModuleContext =
 project : Project
 project =
     Project.new
-        |> Project.withDependency Dependencies.elmCore
-        |> Project.withDependency Dependencies.elmHtml
+        |> Project.addDependency Dependencies.elmCore
+        |> Project.addDependency Dependencies.elmHtml
 
 
 rule : Rule

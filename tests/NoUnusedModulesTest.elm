@@ -12,7 +12,7 @@ import Test exposing (Test, describe, test)
 application : Project
 application =
     Project.new
-        |> Project.withElmJson applicationElmJson
+        |> Project.addElmJson applicationElmJson
 
 
 applicationElmJson : { path : String, raw : String, project : Elm.Project.Project }
@@ -50,7 +50,7 @@ applicationElmJson =
 package_ : Project
 package_ =
     Project.new
-        |> Project.withElmJson (createPackageElmJson ())
+        |> Project.addElmJson (createPackageElmJson ())
 
 
 createPackageElmJson : () -> { path : String, raw : String, project : Elm.Project.Project }

@@ -211,7 +211,7 @@ project loaded, such as the contents of `elm.json` file.
                     project : Project
                     project =
                         Project.new
-                            |> Project.withElmJson elmJsonToConstructManually
+                            |> Project.addElmJson elmJsonToConstructManually
                 in
                 """module SomeModule exposing (a)
     a = 1"""
@@ -255,7 +255,7 @@ several files, and where the context of the project is important.
                     project : Project
                     project =
                         Project.new
-                            |> Project.withElmJson elmJsonToConstructManually
+                            |> Project.addElmJson elmJsonToConstructManually
                 in
                 [ """
     module A exposing (a)

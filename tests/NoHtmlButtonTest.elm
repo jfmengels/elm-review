@@ -17,7 +17,7 @@ testRule string =
 projectWithHtmlDependency : Project
 projectWithHtmlDependency =
     Project.new
-        |> Project.withDependency Dependencies.elmHtml
+        |> Project.addDependency Dependencies.elmHtml
 
 
 testRuleWithHtmlDependency : String -> ReviewResult
