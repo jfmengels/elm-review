@@ -925,7 +925,7 @@ You can't use [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor) or [`withD
 in project rules. Instead, you should use [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor) or [`withDependenciesProjectVisitor`](#withDependenciesProjectVisitor).
 
 -}
-newProjectRuleSchema : String -> projectContext -> ProjectRuleSchema projectContext moduleContext {}
+newProjectRuleSchema : String -> projectContext -> ProjectRuleSchema projectContext moduleContext { canAddModuleVisitor : () }
 newProjectRuleSchema name_ initialProjectContext =
     ProjectRuleSchema
         { name = name_
@@ -962,8 +962,8 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
 -}
 withModuleVisitor :
     (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
-    -> ProjectRuleSchema projectContext moduleContext schemaState
-    -> ProjectRuleSchema projectContext moduleContext { schemaState | withModuleContext : Required }
+    -> ProjectRuleSchema projectContext moduleContext { schemaState | canAddModuleVisitor : () }
+    -> ProjectRuleSchema projectContext moduleContext { schemaState | canAddModuleVisitor : (), withModuleContext : Required }
 withModuleVisitor visitor (ProjectRuleSchema schema) =
     let
         previousModuleVisitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
@@ -994,7 +994,7 @@ withModuleContext :
     , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
     , foldProjectContexts : projectContext -> projectContext -> projectContext
     }
-    -> ProjectRuleSchema projectContext moduleContext { schemaState | withModuleContext : Required }
+    -> ProjectRuleSchema projectContext moduleContext { schemaState | canAddModuleVisitor : (), withModuleContext : Required }
     -> ProjectRuleSchema projectContext moduleContext schemaState
 withModuleContext moduleContext (ProjectRuleSchema schema) =
     let

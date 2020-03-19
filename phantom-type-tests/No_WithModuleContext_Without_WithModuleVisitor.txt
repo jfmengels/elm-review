@@ -11,12 +11,18 @@ This function cannot handle the argument sent through the (|>) pipe:
 
 The argument is:
 
-    Rule.ProjectRuleSchema () () {}
+    Rule.ProjectRuleSchema () () { canAddModuleVisitor : () }
 
 But (|>) is piping it to a function that expects:
 
     Rule.ProjectRuleSchema
         ()
         ()
-        { schemaState | withModuleContext : Rule.Required }
+        { a | canAddModuleVisitor : (), withModuleContext : Rule.Required }
+
+Hint: Seems like a record field typo. Maybe withModuleContext should be
+canAddModuleVisitor?
+
+Hint: Can more type annotations be added? Type annotations always help me give
+more specific messages, and I think they could help a lot in this case!
 

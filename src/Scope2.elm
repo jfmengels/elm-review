@@ -167,8 +167,8 @@ emptyScope =
 
 
 addProjectVisitors :
-    Rule.ProjectRuleSchema { projectContext | scope : ProjectContext } { moduleContext | scope : ModuleContext } schemaState
-    -> Rule.ProjectRuleSchema { projectContext | scope : ProjectContext } { moduleContext | scope : ModuleContext } { schemaState | withModuleContext : Rule.Required }
+    Rule.ProjectRuleSchema { projectContext | scope : ProjectContext } { moduleContext | scope : ModuleContext } { schemaState | canAddModuleVisitor : () }
+    -> Rule.ProjectRuleSchema { projectContext | scope : ProjectContext } { moduleContext | scope : ModuleContext } { schemaState | canAddModuleVisitor : (), withModuleContext : Rule.Required }
 addProjectVisitors schema =
     schema
         |> Rule.withContextFromImportedModules
