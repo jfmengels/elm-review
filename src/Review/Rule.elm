@@ -709,7 +709,7 @@ See the documentation for [`newProjectRuleSchema`](#newProjectRuleSchema) for
 how to create a project rule.
 
 -}
-type ProjectRuleSchema projectContext moduleContext
+type ProjectRuleSchema projectContext moduleContext schemaState
     = ProjectRuleSchema
         { name : String
         , initialProjectContext : projectContext
@@ -923,7 +923,7 @@ You can't use [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor) or [`withD
 in project rules. Instead, you should use [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor) or [`withDependenciesProjectVisitor`](#withDependenciesProjectVisitor).
 
 -}
-newProjectRuleSchema : String -> projectContext -> ProjectRuleSchema projectContext moduleContext
+newProjectRuleSchema : String -> projectContext -> ProjectRuleSchema projectContext moduleContext schemaState
 newProjectRuleSchema name_ initialProjectContext =
     ProjectRuleSchema
         { name = name_
@@ -939,7 +939,7 @@ newProjectRuleSchema name_ initialProjectContext =
 
 {-| Create a [`Rule`](#Rule) from a configured [`ProjectRuleSchema`](#ProjectRuleSchema).
 -}
-fromProjectRuleSchema : ProjectRuleSchema projectContext moduleContext -> Rule
+fromProjectRuleSchema : ProjectRuleSchema projectContext moduleContext schemaState -> Rule
 fromProjectRuleSchema (ProjectRuleSchema schema) =
     Rule schema.name
         Exceptions.init
@@ -960,8 +960,8 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
 -}
 withModuleVisitor :
     (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
-    -> ProjectRuleSchema projectContext moduleContext
-    -> ProjectRuleSchema projectContext moduleContext
+    -> ProjectRuleSchema projectContext moduleContext schemaState
+    -> ProjectRuleSchema projectContext moduleContext schemaState
 withModuleVisitor visitor (ProjectRuleSchema schema) =
     let
         previousModuleVisitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
@@ -986,8 +986,8 @@ withModuleContext :
     , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
     , foldProjectContexts : projectContext -> projectContext -> projectContext
     }
-    -> ProjectRuleSchema projectContext moduleContext
-    -> ProjectRuleSchema projectContext moduleContext
+    -> ProjectRuleSchema projectContext moduleContext schemaState
+    -> ProjectRuleSchema projectContext moduleContext schemaState
 withModuleContext moduleContext (ProjectRuleSchema schema) =
     let
         visitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
@@ -1014,8 +1014,8 @@ module is evaluated.
 -}
 withElmJsonProjectVisitor :
     (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List Error, projectContext ))
-    -> ProjectRuleSchema projectContext moduleContext
-    -> ProjectRuleSchema projectContext moduleContext
+    -> ProjectRuleSchema projectContext moduleContext schemaState
+    -> ProjectRuleSchema projectContext moduleContext schemaState
 withElmJsonProjectVisitor visitor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
 
@@ -1030,8 +1030,8 @@ module is evaluated.
 -}
 withReadmeProjectVisitor :
     (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List Error, projectContext ))
-    -> ProjectRuleSchema projectContext moduleContext
-    -> ProjectRuleSchema projectContext moduleContext
+    -> ProjectRuleSchema projectContext moduleContext schemaState
+    -> ProjectRuleSchema projectContext moduleContext schemaState
 withReadmeProjectVisitor visitor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | readmeVisitors = visitor :: schema.readmeVisitors }
 
@@ -1045,8 +1045,8 @@ module is evaluated.
 -}
 withDependenciesProjectVisitor :
     (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List Error, projectContext ))
-    -> ProjectRuleSchema projectContext moduleContext
-    -> ProjectRuleSchema projectContext moduleContext
+    -> ProjectRuleSchema projectContext moduleContext schemaState
+    -> ProjectRuleSchema projectContext moduleContext schemaState
 withDependenciesProjectVisitor visitor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | dependenciesVisitors = visitor :: schema.dependenciesVisitors }
 
@@ -1064,8 +1064,8 @@ That means that if you call [`error`](#error), we won't know which module to ass
 -}
 withFinalProjectEvaluation :
     (projectContext -> List Error)
-    -> ProjectRuleSchema projectContext moduleContext
-    -> ProjectRuleSchema projectContext moduleContext
+    -> ProjectRuleSchema projectContext moduleContext schemaState
+    -> ProjectRuleSchema projectContext moduleContext schemaState
 withFinalProjectEvaluation visitor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | finalEvaluationFns = visitor :: schema.finalEvaluationFns }
 
@@ -1096,7 +1096,7 @@ and the analysis will be much faster, because we know other files can not have
 influenced the results of other modules.
 
 -}
-withContextFromImportedModules : ProjectRuleSchema projectContext moduleContext -> ProjectRuleSchema projectContext moduleContext
+withContextFromImportedModules : ProjectRuleSchema projectContext moduleContext schemaState -> ProjectRuleSchema projectContext moduleContext schemaState
 withContextFromImportedModules (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | traversalType = ImportedModulesFirst }
 
@@ -1109,7 +1109,7 @@ type alias ProjectRuleCache projectContext =
         }
 
 
-runProjectRule : ProjectRuleSchema projectContext moduleContext -> ProjectRuleCache projectContext -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, Rule )
+runProjectRule : ProjectRuleSchema projectContext moduleContext schemaState -> ProjectRuleCache projectContext -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, Rule )
 runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptions project nodeContexts =
     let
         elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
@@ -1186,7 +1186,7 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
 
 
 computeModules :
-    ProjectRuleSchema projectContext moduleContext
+    ProjectRuleSchema projectContext moduleContext schemaState
     ->
         { visitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
         , moduleContext :
@@ -1415,7 +1415,7 @@ getModuleName module_ =
         |> Module.moduleName
 
 
-errorsFromFinalEvaluationForProject : ProjectRuleSchema projectContext moduleContext -> projectContext -> List ( List Error, projectContext ) -> List Error
+errorsFromFinalEvaluationForProject : ProjectRuleSchema projectContext moduleContext schemaState -> projectContext -> List ( List Error, projectContext ) -> List Error
 errorsFromFinalEvaluationForProject (ProjectRuleSchema schema) initialContext contextsAndErrorsPerFile =
     if List.isEmpty schema.finalEvaluationFns then
         []
