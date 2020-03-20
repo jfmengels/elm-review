@@ -13,17 +13,24 @@ This function cannot handle the argument sent through the (|>) pipe:
                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The argument is:
 
-    Rule.ProjectRuleSchema () () { withModuleContext : Rule.NotNeeded }
+    Rule.ProjectRuleSchema
+        ()
+        ()
+        { hasAtLeastOneVisitor : (), withModuleContext : Rule.NotNeeded }
 
 But (|>) is piping it to a function that expects:
 
     Rule.ProjectRuleSchema
         ()
         ()
-        { a | canAddModuleVisitor : (), withModuleContext : Rule.NotNeeded }
+        { a
+            | canAddModuleVisitor : ()
+            , hasAtLeastOneVisitor : ()
+            , withModuleContext : Rule.NotNeeded
+        }
 
 Hint: Seems like a record field typo. Maybe canAddModuleVisitor should be
-withModuleContext?
+hasAtLeastOneVisitor?
 
 Hint: Can more type annotations be added? Type annotations always help me give
 more specific messages, and I think they could help a lot in this case!

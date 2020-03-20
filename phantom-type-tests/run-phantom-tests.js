@@ -21,3 +21,5 @@ elmFiles.forEach(elmFile => {
     }
   }
 });
+
+console.log('No problems with phantom types!');

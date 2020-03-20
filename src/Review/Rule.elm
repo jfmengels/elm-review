@@ -947,7 +947,7 @@ newProjectRuleSchema name_ initialProjectContext =
 
 {-| Create a [`Rule`](#Rule) from a configured [`ProjectRuleSchema`](#ProjectRuleSchema).
 -}
-fromProjectRuleSchema : ProjectRuleSchema projectContext moduleContext { schemaState | withModuleContext : NotNeeded } -> Rule
+fromProjectRuleSchema : ProjectRuleSchema projectContext moduleContext { schemaState | withModuleContext : NotNeeded, hasAtLeastOneVisitor : () } -> Rule
 fromProjectRuleSchema (ProjectRuleSchema schema) =
     Rule schema.name
         Exceptions.init
@@ -1007,7 +1007,7 @@ withModuleContext :
     , foldProjectContexts : projectContext -> projectContext -> projectContext
     }
     -> ProjectRuleSchema projectContext moduleContext { schemaState | canAddModuleVisitor : (), withModuleContext : Required }
-    -> ProjectRuleSchema projectContext moduleContext { schemaState | withModuleContext : NotNeeded }
+    -> ProjectRuleSchema projectContext moduleContext { schemaState | hasAtLeastOneVisitor : (), withModuleContext : NotNeeded }
 withModuleContext moduleContext (ProjectRuleSchema schema) =
     let
         visitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
@@ -1035,7 +1035,7 @@ module is evaluated.
 withElmJsonProjectVisitor :
     (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List Error, projectContext ))
     -> ProjectRuleSchema projectContext moduleContext schemaState
-    -> ProjectRuleSchema projectContext moduleContext schemaState
+    -> ProjectRuleSchema projectContext moduleContext { schemaState | hasAtLeastOneVisitor : () }
 withElmJsonProjectVisitor visitor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
 
@@ -1051,7 +1051,7 @@ module is evaluated.
 withReadmeProjectVisitor :
     (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List Error, projectContext ))
     -> ProjectRuleSchema projectContext moduleContext schemaState
-    -> ProjectRuleSchema projectContext moduleContext schemaState
+    -> ProjectRuleSchema projectContext moduleContext { schemaState | hasAtLeastOneVisitor : () }
 withReadmeProjectVisitor visitor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | readmeVisitors = visitor :: schema.readmeVisitors }
 
@@ -1066,7 +1066,7 @@ module is evaluated.
 withDependenciesProjectVisitor :
     (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List Error, projectContext ))
     -> ProjectRuleSchema projectContext moduleContext schemaState
-    -> ProjectRuleSchema projectContext moduleContext schemaState
+    -> ProjectRuleSchema projectContext moduleContext { schemaState | hasAtLeastOneVisitor : () }
 withDependenciesProjectVisitor visitor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | dependenciesVisitors = visitor :: schema.dependenciesVisitors }
 
