@@ -2436,13 +2436,17 @@ type ElmJsonKey
         }
 
 
-{-| Just like [`error`](#error), create an [`Error`](#Error) but for a specific module, instead of the module that is being
-visited.
+{-| Create an [`Error`](#Error) for the `elm.json` file.
 
-You will need a [`ElmJsonKey`](#ElmJsonKey), which you can get from the [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor)
+You will need an [`ElmJsonKey`](#ElmJsonKey), which you can get from the [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor)
 function.
 
-Fixes added to errors for the `elm.json` file are automatically ignored.
+The second argument is a function that takes the `elm.json` content as a raw string,
+and returns the error details. Using the raw string, you should try and find the
+most fitting [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range)
+possible for the error.
+
+**NOTE**: Fixes added to errors for the `elm.json` file are automatically ignored.
 
 -}
 errorForElmJson : ElmJsonKey -> (String -> { message : String, details : List String, range : Range }) -> Error
@@ -2462,12 +2466,11 @@ errorForElmJson (ElmJsonKey { path, raw }) getErrorInfo =
         }
 
 
-{-| TODO Documentation
-A key to be able to report an error for the `elm.json` file. You need this
-key in order to use the [`errorForElmJson`](#errorForElmJson) function. This is
+{-| A key to be able to report an error for the `README.md` file. You need this
+key in order to use the [`errorForReadme`](#errorForReadme) function. This is
 to prevent creating errors for it if you have not visited it.
 
-You can get a `ElmJsonKey` using the [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor) function.
+You can get a `ReadmeKey` using the [`withReadmeProjectVisitor`](#withReadmeProjectVisitor) function.
 
 -}
 type ReadmeKey
@@ -2477,13 +2480,12 @@ type ReadmeKey
         }
 
 
-{-| Just like [`error`](#error), create an [`Error`](#Error) but for a specific module, instead of the module that is being
-visited.
+{-| Create an [`Error`](#Error) for the `README.md` file.
 
-You will need a [`ElmJsonKey`](#ElmJsonKey), which you can get from the [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor)
+You will need an [`ReadmeKey`](#ReadmeKey), which you can get from the [`withReadmeProjectVisitor`](#withReadmeProjectVisitor)
 function.
 
-Fixes added to errors for the `elm.json` file are automatically ignored.
+**NOTE**: Fixes added to errors for the `README` file are automatically ignored.
 
 -}
 errorForReadme : ReadmeKey -> { message : String, details : List String } -> Range -> Error
