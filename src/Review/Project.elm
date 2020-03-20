@@ -2,7 +2,7 @@ module Review.Project exposing
     ( Project, new
     , ProjectModule, addModule, addParsedModule, removeModule, modules, filesThatFailedToParse, moduleGraph, precomputeModuleGraph
     , addElmJson, elmJson
-    , withReadme, readme
+    , addReadme, readme
     , addDependency, removeDependencies, dependencies
     )
 
@@ -26,7 +26,7 @@ does not look at project information (like the `elm.json`, dependencies, ...).
 # Project files
 
 
-## Adding files
+## Elm modules
 
 @docs ProjectModule, addModule, addParsedModule, removeModule, modules, filesThatFailedToParse, moduleGraph, precomputeModuleGraph
 
@@ -38,7 +38,7 @@ does not look at project information (like the `elm.json`, dependencies, ...).
 
 # `README.md`
 
-@docs withReadme, readme
+@docs addReadme, readme
 
 
 # Project dependencies
@@ -273,7 +273,7 @@ precomputeModuleGraph ((Project p) as project) =
 -- `elm.json`
 
 
-{-| Add the content of the `elm.json` file to the project details, making it
+{-| Add the content of the `elm.json` file to the project, making it
 available for rules to access using
 [`Review.Rule.withElmJsonModuleVisitor`](./Review-Rule#withElmJsonModuleVisitor) and
 [`Review.Rule.withElmJsonProjectVisitor`](./Review-Rule#withElmJsonProjectVisitor).
@@ -304,29 +304,17 @@ elmJson (Project project) =
 -- `README.md`
 
 
-{-| TODO documentation
-Add the content of the `elm.json` file to the project details, making it
+{-| Add the content of the `README.md` file to the project, making it
 available for rules to access using
-[`Review.Rule.withElmJsonModuleVisitor`](./Review-Rule#withElmJsonModuleVisitor) and
-[`Review.Rule.withElmJsonProjectVisitor`](./Review-Rule#withElmJsonProjectVisitor).
-
-The `raw` value should be the raw JSON as a string, and `contents` corresponds to
-[`elm/project-metadata-utils`'s Project project structure](https://package.elm-lang.org/packages/elm/project-metadata-utils/latest/Elm-Project).
-
+[`Review.Rule.withReadmeModuleVisitor`](./Review-Rule#withReadmeModuleVisitor) and
+[`Review.Rule.withReadmeProjectVisitor`](./Review-Rule#withReadmeProjectVisitor).
 -}
-withReadme : { path : String, content : String } -> Project -> Project
-withReadme readme_ (Project project) =
+addReadme : { path : String, content : String } -> Project -> Project
+addReadme readme_ (Project project) =
     Project { project | readme = Just readme_ }
 
 
-{-| TODO documentation
-Get the contents of the `elm.json` file, if available.
-
-This will give you a `Project` type from the
-[`elm/project-metadata-utils`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.0/Elm-Project)
-package, so you will need to install and use it to gain access to the
-information inside the `elm.json` file.
-
+{-| Get the contents of the `README.md` file, if available.
 -}
 readme : Project -> Maybe { path : String, content : String }
 readme (Project project) =

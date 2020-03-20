@@ -62,7 +62,7 @@ all =
             \() ->
                 Project.new
                     |> Project.addElmJson (createElmJson packageElmJson)
-                    |> Project.withReadme { path = "README.md", content = "Hello everybody\nThis is a good project" }
+                    |> Project.addReadme { path = "README.md", content = "Hello everybody\nThis is a good project" }
                     |> testRule
                     |> Review.Test.expectErrorsForReadme
                         [ Review.Test.error
@@ -75,7 +75,7 @@ all =
             \() ->
                 Project.new
                     |> Project.addElmJson (createElmJson packageElmJson)
-                    |> Project.withReadme { path = "README.md", content = "# author/packagename\nHello everybody\nThis is a good project" }
+                    |> Project.addReadme { path = "README.md", content = "# author/packagename\nHello everybody\nThis is a good project" }
                     |> testRule
                     |> Review.Test.expectNoErrors
         ]
