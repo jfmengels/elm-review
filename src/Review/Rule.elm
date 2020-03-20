@@ -703,13 +703,12 @@ makeFinalEvaluation finalEvaluationFns ( previousErrors, context ) =
 
 {-| Represents a schema for a project [`Rule`](#Rule).
 
-Similar to a module rule, a project rule looks at modules one by one, but when
-it finishes looking at a file and reporting errors, it stores parts of the context
-which can be used for in other files or in the final project evaluation.
+Instead of looking at a single module like a module rule, project rules can see
+the global picture of an Elm project. When analyzing a module, it can retain
+information about other modules that were previously visited, such as the module's
+exposed functions.
 
-This means that we can access data collected from a different module when visiting
-another module, and when doing the final evaluation, have access to the same
-knowledge of the project as the compiler does.
+Project rules can also report errors in the `elm.json` or the `README.md` file.
 
 See the documentation for [`newProjectRuleSchema`](#newProjectRuleSchema) for
 how to create a project rule.
@@ -749,8 +748,8 @@ type TraversalType
     | ImportedModulesFirst
 
 
-{-| Creates a schema for a project rule. Will require calling [`fromProjectRuleSchema`](#fromProjectRuleSchema)
-to create a usable [`Rule`](#Rule).
+{-| Creates a schema for a project rule. Will require calling
+[`fromProjectRuleSchema`](#fromProjectRuleSchema) to create a usable [`Rule`](#Rule).
 
 The traversal of a project rule happens in the same order as for modules rules,
 but there are some changes, and different visitors are used for things that relate
