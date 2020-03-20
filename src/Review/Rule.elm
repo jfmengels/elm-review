@@ -273,20 +273,20 @@ Start by using [`newModuleRuleSchema`](#newModuleRuleSchema), then add visitors 
             |> Rule.fromModuleRuleSchema
 
 -}
-type ModuleRuleSchema configuration context
+type ModuleRuleSchema configuration moduleContext
     = ModuleRuleSchema
         { name : String
-        , initialContext : context
-        , elmJsonVisitors : List (Maybe Elm.Project.Project -> context -> context)
-        , readmeVisitors : List (Maybe String -> context -> context)
-        , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> context -> context)
-        , moduleDefinitionVisitors : List (Node Module -> context -> ( List Error, context ))
-        , commentsVisitors : List (List (Node String) -> context -> ( List Error, context ))
-        , importVisitors : List (Node Import -> context -> ( List Error, context ))
-        , declarationListVisitors : List (List (Node Declaration) -> context -> ( List Error, context ))
-        , declarationVisitors : List (DirectedVisitor Declaration context)
-        , expressionVisitors : List (DirectedVisitor Expression context)
-        , finalEvaluationFns : List (context -> List Error)
+        , initialContext : moduleContext
+        , elmJsonVisitors : List (Maybe Elm.Project.Project -> moduleContext -> moduleContext)
+        , readmeVisitors : List (Maybe String -> moduleContext -> moduleContext)
+        , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
+        , moduleDefinitionVisitors : List (Node Module -> moduleContext -> ( List Error, moduleContext ))
+        , commentsVisitors : List (List (Node String) -> moduleContext -> ( List Error, moduleContext ))
+        , importVisitors : List (Node Import -> moduleContext -> ( List Error, moduleContext ))
+        , declarationListVisitors : List (List (Node Declaration) -> moduleContext -> ( List Error, moduleContext ))
+        , declarationVisitors : List (DirectedVisitor Declaration moduleContext)
+        , expressionVisitors : List (DirectedVisitor Expression moduleContext)
+        , finalEvaluationFns : List (moduleContext -> List Error)
         }
 
 
