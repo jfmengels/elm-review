@@ -733,12 +733,15 @@ type ModuleVisitor projectContext moduleContext
     | HasVisitors (List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext))
     | IsPrepared
         { visitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
-        , moduleContext :
-            { fromProjectToModule : ModuleKey -> Node ModuleName -> projectContext -> moduleContext
-            , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
-            , foldProjectContexts : projectContext -> projectContext -> projectContext
-            }
+        , moduleContext : ModuleContextFunctions projectContext moduleContext
         }
+
+
+type alias ModuleContextFunctions projectContext moduleContext =
+    { fromProjectToModule : ModuleKey -> Node ModuleName -> projectContext -> moduleContext
+    , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
+    , foldProjectContexts : projectContext -> projectContext -> projectContext
+    }
 
 
 type TraversalType
@@ -1159,11 +1162,7 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
         moduleVisitors :
             Maybe
                 { visitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
-                , moduleContext :
-                    { fromProjectToModule : ModuleKey -> Node ModuleName -> projectContext -> moduleContext
-                    , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
-                    , foldProjectContexts : projectContext -> projectContext -> projectContext
-                    }
+                , moduleContext : ModuleContextFunctions projectContext moduleContext
                 }
         moduleVisitors =
             case schema.moduleVisitor of
@@ -1207,11 +1206,7 @@ computeModules :
     ProjectRuleSchema projectContext moduleContext schemaState
     ->
         { visitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
-        , moduleContext :
-            { fromProjectToModule : ModuleKey -> Node ModuleName -> projectContext -> moduleContext
-            , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
-            , foldProjectContexts : projectContext -> projectContext -> projectContext
-            }
+        , moduleContext : ModuleContextFunctions projectContext moduleContext
         }
     -> Project
     -> projectContext
