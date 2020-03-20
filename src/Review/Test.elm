@@ -699,8 +699,8 @@ expectErrorsForModules expectedErrorsList reviewResult =
                 |> Review.Test.expectErrorsForElmJson
                     [ Review.Test.error
                         { message = "Unused dependency `author/package`"
-                        , details = [ "Details about the error" ]
-                        , under = "Debug.log"
+                        , details = [ "Dependency should be removed" ]
+                        , under = "author/package"
                         }
                     ]
 
@@ -723,8 +723,7 @@ expectErrorsForElmJson expectedErrors reviewResult =
     expectErrorsForModules [ ( "elm.json", expectedErrors ) ] reviewResult
 
 
-{-| TODO Documentation
-Assert that the rule reported some errors for the `elm.json` file, by specifying which ones.
+{-| Assert that the rule reported some errors for the `README.md` file, by specifying which ones.
 
     test "report an error when a module is unused" <|
         \() ->
@@ -734,19 +733,19 @@ Assert that the rule reported some errors for the `elm.json` file, by specifying
                 |> Review.Test.runWithProjectData rule
                 |> Review.Test.expectErrorsForElmJson
                     [ Review.Test.error
-                        { message = "Unused dependency `author/package`"
-                        , details = [ "Details about the error" ]
-                        , under = "Debug.log"
+                        { message = "Invalid link"
+                        , details = [ "README contains an invalid link" ]
+                        , under = "htt://example.com"
                         }
                     ]
 
-Alternatively, or if you need to specify errors for other files too, you can use [`expectErrorsForModules`](#expectErrorsForModules), specifying `elm.json` as the module name.
+Alternatively, or if you need to specify errors for other files too, you can use [`expectErrorsForModules`](#expectErrorsForModules), specifying `README.md` as the module name.
 
     sourceCode
         |> Review.Test.runOnModules rule
         |> Review.Test.expectErrorsForModules
             [ ( "ModuleB", [ Review.Test.error someErrorModuleB ] )
-            , ( "elm.json", [ Review.Test.error someErrorForElmJson ] )
+            , ( "README.md", [ Review.Test.error someErrorForReadme ] )
             ]
 
 Assert which errors are reported using [`error`](#error). The test will fail if
