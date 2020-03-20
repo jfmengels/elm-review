@@ -1,6 +1,5 @@
 module Review.Rule exposing
     ( Rule
-    , review
     , ModuleRuleSchema, newModuleRuleSchema, fromModuleRuleSchema
     , withSimpleModuleDefinitionVisitor, withSimpleCommentsVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
     , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalModuleEvaluation
@@ -9,6 +8,7 @@ module Review.Rule exposing
     , Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, ModuleKey, errorForModule, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme
     , withFixes
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
+    , review
     , Required, NotNeeded
     )
 
@@ -17,9 +17,9 @@ module Review.Rule exposing
 
 # How does it work?
 
-`elm-review` reads the `elm.json`, dependencies and the modules from your project,
-and turns each module into an [Abstract Syntax Tree (AST)](https://en.wikipedia.org/wiki/Abstract_syntax_tree)
-(a tree-like structure which represents your source code) using the
+`elm-review` reads the modules, `elm.json`, dependencies and `README.md` from your project,
+and turns each module into an [Abstract Syntax Tree (AST)](https://en.wikipedia.org/wiki/Abstract_syntax_tree),
+a tree-like structure which represents your source code, using the
 [`elm-syntax` package](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/).
 
 `elm-review` then feeds all this data into `review rules`, that traverse them to report problems.
@@ -125,17 +125,9 @@ provides. If you don't understand the AST it provides, you will have a hard time
 implementing the rule you wish to create.
 
 
-## Definition
+# Writing a Rule
 
 @docs Rule
-
-
-## Running the rule
-
-@docs review
-
-
-# Writing a Rule
 
 
 ## Creating a module rule
@@ -154,7 +146,7 @@ The traversal of a module rule is the following:
       - The `elm.json` file, visited by [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor)
       - The `README.md` file, visited by [`withReadmeModuleVisitor`](#withReadmeModuleVisitor)
       - The definition for dependencies, visited by [`withDependenciesModuleVisitor`](#withDependenciesModuleVisitor)
-  - Visit the file (in the following order)
+  - Visit the Elm module (in the following order)
       - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
       - The module's list of comments, visited by [`withSimpleCommentsVisitor`](#withSimpleCommentsVisitor) and [`withCommentsVisitor`](#withCommentsVisitor)
       - Each import, visited by [`withSimpleImportVisitor`](#withSimpleImportVisitor) and [`withImportVisitor`](#withImportVisitor)
@@ -167,7 +159,7 @@ The traversal of a module rule is the following:
 Evaluating/visiting a node means two things:
 
   - Detecting patterns and reporting errors
-  - Collecting data in a `context` to have more information available in a later
+  - Collecting data in a "context" (called `moduleContext` for module rules) to have more information available in a later
     node evaluation. You can only use the context and update it with "non-simple with\*" visitor functions.
     I recommend using the "simple with\*" visitor functions if you don't need to do either, as they are simpler to use
 
@@ -190,6 +182,17 @@ Evaluating/visiting a node means two things:
 
 
 ## Creating a project rule
+
+Project rules can look the global picture of an Elm project. Contrary to module
+rules, who forget everything about the module they were looking at when going from
+one module to another, project rules can retain information about previously
+analyzed modules, and use it report errors when analyzing a different module or
+after all modules have been visited.
+
+Project rules can also report errors in the `elm.json` or the `README.md` files.
+
+If you are new to writing rules, I would recommend learning [how to build a module rule](#creating-a-module-rule)
+first, as they are in practice a simpler version of project rules.
 
 @docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
 
@@ -223,6 +226,11 @@ communicate with your colleagues if you see them adding exceptions without
 reason or seemingly inappropriately.
 
 @docs ignoreErrorsForDirectories, ignoreErrorsForFiles
+
+
+# Running rules
+
+@docs review
 
 
 # Internals
@@ -703,13 +711,6 @@ makeFinalEvaluation finalEvaluationFns ( previousErrors, context ) =
 
 {-| Represents a schema for a project [`Rule`](#Rule).
 
-Instead of looking at a single module like a module rule, project rules can see
-the global picture of an Elm project. When analyzing a module, it can retain
-information about other modules that were previously visited, such as the module's
-exposed functions.
-
-Project rules can also report errors in the `elm.json` or the `README.md` file.
-
 See the documentation for [`newProjectRuleSchema`](#newProjectRuleSchema) for
 how to create a project rule.
 
@@ -750,6 +751,24 @@ type TraversalType
 
 {-| Creates a schema for a project rule. Will require calling
 [`fromProjectRuleSchema`](#fromProjectRuleSchema) to create a usable [`Rule`](#Rule).
+
+Project rules traverse the project in the following order:
+
+  - Read and/or report errors in project files
+      - The `elm.json` file, visited by [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor)
+      - The `README.md` file, visited by [`withReadmeProjectVisitor`](#withReadmeProjectVisitor)
+      - The definition for dependencies, visited by [`withDependenciesProjectVisitor`](#withDependenciesProjectVisitor)
+      - The Elm modules, one by one, visited by [`withModuleVisitor`](#withModuleVisitor),
+        following the same traversal order as for module rules but without reading the elements listed above (`elm.json`, ...).
+      - A final evaluation is made when all modules have been visited, using [`withFinalProjectEvaluation`](#withFinalProjectEvaluation)
+
+Evaluating/visiting a node means two things:
+
+  - Detecting patterns and reporting errors
+  - Collecting data in a "context", which will be either a `projectContext` or a `moduleContext` depending on the part of the project being visited, to have more information available in a later
+    part of the traversal evaluation.
+
+TODO STOP HERE, REMOVE THE REST
 
 The traversal of a project rule happens in the same order as for modules rules,
 but there are some changes, and different visitors are used for things that relate
@@ -965,6 +984,7 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
 
 
 {-| TODO Documentation
+Mention [`withContextFromImportedModules`](#withContextFromImportedModules)
 -}
 withModuleVisitor :
     (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
