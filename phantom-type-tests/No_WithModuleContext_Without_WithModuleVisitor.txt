@@ -14,7 +14,7 @@ The argument is:
     Rule.ProjectRuleSchema
         ()
         ()
-        { canAddModuleVisitor : (), withModuleContext : Rule.NotNeeded }
+        { canAddModuleVisitor : (), withModuleContext : Rule.Forbidden }
 
 But (|>) is piping it to a function that expects:
 

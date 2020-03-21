@@ -9,7 +9,7 @@ module Review.Rule exposing
     , withFixes
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review
-    , Required, NotNeeded
+    , Required, Forbidden
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -235,7 +235,7 @@ reason or seemingly inappropriately.
 
 # Internals
 
-@docs Required, NotNeeded
+@docs Required, Forbidden
 
 -}
 
@@ -950,7 +950,7 @@ You can't use [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor) or [`withD
 in project rules. Instead, you should use [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor) or [`withDependenciesProjectVisitor`](#withDependenciesProjectVisitor).
 
 -}
-newProjectRuleSchema : String -> projectContext -> ProjectRuleSchema projectContext moduleContext { canAddModuleVisitor : (), withModuleContext : NotNeeded }
+newProjectRuleSchema : String -> projectContext -> ProjectRuleSchema projectContext moduleContext { canAddModuleVisitor : (), withModuleContext : Forbidden }
 newProjectRuleSchema name_ initialProjectContext =
     ProjectRuleSchema
         { name = name_
@@ -966,7 +966,7 @@ newProjectRuleSchema name_ initialProjectContext =
 
 {-| Create a [`Rule`](#Rule) from a configured [`ProjectRuleSchema`](#ProjectRuleSchema).
 -}
-fromProjectRuleSchema : ProjectRuleSchema projectContext moduleContext { schemaState | withModuleContext : NotNeeded, hasAtLeastOneVisitor : () } -> Rule
+fromProjectRuleSchema : ProjectRuleSchema projectContext moduleContext { schemaState | withModuleContext : Forbidden, hasAtLeastOneVisitor : () } -> Rule
 fromProjectRuleSchema (ProjectRuleSchema schema) =
     Rule schema.name
         Exceptions.init
@@ -1015,8 +1015,8 @@ type Required
 
 {-| Used for phantom type constraints. You can safely ignore this type.
 -}
-type NotNeeded
-    = NotNeeded
+type Forbidden
+    = Forbidden
 
 
 {-| TODO Documentation
@@ -1027,7 +1027,7 @@ withModuleContext :
     , foldProjectContexts : projectContext -> projectContext -> projectContext
     }
     -> ProjectRuleSchema projectContext moduleContext { schemaState | canAddModuleVisitor : (), withModuleContext : Required }
-    -> ProjectRuleSchema projectContext moduleContext { schemaState | hasAtLeastOneVisitor : (), withModuleContext : NotNeeded }
+    -> ProjectRuleSchema projectContext moduleContext { schemaState | hasAtLeastOneVisitor : (), withModuleContext : Forbidden }
 withModuleContext moduleContext (ProjectRuleSchema schema) =
     let
         visitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)

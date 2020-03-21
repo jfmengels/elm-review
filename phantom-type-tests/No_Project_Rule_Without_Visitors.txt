@@ -10,7 +10,7 @@ The argument is:
     Rule.ProjectRuleSchema
         ()
         moduleContext
-        { canAddModuleVisitor : (), withModuleContext : Rule.NotNeeded }
+        { canAddModuleVisitor : (), withModuleContext : Rule.Forbidden }
 
 But (|>) is piping it to a function that expects:
 
@@ -20,7 +20,7 @@ But (|>) is piping it to a function that expects:
         { a
             | canAddModuleVisitor : ()
             , hasAtLeastOneVisitor : ()
-            , withModuleContext : Rule.NotNeeded
+            , withModuleContext : Rule.Forbidden
         }
 
 Hint: Seems like a record field typo. Maybe hasAtLeastOneVisitor should be
