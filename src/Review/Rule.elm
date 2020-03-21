@@ -983,8 +983,20 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
         )
 
 
-{-| TODO Documentation
-Mention [`withContextFromImportedModules`](#withContextFromImportedModules)
+{-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will
+visit the project's Elm modules.
+
+A module visitor behaves like a module rule, except that it won't visit the
+project files, as that is already done by other visitors for project rules (such
+as [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor)).
+
+`withModuleVisitor` takes a function that takes an already initialized module
+rule schema and adds visitors to it, using the same functions as for building a
+[`ModuleRuleSchema`](#ModuleRuleSchema).
+
+When you use `withModuleVisitor`, you will be required to use [`withModuleContext`](#withModuleContext),
+in order to specify how to create a `moduleContext` from a `projectContext` and vice-versa.
+
 -}
 withModuleVisitor :
     (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { a | hasAtLeastOneVisitor : () } moduleContext)
