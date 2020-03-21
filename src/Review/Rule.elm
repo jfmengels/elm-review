@@ -20,12 +20,12 @@ module Review.Rule exposing
 `elm-review` reads the modules, `elm.json`, dependencies and `README.md` from your project,
 and turns each module into an [Abstract Syntax Tree (AST)](https://en.wikipedia.org/wiki/Abstract_syntax_tree),
 a tree-like structure which represents your source code, using the
-[`elm-syntax` package](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/).
+[`elm-syntax` package](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/).
 
 `elm-review` then feeds all this data into `review rules`, that traverse them to report problems.
 The way that review rules go through the data depends on whether it is a [module rule](#creating-a-module-rule) or a [project rule](#creating-a-project-rule).
 
-`elm-review` relies on the [`elm-syntax` package](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/),
+`elm-review` relies on the [`elm-syntax` package](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/),
 and all the node types you'll see will be coming from there. You are likely to
 need to have the documentation for that package open when writing a rule.
 
@@ -118,9 +118,9 @@ I recommend reading through [`the strategies for effective testing`](./Review-Te
 starting writing a rule.
 
 
-## Look at the documentation for [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/)
+## Look at the documentation for [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/)
 
-`elm-review` is heavily dependent on the types that [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/)
+`elm-review` is heavily dependent on the types that [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/)
 provides. If you don't understand the AST it provides, you will have a hard time
 implementing the rule you wish to create.
 
@@ -462,10 +462,12 @@ duplicateModuleNames visitedModules projectModules =
 
 When visiting the AST, declaration and expression nodes are visited twice: once
 with `OnEnter`, before the children of the node are visited, and once with
-`OnExit`, after the children of the node have been visited.
 
-In most cases, you'll only want to handle the `OnEnter` case, but there are cases
-where you'll want to visit a `Node` after having seen its children. For instance, if
+`OnExit`, after the children of the node have been visited.
+In most cases, you'll only want to handle the `OnEnter` case, but there are cas
+Thehere you'll want to visit a [`Node`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#Node)
+containing the module name (of the form `[ "My", "Module" ]` when the module name is `My.Module`)
+is also passed for convenience.after having seen its children. For instance, if
 you are trying to detect the unused variables defined inside of a `let in` expression,
 you will want to collect the declaration of variables, note which ones are used,
 and at the end of the block, report the ones that weren't used.
@@ -1050,6 +1052,67 @@ type Forbidden
 
 
 {-| TODO Documentation
+Specify how to
+
+  - convert a project context to a module context, through `fromProjectToModule`
+  - convert a module context to a project context, through `fromModuleToProject`
+  - fold (merge) project contexts, through `foldProjectContexts`
+
+In project rules, we separate the context related to the analysis of the project
+as a whole and the context related to the analysis of a single module, into a
+`projectContext` and a `moduleContext`, respectively. We do this because in most
+project rules you won't need all the data from the `projectContext` to analyze a
+module, and some data from the module context will not make sense inside the
+project context. This also has some performance benefits, especially when re-analyzing
+the project after it already been analyzed once (in watch mode for instance).
+
+TODO Mention the map-reduce architecture?
+
+
+### `fromProjectToModule`
+
+The initial `moduleContext` when starting a module is computed using `fromProjectToModule`,
+using a `projectContext`.
+
+You can store the given [`ModuleKey`](#ModuleKey) in the `moduleContext` if you
+will need to report errors using [`errorForModule`](#errorForModule) for this
+module during the final project evaluation or while visiting another module.
+
+The [`Node`] containing the module name is also passed for convenience, so you don't to
+visit the module definition just to get the module name. Just like what it is in
+[`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-ModuleName),
+will be `[ "My", "Module" ]` if the module name is `My.Module`.
+
+
+### `fromModuleToProject`
+
+TODO
+When a module has finished being analyzed, the final `moduleContext` will be
+turned into a `projectContext`, so that it can later be folded with the other
+project contexts using `foldProjectContexts`
+
+Similarly to `fromProjectToModule`, the [`Node`] containing the module name and
+the [`ModuleKey`] are passed for convenience, so you don't have to store them in
+the `moduleContext` if you will only store them in the `projectContext`.
+
+
+### `foldProjectContexts`
+
+When a module gets analyzed, it TODO continue
+
+If [`withContextFromImportedModules`](#withContextFromImportedModules) is not used,
+the `moduleContext` will only contain the data collected during the project files
+traversal. Then when all modules have been visited, the resulting context for
+each module will be folded (merged) together, and you can the [final project evaluation](#withFinalProjectEvaluation),
+the resulting contexts will be merged together and
+
+When in doubt, imagine that the second argument is the initial context. This can
+be useful to keep in mind if you always want to keep the value from the initial
+context and not what has been
+
+[`ModuleKey`]: #ModuleKey
+[`Node`]: https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#Node
+
 -}
 withModuleContext :
     { fromProjectToModule : ModuleKey -> Node ModuleName -> projectContext -> moduleContext
@@ -1162,8 +1225,8 @@ you need, and re-evaluate if from [the final project evaluation function](#withF
 If you don't use this function, you will only be able to access the contents of
 the initial context. The benefit is that when re-analyzing the project, after a
 fix or when a file was changed in watch mode, much less work will need to be done
-and the analysis will be much faster, because we know other files can not have
-influenced the results of other modules.
+and the analysis will be much faster, because we know other files won't influence
+the results of other modules' analysis.
 
 -}
 withContextFromImportedModules : ProjectRuleSchema projectContext moduleContext schemaState -> ProjectRuleSchema projectContext moduleContext schemaState
@@ -1525,7 +1588,7 @@ moduleNameNode node =
             data.moduleName
 
 
-{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's [module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`) and report patterns.
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's [module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`) and report patterns.
 
 The following example forbids having `_` in any part of a module name.
 
@@ -1606,7 +1669,7 @@ withSimpleCommentsVisitor visitor schema =
     withCommentsVisitor (\node moduleContext -> ( visitor node, moduleContext )) schema
 
 
-{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's [import statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Import) (`import Html as H exposing (div)`) in order of their definition and report patterns.
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's [import statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Import) (`import Html as H exposing (div)`) in order of their definition and report patterns.
 
 The following example forbids using the core Html package and suggests using
 `elm-css` instead.
@@ -1656,7 +1719,7 @@ withSimpleImportVisitor visitor schema =
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
-[declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Declaration)
+[declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Declaration)
 (`someVar = add 1 2`, `type Bool = True | False`, `port output : Json.Encode.Value -> Cmd msg`)
 and report patterns. The declarations will be visited in the order of their definition.
 
@@ -1719,7 +1782,7 @@ withSimpleDeclarationVisitor visitor schema =
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
-[expressions](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Expression)
+[expressions](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Expression)
 (`1`, `True`, `add 1 2`, `1 + 2`). The expressions are visited in pre-order
 depth-first search, meaning that an expression will be visited, then its first
 child, the first child's children (and so on), then the second child (and so on).
@@ -1981,7 +2044,7 @@ withDependenciesModuleVisitor visitor (ModuleRuleSchema schema) =
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
-[module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`), collect data in the `context` and/or report patterns.
+[module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`), collect data in the `context` and/or report patterns.
 
 The following example forbids the use of `Html.button` except in the "Button" module.
 The example is simplified to only forbid the use of the `Html.button` expression.
@@ -2058,7 +2121,7 @@ withCommentsVisitor visitor (ModuleRuleSchema schema) =
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
-[import statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Import)
+[import statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Import)
 (`import Html as H exposing (div)`) in order of their definition, collect data
 in the `context` and/or report patterns.
 
@@ -2134,7 +2197,7 @@ withImportVisitor visitor (ModuleRuleSchema schema) =
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
-[declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Declaration)
+[declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Declaration)
 (`someVar = add 1 2`, `type Bool = True | False`, `port output : Json.Encode.Value -> Cmd msg`),
 collect data and/or report patterns. The declarations will be visited in the order of their definition.
 
@@ -2230,7 +2293,7 @@ withDeclarationVisitor visitor (ModuleRuleSchema schema) =
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
-[declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Declaration)
+[declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Declaration)
 (`someVar = add 1 2`, `type Bool = True | False`, `port output : Json.Encode.Value -> Cmd msg`),
 collect data and/or report patterns.
 
@@ -2249,7 +2312,7 @@ withDeclarationListVisitor visitor (ModuleRuleSchema schema) =
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
-[expressions](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/Elm-Syntax-Expression)
+[expressions](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Expression)
 (`1`, `True`, `add 1 2`, `1 + 2`), collect data in the `context` and/or report patterns.
 The expressions are visited in pre-order depth-first search, meaning that an
 expression will be visited, then its first child, the first child's children
