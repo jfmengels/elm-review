@@ -987,7 +987,7 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
 Mention [`withContextFromImportedModules`](#withContextFromImportedModules)
 -}
 withModuleVisitor :
-    (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
+    (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { a | hasAtLeastOneVisitor : () } moduleContext)
     -> ProjectRuleSchema projectContext moduleContext { schemaState | canAddModuleVisitor : () }
     -> ProjectRuleSchema projectContext moduleContext { schemaState | canAddModuleVisitor : (), withModuleContext : Required }
 withModuleVisitor visitor (ProjectRuleSchema schema) =
@@ -1004,7 +1004,25 @@ withModuleVisitor visitor (ProjectRuleSchema schema) =
                 IsPrepared _ ->
                     []
     in
-    ProjectRuleSchema { schema | moduleVisitor = HasVisitors (visitor :: previousModuleVisitors) }
+    ProjectRuleSchema
+        { schema
+            | moduleVisitor =
+                HasVisitors (removeExtensibleRecordTypeVariable visitor :: previousModuleVisitors)
+        }
+
+
+{-| This function that is supplied by the user will be stored in the `ProjectRuleSchema`,
+but it contains an extensible record. This means that `ProjectRuleSchema` will
+need an additional type variable for no useful value. Because we have full control
+over the `ModuleRuleSchema` in this module, we can change the phantom type to be
+whatever we want it to be, and we'll change it something that makes sense but
+without the extensible record type variable.
+-}
+removeExtensibleRecordTypeVariable :
+    (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { a | hasAtLeastOneVisitor : () } moduleContext)
+    -> (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
+removeExtensibleRecordTypeVariable function =
+    function >> (\(ModuleRuleSchema param) -> ModuleRuleSchema param)
 
 
 {-| Used for phantom type constraints. You can safely ignore this type.
