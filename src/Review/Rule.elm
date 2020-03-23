@@ -1051,16 +1051,18 @@ type Forbidden
     = Forbidden
 
 
-{-| TODO Documentation
-Specify how to
+{-| Specify, if the project rule has a [module visitor](#withModuleVisitor), how to:
 
-  - convert a project context to a module context, through `fromProjectToModule`
-  - convert a module context to a project context, through `fromModuleToProject`
-  - fold (merge) project contexts, through `foldProjectContexts`
+  - convert a project context to a module context, through [`fromProjectToModule`]
+  - convert a module context to a project context, through [`fromModuleToProject`]
+  - fold (merge) project contexts, through [`foldProjectContexts`]
+
+I suggest reading the section about [`foldProjectContexts`] carefully, as it is
+one whose implementation you will need to do carefully.
 
 In project rules, we separate the context related to the analysis of the project
-as a whole and the context related to the analysis of a single module, into a
-`projectContext` and a `moduleContext`, respectively. We do this because in most
+as a whole and the context related to the analysis of a single module into a
+`projectContext` and a `moduleContext` respectively. We do this because in most
 project rules you won't need all the data from the `projectContext` to analyze a
 module, and some data from the module context will not make sense inside the
 project context. This also has some performance benefits, especially when re-analyzing
@@ -1068,50 +1070,85 @@ the project after it already been analyzed once (in watch mode for instance).
 
 TODO Mention the map-reduce architecture?
 
+We follow a kind of map-reduce architecture.
+
+  - Helps make the results independent from the order the modules are visited.
+  - Performance boosts when re-run.
+
 
 ### `fromProjectToModule`
 
-The initial `moduleContext` when starting a module is computed using `fromProjectToModule`,
-using a `projectContext`.
+The initial `moduleContext` of the module visitor is computed using `fromProjectToModule`
+from a `projectContext`. By default, this `projectContext` will be the result of
+visiting the project-related files (`elm.json`, `README.md`, ...).
+If [`withContextFromImportedModules`] was used, then the value will be this last
+`projectContext`, folded with each imported module's resulting `projectContext`,
+using [`foldProjectContexts`].
 
-You can store the given [`ModuleKey`](#ModuleKey) in the `moduleContext` if you
-will need to report errors using [`errorForModule`](#errorForModule) for this
-module during the final project evaluation or while visiting another module.
+The [`ModuleKey`] will allow you to report errors for this specific module
+using [`errorForModule`](#errorForModule) from the [final project evaluation] or
+while visiting another module. If you plan to do that, you should store this in
+the `moduleContext`. You can also get it from [`fromModuleToProject`], so choose
+what's most convenient.
 
-The [`Node`] containing the module name is also passed for convenience, so you don't to
-visit the module definition just to get the module name. Just like what it is in
-[`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-ModuleName),
-will be `[ "My", "Module" ]` if the module name is `My.Module`.
+The [`Node`] containing the module name is passed for convenience, so you don't
+have to visit the module definition just to get the module name. Just like what
+it is in [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-ModuleName),
+the value will be `[ "My", "Module" ]` if the module name is `My.Module`.
+
+-- TODO Example
 
 
 ### `fromModuleToProject`
 
-TODO
 When a module has finished being analyzed, the final `moduleContext` will be
-turned into a `projectContext`, so that it can later be folded with the other
-project contexts using `foldProjectContexts`
+converted into a `projectContext`, so that it can later be folded with the other
+project contexts using `foldProjectContexts`. The resulting `projectContext`
+will be fed into the [final project evaluation] and potentially into
+[`fromProjectToModule`] for modules that import the current one.
 
 Similarly to `fromProjectToModule`, the [`Node`] containing the module name and
 the [`ModuleKey`] are passed for convenience, so you don't have to store them in
-the `moduleContext` if you will only store them in the `projectContext`.
+the `moduleContext` only to store them in the `projectContext`.
+
+-- TODO Example
 
 
 ### `foldProjectContexts`
 
-When a module gets analyzed, it TODO continue
+This function folds two `projectContext` into one. This function requires a few
+traits to always be true.
 
-If [`withContextFromImportedModules`](#withContextFromImportedModules) is not used,
-the `moduleContext` will only contain the data collected during the project files
-traversal. Then when all modules have been visited, the resulting context for
-each module will be folded (merged) together, and you can the [final project evaluation](#withFinalProjectEvaluation),
-the resulting contexts will be merged together and
+  - `projectContext`s should be "merged" together, not "subtracted". If for instance
+    you want to detect the unused exports of a module, do not remove a declared
+    export when you have found it used. Instead, store and accumulate the declared
+    and used functions (both probably as `Set`s`or`Dict\`s), and in the final evaluation,
+    filter out the declared functions if they are in the set of used functions.
+  - Folding an element twice into an other should give the same result as folding
+    it once. In other words, `foldProjectContexts a (foldProjectContexts a b)`
+    should equal `foldProjectContexts a b`. You will likely need to use functions
+    like [`Set.union`](https://package.elm-lang.org/packages/elm/core/latest/Set#union)
+    and [`Dict.union`](https://package.elm-lang.org/packages/elm/core/latest/Dict#union)
+    over addition and functions like
+    [`List.concat`](https://package.elm-lang.org/packages/elm/core/latest/List#concat).
 
-When in doubt, imagine that the second argument is the initial context. This can
-be useful to keep in mind if you always want to keep the value from the initial
-context and not what has been
+It is not necessary for the function to be commutative (i.e. that
+`foldProjectContexts a b` equals `foldProjectContexts b a`). It is fine to take
+the value from the "initial" `projectContext` and ignore the other one, especially
+for data computed in the project-related visitors (for which you will probably
+define a dummy value in the `fromModuleToProject` function). if it helps, imagine
+that the second argument is the initial `projectContext`, or that it is an accumulator
+just like in `List.foldl`.
+
+-- TODO Example
 
 [`ModuleKey`]: #ModuleKey
 [`Node`]: https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#Node
+[`fromProjectToModule`]: #-fromprojecttomodule-
+[`fromModuleToProject`]: #-frommoduletoproject-
+[`foldProjectContexts`]: #-foldprojectcontexts-
+[final project evaluation]: #withFinalProjectEvaluation
+[`withContextFromImportedModules`]: #withContextFromImportedModules
 
 -}
 withModuleContext :
