@@ -279,7 +279,7 @@ and expecting to see it under:
   """ ++ formatSourceCode under ++ """
 
 I found """ ++ String.fromInt (List.length occurrencesInSourceCode) ++ """ locations where that code appeared. Please use
-`Review.Rule.atExactly` to make the part you were targetting unambiguous.
+`Review.Test.atExactly` to make the part you were targetting unambiguous.
 
 Tip: I found them at:
 """ ++ listOccurrencesAsLocations sourceCode under occurrencesInSourceCode
