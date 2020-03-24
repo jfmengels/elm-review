@@ -9,20 +9,20 @@ This function cannot handle the argument sent through the (|>) pipe:
 The argument is:
 
     Rule.ProjectRuleSchema
-        ()
-        ()
         { canAddModuleVisitor : (), withModuleContext : Rule.Forbidden }
+        ()
+        ()
 
 But (|>) is piping it to a function that expects:
 
     Rule.ProjectRuleSchema
-        ()
-        ()
         { a
             | canAddModuleVisitor : ()
             , hasAtLeastOneVisitor : ()
             , withModuleContext : Rule.Forbidden
         }
+        ()
+        ()
 
 Hint: Seems like a record field typo. Maybe hasAtLeastOneVisitor should be
 canAddModuleVisitor?

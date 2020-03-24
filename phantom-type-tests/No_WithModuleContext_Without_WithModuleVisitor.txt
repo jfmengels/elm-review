@@ -12,14 +12,14 @@ This function cannot handle the argument sent through the (|>) pipe:
 The argument is:
 
     Rule.ProjectRuleSchema
-        ()
-        ()
         { canAddModuleVisitor : (), withModuleContext : Rule.Forbidden }
+        ()
+        ()
 
 But (|>) is piping it to a function that expects:
 
     Rule.ProjectRuleSchema
-        ()
-        ()
         { canAddModuleVisitor : (), withModuleContext : Rule.Required }
+        ()
+        ()
 
