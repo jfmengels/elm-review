@@ -2912,7 +2912,7 @@ expressionsInDeclaration node =
         Declaration.AliasDeclaration { typeAnnotation } ->
             []
 
-        Declaration.Destructuring pattern expr ->
+        Declaration.Destructuring _ expr ->
             [ expr ]
 
         Declaration.PortDeclaration _ ->
@@ -2962,7 +2962,7 @@ expressionChildren node =
             List.map (Node.value >> (\( _, expr ) -> expr)) fields
 
         Expression.RecordUpdateExpression _ setters ->
-            List.map (Node.value >> (\( field, expr ) -> expr)) setters
+            List.map (Node.value >> (\( _, expr ) -> expr)) setters
 
         Expression.ParenthesizedExpression expr ->
             [ expr ]
@@ -2970,7 +2970,7 @@ expressionChildren node =
         Expression.Operator _ ->
             []
 
-        Expression.OperatorApplication operator direction left right ->
+        Expression.OperatorApplication _ direction left right ->
             case direction of
                 Infix.Left ->
                     [ left, right ]
@@ -2991,7 +2991,7 @@ expressionChildren node =
                         Expression.LetFunction function ->
                             functionToExpression function
 
-                        Expression.LetDestructuring pattern expr ->
+                        Expression.LetDestructuring _ expr ->
                             expr
                 )
                 declarations
@@ -2999,7 +2999,7 @@ expressionChildren node =
 
         Expression.CaseExpression { expression, cases } ->
             expression
-                :: List.map (\( pattern, caseExpression ) -> caseExpression) cases
+                :: List.map (\( _, caseExpression ) -> caseExpression) cases
 
         Expression.LambdaExpression { args, expression } ->
             [ expression ]
@@ -3019,7 +3019,7 @@ expressionChildren node =
         Expression.CharLiteral _ ->
             []
 
-        Expression.RecordAccess expr property ->
+        Expression.RecordAccess expr _ ->
             [ expr ]
 
         Expression.RecordAccessFunction _ ->

@@ -209,8 +209,8 @@ declarationListVisitor list context =
             containsMainFunction : Bool
             containsMainFunction =
                 List.any
-                    (\decl ->
-                        case Node.value decl of
+                    (\declaration ->
+                        case Node.value declaration of
                             Declaration.FunctionDeclaration function ->
                                 (function.declaration |> Node.value |> .name |> Node.value) == "main"
 
