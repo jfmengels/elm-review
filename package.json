@@ -9,7 +9,7 @@
   },
   "scripts": {
     "test": "elm make --docs=/tmp/docs.json && elm-format src/ --validate && elm-test && npm run phantom-tests && elm-review && elm-xref",
-    "phantom-tests": "(cd phantom-type-tests && node ./run-phantom-tests.js)",
+    "phantom-tests": "node phantom-type-tests/run.js",
     "test:watch": "npx elm-test --watch"
   },
   "repository": {
