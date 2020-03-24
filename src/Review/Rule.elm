@@ -267,7 +267,7 @@ See how to create a [module rule](#creating-a-module-rule) or a [project rule](#
 
 -}
 type Rule
-    = Rule String Exceptions (Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, Rule ))
+    = Rule String Exceptions (Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule ))
 
 
 {-| Represents a schema for a module [`Rule`](#Rule).
@@ -290,18 +290,18 @@ type ModuleRuleSchema schemaState moduleContext
         , elmJsonVisitors : List (Maybe Elm.Project.Project -> moduleContext -> moduleContext)
         , readmeVisitors : List (Maybe String -> moduleContext -> moduleContext)
         , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
-        , moduleDefinitionVisitors : List (Node Module -> moduleContext -> ( List Error, moduleContext ))
-        , commentsVisitors : List (List (Node String) -> moduleContext -> ( List Error, moduleContext ))
-        , importVisitors : List (Node Import -> moduleContext -> ( List Error, moduleContext ))
-        , declarationListVisitors : List (List (Node Declaration) -> moduleContext -> ( List Error, moduleContext ))
+        , moduleDefinitionVisitors : List (Node Module -> moduleContext -> ( List (Error {}), moduleContext ))
+        , commentsVisitors : List (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
+        , importVisitors : List (Node Import -> moduleContext -> ( List (Error {}), moduleContext ))
+        , declarationListVisitors : List (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
         , declarationVisitors : List (DirectedVisitor Declaration moduleContext)
         , expressionVisitors : List (DirectedVisitor Expression moduleContext)
-        , finalEvaluationFns : List (moduleContext -> List Error)
+        , finalEvaluationFns : List (moduleContext -> List (Error {}))
         }
 
 
 type alias DirectedVisitor nodeType context =
-    Node nodeType -> Direction -> context -> ( List Error, context )
+    Node nodeType -> Direction -> context -> ( List (Error {}), context )
 
 
 type alias InAndOut visitor =
@@ -415,7 +415,7 @@ review rules project =
             ( List.map parsingError modulesThatFailedToParse, rules )
 
 
-runRules : List Rule -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, List Rule )
+runRules : List Rule -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), List Rule )
 runRules rules project nodeContexts =
     List.foldl
         (\(Rule _ exceptions fn) ( errors, previousRules ) ->
@@ -423,7 +423,7 @@ runRules rules project nodeContexts =
                 ( ruleErrors, ruleWithCache ) =
                     fn exceptions project nodeContexts
             in
-            ( List.concat [ ruleErrors, errors ], ruleWithCache :: previousRules )
+            ( List.concat [ List.map removeErrorPhantomType ruleErrors, errors ], ruleWithCache :: previousRules )
         )
         ( [], [] )
         rules
@@ -474,7 +474,7 @@ you are trying to detect the unused variables defined inside of a `let in` expre
 you will want to collect the declaration of variables, note which ones are used,
 and at the end of the block, report the ones that weren't used.
 
-    expressionVisitor : Context -> Direction -> Node Expression -> ( List Error, Context )
+    expressionVisitor : Context -> Direction -> Node Expression -> ( List (Error {}), Context )
     expressionVisitor context direction node =
         case ( direction, node ) of
             ( Rule.OnEnter, Expression.FunctionOrValue moduleName name ) ->
@@ -585,7 +585,7 @@ type alias ModuleRuleCache moduleContext =
 type alias ModuleRuleResultCache =
     Dict String
         { source : String
-        , errors : List Error
+        , errors : List (Error {})
         }
 
 
@@ -596,7 +596,7 @@ newModuleRuleCache =
     }
 
 
-runModuleRule : ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleCache moduleContext -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, Rule )
+runModuleRule : ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleCache moduleContext -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
 runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache exceptions project _ =
     let
         initialContext : moduleContext
@@ -619,7 +619,7 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache exce
                 Nothing ->
                     { newModuleRuleCache | initialContext = Just initialContext }
 
-        computeErrors_ : ProjectModule -> List Error
+        computeErrors_ : ProjectModule -> List (Error {})
         computeErrors_ =
             computeErrors moduleRuleSchema initialContext
 
@@ -648,7 +648,7 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache exce
                 startCache.moduleResults
                 modulesToAnalyze
 
-        errors : List Error
+        errors : List (Error {})
         errors =
             moduleResults
                 |> Dict.values
@@ -662,7 +662,7 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache exce
     )
 
 
-computeErrors : ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> moduleContext -> ProjectModule -> List Error
+computeErrors : ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> moduleContext -> ProjectModule -> List (Error {})
 computeErrors (ModuleRuleSchema schema) initialContext =
     let
         declarationVisitors : InAndOut (DirectedVisitor Declaration moduleContext)
@@ -699,7 +699,7 @@ accumulateContext visitors element context =
 
 {-| Concatenate the errors of the previous step and of the last step.
 -}
-makeFinalEvaluation : List (context -> List Error) -> ( List Error, context ) -> List Error
+makeFinalEvaluation : List (context -> List (Error {})) -> ( List (Error {}), context ) -> List (Error {})
 makeFinalEvaluation finalEvaluationFns ( previousErrors, context ) =
     List.concat
         [ List.concatMap
@@ -724,10 +724,10 @@ type ProjectRuleSchema schemaState projectContext moduleContext
         { name : String
         , initialProjectContext : projectContext
         , moduleVisitor : ModuleVisitor projectContext moduleContext
-        , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List Error, projectContext ))
-        , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List Error, projectContext ))
-        , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List Error, projectContext ))
-        , finalEvaluationFns : List (projectContext -> List Error)
+        , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
+        , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
+        , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
+        , finalEvaluationFns : List (projectContext -> List (Error {}))
         , traversalType : TraversalType
         }
 
@@ -1128,7 +1128,7 @@ The visitor will be called before any module is evaluated.
 
 -}
 withElmJsonProjectVisitor :
-    (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List Error, projectContext ))
+    (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
 withElmJsonProjectVisitor visitor (ProjectRuleSchema schema) =
@@ -1143,7 +1143,7 @@ The visitor will be called before any module is evaluated.
 
 -}
 withReadmeProjectVisitor :
-    (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List Error, projectContext ))
+    (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
 withReadmeProjectVisitor visitor (ProjectRuleSchema schema) =
@@ -1158,7 +1158,7 @@ module is evaluated.
 
 -}
 withDependenciesProjectVisitor :
-    (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List Error, projectContext ))
+    (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
 withDependenciesProjectVisitor visitor (ProjectRuleSchema schema) =
@@ -1177,7 +1177,7 @@ That means that if you call [`error`](#error), we won't know which module to ass
 
 -}
 withFinalProjectEvaluation :
-    (projectContext -> List Error)
+    (projectContext -> List (Error {}))
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema schemaState projectContext moduleContext
 withFinalProjectEvaluation visitor (ProjectRuleSchema schema) =
@@ -1218,12 +1218,12 @@ withContextFromImportedModules (ProjectRuleSchema schema) =
 type alias ProjectRuleCache projectContext =
     Dict String
         { source : String
-        , errors : List Error
+        , errors : List (Error {})
         , context : projectContext
         }
 
 
-runProjectRule : ProjectRuleSchema schemaState projectContext moduleContext -> ProjectRuleCache projectContext -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, Rule )
+runProjectRule : ProjectRuleSchema schemaState projectContext moduleContext -> ProjectRuleCache projectContext -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
 runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptions project nodeContexts =
     let
         elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
@@ -1277,13 +1277,13 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
                 Nothing ->
                     startCache
 
-        contextsAndErrorsPerModule : List ( List Error, projectContext )
+        contextsAndErrorsPerModule : List ( List (Error {}), projectContext )
         contextsAndErrorsPerModule =
             newCache
                 |> Dict.values
                 |> List.map (\cacheEntry -> ( cacheEntry.errors, cacheEntry.context ))
 
-        errors : List Error
+        errors : List (Error {})
         errors =
             [ projectRelatedErrors
             , List.concatMap Tuple.first contextsAndErrorsPerModule
@@ -1356,7 +1356,7 @@ computeModules (ProjectRuleSchema schema) visitors project initialContext nodeCo
                 visitors.visitors
                 |> reverseVisitors
 
-        computeModule : ProjectRuleCache projectContext -> List ProjectModule -> ProjectModule -> { source : String, errors : List Error, context : projectContext }
+        computeModule : ProjectRuleCache projectContext -> List ProjectModule -> ProjectModule -> { source : String, errors : List (Error {}), context : projectContext }
         computeModule cache importedModules module_ =
             let
                 moduleKey : ModuleKey
@@ -1408,12 +1408,12 @@ computeModules (ProjectRuleSchema schema) visitors project initialContext nodeCo
         |> Tuple.first
 
 
-setRuleName : String -> Error -> Error
+setRuleName : String -> Error scope -> Error scope
 setRuleName ruleName error_ =
     mapInternalError (\err -> { err | ruleName = ruleName }) error_
 
 
-setFilePathIfUnset : ProjectModule -> Error -> Error
+setFilePathIfUnset : ProjectModule -> Error scope -> Error scope
 setFilePathIfUnset module_ error_ =
     case error_ of
         UnspecifiedError err ->
@@ -1436,7 +1436,7 @@ computeModuleAndCacheResult :
     TraversalType
     -> Dict ModuleName ProjectModule
     -> Graph ModuleName ()
-    -> (ProjectRuleCache projectContext -> List ProjectModule -> ProjectModule -> { source : String, errors : List Error, context : projectContext })
+    -> (ProjectRuleCache projectContext -> List ProjectModule -> ProjectModule -> { source : String, errors : List (Error {}), context : projectContext })
     -> Graph.NodeContext ModuleName ()
     -> ( ProjectRuleCache projectContext, Set ModuleName )
     -> ( ProjectRuleCache projectContext, Set ModuleName )
@@ -1464,7 +1464,7 @@ computeModuleAndCacheResult traversalType modules graph computeModule { node, in
 
                 compute previousResult =
                     let
-                        result : { source : String, errors : List Error, context : projectContext }
+                        result : { source : String, errors : List (Error {}), context : projectContext }
                         result =
                             computeModule cache importedModules module_
                     in
@@ -1498,7 +1498,7 @@ noImportedModulesHaveANewContext importedModules invalidatedModules =
         |> Set.isEmpty
 
 
-visitModuleForProjectRule : ModuleRuleSchema a moduleContext -> moduleContext -> ProjectModule -> ( List Error, moduleContext )
+visitModuleForProjectRule : ModuleRuleSchema a moduleContext -> moduleContext -> ProjectModule -> ( List (Error {}), moduleContext )
 visitModuleForProjectRule (ModuleRuleSchema schema) =
     let
         declarationVisitors : InAndOut (DirectedVisitor Declaration moduleContext)
@@ -1526,7 +1526,7 @@ getModuleName module_ =
         |> Module.moduleName
 
 
-errorsFromFinalEvaluationForProject : ProjectRuleSchema schemaState projectContext moduleContext -> projectContext -> List projectContext -> List Error
+errorsFromFinalEvaluationForProject : ProjectRuleSchema schemaState projectContext moduleContext -> projectContext -> List projectContext -> List (Error {})
 errorsFromFinalEvaluationForProject (ProjectRuleSchema schema) initialContext contextsPerModule =
     if List.isEmpty schema.finalEvaluationFns then
         []
@@ -1552,7 +1552,7 @@ errorsFromFinalEvaluationForProject (ProjectRuleSchema schema) initialContext co
 
 {-| Concatenate the errors of the previous step and of the last step.
 -}
-makeFinalEvaluationForProject : List (projectContext -> List Error) -> projectContext -> List Error
+makeFinalEvaluationForProject : List (projectContext -> List (Error {})) -> projectContext -> List (Error {})
 makeFinalEvaluationForProject finalEvaluationFns projectContext =
     List.concatMap
         (\visitor -> visitor projectContext)
@@ -1603,7 +1603,7 @@ Note: `withSimpleModuleDefinitionVisitor` is a simplified version of [`withModul
 which isn't passed a `context` and doesn't return one. You can use `withSimpleModuleDefinitionVisitor` even if you use "non-simple with\*" functions.
 
 -}
-withSimpleModuleDefinitionVisitor : (Node Module -> List Error) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withSimpleModuleDefinitionVisitor : (Node Module -> List (Error {})) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withSimpleModuleDefinitionVisitor visitor schema =
     withModuleDefinitionVisitor (\node moduleContext -> ( visitor node, moduleContext )) schema
 
@@ -1648,7 +1648,7 @@ Note: `withSimpleCommentsVisitor` is a simplified version of [`withCommentsVisit
 which isn't passed a `context` and doesn't return one. You can use `withCommentsVisitor` even if you use "non-simple with\*" functions.
 
 -}
-withSimpleCommentsVisitor : (List (Node String) -> List Error) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withSimpleCommentsVisitor : (List (Node String) -> List (Error {})) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withSimpleCommentsVisitor visitor schema =
     withCommentsVisitor (\node moduleContext -> ( visitor node, moduleContext )) schema
 
@@ -1697,7 +1697,7 @@ Note: `withSimpleImportVisitor` is a simplified version of [`withImportVisitor`]
 which isn't passed a `context` and doesn't return one. You can use `withSimpleImportVisitor` even if you use "non-simple with\*" functions.
 
 -}
-withSimpleImportVisitor : (Node Import -> List Error) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withSimpleImportVisitor : (Node Import -> List (Error {})) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withSimpleImportVisitor visitor schema =
     withImportVisitor (\node moduleContext -> ( visitor node, moduleContext )) schema
 
@@ -1751,7 +1751,7 @@ Note: `withSimpleDeclarationVisitor` is a simplified version of [`withDeclaratio
 which isn't passed a [`Direction`](#Direction) (it will only be called `OnEnter`ing the node) and a `context` and doesn't return a context. You can use `withSimpleDeclarationVisitor` even if you use "non-simple with\*" functions.
 
 -}
-withSimpleDeclarationVisitor : (Node Declaration -> List Error) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withSimpleDeclarationVisitor : (Node Declaration -> List (Error {})) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withSimpleDeclarationVisitor visitor schema =
     withDeclarationVisitor
         (\node direction moduleContext ->
@@ -1805,7 +1805,7 @@ Note: `withSimpleExpressionVisitor` is a simplified version of [`withExpressionV
 which isn't passed a [`Direction`](#Direction) (it will only be called `OnEnter`ing the node) and a `context` and doesn't return a context. You can use `withSimpleExpressionVisitor` even if you use "non-simple with\*" functions.
 
 -}
-withSimpleExpressionVisitor : (Node Expression -> List Error) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withSimpleExpressionVisitor : (Node Expression -> List (Error {})) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withSimpleExpressionVisitor visitor schema =
     withExpressionVisitor
         (\node direction moduleContext ->
@@ -2086,7 +2086,7 @@ Tip: If you do not need to collect data in this visitor, you may wish to use the
 simpler [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) function.
 
 -}
-withModuleDefinitionVisitor : (Node Module -> moduleContext -> ( List Error, moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withModuleDefinitionVisitor : (Node Module -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | moduleDefinitionVisitors = visitor :: schema.moduleDefinitionVisitors }
 
@@ -2100,7 +2100,7 @@ Tip: If you do not need to collect data in this visitor, you may wish to use the
 simpler [`withSimpleCommentsVisitor`](#withSimpleCommentsVisitor) function.
 
 -}
-withCommentsVisitor : (List (Node String) -> moduleContext -> ( List Error, moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withCommentsVisitor : (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withCommentsVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | commentsVisitors = visitor :: schema.commentsVisitors }
 
@@ -2176,7 +2176,7 @@ Tip: If you do not need to collect or use the `context` in this visitor, you may
 simpler [`withSimpleImportVisitor`](#withSimpleImportVisitor) function.
 
 -}
-withImportVisitor : (Node Import -> moduleContext -> ( List Error, moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withImportVisitor : (Node Import -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withImportVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | importVisitors = visitor :: schema.importVisitors }
 
@@ -2272,7 +2272,7 @@ Tip: If you do not need to collect or use the `context` in this visitor, you may
 simpler [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) function.
 
 -}
-withDeclarationVisitor : (Node Declaration -> Direction -> moduleContext -> ( List Error, moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withDeclarationVisitor : (Node Declaration -> Direction -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withDeclarationVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | declarationVisitors = visitor :: schema.declarationVisitors }
 
@@ -2291,7 +2291,7 @@ and [withExpressionVisitor](#withExpressionVisitor). Otherwise, using
 [withDeclarationVisitor](#withDeclarationVisitor) is probably a simpler choice.
 
 -}
-withDeclarationListVisitor : (List (Node Declaration) -> moduleContext -> ( List Error, moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withDeclarationListVisitor : (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withDeclarationListVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | declarationListVisitors = visitor :: schema.declarationListVisitors }
 
@@ -2381,7 +2381,7 @@ Tip: If you do not need to collect or use the `context` in this visitor, you may
 simpler [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) function.
 
 -}
-withExpressionVisitor : (Node Expression -> Direction -> moduleContext -> ( List Error, moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withExpressionVisitor : (Node Expression -> Direction -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withExpressionVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | expressionVisitors = visitor :: schema.expressionVisitors }
 
@@ -2429,7 +2429,7 @@ for [`withImportVisitor`](#withImportVisitor), but using [`withFinalModuleEvalua
                 []
 
 -}
-withFinalModuleEvaluation : (moduleContext -> List Error) -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withFinalModuleEvaluation : (moduleContext -> List (Error {})) -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withFinalModuleEvaluation visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | finalEvaluationFns = visitor :: schema.finalEvaluationFns }
 
@@ -2441,9 +2441,19 @@ withFinalModuleEvaluation visitor (ModuleRuleSchema schema) =
 {-| Represents an error found by a [`Rule`](#Rule). These are created by the
 rules.
 -}
-type Error
+type Error scope
     = UnspecifiedError InternalError
     | SpecifiedError InternalError
+
+
+removeErrorPhantomType : Error something -> Error {}
+removeErrorPhantomType err =
+    case err of
+        UnspecifiedError internalError ->
+            UnspecifiedError internalError
+
+        SpecifiedError internalError ->
+            SpecifiedError internalError
 
 
 {-| Represents an error found by a [`Rule`](#Rule). These are the ones that will
@@ -2490,7 +2500,7 @@ In most cases, you can get it using [`Node.range`].
 [`Node.range`]: https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#range
 
 -}
-error : { message : String, details : List String } -> Range -> Error
+error : { message : String, details : List String } -> Range -> Error { forCurrentModule : () }
 error { message, details } range =
     UnspecifiedError
         { message = message
@@ -2521,7 +2531,7 @@ You will need a [`ModuleKey`](#ModuleKey), which you can get from the `fromProje
 functions that you define when using [`newProjectRuleSchema`](#newProjectRuleSchema).
 
 -}
-errorForModule : ModuleKey -> { message : String, details : List String } -> Range -> Error
+errorForModule : ModuleKey -> { message : String, details : List String } -> Range -> Error scope
 errorForModule (ModuleKey path) { message, details } range =
     SpecifiedError
         { message = message
@@ -2560,7 +2570,7 @@ possible for the error.
 **NOTE**: Fixes added to errors for the `elm.json` file are automatically ignored.
 
 -}
-errorForElmJson : ElmJsonKey -> (String -> { message : String, details : List String, range : Range }) -> Error
+errorForElmJson : ElmJsonKey -> (String -> { message : String, details : List String, range : Range }) -> Error scope
 errorForElmJson (ElmJsonKey { path, raw }) getErrorInfo =
     let
         errorInfo : { message : String, details : List String, range : Range }
@@ -2599,7 +2609,7 @@ function.
 **NOTE**: Fixes added to errors for the `README` file are automatically ignored.
 
 -}
-errorForReadme : ReadmeKey -> { message : String, details : List String } -> Range -> Error
+errorForReadme : ReadmeKey -> { message : String, details : List String } -> Range -> Error scope
 errorForReadme (ReadmeKey { path }) { message, details } range =
     SpecifiedError
         { message = message
@@ -2653,8 +2663,9 @@ unpredictable result, those ranges may not overlap. The order of the fixes does
 not matter.
 
 -}
-withFixes : List Fix -> Error -> Error
+withFixes : List Fix -> Error scope -> Error scope
 withFixes fixes error_ =
+    -- TODO Make this impossible?
     mapInternalError
         (\err ->
             if List.isEmpty fixes || String.endsWith ".json" err.filePath then
@@ -2666,7 +2677,7 @@ withFixes fixes error_ =
         error_
 
 
-errorToReviewError : Error -> ReviewError
+errorToReviewError : Error scope -> ReviewError
 errorToReviewError error_ =
     ReviewError (accessInternalError error_)
 
@@ -2715,7 +2726,7 @@ errorFilePath (ReviewError err) =
     err.filePath
 
 
-mapInternalError : (InternalError -> InternalError) -> Error -> Error
+mapInternalError : (InternalError -> InternalError) -> Error scope -> Error scope
 mapInternalError fn err =
     case err of
         UnspecifiedError internal ->
@@ -2725,7 +2736,7 @@ mapInternalError fn err =
             SpecifiedError (fn internal)
 
 
-accessInternalError : Error -> InternalError
+accessInternalError : Error scope -> InternalError
 accessInternalError error_ =
     case error_ of
         UnspecifiedError internalError ->
@@ -2879,10 +2890,10 @@ ignoreErrorsForFiles files (Rule name exceptions fn) =
 
 
 visitImport :
-    List (Node Import -> moduleContext -> ( List Error, moduleContext ))
+    List (Node Import -> moduleContext -> ( List (Error {}), moduleContext ))
     -> Node Import
     -> moduleContext
-    -> ( List Error, moduleContext )
+    -> ( List (Error {}), moduleContext )
 visitImport importVisitors node moduleContext =
     visitNodeWithListOfVisitors importVisitors node ( [], moduleContext )
 
@@ -2892,10 +2903,10 @@ visitDeclaration :
     -> InAndOut (DirectedVisitor Expression moduleContext)
     -> Node Declaration
     -> moduleContext
-    -> ( List Error, moduleContext )
+    -> ( List (Error {}), moduleContext )
 visitDeclaration declarationVisitors expressionVisitors node moduleContext =
     let
-        accumulateExpressionNodes : ( List Error, moduleContext ) -> ( List Error, moduleContext )
+        accumulateExpressionNodes : ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
         accumulateExpressionNodes =
             if List.isEmpty expressionVisitors.onEnter then
                 identity
@@ -2912,10 +2923,10 @@ visitDeclaration declarationVisitors expressionVisitors node moduleContext =
 
 
 visitNodeWithListOfVisitors :
-    List (Node a -> moduleContext -> ( List Error, moduleContext ))
+    List (Node a -> moduleContext -> ( List (Error {}), moduleContext ))
     -> Node a
-    -> ( List Error, moduleContext )
-    -> ( List Error, moduleContext )
+    -> ( List (Error {}), moduleContext )
+    -> ( List (Error {}), moduleContext )
 visitNodeWithListOfVisitors visitors node initialErrorsAndContext =
     List.foldl
         (\visitor -> accumulate (visitor node))
@@ -2925,10 +2936,10 @@ visitNodeWithListOfVisitors visitors node initialErrorsAndContext =
 
 visitNodeWithListOfVisitorsAndDirection :
     Direction
-    -> List (Node a -> Direction -> moduleContext -> ( List Error, moduleContext ))
+    -> List (Node a -> Direction -> moduleContext -> ( List (Error {}), moduleContext ))
     -> Node a
-    -> ( List Error, moduleContext )
-    -> ( List Error, moduleContext )
+    -> ( List (Error {}), moduleContext )
+    -> ( List (Error {}), moduleContext )
 visitNodeWithListOfVisitorsAndDirection direction visitors node initialErrorsAndContext =
     List.foldl
         (\visitor -> accumulate (visitor node direction))
@@ -2937,10 +2948,10 @@ visitNodeWithListOfVisitorsAndDirection direction visitors node initialErrorsAnd
 
 
 accumulateWithListOfVisitors :
-    List (a -> context -> ( List Error, context ))
+    List (a -> context -> ( List (Error {}), context ))
     -> a
-    -> ( List Error, context )
-    -> ( List Error, context )
+    -> ( List (Error {}), context )
+    -> ( List (Error {}), context )
 accumulateWithListOfVisitors visitors element initialErrorsAndContext =
     List.foldl
         (\visitor -> accumulate (visitor element))
@@ -2974,7 +2985,7 @@ visitExpression :
     InAndOut (DirectedVisitor Expression moduleContext)
     -> Node Expression
     -> moduleContext
-    -> ( List Error, moduleContext )
+    -> ( List (Error {}), moduleContext )
 visitExpression visitors node moduleContext =
     ( [], moduleContext )
         |> visitNodeWithListOfVisitorsAndDirection OnEnter visitors.onEnter node
@@ -3083,7 +3094,7 @@ functionToExpression function =
         |> .expression
 
 
-accumulateList : (Node a -> context -> ( List Error, context )) -> List (Node a) -> ( List Error, context ) -> ( List Error, context )
+accumulateList : (Node a -> context -> ( List (Error {}), context )) -> List (Node a) -> ( List (Error {}), context ) -> ( List (Error {}), context )
 accumulateList visitor nodes ( previousErrors, previousContext ) =
     List.foldl
         (\node -> accumulate (visitor node))
@@ -3093,7 +3104,7 @@ accumulateList visitor nodes ( previousErrors, previousContext ) =
 
 {-| Concatenate the errors of the previous step and of the last step, and take the last step's context.
 -}
-accumulate : (context -> ( List Error, context )) -> ( List Error, context ) -> ( List Error, context )
+accumulate : (context -> ( List (Error {}), context )) -> ( List (Error {}), context ) -> ( List (Error {}), context )
 accumulate visitor ( previousErrors, previousContext ) =
     let
         ( newErrors, newContext ) =
