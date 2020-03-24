@@ -364,7 +364,7 @@ review rules project =
                                 |> List.map (\s -> "\n  - " ++ s)
                                 |> String.join ""
                     in
-                    ( [ Error
+                    ( [ SpecifiedError
                             { filePath = "GLOBAL ERROR"
                             , ruleName = "Incorrect project"
                             , message = "Found several modules named `" ++ String.join "." duplicate.moduleName ++ "`"
@@ -391,7 +391,7 @@ review rules project =
                     in
                     case sortedModules of
                         Err _ ->
-                            ( [ Error
+                            ( [ SpecifiedError
                                     { filePath = "GLOBAL ERROR"
                                     , ruleName = "Incorrect project"
                                     , message = "Import cycle discovered"
@@ -1406,22 +1406,27 @@ computeModules (ProjectRuleSchema schema) visitors project initialContext nodeCo
 
 
 setRuleName : String -> Error -> Error
-setRuleName ruleName (Error err) =
-    Error { err | ruleName = ruleName }
+setRuleName ruleName error_ =
+    mapInternalError (\err -> { err | ruleName = ruleName }) error_
 
 
 setFilePathIfUnset : ProjectModule -> Error -> Error
-setFilePathIfUnset module_ (Error err) =
-    Error
-        { err
-            | filePath =
-                case err.filePath of
-                    "" ->
-                        module_.path
+setFilePathIfUnset module_ error_ =
+    case error_ of
+        UnspecifiedError err ->
+            SpecifiedError
+                { err
+                    | filePath =
+                        case err.filePath of
+                            "" ->
+                                module_.path
 
-                    _ ->
-                        err.filePath
-        }
+                            _ ->
+                                err.filePath
+                }
+
+        SpecifiedError _ ->
+            error_
 
 
 computeModuleAndCacheResult :
@@ -2434,14 +2439,18 @@ withFinalModuleEvaluation visitor (ModuleRuleSchema schema) =
 rules, and will be reported to the user.
 -}
 type Error
-    = Error
-        { message : String
-        , ruleName : String
-        , filePath : String
-        , details : List String
-        , range : Range
-        , fixes : Maybe (List Fix)
-        }
+    = UnspecifiedError InternalError
+    | SpecifiedError InternalError
+
+
+type alias InternalError =
+    { message : String
+    , ruleName : String
+    , filePath : String
+    , details : List String
+    , range : Range
+    , fixes : Maybe (List Fix)
+    }
 
 
 {-| Create an [`Error`](#Error). Use it when you find a pattern that the rule should forbid.
@@ -2470,7 +2479,7 @@ In most cases, you can get it using [`Node.range`].
 -}
 error : { message : String, details : List String } -> Range -> Error
 error { message, details } range =
-    Error
+    UnspecifiedError
         { message = message
         , ruleName = ""
         , filePath = ""
@@ -2501,7 +2510,7 @@ functions that you define when using [`newProjectRuleSchema`](#newProjectRuleSch
 -}
 errorForModule : ModuleKey -> { message : String, details : List String } -> Range -> Error
 errorForModule (ModuleKey path) { message, details } range =
-    Error
+    SpecifiedError
         { message = message
         , ruleName = ""
         , details = details
@@ -2545,7 +2554,7 @@ errorForElmJson (ElmJsonKey { path, raw }) getErrorInfo =
         errorInfo =
             getErrorInfo raw
     in
-    Error
+    SpecifiedError
         { message = errorInfo.message
         , ruleName = ""
         , details = errorInfo.details
@@ -2579,7 +2588,7 @@ function.
 -}
 errorForReadme : ReadmeKey -> { message : String, details : List String } -> Range -> Error
 errorForReadme (ReadmeKey { path }) { message, details } range =
-    Error
+    SpecifiedError
         { message = message
         , ruleName = ""
         , filePath = path
@@ -2591,7 +2600,7 @@ errorForReadme (ReadmeKey { path }) { message, details } range =
 
 parsingError : { path : String, source : String } -> Error
 parsingError rawFile =
-    Error
+    SpecifiedError
         { filePath = rawFile.path
         , ruleName = "ParsingError"
         , message = rawFile.path ++ " is not a correct Elm module"
@@ -2632,56 +2641,80 @@ not matter.
 
 -}
 withFixes : List Fix -> Error -> Error
-withFixes fixes (Error err) =
-    if List.isEmpty fixes || String.endsWith ".json" err.filePath then
-        Error { err | fixes = Nothing }
+withFixes fixes error_ =
+    mapInternalError
+        (\err ->
+            if List.isEmpty fixes || String.endsWith ".json" err.filePath then
+                { err | fixes = Nothing }
 
-    else
-        Error { err | fixes = Just fixes }
+            else
+                { err | fixes = Just fixes }
+        )
+        error_
 
 
 {-| Get the name of the rule that triggered this [`Error`](#Error).
 -}
 errorRuleName : Error -> String
-errorRuleName (Error err) =
-    err.ruleName
+errorRuleName =
+    accessInternalError >> .ruleName
 
 
 {-| Get the error message of an [`Error`](#Error).
 -}
 errorMessage : Error -> String
-errorMessage (Error err) =
-    err.message
+errorMessage =
+    accessInternalError >> .message
 
 
 {-| Get the error details of an [`Error`](#Error).
 -}
 errorDetails : Error -> List String
-errorDetails (Error err) =
-    err.details
+errorDetails =
+    accessInternalError >> .details
 
 
 {-| Get the [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range)
 of an [`Error`](#Error).
 -}
 errorRange : Error -> Range
-errorRange (Error err) =
-    err.range
+errorRange =
+    accessInternalError >> .range
 
 
 {-| Get the automatic [`fixes`](./Review-Fix#Fix) of an [`Error`](#Error), if it
 defined any.
 -}
 errorFixes : Error -> Maybe (List Fix)
-errorFixes (Error err) =
-    err.fixes
+errorFixes =
+    accessInternalError >> .fixes
 
 
 {-| Get the file path of an [`Error`](#Error).
 -}
 errorFilePath : Error -> String
-errorFilePath (Error err) =
-    err.filePath
+errorFilePath =
+    accessInternalError >> .filePath
+
+
+mapInternalError : (InternalError -> InternalError) -> Error -> Error
+mapInternalError fn err =
+    case err of
+        UnspecifiedError internal ->
+            UnspecifiedError (fn internal)
+
+        SpecifiedError internal ->
+            SpecifiedError (fn internal)
+
+
+accessInternalError : Error -> InternalError
+accessInternalError error_ =
+    case error_ of
+        UnspecifiedError internalError ->
+            internalError
+
+        SpecifiedError internalError ->
+            internalError
 
 
 
