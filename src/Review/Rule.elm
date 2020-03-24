@@ -1352,8 +1352,6 @@ computeModules (ProjectRuleSchema schema) visitors project initialContext nodeCo
                 visitors.visitors
                 |> reverseVisitors
 
-        -- TODO make it so we don't compute modules at all if there are no module visitors
-        -- We can probably do that by setting an initial context, and then just replacing in the call to visitModuleForProjectRule
         computeModule : ProjectRuleCache projectContext -> List ProjectModule -> ProjectModule -> { source : String, errors : List Error, context : projectContext }
         computeModule cache importedModules module_ =
             let
