@@ -1121,8 +1121,8 @@ withModuleContext moduleContext (ProjectRuleSchema schema) =
 {-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will visit the project's
 [`elm.json`](https://package.elm-lang.org/packages/elm/project-metadata-utils/latest/Elm-Project) file.
 
-It works exactly like [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor). The visitor will be called before any
-module is evaluated.
+It works exactly like [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor).
+The visitor will be called before any module is evaluated.
 
 -}
 withElmJsonProjectVisitor :
@@ -1133,12 +1133,11 @@ withElmJsonProjectVisitor visitor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
 
 
-{-| TODO Documentation
-Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will visit the project's
-[`elm.json`](https://package.elm-lang.org/packages/elm/project-metadata-utils/latest/Elm-Project) file.
+{-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will visit
+the project's `README.md` file.
 
-It works exactly like [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor). The visitor will be called before any
-module is evaluated.
+It works exactly like [`withReadmeModuleVisitor`](#withReadmeModuleVisitor).
+The visitor will be called before any module is evaluated.
 
 -}
 withReadmeProjectVisitor :
@@ -1998,7 +1997,8 @@ withElmJsonModuleVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
 
 
-{-| TODO Documentation
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit
+the project's `README.md` file.
 -}
 withReadmeModuleVisitor :
     (Maybe String -> moduleContext -> moduleContext)
