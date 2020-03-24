@@ -770,187 +770,6 @@ Evaluating/visiting a node means two things:
   - Collecting data in a "context", which will be either a `projectContext` or a `moduleContext` depending on the part of the project being visited, to have more information available in a later
     part of the traversal evaluation.
 
-TODO STOP HERE, REMOVE THE REST
-
-The traversal of a project rule happens in the same order as for modules rules,
-but there are some changes, and different visitors are used for things that relate
-to the project rather than for individual modules.
-
-In module rules, there is the concept of `context`. In project rules, you have it
-too, but in the form of `module context` and `project context`. The former is
-the context for when we are analyzing the contents of a module (it is really just
-the module rule's context, if you understood module rules), and the latter is
-the context for the global context. During the analysis of a project rule, we will
-keep switching between the two using the arguments of [`newProjectRuleSchema`](#newProjectRuleSchema),
-because all information from the module context is not relevant for the project context and vice-versa.
-
-Let's go through an example of a rule that reports unused modules.
-
-    import Review.Rule as Rule exposing (Rule)
-
-    rule : Rule
-    rule =
-        Rule.newProjectRuleSchema "NoUnused.Modules"
-            initialProjectContext
-            { moduleVisitor = moduleVisitor
-            , fromProjectToModule = fromProjectToModule
-            , fromModuleToProject = fromModuleToProject
-            , foldProjectContexts = foldProjectContexts
-            }
-            |> Rule.withElmJsonProjectVisitor elmJsonVisitor
-            |> Rule.withFinalProjectEvaluation finalProjectEvaluation
-            |> Rule.fromProjectRuleSchema
-
-    moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
-    moduleVisitor schema =
-        schema
-            |> Rule.withImportVisitor importVisitor
-            |> Rule.withDeclarationListVisitor declarationListVisitor
-
-The rule will work like this:
-
-  - We will visit the `elm.json` ([`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor)) to determine whether this project is a package
-    or an application. If it's a package, we will mark the exposed modules as used.
-  - We will visit every module (`moduleVisitor`), and for every one:
-      - If the project is an application, mark the module as used if it contains a `main` function.
-      - Go through the imports, and for every one, mark the imported module as used.
-      - Mark the module as among the modules to potentially report.
-  - In the final project evaluation ([`withFinalProjectEvaluation`](#withFinalProjectEvaluation)),
-    we will create an error for every module to be reported that was not marked as used.
-
-You define how you want to visit each file with `moduleVisitor`. `moduleVisitor` is a module rule schema, meaning you can use all the
-same visitors as for module rules. The exception are the following visitors, which
-are replaced by functions that you need to use on the project rule schema.
-
-  - [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor), replaced by [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor)
-  - [`withDependenciesModuleVisitor`](#withDependenciesModuleVisitor), replaced by [`withDependenciesProjectVisitor`](#withDependenciesProjectVisitor)
-  - [`withFinalModuleEvaluation`](#withFinalModuleEvaluation), replaced by [`withFinalProjectEvaluation`](#withFinalProjectEvaluation)
-
-Let's look at the data that we will be working with.
-
-    import Dict exposing (Dict)
-    import Elm.Syntax.ModuleName exposing (ModuleName)
-    import Elm.Syntax.Range exposing (Range)
-    import Set exposing (Set)
-
-    type alias ProjectContext =
-        { declaredModules :
-            Dict ModuleName
-                { moduleKey : Rule.ModuleKey
-                , moduleNameLocation : Range
-                }
-        , usedModules : Set ModuleName
-        , isPackage : Bool
-        }
-
-    type alias ModuleContext =
-        { importedModules : Set ModuleName
-        , containsMainFunction : Bool
-        , isPackage : Bool
-        }
-
-At the project level, we are interested in 3 things. 1) The declared modules
-that may have to be reported. This is a dictionary containing a [`Rule.ModuleKey`](#ModuleKey),
-which we need to report errors in the final module evaluation. 2) The set of modules for which we found an import. 3) whether the project is a package.
-
-    initialProjectContext : ProjectContext
-    initialProjectContext =
-        { declaredModules = Dict.empty
-        , usedModules = Set.empty
-        }
-
-`initialProjectContext` defines the initial value for the project context.
-It's equivalent to the second argument of ['newModuleRuleSchema'](#newModuleRuleSchema).
-
-    fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> ProjectContext -> ModuleContext
-    fromProjectToModule moduleKey moduleNameNode projectContext =
-        { importedModules = Set.empty
-        , containsMainFunction = False
-        }
-
-`fromProjectToModule` determines how we initialize the module context before
-starting the visit of a file, based on a project context.
-If [`withContextFromImportedModules`](#withContextFromImportedModules) is used,
-the project context will be the merged project contexts of all the imported modules.
-If not, it is the initial context (after traversal of the `elm.json` and dependencies).
-
-This function also gives you access to the module key for the file that TODO
-
-    fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> ModuleContext -> ProjectContext
-    fromModuleToProject moduleKey moduleName moduleContext =
-        { modules =
-            Dict.singleton
-                (Node.value moduleName)
-                { moduleKey = moduleKey, moduleNameLocation = Node.range moduleName }
-        , usedModules =
-            if Set.member [ "Test" ] moduleContext.importedModules || moduleContext.containsMainFunction then
-                Set.insert (Node.value moduleName) moduleContext.importedModules
-
-            else
-                moduleContext.importedModules
-        , isPackage = moduleContext.isPackage
-        }
-
-    foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
-    foldProjectContexts newContext previousContext =
-        { modules = Dict.union previousContext.modules newContext.modules
-        , usedModules = Set.union previousContext.usedModules newContext.usedModules
-        , isPackage = previousContext.isPackage
-        }
-
-`foldProjectContexts` is how we fold/reduce/merge the project contexts. The arguments
-are in the same order as [`List.foldl`](https://package.elm-lang.org/packages/elm/core/latest/List#foldl),
-meaning the initial/accumulated value is the second. It may help to imagine that
-the second argument is `initialProjectContext`.
-
-You may have wondered why we have a collection of declared modules and another
-of used modules, and not a single collection where we remove modules every time
-we see an import instead.
-It's because underneath, we run a `MapReduce`-like algorithm. This brings many
-benefits, but only works well with data that you can "add" / "fold". Here, we can add the
-declared modules together, the used modules together, and after having visited
-all the modules, we will end with a single project context which contains all the
-declared and and all the used modules.
-
-**NOTE**: I say "add", but if you use [`withContextFromImportedModules`](#withContextFromImportedModules)
-it is actually pretty important that you do not simply add them (think `List.concat`),
-and instead merge them (think `Set.union` or `Dict.union`), because you might
-fold the same context several times. More details in that
-[function's documentation](#withContextFromImportedModules).
-
-TODO Explain about
-
-  - project context and module context
-  - how contexts are folded
-  - made available
-  - module key
-  - moduleVisitor
-
-
-### 1 - Load project related data
-
-Before looking at modules...TODO
-
-  - Read project-related info (only collect data in the context in these steps)
-      - The `elm.json` file, visited by [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor)
-      - The `README.md` file, visited by [`withReadmeProjectVisitor`](#withReadmeProjectVisitor)
-      - The definition for dependencies, visited by [`withDependenciesProjectVisitor`](#withDependenciesProjectVisitor)
-
-  - Visit the file (in the following order)
-      - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
-      - The module's list of comments, visited by [`withSimpleCommentsVisitor`](#withSimpleCommentsVisitor) and [`withCommentsVisitor`](#withCommentsVisitor)
-      - Each import, visited by [`withSimpleImportVisitor`](#withSimpleImportVisitor) and [`withImportVisitor`](#withImportVisitor)
-      - The list of declarations, visited by [`withDeclarationListVisitor`](#withDeclarationListVisitor)
-      - Each declaration, visited by [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) and [`withDeclarationVisitor`](#withDeclarationVisitor).
-        Before evaluating the next declaration, the expression contained in the declaration
-        will be visited recursively by [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) and [`withExpressionVisitor`](#withExpressionVisitor)
-      - A final evaluation is made when the module has fully been visited, using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation)
-
-  - A final evaluation is made when the module has fully been visited, using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation)
-
-You can't use [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor) or [`withDependenciesModuleVisitor`](#withDependenciesModuleVisitor)
-in project rules. Instead, you should use [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor) or [`withDependenciesProjectVisitor`](#withDependenciesProjectVisitor).
-
 -}
 newProjectRuleSchema : String -> projectContext -> ProjectRuleSchema projectContext moduleContext { canAddModuleVisitor : (), withModuleContext : Forbidden }
 newProjectRuleSchema name_ initialProjectContext =
@@ -1057,23 +876,33 @@ type Forbidden
   - convert a module context to a project context, through [`fromModuleToProject`]
   - fold (merge) project contexts, through [`foldProjectContexts`]
 
-I suggest reading the section about [`foldProjectContexts`] carefully, as it is
-one whose implementation you will need to do carefully.
+**NOTE**: I suggest reading the section about [`foldProjectContexts`] carefully,
+as it is one whose implementation you will need to do carefully.
 
 In project rules, we separate the context related to the analysis of the project
 as a whole and the context related to the analysis of a single module into a
 `projectContext` and a `moduleContext` respectively. We do this because in most
 project rules you won't need all the data from the `projectContext` to analyze a
 module, and some data from the module context will not make sense inside the
-project context. This also has some performance benefits, especially when re-analyzing
-the project after it already been analyzed once (in watch mode for instance).
+project context.
 
-TODO Mention the map-reduce architecture?
+When visiting modules, `elm-review` follows a kind of map-reduce architecture.
+The idea is the following: it starts with an initial `projectContext` and collects data
+from project-related files into it. Then, it visits every module with an initial
+`moduleContext` derived from a `projectContext`. At the end of a module's visit,
+the final `moduleContext` will be transformed ("map") to a `projectContext`.
+All or some of the `projectContext`s will then be folded into a single one,
+before being used in the [final project evaluation] or to compute another module's
+initial `moduleContext`.
 
-We follow a kind of map-reduce architecture.
+This will help make the result of the review as consistent as possible, by
+having the results be independent of the order the modules are visited. This also
+gives internal guarantees as to what needs to be re-computed when re-analyzing
+the project, which leads to huge performance boosts in watch mode or after fixes
+have been applied.
 
-  - Helps make the results independent from the order the modules are visited.
-  - Performance boosts when re-run.
+The following sections will explain each function, and will be summarized by an
+example.
 
 
 ### `fromProjectToModule`
@@ -1096,8 +925,6 @@ have to visit the module definition just to get the module name. Just like what
 it is in [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-ModuleName),
 the value will be `[ "My", "Module" ]` if the module name is `My.Module`.
 
--- TODO Example
-
 
 ### `fromModuleToProject`
 
@@ -1111,8 +938,6 @@ Similarly to `fromProjectToModule`, the [`Node`] containing the module name and
 the [`ModuleKey`] are passed for convenience, so you don't have to store them in
 the `moduleContext` only to store them in the `projectContext`.
 
--- TODO Example
-
 
 ### `foldProjectContexts`
 
@@ -1122,11 +947,14 @@ traits to always be true.
   - `projectContext`s should be "merged" together, not "subtracted". If for instance
     you want to detect the unused exports of a module, do not remove a declared
     export when you have found it used. Instead, store and accumulate the declared
-    and used functions (both probably as `Set`s`or`Dict\`s), and in the final evaluation,
+    and used functions (both probably as `Set`s or `Dict`s), and in the final evaluation,
     filter out the declared functions if they are in the set of used functions.
-  - Folding an element twice into an other should give the same result as folding
-    it once. In other words, `foldProjectContexts a (foldProjectContexts a b)`
-    should equal `foldProjectContexts a b`. You will likely need to use functions
+  - The order of folding should not matter: `foldProjectContexts b (foldProjectContexts a initial)`
+    should equal `foldProjectContexts a (foldProjectContexts b initial)`.
+    [`List.concat`](https://package.elm-lang.org/packages/elm/core/latest/List#concat).
+  - Folding an element twice into another should give the same result as folding
+    it once. In other words, `foldProjectContexts a (foldProjectContexts a initial)`
+    should equal `foldProjectContexts a initial`. You will likely need to use functions
     like [`Set.union`](https://package.elm-lang.org/packages/elm/core/latest/Set#union)
     and [`Dict.union`](https://package.elm-lang.org/packages/elm/core/latest/Dict#union)
     over addition and functions like
@@ -1140,7 +968,122 @@ define a dummy value in the `fromModuleToProject` function). if it helps, imagin
 that the second argument is the initial `projectContext`, or that it is an accumulator
 just like in `List.foldl`.
 
--- TODO Example
+
+### Summary example - Reporting unused exported functions
+
+As an example, we will write a rule that reports functions that get exported
+but are unused in the rest of the project.
+
+    import Review.Rule as Rule exposing (Rule)
+
+    rule : Rule
+    rule =
+        Rule.newProjectRuleSchema "NoUnusedExportedFunctions" initialProjectContext
+            -- Omitted, but this will collect the list of exposed modules for packages.
+            -- We don't want to report functions that are exposed
+            |> Rule.withElmJsonProjectVisitor elmJsonVisitor
+            |> Rule.withModuleVisitor moduleVisitor
+            |> Rule.withModuleContext
+                { fromProjectToModule = fromProjectToModule
+                , fromModuleToProject = fromModuleToProject
+                , foldProjectContexts = foldProjectContexts
+                }
+            |> Rule.withFinalProjectEvaluation finalEvaluationForProject
+            |> Rule.fromProjectRuleSchema
+
+    moduleVisitor :
+        Rule.ModuleRuleSchema {} ModuleContext
+        -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
+    moduleVisitor schema =
+        schema
+            -- Omitted, but this will collect the exposed functions
+            |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
+            -- Omitted, but this will collect uses of exported functions
+            |> Rule.withExpressionVisitor expressionVisitor
+
+    type alias ProjectContext =
+        { -- Modules exposed by the package, that we should not report
+          exposedModules : Set ModuleName
+        , exposedFunctions :
+            -- An entry for each module
+            Dict ModuleName
+                { -- To report errors in this module
+                  moduleKey : Rule.ModuleKey
+
+                -- An entry for each function with its location
+                , exposed : Dict String Range
+                }
+        , used : Set ( ModuleName, String )
+        }
+
+    type alias ModuleContext =
+        { isExposed : Bool
+        , exposed : Dict String Range
+        , used : Set ( ModuleName, String )
+        }
+
+    initialProjectContext : ProjectContext
+    initialProjectContext =
+        { exposedModules = Set.empty
+        , modules = Dict.empty
+        , used = Set.empty
+        }
+
+    fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> ProjectContext -> ModuleContext
+    fromProjectToModule moduleKey moduleName projectContext =
+        { isExposed = Set.member (Node.value moduleName) projectContext.exposedModules
+        , exposed = Dict.empty
+        , used = Set.empty
+        }
+
+    fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> ModuleContext -> ProjectContext
+    fromModuleToProject moduleKey moduleName moduleContext =
+        { -- We don't care about this value, we'll take
+          -- the one from the initial context when folding
+          exposedModules = Set.empty
+        , exposedFunctions =
+            if moduleContext.isExposed then
+                -- If the module is exposed, don't collect the exported functions
+                Dict.empty
+
+            else
+                -- Create a dictionary with all the exposed functions, associated to
+                -- the module that was just visited
+                Dict.singleton
+                    (Node.value moduleName)
+                    { moduleKey = moduleKey
+                    , exposed = moduleContext.exposed
+                    }
+        , used = moduleContext.used
+        }
+
+    foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
+    foldProjectContexts newContext previousContext =
+        { -- Always take the one from the "initial" context,
+          -- which is always the second argument
+          exposedModules = previousContext.exposedModules
+
+        -- Collect the exposed functions from the new context and the previous one.
+        -- We could use `Dict.merge`, but in this case, that doesn't change anything
+        , exposedFunctions = Dict.union previousContext.modules newContext.modules
+
+        -- Collect the used functions from the new context and the previous one
+        , used = Set.union newContext.used previousContext.used
+        }
+
+    finalEvaluationForProject : ProjectContext -> List Error
+    finalEvaluationForProject projectContext =
+        -- Implementation of `unusedFunctions` omitted, but it returns the list
+        -- of unused functions, along with the associated module key and range
+        unusedFunctions projectContext
+            |> List.map
+                (\{ moduleKey, functionName, range } ->
+                    Rule.errorForModule moduleKey
+                        { message = "Function `" ++ functionName ++ "` is never used"
+                        , details = [ "<Omitted>" ]
+                        }
+                        range
+                )
 
 [`ModuleKey`]: #ModuleKey
 [`Node`]: https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#Node
