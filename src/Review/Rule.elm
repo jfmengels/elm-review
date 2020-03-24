@@ -5,7 +5,8 @@ module Review.Rule exposing
     , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
-    , Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, ModuleKey, errorForModule, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme
+    , Error, error, ModuleKey, errorForModule, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme
+    , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
     , withFixes
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review
@@ -199,7 +200,8 @@ first, as they are in practice a simpler version of project rules.
 
 ## Errors
 
-@docs Error, error, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, ModuleKey, errorForModule, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme
+@docs Error, error, ModuleKey, errorForModule, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme
+@docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
 
 
 ## Automatic fixing
@@ -350,7 +352,7 @@ exported/imported with `elm/browser`'s debugger, and may cause a crash if you tr
 to compare them or the model that holds them.
 
 -}
-review : List Rule -> Project -> ( List Error, List Rule )
+review : List Rule -> Project -> ( List ReviewError, List Rule )
 review rules project =
     case project |> Review.Project.modulesThatFailedToParse of
         [] ->
@@ -364,7 +366,7 @@ review rules project =
                                 |> List.map (\s -> "\n  - " ++ s)
                                 |> String.join ""
                     in
-                    ( [ SpecifiedError
+                    ( [ ReviewError
                             { filePath = "GLOBAL ERROR"
                             , ruleName = "Incorrect project"
                             , message = "Found several modules named `" ++ String.join "." duplicate.moduleName ++ "`"
@@ -391,7 +393,7 @@ review rules project =
                     in
                     case sortedModules of
                         Err _ ->
-                            ( [ SpecifiedError
+                            ( [ ReviewError
                                     { filePath = "GLOBAL ERROR"
                                     , ruleName = "Incorrect project"
                                     , message = "Import cycle discovered"
@@ -407,6 +409,7 @@ review rules project =
 
                         Ok nodeContexts ->
                             runRules rules project nodeContexts
+                                |> Tuple.mapFirst (List.map errorToReviewError)
 
         modulesThatFailedToParse ->
             ( List.map parsingError modulesThatFailedToParse, rules )
@@ -1289,7 +1292,7 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
                 |> errorsFromFinalEvaluationForProject wrappedSchema initialContext
             ]
                 |> List.concat
-                |> Exceptions.apply exceptions errorFilePath
+                |> Exceptions.apply exceptions (accessInternalError >> .filePath)
     in
     ( errors, Rule schema.name exceptions (runProjectRule wrappedSchema newCache) )
 
@@ -2436,11 +2439,21 @@ withFinalModuleEvaluation visitor (ModuleRuleSchema schema) =
 
 
 {-| Represents an error found by a [`Rule`](#Rule). These are created by the
-rules, and will be reported to the user.
+rules.
 -}
 type Error
     = UnspecifiedError InternalError
     | SpecifiedError InternalError
+
+
+{-| Represents an error found by a [`Rule`](#Rule). These are the ones that will
+be reported to the user.
+
+If you are building a [`Rule`](#Rule), you shouldn't have to use this.
+
+-}
+type ReviewError
+    = ReviewError InternalError
 
 
 type alias InternalError =
@@ -2598,9 +2611,9 @@ errorForReadme (ReadmeKey { path }) { message, details } range =
         }
 
 
-parsingError : { path : String, source : String } -> Error
+parsingError : { path : String, source : String } -> ReviewError
 parsingError rawFile =
-    SpecifiedError
+    ReviewError
         { filePath = rawFile.path
         , ruleName = "ParsingError"
         , message = rawFile.path ++ " is not a correct Elm module"
@@ -2653,48 +2666,53 @@ withFixes fixes error_ =
         error_
 
 
+errorToReviewError : Error -> ReviewError
+errorToReviewError error_ =
+    ReviewError (accessInternalError error_)
+
+
 {-| Get the name of the rule that triggered this [`Error`](#Error).
 -}
-errorRuleName : Error -> String
-errorRuleName =
-    accessInternalError >> .ruleName
+errorRuleName : ReviewError -> String
+errorRuleName (ReviewError err) =
+    err.ruleName
 
 
 {-| Get the error message of an [`Error`](#Error).
 -}
-errorMessage : Error -> String
-errorMessage =
-    accessInternalError >> .message
+errorMessage : ReviewError -> String
+errorMessage (ReviewError err) =
+    err.message
 
 
 {-| Get the error details of an [`Error`](#Error).
 -}
-errorDetails : Error -> List String
-errorDetails =
-    accessInternalError >> .details
+errorDetails : ReviewError -> List String
+errorDetails (ReviewError err) =
+    err.details
 
 
 {-| Get the [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range)
 of an [`Error`](#Error).
 -}
-errorRange : Error -> Range
-errorRange =
-    accessInternalError >> .range
+errorRange : ReviewError -> Range
+errorRange (ReviewError err) =
+    err.range
 
 
 {-| Get the automatic [`fixes`](./Review-Fix#Fix) of an [`Error`](#Error), if it
 defined any.
 -}
-errorFixes : Error -> Maybe (List Fix)
-errorFixes =
-    accessInternalError >> .fixes
+errorFixes : ReviewError -> Maybe (List Fix)
+errorFixes (ReviewError err) =
+    err.fixes
 
 
 {-| Get the file path of an [`Error`](#Error).
 -}
-errorFilePath : Error -> String
-errorFilePath =
-    accessInternalError >> .filePath
+errorFilePath : ReviewError -> String
+errorFilePath (ReviewError err) =
+    err.filePath
 
 
 mapInternalError : (InternalError -> InternalError) -> Error -> Error
