@@ -132,8 +132,8 @@ implementing the rule you wish to create.
 
 ## Creating a module rule
 
-A "module rule" looks at modules (i.e. files) one by one. When it finishes looking at a file and reporting errors,
-it forgets everything about the file it just analyzed before starting to look at a different file. You should create one of these if you
+A "module rule" looks at modules (i.e. files) one by one. When it finishes looking at a module and reporting errors,
+it forgets everything about the module it just analyzed before starting to look at a different module. You should create one of these if you
 do not need to know the contents of a different module in the project, such as what functions are exposed.
 If you do need that information, you should create a [project rule](#creating-a-project-rule).
 
@@ -317,8 +317,7 @@ type alias InAndOut visitor =
 Note that you won't need to use this function when writing a rule. You should
 only need it if you try to make `elm-review` run in a new environment.
 
-    import Review.File exposing (ProjectModule)
-    import Review.Project as Project exposing (Project)
+    import Review.Project as Project exposing (Project, ProjectModule)
     import Review.Rule as Rule exposing (Rule)
 
     config : List Rule
@@ -353,7 +352,7 @@ to compare them or the model that holds them.
 -}
 review : List Rule -> Project -> ( List Error, List Rule )
 review rules project =
-    case project |> Review.Project.filesThatFailedToParse of
+    case project |> Review.Project.modulesThatFailedToParse of
         [] ->
             case Review.Project.modules project |> duplicateModuleNames Dict.empty of
                 Just duplicate ->
@@ -409,8 +408,8 @@ review rules project =
                         Ok nodeContexts ->
                             runRules rules project nodeContexts
 
-        filesThatFailedToParse ->
-            ( List.map parsingError filesThatFailedToParse, rules )
+        modulesThatFailedToParse ->
+            ( List.map parsingError modulesThatFailedToParse, rules )
 
 
 runRules : List Rule -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, List Rule )
@@ -637,7 +636,7 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache exce
 
                         Just cacheEntry ->
                             if cacheEntry.source == module_.source then
-                                -- File is unchanged, we will later return the cached errors
+                                -- Module is unchanged, we will later return the cached errors
                                 cache
 
                             else
@@ -760,9 +759,9 @@ Project rules traverse the project in the following order:
       - The `elm.json` file, visited by [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor)
       - The `README.md` file, visited by [`withReadmeProjectVisitor`](#withReadmeProjectVisitor)
       - The definition for dependencies, visited by [`withDependenciesProjectVisitor`](#withDependenciesProjectVisitor)
-      - The Elm modules, one by one, visited by [`withModuleVisitor`](#withModuleVisitor),
-        following the same traversal order as for module rules but without reading the elements listed above (`elm.json`, ...).
-      - A final evaluation is made when all modules have been visited, using [`withFinalProjectEvaluation`](#withFinalProjectEvaluation)
+  - The Elm modules one by one, visited by [`withModuleVisitor`](#withModuleVisitor),
+    following the same traversal order as for module rules but without reading the project files (`elm.json`, ...).
+  - A final evaluation when all modules have been visited, using [`withFinalProjectEvaluation`](#withFinalProjectEvaluation)
 
 Evaluating/visiting a node means two things:
 
@@ -808,7 +807,7 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
 visit the project's Elm modules.
 
 A module visitor behaves like a module rule, except that it won't visit the
-project files, as that is already done by other visitors for project rules (such
+project files, as those have already been seen by other visitors for project rules (such
 as [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor)).
 
 `withModuleVisitor` takes a function that takes an already initialized module
@@ -1165,7 +1164,7 @@ withDependenciesProjectVisitor visitor (ProjectRuleSchema schema) =
 
 {-| Add a function that makes a final evaluation of the project based only on the
 data that was collected in the `projectContext`. This can be useful if you can't report something until you have visited
-all the files in the project.
+all the modules in the project.
 
 It works similarly [`withFinalModuleEvaluation`](#withFinalModuleEvaluation).
 
@@ -1187,7 +1186,7 @@ currently visited module. You can use for instance to know what is exposed in a
 different module.
 
 When you finish analyzing a module, the `moduleContext` is turned into a `projectContext`
-through [`fromModuleToProject`](#newProjectRuleSchema). Before analyzing a file,
+through [`fromModuleToProject`](#newProjectRuleSchema). Before analyzing a module,
 the `projectContext`s of its imported modules get folded into a single one
 starting with the initial context (that may have visited the
 [`elm.json` file](#withElmJsonProjectVisitor) and/or the [project's dependencies](#withDependenciesProjectVisitor))
@@ -1275,8 +1274,8 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
                 Nothing ->
                     startCache
 
-        contextsAndErrorsPerFile : List ( List Error, projectContext )
-        contextsAndErrorsPerFile =
+        contextsAndErrorsPerModule : List ( List Error, projectContext )
+        contextsAndErrorsPerModule =
             newCache
                 |> Dict.values
                 |> List.map (\cacheEntry -> ( cacheEntry.errors, cacheEntry.context ))
@@ -1284,8 +1283,10 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
         errors : List Error
         errors =
             [ projectRelatedErrors
-            , List.concatMap Tuple.first contextsAndErrorsPerFile
-            , errorsFromFinalEvaluationForProject wrappedSchema initialContext contextsAndErrorsPerFile
+            , List.concatMap Tuple.first contextsAndErrorsPerModule
+            , contextsAndErrorsPerModule
+                |> List.map Tuple.second
+                |> errorsFromFinalEvaluationForProject wrappedSchema initialContext
             ]
                 |> List.concat
                 |> Exceptions.apply exceptions errorFilePath
@@ -1382,14 +1383,14 @@ computeModules (ProjectRuleSchema schema) visitors project initialContext nodeCo
                                 |> List.foldl visitors.moduleContext.foldProjectContexts initialContext
                                 |> visitors.moduleContext.fromProjectToModule moduleKey moduleNameNode_
 
-                ( fileErrors, context ) =
+                ( moduleErrors, context ) =
                     visitModuleForProjectRule
                         moduleVisitor
                         initialModuleContext
                         module_
             in
             { source = module_.source
-            , errors = List.map (setFilePathIfUnset module_) fileErrors
+            , errors = List.map (setFilePathIfUnset module_) moduleErrors
             , context =
                 visitors.moduleContext.fromModuleToProject
                     moduleKey
@@ -1473,7 +1474,7 @@ computeModuleAndCacheResult traversalType modules graph computeModule { node, in
 
                 Just cacheEntry ->
                     if cacheEntry.source == module_.source && (traversalType == AllModulesInParallel || noImportedModulesHaveANewContext importedModules invalidatedModules) then
-                        -- File and its imported modules' context are unchanged, we will later return the cached errors and context
+                        -- The module's source and the module's imported modules' context are unchanged, we will later return the cached errors and context
                         ( cache, invalidatedModules )
 
                     else
@@ -1517,8 +1518,8 @@ getModuleName module_ =
         |> Module.moduleName
 
 
-errorsFromFinalEvaluationForProject : ProjectRuleSchema projectContext moduleContext schemaState -> projectContext -> List ( List Error, projectContext ) -> List Error
-errorsFromFinalEvaluationForProject (ProjectRuleSchema schema) initialContext contextsAndErrorsPerFile =
+errorsFromFinalEvaluationForProject : ProjectRuleSchema projectContext moduleContext schemaState -> projectContext -> List projectContext -> List Error
+errorsFromFinalEvaluationForProject (ProjectRuleSchema schema) initialContext contextsPerModule =
     if List.isEmpty schema.finalEvaluationFns then
         []
 
@@ -1534,9 +1535,7 @@ errorsFromFinalEvaluationForProject (ProjectRuleSchema schema) initialContext co
                         initialContext
 
                     IsPrepared { moduleContext } ->
-                        contextsAndErrorsPerFile
-                            |> List.map Tuple.second
-                            |> List.foldl moduleContext.foldProjectContexts initialContext
+                        List.foldl moduleContext.foldProjectContexts initialContext contextsPerModule
         in
         finalContext
             |> makeFinalEvaluationForProject schema.finalEvaluationFns
@@ -1603,7 +1602,7 @@ withSimpleModuleDefinitionVisitor visitor schema =
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's comments.
 
-This visitor will give you access to the list of all comments in the file all at once.
+This visitor will give you access to the list of all comments in the module all at once.
 
 The following example forbids words like "TODO" appearing in a comment.
 
@@ -1817,18 +1816,18 @@ Adds an initial `context` to start collecting data during your traversal.
 
 In some cases, you can't just report a pattern when you see it, but you want to
 not report or report differently depending on information located in a different
-part of the file. In that case, you collect data as the nodes in the file get
+part of the module. In that case, you collect data as the nodes in the module get
 traversed and store it in what we'll call a `context`. This `context` will be
 available and updated by non-"simple" "with\*" functions, like
 [`withExpressionVisitor`](#withExpressionVisitor) or [`withImportVisitor`](#withImportVisitor).
 
-Once the file has been traversed and you have collected all the data available
-from the file, you can report some final errors using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation).
+Once the module has been traversed and you have collected all the data available
+from the module, you can report some final errors using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation).
 
 A few use examples:
 
   - You want to report the use of `Debug.log`: and if you see a call using a `log`
-    function, you need to check whether `log` was defined in the file, or imported
+    function, you need to check whether `log` was defined in the module, or imported
     using `import Debug exposing (log)` or `import Debug exposing (..)`.
   - You wish to report unused variables, so you need to register the declared and
     imported variables, and note when they get used.
@@ -1929,7 +1928,7 @@ emptySchema name_ initialContext =
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the project's
 [`elm.json`](https://package.elm-lang.org/packages/elm/project-metadata-utils/latest/Elm-Project) file.
 
-The following example forbids exposing a file in an "Internal" directory in your `elm.json` file.
+The following example forbids exposing a module in an "Internal" directory in your `elm.json` file.
 
     import Elm.Module
     import Elm.Project
@@ -2087,7 +2086,7 @@ withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's comments, collect data in
 the `context` and/or report patterns.
 
-This visitor will give you access to the list of all comments in the file all at once.
+This visitor will give you access to the list of all comments in the module all at once.
 
 Tip: If you do not need to collect data in this visitor, you may wish to use the
 simpler [`withSimpleCommentsVisitor`](#withSimpleCommentsVisitor) function.
@@ -2278,8 +2277,8 @@ collect data and/or report patterns.
 It is similar to [withDeclarationVisitor](#withDeclarationVisitor), but the
 visitor used with this function is called before the visitor added with
 [withDeclarationVisitor](#withDeclarationVisitor). You can use this visitor in
-order to look ahead and add the file's types and variables into your context,
-before visiting the contents of the file using [withDeclarationVisitor](#withDeclarationVisitor)
+order to look ahead and add the module's types and variables into your context,
+before visiting the contents of the module using [withDeclarationVisitor](#withDeclarationVisitor)
 and [withExpressionVisitor](#withExpressionVisitor). Otherwise, using
 [withDeclarationVisitor](#withDeclarationVisitor) is probably a simpler choice.
 
@@ -2381,7 +2380,7 @@ withExpressionVisitor visitor (ModuleRuleSchema schema) =
 
 {-| Add a function that makes a final evaluation of the module based only on the
 data that was collected in the `moduleContext`. This can be useful if you can't or if
-it is hard to determine something as you traverse the file.
+it is hard to determine something as you traverse the module.
 
 The following example forbids importing both `Element` (`elm-ui`) and
 `Html.Styled` (`elm-css`). Note that this is the same one written in the example
@@ -2595,9 +2594,9 @@ parsingError rawFile =
     Error
         { filePath = rawFile.path
         , ruleName = "ParsingError"
-        , message = rawFile.path ++ " is not a correct Elm file"
+        , message = rawFile.path ++ " is not a correct Elm module"
         , details =
-            [ "I could not understand the content of this file, and this prevents me from analyzing it. It is highly likely that the content of the file is not correct Elm code."
+            [ "I could not understand the content of this file, and this prevents me from analyzing it. It is highly likely that the contents of the file is not correct Elm code."
             , "I need this file to be fixed before analyzing the rest of the project. If I didn't, I would potentially report incorrect things."
             , "Hint: Try running `elm make`. The compiler should give you better hints on how to resolve the problem."
             ]

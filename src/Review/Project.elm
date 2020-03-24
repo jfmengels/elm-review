@@ -1,6 +1,6 @@
 module Review.Project exposing
     ( Project, new
-    , ProjectModule, addModule, addParsedModule, removeModule, modules, filesThatFailedToParse, moduleGraph, precomputeModuleGraph
+    , ProjectModule, addModule, addParsedModule, removeModule, modules, modulesThatFailedToParse, moduleGraph, precomputeModuleGraph
     , addElmJson, elmJson
     , addReadme, readme
     , addDependency, removeDependencies, dependencies
@@ -28,7 +28,7 @@ does not look at project information (like the `elm.json`, dependencies, ...).
 
 ## Elm modules
 
-@docs ProjectModule, addModule, addParsedModule, removeModule, modules, filesThatFailedToParse, moduleGraph, precomputeModuleGraph
+@docs ProjectModule, addModule, addParsedModule, removeModule, modules, modulesThatFailedToParse, moduleGraph, precomputeModuleGraph
 
 
 # `elm.json`
@@ -70,7 +70,7 @@ the `elm.json` file, the project modules and the project dependencies.
 type Project
     = Project
         { modules : List ProjectModule
-        , filesThatFailedToParse : List { path : String, source : String }
+        , modulesThatFailedToParse : List { path : String, source : String }
         , elmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
         , readme : Maybe { path : String, content : String }
         , dependencies : Dict String Dependency
@@ -84,7 +84,7 @@ new : Project
 new =
     Project
         { modules = []
-        , filesThatFailedToParse = []
+        , modulesThatFailedToParse = []
         , elmJson = Nothing
         , readme = Nothing
         , dependencies = Dict.empty
@@ -110,7 +110,7 @@ then it will replace it.
 
 If the file is syntactically valid Elm code, it will then be analyzed by the
 review rules. Otherwise, the file will be added to the list of files that failed
-to parse, which you can get using [`filesThatFailedToParse`](#filesThatFailedToParse),
+to parse, which you can get using [`modulesThatFailedToParse`](#modulesThatFailedToParse),
 and for which a parsing error will be reported when running [`Review.review`](./Review#review).
 
 -}
@@ -175,7 +175,7 @@ addFileThatFailedToParse : { path : String, source : String } -> Project -> Proj
 addFileThatFailedToParse { path, source } (Project project) =
     Project
         { project
-            | filesThatFailedToParse = { path = path, source = source } :: project.filesThatFailedToParse
+            | modulesThatFailedToParse = { path = path, source = source } :: project.modulesThatFailedToParse
         }
 
 
@@ -193,7 +193,7 @@ removeFileFromProject path (Project project) =
     Project
         { project
             | modules = List.filter (\module_ -> module_.path /= path) project.modules
-            , filesThatFailedToParse = List.filter (\file -> file.path /= path) project.filesThatFailedToParse
+            , modulesThatFailedToParse = List.filter (\file -> file.path /= path) project.modulesThatFailedToParse
         }
 
 
@@ -224,9 +224,9 @@ modules (Project project) =
 
 {-| Get the list of file paths that failed to parse, because they were syntactically invalid Elm code.
 -}
-filesThatFailedToParse : Project -> List { path : String, source : String }
-filesThatFailedToParse (Project project) =
-    project.filesThatFailedToParse
+modulesThatFailedToParse : Project -> List { path : String, source : String }
+modulesThatFailedToParse (Project project) =
+    project.modulesThatFailedToParse
 
 
 {-| Get the module graph for the project in the form of a

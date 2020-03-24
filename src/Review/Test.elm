@@ -336,7 +336,7 @@ runOnModulesWithProjectData project rule sources =
                         )
                     |> List.foldl Project.addModule project
         in
-        case Project.filesThatFailedToParse projectWithModules of
+        case Project.modulesThatFailedToParse projectWithModules of
             { source } :: _ ->
                 let
                     fileAndIndex : { source : String, index : Int }
