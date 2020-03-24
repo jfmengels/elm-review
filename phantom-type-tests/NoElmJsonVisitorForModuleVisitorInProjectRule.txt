@@ -11,5 +11,5 @@ The argument is:
 
 But (|>) is piping it to a function that expects:
 
-    Rule.ModuleRuleSchema { anything | canCollectProjectData : () } ()
+    Rule.ModuleRuleSchema { schemaState | canCollectProjectData : () } ()
 

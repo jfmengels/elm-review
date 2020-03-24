@@ -281,7 +281,7 @@ Start by using [`newModuleRuleSchema`](#newModuleRuleSchema), then add visitors 
             |> Rule.fromModuleRuleSchema
 
 -}
-type ModuleRuleSchema configuration moduleContext
+type ModuleRuleSchema schemaState moduleContext
     = ModuleRuleSchema
         { name : String
         , initialContext : moduleContext
@@ -550,7 +550,7 @@ newModuleRuleSchema name_ moduleContext =
 
 {-| Create a [`Rule`](#Rule) from a configured [`ModuleRuleSchema`](#ModuleRuleSchema).
 -}
-fromModuleRuleSchema : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext -> Rule
+fromModuleRuleSchema : ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> Rule
 fromModuleRuleSchema ((ModuleRuleSchema { name }) as schema) =
     runModuleRule
         (reverseVisitors schema)
@@ -558,7 +558,7 @@ fromModuleRuleSchema ((ModuleRuleSchema { name }) as schema) =
         |> Rule name Exceptions.init
 
 
-reverseVisitors : ModuleRuleSchema anything moduleContext -> ModuleRuleSchema anything moduleContext
+reverseVisitors : ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema schemaState moduleContext
 reverseVisitors (ModuleRuleSchema schema) =
     ModuleRuleSchema
         { schema
@@ -593,7 +593,7 @@ newModuleRuleCache =
     }
 
 
-runModuleRule : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleCache moduleContext -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, Rule )
+runModuleRule : ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleCache moduleContext -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List Error, Rule )
 runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache exceptions project _ =
     let
         initialContext : moduleContext
@@ -659,7 +659,7 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache exce
     )
 
 
-computeErrors : ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext -> moduleContext -> ProjectModule -> List Error
+computeErrors : ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> moduleContext -> ProjectModule -> List Error
 computeErrors (ModuleRuleSchema schema) initialContext =
     let
         declarationVisitors : InAndOut (DirectedVisitor Declaration moduleContext)
@@ -819,9 +819,9 @@ in order to specify how to create a `moduleContext` from a `projectContext` and 
 
 -}
 withModuleVisitor :
-    (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { a | hasAtLeastOneVisitor : () } moduleContext)
-    -> ProjectRuleSchema projectContext moduleContext { schemaState | canAddModuleVisitor : () }
-    -> ProjectRuleSchema projectContext moduleContext { schemaState | canAddModuleVisitor : (), withModuleContext : Required }
+    (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { moduleSchemaState | hasAtLeastOneVisitor : () } moduleContext)
+    -> ProjectRuleSchema projectContext moduleContext { projectSchemaState | canAddModuleVisitor : () }
+    -> ProjectRuleSchema projectContext moduleContext { projectSchemaState | canAddModuleVisitor : (), withModuleContext : Required }
 withModuleVisitor visitor (ProjectRuleSchema schema) =
     let
         previousModuleVisitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
@@ -1595,7 +1595,7 @@ Note: `withSimpleModuleDefinitionVisitor` is a simplified version of [`withModul
 which isn't passed a `context` and doesn't return one. You can use `withSimpleModuleDefinitionVisitor` even if you use "non-simple with\*" functions.
 
 -}
-withSimpleModuleDefinitionVisitor : (Node Module -> List Error) -> ModuleRuleSchema anything moduleContext -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext
+withSimpleModuleDefinitionVisitor : (Node Module -> List Error) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withSimpleModuleDefinitionVisitor visitor schema =
     withModuleDefinitionVisitor (\node moduleContext -> ( visitor node, moduleContext )) schema
 
@@ -1640,7 +1640,7 @@ Note: `withSimpleCommentsVisitor` is a simplified version of [`withCommentsVisit
 which isn't passed a `context` and doesn't return one. You can use `withCommentsVisitor` even if you use "non-simple with\*" functions.
 
 -}
-withSimpleCommentsVisitor : (List (Node String) -> List Error) -> ModuleRuleSchema anything moduleContext -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext
+withSimpleCommentsVisitor : (List (Node String) -> List Error) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withSimpleCommentsVisitor visitor schema =
     withCommentsVisitor (\node moduleContext -> ( visitor node, moduleContext )) schema
 
@@ -1689,7 +1689,7 @@ Note: `withSimpleImportVisitor` is a simplified version of [`withImportVisitor`]
 which isn't passed a `context` and doesn't return one. You can use `withSimpleImportVisitor` even if you use "non-simple with\*" functions.
 
 -}
-withSimpleImportVisitor : (Node Import -> List Error) -> ModuleRuleSchema anything moduleContext -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext
+withSimpleImportVisitor : (Node Import -> List Error) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withSimpleImportVisitor visitor schema =
     withImportVisitor (\node moduleContext -> ( visitor node, moduleContext )) schema
 
@@ -1743,7 +1743,7 @@ Note: `withSimpleDeclarationVisitor` is a simplified version of [`withDeclaratio
 which isn't passed a [`Direction`](#Direction) (it will only be called `OnEnter`ing the node) and a `context` and doesn't return a context. You can use `withSimpleDeclarationVisitor` even if you use "non-simple with\*" functions.
 
 -}
-withSimpleDeclarationVisitor : (Node Declaration -> List Error) -> ModuleRuleSchema anything moduleContext -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext
+withSimpleDeclarationVisitor : (Node Declaration -> List Error) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withSimpleDeclarationVisitor visitor schema =
     withDeclarationVisitor
         (\node direction moduleContext ->
@@ -1797,7 +1797,7 @@ Note: `withSimpleExpressionVisitor` is a simplified version of [`withExpressionV
 which isn't passed a [`Direction`](#Direction) (it will only be called `OnEnter`ing the node) and a `context` and doesn't return a context. You can use `withSimpleExpressionVisitor` even if you use "non-simple with\*" functions.
 
 -}
-withSimpleExpressionVisitor : (Node Expression -> List Error) -> ModuleRuleSchema anything moduleContext -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext
+withSimpleExpressionVisitor : (Node Expression -> List Error) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withSimpleExpressionVisitor visitor schema =
     withExpressionVisitor
         (\node direction moduleContext ->
@@ -1907,7 +1907,7 @@ module name is `RuleName`).
                 ( [], context )
 
 -}
-emptySchema : String -> moduleContext -> ModuleRuleSchema anything moduleContext
+emptySchema : String -> moduleContext -> ModuleRuleSchema schemaState moduleContext
 emptySchema name_ initialContext =
     ModuleRuleSchema
         { name = name_
@@ -1988,8 +1988,8 @@ The following example forbids exposing a module in an "Internal" directory in yo
 -}
 withElmJsonModuleVisitor :
     (Maybe Elm.Project.Project -> moduleContext -> moduleContext)
-    -> ModuleRuleSchema { anything | canCollectProjectData : () } moduleContext
-    -> ModuleRuleSchema { anything | canCollectProjectData : () } moduleContext
+    -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
+    -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
 withElmJsonModuleVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
 
@@ -1999,8 +1999,8 @@ the project's `README.md` file.
 -}
 withReadmeModuleVisitor :
     (Maybe String -> moduleContext -> moduleContext)
-    -> ModuleRuleSchema { anything | canCollectProjectData : () } moduleContext
-    -> ModuleRuleSchema { anything | canCollectProjectData : () } moduleContext
+    -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
+    -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
 withReadmeModuleVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | readmeVisitors = visitor :: schema.readmeVisitors }
 
@@ -2014,8 +2014,8 @@ specific functions.
 -}
 withDependenciesModuleVisitor :
     (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
-    -> ModuleRuleSchema { anything | canCollectProjectData : () } moduleContext
-    -> ModuleRuleSchema { anything | canCollectProjectData : () } moduleContext
+    -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
+    -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
 withDependenciesModuleVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | dependenciesVisitors = visitor :: schema.dependenciesVisitors }
 
@@ -2078,7 +2078,7 @@ Tip: If you do not need to collect data in this visitor, you may wish to use the
 simpler [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) function.
 
 -}
-withModuleDefinitionVisitor : (Node Module -> moduleContext -> ( List Error, moduleContext )) -> ModuleRuleSchema anything moduleContext -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext
+withModuleDefinitionVisitor : (Node Module -> moduleContext -> ( List Error, moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | moduleDefinitionVisitors = visitor :: schema.moduleDefinitionVisitors }
 
@@ -2092,7 +2092,7 @@ Tip: If you do not need to collect data in this visitor, you may wish to use the
 simpler [`withSimpleCommentsVisitor`](#withSimpleCommentsVisitor) function.
 
 -}
-withCommentsVisitor : (List (Node String) -> moduleContext -> ( List Error, moduleContext )) -> ModuleRuleSchema anything moduleContext -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext
+withCommentsVisitor : (List (Node String) -> moduleContext -> ( List Error, moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withCommentsVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | commentsVisitors = visitor :: schema.commentsVisitors }
 
@@ -2168,7 +2168,7 @@ Tip: If you do not need to collect or use the `context` in this visitor, you may
 simpler [`withSimpleImportVisitor`](#withSimpleImportVisitor) function.
 
 -}
-withImportVisitor : (Node Import -> moduleContext -> ( List Error, moduleContext )) -> ModuleRuleSchema anything moduleContext -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext
+withImportVisitor : (Node Import -> moduleContext -> ( List Error, moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withImportVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | importVisitors = visitor :: schema.importVisitors }
 
@@ -2264,7 +2264,7 @@ Tip: If you do not need to collect or use the `context` in this visitor, you may
 simpler [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) function.
 
 -}
-withDeclarationVisitor : (Node Declaration -> Direction -> moduleContext -> ( List Error, moduleContext )) -> ModuleRuleSchema anything moduleContext -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext
+withDeclarationVisitor : (Node Declaration -> Direction -> moduleContext -> ( List Error, moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withDeclarationVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | declarationVisitors = visitor :: schema.declarationVisitors }
 
@@ -2283,7 +2283,7 @@ and [withExpressionVisitor](#withExpressionVisitor). Otherwise, using
 [withDeclarationVisitor](#withDeclarationVisitor) is probably a simpler choice.
 
 -}
-withDeclarationListVisitor : (List (Node Declaration) -> moduleContext -> ( List Error, moduleContext )) -> ModuleRuleSchema anything moduleContext -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext
+withDeclarationListVisitor : (List (Node Declaration) -> moduleContext -> ( List Error, moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withDeclarationListVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | declarationListVisitors = visitor :: schema.declarationListVisitors }
 
@@ -2373,7 +2373,7 @@ Tip: If you do not need to collect or use the `context` in this visitor, you may
 simpler [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) function.
 
 -}
-withExpressionVisitor : (Node Expression -> Direction -> moduleContext -> ( List Error, moduleContext )) -> ModuleRuleSchema anything moduleContext -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext
+withExpressionVisitor : (Node Expression -> Direction -> moduleContext -> ( List Error, moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withExpressionVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | expressionVisitors = visitor :: schema.expressionVisitors }
 
@@ -2421,7 +2421,7 @@ for [`withImportVisitor`](#withImportVisitor), but using [`withFinalModuleEvalua
                 []
 
 -}
-withFinalModuleEvaluation : (moduleContext -> List Error) -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } moduleContext
+withFinalModuleEvaluation : (moduleContext -> List Error) -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withFinalModuleEvaluation visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | finalEvaluationFns = visitor :: schema.finalEvaluationFns }
 
