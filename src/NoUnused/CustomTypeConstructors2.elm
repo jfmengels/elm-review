@@ -451,7 +451,7 @@ isCapitalized name =
 -- FINAL PROJECT EVALUATION
 
 
-finalProjectEvaluation : ProjectContext -> List Error
+finalProjectEvaluation : ProjectContext -> List (Error {})
 finalProjectEvaluation projectContext =
     projectContext.exposedConstructors
         |> Dict.toList
@@ -490,7 +490,7 @@ errorInformation node =
     }
 
 
-errorForModule : Rule.ModuleKey -> Node String -> Error
+errorForModule : Rule.ModuleKey -> Node String -> Error scope
 errorForModule moduleKey node =
     Rule.errorForModule
         moduleKey

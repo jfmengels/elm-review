@@ -159,7 +159,7 @@ elmJsonVisitor maybeProject projectContext =
     )
 
 
-finalEvaluationForProject : ProjectContext -> List Error
+finalEvaluationForProject : ProjectContext -> List (Error scope)
 finalEvaluationForProject { modules, usedModules } =
     modules
         |> Dict.filter (\moduleName _ -> not <| Set.member moduleName usedModules)
@@ -167,7 +167,7 @@ finalEvaluationForProject { modules, usedModules } =
         |> List.map error
 
 
-error : ( ModuleName, { moduleKey : Rule.ModuleKey, moduleNameLocation : Range } ) -> Error
+error : ( ModuleName, { moduleKey : Rule.ModuleKey, moduleNameLocation : Range } ) -> Error scope
 error ( moduleName, { moduleKey, moduleNameLocation } ) =
     Rule.errorForModule moduleKey
         { message = "Module `" ++ String.join "." moduleName ++ "` is never used."

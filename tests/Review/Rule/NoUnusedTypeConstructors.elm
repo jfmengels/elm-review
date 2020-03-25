@@ -97,7 +97,7 @@ initialContext =
     }
 
 
-error : Node String -> Error
+error : Node String -> Error {}
 error node =
     Rule.error
         { message = "Type constructor `" ++ Node.value node ++ "` is not used."
@@ -189,7 +189,7 @@ expressionVisitor node direction context =
                 ( [], context )
 
 
-finalEvaluation : Context -> List Error
+finalEvaluation : Context -> List (Error {})
 finalEvaluation context =
     if context.exposesEverything then
         []

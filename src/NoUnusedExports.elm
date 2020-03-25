@@ -202,7 +202,7 @@ elmJsonVisitor maybeProject projectContext =
 -- PROJECT EVALUATION
 
 
-finalEvaluationForProject : ProjectContext -> List Error
+finalEvaluationForProject : ProjectContext -> List (Error {})
 finalEvaluationForProject projectContext =
     projectContext.modules
         |> removeExposedPackages projectContext
@@ -214,7 +214,7 @@ finalEvaluationForProject projectContext =
                     |> removeReviewConfig moduleName
                     |> Dict.filter (\name _ -> not <| Set.member ( moduleName, name ) projectContext.used)
                     |> Dict.toList
-                    |> List.map
+                    |> List.concatMap
                         (\( name, { range, exposedElement } ) ->
                             let
                                 what : String
@@ -229,11 +229,17 @@ finalEvaluationForProject projectContext =
                                         ExposedType ->
                                             "Exposed type"
                             in
-                            Rule.errorForModule moduleKey
+                            [ Rule.error
                                 { message = what ++ " `" ++ name ++ "` is never used outside this module."
                                 , details = [ "This exposed element is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
                                 }
                                 range
+                            , Rule.errorForModule moduleKey
+                                { message = what ++ " `" ++ name ++ "` is never used outside this module."
+                                , details = [ "This exposed element is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
+                                }
+                                range
+                            ]
                         )
             )
 
@@ -495,7 +501,7 @@ collectTypesFromTypeAnnotation scope node =
 -- EXPRESSION VISITOR
 
 
-expressionVisitor : Node Expression -> Rule.Direction -> ModuleContext -> ( List Error, ModuleContext )
+expressionVisitor : Node Expression -> Rule.Direction -> ModuleContext -> ( List (Error scope), ModuleContext )
 expressionVisitor node direction moduleContext =
     case ( direction, Node.value node ) of
         ( Rule.OnEnter, Expression.FunctionOrValue moduleName name ) ->

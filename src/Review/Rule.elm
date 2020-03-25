@@ -251,6 +251,7 @@ import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range as Range exposing (Range)
+import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix exposing (Fix)
 import Review.Project exposing (Project, ProjectModule)
@@ -366,7 +367,7 @@ review rules project =
                                 |> List.map (\s -> "\n  - " ++ s)
                                 |> String.join ""
                     in
-                    ( [ ReviewError
+                    ( [ Review.Error.ReviewError
                             { filePath = "GLOBAL ERROR"
                             , ruleName = "Incorrect project"
                             , message = "Found several modules named `" ++ String.join "." duplicate.moduleName ++ "`"
@@ -393,7 +394,7 @@ review rules project =
                     in
                     case sortedModules of
                         Err _ ->
-                            ( [ ReviewError
+                            ( [ Review.Error.ReviewError
                                     { filePath = "GLOBAL ERROR"
                                     , ruleName = "Incorrect project"
                                     , message = "Import cycle discovered"
@@ -2462,18 +2463,8 @@ be reported to the user.
 If you are building a [`Rule`](#Rule), you shouldn't have to use this.
 
 -}
-type ReviewError
-    = ReviewError InternalError
-
-
-type alias InternalError =
-    { message : String
-    , ruleName : String
-    , filePath : String
-    , details : List String
-    , range : Range
-    , fixes : Maybe (List Fix)
-    }
+type alias ReviewError =
+    Review.Error.ReviewError
 
 
 {-| Create an [`Error`](#Error). Use it when you find a pattern that the rule should forbid.
@@ -2500,7 +2491,7 @@ In most cases, you can get it using [`Node.range`].
 [`Node.range`]: https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#range
 
 -}
-error : { message : String, details : List String } -> Range -> Error { forCurrentModule : () }
+error : { message : String, details : List String } -> Range -> Error {}
 error { message, details } range =
     UnspecifiedError
         { message = message
@@ -2623,7 +2614,7 @@ errorForReadme (ReadmeKey { path }) { message, details } range =
 
 parsingError : { path : String, source : String } -> ReviewError
 parsingError rawFile =
-    ReviewError
+    Review.Error.ReviewError
         { filePath = rawFile.path
         , ruleName = "ParsingError"
         , message = rawFile.path ++ " is not a correct Elm module"
@@ -2679,50 +2670,50 @@ withFixes fixes error_ =
 
 errorToReviewError : Error scope -> ReviewError
 errorToReviewError error_ =
-    ReviewError (accessInternalError error_)
+    Review.Error.ReviewError (accessInternalError error_)
 
 
 {-| Get the name of the rule that triggered this [`Error`](#Error).
 -}
-errorRuleName : ReviewError -> String
-errorRuleName (ReviewError err) =
+errorRuleName : Review.Error.ReviewError -> String
+errorRuleName (Review.Error.ReviewError err) =
     err.ruleName
 
 
 {-| Get the error message of an [`Error`](#Error).
 -}
-errorMessage : ReviewError -> String
-errorMessage (ReviewError err) =
+errorMessage : Review.Error.ReviewError -> String
+errorMessage (Review.Error.ReviewError err) =
     err.message
 
 
 {-| Get the error details of an [`Error`](#Error).
 -}
-errorDetails : ReviewError -> List String
-errorDetails (ReviewError err) =
+errorDetails : Review.Error.ReviewError -> List String
+errorDetails (Review.Error.ReviewError err) =
     err.details
 
 
 {-| Get the [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range)
 of an [`Error`](#Error).
 -}
-errorRange : ReviewError -> Range
-errorRange (ReviewError err) =
+errorRange : Review.Error.ReviewError -> Range
+errorRange (Review.Error.ReviewError err) =
     err.range
 
 
 {-| Get the automatic [`fixes`](./Review-Fix#Fix) of an [`Error`](#Error), if it
 defined any.
 -}
-errorFixes : ReviewError -> Maybe (List Fix)
-errorFixes (ReviewError err) =
+errorFixes : Review.Error.ReviewError -> Maybe (List Fix)
+errorFixes (Review.Error.ReviewError err) =
     err.fixes
 
 
 {-| Get the file path of an [`Error`](#Error).
 -}
-errorFilePath : ReviewError -> String
-errorFilePath (ReviewError err) =
+errorFilePath : Review.Error.ReviewError -> String
+errorFilePath (Review.Error.ReviewError err) =
     err.filePath
 
 

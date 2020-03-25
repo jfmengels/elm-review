@@ -6,10 +6,10 @@ module Review.Test.ErrorMessage exposing
     , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
     )
 
-{-| Error messages for the `Review.Test` module.
+{-| ReviewError messages for the `Review.Test` module.
 
 
-# Error messages
+# ReviewError messages
 
 @docs ExpectedErrorData
 @docs parsingFailure, globalErrorInTest, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
@@ -20,7 +20,7 @@ module Review.Test.ErrorMessage exposing
 -}
 
 import Elm.Syntax.Range exposing (Range)
-import Review.Rule as Rule exposing (Error)
+import Review.Rule as Rule exposing (ReviewError)
 import Vendor.ListExtra as ListExtra
 
 
@@ -41,7 +41,7 @@ type alias SourceCode =
 -- ERROR MESSAGES
 
 
-didNotExpectErrors : String -> List Error -> String
+didNotExpectErrors : String -> List ReviewError -> String
 didNotExpectErrors moduleName errors =
     """DID NOT EXPECT ERRORS
 
@@ -83,7 +83,7 @@ The source code in question is the one at index """
     title ++ "\n\n" ++ details ++ "\n\n" ++ hint
 
 
-globalErrorInTest : Error -> String
+globalErrorInTest : ReviewError -> String
 globalErrorInTest error =
     """GLOBAL ERROR IN SOURCE CODE
 
@@ -98,7 +98,7 @@ the same issue. Please fix this issue in your test.
 """
 
 
-messageMismatch : ExpectedErrorData -> Error -> String
+messageMismatch : ExpectedErrorData -> ReviewError -> String
 messageMismatch expectedError error =
     """UNEXPECTED ERROR MESSAGE
 
@@ -111,7 +111,7 @@ but I found the following error message:
   """ ++ wrapInQuotes (Rule.errorMessage error)
 
 
-underMismatch : Error -> { under : String, codeAtLocation : String } -> String
+underMismatch : ReviewError -> { under : String, codeAtLocation : String } -> String
 underMismatch error { under, codeAtLocation } =
     """UNEXPECTED ERROR LOCATION
 
@@ -131,7 +131,7 @@ Hint: Maybe you're passing the `Range` of a wrong node when
 calling `Rule.error`."""
 
 
-unexpectedDetails : List String -> Error -> String
+unexpectedDetails : List String -> ReviewError -> String
 unexpectedDetails expectedDetails error =
     """UNEXPECTED ERROR DETAILS
 
@@ -148,7 +148,7 @@ when I was expecting them to be:
   """ ++ formatDetails expectedDetails
 
 
-emptyDetails : Error -> String
+emptyDetails : ReviewError -> String
 emptyDetails error =
     """EMPTY ERROR DETAILS
 
@@ -177,7 +177,7 @@ formatDetails details =
                 |> (\str -> "```\n" ++ str ++ "\n  ```")
 
 
-wrongLocation : Error -> Range -> String -> String
+wrongLocation : ReviewError -> Range -> String -> String
 wrongLocation error range under =
     """UNEXPECTED ERROR LOCATION
 
@@ -217,7 +217,7 @@ I expected to see """
            )
 
 
-tooManyErrors : String -> List Error -> String
+tooManyErrors : String -> List ReviewError -> String
 tooManyErrors moduleName extraErrors =
     let
         numberOfErrors : Int
@@ -231,7 +231,7 @@ I found """
         ++ listErrorMessagesAndPositions extraErrors
 
 
-locationNotFound : Error -> String
+locationNotFound : ReviewError -> String
 locationNotFound error =
     """COULD NOT FIND LOCATION FOR ERROR
 
@@ -264,7 +264,7 @@ If this helps, this is where I found the error:
   """ ++ formatSourceCode codeAtLocation
 
 
-locationIsAmbiguousInSourceCode : SourceCode -> Error -> String -> List Int -> String
+locationIsAmbiguousInSourceCode : SourceCode -> ReviewError -> String -> List Int -> String
 locationIsAmbiguousInSourceCode sourceCode error under occurrencesInSourceCode =
     """AMBIGUOUS ERROR LOCATION
 
@@ -360,7 +360,7 @@ Hint: Maybe you forgot to call `Rule.withFixes` on the error that you
 created, or maybe the list of provided fixes was empty."""
 
 
-unexpectedFixes : Error -> String
+unexpectedFixes : ReviewError -> String
 unexpectedFixes error =
     """UNEXPECTED FIXES
 
@@ -384,7 +384,7 @@ To fix this, you can call `Review.Test.whenFixed` on your error:
       |> Review.Test.whenFixed "<source code>\""""
 
 
-fixedCodeMismatch : SourceCode -> SourceCode -> Error -> String
+fixedCodeMismatch : SourceCode -> SourceCode -> ReviewError -> String
 fixedCodeMismatch resultingSourceCode expectedSourceCode error =
     """FIXED CODE MISMATCH
 
@@ -402,7 +402,7 @@ but I was expecting:
   """ ++ formatSourceCode expectedSourceCode
 
 
-unchangedSourceAfterFix : Error -> String
+unchangedSourceAfterFix : ReviewError -> String
 unchangedSourceAfterFix error =
     """UNCHANGED SOURCE AFTER FIX
 
@@ -421,7 +421,7 @@ doesn't do anything.
 Hint: Maybe you inserted an empty string into the source code."""
 
 
-invalidSourceAfterFix : Error -> SourceCode -> String
+invalidSourceAfterFix : ReviewError -> SourceCode -> String
 invalidSourceAfterFix error resultingSourceCode =
     """INVALID SOURCE AFTER FIX
 
@@ -442,7 +442,7 @@ anymore. If a fix can not be applied fully, it should not be applied at
 all."""
 
 
-hasCollisionsInFixRanges : Error -> String
+hasCollisionsInFixRanges : ReviewError -> String
 hasCollisionsInFixRanges error =
     """FOUND COLLISIONS IN FIX RANGES
 
@@ -555,14 +555,14 @@ positionAsRange sourceCode under position =
     }
 
 
-listErrorMessagesAndPositions : List Error -> String
+listErrorMessagesAndPositions : List ReviewError -> String
 listErrorMessagesAndPositions errors =
     errors
         |> List.map errorMessageAndPosition
         |> String.join "\n"
 
 
-errorMessageAndPosition : Error -> String
+errorMessageAndPosition : ReviewError -> String
 errorMessageAndPosition error =
     "  - " ++ wrapInQuotes (Rule.errorMessage error) ++ "\n    at " ++ rangeAsString (Rule.errorRange error)
 

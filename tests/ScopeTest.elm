@@ -4,7 +4,7 @@ import Dependencies
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)
 import Review.Project as Project exposing (Project)
-import Review.Rule as Rule exposing (Rule)
+import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test exposing (ReviewResult)
 import Scope
 import Test exposing (Test, test)
@@ -62,7 +62,7 @@ all =
                                 |> Rule.withFinalModuleEvaluation finalEvaluation
                                 |> Rule.fromModuleRuleSchema
 
-                        expressionVisitor : Node Expression -> Rule.Direction -> Context -> ( List Rule.Error, Context )
+                        expressionVisitor : Node Expression -> Rule.Direction -> Context -> ( List (Error {}), Context )
                         expressionVisitor node direction context =
                             case ( direction, Node.value node ) of
                                 ( Rule.OnEnter, Expression.FunctionOrValue moduleName name ) ->
@@ -90,7 +90,7 @@ all =
                                 _ ->
                                     ( [], context )
 
-                        finalEvaluation : Context -> List Rule.Error
+                        finalEvaluation : Context -> List (Error {})
                         finalEvaluation context =
                             [ Rule.error { message = context.text, details = [ "details" ] }
                                 { start = { row = 1, column = 1 }

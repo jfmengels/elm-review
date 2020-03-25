@@ -109,7 +109,7 @@ import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
 import Review.Fix as Fix
 import Review.Project as Project exposing (Project, ProjectModule)
-import Review.Rule as Rule exposing (Error, Rule)
+import Review.Rule as Rule exposing (ReviewError, Rule)
 import Review.Test.ErrorMessage as ErrorMessage
 import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
@@ -129,14 +129,14 @@ type ReviewResult
 type alias SuccessfulRunResult =
     { moduleName : String
     , inspector : CodeInspector
-    , errors : List Error
+    , errors : List ReviewError
     }
 
 
 type alias CodeInspector =
     { source : String
     , getCodeAtLocation : Range -> Maybe String
-    , checkIfLocationIsAmbiguous : Error -> String -> Expectation
+    , checkIfLocationIsAmbiguous : ReviewError -> String -> Expectation
     }
 
 
@@ -359,7 +359,7 @@ runOnModulesWithProjectData project rule sources =
 
                     Nothing ->
                         let
-                            errors : List Error
+                            errors : List ReviewError
                             errors =
                                 projectWithModules
                                     |> Rule.review [ rule ]
@@ -378,7 +378,7 @@ runOnModulesWithProjectData project rule sources =
                                     |> SuccessfulRun
 
 
-moduleToRunResult : List Error -> ProjectModule -> SuccessfulRunResult
+moduleToRunResult : List ReviewError -> ProjectModule -> SuccessfulRunResult
 moduleToRunResult errors projectModule =
     { moduleName =
         projectModule.ast.moduleDefinition
@@ -393,7 +393,7 @@ moduleToRunResult errors projectModule =
     }
 
 
-elmJsonRunResult : List Error -> Project -> List SuccessfulRunResult
+elmJsonRunResult : List ReviewError -> Project -> List SuccessfulRunResult
 elmJsonRunResult errors project =
     case Project.elmJson project of
         Just elmJsonData ->
@@ -412,7 +412,7 @@ elmJsonRunResult errors project =
             []
 
 
-readmeRunResult : List Error -> Project -> List SuccessfulRunResult
+readmeRunResult : List ReviewError -> Project -> List SuccessfulRunResult
 readmeRunResult errors project =
     case Project.readme project of
         Just readme ->
@@ -475,7 +475,7 @@ findDuplicateModuleNames previousModuleNames modules =
                 findDuplicateModuleNames (Set.insert moduleName previousModuleNames) restOfModules
 
 
-compareErrorPositions : Error -> Error -> Order
+compareErrorPositions : ReviewError -> ReviewError -> Order
 compareErrorPositions a b =
     compareRange (Rule.errorRange a) (Rule.errorRange b)
 
@@ -923,7 +923,7 @@ getCodeAtLocationInSourceCode sourceCode =
                 |> Just
 
 
-checkIfLocationIsAmbiguousInSourceCode : SourceCode -> Error -> String -> Expectation
+checkIfLocationIsAmbiguousInSourceCode : SourceCode -> ReviewError -> String -> Expectation
 checkIfLocationIsAmbiguousInSourceCode sourceCode error_ under =
     let
         occurrencesInSourceCode : List Int
@@ -945,7 +945,7 @@ checkAllErrorsMatch runResult expectedErrors =
         |> (\expectations -> Expect.all expectations ())
 
 
-checkErrorsMatch : SuccessfulRunResult -> List ExpectedError -> List Error -> List (() -> Expectation)
+checkErrorsMatch : SuccessfulRunResult -> List ExpectedError -> List ReviewError -> List (() -> Expectation)
 checkErrorsMatch runResult expectedErrors errors =
     case ( expectedErrors, errors ) of
         ( [], [] ) ->
@@ -962,7 +962,7 @@ checkErrorsMatch runResult expectedErrors errors =
             [ always <| Expect.fail <| ErrorMessage.tooManyErrors runResult.moduleName (error_ :: restOfErrors) ]
 
 
-checkErrorMatch : CodeInspector -> ExpectedError -> Error -> (() -> Expectation)
+checkErrorMatch : CodeInspector -> ExpectedError -> ReviewError -> (() -> Expectation)
 checkErrorMatch codeInspector ((ExpectedError expectedError_) as expectedError) error_ =
     Expect.all
         [ \() ->
@@ -978,7 +978,7 @@ checkErrorMatch codeInspector ((ExpectedError expectedError_) as expectedError) 
         ]
 
 
-checkMessageAppearsUnder : CodeInspector -> Error -> ExpectedError -> (() -> Expectation)
+checkMessageAppearsUnder : CodeInspector -> ReviewError -> ExpectedError -> (() -> Expectation)
 checkMessageAppearsUnder codeInspector error_ (ExpectedError expectedError) =
     case codeInspector.getCodeAtLocation (Rule.errorRange error_) of
         Just codeAtLocation ->
@@ -1018,7 +1018,7 @@ checkMessageAppearsUnder codeInspector error_ (ExpectedError expectedError) =
                     |> Expect.fail
 
 
-checkDetailsAreCorrect : Error -> ExpectedError -> (() -> Expectation)
+checkDetailsAreCorrect : ReviewError -> ExpectedError -> (() -> Expectation)
 checkDetailsAreCorrect error_ (ExpectedError expectedError) =
     Expect.all
         [ (not <| List.isEmpty <| Rule.errorDetails error_)
@@ -1030,7 +1030,7 @@ checkDetailsAreCorrect error_ (ExpectedError expectedError) =
         ]
 
 
-checkFixesAreCorrect : CodeInspector -> Error -> ExpectedError -> Expectation
+checkFixesAreCorrect : CodeInspector -> ReviewError -> ExpectedError -> Expectation
 checkFixesAreCorrect codeInspector error_ ((ExpectedError expectedError_) as expectedError) =
     case ( expectedError_.fixedSource, Rule.errorFixes error_ ) of
         ( Nothing, Nothing ) ->

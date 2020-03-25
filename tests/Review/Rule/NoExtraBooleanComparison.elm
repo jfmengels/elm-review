@@ -67,7 +67,7 @@ rule =
         |> Rule.fromModuleRuleSchema
 
 
-error : Node a -> String -> String -> Error
+error : Node a -> String -> String -> Error {}
 error node operator comparedValue =
     Rule.error
         { message = "Unnecessary comparison with `" ++ comparedValue ++ "`"
@@ -76,7 +76,7 @@ error node operator comparedValue =
         (Node.range node)
 
 
-expressionVisitor : Node Expression -> List Error
+expressionVisitor : Node Expression -> List (Error {})
 expressionVisitor node =
     case Node.value node of
         Expression.OperatorApplication operator _ left right ->

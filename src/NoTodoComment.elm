@@ -12,7 +12,7 @@ rule =
         |> Rule.fromModuleRuleSchema
 
 
-commentsVisitor : List (Node String) -> List Error
+commentsVisitor : List (Node String) -> List (Error {})
 commentsVisitor comments =
     comments
         |> List.concatMap
@@ -22,7 +22,7 @@ commentsVisitor comments =
             )
 
 
-errorAtPosition : Node String -> Int -> Error
+errorAtPosition : Node String -> Int -> Error {}
 errorAtPosition node index =
     Rule.error
         { message = "TODO needs to be handled"

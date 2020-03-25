@@ -122,7 +122,7 @@ emptyScope =
     }
 
 
-error : VariableInfo -> String -> Error
+error : VariableInfo -> String -> Error {}
 error { variableType, under, rangeToRemove } name =
     Rule.error
         { message = variableTypeToString variableType ++ " `" ++ name ++ "` is not used" ++ variableTypeWarning variableType
@@ -268,7 +268,7 @@ moduleAliasRange (Node _ { moduleName }) range =
     { range | start = (Node.range moduleName).end }
 
 
-expressionVisitor : Node Expression -> Direction -> Context -> ( List Error, Context )
+expressionVisitor : Node Expression -> Direction -> Context -> ( List (Error {}), Context )
 expressionVisitor (Node range value) direction context =
     case ( direction, value ) of
         ( Rule.OnEnter, FunctionOrValue [] name ) ->
@@ -583,7 +583,7 @@ markUsedTypesAndModules { types, modules } context =
         |> markAllModulesAsUsed modules
 
 
-finalEvaluation : Context -> List Error
+finalEvaluation : Context -> List (Error {})
 finalEvaluation context =
     if context.exposesEverything then
         []
@@ -605,7 +605,7 @@ finalEvaluation context =
             newRootScope =
                 { rootScope | used = Set.union namesOfCustomTypesUsedByCallingAConstructor rootScope.used }
 
-            moduleErrors : List Error
+            moduleErrors : List (Error {})
             moduleErrors =
                 context.declaredModules
                     |> Dict.filter (\key _ -> not <| Set.member key context.usedModules)
@@ -896,7 +896,7 @@ getModuleName name =
     String.join "." name
 
 
-makeReport : Scope -> ( List Error, List String )
+makeReport : Scope -> ( List (Error {}), List String )
 makeReport { declared, used } =
     let
         nonUsedVars : List String
@@ -904,7 +904,7 @@ makeReport { declared, used } =
             Set.diff used (Set.fromList <| Dict.keys declared)
                 |> Set.toList
 
-        errors : List Error
+        errors : List (Error {})
         errors =
             Dict.filter (\key _ -> not <| Set.member key used) declared
                 |> Dict.toList

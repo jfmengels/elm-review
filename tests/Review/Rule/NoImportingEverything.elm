@@ -67,7 +67,7 @@ rule config =
         |> Rule.fromModuleRuleSchema
 
 
-error : Range -> String -> Error
+error : Range -> String -> Error {}
 error range name =
     Rule.error
         { message = "Do not expose everything from " ++ name
@@ -79,7 +79,7 @@ error range name =
         range
 
 
-importVisitor : Configuration -> Node Import -> List Error
+importVisitor : Configuration -> Node Import -> List (Error {})
 importVisitor config node =
     let
         { moduleName, exposingList } =

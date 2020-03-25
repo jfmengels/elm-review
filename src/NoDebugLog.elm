@@ -66,7 +66,7 @@ type alias Context =
     }
 
 
-error : Node a -> Error
+error : Node a -> Error {}
 error node =
     Rule.error
         { message = "Remove the use of `Debug.log` before shipping to production"
@@ -112,7 +112,7 @@ isLog node =
             False
 
 
-expressionVisitor : Node Expression -> Rule.Direction -> Context -> ( List Error, Context )
+expressionVisitor : Node Expression -> Rule.Direction -> Context -> ( List (Error {}), Context )
 expressionVisitor node direction context =
     case ( direction, Node.value node ) of
         ( Rule.OnEnter, Expression.FunctionOrValue [ "Debug" ] "log" ) ->

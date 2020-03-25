@@ -55,10 +55,10 @@ rule =
         |> Rule.fromModuleRuleSchema
 
 
-declarationListVisitor : List (Node Declaration) -> () -> ( List Error, () )
+declarationListVisitor : List (Node Declaration) -> () -> ( List (Error {}), () )
 declarationListVisitor declarations context =
     let
-        errors : List Error
+        errors : List (Error {})
         errors =
             List.concatMap
                 (\node ->
@@ -93,7 +93,7 @@ declarationListVisitor declarations context =
     ( errors, context )
 
 
-errorFromNode : Node String -> Error
+errorFromNode : Node String -> Error {}
 errorFromNode nameNode =
     Rule.error
         { message = Node.value nameNode

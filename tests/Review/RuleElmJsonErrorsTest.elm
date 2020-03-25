@@ -4,7 +4,7 @@ import Elm.Package
 import Elm.Project
 import Elm.Version
 import Review.Project as Project exposing (Project)
-import Review.Rule as Rule exposing (Rule)
+import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
 import Test exposing (Test, test)
 
@@ -26,7 +26,7 @@ initialProjectContext =
     Nothing
 
 
-finalEvaluationForProject : Context -> List Rule.Error
+finalEvaluationForProject : Context -> List (Error {})
 finalEvaluationForProject maybeElmJsonKey =
     case maybeElmJsonKey of
         Just elmJsonKey ->

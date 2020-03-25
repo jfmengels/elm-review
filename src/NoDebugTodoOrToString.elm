@@ -107,7 +107,7 @@ init =
     }
 
 
-error : Node a -> String -> Error
+error : Node a -> String -> Error {}
 error node name =
     Rule.error
         { message = "Remove the use of `Debug." ++ name ++ "` before shipping to production"
@@ -158,7 +158,7 @@ is name node =
             False
 
 
-expressionVisitor : Node Expression -> Rule.Direction -> Context -> ( List Error, Context )
+expressionVisitor : Node Expression -> Rule.Direction -> Context -> ( List (Error {}), Context )
 expressionVisitor node direction context =
     case ( direction, Node.value node ) of
         ( Rule.OnEnter, Expression.FunctionOrValue [ "Debug" ] name ) ->

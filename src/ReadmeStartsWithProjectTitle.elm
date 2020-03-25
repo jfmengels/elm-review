@@ -43,7 +43,7 @@ elmJsonVisitor maybeProject projectContext =
 -- README VISITOR
 
 
-readmeVisitor : Maybe { readmeKey : Rule.ReadmeKey, content : String } -> ProjectContext -> ( List Error, ProjectContext )
+readmeVisitor : Maybe { readmeKey : Rule.ReadmeKey, content : String } -> ProjectContext -> ( List (Error scope), ProjectContext )
 readmeVisitor maybeReadme context =
     case ( maybeReadme, context.projectTitle ) of
         ( Just { readmeKey, content }, Just projectName ) ->

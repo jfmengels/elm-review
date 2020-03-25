@@ -2,8 +2,8 @@ module ErrorMessageTest exposing (all)
 
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
+import Review.Error exposing (ReviewError)
 import Review.Fix as Fix
-import Review.Rule as Rule exposing (Error)
 import Review.Test.ErrorMessage as ErrorMessage exposing (ExpectedErrorData)
 import Test exposing (Test, describe, test)
 
@@ -91,14 +91,14 @@ didNotExpectErrorsTest =
     test "didNotExpectErrors" <|
         \() ->
             let
-                errors : List Error
+                errors : List ReviewError
                 errors =
-                    [ Rule.error
+                    [ Review.Error.error
                         { message = "Some error"
                         , details = [ "Some details" ]
                         }
                         dummyRange
-                    , Rule.error
+                    , Review.Error.error
                         { message = "Some other error"
                         , details = [ "Some other details" ]
                         }
@@ -130,9 +130,9 @@ messageMismatchTest =
                     , under = "Debug.log"
                     }
 
-                error : Error
+                error : ReviewError
                 error =
-                    Rule.error
+                    Review.Error.error
                         { message = "Some error"
                         , details = [ "Some details" ]
                         }
@@ -157,9 +157,9 @@ underMismatchTest =
         [ test "with single-line extracts" <|
             \() ->
                 let
-                    error : Error
+                    error : ReviewError
                     error =
-                        Rule.error
+                        Review.Error.error
                             { message = "Some error"
                             , details = [ "Some details" ]
                             }
@@ -190,9 +190,9 @@ calling `Rule.error`."""
         , test "with multi-line extracts" <|
             \() ->
                 let
-                    error : Error
+                    error : ReviewError
                     error =
-                        Rule.error
+                        Review.Error.error
                             { message = "Some other error"
                             , details = [ "Some other details" ]
                             }
@@ -240,9 +240,9 @@ unexpectedDetailsTest =
                     expectedDetails =
                         [ "Some details" ]
 
-                    error : Error
+                    error : ReviewError
                     error =
-                        Rule.error
+                        Review.Error.error
                             { message = "Some error"
                             , details = [ "Some other details" ]
                             }
@@ -274,9 +274,9 @@ when I was expecting them to be:
                         , "details"
                         ]
 
-                    error : Error
+                    error : ReviewError
                     error =
-                        Rule.error
+                        Review.Error.error
                             { message = "Some other error"
                             , details =
                                 [ "Some"
@@ -323,9 +323,9 @@ emptyDetailsTest =
         [ test "with single-line details" <|
             \() ->
                 let
-                    error : Error
+                    error : ReviewError
                     error =
-                        Rule.error
+                        Review.Error.error
                             { message = "Some error"
                             , details = [ "Some details" ]
                             }
@@ -355,9 +355,9 @@ wrongLocationTest =
         [ test "with single-line extracts" <|
             \() ->
                 let
-                    error : Error
+                    error : ReviewError
                     error =
-                        Rule.error
+                        Review.Error.error
                             { message = "Some error"
                             , details = [ "Some details" ]
                             }
@@ -391,9 +391,9 @@ but I found it at:
         , test "with multi-line extracts" <|
             \() ->
                 let
-                    error : Error
+                    error : ReviewError
                     error =
-                        Rule.error
+                        Review.Error.error
                             { message = "Some other error"
                             , details = [ "Some other details" ]
                             }
@@ -435,9 +435,9 @@ locationNotFoundTest =
     test "locationNotFound" <|
         \() ->
             let
-                error : Error
+                error : ReviewError
                 error =
-                    Rule.error
+                    Review.Error.error
                         { message = "Some error"
                         , details = [ "Some details" ]
                         }
@@ -519,9 +519,9 @@ tooManyErrorsTest =
         [ test "with one extra error" <|
             \() ->
                 let
-                    extraErrors : List Rule.Error
+                    extraErrors : List ReviewError
                     extraErrors =
-                        [ Rule.error
+                        [ Review.Error.error
                             { message = "Remove the use of `Debug` before shipping to production"
                             , details = [ "Some details about Debug" ]
                             }
@@ -540,14 +540,14 @@ I found 1 error too many for module `MyModule`:
         , test "with multiple extra errors" <|
             \() ->
                 let
-                    extraErrors : List Rule.Error
+                    extraErrors : List ReviewError
                     extraErrors =
-                        [ Rule.error
+                        [ Review.Error.error
                             { message = "Remove the use of `Debug` before shipping to production"
                             , details = [ "Some details about Debug" ]
                             }
                             { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
-                        , Rule.error
+                        , Review.Error.error
                             { message = "Remove the use of `Debug` before shipping to production"
                             , details = [ "Some details about Debug" ]
                             }
@@ -582,9 +582,9 @@ locationIsAmbiguousInSourceCodeTest =
                     under =
                         "abcd"
 
-                    error : Error
+                    error : ReviewError
                     error =
-                        Rule.error
+                        Review.Error.error
                             { message = "Some error"
                             , details = [ "Some details" ]
                             }
@@ -626,9 +626,9 @@ Tip: I found them at:
                     under =
                         "abcd =\n  1"
 
-                    error : Error
+                    error : ReviewError
                     error =
-                        Rule.error
+                        Review.Error.error
                             { message = "Some other error"
                             , details = [ "Some other details" ]
                             }
@@ -781,14 +781,14 @@ unexpectedFixesTest =
                 range =
                     { start = { row = 3, column = 1 }, end = { row = 4, column = 3 } }
 
-                error : Error
+                error : ReviewError
                 error =
-                    Rule.error
+                    Review.Error.error
                         { message = "Some error"
                         , details = [ "Some details" ]
                         }
                         range
-                        |> Rule.withFixes [ Fix.removeRange range ]
+                        |> Review.Error.withFixes [ Fix.removeRange range ]
             in
             ErrorMessage.unexpectedFixes error
                 |> expectMessageEqual """
@@ -832,9 +832,9 @@ abcd =
 abcd =
   2"""
 
-                error : Error
+                error : ReviewError
                 error =
-                    Rule.error
+                    Review.Error.error
                         { message = "Some error"
                         , details = [ "Some details" ]
                         }
@@ -874,9 +874,9 @@ unchangedSourceAfterFixTest =
     test "unchangedSourceAfterFix" <|
         \() ->
             let
-                error : Error
+                error : ReviewError
                 error =
-                    Rule.error
+                    Review.Error.error
                         { message = "Some error"
                         , details = [ "Some details" ]
                         }
@@ -912,9 +912,9 @@ invalidSourceAfterFixTest =
 abcd =
   1"""
 
-                error : Error
+                error : ReviewError
                 error =
-                    Rule.error
+                    Review.Error.error
                         { message = "Some error"
                         , details = [ "Some details" ]
                         }
@@ -952,9 +952,9 @@ hasCollisionsInFixRangesTest =
     test "hasCollisionsInFixRanges" <|
         \() ->
             let
-                error : Error
+                error : ReviewError
                 error =
-                    Rule.error
+                    Review.Error.error
                         { message = "Some error"
                         , details = [ "Some details" ]
                         }

@@ -3,7 +3,7 @@ module Review.RuleVisitorsOrderTest exposing (all)
 import Elm.Syntax.Declaration exposing (Declaration)
 import Elm.Syntax.Expression exposing (Expression)
 import Elm.Syntax.Node exposing (Node)
-import Review.Rule as Rule exposing (Rule)
+import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
 import Test exposing (Test, test)
 
@@ -47,7 +47,7 @@ all =
                             |> Rule.withFinalModuleEvaluation finalEvaluation
                             |> Rule.fromModuleRuleSchema
 
-                    finalEvaluation : Context -> List Rule.Error
+                    finalEvaluation : Context -> List (Error {})
                     finalEvaluation context =
                         [ Rule.error { message = context, details = [ "details" ] }
                             { start = { row = 1, column = 1 }
@@ -89,7 +89,7 @@ a = 1
                             |> Rule.withFinalModuleEvaluation finalEvaluation
                             |> Rule.fromModuleRuleSchema
 
-                    declarationVisitor : String -> Node Expression -> Rule.Direction -> Context -> ( List Rule.Error, Context )
+                    declarationVisitor : String -> Node Expression -> Rule.Direction -> Context -> ( List (Error {}), Context )
                     declarationVisitor text node direction context =
                         case direction of
                             Rule.OnEnter ->
@@ -98,7 +98,7 @@ a = 1
                             Rule.OnExit ->
                                 ( [], context ++ "\nExit " ++ text )
 
-                    finalEvaluation : Context -> List Rule.Error
+                    finalEvaluation : Context -> List (Error {})
                     finalEvaluation context =
                         [ Rule.error { message = context, details = [ "details" ] }
                             { start = { row = 1, column = 1 }
@@ -134,7 +134,7 @@ Exit A"""
                             |> Rule.withFinalModuleEvaluation finalEvaluation
                             |> Rule.fromModuleRuleSchema
 
-                    declarationVisitor : String -> Node Declaration -> Rule.Direction -> Context -> ( List Rule.Error, Context )
+                    declarationVisitor : String -> Node Declaration -> Rule.Direction -> Context -> ( List (Error {}), Context )
                     declarationVisitor text node direction context =
                         case direction of
                             Rule.OnEnter ->
@@ -143,7 +143,7 @@ Exit A"""
                             Rule.OnExit ->
                                 ( [], context ++ "\nExit " ++ text )
 
-                    finalEvaluation : Context -> List Rule.Error
+                    finalEvaluation : Context -> List (Error {})
                     finalEvaluation context =
                         [ Rule.error { message = context, details = [ "details" ] }
                             { start = { row = 1, column = 1 }

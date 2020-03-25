@@ -187,7 +187,7 @@ moduleNameForImport node =
 -- FINAL EVALUATION
 
 
-finalEvaluationForProject : ProjectContext -> List Error
+finalEvaluationForProject : ProjectContext -> List (Error {})
 finalEvaluationForProject projectContext =
     case projectContext.elmJsonKey of
         Just elmJsonKey ->
@@ -203,7 +203,7 @@ finalEvaluationForProject projectContext =
             []
 
 
-error : Rule.ElmJsonKey -> String -> Error
+error : Rule.ElmJsonKey -> String -> Error {}
 error elmJsonKey packageName =
     Rule.errorForElmJson elmJsonKey
         (\elmJson ->

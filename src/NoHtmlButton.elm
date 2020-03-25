@@ -43,7 +43,7 @@ moduleDefinitionVisitor node context =
         ( [], { context | allowed = HtmlButtonIsForbidden } )
 
 
-expressionVisitor : Node Expression -> Direction -> Context -> ( List Error, Context )
+expressionVisitor : Node Expression -> Direction -> Context -> ( List (Error {}), Context )
 expressionVisitor node direction context =
     case ( direction, context.allowed ) of
         ( Rule.OnEnter, HtmlButtonIsAllowed ) ->

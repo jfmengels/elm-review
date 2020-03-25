@@ -67,7 +67,7 @@ rule =
         |> Rule.fromModuleRuleSchema
 
 
-error : Node a -> Error
+error : Node a -> Error {}
 error node =
     Rule.error
         { message = "Remove the use of `Debug` before shipping to production"
@@ -76,7 +76,7 @@ error node =
         (Node.range node)
 
 
-importVisitor : Node Import -> List Error
+importVisitor : Node Import -> List (Error {})
 importVisitor node =
     let
         moduleNameNode : Node (List String)
@@ -90,7 +90,7 @@ importVisitor node =
         []
 
 
-expressionVisitor : Node Expression -> List Error
+expressionVisitor : Node Expression -> List (Error {})
 expressionVisitor node =
     case Node.value node of
         FunctionOrValue moduleName fnName ->

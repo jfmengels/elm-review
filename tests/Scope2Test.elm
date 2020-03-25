@@ -6,7 +6,7 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Review.Project as Project exposing (Project)
-import Review.Rule as Rule exposing (Rule)
+import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
 import Scope2 as Scope
 import Test exposing (Test, test)
@@ -152,7 +152,7 @@ moduleVisitor schema =
         |> Rule.withFinalModuleEvaluation finalEvaluation
 
 
-declarationVisitor : Node Declaration -> Rule.Direction -> ModuleContext -> ( List Rule.Error, ModuleContext )
+declarationVisitor : Node Declaration -> Rule.Direction -> ModuleContext -> ( List (Error scope), ModuleContext )
 declarationVisitor node direction context =
     case ( direction, Node.value node ) of
         ( Rule.OnEnter, Declaration.FunctionDeclaration function ) ->
@@ -212,7 +212,7 @@ typeAnnotationNames scope typeAnnotation =
             typeAnnotationNames scope arg ++ "\n" ++ typeAnnotationNames scope returnType
 
 
-expressionVisitor : Node Expression -> Rule.Direction -> ModuleContext -> ( List Rule.Error, ModuleContext )
+expressionVisitor : Node Expression -> Rule.Direction -> ModuleContext -> ( List (Error scope), ModuleContext )
 expressionVisitor node direction context =
     case ( direction, Node.value node ) of
         ( Rule.OnEnter, Expression.FunctionOrValue moduleName name ) ->
@@ -241,7 +241,7 @@ expressionVisitor node direction context =
             ( [], context )
 
 
-finalEvaluation : ModuleContext -> List Rule.Error
+finalEvaluation : ModuleContext -> List (Error {})
 finalEvaluation context =
     [ Rule.error { message = context.text, details = [ "details" ] }
         { start = { row = 1, column = 1 }
