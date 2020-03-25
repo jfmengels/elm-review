@@ -451,7 +451,7 @@ isCapitalized name =
 -- FINAL PROJECT EVALUATION
 
 
-finalProjectEvaluation : ProjectContext -> List (Error {})
+finalProjectEvaluation : ProjectContext -> List (Error { useErrorForModule : () })
 finalProjectEvaluation projectContext =
     projectContext.exposedConstructors
         |> Dict.toList

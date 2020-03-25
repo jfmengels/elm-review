@@ -1129,11 +1129,11 @@ The visitor will be called before any module is evaluated.
 
 -}
 withElmJsonProjectVisitor :
-    (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
+    (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error { useErrorForModule : () }), projectContext ))
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
 withElmJsonProjectVisitor visitor (ProjectRuleSchema schema) =
-    ProjectRuleSchema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
+    ProjectRuleSchema { schema | elmJsonVisitors = removeErrorPhantomTypeFromVisitor visitor :: schema.elmJsonVisitors }
 
 
 {-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will visit
@@ -1144,11 +1144,11 @@ The visitor will be called before any module is evaluated.
 
 -}
 withReadmeProjectVisitor :
-    (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
+    (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error { useErrorForModule : () }), projectContext ))
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
 withReadmeProjectVisitor visitor (ProjectRuleSchema schema) =
-    ProjectRuleSchema { schema | readmeVisitors = visitor :: schema.readmeVisitors }
+    ProjectRuleSchema { schema | readmeVisitors = removeErrorPhantomTypeFromVisitor visitor :: schema.readmeVisitors }
 
 
 {-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will visit the project's
@@ -1159,11 +1159,11 @@ module is evaluated.
 
 -}
 withDependenciesProjectVisitor :
-    (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
+    (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error { useErrorForModule : () }), projectContext ))
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
 withDependenciesProjectVisitor visitor (ProjectRuleSchema schema) =
-    ProjectRuleSchema { schema | dependenciesVisitors = visitor :: schema.dependenciesVisitors }
+    ProjectRuleSchema { schema | dependenciesVisitors = removeErrorPhantomTypeFromVisitor visitor :: schema.dependenciesVisitors }
 
 
 {-| Add a function that makes a final evaluation of the project based only on the
@@ -1178,11 +1178,23 @@ That means that if you call [`error`](#error), we won't know which module to ass
 
 -}
 withFinalProjectEvaluation :
-    (projectContext -> List (Error {}))
+    (projectContext -> List (Error { useErrorForModule : () }))
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema schemaState projectContext moduleContext
 withFinalProjectEvaluation visitor (ProjectRuleSchema schema) =
-    ProjectRuleSchema { schema | finalEvaluationFns = visitor :: schema.finalEvaluationFns }
+    let
+        removeErrorPhantomTypeFromEvaluation : (projectContext -> List (Error b)) -> (projectContext -> List (Error {}))
+        removeErrorPhantomTypeFromEvaluation function projectContext =
+            function projectContext
+                |> List.map removeErrorPhantomType
+    in
+    ProjectRuleSchema { schema | finalEvaluationFns = removeErrorPhantomTypeFromEvaluation visitor :: schema.finalEvaluationFns }
+
+
+removeErrorPhantomTypeFromVisitor : (element -> projectContext -> ( List (Error b), projectContext )) -> (element -> projectContext -> ( List (Error {}), projectContext ))
+removeErrorPhantomTypeFromVisitor function element projectContext =
+    function element projectContext
+        |> Tuple.mapFirst (List.map removeErrorPhantomType)
 
 
 {-| Allows the rule to have access to the context of the modules imported by the

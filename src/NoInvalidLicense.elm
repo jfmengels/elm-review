@@ -121,7 +121,7 @@ initialProjectContext =
 -- FINAL EVALUATION
 
 
-finalEvaluationForProject : Configuration -> ProjectContext -> List (Error {})
+finalEvaluationForProject : Configuration -> ProjectContext -> List (Error { useErrorForModule : () })
 finalEvaluationForProject configuration projectContext =
     case projectContext.elmJsonKey of
         Just elmJsonKey ->

@@ -202,7 +202,7 @@ elmJsonVisitor maybeProject projectContext =
 -- PROJECT EVALUATION
 
 
-finalEvaluationForProject : ProjectContext -> List (Error {})
+finalEvaluationForProject : ProjectContext -> List (Error { useErrorForModule : () })
 finalEvaluationForProject projectContext =
     projectContext.modules
         |> removeExposedPackages projectContext
@@ -229,12 +229,7 @@ finalEvaluationForProject projectContext =
                                         ExposedType ->
                                             "Exposed type"
                             in
-                            [ Rule.error
-                                { message = what ++ " `" ++ name ++ "` is never used outside this module."
-                                , details = [ "This exposed element is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
-                                }
-                                range
-                            , Rule.errorForModule moduleKey
+                            [ Rule.errorForModule moduleKey
                                 { message = what ++ " `" ++ name ++ "` is never used outside this module."
                                 , details = [ "This exposed element is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
                                 }

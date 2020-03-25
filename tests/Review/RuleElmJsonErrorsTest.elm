@@ -26,7 +26,7 @@ initialProjectContext =
     Nothing
 
 
-finalEvaluationForProject : Context -> List (Error {})
+finalEvaluationForProject : Context -> List (Error { useErrorForModule : () })
 finalEvaluationForProject maybeElmJsonKey =
     case maybeElmJsonKey of
         Just elmJsonKey ->
