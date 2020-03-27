@@ -4,11 +4,11 @@ import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.Node as Node exposing (Node)
 import Review.Rule as Rule exposing (Direction, Error, Rule)
-import Scope
+import Scope2 as Scope
 
 
 type alias Context =
-    { scope : Scope.Context
+    { scope : Scope.ModuleContext
     , allowed : Allowed
     }
 
@@ -21,7 +21,7 @@ type Allowed
 rule : Rule
 rule =
     Rule.newModuleRuleSchema "NoHtmlButton" initialContext
-        |> Scope.addVisitors
+        |> Scope.addModuleVisitors
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withExpressionVisitor expressionVisitor
         |> Rule.fromModuleRuleSchema
@@ -29,7 +29,7 @@ rule =
 
 initialContext : Context
 initialContext =
-    { scope = Scope.initialContext
+    { scope = Scope.initialModuleContext
     , allowed = HtmlButtonIsForbidden
     }
 

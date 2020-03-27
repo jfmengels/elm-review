@@ -1,20 +1,22 @@
 module Scope2 exposing
-    ( ProjectContext, ModuleContext
-    , addProjectVisitors, initialProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
+    ( ModuleContext, addModuleVisitors, initialModuleContext
+    , ProjectContext, addProjectVisitors
+    , initialProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
     , realFunctionOrType
     )
 
-{-| Report variables or types that are declared or imported but never used.
+{-| Collect and infer information automatically for you
 
 
-# Definition
+# Adding to a module rule
 
-@docs ProjectContext, ModuleContext
+@docs ModuleContext, addModuleVisitors, initialModuleContext
 
 
-# Usage
+# Adding to a project rule
 
-@docs addProjectVisitors, addModuleVisitors, initialProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
+@docs ProjectContext, addProjectVisitors
+@docs initialProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
 
 
 # Access
@@ -22,8 +24,6 @@ module Scope2 exposing
 @docs realFunctionOrType
 
 -}
-
--- TODO Re-add the nice "can't make mistakes" addVisitors
 
 import Dict exposing (Dict)
 import Elm.Docs
@@ -45,36 +45,7 @@ import Review.Rule as Rule exposing (Direction)
 
 
 
--- DEFINITION
-{-
-   TODO To make everything less error-prone:
-
-   Wrap the following in a helper from Scope:
-
-      Scope.addVisitors setterGetter
-       ({ moduleVisitor =
-           \schema ->
-               schema
-                   |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-
-       , fromProjectToModule = fromProjectToModule
-       , fromModuleToProject = fromModuleToProject
-       , foldProjectContexts = foldProjectContexts
-       })
-
-    Need to fine-tune the details on how that would work obviously.
-
--}
-
-
-type ProjectContext
-    = ProjectContext InnerProjectContext
-
-
-type alias InnerProjectContext =
-    { dependenciesModules : Dict String Elm.Docs.Module
-    , modules : Dict ModuleName Elm.Docs.Module
-    }
+-- MODULE VISITOR
 
 
 type ModuleContext
@@ -96,15 +67,23 @@ type alias InnerModuleContext =
     }
 
 
-type alias Scope =
-    { names : Dict String VariableInfo
-    , cases : List ( Node Expression, Dict String VariableInfo )
-    , caseToExit : Node Expression
+initialModuleContext : ModuleContext
+initialModuleContext =
+    fromProjectToModule initialProjectContext
+
+
+
+-- PROJECT VISITOR
+
+
+type ProjectContext
+    = ProjectContext InnerProjectContext
+
+
+type alias InnerProjectContext =
+    { dependenciesModules : Dict String Elm.Docs.Module
+    , modules : Dict ModuleName Elm.Docs.Module
     }
-
-
-
--- USAGE
 
 
 initialProjectContext : ProjectContext
@@ -158,6 +137,17 @@ foldProjectContexts (ProjectContext a) (ProjectContext b) =
         }
 
 
+
+-- SCOPE
+
+
+type alias Scope =
+    { names : Dict String VariableInfo
+    , cases : List ( Node Expression, Dict String VariableInfo )
+    , caseToExit : Node Expression
+    }
+
+
 emptyScope : Scope
 emptyScope =
     { names = Dict.empty
@@ -173,12 +163,22 @@ addProjectVisitors schema =
     schema
         |> Rule.withContextFromImportedModules
         |> Rule.withDependenciesProjectVisitor (mapInnerProjectContext dependenciesVisitor)
-        |> Rule.withModuleVisitor addModuleVisitors
+        |> Rule.withModuleVisitor internalAddModuleVisitors
 
 
-addModuleVisitors : Rule.ModuleRuleSchema anything { moduleContext | scope : ModuleContext } -> Rule.ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } { moduleContext | scope : ModuleContext }
+addModuleVisitors :
+    Rule.ModuleRuleSchema { schemaState | canCollectProjectData : () } { moduleContext | scope : ModuleContext }
+    -> Rule.ModuleRuleSchema { schemaState | canCollectProjectData : (), hasAtLeastOneVisitor : () } { moduleContext | scope : ModuleContext }
 addModuleVisitors schema =
     schema
+        |> Rule.withDependenciesModuleVisitor (mapInnerModuleContext dependenciesVisitor)
+        |> internalAddModuleVisitors
+
+
+internalAddModuleVisitors : Rule.ModuleRuleSchema schemaState { moduleContext | scope : ModuleContext } -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } { moduleContext | scope : ModuleContext }
+internalAddModuleVisitors schema =
+    schema
+        -- TODO Add project visitors information
         |> Rule.withModuleDefinitionVisitor
             (mapInnerModuleContext moduleDefinitionVisitor |> pairWithNoErrors)
         |> Rule.withImportVisitor
@@ -267,7 +267,7 @@ pairWithNoErrors fn visited context =
 -- DEPENDENCIES
 
 
-dependenciesVisitor : Dict String Dependency -> InnerProjectContext -> InnerProjectContext
+dependenciesVisitor : Dict String Dependency -> { context | dependenciesModules : Dict String Elm.Docs.Module } -> { context | dependenciesModules : Dict String Elm.Docs.Module }
 dependenciesVisitor dependencies innerContext =
     let
         dependenciesModules : Dict String Elm.Docs.Module
@@ -593,7 +593,7 @@ exposedElements nodes =
 
 
 importVisitor : Node Import -> InnerModuleContext -> InnerModuleContext
-importVisitor (Node range import_) innerContext =
+importVisitor (Node _ import_) innerContext =
     innerContext
         |> registerImportAlias import_
         |> registerImportExposed import_
@@ -851,7 +851,7 @@ popScope ((Node range value) as node) direction context =
 
 
 expressionVisitor : Node Expression -> Direction -> InnerModuleContext -> InnerModuleContext
-expressionVisitor ((Node range value) as node) direction context =
+expressionVisitor (Node _ value) direction context =
     case ( direction, value ) of
         ( Rule.OnEnter, Expression.LetExpression { declarations, expression } ) ->
             List.foldl

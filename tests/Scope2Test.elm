@@ -14,7 +14,7 @@ import Test exposing (Test, test)
 
 all : Test
 all =
-    Test.describe "Scope"
+    Test.describe "Scope (project rule)"
         [ realFunctionOrTypeTests
         ]
 
