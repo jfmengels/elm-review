@@ -1,4 +1,4 @@
-module Scope2 exposing
+module Review.Scope exposing
     ( ModuleContext, addModuleVisitors, initialModuleContext
     , ProjectContext, addProjectVisitors
     , initialProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts

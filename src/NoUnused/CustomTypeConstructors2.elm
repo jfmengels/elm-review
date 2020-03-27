@@ -21,7 +21,7 @@ import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Signature exposing (Signature)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Review.Rule as Rule exposing (Direction, Error, Rule)
-import Scope2 as Scope
+import Review.Scope as Scope
 import Set exposing (Set)
 
 

@@ -4,7 +4,7 @@ import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.Node as Node exposing (Node)
 import Review.Rule as Rule exposing (Direction, Error, Rule)
-import Scope2 as Scope
+import Review.Scope as Scope
 
 
 type alias Context =
