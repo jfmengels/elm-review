@@ -162,7 +162,7 @@ addProjectVisitors :
 addProjectVisitors schema =
     schema
         |> Rule.withContextFromImportedModules
-        |> Rule.withDependenciesProjectVisitor (mapInnerProjectContext dependenciesVisitor)
+        |> Rule.withDependenciesProjectVisitor (mapInnerProjectContext dependenciesProjectVisitor)
         |> Rule.withModuleVisitor internalAddModuleVisitors
 
 
@@ -171,14 +171,13 @@ addModuleVisitors :
     -> Rule.ModuleRuleSchema { schemaState | canCollectProjectData : (), hasAtLeastOneVisitor : () } { moduleContext | scope : ModuleContext }
 addModuleVisitors schema =
     schema
-        |> Rule.withDependenciesModuleVisitor (mapInnerModuleContext dependenciesVisitor)
+        |> Rule.withDependenciesModuleVisitor (mapInnerModuleContext dependenciesModuleVisitor)
         |> internalAddModuleVisitors
 
 
 internalAddModuleVisitors : Rule.ModuleRuleSchema schemaState { moduleContext | scope : ModuleContext } -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } { moduleContext | scope : ModuleContext }
 internalAddModuleVisitors schema =
     schema
-        -- TODO Add project visitors information
         |> Rule.withModuleDefinitionVisitor
             (mapInnerModuleContext moduleDefinitionVisitor |> pairWithNoErrors)
         |> Rule.withImportVisitor
@@ -267,8 +266,19 @@ pairWithNoErrors fn visited context =
 -- DEPENDENCIES
 
 
-dependenciesVisitor : Dict String Dependency -> { context | dependenciesModules : Dict String Elm.Docs.Module } -> { context | dependenciesModules : Dict String Elm.Docs.Module }
-dependenciesVisitor dependencies innerContext =
+dependenciesProjectVisitor : Dict String Dependency -> InnerProjectContext -> InnerProjectContext
+dependenciesProjectVisitor dependencies innerContext =
+    internalDependenciesVisitor dependencies innerContext
+
+
+dependenciesModuleVisitor : Dict String Dependency -> InnerModuleContext -> InnerModuleContext
+dependenciesModuleVisitor dependencies innerContext =
+    internalDependenciesVisitor dependencies innerContext
+        |> registerPrelude
+
+
+internalDependenciesVisitor : Dict String Dependency -> { context | dependenciesModules : Dict String Elm.Docs.Module } -> { context | dependenciesModules : Dict String Elm.Docs.Module }
+internalDependenciesVisitor dependencies innerContext =
     let
         dependenciesModules : Dict String Elm.Docs.Module
         dependenciesModules =

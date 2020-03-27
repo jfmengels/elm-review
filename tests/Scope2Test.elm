@@ -14,14 +14,79 @@ import Test exposing (Test, test)
 
 all : Test
 all =
-    Test.describe "Scope (project rule)"
-        [ realFunctionOrTypeTests
+    Test.describe "Scope"
+        [ realFunctionOrTypeTestsForModuleRule
+        , realFunctionOrTypeTestsForProjectRule
         ]
 
 
-realFunctionOrTypeTests : Test
-realFunctionOrTypeTests =
-    Test.describe "Scope.realFunctionOrType"
+realFunctionOrTypeTestsForModuleRule : Test
+realFunctionOrTypeTestsForModuleRule =
+    Test.describe "Scope.realFunctionOrType (module rule)"
+        [ test "should indicate that module from which a function or value comes from, with knowledge of what is in other modules" <|
+            \() ->
+                """module A exposing (..)
+import Bar as Baz exposing (baz)
+import ExposesSomeThings exposing (..)
+import ExposesEverything exposing (..)
+import Foo.Bar
+import Html exposing (..)
+import Http exposing (get)
+
+localValue = 1
+
+a : SomeCustomType -> SomeTypeAlias -> SomeOtherTypeAlias -> NonExposedCustomType
+a = localValue
+    unknownValue
+    exposedElement
+    nonExposedElement
+    elementFromExposesEverything
+    VariantA
+    Foo.bar
+    Foo.Bar
+    Baz.foo
+    baz
+    button
+    Http.get
+    get
+    always
+    True
+    Just
+"""
+                    |> Review.Test.runWithProjectData project moduleRule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = """
+<nothing>.SomeCustomType -> <nothing>.SomeCustomType
+<nothing>.SomeTypeAlias -> <nothing>.SomeTypeAlias
+<nothing>.SomeOtherTypeAlias -> <nothing>.SomeOtherTypeAlias
+<nothing>.NonExposedCustomType -> <nothing>.NonExposedCustomType
+<nothing>.localValue -> <nothing>.localValue
+<nothing>.unknownValue -> <nothing>.unknownValue
+<nothing>.exposedElement -> <nothing>.exposedElement
+<nothing>.nonExposedElement -> <nothing>.nonExposedElement
+<nothing>.elementFromExposesEverything -> <nothing>.elementFromExposesEverything
+<nothing>.VariantA -> <nothing>.VariantA
+Foo.bar -> Foo.bar
+Foo.Bar -> Foo.Bar
+Baz.foo -> Bar.foo
+<nothing>.baz -> Bar.baz
+<nothing>.button -> Html.button
+Http.get -> Http.get
+<nothing>.get -> Http.get
+<nothing>.always -> Basics.always
+<nothing>.True -> Basics.True
+<nothing>.Just -> Maybe.Just"""
+                            , details = [ "details" ]
+                            , under = "module"
+                            }
+                        ]
+        ]
+
+
+realFunctionOrTypeTestsForProjectRule : Test
+realFunctionOrTypeTestsForProjectRule =
+    Test.describe "Scope.realFunctionOrType (project rule)"
         [ test "should indicate that module from which a function or value comes from, with knowledge of what is in other modules" <|
             \() ->
                 [ """module A exposing (..)
@@ -61,7 +126,7 @@ type SomeCustomType = VariantA | VariantB
 type alias SomeTypeAlias = {}
 elementFromExposesEverything = 1
 """ ]
-                    |> Review.Test.runOnModulesWithProjectData project rule
+                    |> Review.Test.runOnModulesWithProjectData project projectRule
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
                           , [ Review.Test.error
@@ -124,8 +189,8 @@ project =
         |> Project.addDependency Dependencies.elmHtml
 
 
-rule : Rule
-rule =
+projectRule : Rule
+projectRule =
     Rule.newProjectRuleSchema "TestRule" { scope = Scope.initialProjectContext }
         |> Scope.addProjectVisitors
         |> Rule.withModuleVisitor moduleVisitor
@@ -144,7 +209,15 @@ rule =
         |> Rule.fromProjectRuleSchema
 
 
-moduleVisitor : Rule.ModuleRuleSchema anything ModuleContext -> Rule.ModuleRuleSchema { anything | hasAtLeastOneVisitor : () } ModuleContext
+moduleRule : Rule
+moduleRule =
+    Rule.newModuleRuleSchema "TestRule" { scope = Scope.initialModuleContext, text = "" }
+        |> Scope.addModuleVisitors
+        |> moduleVisitor
+        |> Rule.fromModuleRuleSchema
+
+
+moduleVisitor : Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor schema =
     schema
         |> Rule.withDeclarationVisitor declarationVisitor

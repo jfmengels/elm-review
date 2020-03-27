@@ -62,22 +62,8 @@ elmCore =
                       }
                     ]
               , aliases = []
-              , values =
-                    [ { name = "always"
-                      , comment = ""
-                      , tipe =
-                            -- b -> a -> b
-                            Type.Lambda (Type.Var "b") (Type.Lambda (Type.Var "a") (Type.Var "b"))
-                      }
-                    ]
-              , binops =
-                    [ { name = "+"
-                      , comment = "Add numbers"
-                      , tipe = Type.Lambda (Type.Var "number") (Type.Lambda (Type.Var "number") (Type.Var "number"))
-                      , associativity = Elm.Docs.Left
-                      , precedence = 6
-                      }
-                    ]
+              , values = []
+              , binops = []
               }
             ]
 
