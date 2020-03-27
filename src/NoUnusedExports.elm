@@ -407,16 +407,15 @@ testFunctionName scope declaration =
                     |> Maybe.map (Node.value >> .typeAnnotation >> Node.value)
             of
                 Just (TypeAnnotation.Typed (Node _ ( moduleName, name )) _) ->
-                    case Scope.realFunctionOrType moduleName name scope of
-                        ( [ "Test" ], "Test" ) ->
-                            function.declaration
-                                |> Node.value
-                                |> .name
-                                |> Node.value
-                                |> Just
+                    if name == "Test" && Scope.realModuleName moduleName name scope == [ "Test" ] then
+                        function.declaration
+                            |> Node.value
+                            |> .name
+                            |> Node.value
+                            |> Just
 
-                        _ ->
-                            Nothing
+                    else
+                        Nothing
 
                 _ ->
                     Nothing
@@ -468,7 +467,7 @@ collectTypesFromTypeAnnotation scope node =
             collectTypesFromTypeAnnotation scope a ++ collectTypesFromTypeAnnotation scope b
 
         TypeAnnotation.Typed (Node _ ( moduleName, name )) params ->
-            Scope.realFunctionOrType moduleName name scope
+            ( Scope.realModuleName moduleName name scope, name )
                 :: List.concatMap (collectTypesFromTypeAnnotation scope) params
 
         TypeAnnotation.Record list ->
@@ -502,7 +501,7 @@ expressionVisitor node direction moduleContext =
         ( Rule.OnEnter, Expression.FunctionOrValue moduleName name ) ->
             ( []
             , registerAsUsed
-                (Scope.realFunctionOrType moduleName name moduleContext.scope)
+                ( Scope.realModuleName moduleName name moduleContext.scope, name )
                 moduleContext
             )
 

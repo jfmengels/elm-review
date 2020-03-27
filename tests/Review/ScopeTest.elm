@@ -15,14 +15,14 @@ import Test exposing (Test, test)
 all : Test
 all =
     Test.describe "Scope"
-        [ realFunctionOrTypeTestsForModuleRule
-        , realFunctionOrTypeTestsForProjectRule
+        [ realModuleNameTestsForModuleRule
+        , realModuleNameTestsForProjectRule
         ]
 
 
-realFunctionOrTypeTestsForModuleRule : Test
-realFunctionOrTypeTestsForModuleRule =
-    Test.describe "Scope.realFunctionOrType (module rule)"
+realModuleNameTestsForModuleRule : Test
+realModuleNameTestsForModuleRule =
+    Test.describe "Scope.realModuleName (module rule)"
         [ test "should indicate that module from which a function or value comes from, with knowledge of what is in other modules" <|
             \() ->
                 """module A exposing (..)
@@ -84,9 +84,9 @@ Http.get -> Http.get
         ]
 
 
-realFunctionOrTypeTestsForProjectRule : Test
-realFunctionOrTypeTestsForProjectRule =
-    Test.describe "Scope.realFunctionOrType (project rule)"
+realModuleNameTestsForProjectRule : Test
+realModuleNameTestsForProjectRule =
+    Test.describe "Scope.realModuleName (project rule)"
         [ test "should indicate that module from which a function or value comes from, with knowledge of what is in other modules" <|
             \() ->
                 [ """module A exposing (..)
@@ -260,12 +260,12 @@ typeAnnotationNames scope typeAnnotation =
 
                 realName : String
                 realName =
-                    case Scope.realFunctionOrType moduleName typeName scope of
-                        ( [], name_ ) ->
-                            "<nothing>." ++ name_
+                    case Scope.realModuleName moduleName typeName scope of
+                        [] ->
+                            "<nothing>." ++ typeName
 
-                        ( moduleName_, name_ ) ->
-                            String.join "." moduleName_ ++ "." ++ name_
+                        moduleName_ ->
+                            String.join "." moduleName_ ++ "." ++ typeName
             in
             nameInCode ++ " -> " ++ realName
 
@@ -301,12 +301,12 @@ expressionVisitor node direction context =
 
                 realName : String
                 realName =
-                    case Scope.realFunctionOrType moduleName name context.scope of
-                        ( [], name_ ) ->
-                            "<nothing>." ++ name_
+                    case Scope.realModuleName moduleName name context.scope of
+                        [] ->
+                            "<nothing>." ++ name
 
-                        ( moduleName_, name_ ) ->
-                            String.join "." moduleName_ ++ "." ++ name_
+                        moduleName_ ->
+                            String.join "." moduleName_ ++ "." ++ name
             in
             ( [], { context | text = context.text ++ "\n" ++ nameInCode ++ " -> " ++ realName } )
 

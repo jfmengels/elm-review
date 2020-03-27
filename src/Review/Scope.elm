@@ -2,7 +2,7 @@ module Review.Scope exposing
     ( ModuleContext, addModuleVisitors, initialModuleContext
     , ProjectContext, addProjectVisitors
     , initialProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
-    , realFunctionOrType
+    , realModuleName
     )
 
 {-| Collect and infer information automatically for you
@@ -21,7 +21,7 @@ module Review.Scope exposing
 
 # Access
 
-@docs realFunctionOrType
+@docs realModuleName
 
 -}
 
@@ -207,30 +207,6 @@ internalAddModuleVisitors schema =
                 in
                 ( [], { outerContext | scope = ModuleContext innerContext } )
             )
-
-
-
--- scopedRule :
---     String
---     ->
---         { forGlobal :
---             { get : projectContext -> ProjectContext
---             , set : ProjectContext -> projectContext -> projectContext
---             }
---         , forModule :
---             { get : moduleContext -> ModuleContext
---             , set : ModuleContext -> moduleContext -> moduleContext
---             }
---         }
---     ->
---         { moduleVisitor : Rule.ModuleRuleSchema Rule.ForLookingAtSeveralFiles { hasNoVisitor : () } moduleContext -> Rule.ModuleRuleSchema Rule.ForLookingAtSeveralFiles { hasAtLeastOneVisitor : () } moduleContext
---         , fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> projectContext -> moduleContext
---         , fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> moduleContext -> projectContext
---         , foldProjectContexts : projectContext -> projectContext -> projectContext
---         }
---     -> Rule.ProjectRuleSchema projectContext moduleContext
--- scopedRule name setterGetters context =
---     Rule.newProjectRuleSchema name
 
 
 mapInnerProjectContext : (visitedElement -> InnerProjectContext -> InnerProjectContext) -> visitedElement -> { projectContext | scope : ProjectContext } -> ( List nothing, { projectContext | scope : ProjectContext } )
@@ -687,7 +663,6 @@ registerImportExposed import_ innerContext =
                         exposedValues : Dict String (List String)
                         exposedValues =
                             topLevelExposeList
-                                -- TODO HERE We notice that the module has no tags or union, even though it should
                                 |> List.concatMap (namesFromExposingList module_)
                                 |> List.map (\name -> ( name, moduleName ))
                                 |> Dict.fromList
@@ -939,26 +914,22 @@ findInList predicate list =
 -- ACCESS
 
 
-realFunctionOrType : List String -> String -> ModuleContext -> ( List String, String )
-realFunctionOrType moduleName functionOrType (ModuleContext context) =
+realModuleName : List String -> String -> ModuleContext -> List String
+realModuleName moduleName functionOrType (ModuleContext context) =
     if List.length moduleName == 0 then
-        ( if isInScope functionOrType context.scopes then
+        if isInScope functionOrType context.scopes then
             []
 
-          else
+        else
             Dict.get functionOrType context.importedFunctionOrTypes
                 |> Maybe.withDefault []
-        , functionOrType
-        )
 
     else if List.length moduleName == 1 then
-        ( Dict.get (getModuleName moduleName) context.importAliases
+        Dict.get (getModuleName moduleName) context.importAliases
             |> Maybe.withDefault moduleName
-        , functionOrType
-        )
 
     else
-        ( moduleName, functionOrType )
+        moduleName
 
 
 isInScope : String -> Nonempty Scope -> Bool

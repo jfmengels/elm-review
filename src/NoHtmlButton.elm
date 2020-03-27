@@ -52,7 +52,7 @@ expressionVisitor node direction context =
         ( Rule.OnEnter, HtmlButtonIsForbidden ) ->
             case Node.value node of
                 FunctionOrValue moduleName name ->
-                    if Scope.realFunctionOrType moduleName name context.scope == ( [ "Html" ], "button" ) then
+                    if name == "button" && Scope.realModuleName moduleName name context.scope == [ "Html" ] then
                         ( [ Rule.error
                                 { message = "Do not use `Html.button` directly"
                                 , details = [ "At fruits.com, we've built a nice `Button` module that suits our needs better. Using this module instead of `Html.button` ensures we have a consistent button experience across the website." ]

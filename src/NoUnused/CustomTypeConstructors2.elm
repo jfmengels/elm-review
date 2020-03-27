@@ -426,8 +426,7 @@ registerUsedFunctionOrValue moduleName name moduleContext =
         let
             realModuleName : ModuleName
             realModuleName =
-                Scope.realFunctionOrType moduleName name moduleContext.scope
-                    |> Tuple.first
+                Scope.realModuleName moduleName name moduleContext.scope
         in
         { moduleContext
             | usedFunctionsOrValues =
@@ -580,8 +579,7 @@ collectTypesUsedAsPhantomVariables scope phantomVariables node =
             let
                 realModuleNameOfPhantomContainer : ModuleName
                 realModuleNameOfPhantomContainer =
-                    Scope.realFunctionOrType moduleNameOfPhantomContainer name scope
-                        |> Tuple.first
+                    Scope.realModuleName moduleNameOfPhantomContainer name scope
 
                 typesUsedInThePhantomVariablePosition : List ( ModuleName, CustomTypeName )
                 typesUsedInThePhantomVariablePosition =
@@ -592,8 +590,7 @@ collectTypesUsedAsPhantomVariables scope phantomVariables node =
                             (\( _, index ) ->
                                 case listAtIndex index params |> Maybe.map Node.value of
                                     Just (TypeAnnotation.Typed (Node.Node _ ( moduleNameOfPhantomVariable, typeName )) _) ->
-                                        Just <|
-                                            Scope.realFunctionOrType moduleNameOfPhantomVariable typeName scope
+                                        Just ( Scope.realModuleName moduleNameOfPhantomVariable typeName scope, typeName )
 
                                     _ ->
                                         Nothing
