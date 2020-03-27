@@ -1074,7 +1074,7 @@ but are unused in the rest of the project.
         , used = Set.union newContext.used previousContext.used
         }
 
-    finalEvaluationForProject : ProjectContext -> List Error
+    finalEvaluationForProject : ProjectContext -> List (Error { useErrorForModule : () })
     finalEvaluationForProject projectContext =
         -- Implementation of `unusedFunctions` omitted, but it returns the list
         -- of unused functions, along with the associated module key and range
@@ -1599,7 +1599,7 @@ The following example forbids having `_` in any part of a module name.
             |> Rule.withSimpleModuleDefinitionVisitor moduleDefinitionVisitor
             |> Rule.fromModuleRuleSchema
 
-    moduleDefinitionVisitor : Node Module -> List Error
+    moduleDefinitionVisitor : Node Module -> List (Error {})
     moduleDefinitionVisitor node =
         if List.any (String.contains "") (Node.value node |> Module.moduleName) then
             [ Rule.error
@@ -1637,7 +1637,7 @@ The following example forbids words like "TODO" appearing in a comment.
             |> Rule.withSimpleCommentsVisitor commentsVisitor
             |> Rule.fromModuleRuleSchema
 
-    commentsVisitor : List (Node String) -> List Error
+    commentsVisitor : List (Node String) -> List (Error {})
     commentsVisitor comments =
         comments
             |> List.concatMap
@@ -1646,7 +1646,7 @@ The following example forbids words like "TODO" appearing in a comment.
                         |> List.map (errorAtPosition (Node.range commentNode))
                 )
 
-    errorAtPosition : Range -> Int -> Error
+    errorAtPosition : Range -> Int -> Error {}
     errorAtPosition range index =
         Rule.error
             { message = "TODO needs to be handled"
@@ -1681,7 +1681,7 @@ The following example forbids using the core Html package and suggests using
             |> Rule.withSimpleImportVisitor importVisitor
             |> Rule.fromModuleRuleSchema
 
-    importVisitor : Node Import -> List Error
+    importVisitor : Node Import -> List (Error {})
     importVisitor node =
         let
             moduleName : List String
@@ -1733,7 +1733,7 @@ annotation.
             |> Rule.withSimpleDeclarationVisitor declarationVisitor
             |> Rule.fromModuleRuleSchema
 
-    declarationVisitor : Node Declaration -> List Error
+    declarationVisitor : Node Declaration -> List (Error {})
     declarationVisitor node =
         case Node.value node of
             Declaration.FunctionDeclaration { signature, declaration } ->
@@ -1796,7 +1796,7 @@ The following example forbids using the Debug module.
             |> Rule.withSimpleExpressionVisitor expressionVisitor
             |> Rule.fromModuleRuleSchema
 
-    expressionVisitor : Node Expression -> List Error
+    expressionVisitor : Node Expression -> List (Error {})
     expressionVisitor node =
         case Node.value node of
             Expression.FunctionOrValue moduleName fnName ->
@@ -1879,7 +1879,7 @@ module name is `RuleName`).
             |> Rule.withExpressionVisitor expressionVisitor
             |> Rule.fromModuleRuleSchema
 
-    moduleDefinitionVisitor : Node Module -> Context -> ( List Error, Context )
+    moduleDefinitionVisitor : Node Module -> Context -> ( List (Error {}), Context )
     moduleDefinitionVisitor node context =
         let
             moduleLastName : Maybe String
@@ -1892,7 +1892,7 @@ module name is `RuleName`).
         in
         ( [], moduleLastName )
 
-    expressionVisitor : Node Expression -> Direction -> Context -> ( List Error, Context )
+    expressionVisitor : Node Expression -> Direction -> Context -> ( List (Error {}), Context )
     expressionVisitor node direction context =
         case ( direction, Node.value node ) of
             ( Rule.OnEnter, Expression.Application (function :: ruleNameNode :: _) ) ->
@@ -1971,7 +1971,7 @@ The following example forbids exposing a module in an "Internal" directory in yo
     elmJsonVisitor elmJson context =
         elmJson
 
-    moduleDefinitionVisitor : Node Module -> Context -> ( List Error, Context )
+    moduleDefinitionVisitor : Node Module -> Context -> ( List (Error {}), Context )
     moduleDefinitionVisitor node context =
         let
             moduleName : List String
@@ -2063,7 +2063,7 @@ The example is simplified to only forbid the use of the `Html.button` expression
             |> Rule.withExpressionVisitor expressionVisitor
             |> Rule.fromModuleRuleSchema
 
-    moduleDefinitionVisitor : Node Module -> Context -> ( List Error, Context )
+    moduleDefinitionVisitor : Node Module -> Context -> ( List (Error {}), Context )
     moduleDefinitionVisitor node context =
         if (Node.value node |> Module.moduleName) == [ "Button" ] then
             ( [], HtmlButtonIsAllowed )
@@ -2071,7 +2071,7 @@ The example is simplified to only forbid the use of the `Html.button` expression
         else
             ( [], HtmlButtonIsForbidden )
 
-    expressionVisitor : Node Expression -> Direction -> Context -> ( List Error, Context )
+    expressionVisitor : Node Expression -> Direction -> Context -> ( List (Error {}), Context )
     expressionVisitor node direction context =
         case ( direction, context ) of
             ( Rule.OnEnter, HtmlButtonIsAllowed ) ->
@@ -2147,7 +2147,7 @@ The following example forbids importing both `Element` (`elm-ui`) and
         , elmCssWasImported = False
         }
 
-    error : Node Import -> Error
+    error : Node Import -> Error {}
     error node =
         Rule.error
             { message = "Do not use both `elm-ui` and `elm-css`"
@@ -2155,7 +2155,7 @@ The following example forbids importing both `Element` (`elm-ui`) and
             }
             (Node.range node)
 
-    importVisitor : Node Import -> Context -> ( List Error, Context )
+    importVisitor : Node Import -> Context -> ( List (Error {}), Context )
     importVisitor node context =
         case Node.value node |> .moduleName |> Node.value of
             [ "Element" ] ->
@@ -2226,7 +2226,7 @@ type annotation.
             |> Rule.withDeclarationVisitor declarationVisitor
             |> Rule.fromModuleRuleSchema
 
-    moduleDefinitionVisitor : Node Module -> ExposedFunctions -> ( List Error, ExposedFunctions )
+    moduleDefinitionVisitor : Node Module -> ExposedFunctions -> ( List (Error {}), ExposedFunctions )
     moduleDefinitionVisitor node context =
         case Node.value node |> Module.exposingList of
             Exposing.All _ ->
@@ -2244,7 +2244,7 @@ type annotation.
             _ ->
                 Nothing
 
-    declarationVisitor : Node Declaration -> Direction -> ExposedFunctions -> ( List Error, ExposedFunctions )
+    declarationVisitor : Node Declaration -> Direction -> ExposedFunctions -> ( List (Error {}), ExposedFunctions )
     declarationVisitor node direction context =
         case ( direction, Node.value node ) of
             ( Rule.OnEnter, Declaration.FunctionDeclaration { documentation, declaration } ) ->
@@ -2343,7 +2343,7 @@ The following example forbids the use of `Debug.log` even when it is imported li
             |> Rule.withExpressionVisitor expressionVisitor
             |> Rule.fromModuleRuleSchema
 
-    importVisitor : Node Import -> Context -> ( List Error, Context )
+    importVisitor : Node Import -> Context -> ( List (Error {}), Context )
     importVisitor node context =
         case ( Node.value node |> .moduleName |> Node.value, (Node.value node).exposingList |> Maybe.map Node.value ) of
             ( [ "Debug" ], Just (Exposing.All _) ) ->
@@ -2369,7 +2369,7 @@ The following example forbids the use of `Debug.log` even when it is imported li
             _ ->
                 ( [], DebugLogWasNotImported )
 
-    expressionVisitor : Node Expression -> Direction -> Context -> ( List Error, Context )
+    expressionVisitor : Node Expression -> Direction -> Context -> ( List (Error {}), Context )
     expressionVisitor node direction context =
         case context of
             DebugLogWasNotImported ->
@@ -2423,11 +2423,11 @@ for [`withImportVisitor`](#withImportVisitor), but using [`withFinalModuleEvalua
             |> Rule.withFinalModuleEvaluation finalEvaluation
             |> Rule.fromModuleRuleSchema
 
-    importVisitor : Node Import -> Context -> ( List Error, Context )
+    importVisitor : Node Import -> Context -> ( List (Error {}), Context )
     importVisitor node context =
         ( [], Dict.insert (Node.value node |> .moduleName |> Node.value) (Node.range node) context )
 
-    finalEvaluation : Context -> List Error
+    finalEvaluation : Context -> List (Error {})
     finalEvaluation context =
         case ( Dict.get [ "Element" ] context, Dict.get [ "Html", "Styled" ] context ) of
             ( Just elmUiRange, Just _ ) ->
@@ -2796,7 +2796,7 @@ forbids using `Debug.todo` anywhere in the code, except in tests.
             |> Rule.fromModuleRuleSchema
             |> Rule.ignoreErrorsForDirectories [ "tests/" ]
 
-    expressionVisitor : Node Expression -> List Error
+    expressionVisitor : Node Expression -> List (Error {})
     expressionVisitor node =
         case Node.value node of
             Expression.FunctionOrValue [ "Debug" ] "todo" ->
@@ -2863,7 +2863,7 @@ by hardcoding an exception into the rule (that forbids the use of `Html.button` 
             |> Rule.fromModuleRuleSchema
             |> Rule.ignoreErrorsForFiles [ "src/Button.elm" ]
 
-    expressionVisitor : Node Expression -> List Error
+    expressionVisitor : Node Expression -> List (Error {})
     expressionVisitor node context =
         case Node.value node of
             Expression.FunctionOrValue [ "Html" ] "button" ->

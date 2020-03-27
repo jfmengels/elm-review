@@ -152,7 +152,7 @@ moduleVisitor schema =
         |> Rule.withFinalModuleEvaluation finalEvaluation
 
 
-declarationVisitor : Node Declaration -> Rule.Direction -> ModuleContext -> ( List (Error scope), ModuleContext )
+declarationVisitor : Node Declaration -> Rule.Direction -> ModuleContext -> ( List nothing, ModuleContext )
 declarationVisitor node direction context =
     case ( direction, Node.value node ) of
         ( Rule.OnEnter, Declaration.FunctionDeclaration function ) ->
@@ -212,7 +212,7 @@ typeAnnotationNames scope typeAnnotation =
             typeAnnotationNames scope arg ++ "\n" ++ typeAnnotationNames scope returnType
 
 
-expressionVisitor : Node Expression -> Rule.Direction -> ModuleContext -> ( List (Error scope), ModuleContext )
+expressionVisitor : Node Expression -> Rule.Direction -> ModuleContext -> ( List nothing, ModuleContext )
 expressionVisitor node direction context =
     case ( direction, Node.value node ) of
         ( Rule.OnEnter, Expression.FunctionOrValue moduleName name ) ->
