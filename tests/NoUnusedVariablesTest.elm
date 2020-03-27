@@ -12,13 +12,16 @@ testRule =
 
 details : List String
 details =
-    [ "Since it is not being used, I recommend removing it. It should make the code clearer to read for other people." ]
+    [ "You should either use this value somewhere, or remove it at the location I pointed at."
+    , "If you remove it, you may find that other pieces of code are never used, and can themselves be removed too. This could end up simplifying your code a lot."
+    ]
 
 
 all : Test
 all =
     describe "NoUnusedVariables"
         [ describe "Top-level variables" topLevelVariablesTests
+        , describe "Recursive functions" recursiveFunctionsTests
         , describe "let..in" letInTests
         , describe "Top-level variables used inside a let..in" topLevelVariablesUsedInLetInTests
         , describe "Record updates" recordUpdateTests
@@ -30,6 +33,37 @@ all =
         , describe "Operators" operatorTests
         , describe "Ports" portTests
         ]
+
+
+recursiveFunctionsTests : List Test
+recursiveFunctionsTests =
+    [ test "should report recursive functions that are not used elsewhere" <|
+        \() ->
+            testRule """module SomeModule exposing (a)
+fib n = fib (n - 1) + fib (n - 2)
+a = 1"""
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Top-level variable `fib` is not used"
+                        , details = details
+                        , under = "fib"
+                        }
+                        |> Review.Test.atExactly { start = { row = 2, column = 1 }, end = { row = 2, column = 4 } }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+a = 1"""
+                    ]
+    , test "should not report recursive functions that are used by other functions" <|
+        \() ->
+            testRule """module SomeModule exposing (a)
+a = fib 0
+fib n = fib (n - 1) + fib (n - 2)"""
+                |> Review.Test.expectNoErrors
+    , test "should not report recursive functions that are exposed by the module" <|
+        \() ->
+            testRule """module SomeModule exposing (fib)
+fib n = fib (n - 1) + fib (n - 2)"""
+                |> Review.Test.expectNoErrors
+    ]
 
 
 topLevelVariablesTests : List Test
@@ -91,7 +125,40 @@ b = 2"""
                         }
                         |> Review.Test.atExactly { start = { row = 3, column = 1 }, end = { row = 3, column = 2 } }
                         |> Review.Test.whenFixed """module SomeModule exposing (b)
-
+b = 2"""
+                    ]
+    , test "should report unused top-level variables with documentation attached" <|
+        \() ->
+            testRule """module SomeModule exposing (b)
+{-| Documentation
+-}
+unusedVar = 1
+b = 2"""
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Top-level variable `unusedVar` is not used"
+                        , details = details
+                        , under = "unusedVar"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (b)
+b = 2"""
+                    ]
+    , test "should report unused top-level variables with documentation attached even if they are annotated" <|
+        \() ->
+            testRule """module SomeModule exposing (b)
+{-| Documentation
+-}
+unusedVar : Int
+unusedVar = 1
+b = 2"""
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Top-level variable `unusedVar` is not used"
+                        , details = details
+                        , under = "unusedVar"
+                        }
+                        |> Review.Test.atExactly { start = { row = 5, column = 1 }, end = { row = 5, column = 10 } }
+                        |> Review.Test.whenFixed """module SomeModule exposing (b)
 b = 2"""
                     ]
     , test "should not report unused top-level variables if everything is exposed" <|
@@ -165,8 +232,54 @@ a = Html.Styled.Attributes.href"""
                         }
                         |> Review.Test.atExactly { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
                         |> Review.Test.whenFixed """module SomeModule exposing (a)
-
 a = Html.Styled.Attributes.href"""
+                    ]
+    , test "should not report 'main' as unused, even if it's not exposed" <|
+        \() ->
+            testRule """module SomeModule exposing (a)
+main = Html.text "hello, world"
+a = ()
+            """
+                |> Review.Test.expectNoErrors
+    , test "should not remove too much" <|
+        \() ->
+            """module A exposing
+    ( getModuleName
+    , isInScope
+    )
+
+
+realFunctionOrType : List String -> String -> ModuleContext -> ( List String, String )
+realFunctionOrType moduleName functionOrType (ModuleContext context) =
+    if List.length moduleName == 1 then
+        Dict.get
+
+    else
+        moduleName
+
+
+isInScope : String -> Nonempty Scope -> Bool
+isInScope name scopes =
+    NonemptyList.any (.names >> Dict.member name) scopes
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Top-level variable `realFunctionOrType` is not used"
+                        , details = details
+                        , under = "realFunctionOrType"
+                        }
+                        |> Review.Test.atExactly { start = { row = 8, column = 1 }, end = { row = 8, column = 19 } }
+                        |> Review.Test.whenFixed """module A exposing
+    ( getModuleName
+    , isInScope
+    )
+
+
+isInScope : String -> Nonempty Scope -> Bool
+isInScope name scopes =
+    NonemptyList.any (.names >> Dict.member name) scopes
+"""
                     ]
     ]
 
@@ -237,6 +350,20 @@ a = 2"""
 a = let c = 1
     in c"""
                 |> Review.Test.expectNoErrors
+    , test "should report 'main' as unused, even if it's not an exception for top-level declarations" <|
+        \() ->
+            testRule """module SomeModule exposing (a)
+a = let main = 1
+    in 2"""
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "`let in` variable `main` is not used"
+                        , details = details
+                        , under = "main"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+a = 2"""
+                    ]
     ]
 
 
@@ -303,7 +430,6 @@ a = { b | c = 3 }"""
                         |> Review.Test.atExactly { start = { row = 3, column = 1 }, end = { row = 3, column = 2 } }
                         |> Review.Test.whenFixed """module SomeModule exposing (a)
 b = { z = 1, c = 2 }
-
 a = { b | c = 3 }"""
                     ]
     ]
@@ -315,6 +441,30 @@ functionParameterTests =
         \() ->
             testRule """module SomeModule exposing (a)
 a n = 1"""
+                |> Review.Test.expectNoErrors
+    , test "should not report unused import when a type is deconstructed in a function call" <|
+        \() ->
+            testRule """module SomeModule exposing (a)
+import Bar
+
+a =
+  \\(Bar.Baz range) -> []"""
+                |> Review.Test.expectNoErrors
+    , test "should not report custom type when it is deconstructed in a function call" <|
+        \() ->
+            testRule """module SomeModule exposing (a)
+type Baz = Baz String
+
+a =
+  \\(Baz value) -> []"""
+                |> Review.Test.expectNoErrors
+    , test "should not report type alias when it is deconstructed in a function call" <|
+        \() ->
+            testRule """module SomeModule exposing (a)
+type alias Baz = { a : String}
+
+a =
+  \\(Baz value) -> []"""
                 |> Review.Test.expectNoErrors
     ]
 
@@ -467,7 +617,9 @@ a = Html.href"""
     , test "should report unused import alias" <|
         \() ->
             testRule """module SomeModule exposing (a)
-import Html.Styled.Attributes as Html"""
+import Html.Styled.Attributes as Html
+import Foo
+a= Foo.a"""
                 |> Review.Test.expectErrors
                     [ Review.Test.error
                         { message = "Module alias `Html` is not used"
@@ -476,7 +628,37 @@ import Html.Styled.Attributes as Html"""
                         }
                         |> Review.Test.atExactly { start = { row = 2, column = 34 }, end = { row = 2, column = 38 } }
                         |> Review.Test.whenFixed """module SomeModule exposing (a)
-import Html.Styled.Attributes"""
+import Foo
+a= Foo.a"""
+                    ]
+    , test "should report unused import alias but not fix it if another alias is named like the original module name and we can't remove the whole import" <|
+        \() ->
+            testRule """module SomeModule exposing (a)
+import Html as CoreHtml exposing (div)
+import Html.Styled.Attributes as Html
+a= Html.a div"""
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Module alias `CoreHtml` is not used"
+                        , details = details
+                        , under = "CoreHtml"
+                        }
+                    ]
+    , test "should report unused import alias but and fix it if another alias is named like the original module name but we can remove the whole import" <|
+        \() ->
+            testRule """module SomeModule exposing (a)
+import Html as CoreHtml
+import Html.Styled.Attributes as Html
+a= Html.a"""
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Module alias `CoreHtml` is not used"
+                        , details = details
+                        , under = "CoreHtml"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+import Html.Styled.Attributes as Html
+a= Html.a"""
                     ]
     , test "should report unused import alias even if it exposes a used type" <|
         \() ->
@@ -528,6 +710,56 @@ import B exposing (C(..))
 a : D
 a = 1"""
                 |> Review.Test.expectNoErrors
+    , test "should report unused import alias but not remove it if another import is aliased as the real name of the reported import and it exposes something" <|
+        \() ->
+            testRule """module SomeModule exposing (a)
+import Html as RootHtml exposing (something)
+import Html.Styled as Html
+a : Html.Html msg
+a = something 1"""
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Module alias `RootHtml` is not used"
+                        , details = details
+                        , under = "RootHtml"
+                        }
+                    ]
+    , test "should report unused import alias and remove it if another import is aliased as the real name of the reported import but it doesn't expose anything" <|
+        \() ->
+            testRule """module SomeModule exposing (a)
+import Html as RootHtml
+import Html.Styled as Html
+a : Html.Html msg
+a = something 1"""
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Module alias `RootHtml` is not used"
+                        , details = details
+                        , under = "RootHtml"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+import Html.Styled as Html
+a : Html.Html msg
+a = something 1"""
+                    ]
+    , test "should report unused import even if a let in variable is named the same way" <|
+        \() ->
+            testRule """module SomeModule exposing (a)
+import Html exposing (button, div)
+a = let button = 1
+    in button + div"""
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Imported variable `button` is not used"
+                        , details = details
+                        , under = "button"
+                        }
+                        |> Review.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 29 } }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+import Html exposing (div)
+a = let button = 1
+    in button + div"""
+                    ]
     ]
 
 
@@ -551,7 +783,6 @@ a =
         \() ->
             testRule """module SomeModule exposing (a)
 type Bar = Baz
-
 a =
     case () of
         Baz ->
@@ -561,7 +792,6 @@ a =
         \() ->
             testRule """module SomeModule exposing (a)
 type Bar = Baz
-
 a =
     case () of
         Just (Baz range) ->
@@ -571,11 +801,30 @@ a =
         \() ->
             testRule """module SomeModule exposing (a)
 import Bar
-
 a =
     case () of
         Just (Bar.Baz range) ->
             []"""
+                |> Review.Test.expectNoErrors
+    , test "should not report unused import when a type is deconstructed in a function call" <|
+        \() ->
+            testRule """module SomeModule exposing (a)
+import Bar
+a (Bar.Baz range) =
+    []
+    """
+                |> Review.Test.expectNoErrors
+    , test "should not report unused imports when a type is deconstructed in a function call in a let" <|
+        \() ->
+            testRule """module SomeModule exposing (outer)
+import Bar
+outer arg =
+    let
+        inner (Bar.Baz range) =
+            []
+    in
+    inner arg
+    """
                 |> Review.Test.expectNoErrors
     ]
 
@@ -585,21 +834,34 @@ typeTests =
     [ test "should report unused custom type declarations" <|
         \() ->
             testRule """module SomeModule exposing (a)
-type A = B | C
+type UnusedType = B | C
 a = 1"""
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Type `A` is not used"
+                        { message = "Type `UnusedType` is not used"
                         , details = details
-                        , under = "A"
+                        , under = "UnusedType"
                         }
-                        |> Review.Test.atExactly { start = { row = 2, column = 6 }, end = { row = 2, column = 7 } }
                         |> Review.Test.whenFixed """module SomeModule exposing (a)
-
+a = 1"""
+                    ]
+    , test "should report unused custom type declarations with documentation" <|
+        \() ->
+            testRule """module SomeModule exposing (a)
+{-| Documentation -}
+type UnusedType = B | C
+a = 1"""
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Type `UnusedType` is not used"
+                        , details = details
+                        , under = "UnusedType"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
 a = 1"""
                     ]
     , test "should not report unused custom type constructors" <|
-        -- This is handled by the `NoUnusedTypeConstructors` rule
+        -- This is handled by the `NoUnused.CustomTypeConstructors` rule
         \() ->
             testRule """module SomeModule exposing (A)
 type A = B | C"""
@@ -617,7 +879,21 @@ a = 1"""
                         }
                         |> Review.Test.atExactly { start = { row = 2, column = 12 }, end = { row = 2, column = 13 } }
                         |> Review.Test.whenFixed """module SomeModule exposing (a)
-
+a = 1"""
+                    ]
+    , test "should report unused type aliases declarations with documentation" <|
+        \() ->
+            testRule """module SomeModule exposing (a)
+{-| Documentation -}
+type alias UnusedType = { a : B }
+a = 1"""
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Type `UnusedType` is not used"
+                        , details = details
+                        , under = "UnusedType"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
 a = 1"""
                     ]
     , test "should not report type alias used in a signature" <|
@@ -803,7 +1079,6 @@ type A a = B a"""
                         }
                         |> Review.Test.atExactly { start = { row = 2, column = 1 }, end = { row = 2, column = 2 } }
                         |> Review.Test.whenFixed """module SomeModule exposing (A)
-
 type A a = B a"""
                     ]
     , test "should report unused variable even if it is present in a generic record type" <|
@@ -820,10 +1095,49 @@ a str = {c = str}"""
                         }
                         |> Review.Test.atExactly { start = { row = 2, column = 1 }, end = { row = 2, column = 2 } }
                         |> Review.Test.whenFixed """module SomeModule exposing (a)
-
 a : { r | c: A }
 a str = {c = str}"""
                     ]
+    , test "should not report custom type when it is deconstructed in a function call" <|
+        \() ->
+            testRule """module SomeModule exposing (a)
+type Baz = Baz String
+
+a (Baz range) =
+    []"""
+                |> Review.Test.expectNoErrors
+    , test "should not report type alias when it is deconstructed in a function call" <|
+        \() ->
+            testRule """module SomeModule exposing (a)
+type alias Baz = { a : String}
+a (Baz value) =
+    []"""
+                |> Review.Test.expectNoErrors
+    , test "should not report unused custom type when it is function call in a let" <|
+        \() ->
+            testRule """module SomeModule exposing (outer)
+type Baz = Baz String
+
+outer arg =
+    let
+        inner (Baz range) =
+            []
+    in
+    inner arg
+    """
+                |> Review.Test.expectNoErrors
+    , test "should not report unused type alias when it is function call in a let" <|
+        \() ->
+            testRule """module SomeModule exposing (outer)
+type alias Baz = { a: String }
+outer arg =
+    let
+        inner (Baz range) =
+            []
+    in
+    inner arg
+    """
+                |> Review.Test.expectNoErrors
     ]
 
 
@@ -842,7 +1156,6 @@ a = 1"""
                         }
                         |> Review.Test.atExactly { start = { row = 2, column = 6 }, end = { row = 2, column = 7 } }
                         |> Review.Test.whenFixed """module SomeModule exposing (a)
-
 a = 1"""
                     ]
     , test "should not report used opaque types" <|
@@ -869,6 +1182,36 @@ a = 1 </> 2"""
 import Parser exposing ((</>))
 a = (</>) 2"""
                 |> Review.Test.expectNoErrors
+    , test "should report unused operator (infix)" <|
+        \() ->
+            testRule """module SomeModule exposing (a)
+import Parser exposing (something, (</>))
+a = something"""
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Imported operator `</>` is not used"
+                        , details = details
+                        , under = "(</>)"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+import Parser exposing (something)
+a = something"""
+                    ]
+    , test "should report unused operator (prefix)" <|
+        \() ->
+            testRule """module SomeModule exposing (a)
+import Parser exposing (something, (</>))
+a = something"""
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Imported operator `</>` is not used"
+                        , details = details
+                        , under = "(</>)"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+import Parser exposing (something)
+a = something"""
+                    ]
     ]
 
 
