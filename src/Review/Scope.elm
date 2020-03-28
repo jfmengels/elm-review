@@ -39,7 +39,6 @@ import Elm.Syntax.Range as Range exposing (Range)
 import Elm.Syntax.Signature exposing (Signature)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
-import NonemptyList exposing (Nonempty)
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Rule as Rule exposing (Direction)
 
@@ -96,7 +95,7 @@ initialProjectContext =
 
 fromProjectToModule : ProjectContext -> ModuleContext
 fromProjectToModule (ProjectContext projectContext) =
-    { scopes = NonemptyList.fromElement emptyScope
+    { scopes = nonemptyList_fromElement emptyScope
     , importAliases = Dict.empty
     , importedFunctionOrTypes = Dict.empty
     , dependenciesModules = projectContext.dependenciesModules
@@ -481,7 +480,7 @@ registerExposed declaration innerContext =
             else
                 innerContext
 
-        Declaration.PortDeclaration port_ ->
+        Declaration.PortDeclaration _ ->
             innerContext
 
         Declaration.InfixDeclaration _ ->
@@ -529,7 +528,7 @@ syntaxTypeAnnotationToDocsType (Node _ typeAnnotation) =
 
 registerVariable : VariableInfo -> String -> Nonempty Scope -> Nonempty Scope
 registerVariable variableInfo name scopes =
-    NonemptyList.mapHead
+    nonemptyList_mapHead
         (\scope -> { scope | names = Dict.insert name variableInfo scope.names })
         scopes
 
@@ -733,11 +732,11 @@ declarationVisitor declaration direction context =
                     { emptyScope | names = parameters <| .arguments <| Node.value function.declaration }
             in
             context.scopes
-                |> NonemptyList.cons newScope
+                |> nonemptyList_cons newScope
                 |> updateScope context
 
         ( Rule.OnExit, Declaration.FunctionDeclaration function ) ->
-            { context | scopes = NonemptyList.pop context.scopes }
+            { context | scopes = nonemptyList_pop context.scopes }
 
         _ ->
             context
@@ -811,7 +810,7 @@ popScope ((Node range value) as node) direction context =
     let
         currentScope : Scope
         currentScope =
-            NonemptyList.head context.scopes
+            nonemptyList_head context.scopes
     in
     case direction of
         Rule.OnEnter ->
@@ -825,11 +824,11 @@ popScope ((Node range value) as node) direction context =
                     context
 
                 Just ( _, names ) ->
-                    { context | scopes = NonemptyList.cons { emptyScope | names = names, caseToExit = node } context.scopes }
+                    { context | scopes = nonemptyList_cons { emptyScope | names = names, caseToExit = node } context.scopes }
 
         Rule.OnExit ->
             if node == currentScope.caseToExit then
-                { context | scopes = NonemptyList.pop context.scopes }
+                { context | scopes = nonemptyList_pop context.scopes }
 
             else
                 context
@@ -859,12 +858,12 @@ expressionVisitor (Node _ value) direction context =
                         Expression.LetDestructuring pattern _ ->
                             scopes
                 )
-                (NonemptyList.cons emptyScope context.scopes)
+                (nonemptyList_cons emptyScope context.scopes)
                 declarations
                 |> updateScope context
 
         ( Rule.OnExit, Expression.LetExpression _ ) ->
-            { context | scopes = NonemptyList.pop context.scopes }
+            { context | scopes = nonemptyList_pop context.scopes }
 
         ( Rule.OnEnter, Expression.CaseExpression caseBlock ) ->
             let
@@ -887,10 +886,10 @@ expressionVisitor (Node _ value) direction context =
                                 )
                             )
             in
-            { context | scopes = NonemptyList.mapHead (\scope -> { scope | cases = cases }) context.scopes }
+            { context | scopes = nonemptyList_mapHead (\scope -> { scope | cases = cases }) context.scopes }
 
         ( Rule.OnExit, Expression.CaseExpression caseBlock ) ->
-            { context | scopes = NonemptyList.mapHead (\scope -> { scope | cases = [] }) context.scopes }
+            { context | scopes = nonemptyList_mapHead (\scope -> { scope | cases = [] }) context.scopes }
 
         _ ->
             context
@@ -934,7 +933,7 @@ realModuleName (ModuleContext context) functionOrType moduleName =
 
 isInScope : String -> Nonempty Scope -> Bool
 isInScope name scopes =
-    NonemptyList.any (.names >> Dict.member name) scopes
+    nonemptyList_any (.names >> Dict.member name) scopes
 
 
 
@@ -944,3 +943,137 @@ isInScope name scopes =
 getModuleName : List String -> String
 getModuleName name =
     String.join "." name
+
+
+
+{- INLINED NONEMPTYLIST
+
+   Copied contents of mgold/elm-nonempty-list, and trimmed down unused functions.
+
+   This is to avoid dependency conflicts when mgold/elm-nonempty-list would release a new major version.
+
+   A list that cannot be empty. The head and tail can be accessed without Maybes. Most other list functions are
+   available.
+
+
+   # Definition
+
+   @docs Nonempty
+
+
+   # Create
+
+   @docs fromElement
+
+
+   # Access
+
+   @docs head
+
+
+   # Inspect
+
+   @docs any
+
+
+   # Convert
+
+   @docs cons, pop
+
+
+   # Map
+
+   @docs mapHead
+
+
+   # Original copyright notice
+
+   Copyright (c) 2015, Max Goldstein
+
+   All rights reserved.
+
+   Redistribution and use in source and binary forms, with or without
+   modification, are permitted provided that the following conditions are met:
+
+       * Redistributions of source code must retain the above copyright
+         notice, this list of conditions and the following disclaimer.
+
+       * Redistributions in binary form must reproduce the above
+         copyright notice, this list of conditions and the following
+         disclaimer in the documentation and/or other materials provided
+         with the distribution.
+
+       * Neither the name of Max Goldstein nor the names of other
+         contributors may be used to endorse or promote products derived
+         from this software without specific prior written permission.
+
+   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+-}
+
+
+{-| The Nonempty type. If you have both a head and tail, you can construct a
+nonempty list directly. Otherwise use the helpers below instead.
+-}
+type Nonempty a
+    = Nonempty a (List a)
+
+
+{-| Create a singleton list with the given element.
+-}
+nonemptyList_fromElement : a -> Nonempty a
+nonemptyList_fromElement x =
+    Nonempty x []
+
+
+{-| Return the head of the list.
+-}
+nonemptyList_head : Nonempty a -> a
+nonemptyList_head (Nonempty x xs) =
+    x
+
+
+{-| Determine if any elements satisfy the predicate.
+-}
+nonemptyList_any : (a -> Bool) -> Nonempty a -> Bool
+nonemptyList_any f (Nonempty x xs) =
+    f x || List.any f xs
+
+
+{-| Add another element as the head of the list, pushing the previous head to the tail.
+-}
+nonemptyList_cons : a -> Nonempty a -> Nonempty a
+nonemptyList_cons y (Nonempty x xs) =
+    Nonempty y (x :: xs)
+
+
+{-| Pop and discard the head, or do nothing for a singleton list. Useful if you
+want to exhaust a list but hang on to the last item indefinitely.
+pop (Nonempty 3 [ 2, 1 ]) --> Nonempty 2 [1]
+pop (Nonempty 1 []) --> Nonempty 1 []
+-}
+nonemptyList_pop : Nonempty a -> Nonempty a
+nonemptyList_pop (Nonempty x xs) =
+    case xs of
+        [] ->
+            Nonempty x xs
+
+        y :: ys ->
+            Nonempty y ys
+
+
+{-| Map the head to a value of the same type
+-}
+nonemptyList_mapHead : (a -> a) -> Nonempty a -> Nonempty a
+nonemptyList_mapHead fn (Nonempty x xs) =
+    Nonempty (fn x) xs

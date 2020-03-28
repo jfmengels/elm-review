@@ -2,7 +2,6 @@ module NonemptyList exposing
     ( Nonempty(..)
     , fromElement
     , head
-    , any
     , cons, pop
     , mapHead
     )
@@ -100,13 +99,6 @@ fromElement x =
 head : Nonempty a -> a
 head (Nonempty x xs) =
     x
-
-
-{-| Determine if any elements satisfy the predicate.
--}
-any : (a -> Bool) -> Nonempty a -> Bool
-any f (Nonempty x xs) =
-    f x || List.any f xs
 
 
 {-| Add another element as the head of the list, pushing the previous head to the tail.
