@@ -378,6 +378,7 @@ review rules project =
                                 ]
                             , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
                             , fixes = Nothing
+                            , target = Review.Error.Global
                             }
                       ]
                     , rules
@@ -403,6 +404,7 @@ review rules project =
                                         ]
                                     , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
                                     , fixes = Nothing
+                                    , target = Review.Error.Global
                                     }
                               ]
                             , rules
@@ -2515,6 +2517,7 @@ error { message, details } range =
         , details = details
         , range = range
         , fixes = Nothing
+        , target = Review.Error.Module
         }
 
 
@@ -2546,6 +2549,7 @@ errorForModule (ModuleKey path) { message, details } range =
         , range = range
         , filePath = path
         , fixes = Nothing
+        , target = Review.Error.Module
         }
 
 
@@ -2590,6 +2594,7 @@ errorForElmJson (ElmJsonKey { path, raw }) getErrorInfo =
         , range = errorInfo.range
         , filePath = path
         , fixes = Nothing
+        , target = Review.Error.ElmJson
         }
 
 
@@ -2624,6 +2629,7 @@ errorForReadme (ReadmeKey { path }) { message, details } range =
         , details = details
         , range = range
         , fixes = Nothing
+        , target = Review.Error.Readme
         }
 
 
@@ -2640,6 +2646,7 @@ parsingError rawFile =
             ]
         , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
         , fixes = Nothing
+        , target = Review.Error.Module
         }
 
 
@@ -2674,7 +2681,7 @@ withFixes fixes error_ =
     -- TODO Make this impossible?
     mapInternalError
         (\err ->
-            if List.isEmpty fixes || String.endsWith ".json" err.filePath then
+            if List.isEmpty fixes || err.target /= Review.Error.Module then
                 { err | fixes = Nothing }
 
             else
