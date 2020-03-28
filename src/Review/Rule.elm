@@ -2098,6 +2098,9 @@ The example is simplified to only forbid the use of the `Html.button` expression
 Tip: If you do not need to collect data in this visitor, you may wish to use the
 simpler [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) function.
 
+Tip: The rule above is very brittle. What if `button` was imported using `import Html exposing (button)` or `import Html exposing (..)`, or if `Html` was aliased (`import Html as H`)? Then the rule above would
+not catch and report the use `Html.button`. I highly recommend checking out [`elm-review-scope`](https://github.com/jfmengels/elm-review-scope) to handle all these cases quite simply.
+
 -}
 withModuleDefinitionVisitor : (Node Module -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
