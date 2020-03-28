@@ -260,7 +260,7 @@ typeAnnotationNames scope typeAnnotation =
 
                 realName : String
                 realName =
-                    case Scope.realModuleName moduleName typeName scope of
+                    case Scope.realModuleName scope typeName moduleName of
                         [] ->
                             "<nothing>." ++ typeName
 
@@ -301,7 +301,7 @@ expressionVisitor node direction context =
 
                 realName : String
                 realName =
-                    case Scope.realModuleName moduleName name context.scope of
+                    case Scope.realModuleName context.scope name moduleName of
                         [] ->
                             "<nothing>." ++ name
 

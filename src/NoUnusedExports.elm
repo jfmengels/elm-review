@@ -149,7 +149,7 @@ fromModuleToProject moduleKey moduleName moduleContext =
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts newContext previousContext =
-    { scope = Scope.foldProjectContexts previousContext.scope newContext.scope
+    { scope = Scope.foldProjectContexts newContext.scope previousContext.scope
     , projectType = previousContext.projectType
     , modules = Dict.union previousContext.modules newContext.modules
     , used = Set.union newContext.used previousContext.used
@@ -407,7 +407,7 @@ testFunctionName scope declaration =
                     |> Maybe.map (Node.value >> .typeAnnotation >> Node.value)
             of
                 Just (TypeAnnotation.Typed (Node _ ( moduleName, name )) _) ->
-                    if name == "Test" && Scope.realModuleName moduleName name scope == [ "Test" ] then
+                    if name == "Test" && Scope.realModuleName scope name moduleName == [ "Test" ] then
                         function.declaration
                             |> Node.value
                             |> .name
@@ -467,7 +467,7 @@ collectTypesFromTypeAnnotation scope node =
             collectTypesFromTypeAnnotation scope a ++ collectTypesFromTypeAnnotation scope b
 
         TypeAnnotation.Typed (Node _ ( moduleName, name )) params ->
-            ( Scope.realModuleName moduleName name scope, name )
+            ( Scope.realModuleName scope name moduleName, name )
                 :: List.concatMap (collectTypesFromTypeAnnotation scope) params
 
         TypeAnnotation.Record list ->
@@ -501,7 +501,7 @@ expressionVisitor node direction moduleContext =
         ( Rule.OnEnter, Expression.FunctionOrValue moduleName name ) ->
             ( []
             , registerAsUsed
-                ( Scope.realModuleName moduleName name moduleContext.scope, name )
+                ( Scope.realModuleName moduleContext.scope name moduleName, name )
                 moduleContext
             )
 

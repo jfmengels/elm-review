@@ -132,8 +132,8 @@ fromModuleToProject moduleName (ModuleContext moduleContext) =
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts (ProjectContext a) (ProjectContext b) =
     ProjectContext
-        { dependenciesModules = a.dependenciesModules
-        , modules = Dict.union a.modules b.modules
+        { dependenciesModules = Dict.union b.dependenciesModules a.dependenciesModules
+        , modules = Dict.union b.modules a.modules
         }
 
 
@@ -914,8 +914,8 @@ findInList predicate list =
 -- ACCESS
 
 
-realModuleName : List String -> String -> ModuleContext -> List String
-realModuleName moduleName functionOrType (ModuleContext context) =
+realModuleName : ModuleContext -> String -> List String -> List String
+realModuleName (ModuleContext context) functionOrType moduleName =
     if List.length moduleName == 0 then
         if isInScope functionOrType context.scopes then
             []
