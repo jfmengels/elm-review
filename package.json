@@ -8,7 +8,7 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "elm make --docs=/tmp/docs.json && elm-format src/ --validate && elm-test && npm run phantom-tests && elm-review && elm-xref",
+    "test": "elm make --docs=/tmp/docs.json && elm-format src/ --validate && elm-test && npm run phantom-tests",
     "phantom-tests": "node phantom-type-tests/run.js",
     "test:watch": "npx elm-test --watch"
   },
@@ -28,7 +28,6 @@
   },
   "devDependencies": {
     "elm-format": "^0.8.3",
-    "elm-test": "^0.19.1-revision2",
-    "elm-xref": "^4.0.0"
+    "elm-test": "^0.19.1-revision2"
   }
 }
