@@ -1,7 +1,7 @@
 {
     "type": "package",
     "name": "jfmengels/elm-review",
-    "summary": "Analyzes Elm source code to add additional guarantees to your project.",
+    "summary": "Analyzes Elm projects, to help find mistakes before your users find them.",
     "license": "BSD-3-Clause",
     "version": "1.0.0",
     "exposed-modules": [
