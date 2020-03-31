@@ -2,30 +2,32 @@
 
 ![](https://travis-ci.com/jfmengels/elm-review.svg?branch=master)
 
-`elm-review` analyzes [Elm](https://elm-lang.org/) projects, to add additional guarantees to your project.
+`elm-review` analyzes [Elm](https://elm-lang.org/) code, to help find mistakes before your users find them.
 
 ![elm-review reporter output](https://github.com/jfmengels/elm-review/blob/master/documentation/images/elm-review-report.png?raw=true)
 
 ## What does `elm-review` do?
 
-`elm-review` analyzes your [Elm](https://elm-lang.org/) source code, and tries to recognize patterns that may be considered harmful or can be improved upon.
-If you are familiar with [ESLint](http://eslint.org/) from JavaScript, this is pretty much the same idea.
+`elm-review` analyzes your source code, trying to recognize code that is known to cause problems.
+It is a linting program, similar to e.g. [ESLint](http://eslint.org/) for JavaScript, or [clippy](https://github.com/rust-lang/rust-clippy) for Rust.
 
-The idea is to improve your Elm source code base, after it passes compilation and [elm-format](https://github.com/avh4/elm-format) has been run on it.
+To make `elm-review` check for problematic code, `elm-review` must be configured with rules, that describes how to find the code.
+Rules can be published as Elm packages, so you can find common rules by [searching the package registry](https://klaftertief.github.io/elm-search/?q=Review.Rule.Rule).
+`elm-review` also allows custom rules, so you can make rules that only make sense for your project.
+Like rules that:
 
-You can configure your project to be analyzed by different "rules". You can find [some in the Elm packages](https://klaftertief.github.io/elm-search/?q=Review.Rule.Rule), or you can write your own rules to enforce rules specific to your project or team. A few use-cases:
-- You noticed a bad pattern in your codebase, wrote a nice module to handle the pattern better, and want to prevent your team from writing that pattern from now on. You can then write a rule to detect that pattern and have it suggest using your module instead. If you don't, you need to communicate this well to all your teammates, but there is no way to prevent the bad pattern from occurring again.
-- You often notice that strings in your codebase contain very common typos, or bad use of punctuation (like a missing space after `;`).
-- You have one module in your codebase which centralizes some data used across the application (the paths to all the images, a list of all the available colors, ...), but you keep finding new definitions of that data across the codebase.
-- You published a library in the Elm package registry, and notice some pitfalls that users can fall in, that all your research for a better API does not prevent. You can then publish a separate package with rules preventing those pitfalls, should the user use `elm-review` in their project.
+  - enforce that e.g. image paths are not defined across the application, but instead only live in an `Images` module, which other modules can reference.
+  - make everyone use your common `Button` component, instead of rolling their own button implementations when they need one.
+  - help users of a library you made, to avoid making mistakes that your API could not prevent them from doing.
 
-When solving a problem, a good API is a usually a better solution than writing a review rule. But in some cases, even if you've written a good API, nothing prevents teammates or yourself from falling in the same unwanted patterns as before, especially when dealing with primitive values or constructs.
-
-When introducing `elm-review` or new rules to your project and team, you should discuss it with them first. It is easy to think that some patterns are always better and want to enforce them, where in reality some edge cases exist where they aren't wanted. Also, people don't usually like it when seemingly arbitrary rules are imposed on them, especially if it relates to code style, so be sure to talk with them and explain the rationale.
+Beware how and why you introduce rules though.
+Often a good API, that guides users to correct solutions, is the best way to go, so instead of writing a rule, maybe there is an API that can be improved?
+But if a rule seems like the best solution, remember to discuss it with your team.
+It's easy to mix up patterns that you personally find problematic, with patterns that are objectively bad, and forbidding patterns that other people use can be very disruptive for them.
 
 ## Try it
 
-The preferred method, if you have `Node.js` and `npm` installed, is to use [`elm-review`](https://github.com/jfmengels/node-elm-review).
+The preferred method, if you have `Node.js` and `npm` installed, is to use the [`elm-review` CLI tool](https://github.com/jfmengels/node-elm-review).
 
 ```bash
 # Save it to your package.json, if you use npm in your project.
@@ -36,12 +38,11 @@ npm install elm-review --save-dev
 npm install -g elm-review
 ```
 
-Also, you can try the online version [here](https://elm-review.now.sh), where you can copy-paste your source code and see the review errors.
+You can also try [the online version here](https://elm-review.now.sh), where you can copy-paste your source code and see the review errors.
 
 ## Configuration
 
-Configuration is done via an Elm file. The benefit of having the configuration written in Elm, is having nicer error messages when there is a misconfiguration, potential auto-completion, and more explicit rule locations (no need for some magic to find the rules defined by a package for instance). Since the rules are written in Elm, they are publishable on the Elm package registry, and writing them should be more accessible than if it was written in a different language.
-
+Rules are configured in the `ReviewConfig.elm` file:
 
 ```elm
 module ReviewConfig exposing (config)
@@ -60,29 +61,27 @@ config =
     ]
 ```
 
-You can get started with an empty configuration with the command line tool by running
-`elm-review init`, which you can then add rules to. Before you do, I suggest
-reading the rest of this document, but especially the section on
-[when to enable a rule in your configuration](#when-to-write-or-enable-a-rule).
+You can get started with an empty configuration with the command line tool by running `elm-review init`.
+Before you start adding rules, I suggest reading the rest of this document, but especially the section on [when to enable a rule](#when-to-write-or-enable-a-rule).
 
-`elm-review` does not come with any built-in rules. You can read why [here](https://github.com/jfmengels/elm-review/blob/master/documentation/design/no-built-in-rules.md). You can find rules in the Elm package registry by [using `elm-search` and searching for `Review.Rule.Rule`](https://klaftertief.github.io/elm-search/?q=Review.Rule.Rule), and use by going to your review directory and running `elm install` in your terminal.
+`elm-review` does not come with any built-in rules.
+You can read why [here](https://github.com/jfmengels/elm-review/blob/master/documentation/design/no-built-in-rules.md).
+Instead you can find rules in the Elm package registry by [using `elm-search` and searching for `Review.Rule.Rule`](https://klaftertief.github.io/elm-search/?q=Review.Rule.Rule).
+In your `review` folder, you can install the rules you want with the `elm install` command.
 
 ```bash
 cd review/ # Go inside your review configuration directory
 elm install authorName/packageName
 ```
 
-You can also [write your own rules](#write-your-own-rule), as shown in the next
-section.
+You can also [write your own rules](#write-your-own-rule).
 
 ## Write your own rule
 
-You can write your own rule using this package's API and
-[`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/).
+You can write your own rule using this package's API and [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/).
 Check out the [`Review.Rule`](./Review-Rule) module for more instructions.
 
-Here's an example of a rule that prevents a typo in a string that was made too
-often at your company.
+Here's an example of a rule that prevents a typo in a string that was made too often at your company.
 
 ```elm
 module NoStringWithMisspelledCompanyName exposing (rule)
@@ -143,94 +142,65 @@ config =
 
 ## When to write or enable a rule
 
-The bar to write or enable a rule in your configuration should be pretty high. I
-recommend having the default answer to the question "Should I write/enable this
-rule?" be "no". I think that the ratio that compares the rule's value to the
-nuisances it will cause should be very high, and it is often hard to foresee
-all the nuisances.
+The bar to write or enable a rule in your configuration should be pretty high.
+If you're asking yourself if you should write or enable a certain rule, I recommend your default answer be "no".
+A new rule will often turn out to be a nuisance to someone, sometimes in ways you can't predict, so making sure your team is on board with enabling a new rule is important.
+If a developer disagrees with a rule, they may try to circumvent it, resulting in code that is even more error prone than the pattern that was forbidden.
+So the value provided by the rule should be much greater than the trouble it causes, to keep everyone happy.
 
-Review rules are useful when something must never appear in the code. It gets
-much less useful when something should not appear only 99% of the time, as there
-is no good solution for handling exceptions (`elm-review` doesn't offer an option
-for disabling a rule locally, see why [here](#is-there-a-way-to-ignore-an-error-or-disable-a-rule-only-in-some-locations-)).
-If you really need to make exceptions, they should be written in the rule itself
-or defined in the rule's parameters and/or configuration.
+Review rules are most useful when some pattern must never appear in the code.
+It gets less useful when a pattern is allowed to appear in certain cases, as there is [no good solution for handling exceptions to rules](#is-there-a-way-to-ignore-an-error-or-disable-a-rule-only-in-some-locations-).
+If you really need to make exceptions, they must be written in the rule itself, or the rule should be configurable.
 
-First of all, if you have never encountered a problem with a pattern before,
-then you probably don't need to forbid it. There are chances the problem will
-never occur, and writing the rule is a waste of time. Or maybe when using it,
-you will find that the pattern is actually not so bad at all and that there are
-situations where using it is actually the best option.
+For rules that enforce a certain **coding style**, or suggest simplifications to your code, I would ask you to raise the bar for inclusion even higher, as I think it is rarely applicable 100% of the time.
+A few examples:
 
-For rules that enforce a certain **coding style**, or even suggest simplifications
-to your code, I would ask you to raise the bar even higher, as I think it is
-rarely applicable or better 100% of the time. A few examples:
   - I much prefer using `|>` over `<|`, and I think using the latter to pipe
   functions over several lines is harder to read. Even if using `|>` was indeed
   better for most situations and even if my teammates agree, this would prevent
   me from writing tests [the suggested way](https://github.com/elm-explorations/test#quick-start)
   for instance.
   - If a record contains only one field, then I could suggest not using a record
-  and use the field directly, which would make things much simpler. But using a
+  and use the field directly, which would make things simpler. But using a
   record can have the advantage of being more explicit: `findFiles [] folder` is
   harder to understand than `findFiles { exceptions = [] } folder`.
 
-It is very important to communicate with your teammates about the rule and that
-they agree. Fighting to avoid a rule is very frustrating if the user who gets
-the error actually thinks the code would be better with the forbidden pattern.
-It is possible they will try to circumvent the rule in a way that was not the
-suggested way, probably making the code worse than before.
+Some rules might suggest using advanced techniques to avoid pitfalls, which can make it harder for newcomers or beginners to get something done.
+When enabling this kind of rule, make sure that the message it gives is helpful enough to unblock users.
 
-Some rules might suggest using more advanced techniques to avoid some pitfalls,
-and this might make it harder for newcomers or beginners to get something done.
-When enabling this kind of rule, make sure that the message it gives is helpful
-enough to unblock users, otherwise this can frustrate and/or block them.
-
-When wondering whether to write or enable a rule, I suggest using this checklist:
-  - I have had problems with the pattern I want to forbid
-  - I could not find a way to solve the problem by changing the API of the
+When wondering whether to enable a rule, I suggest using this checklist:
+  - [x] I have had problems with the pattern I want to forbid
+  - [x] I could not find a way to solve the problem by changing the API of the
   problematic code or introducing a new API
-  - If the rule exists, I have read its documentation and the section about when
+  - [x] If the rule exists, I have read its documentation and the section about when
   not to enable the rule, and it doesn't apply to my situation
-  - I have thought very hard about what the corner cases could be and what kind
-  of patterns this would forbid that are actually okay, and there are none
-  - I think the rule will not make it more difficult for newcomers or beginners,
-  or it will but it gives some very helpful suggestions
-  - I have communicated with my teammates and they all agree to enforce the rule
-  - I am ready to disable the rule if after some time, the team is finding it too
-  often disturbing or simply unhelpful
-
+  - [x] I have thought very hard about what the corner cases could be and what kind
+  of patterns this would forbid that are actually okay, and they are acceptable
+  - [x] I think the rule explains well enough how to solve the issue, to make sure beginners are not blocked by it
+  - [x] I have communicated with my teammates and they all agree to enforce the rule
+  - [x] I am ready to disable the rule if turns out the team is finding it disturbing or unhelpful
+  
+If you have never encountered a problem with a pattern before, then you probably don't need to forbid it.
+There are chances the problem will never occur, and writing the rule is a waste of time.
 
 ## Is there a way to ignore an error or disable a rule only in some locations?
 
-You can prevent errors from being reported by either changing the implementation
-of your rules or by [configuring exceptions](./Rule-Review#configuring-exceptions)
-for directories or for files.
+You can prevent errors from being reported by either changing the implementation of your rules or by [configuring exceptions](./Rule-Review#configuring-exceptions) for directories or for files.
 
 It is however not possible to ignore errors on a case-by-case basis, for several reasons:
 
   - The most practical way to locally disable a rule would probably be through
   comments, like [how `ESLint` does it](https://eslint.org/docs/user-guide/configuring#disabling-rules-with-inline-comments).
-  But since [elm-format](https://github.com/avh4/elm-format) would move the
-  comments around, this would require you to try and figure out how/where to
-  place the comment, or the rule would need to be disabled for a bigger section
-  of the code than wanted. Neither option provides a good experience.
+  But since [elm-format](https://github.com/avh4/elm-format) moves
+  comments around, this is not practical.
   - If there are some rules that you really want to enforce because you want to
   create additional guarantees in your codebase, and it is possible to ignore it,
-  then you will want a second system to ensure those rules are never ignored.
-  - When people encounter a review error, quite often they will try to disable
-  it by default, because they disagree with the rule, are annoyed by it or
-  because they think they will fix it later or not at all. Just like we learned
+  then you will need a second system to ensure those rules are never ignored.
+  - When people encounter a review error, some will try to disable
+  it by default, because they disagree with the rule, are annoyed by it, or
+  because they think they will fix the issue later or not at all. Just like we learned
   with the compiler errors, some problems require us to do some additional
   work for good reasons, and I think this should apply to errors reported by
   `elm-review` too. Obviously, not being able to ignore an error means that the
   bar to write or enable a rule should be even higher.
-  - The more I think about it, the more I think that if you need to make an
-  exception to your rule somewhere, then maybe the rule is not worth enforcing
-  in the first place, and that you should probably remove it from your
-  configuration. Except for rules that try to enforce having a pattern allowed
-  only in certain locations (like a single file that contains all the color
-  definitions).
-
-I suggest (re-)reading [when to write or enable a rule in a configuration](#when-to-write-or-enable-a-rule)
-if you really need to ignore an error.
+  - If you are looking to make an exception to a rule, really consider if the rule as a whole shouldn't just be disabled.
