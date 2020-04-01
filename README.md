@@ -164,13 +164,13 @@ Some rules might suggest using advanced techniques to avoid pitfalls, which can 
 When enabling this kind of rule, make sure that the message it gives is helpful enough to unblock users.
 
 When wondering whether to enable a rule, I suggest using this checklist:
-  - [x] I have had problems with the pattern I want to forbid.
-  - [x] I could not find a way to solve the problem by changing the API of the problematic code or introducing a new API.
-  - [x] If the rule exists, I have read its documentation and the section about when not to enable the rule, and it doesn't apply to my situation.
-  - [x] I have thought very hard about what the corner cases could be and what kind of patterns this would forbid that are actually okay, and they are acceptable.
-  - [x] I think the rule explains well enough how to solve the issue, to make sure beginners are not blocked by it.
-  - [x] I have communicated with my teammates and they all agree to enforce the rule.
-  - [x] I am ready to disable the rule if it turns out to be more disturbing than helpful.
+  - [ ] I have had problems with the pattern I want to forbid.
+  - [ ] I could not find a way to solve the problem by changing the API of the problematic code or introducing a new API.
+  - [ ] If the rule exists, I have read its documentation and the section about when not to enable the rule, and it doesn't apply to my situation.
+  - [ ] I have thought very hard about what the corner cases could be and what kind of patterns this would forbid that are actually okay, and they are acceptable.
+  - [ ] I think the rule explains well enough how to solve the issue, to make sure beginners are not blocked by it.
+  - [ ] I have communicated with my teammates and they all agree to enforce the rule.
+  - [ ] I am ready to disable the rule if it turns out to be more disturbing than helpful.
 
 ## Is there a way to ignore an error or disable a rule only in some locations?
 
