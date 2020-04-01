@@ -32,7 +32,7 @@ main =
 type alias Model =
     { sourceCode : String
     , project : Project
-    , reviewErrors : List Rule.Error
+    , reviewErrors : List Rule.ReviewError
     , noDebugEnabled : Bool
     , noUnusedVariablesEnabled : Bool
     , noUnusedTypeConstructorsEnabled : Bool
@@ -333,7 +333,7 @@ reviewErrors model =
         ]
 
 
-fromReviewError : Rule.Error -> Reporter.Error
+fromReviewError : Rule.ReviewError -> Reporter.Error
 fromReviewError error =
     { ruleName = Rule.errorRuleName error
     , message = Rule.errorMessage error
