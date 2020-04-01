@@ -9,25 +9,25 @@
 ## What does `elm-review` do?
 
 `elm-review` analyzes your source code, trying to recognize code that is known to cause problems.
-It is a linting program, similar to e.g. [ESLint](http://eslint.org/) for JavaScript, or [clippy](https://github.com/rust-lang/rust-clippy) for Rust.
+All the rules describing problematic code are written in Elm, and `elm-review` does not come with any built-in rules;
+instead users are encouraged to write rules themselves and publish them as Elm packages, for everyone to benefit.
+[Search the package registry](https://klaftertief.github.io/elm-search/?q=Review.Rule.Rule) to find what's out there!
 
-To make `elm-review` check for problematic code, `elm-review` must be configured with rules, that describes what to look for.
-Rules can be published as Elm packages, so you can find common rules by [searching the package registry](https://klaftertief.github.io/elm-search/?q=Review.Rule.Rule).
-`elm-review` allows custom rules, so you can make rules that only make sense for your project.
-Like rules that:
+Encouraging users to write rules also makes it easy to add custom rules that only apply to your project.
+Such as rules that:
 
   - enforce that e.g. image paths only live in an `Images` module, which other modules can reference.
   - make everyone use a common `Button` component, instead of creating their own.
   - help users of a library you made, to avoid making mistakes that your API could not prevent them from doing.
 
-Beware how and why you introduce rules though.
+Beware how and why you introduce rules in your project though.
 Often a good API, that guides users to correct solutions, is the best way to go, so instead of writing a rule, maybe there is an API that can be improved?
 But if a rule seems like the best solution, remember to discuss it with your team.
-It's easy to mix up patterns that are objectively bad, with patterns that you personally find problematic, and forbidding patterns that other people use can be very disruptive for them.
+It's easy to mix up patterns that are objectively bad, with patterns that you personally find problematic, and forbidding patterns that other people find useful can be very disruptive.
 
 ## Try it
 
-The preferred method, if you have `Node.js` and `npm` installed, is to use the [`elm-review` CLI tool](https://github.com/jfmengels/node-elm-review).
+The easiest way to run `elm-review`, if you have `Node.js` and `npm` installed, is to use the [`elm-review` CLI tool](https://github.com/jfmengels/node-elm-review).
 
 ```bash
 # Save it to your package.json, if you use npm in your project.
@@ -61,10 +61,9 @@ config =
     ]
 ```
 
-You can get started with an empty configuration with the command line tool by running `elm-review init`.
+You can get started with a fresh configuration by running the `elm-review init` command with the command line tool installed.
 This will add a `review` folder to your project, which is a self-contained Elm project where you can write, import, and configure review rules.
-`elm-review` does not [come with any built-in rules](https://github.com/jfmengels/elm-review/blob/master/documentation/design/no-built-in-rules.md).
-Instead you can find rules in the Elm package registry by [using `elm-search` and searching for `Review.Rule.Rule`](https://klaftertief.github.io/elm-search/?q=Review.Rule.Rule), and installing them with the `elm install` command.
+As `elm-review` does not [come with any built-in rules](https://github.com/jfmengels/elm-review/blob/master/documentation/design/no-built-in-rules.md), you can find existing rules [using `elm-search` and searching for `Review.Rule.Rule`](https://klaftertief.github.io/elm-search/?q=Review.Rule.Rule), and install them with the `elm install` command, just like any other Elm project dependency.
 
 ```bash
 cd review/ # Go inside your review configuration directory
@@ -76,7 +75,7 @@ Before you start adding rules though, I suggest reading the rest of this documen
 ## Write your own rule
 
 You can write your own rule using this package's API and [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/).
-Check out the [`Review.Rule`](./Review-Rule) module for more instructions.
+Check out the [`Review.Rule`](./Review-Rule) documentation for more instructions.
 
 Here's an example of a rule that prevents a typo in a string that was made too often at your company.
 
@@ -140,10 +139,9 @@ config =
 ## When to write or enable a rule
 
 The bar to write or enable a rule should be pretty high.
-If you're asking yourself if you should enable a certain rule, I recommend your default answer be "no".
-A new rule will often turn out to be a nuisance to someone, sometimes in ways you can't predict, so making sure your team is on board with the rule is important.
+A new rule can often turn out to be a nuisance to someone, sometimes in ways you didn't predict, so making sure the rule solves a real problem, and that your team is on board with it, is important.
 If a developer disagrees with a rule, they may try to circumvent it, resulting in code that is even more error prone than the pattern that was originally forbidden.
-So the value provided by the rule should be much greater than the trouble it causes, to keep everyone happy.
+So the value provided by the rule should be much greater than the trouble it causes, and if you find that a rule doesn't live up to this, consider disabling it.
 
 Review rules are most useful when some pattern must never appear in the code.
 It gets less useful when a pattern is allowed to appear in certain cases, as there is [no good solution for handling exceptions to rules](#is-there-a-way-to-ignore-an-error-or-disable-a-rule-only-in-some-locations-).
@@ -172,10 +170,7 @@ When wondering whether to enable a rule, I suggest using this checklist:
   - [x] I have thought very hard about what the corner cases could be and what kind of patterns this would forbid that are actually okay, and they are acceptable.
   - [x] I think the rule explains well enough how to solve the issue, to make sure beginners are not blocked by it.
   - [x] I have communicated with my teammates and they all agree to enforce the rule.
-  - [x] I am ready to disable the rule if turns out the team is finding it disturbing or unhelpful.
-  
-If you have never encountered a problem with a pattern before, then you probably don't need to forbid it.
-There are chances the problem will never occur, and writing the rule is a waste of time.
+  - [x] I am ready to disable the rule if it turns out to be more disturbing than helpful.
 
 ## Is there a way to ignore an error or disable a rule only in some locations?
 
@@ -183,17 +178,13 @@ You can prevent errors from being reported by either changing the implementation
 
 It is however not possible to ignore errors on a case-by-case basis, for several reasons:
 
-  - The most practical way to locally disable a rule would probably be through
+  - The most practical way to locally disable a rule is likely through
   comments, like [how `ESLint` does it](https://eslint.org/docs/user-guide/configuring#disabling-rules-with-inline-comments).
   But since [elm-format](https://github.com/avh4/elm-format) moves comments around, this is not practical.
   - If there are some rules that you really want to enforce because you want to
   create additional guarantees in your codebase, and it is possible to ignore it,
   then you will need a second system to ensure those rules are never ignored.
   - When people encounter a review error, some will try to disable
-  it by default, because they disagree with the rule, are annoyed by it, or
-  because they think they will fix the issue later or not at all. Just like we learned
-  with the compiler errors, some problems require us to do some additional
-  work for good reasons, and I think this should apply to errors reported by
-  `elm-review` too. Obviously, not being able to ignore an error means that the
-  bar to write or enable a rule should be even higher.
-  - If you are looking to make an exception to a rule, really consider if the rule as a whole shouldn't just be disabled.
+  it by default, maybe because they disagree with the rule, are annoyed by it, or
+  because they think they will fix the issue later or not at all. So make sure the rule provides real and obvious value!
+  - If you are looking to make exceptions to a rule, really consider if the rule should just be disabled.
