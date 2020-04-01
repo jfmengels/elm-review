@@ -11,7 +11,6 @@ module NoInvalidLicense exposing (rule)
 
 import Dict exposing (Dict)
 import Elm.License
-import Elm.Package
 import Elm.Project
 import Elm.Syntax.Range exposing (Range)
 import Review.Project.Dependency as Dependency exposing (Dependency)
@@ -73,26 +72,7 @@ elmJsonVisitor : Maybe { elmJsonKey : Rule.ElmJsonKey, project : Elm.Project.Pro
 elmJsonVisitor maybeProject projectContext =
     case maybeProject of
         Just { elmJsonKey, project } ->
-            let
-                directProjectDependencies : Set String
-                directProjectDependencies =
-                    case project of
-                        Elm.Project.Package { deps } ->
-                            deps
-                                |> List.map (Tuple.first >> Elm.Package.toString)
-                                |> Set.fromList
-
-                        Elm.Project.Application { depsDirect } ->
-                            depsDirect
-                                |> List.map (Tuple.first >> Elm.Package.toString)
-                                |> Set.fromList
-            in
-            ( []
-            , { projectContext
-                | elmJsonKey = Just elmJsonKey
-                , directProjectDependencies = directProjectDependencies
-              }
-            )
+            ( [], { projectContext | elmJsonKey = Just elmJsonKey } )
 
         Nothing ->
             ( [], projectContext )
@@ -105,7 +85,6 @@ elmJsonVisitor maybeProject projectContext =
 type alias ProjectContext =
     { elmJsonKey : Maybe Rule.ElmJsonKey
     , licenses : Dict String String
-    , directProjectDependencies : Set String
     }
 
 
@@ -113,7 +92,6 @@ initialProjectContext : ProjectContext
 initialProjectContext =
     { elmJsonKey = Nothing
     , licenses = Dict.empty
-    , directProjectDependencies = Set.empty
     }
 
 
