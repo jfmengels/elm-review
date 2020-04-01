@@ -82,8 +82,6 @@ packageElmJson =
 details : List String
 details =
     [ "This type constructor is never used. It might be handled everywhere it might appear, but there is no location where this value actually gets created."
-    , "You should either use this value somewhere, or remove it at the location I pointed at."
-    , "If you remove it, you may find that other pieces of code are never used, and can themselves be removed too. This could end up simplifying your code a lot."
     ]
 
 

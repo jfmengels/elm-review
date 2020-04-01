@@ -132,10 +132,7 @@ error : Dict String VariableInfo -> VariableInfo -> String -> Error {}
 error declaredModules variableInfo name =
     Rule.error
         { message = variableTypeToString variableInfo.variableType ++ " `" ++ name ++ "` is not used" ++ variableTypeWarning variableInfo.variableType
-        , details =
-            [ "You should either use this value somewhere, or remove it at the location I pointed at."
-            , "If you remove it, you may find that other pieces of code are never used, and can themselves be removed too. This could end up simplifying your code a lot."
-            ]
+        , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
         }
         variableInfo.under
         |> addFix declaredModules variableInfo
