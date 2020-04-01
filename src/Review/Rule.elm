@@ -264,7 +264,7 @@ import Vendor.IntDict as IntDict
 {-| Represents a construct able to analyze a project and report
 unwanted patterns.
 
-See how to create a [module rule](#creating-a-module-rule) or a [project rule](#creating-a-project-rule).
+You can create [module rules](#creating-a-module-rule) or [project rules](#creating-a-project-rule).
 
 -}
 type Rule
@@ -463,14 +463,13 @@ duplicateModuleNames visitedModules projectModules =
                         }
 
 
-{-| Represents whether a Node is being traversed before having seen its children (`OnEnter`ing the Node), or after (`OnExit`ing the Node).
+{-| Represents whether a node is being traversed before having seen its children (`OnEnter`ing the node), or after (`OnExit`ing the node).
 
 When visiting the AST, declaration and expression nodes are visited twice: once
 with `OnEnter`, before the children of the node are visited, and once with
-
 `OnExit`, after the children of the node have been visited.
-In most cases, you'll only want to handle the `OnEnter` case, but there are cas
-Thehere you'll want to visit a [`Node`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#Node)
+In most cases, you'll only want to handle the `OnEnter` case, but there are cases
+where you'll want to visit a [`Node`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#Node)
 containing the module name (of the form `[ "My", "Module" ]` when the module name is `My.Module`)
 is also passed for convenience.after having seen its children. For instance, if
 you are trying to detect the unused variables defined inside of a `let in` expression,
