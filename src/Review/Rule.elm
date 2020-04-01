@@ -496,8 +496,9 @@ type Direction
     | OnExit
 
 
-{-| Creates a schema for a module rule. Will require calling [`fromModuleRuleSchema`](#fromModuleRuleSchema)
-to create a usable [`Rule`](#Rule). Use "with\*" functions from this module, like
+{-| Creates a schema for a module rule. Will require adding module visitors
+calling [`fromModuleRuleSchema`](#fromModuleRuleSchema) to create a usable
+[`Rule`](#Rule). Use "with\*" functions from this module, like
 [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) or [`withSimpleImportVisitor`](#withSimpleImportVisitor)
 to make it report something.
 
@@ -509,6 +510,9 @@ accumulate as the module will be traversed, and allows the rule to know/remember
 what happens in other parts of the module. If you don't need a context, I
 recommend specifying `()`, and using functions from this module with names
 starting with "withSimple".
+
+**NOTE**: Do not store functions, JSON values or regular expressions in your contexts, as they will be
+compared internally, which [may cause Elm to crash](https://package.elm-lang.org/packages/elm/core/latest/Basics#(==)).
 
     module My.Rule.Name exposing (rule)
 
@@ -755,8 +759,18 @@ type TraversalType
     | ImportedModulesFirst
 
 
-{-| Creates a schema for a project rule. Will require calling
+{-| Creates a schema for a project rule. Will require adding project visitors and calling
 [`fromProjectRuleSchema`](#fromProjectRuleSchema) to create a usable [`Rule`](#Rule).
+
+The first argument is the rule name. I _highly_ recommend naming it just like the
+module name (including all the `.` there may be).
+
+The second argument is the initial `projectContext`, i.e. the data that the rule will
+accumulate as the project will be traversed, and allows the rule to know/remember
+what happens in other parts of the project.
+
+**NOTE**: Do not store functions, JSON values or regular expressions in your contexts, as they will be
+compared internally, which [may cause Elm to crash](https://package.elm-lang.org/packages/elm/core/latest/Basics#(==)).
 
 Project rules traverse the project in the following order:
 
