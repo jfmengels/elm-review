@@ -1,7 +1,7 @@
-module NoHtmlButtonTest exposing (all)
+module MiscRules.NoHtmlButtonTest exposing (all)
 
 import Fixtures.Dependencies as Dependencies
-import NoHtmlButton exposing (rule)
+import MiscRules.NoHtmlButton exposing (rule)
 import Review.Project as Project exposing (Project)
 import Review.Test exposing (ReviewResult)
 import Test exposing (Test, describe, test)

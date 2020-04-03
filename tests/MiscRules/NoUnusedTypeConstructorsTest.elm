@@ -1,6 +1,6 @@
-module NoUnusedTypeConstructorsTest exposing (all)
+module MiscRules.NoUnusedTypeConstructorsTest exposing (all)
 
-import NoUnusedTypeConstructors exposing (rule)
+import MiscRules.NoUnusedTypeConstructors exposing (rule)
 import Review.Test exposing (ReviewResult)
 import Test exposing (Test, describe, test)
 

@@ -1,4 +1,4 @@
-module NoUnusedTypeConstructors exposing (rule)
+module MiscRules.NoUnusedTypeConstructors exposing (rule)
 
 {-| Forbid having unused custom type constructors in a file.
 

@@ -1,8 +1,8 @@
-module ReadmeStartsWithProjectTitleTest exposing (all)
+module MiscRules.ReadmeStartsWithProjectTitleTest exposing (all)
 
 import Elm.Project
 import Json.Decode as Decode
-import ReadmeStartsWithProjectTitle exposing (rule)
+import MiscRules.ReadmeStartsWithProjectTitle exposing (rule)
 import Review.Project as Project exposing (Project)
 import Review.Test exposing (ReviewResult)
 import Test exposing (Test, describe, test)

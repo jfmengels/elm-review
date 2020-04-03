@@ -1,4 +1,4 @@
-module ReadmeStartsWithProjectTitle exposing (rule)
+module MiscRules.ReadmeStartsWithProjectTitle exposing (rule)
 
 import Elm.Package
 import Elm.Project
