@@ -1,4 +1,4 @@
-module Review.Rule.NoUnusedTypeConstructors exposing (rule)
+module NoUnusedTypeConstructors exposing (rule)
 
 {-| Forbid having unused custom type constructors in a file.
 

@@ -1,4 +1,4 @@
-module Review.Rule.NoImportingEverything exposing (rule, Configuration)
+module NoImportingEverything exposing (rule, Configuration)
 
 {-| Forbid importing everything from a module.
 

@@ -1,4 +1,4 @@
-module Review.Rule.NoExtraBooleanComparison exposing (rule)
+module NoExtraBooleanComparison exposing (rule)
 
 {-| Forbid the use of boolean comparisons that can be simplified.
 

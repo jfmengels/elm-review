@@ -1,6 +1,6 @@
 module NoExtraBooleanComparisonTest exposing (all)
 
-import Review.Rule.NoExtraBooleanComparison exposing (rule)
+import NoExtraBooleanComparison exposing (rule)
 import Review.Test exposing (ReviewResult)
 import Test exposing (Test, describe, test)
 

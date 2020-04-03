@@ -1,6 +1,6 @@
 module NoImportingEverythingTest exposing (all)
 
-import Review.Rule.NoImportingEverything exposing (Configuration, rule)
+import NoImportingEverything exposing (Configuration, rule)
 import Review.Test exposing (ReviewResult)
 import Test exposing (Test, describe, test)
 
