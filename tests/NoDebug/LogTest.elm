@@ -1,6 +1,6 @@
-module NoDebugLogTest exposing (all)
+module NoDebug.LogTest exposing (all)
 
-import NoDebugLog exposing (rule)
+import NoDebug.Log exposing (rule)
 import Review.Test exposing (ReviewResult)
 import Test exposing (Test, describe, test)
 

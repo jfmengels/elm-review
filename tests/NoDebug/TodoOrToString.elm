@@ -1,4 +1,4 @@
-module NoDebugTodoOrToString exposing (rule)
+module NoDebug.TodoOrToString exposing (rule)
 
 {-|
 
@@ -16,15 +16,15 @@ import Elm.Syntax.Node as Node exposing (Node)
 import Review.Rule as Rule exposing (Error, Rule)
 
 
-{-| Forbid the use of [`Debug.todo`] and [`Debug.toString`] before it goes into
-production or fails in the CI.
+{-| Forbid the use of [`Debug.todo`] and [`Debug.toString`].
 
     config =
-        [ NoDebugTodoOrToString.rule
+        [ NoDebug.TodoOrToString.rule
         ]
 
-The reason why they are separate handled in a different rule than [`Debug.log`]
-is because they are reasonable and useful to have in tests.
+The reason why there is a is separate rule for handling [`Debug.log`] and one for
+handling [`Debug.todo`] and [`Debug.toString`], is because these two functions
+are reasonable and useful to have in tests.
 
 You can for instance create test data without having to handle the error case
 everywhere. If you do enter the error case in the following example, then tests
@@ -42,8 +42,10 @@ will fail.
 If you want to allow these functions in tests but not in production code, you
 can configure the rule like this.
 
+    import Review.Rule as Rule exposing (Rule)
+
     config =
-        [ NoDebugTodoOrToString.rule
+        [ NoDebug.TodoOrToString.rule
             |> Rule.ignoreErrorsForDirectories [ "tests/" ]
         ]
 
@@ -69,18 +71,6 @@ can configure the rule like this.
     else
         b
 
-
-# When (not) to use this rule
-
-You should use this rule if you're developing a package meant to be published,
-or an application that is put into production, and wish to know about the use of
-[`Debug.log`](https://package.elm-lang.org/packages/elm/core/latest/Debug#log)
-module before committing your changes.
-
-You should not use this rule if you are developing an application that is not
-put into production, and you do not care about having stray debug logs, and you
-do not ship to production.
-
 [`Debug.log`]: https://package.elm-lang.org/packages/elm/core/latest/Debug#log
 [`Debug.todo`]: https://package.elm-lang.org/packages/elm/core/latest/Debug#todo
 [`Debug.toString`]: https://package.elm-lang.org/packages/elm/core/latest/Debug#toString
@@ -88,7 +78,7 @@ do not ship to production.
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoDebugTodoOrToString" init
+    Rule.newModuleRuleSchema "NoDebug.TodoOrToString" init
         |> Rule.withImportVisitor importVisitor
         |> Rule.withExpressionVisitor expressionVisitor
         |> Rule.fromModuleRuleSchema

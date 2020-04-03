@@ -1,8 +1,13 @@
-module NoDebugTodoOrToStringTest exposing (all)
+module NoDebug.TodoOrToStringTest exposing (all)
 
-import NoDebugTodoOrToString exposing (rule)
+import NoDebug.TodoOrToString exposing (rule)
 import Review.Test exposing (ReviewResult)
 import Test exposing (Test, describe, test)
+
+
+all : Test
+all =
+    describe "NoDebug.TodoOrToString" tests
 
 
 testRule : String -> ReviewResult
@@ -156,8 +161,3 @@ a = toString "" 1
 """
                 |> Review.Test.expectNoErrors
     ]
-
-
-all : Test
-all =
-    describe "NoDebugTodoOrToString" tests

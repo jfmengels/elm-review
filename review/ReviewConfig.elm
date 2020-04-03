@@ -11,8 +11,8 @@ when inside the directory containing this file.
 
 -}
 
-import NoDebugLog
-import NoDebugTodoOrToString
+import NoDebug.Log
+import NoDebug.TodoOrToString
 import NoTodoComment
 import NoUnused.CustomTypeConstructors2
 import NoUnused.Variables
@@ -24,8 +24,8 @@ import Review.Rule as Rule exposing (Rule)
 
 config : List Rule
 config =
-    [ NoDebugLog.rule
-    , NoDebugTodoOrToString.rule
+    [ NoDebug.Log.rule
+    , NoDebug.TodoOrToString.rule
         |> Rule.ignoreErrorsForDirectories [ "tests/" ]
     , NoUnused.CustomTypeConstructors2.rule
     , NoUnused.Variables.rule

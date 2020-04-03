@@ -1,6 +1,6 @@
-module NoDebugLog exposing (rule)
+module NoDebug.Log exposing (rule)
 
-{-| Forbid the use of [`Debug.log`](https://package.elm-lang.org/packages/elm/core/latest/Debug#log) before it goes into production or fails in the CI.
+{-| Forbid the use of [`Debug.log`](https://package.elm-lang.org/packages/elm/core/latest/Debug#log).
 
 
 # Rule
@@ -18,8 +18,10 @@ import Review.Rule as Rule exposing (Error, Rule)
 
 {-| Forbid the use of [`Debug.log`](https://package.elm-lang.org/packages/elm/core/latest/Debug) before it goes into production or fails in the CI.
 
+`Debug.log` is useful to debug your code, but should not be pushed to production.
+
     config =
-        [ NoDebugLog.rule
+        [ NoDebug.Log.rule
         ]
 
 
