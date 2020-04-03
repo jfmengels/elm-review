@@ -14,11 +14,11 @@ when inside the directory containing this file.
 import NoDebug.Log
 import NoDebug.TodoOrToString
 import NoTodoComment
-import NoUnused.CustomTypeConstructors2
+import NoUnused.CustomTypeConstructors
+import NoUnused.Dependencies
+import NoUnused.Exports
+import NoUnused.Modules
 import NoUnused.Variables
-import NoUnusedDependencies
-import NoUnusedExports
-import NoUnusedModules
 import Review.Rule as Rule exposing (Rule)
 
 
@@ -27,11 +27,12 @@ config =
     [ NoDebug.Log.rule
     , NoDebug.TodoOrToString.rule
         |> Rule.ignoreErrorsForDirectories [ "tests/" ]
-    , NoUnused.CustomTypeConstructors2.rule
+    , NoUnused.CustomTypeConstructors.rule
     , NoUnused.Variables.rule
-    , NoUnusedDependencies.rule
-    , NoUnusedExports.rule
-    , NoUnusedModules.rule
+    , NoUnused.Dependencies.rule
+    , NoUnused.Exports.rule
+        |> Rule.ignoreErrorsForFiles [ "tests/Scope.elm" ]
+    , NoUnused.Modules.rule
 
     --, NoTodoComment.rule
     --    |> Rule.ignoreErrorsForFiles [ "NoTodoComment" ]

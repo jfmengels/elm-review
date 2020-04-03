@@ -1,9 +1,9 @@
-module NoUnusedDependenciesTest exposing (all)
+module NoUnused.DependenciesTest exposing (all)
 
 import Elm.Docs
 import Elm.Project
 import Json.Decode as Decode
-import NoUnusedDependencies exposing (rule)
+import NoUnused.Dependencies exposing (rule)
 import Review.Project as Project exposing (Project)
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Test
@@ -155,12 +155,6 @@ packageWithBar =
         modules
 
 
-details : List String
-details =
-    [ "You can simplify your project a tiny bit by removing this dependency."
-    ]
-
-
 all : Test
 all =
     describe "NoUnused.Dependencies"
@@ -182,12 +176,12 @@ a = 1
                     |> Review.Test.expectErrorsForElmJson
                         [ Review.Test.error
                             { message = "Unused dependency `author/package-with-bar`"
-                            , details = details
+                            , details = [ "To remove it, I recommend installing `elm-json` and running `elm-json uninstall author/package-with-bar`" ]
                             , under = "author/package-with-bar"
                             }
                         , Review.Test.error
                             { message = "Unused dependency `author/package-with-foo`"
-                            , details = details
+                            , details = [ "To remove it, I recommend installing `elm-json` and running `elm-json uninstall author/package-with-foo`" ]
                             , under = "author/package-with-foo"
                             }
                         ]
@@ -211,12 +205,12 @@ a = 1
                     |> Review.Test.expectErrorsForElmJson
                         [ Review.Test.error
                             { message = "Unused dependency `author/package-with-bar`"
-                            , details = details
+                            , details = [ "To remove it, I recommend installing `elm-json` and running `elm-json uninstall author/package-with-bar`" ]
                             , under = "author/package-with-bar"
                             }
                         , Review.Test.error
                             { message = "Unused dependency `author/package-with-foo`"
-                            , details = details
+                            , details = [ "To remove it, I recommend installing `elm-json` and running `elm-json uninstall author/package-with-foo`" ]
                             , under = "author/package-with-foo"
                             }
                         ]

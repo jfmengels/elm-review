@@ -1,9 +1,9 @@
-module NoUnusedModulesTest exposing (all)
+module NoUnused.ModulesTest exposing (all)
 
 import Elm.Project
 import Elm.Version
 import Json.Decode as Decode
-import NoUnusedModules exposing (rule)
+import NoUnused.Modules exposing (rule)
 import Review.Project as Project exposing (Project)
 import Review.Test
 import Test exposing (Test, describe, test)

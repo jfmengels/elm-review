@@ -1,4 +1,4 @@
-module NonemptyList exposing
+module NoUnused.NonemptyList exposing
     ( Nonempty(..)
     , fromElement
     , head
@@ -26,12 +26,7 @@ available.
 
 # Access
 
-@docs head
-
-
-# Inspect
-
-@docs any
+@docs head, sample
 
 
 # Convert

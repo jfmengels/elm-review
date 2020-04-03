@@ -1,6 +1,6 @@
-module NoUnused.CustomTypeConstructors2 exposing (rule)
+module NoUnused.CustomTypeConstructors exposing (rule)
 
-{-| Forbid having unused custom type constructors in a file.
+{-| Forbid having unused custom type constructors inside the project.
 
 
 # Rule
@@ -21,22 +21,30 @@ import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Signature exposing (Signature)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Review.Rule as Rule exposing (Direction, Error, Rule)
-import Review.Scope as Scope
+import Scope
 import Set exposing (Set)
 
 
-{-| Forbid having unused custom type constructors in a file.
+{-| Forbid having unused custom type constructors.
 
     config =
         [ NoUnused.CustomTypeConstructors.rule
         ]
 
-Note that this does not report a constructor if it is exposed in the module, even
-if it is not used anywhere in the project. For a more accurate detection of
-unused constructors (and functions) across your project, you might want to check
-out [elm-xref](https://github.com/zwilias/elm-xref). You may still want to use
-this rule in your config so that you get notified of unused constructors earlier
-in your editor, rather than when running your tests or [elm-xref](https://github.com/zwilias/elm-xref).
+Note that this rule reports any custom type constructor that isn't used
+anywhere _in the project_.
+
+If the project is a package and the module that declared the type is exposed and
+the type's constructors are exposed, then the constructors will not be reported.
+
+Phantom types are supported by this rule. A constructor won't be reported if
+
+  - It is the only constructor of a type that has no type variable
+  - It has no parameters
+  - It is used as an argument of a custom type, in the stead of a type variable that is not used in the definition in any of the type's constructors.
+
+**Note**: At the time of writing, there may be cases where this is not well handled.
+If you find one, please open an issue!
 
 
 ## Fail
@@ -478,9 +486,9 @@ finalProjectEvaluation projectContext =
 -- ERROR
 
 
-errorInformation : Node String -> { message : String, details : List String }
-errorInformation node =
-    { message = "Type constructor `" ++ Node.value node ++ "` is not used."
+errorInformation : String -> { message : String, details : List String }
+errorInformation name =
+    { message = "Type constructor `" ++ name ++ "` is not used."
     , details = [ "This type constructor is never used. It might be handled everywhere it might appear, but there is no location where this value actually gets created." ]
     }
 
@@ -489,7 +497,7 @@ errorForModule : Rule.ModuleKey -> Node String -> Error scope
 errorForModule moduleKey node =
     Rule.errorForModule
         moduleKey
-        (errorInformation node)
+        (errorInformation (Node.value node))
         (Node.range node)
 
 

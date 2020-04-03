@@ -1,4 +1,4 @@
-module NoUnusedModules exposing (rule)
+module NoUnused.Modules exposing (rule)
 
 {-| Forbid the use of modules that are never used in your project.
 
@@ -23,25 +23,19 @@ import Set exposing (Set)
 
 {-| Forbid the use of modules that are never used in your project.
 
-A module is considered unused if it does not contain a `main` function
-(be it exposed or not), does not import `Test` module, and is never imported in
-other modules. For packages, modules listed in the `elm.json`'s
-`exposed-modules` are considered used. The `ReviewConfig` is also always
-considered as used.
+A module is considered used if
 
-A module will be considered as used if it gets imported, even if none of its
-functions or types are used. Other rules from this package will help detect and
-remove code so that the import statement is removed.
+  - it contains a `main` function (be it exposed or not)
+  - it imports the `Test` module
+  - it is imported in any other modules, even if it is not used.
+  - the project is a package and the module is part of the `elm.json`'s `exposed-modules`
+  - it is named `ReviewConfig`
 
-    config =
-        [ NoUnused.Modules.rule
-        ]
-
-
-# When (not) to use this rule
-
-You may not want to enable this rule if you are not concerned about having
-unused modules in your application or package.
+```elm
+config =
+    [ NoUnused.Modules.rule
+    ]
+```
 
 -}
 rule : Rule

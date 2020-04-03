@@ -1,6 +1,6 @@
-module NoUnusedExports exposing (rule)
+module NoUnused.Exports exposing (rule)
 
-{-| Forbid the use of modules that are never used in your project.
+{-| Forbid the use of exposed elements that are never used in your project.
 
 
 # Rule
@@ -24,31 +24,19 @@ import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Review.Rule as Rule exposing (Error, Rule)
-import Review.Scope as Scope
+import Scope
 import Set exposing (Set)
 
 
-{-| Forbid the use of modules that are never used in your project.
+{-| Report functions and types that are exposed from a module but that are never
+used in other modules.
 
-A module is considered unused if it does not contain a `main` function
-(be it exposed or not), does not import `Test` module, and is never imported in
-other modules. For packages, modules listed in the `elm.json`'s
-`exposed-modules` are considered used. The `ReviewConfig` is also always
-considered as used.
-
-A module will be considered as used if it gets imported, even if none of its
-functions or types are used. Other rules from this package will help detect and
-remove code so that the import statement is removed.
+If the project is a package and the module that declared the element is exposed,
+then nothing will be reported.
 
     config =
-        [ NoUnused.Modules.rule
+        [ NoUnused.Exports.rule
         ]
-
-
-# When (not) to use this rule
-
-You may not want to enable this rule if you are not concerned about having
-unused modules in your application or package.
 
 -}
 rule : Rule
@@ -495,7 +483,7 @@ collectTypesFromTypeAnnotation scope node =
 -- EXPRESSION VISITOR
 
 
-expressionVisitor : Node Expression -> Rule.Direction -> ModuleContext -> ( List (Error scope), ModuleContext )
+expressionVisitor : Node Expression -> Rule.Direction -> ModuleContext -> ( List nothing, ModuleContext )
 expressionVisitor node direction moduleContext =
     case ( direction, Node.value node ) of
         ( Rule.OnEnter, Expression.FunctionOrValue moduleName name ) ->

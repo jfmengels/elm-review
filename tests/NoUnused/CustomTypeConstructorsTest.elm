@@ -1,8 +1,8 @@
-module NoUnusedCustomTypeConstructorsTest exposing (all)
+module NoUnused.CustomTypeConstructorsTest exposing (all)
 
 import Elm.Project
 import Json.Decode as Decode
-import NoUnused.CustomTypeConstructors2 exposing (rule)
+import NoUnused.CustomTypeConstructors exposing (rule)
 import Review.Project as Project exposing (Project)
 import Review.Test
 import Test exposing (Test, describe, test)

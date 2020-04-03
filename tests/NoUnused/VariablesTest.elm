@@ -1,6 +1,6 @@
-module NoUnusedVariablesTest exposing (all)
+module NoUnused.VariablesTest exposing (all)
 
-import Review.Rule.NoUnusedVariables exposing (rule)
+import NoUnused.Variables exposing (rule)
 import Review.Test exposing (ReviewResult)
 import Test exposing (Test, describe, test)
 

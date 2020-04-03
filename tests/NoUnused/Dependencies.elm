@@ -1,6 +1,6 @@
-module NoUnusedDependencies exposing (rule)
+module NoUnused.Dependencies exposing (rule)
 
-{-| Forbid the use of modules that are never used in your project.
+{-| Forbid the use of dependencies that are never used in your project.
 
 
 # Rule
@@ -21,40 +21,26 @@ import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
 
-{-| Forbid the use of modules that are never used in your project.
+{-| Forbid the use of dependencies that are never used in your project.
 
-A module is considered unused if it does not contain a `main` function
-(be it exposed or not), does not import `Test` module, and is never imported in
-other modules. For packages, modules listed in the `elm.json`'s
-`exposed-modules` are considered used. The `ReviewConfig` is also always
-considered as used.
-
-A module will be considered as used if it gets imported, even if none of its
-functions or types are used. Other rules from this package will help detect and
-remove code so that the import statement is removed.
+A dependency is considered unused if none of its modules are imported in the project.
 
     config =
         [ NoUnused.Dependencies.rule
         ]
 
-
-# When (not) to use this rule
-
-You may not want to enable this rule if you are not concerned about having
-unused modules in your application or package.
-
 -}
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "NoUnused.Dependencies" initialProjectContext
+        |> Rule.withElmJsonProjectVisitor elmJsonVisitor
+        |> Rule.withDependenciesProjectVisitor dependenciesVisitor
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContext
             { fromProjectToModule = fromProjectToModule
             , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
             }
-        |> Rule.withElmJsonProjectVisitor elmJsonVisitor
-        |> Rule.withDependenciesProjectVisitor dependenciesVisitor
         |> Rule.withFinalProjectEvaluation finalEvaluationForProject
         |> Rule.fromProjectRuleSchema
 
@@ -208,7 +194,7 @@ error elmJsonKey packageName =
     Rule.errorForElmJson elmJsonKey
         (\elmJson ->
             { message = "Unused dependency `" ++ packageName ++ "`"
-            , details = [ "You can simplify your project a tiny bit by removing this dependency." ]
+            , details = [ "To remove it, I recommend installing `elm-json` and running `elm-json uninstall " ++ packageName ++ "`" ]
             , range = findPackageNameInElmJson packageName elmJson
             }
         )
