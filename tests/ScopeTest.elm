@@ -1,10 +1,10 @@
-module Review.ScopeTest exposing (all)
+module ScopeTest exposing (all)
 
-import Dependencies
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
+import Fixtures.Dependencies as Dependencies
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Scope as Scope

@@ -1,4 +1,4 @@
-module Review.RuleVisitorsOrderTest exposing (all)
+module Review.Rule.VisitorsOrderTest exposing (all)
 
 import Elm.Syntax.Declaration exposing (Declaration)
 import Elm.Syntax.Expression exposing (Expression)

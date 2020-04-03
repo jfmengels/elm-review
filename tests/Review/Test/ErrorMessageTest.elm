@@ -1,4 +1,4 @@
-module ErrorMessageTest exposing (all)
+module Review.Test.ErrorMessageTest exposing (all)
 
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)

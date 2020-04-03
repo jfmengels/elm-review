@@ -1,4 +1,4 @@
-module WithDeclarationListVisitorTest exposing (all)
+module Review.Rule.WithDeclarationListVisitorTest exposing (all)
 
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Node as Node exposing (Node)

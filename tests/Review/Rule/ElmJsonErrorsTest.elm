@@ -1,4 +1,4 @@
-module Review.RuleElmJsonErrorsTest exposing (all)
+module Review.Rule.ElmJsonErrorsTest exposing (all)
 
 import Elm.Package
 import Elm.Project

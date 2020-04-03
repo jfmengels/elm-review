@@ -1,4 +1,4 @@
-module Dependencies exposing (elmCore, elmHtml)
+module Fixtures.Dependencies exposing (elmCore, elmHtml)
 
 import Elm.Docs
 import Elm.Project

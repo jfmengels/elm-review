@@ -1,7 +1,7 @@
-module FixTest exposing (all)
+module Review.Fix.FixTest exposing (all)
 
 import Expect
-import Review.Fix as Fix
+import Review.Fix as Fix exposing (Fix)
 import Test exposing (Test, describe, test)
 
 
@@ -17,6 +17,7 @@ all =
 a = Debug.log "foo" 1
 """
 
+                    fixes : List Fix
                     fixes =
                         [ Fix.removeRange
                             { start = { row = 2, column = 5 }
@@ -37,6 +38,7 @@ a =  1
 some_var = 1
 """
 
+                    fixes : List Fix
                     fixes =
                         [ Fix.replaceRangeBy
                             { start = { row = 2, column = 1 }
@@ -58,6 +60,7 @@ someVar = 1
 a = 1
 """
 
+                    fixes : List Fix
                     fixes =
                         [ Fix.insertAt
                             { row = 2, column = 5 }
@@ -77,6 +80,7 @@ a = Debug.log "foo" 1
 a = 1
 """
 
+                    fixes : List Fix
                     fixes =
                         [ Fix.replaceRangeBy
                             { start = { row = 2, column = 1 }
@@ -113,6 +117,7 @@ a : Int
 a = 1
 """
 
+                    fixes : List Fix
                     fixes =
                         [ Fix.removeRange
                             { start = { row = 4, column = 1 }
@@ -135,6 +140,7 @@ someCode = 2
 some_var = 1
 """
 
+                    fixes : List Fix
                     fixes =
                         [ Fix.replaceRangeBy
                             { start = { row = 2, column = 1 }
@@ -158,6 +164,7 @@ some_var =
   1
 """
 
+                    fixes : List Fix
                     fixes =
                         [ Fix.replaceRangeBy
                             { start = { row = 2, column = 1 }
@@ -180,6 +187,7 @@ some_var =
   1
 """
 
+                    fixes : List Fix
                     fixes =
                         [ Fix.replaceRangeBy
                             { start = { row = 2, column = 1 }
@@ -205,6 +213,7 @@ a : Int
 a = 1
 """
 
+                    fixes : List Fix
                     fixes =
                         [ Fix.insertAt
                             { row = 4, column = 1 }
