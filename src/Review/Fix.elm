@@ -197,30 +197,33 @@ type Problem
 
 {-| Apply the changes on the source code.
 -}
-fix : List Fix -> String -> FixResult
-fix fixes sourceCode =
+fix : Bool -> List Fix -> String -> FixResult
+fix shouldBeParsed fixes sourceCode =
     if containRangeCollisions fixes then
         Errored HasCollisionsInFixRanges
 
     else
         let
-            resultSourceCode : String
-            resultSourceCode =
+            resultAfterFix : String
+            resultAfterFix =
                 fixes
                     |> List.sortBy (rangePosition >> negate)
                     |> List.foldl applyFix (String.lines sourceCode)
                     |> String.join "\n"
         in
-        if sourceCode == resultSourceCode then
+        if sourceCode == resultAfterFix then
             Errored Unchanged
 
-        else
-            case Elm.Parser.parse resultSourceCode of
+        else if shouldBeParsed then
+            case Elm.Parser.parse resultAfterFix of
                 Err _ ->
-                    Errored <| SourceCodeIsNotValid resultSourceCode
+                    Errored <| SourceCodeIsNotValid resultAfterFix
 
                 Ok _ ->
-                    Successful resultSourceCode
+                    Successful resultAfterFix
+
+        else
+            Successful resultAfterFix
 
 
 containRangeCollisions : List Fix -> Bool

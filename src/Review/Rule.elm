@@ -2630,8 +2630,6 @@ type ReadmeKey
 You will need an [`ReadmeKey`](#ReadmeKey), which you can get from the [`withReadmeProjectVisitor`](#withReadmeProjectVisitor)
 function.
 
-**NOTE**: Fixes added to errors for the `README` file are automatically ignored.
-
 -}
 errorForReadme : ReadmeKey -> { message : String, details : List String } -> Range -> Error scope
 errorForReadme (ReadmeKey { path }) { message, details } range =
@@ -2691,14 +2689,24 @@ not matter.
 -}
 withFixes : List Fix -> Error scope -> Error scope
 withFixes fixes error_ =
-    -- TODO Make this impossible?
     mapInternalError
         (\err ->
-            if List.isEmpty fixes || err.target /= Review.Error.Module then
+            if List.isEmpty fixes then
                 { err | fixes = Nothing }
 
             else
-                { err | fixes = Just fixes }
+                case err.target of
+                    Review.Error.Module ->
+                        { err | fixes = Just fixes }
+
+                    Review.Error.Readme ->
+                        { err | fixes = Just fixes }
+
+                    Review.Error.ElmJson ->
+                        err
+
+                    Review.Error.Global ->
+                        err
         )
         error_
 

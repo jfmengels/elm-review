@@ -134,7 +134,8 @@ type alias SuccessfulRunResult =
 
 
 type alias CodeInspector =
-    { source : String
+    { isModule : Bool
+    , source : String
     , getCodeAtLocation : Range -> Maybe String
     , checkIfLocationIsAmbiguous : ReviewError -> String -> Expectation
     }
@@ -385,7 +386,7 @@ moduleToRunResult errors projectModule =
             |> Node.value
             |> Module.moduleName
             |> String.join "."
-    , inspector = codeInspectorForSource projectModule.source
+    , inspector = codeInspectorForSource True projectModule.source
     , errors =
         errors
             |> List.filter (\error_ -> Rule.errorFilePath error_ == projectModule.path)
@@ -403,7 +404,7 @@ elmJsonRunResult errors project =
 
                 errorsForElmJson ->
                     [ { moduleName = elmJsonData.path
-                      , inspector = codeInspectorForSource elmJsonData.raw
+                      , inspector = codeInspectorForSource False elmJsonData.raw
                       , errors = errorsForElmJson
                       }
                     ]
@@ -422,7 +423,7 @@ readmeRunResult errors project =
 
                 errorsForElmJson ->
                     [ { moduleName = readme.path
-                      , inspector = codeInspectorForSource readme.content
+                      , inspector = codeInspectorForSource False readme.content
                       , errors = errorsForElmJson
                       }
                     ]
@@ -446,9 +447,10 @@ indexOf elementToFind aList =
                     |> Maybe.map ((+) 1)
 
 
-codeInspectorForSource : String -> CodeInspector
-codeInspectorForSource source =
-    { source = source
+codeInspectorForSource : Bool -> String -> CodeInspector
+codeInspectorForSource isModule source =
+    { isModule = isModule
+    , source = source
     , getCodeAtLocation = getCodeAtLocationInSourceCode source
     , checkIfLocationIsAmbiguous = checkIfLocationIsAmbiguousInSourceCode source
     }
@@ -1036,16 +1038,16 @@ checkFixesAreCorrect codeInspector error_ ((ExpectedError expectedError_) as exp
         ( Nothing, Nothing ) ->
             Expect.pass
 
-        ( Just expectedFixedSource, Nothing ) ->
+        ( Just _, Nothing ) ->
             ErrorMessage.missingFixes (extractExpectedErrorData expectedError)
                 |> Expect.fail
 
-        ( Nothing, Just fixes ) ->
+        ( Nothing, Just _ ) ->
             ErrorMessage.unexpectedFixes error_
                 |> Expect.fail
 
         ( Just expectedFixedSource, Just fixes ) ->
-            case Fix.fix fixes codeInspector.source of
+            case Fix.fix codeInspector.isModule fixes codeInspector.source of
                 Fix.Successful fixedSource ->
                     (fixedSource == expectedFixedSource)
                         |> Expect.true (ErrorMessage.fixedCodeMismatch fixedSource expectedFixedSource error_)
