@@ -108,6 +108,7 @@ all =
                             , details = details
                             , under = "https://package.elm-lang.org/packages/author/package/1.2.4/Module-Name"
                             }
+                            |> Review.Test.whenFixed (readmeWithLink "https://package.elm-lang.org/packages/author/package/1.2.3/Module-Name")
                         ]
         , test "should report an error if a link points to latest" <|
             \() ->
@@ -121,6 +122,7 @@ all =
                             , details = details
                             , under = "https://package.elm-lang.org/packages/author/package/latest/Module-Name"
                             }
+                            |> Review.Test.whenFixed (readmeWithLink "https://package.elm-lang.org/packages/author/package/1.2.3/Module-Name")
                         ]
         , test "should report an error even if the author or package name contains a dash or digit" <|
             \() ->

@@ -13,6 +13,7 @@ import Elm.Project
 import Elm.Syntax.Range exposing (Range)
 import Elm.Version
 import Regex exposing (Regex)
+import Review.Fix as Fix
 import Review.Rule as Rule exposing (Error, Rule)
 
 
@@ -90,21 +91,27 @@ findRangeForSubstring context readmeKey content =
 notAMatch : { projectName : String, version : String } -> Rule.ReadmeKey -> Int -> Regex.Match -> Maybe (Error scope)
 notAMatch { projectName, version } readmeKey row match =
     case match.submatches of
-        (Just authorAndPackage) :: (Just linkVersion) :: _ ->
+        (Just authorAndPackage) :: (Just linkVersion) :: _ :: rest :: [] ->
             if authorAndPackage == projectName && linkVersion /= version then
+                let
+                    range : Range
+                    range =
+                        { start =
+                            { row = row + 1
+                            , column = match.index + 3
+                            }
+                        , end =
+                            { row = row + 1
+                            , column = match.index + String.length match.match
+                            }
+                        }
+                in
                 Rule.errorForReadme readmeKey
                     { message = "Link does not point to the current version of the package"
                     , details = [ "I suggest to run elm-review in fix mode" ]
                     }
-                    { start =
-                        { row = row + 1
-                        , column = match.index + 3
-                        }
-                    , end =
-                        { row = row + 1
-                        , column = match.index + String.length match.match
-                        }
-                    }
+                    range
+                    |> Rule.withFixes [ Fix.replaceRangeBy range <| "https://package.elm-lang.org/packages/" ++ projectName ++ "/" ++ version ++ Maybe.withDefault "" rest ]
                     |> Just
 
             else
