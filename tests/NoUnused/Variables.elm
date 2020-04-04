@@ -20,7 +20,7 @@ import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
 import NoUnused.NonemptyList as NonemptyList exposing (Nonempty)
-import Review.Fix as Fix
+import Review.Fix as Fix exposing (Fix)
 import Review.Rule as Rule exposing (Direction, Error, Rule)
 import Set exposing (Set)
 
@@ -130,12 +130,12 @@ emptyScope =
 
 error : Dict String VariableInfo -> VariableInfo -> String -> Error {}
 error declaredModules variableInfo name =
-    Rule.error
+    Rule.errorWithFix
         { message = variableTypeToString variableInfo.variableType ++ " `" ++ name ++ "` is not used" ++ variableTypeWarning variableInfo.variableType
         , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
         }
         variableInfo.under
-        |> addFix declaredModules variableInfo
+        (fix declaredModules variableInfo)
 
 
 variableTypeToString : VariableType -> String
@@ -194,8 +194,8 @@ variableTypeWarning value =
             " (Warning: Removing this port may break your application if it is used in the JS code)"
 
 
-addFix : Dict String VariableInfo -> VariableInfo -> Error {} -> Error {}
-addFix declaredModules { variableType, rangeToRemove } error_ =
+fix : Dict String VariableInfo -> VariableInfo -> List Fix
+fix declaredModules { variableType, rangeToRemove } =
     let
         shouldOfferFix : Bool
         shouldOfferFix =
@@ -223,10 +223,10 @@ addFix declaredModules { variableType, rangeToRemove } error_ =
                     True
     in
     if shouldOfferFix then
-        Rule.withFixes [ Fix.removeRange rangeToRemove ] error_
+        [ Fix.removeRange rangeToRemove ]
 
     else
-        error_
+        []
 
 
 moduleDefinitionVisitor : Node Module -> Context -> ( List nothing, Context )

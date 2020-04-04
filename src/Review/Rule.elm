@@ -7,7 +7,6 @@ module Review.Rule exposing
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
-    , withFixes
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review
     , Required, Forbidden
@@ -202,13 +201,6 @@ first, as they are in practice a simpler version of project rules.
 
 @docs Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
 @docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
-
-
-## Automatic fixing
-
-For more information on automatic fixing, read the documentation for [`Review.Fix`](./Review-Fix).
-
-@docs withFixes
 
 
 ## Configuring exceptions

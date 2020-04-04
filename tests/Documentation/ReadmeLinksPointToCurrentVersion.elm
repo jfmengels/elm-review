@@ -111,12 +111,12 @@ notAMatch { projectName, version } readmeKey row match =
                             }
                         }
                 in
-                Rule.errorForReadme readmeKey
+                Rule.errorForReadmeWithFix readmeKey
                     { message = "Link does not point to the current version of the package"
                     , details = [ "I suggest to run elm-review in fix mode" ]
                     }
                     range
-                    |> Rule.withFixes [ Fix.replaceRangeBy range <| "https://package.elm-lang.org/packages/" ++ projectName ++ "/" ++ version ++ Maybe.withDefault "" rest ]
+                    [ Fix.replaceRangeBy range <| "https://package.elm-lang.org/packages/" ++ projectName ++ "/" ++ version ++ Maybe.withDefault "" rest ]
                     |> Just
 
             else
