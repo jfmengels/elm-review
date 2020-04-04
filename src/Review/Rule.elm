@@ -248,6 +248,7 @@ import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix exposing (Fix)
 import Review.Project exposing (Project, ProjectModule)
 import Review.Project.Dependency
+import Review.Project.Internal
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
@@ -347,7 +348,7 @@ to compare them or the model that holds them.
 -}
 review : List Rule -> Project -> ( List ReviewError, List Rule )
 review rules project =
-    case project |> Review.Project.modulesThatFailedToParse of
+    case Review.Project.modulesThatFailedToParse project of
         [] ->
             case Review.Project.modules project |> duplicateModuleNames Dict.empty of
                 Just duplicate ->
@@ -381,7 +382,7 @@ review rules project =
                         sortedModules : Result (Graph.Edge ()) (List (Graph.NodeContext ModuleName ()))
                         sortedModules =
                             project
-                                |> Review.Project.moduleGraph
+                                |> Review.Project.Internal.moduleGraph
                                 |> Graph.checkAcyclic
                                 |> Result.map Graph.topologicalSort
                     in
@@ -1332,7 +1333,7 @@ computeModules (ProjectRuleSchema schema) visitors project initialContext nodeCo
     let
         graph : Graph ModuleName ()
         graph =
-            Review.Project.moduleGraph project
+            Review.Project.Internal.moduleGraph project
 
         projectModulePaths : Set String
         projectModulePaths =

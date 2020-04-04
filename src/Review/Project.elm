@@ -1,6 +1,6 @@
 module Review.Project exposing
     ( Project, new
-    , ProjectModule, addModule, addParsedModule, removeModule, modules, modulesThatFailedToParse, moduleGraph, precomputeModuleGraph
+    , ProjectModule, addModule, addParsedModule, removeModule, modules, modulesThatFailedToParse, precomputeModuleGraph
     , addElmJson, elmJson
     , addReadme, readme
     , addDependency, removeDependencies, dependencies
@@ -28,7 +28,7 @@ does not look at project information (like the `elm.json`, dependencies, ...).
 
 ## Elm modules
 
-@docs ProjectModule, addModule, addParsedModule, removeModule, modules, modulesThatFailedToParse, moduleGraph, precomputeModuleGraph
+@docs ProjectModule, addModule, addParsedModule, removeModule, modules, modulesThatFailedToParse, precomputeModuleGraph
 
 
 # `elm.json`
@@ -52,12 +52,10 @@ import Elm.Parser as Parser
 import Elm.Processing
 import Elm.Project
 import Elm.Syntax.File exposing (File)
-import Elm.Syntax.Module
-import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
 import Review.Dependencies
 import Review.Project.Dependency as Dependency exposing (Dependency)
-import Vendor.Graph as Graph exposing (Graph)
+import Review.Project.Internal as Internal exposing (Project)
 
 
 
@@ -67,22 +65,15 @@ import Vendor.Graph as Graph exposing (Graph)
 {-| Holds all the information related to the project such as the contents of
 the `elm.json` file, the project modules and the project dependencies.
 -}
-type Project
-    = Project
-        { modules : List ProjectModule
-        , modulesThatFailedToParse : List { path : String, source : String }
-        , elmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
-        , readme : Maybe { path : String, content : String }
-        , dependencies : Dict String Dependency
-        , moduleGraph : Maybe (Graph ModuleName ())
-        }
+type alias Project =
+    Internal.Project
 
 
 {-| Create a new Project.
 -}
 new : Project
 new =
-    Project
+    Internal.Project
         { modules = []
         , modulesThatFailedToParse = []
         , elmJson = Nothing
@@ -99,10 +90,7 @@ new =
 {-| Represents a parsed file.
 -}
 type alias ProjectModule =
-    { path : String
-    , source : String
-    , ast : Elm.Syntax.File.File
-    }
+    Internal.ProjectModule
 
 
 {-| Add an Elm file to the project. If a file with the same path already exists,
@@ -157,8 +145,8 @@ addParsedModule module_ project =
 
 
 addModuleToProject : ProjectModule -> Project -> Project
-addModuleToProject module_ (Project project) =
-    Project { project | modules = sanitizeModule module_ :: project.modules }
+addModuleToProject module_ (Internal.Project project) =
+    Internal.Project { project | modules = sanitizeModule module_ :: project.modules }
 
 
 sanitizeModule : ProjectModule -> ProjectModule
@@ -172,8 +160,8 @@ reorderComments ast =
 
 
 addFileThatFailedToParse : { path : String, source : String } -> Project -> Project
-addFileThatFailedToParse { path, source } (Project project) =
-    Project
+addFileThatFailedToParse { path, source } (Internal.Project project) =
+    Internal.Project
         { project
             | modulesThatFailedToParse = { path = path, source = source } :: project.modulesThatFailedToParse
         }
@@ -189,8 +177,8 @@ removeModule path project =
 
 
 removeFileFromProject : String -> Project -> Project
-removeFileFromProject path (Project project) =
-    Project
+removeFileFromProject path (Internal.Project project) =
+    Internal.Project
         { project
             | modules = List.filter (\module_ -> module_.path /= path) project.modules
             , modulesThatFailedToParse = List.filter (\file -> file.path /= path) project.modulesThatFailedToParse
@@ -218,39 +206,19 @@ elmProcessContext =
 {-| Get the list of modules in the project.
 -}
 modules : Project -> List ProjectModule
-modules (Project project) =
+modules (Internal.Project project) =
     project.modules
 
 
 {-| Get the list of file paths that failed to parse, because they were syntactically invalid Elm code.
 -}
 modulesThatFailedToParse : Project -> List { path : String, source : String }
-modulesThatFailedToParse (Project project) =
+modulesThatFailedToParse (Internal.Project project) =
     project.modulesThatFailedToParse
 
 
-{-| Get the module graph for the project in the form of a
-[`elm-community/graph` Graph]. This is used by `Review.Rule` internally.
-
-The dependency is actually copied into the project, which means that you won't
-be able to use this value, even if you add `elm-community/graph` as a dependency.
-This is an unfortunately visible implementation detail, it is not meant for you
-to use.
-
-[`elm-community/graph` Graph]: https://package.elm-lang.org/packages/elm-community/graph/6.0.0/Graph#Graph
-
--}
-moduleGraph : Project -> Graph (List String) ()
-moduleGraph (Project project) =
-    case project.moduleGraph of
-        Just graph ->
-            graph
-
-        Nothing ->
-            buildModuleGraph project.modules
-
-
 {-| Precomputes the module graph that you get using [`moduleGraph`](#moduleGraph).
+
 This is to avoid a potentially long computation for every rule run. Once the graph
 is precomputed, it will be recomputed every time a module is changed, meaning
 you won't need to reuse this call `precomputeModuleGraph` again.
@@ -260,13 +228,13 @@ the project.
 
 -}
 precomputeModuleGraph : Project -> Project
-precomputeModuleGraph ((Project p) as project) =
+precomputeModuleGraph ((Internal.Project p) as project) =
     case p.moduleGraph of
         Just _ ->
             project
 
         Nothing ->
-            Project { p | moduleGraph = Just <| buildModuleGraph p.modules }
+            Internal.Project { p | moduleGraph = Just <| Internal.buildModuleGraph p.modules }
 
 
 
@@ -283,8 +251,8 @@ The `raw` value should be the raw JSON as a string, and `contents` corresponds t
 
 -}
 addElmJson : { path : String, raw : String, project : Elm.Project.Project } -> Project -> Project
-addElmJson elmJson_ (Project project) =
-    Project { project | elmJson = Just elmJson_ }
+addElmJson elmJson_ (Internal.Project project) =
+    Internal.Project { project | elmJson = Just elmJson_ }
 
 
 {-| Get the contents of the `elm.json` file, if available.
@@ -296,7 +264,7 @@ information inside the `elm.json` file.
 
 -}
 elmJson : Project -> Maybe { path : String, raw : String, project : Elm.Project.Project }
-elmJson (Project project) =
+elmJson (Internal.Project project) =
     project.elmJson
 
 
@@ -310,14 +278,14 @@ available for rules to access using
 [`Review.Rule.withReadmeProjectVisitor`](./Review-Rule#withReadmeProjectVisitor).
 -}
 addReadme : { path : String, content : String } -> Project -> Project
-addReadme readme_ (Project project) =
-    Project { project | readme = Just readme_ }
+addReadme readme_ (Internal.Project project) =
+    Internal.Project { project | readme = Just readme_ }
 
 
 {-| Get the contents of the `README.md` file, if available.
 -}
 readme : Project -> Maybe { path : String, content : String }
-readme (Project project) =
+readme (Internal.Project project) =
     project.readme
 
 
@@ -331,8 +299,8 @@ parsing a file.
 
 -}
 addDependency : Dependency -> Project -> Project
-addDependency dependency (Project project) =
-    Project
+addDependency dependency (Internal.Project project) =
+    Internal.Project
         { project
             | dependencies =
                 Dict.insert
@@ -347,15 +315,15 @@ addDependency dependency (Project project) =
 a project when they are changed, before re-adding them.
 -}
 removeDependencies : Project -> Project
-removeDependencies (Project project) =
-    Project { project | dependencies = Dict.empty }
+removeDependencies (Internal.Project project) =
+    Internal.Project { project | dependencies = Dict.empty }
         |> recomputeModuleGraphIfNeeded
 
 
 {-| Get the [dependencies](./Review-Project-Dependency#Dependency) of the project.
 -}
 dependencies : Project -> Dict String Dependency
-dependencies (Project project) =
+dependencies (Internal.Project project) =
     project.dependencies
 
 
@@ -364,82 +332,10 @@ dependencies (Project project) =
 
 
 recomputeModuleGraphIfNeeded : Project -> Project
-recomputeModuleGraphIfNeeded ((Project p) as project) =
+recomputeModuleGraphIfNeeded ((Internal.Project p) as project) =
     case p.moduleGraph of
         Just _ ->
             precomputeModuleGraph project
 
         Nothing ->
             project
-
-
-buildModuleGraph : List ProjectModule -> Graph ModuleName ()
-buildModuleGraph mods =
-    let
-        moduleIds : Dict ModuleName Int
-        moduleIds =
-            mods
-                |> List.indexedMap Tuple.pair
-                |> List.foldl
-                    (\( index, module_ ) dict ->
-                        Dict.insert
-                            (getModuleName module_)
-                            index
-                            dict
-                    )
-                    Dict.empty
-
-        getModuleId : ModuleName -> Int
-        getModuleId moduleName =
-            case Dict.get moduleName moduleIds of
-                Just moduleId ->
-                    moduleId
-
-                Nothing ->
-                    getModuleId moduleName
-
-        ( nodes, edges ) =
-            mods
-                |> List.foldl
-                    (\module_ ( resNodes, resEdges ) ->
-                        let
-                            ( moduleNode, modulesEdges ) =
-                                nodesAndEdges
-                                    (\moduleName -> Dict.get moduleName moduleIds)
-                                    module_
-                                    (getModuleId <| getModuleName module_)
-                        in
-                        ( moduleNode :: resNodes, List.concat [ modulesEdges, resEdges ] )
-                    )
-                    ( [], [] )
-    in
-    Graph.fromNodesAndEdges nodes edges
-
-
-nodesAndEdges : (ModuleName -> Maybe Int) -> ProjectModule -> Int -> ( Graph.Node ModuleName, List (Graph.Edge ()) )
-nodesAndEdges getModuleId module_ moduleId =
-    let
-        moduleName =
-            getModuleName module_
-    in
-    ( Graph.Node moduleId moduleName
-    , importedModules module_
-        |> List.filterMap getModuleId
-        |> List.map
-            (\importedModuleId ->
-                Graph.Edge importedModuleId moduleId ()
-            )
-    )
-
-
-importedModules : ProjectModule -> List ModuleName
-importedModules module_ =
-    module_.ast.imports
-        |> List.map (Node.value >> .moduleName >> Node.value)
-
-
-getModuleName : ProjectModule -> ModuleName
-getModuleName module_ =
-    module_.ast.moduleDefinition
-        |> Node.value
-        |> Elm.Syntax.Module.moduleName
