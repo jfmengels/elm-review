@@ -5,7 +5,7 @@ module Review.Rule exposing
     , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
-    , Error, error, ModuleKey, errorForModule, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme
+    , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
     , withFixes
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
@@ -200,7 +200,7 @@ first, as they are in practice a simpler version of project rules.
 
 ## Errors
 
-@docs Error, error, ModuleKey, errorForModule, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme
+@docs Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
 @docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
 
 
@@ -2534,6 +2534,36 @@ error { message, details } range =
         }
 
 
+{-| Creates an [`Error`](#Error), just like the [`error`](#error) function, but
+provides an automatic fix that the user can apply.
+
+    import Review.Fix as Fix
+
+    error : Node a -> Error
+    error node =
+        Rule.errorWithFix
+            { message = "Remove the use of `Debug` before shipping to production"
+            , details = [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing its use before committing and attempting to push to production." ]
+            }
+            (Node.range node)
+            [ Fix.removeRange (Node.range node) ]
+
+Take a look at [`Review.Fix`](./Review-Fix) to know more on how to makes fixes.
+
+If the list of fixes is empty, then it will give the same error as if you had
+called [`error`](#error) instead.
+
+**Note**: Each fix applies on a location in the code, defined by a range. To avoid an
+unpredictable result, those ranges may not overlap. The order of the fixes does
+not matter.
+
+-}
+errorWithFix : { message : String, details : List String } -> Range -> List Fix -> Error {}
+errorWithFix info range fixes =
+    error info range
+        |> withFixes fixes
+
+
 {-| A key to be able to report an error for a specific module. You need such a
 key in order to use the [`errorForModule`](#errorForModule) function. This is to
 prevent creating errors for modules you have not visited, or files that do not exist.
@@ -2566,6 +2596,25 @@ errorForModule (ModuleKey path) { message, details } range =
         }
 
 
+{-| Just like [`errorForModule`](#errorForModule), create an [`Error`](#Error) for a specific module, but
+provides an automatic fix that the user can apply.
+
+Take a look at [`Review.Fix`](./Review-Fix) to know more on how to makes fixes.
+
+If the list of fixes is empty, then it will give the same error as if you had
+called [`errorForModule`](#errorForModule) instead.
+
+**Note**: Each fix applies on a location in the code, defined by a range. To avoid an
+unpredictable result, those ranges may not overlap. The order of the fixes does
+not matter.
+
+-}
+errorForModuleWithFix : ModuleKey -> { message : String, details : List String } -> Range -> List Fix -> Error scope
+errorForModuleWithFix moduleKey info range fixes =
+    errorForModule moduleKey info range
+        |> withFixes fixes
+
+
 {-| A key to be able to report an error for the `elm.json` file. You need this
 key in order to use the [`errorForElmJson`](#errorForElmJson) function. This is
 to prevent creating errors for it if you have not visited it.
@@ -2589,8 +2638,6 @@ The second argument is a function that takes the `elm.json` content as a raw str
 and returns the error details. Using the raw string, you should try and find the
 most fitting [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range)
 possible for the error.
-
-**NOTE**: Fixes added to errors for the `elm.json` file are automatically ignored.
 
 -}
 errorForElmJson : ElmJsonKey -> (String -> { message : String, details : List String, range : Range }) -> Error scope
@@ -2642,6 +2689,25 @@ errorForReadme (ReadmeKey { path }) { message, details } range =
         , fixes = Nothing
         , target = Review.Error.Readme
         }
+
+
+{-| Just like [`errorForReadme`](#errorForReadme), create an [`Error`](#Error) for the `README.md` file, but
+provides an automatic fix that the user can apply.
+
+Take a look at [`Review.Fix`](./Review-Fix) to know more on how to makes fixes.
+
+If the list of fixes is empty, then it will give the same error as if you had
+called [`errorForReadme`](#errorForReadme) instead.
+
+**Note**: Each fix applies on a location in the code, defined by a range. To avoid an
+unpredictable result, those ranges may not overlap. The order of the fixes does
+not matter.
+
+-}
+errorForReadmeWithFix : ReadmeKey -> { message : String, details : List String } -> Range -> List Fix -> Error scope
+errorForReadmeWithFix readmeKey info range fixes =
+    errorForReadme readmeKey info range
+        |> withFixes fixes
 
 
 parsingError : { path : String, source : String } -> ReviewError

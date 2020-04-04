@@ -21,17 +21,16 @@ fixed.
 
 In summary, errors will be presented one by one and the user will validate them.
 The [CLI] also proposes an option to fix all the errors, which applies each fix
-one by one and then asks the user to confirm the cummulated fix.
-
-Automatic fixes for the `elm.json` are ignored and won't be applied.
+one by one and then asks the user to confirm the cumulated fix.
 
 
 # Guidelines
 
 An automatic fix, when applied, should resolve the reported error completely.
 This means that when the automatic fix is applied, the user should not have to
-think about the error anymore or have to do additional work. Imagine if the user
-applies a lot of automatic fixes all at once. We don't want them to have to
+think about the error anymore or have to do additional work.
+
+Imagine if the user applies a lot of automatic fixes all at once. We don't want them to have to
 remember having to do something, otherwise we may have just offloaded a lot of
 work that they may forget to do. In that case, it is better not to provide a fix
 at all, so that they keep a reminder and the details of how to fix the problem.
