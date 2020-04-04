@@ -6,7 +6,7 @@ module Review.Rule exposing
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
-    , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
+    , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review
     , Required, Forbidden
@@ -200,7 +200,7 @@ first, as they are in practice a simpler version of project rules.
 ## Errors
 
 @docs Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
-@docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath
+@docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
 
 
 ## Configuring exceptions
@@ -2816,6 +2816,13 @@ errorFixes (Review.Error.ReviewError err) =
 errorFilePath : Review.Error.ReviewError -> String
 errorFilePath (Review.Error.ReviewError err) =
     err.filePath
+
+
+{-| Get the file path of an [`Error`](#Error).
+-}
+errorTarget : Review.Error.ReviewError -> Review.Error.Target
+errorTarget (Review.Error.ReviewError err) =
+    err.target
 
 
 mapInternalError : (InternalError -> InternalError) -> Error scope -> Error scope

@@ -1,6 +1,5 @@
 module Review.Fix exposing
-    ( Fix
-    , removeRange, replaceRangeBy, insertAt
+    ( Fix, removeRange, replaceRangeBy, insertAt
     , FixResult(..), Problem(..), fix
     )
 
@@ -112,14 +111,9 @@ available in the scope of where you create the error, then you should store it
 in the context of your rule.
 
 
-# Definition
+# Creating a fix
 
-@docs Fix
-
-
-# Constructors
-
-@docs removeRange, replaceRangeBy, insertAt
+@docs Fix, removeRange, replaceRangeBy, insertAt
 
 
 # Applying fixes
@@ -133,6 +127,7 @@ in the context of your rule.
 import Array
 import Elm.Parser
 import Elm.Syntax.Range exposing (Range)
+import Review.Error as Error exposing (ReviewError(..))
 import Vendor.ListExtra as ListExtra
 
 
@@ -143,10 +138,8 @@ import Vendor.ListExtra as ListExtra
 {-| Represents (part of a) fix that will be applied to a file's source code in order to
 automatically fix a review error.
 -}
-type Fix
-    = Removal Range
-    | Replacement Range String
-    | InsertAt { row : Int, column : Int } String
+type alias Fix =
+    Error.Fix
 
 
 
@@ -157,21 +150,21 @@ type Fix
 -}
 removeRange : Range -> Fix
 removeRange =
-    Removal
+    Error.Removal
 
 
 {-| Replace the code in between a range by some other code.
 -}
 replaceRangeBy : Range -> String -> Fix
 replaceRangeBy =
-    Replacement
+    Error.Replacement
 
 
 {-| Insert some code at the given position.
 -}
 insertAt : { row : Int, column : Int } -> String -> Fix
 insertAt =
-    InsertAt
+    Error.InsertAt
 
 
 
@@ -196,33 +189,57 @@ type Problem
 
 {-| Apply the changes on the source code.
 -}
-fix : Bool -> List Fix -> String -> FixResult
-fix shouldBeParsed fixes sourceCode =
-    if containRangeCollisions fixes then
-        Errored HasCollisionsInFixRanges
+fix : Error.Target -> List Fix -> String -> FixResult
+fix target fixes sourceCode =
+    case target of
+        Error.Module ->
+            if containRangeCollisions fixes then
+                Errored HasCollisionsInFixRanges
 
-    else
-        let
-            resultAfterFix : String
-            resultAfterFix =
-                fixes
-                    |> List.sortBy (rangePosition >> negate)
-                    |> List.foldl applyFix (String.lines sourceCode)
-                    |> String.join "\n"
-        in
-        if sourceCode == resultAfterFix then
-            Errored Unchanged
+            else
+                let
+                    resultAfterFix : String
+                    resultAfterFix =
+                        fixes
+                            |> List.sortBy (rangePosition >> negate)
+                            |> List.foldl applyFix (String.lines sourceCode)
+                            |> String.join "\n"
+                in
+                if sourceCode == resultAfterFix then
+                    Errored Unchanged
 
-        else if shouldBeParsed then
-            case Elm.Parser.parse resultAfterFix of
-                Err _ ->
-                    Errored <| SourceCodeIsNotValid resultAfterFix
+                else
+                    case Elm.Parser.parse resultAfterFix of
+                        Err _ ->
+                            Errored <| SourceCodeIsNotValid resultAfterFix
 
-                Ok _ ->
+                        Ok _ ->
+                            Successful resultAfterFix
+
+        Error.Readme ->
+            if containRangeCollisions fixes then
+                Errored HasCollisionsInFixRanges
+
+            else
+                let
+                    resultAfterFix : String
+                    resultAfterFix =
+                        fixes
+                            |> List.sortBy (rangePosition >> negate)
+                            |> List.foldl applyFix (String.lines sourceCode)
+                            |> String.join "\n"
+                in
+                if sourceCode == resultAfterFix then
+                    Errored Unchanged
+
+                else
                     Successful resultAfterFix
 
-        else
-            Successful resultAfterFix
+        Error.ElmJson ->
+            Errored Unchanged
+
+        Error.Global ->
+            Errored Unchanged
 
 
 containRangeCollisions : List Fix -> Bool
@@ -236,13 +253,13 @@ containRangeCollisions fixes =
 getFixRange : Fix -> Range
 getFixRange fix_ =
     case fix_ of
-        Replacement range _ ->
+        Error.Replacement range _ ->
             range
 
-        Removal range ->
+        Error.Removal range ->
             range
 
-        InsertAt position _ ->
+        Error.InsertAt position _ ->
             { start = position, end = position }
 
 
@@ -271,13 +288,13 @@ rangePosition : Fix -> Int
 rangePosition fix_ =
     positionAsInt <|
         case fix_ of
-            Replacement range replacement ->
+            Error.Replacement range replacement ->
                 range.start
 
-            Removal range ->
+            Error.Removal range ->
                 range.start
 
-            InsertAt position insertion ->
+            Error.InsertAt position insertion ->
                 position
 
 
@@ -309,13 +326,13 @@ applyFix : Fix -> List String -> List String
 applyFix fix_ lines =
     lines
         |> (case fix_ of
-                Replacement range replacement ->
+                Error.Replacement range replacement ->
                     applyReplace range replacement
 
-                Removal range ->
+                Error.Removal range ->
                     applyReplace range ""
 
-                InsertAt position insertion ->
+                Error.InsertAt position insertion ->
                     applyReplace { start = position, end = position } insertion
            )
 

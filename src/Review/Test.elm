@@ -107,6 +107,7 @@ import Elm.Syntax.Module as Module
 import Elm.Syntax.Node as Node
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
+import Review.Error as Error
 import Review.Fix as Fix
 import Review.Project as Project exposing (Project, ProjectModule)
 import Review.Rule as Rule exposing (ReviewError, Rule)
@@ -1033,8 +1034,8 @@ checkDetailsAreCorrect error_ (ExpectedError expectedError) =
 
 
 checkFixesAreCorrect : CodeInspector -> ReviewError -> ExpectedError -> Expectation
-checkFixesAreCorrect codeInspector error_ ((ExpectedError expectedError_) as expectedError) =
-    case ( expectedError_.fixedSource, Rule.errorFixes error_ ) of
+checkFixesAreCorrect codeInspector ((Error.ReviewError err) as error_) ((ExpectedError expectedError_) as expectedError) =
+    case ( expectedError_.fixedSource, err.fixes ) of
         ( Nothing, Nothing ) ->
             Expect.pass
 
@@ -1047,7 +1048,7 @@ checkFixesAreCorrect codeInspector error_ ((ExpectedError expectedError_) as exp
                 |> Expect.fail
 
         ( Just expectedFixedSource, Just fixes ) ->
-            case Fix.fix codeInspector.isModule fixes codeInspector.source of
+            case Fix.fix err.target fixes codeInspector.source of
                 Fix.Successful fixedSource ->
                     (fixedSource == expectedFixedSource)
                         |> Expect.true (ErrorMessage.fixedCodeMismatch fixedSource expectedFixedSource error_)
