@@ -1,10 +1,8 @@
 module Documentation.ReadmeLinksPointToCurrentVersion exposing (rule)
 
-{-| Reports links to this project's package documentation on <https://package.elm-lang.org/>,
-where the version is set to `latest` or a different version than the current version of the package.
+{-|
 
-**NOTE**: Just make sure to run tests between bumping the Elm version and publishing the package,
-otherwise the link for a given version could link to a previous one.
+@docs rule
 
 -}
 
@@ -17,6 +15,13 @@ import Review.Fix as Fix
 import Review.Rule as Rule exposing (Error, Rule)
 
 
+{-| Reports links in the `README.md` that point to this project's package documentation on <https://package.elm-lang.org/>,
+where the version is set to `latest` or a different version than the current version of the package.
+
+**NOTE**: Just make sure to run tests between bumping the Elm version and publishing the package,
+otherwise the link for a given version could link to a previous one.
+
+-}
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "ReadmeLinksPointToCurrentVersion" initialProjectContext
