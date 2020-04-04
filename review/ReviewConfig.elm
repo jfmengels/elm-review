@@ -28,7 +28,7 @@ config =
     , NoDebug.Log.rule
     , NoDebug.TodoOrToString.rule
         |> Rule.ignoreErrorsForDirectories [ "tests/" ]
-    , NoUnused.CustomTypeConstructors.rule
+    , NoUnused.CustomTypeConstructors.rule []
     , NoUnused.Variables.rule
     , NoUnused.Dependencies.rule
     , NoUnused.Exports.rule

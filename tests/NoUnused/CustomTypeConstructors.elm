@@ -28,7 +28,7 @@ import Set exposing (Set)
 {-| Forbid having unused custom type constructors.
 
     config =
-        [ NoUnused.CustomTypeConstructors.rule
+        [ NoUnused.CustomTypeConstructors.rule []
         ]
 
 Note that this rule reports any custom type constructor that isn't used
@@ -37,14 +37,36 @@ anywhere _in the project_.
 If the project is a package and the module that declared the type is exposed and
 the type's constructors are exposed, then the constructors will not be reported.
 
-Phantom types are supported by this rule. A constructor won't be reported if
+This does not prevent you from using phantom types: A constructor won't be reported if
 
   - It is the only constructor of a type that has no type variable
   - It has no parameters
-  - It is used as an argument of a custom type, in the stead of a type variable that is not used in the definition in any of the type's constructors.
+  - It is used as an argument of a custom type, in the stead of a type variable that is not used in the definition in any of the type's constructors
 
-**Note**: At the time of writing, there may be cases where this is not well handled.
-If you find one, please open an issue!
+**Note**: At the time of writing, there may be cases where phantom types are not well detected.
+When an opaque type is defined in a dependency, we don't know whether a type variable should be considered as a phantom type.
+
+Therefore, sometimes this rule will need some help, by having you tell it what type variables of which type is a phantom type variable.
+That's what the argument to the rule is for.
+
+To explain that the `a` in `type Id a = Id String` from the `IdModule` module
+corresponds to a phantom type variable, you would configure the rule like this:
+
+    config =
+        [ NoUnused.CustomTypeConstructors.rule
+            [ { moduleName = "IdModule"
+              , typeName = "Id"
+              , index = 0 -- Position of the phantom variable in the type's arguments
+              }
+            ]
+        ]
+
+This rule could do a much better job than it currently does at figuring this out,
+by following the definitions of custom types and type aliases, until it finds out that the type
+variable is not used, or that it hits the limit related to dependencies described above.
+In the meantime, you can configure the rule with all the phantom type exceptions.
+
+I would love help with improving this :)
 
 
 ## Fail
@@ -83,9 +105,9 @@ If you find one, please open an issue!
         | C
 
 -}
-rule : Rule
-rule =
-    Rule.newProjectRuleSchema "NoUnused.CustomTypeConstructors" initialProjectContext
+rule : List { moduleName : String, typeName : String, index : Int } -> Rule
+rule phantomTypes =
+    Rule.newProjectRuleSchema "NoUnused.CustomTypeConstructors" (initialProjectContext phantomTypes)
         |> Scope.addProjectVisitors
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContext
@@ -155,13 +177,21 @@ type alias ModuleContext =
     }
 
 
-initialProjectContext : ProjectContext
-initialProjectContext =
+initialProjectContext : List { moduleName : String, typeName : String, index : Int } -> ProjectContext
+initialProjectContext phantomTypes =
     { scope = Scope.initialProjectContext
     , exposedModules = Set.empty
     , exposedConstructors = Dict.empty
     , usedConstructors = Dict.empty
-    , phantomVariables = Dict.empty
+    , phantomVariables =
+        List.foldl
+            (\{ moduleName, typeName, index } dict ->
+                Dict.update (String.split "." moduleName)
+                    (Maybe.withDefault [] >> (::) ( typeName, index ) >> Just)
+                    dict
+            )
+            Dict.empty
+            phantomTypes
     }
 
 
@@ -334,6 +364,7 @@ register node context =
                         |> List.filter (\( _, genericName ) -> not <| Set.member genericName nonPhantomVariables)
                         |> List.map (\( indexOfPhantomVariable, _ ) -> ( Node.value name, indexOfPhantomVariable ))
 
+                newPhantomVariables : Dict (List String) (List ( String, Int ))
                 newPhantomVariables =
                     Dict.update
                         []

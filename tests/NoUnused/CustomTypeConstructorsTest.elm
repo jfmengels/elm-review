@@ -105,7 +105,7 @@ unusedTests typeOfProject project =
                 """
 module MyModule exposing (b)
 a = 1"""
-                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.runWithProjectData project (rule [])
                     |> Review.Test.expectNoErrors
         , test "should not report used type constructors" <|
             \() ->
@@ -114,14 +114,14 @@ module MyModule exposing (b)
 type Foo = Bar | Baz
 a = Bar
 b = Baz"""
-                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.runWithProjectData project (rule [])
                     |> Review.Test.expectNoErrors
         , test "should report unused type constructors" <|
             \() ->
                 """
 module MyModule exposing (b)
 type Foo = Bar | Baz"""
-                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.runWithProjectData project (rule [])
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `Bar` is not used."
@@ -139,7 +139,7 @@ type Foo = Bar | Baz"""
                 """
 module MyModule exposing (Foo)
 type Foo = Bar | Baz"""
-                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.runWithProjectData project (rule [])
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `Bar` is not used."
@@ -168,7 +168,7 @@ type Id a = Id
 id : Id User
 id = Id
 """
-                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.runWithProjectData project (rule [])
                     |> Review.Test.expectNoErrors
         , test "should not report a custom type with one constructor, when it is used in the stead of a phantom variable in a let variable" <|
             \() ->
@@ -185,7 +185,7 @@ id =
   in
   a
 """
-                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.runWithProjectData project (rule [])
                     |> Review.Test.expectNoErrors
         , test "should report a custom type with multiple constructors, when it is used in the stead of a phantom variable" <|
             \() ->
@@ -197,7 +197,7 @@ type Id a = Id
 id : Id Something
 id = Id
 """
-                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.runWithProjectData project (rule [])
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `A` is not used."
@@ -218,7 +218,7 @@ type User = User
 type Id a = Id
 id = Id
 """
-                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.runWithProjectData project (rule [])
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `User` is not used."
@@ -237,7 +237,7 @@ type Id a = Id
 id : Id User
 id = Id
 """
-                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.runWithProjectData project (rule [])
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `UserConstructor` is not used."
@@ -255,7 +255,7 @@ type Id a = Id a
 id : Id User
 id = Id
 """
-                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.runWithProjectData project (rule [])
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `User` is not used."
@@ -274,7 +274,7 @@ type Id a = Id a
 id : Id (User otherThing)
 id = Id
 """
-                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.runWithProjectData project (rule [])
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `User` is not used."
@@ -293,7 +293,7 @@ type Id a = Id a
 id : Id User
 id = Id
 """
-                    |> Review.Test.runWithProjectData project rule
+                    |> Review.Test.runWithProjectData project (rule [])
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `User` is not used."
@@ -315,7 +315,7 @@ type Id a = Id
 id : Id User
 id = Id
 """ ]
-                    |> Review.Test.runOnModulesWithProjectData project rule
+                    |> Review.Test.runOnModulesWithProjectData project (rule [])
                     |> Review.Test.expectNoErrors
         , test "should not report a phantom type if it is used in another module (qualified imported)" <|
             \() ->
@@ -330,7 +330,7 @@ type Id a = Id
 id : Id MyModule.User
 id = Id
 """ ]
-                    |> Review.Test.runOnModulesWithProjectData project rule
+                    |> Review.Test.runOnModulesWithProjectData project (rule [])
                     |> Review.Test.expectNoErrors
         , test "should not report a phantom type if both container and phantom type are defined in another module" <|
             \() ->
@@ -348,7 +348,7 @@ import Id
 id : Id.Id MyModule.User
 id = Id.Id
 """ ]
-                    |> Review.Test.runOnModulesWithProjectData project rule
+                    |> Review.Test.runOnModulesWithProjectData project (rule [])
                     |> Review.Test.expectNoErrors
         , test "should not report a phantom type if it is used in another module even when constructors are not exposed" <|
             \() ->
@@ -363,7 +363,28 @@ type Id a = Id
 id : Id User
 id = Id
 """ ]
-                    |> Review.Test.runOnModulesWithProjectData project rule
+                    |> Review.Test.runOnModulesWithProjectData project (rule [])
+                    |> Review.Test.expectNoErrors
+        , test "should not report a custom type, when it is used in the stead of a type that the user said is a phantom variable" <|
+            \() ->
+                """
+module MyModule exposing (id)
+
+import IdModule exposing (Id)
+
+type User = User Something
+
+id : Id User
+id = Id
+"""
+                    |> Review.Test.runWithProjectData project
+                        (rule
+                            [ { moduleName = "IdModule"
+                              , typeName = "Id"
+                              , index = 0
+                              }
+                            ]
+                        )
                     |> Review.Test.expectNoErrors
         ]
 
@@ -377,7 +398,7 @@ crossModuleTests =
 module Exposed exposing (..)
 type Foo = Bar | Baz
 """
-                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.runWithProjectData packageProject (rule [])
                     |> Review.Test.expectNoErrors
         , test "should report unused type constructors when a package module is exposing all and module is not exposed" <|
             \() ->
@@ -385,7 +406,7 @@ type Foo = Bar | Baz
 module MyModule exposing (..)
 type Foo = Bar | Baz
 """
-                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.runWithProjectData packageProject (rule [])
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `Bar` is not used."
@@ -404,7 +425,7 @@ type Foo = Bar | Baz
 module MyModule exposing (..)
 type Foo = Bar | Baz
 """
-                    |> Review.Test.runWithProjectData applicationProject rule
+                    |> Review.Test.runWithProjectData applicationProject (rule [])
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `Bar` is not used."
@@ -423,7 +444,7 @@ type Foo = Bar | Baz
 module Exposed exposing (Foo(..))
 type Foo = Bar | Baz
 """
-                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.runWithProjectData packageProject (rule [])
                     |> Review.Test.expectNoErrors
         , test "should report unused type constructors when package module is exposing the constructors of that type and module is not exposed" <|
             \() ->
@@ -431,7 +452,7 @@ type Foo = Bar | Baz
 module MyModule exposing (Foo(..))
 type Foo = Bar | Baz
 """
-                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.runWithProjectData packageProject (rule [])
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `Bar` is not used."
@@ -450,7 +471,7 @@ type Foo = Bar | Baz
 module MyModule exposing (Foo(..))
 type Foo = Bar | Baz
 """
-                    |> Review.Test.runWithProjectData applicationProject rule
+                    |> Review.Test.runWithProjectData applicationProject (rule [])
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Type constructor `Bar` is not used."
@@ -479,7 +500,7 @@ module OtherModule exposing (a)
 import MyModule
 a = [ MyModule.Bar, MyModule.Baz ]
 """ ]
-                    |> Review.Test.runOnModulesWithProjectData project rule
+                    |> Review.Test.runOnModulesWithProjectData project (rule [])
                     |> Review.Test.expectNoErrors
         , test "should not report type constructors used in other files when module is exposing the constructors of that type (qualified import, aliasing the module name)" <|
             \() ->
@@ -491,7 +512,7 @@ module OtherModule exposing (a)
 import MyModule as M
 a = [ M.Bar, M.Baz ]
 """ ]
-                    |> Review.Test.runOnModulesWithProjectData project rule
+                    |> Review.Test.runOnModulesWithProjectData project (rule [])
                     |> Review.Test.expectNoErrors
         , test "should not report type constructors used in other files when module is exposing the constructors of that type (exposing the constructors)" <|
             \() ->
@@ -503,7 +524,7 @@ module OtherModule exposing (a)
 import MyModule exposing (Foo(..))
 a = [ Bar, Baz ]
 """ ]
-                    |> Review.Test.runOnModulesWithProjectData project rule
+                    |> Review.Test.runOnModulesWithProjectData project (rule [])
                     |> Review.Test.expectNoErrors
         , test "should not report type constructors used in other files when module is exposing the constructors of that type (nested module name)" <|
             \() ->
@@ -515,6 +536,6 @@ module OtherModule exposing (a)
 import My.Module
 a = [ My.Module.Bar, My.Module.Baz ]
 """ ]
-                    |> Review.Test.runOnModulesWithProjectData project rule
+                    |> Review.Test.runOnModulesWithProjectData project (rule [])
                     |> Review.Test.expectNoErrors
         ]
