@@ -842,13 +842,12 @@ atExactly range ((ExpectedError expectedError_) as expectedError) =
     ExpectedError { expectedError_ | under = UnderExactly (getUnder expectedError) range }
 
 
-{-| Create an expectation that the error provides fixes, meaning that it used
-the [`withFixes`](#withFixes) function) and an expectation of what the source
-code should be after the error's fixes have been applied.
+{-| Create an expectation that the error provides an automatic fix, meaning that it used
+functions like [`errorWithFix`](./Review-Rule#errorWithFix), and an expectation of what the source
+code should be after the error's fix have been applied.
 
-In the absence of `whenFixed`, the test will fail if the error provides fixes.
-In other words: If the error provides fixes, you need to use `withFixes`, and if
-it doesn't, you should not use `withFixes`.
+In the absence of `whenFixed`, the test will fail if the error provides a fix.
+In other words, you only need to use this function if the error provides a fix.
 
     tests : Test
     tests =

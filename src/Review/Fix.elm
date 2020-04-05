@@ -6,8 +6,9 @@ module Review.Fix exposing
 {-| Tools to write automatic error fixes.
 
 When creating a [`Review.Rule.Error`](./Review-Rule#Error), you can provide an automatic
-fix for the error using [`Review.Rule.withFixes`](./Review-Rule#withFixes) so that the
-user doesn't need to fix the problem themselves.
+fix for the error using [`Review.Rule.errorWithFix`](./Review-Rule#errorWithFix)
+or other functions that end with "withFix" so that the user doesn't need to fix
+the problem themselves.
 
 In the [CLI], the user can ask to fix the errors automatically, and in doing so,
 they will be presented by a fix which they can accept or refuse. If the fix gets

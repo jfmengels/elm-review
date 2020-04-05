@@ -356,8 +356,8 @@ I expected that the error with the following message
 
 would provide some fixes, but I didn't find any.
 
-Hint: Maybe you forgot to call `Rule.withFixes` on the error that you
-created, or maybe the list of provided fixes was empty."""
+Hint: Maybe you forgot to call a function like `Rule.errorWithFix` or maybe
+the list of provided fixes was empty."""
 
 
 unexpectedFixes : ReviewError -> String
