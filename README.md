@@ -74,15 +74,15 @@ Before you start adding rules though, I suggest reading the rest of this documen
 
 ## Write your own rule
 
-You can write your own rule using this package's API and [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/).
-Check out the [`Review.Rule`](https://package.elm-lang.org/packages/jfmengels/elm-review/1.0.0/Review-Rule) documentation for more instructions.
+You can write your own rule using this package's API and [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/).
+Check out the [`Review.Rule`](https://package.elm-lang.org/packages/jfmengels/elm-review/1.0.0/Review-Rule) documentation for how to get started.
 
 Here's an example of a rule that prevents a typo in a string that was made too often at your company.
 
 ```elm
 module NoStringWithMisspelledCompanyName exposing (rule)
 
-import Elm.Syntax.Expression exposing (Expression(..))
+import Elm.Syntax.Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)
 import Review.Rule as Rule exposing (Error, Rule)
 
@@ -97,11 +97,11 @@ rule =
 
 -- This function will visit all the expressions (like `1`, `"string"`, `foo bar`, `a + b`, ...)
 -- and report problems that it finds
-expressionVisitor : Node Expression -> List Error
+expressionVisitor : Node Expression -> List (Error {})
 expressionVisitor node =
     case Node.value node of
         -- It will look at string literals (like "a", """a""")
-        Literal str ->
+        Expression.Literal str ->
             if String.contains "frits.com" str then
                 -- Return a single error, describing the problem
                 [ Rule.error
