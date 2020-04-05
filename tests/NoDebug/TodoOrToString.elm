@@ -2,9 +2,6 @@ module NoDebug.TodoOrToString exposing (rule)
 
 {-|
 
-
-# Rule
-
 @docs rule
 
 -}

@@ -1,9 +1,6 @@
 module NoDebug.Log exposing (rule)
 
-{-| Forbid the use of [`Debug.log`](https://package.elm-lang.org/packages/elm/core/latest/Debug#log).
-
-
-# Rule
+{-|
 
 @docs rule
 
