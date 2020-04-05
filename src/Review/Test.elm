@@ -49,9 +49,9 @@ Development process loop, which is:
     didn't break any previous tests
   - Optionally, refactor your code but be sure not to change the behavior of the
     implementation. You should not add support for new patterns, as you will
-    want to write tests for that first.
-  - (Then start over from step 1 until you've handled all the cases you wished
-    to handle)
+    want to write tests for those first.
+
+Then repeat for every pattern yoy wish to handle.
 
 
 ## Have a good title

@@ -79,7 +79,7 @@ prevent this is to write tests, as fixes are applied in tests.
 Sometimes problems are learning opportunities, and it is worth having the user
 spend some time reading through the details of the error and trying several
 alternatives in order to understand the problem and the tradeoffs of the
-solutions. Do try to guide them by having great error details though!
+solutions. You can guide them by using great error details!
 
 
 ## Reasons to provide an automatic fix

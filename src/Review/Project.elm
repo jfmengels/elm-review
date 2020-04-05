@@ -17,13 +17,7 @@ You may need to use use this module if you want
 You can safely ignore this module if you just want to write a review rule that
 does not look at project information (like the `elm.json`, dependencies, ...).
 
-
-# Project
-
 @docs Project, new
-
-
-# Project files
 
 
 ## Elm modules
@@ -219,7 +213,7 @@ modulesThatFailedToParse (Internal.Project project) =
 
 {-| Precomputes the module graph that you get using [`moduleGraph`](#moduleGraph).
 
-This is to avoid a potentially long computation for every rule run. Once the graph
+This is to avoid a potentially long computation at every review run. Once the graph
 is precomputed, it will be recomputed every time a module is changed, meaning
 you won't need to reuse this call `precomputeModuleGraph` again.
 
