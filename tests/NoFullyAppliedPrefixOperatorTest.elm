@@ -1,7 +1,7 @@
 module NoFullyAppliedPrefixOperatorTest exposing (all)
 
 import NoFullyAppliedPrefixOperator exposing (rule)
-import Review.Test exposing (ReviewResult)
+import Review.Test
 import Test exposing (Test, describe, test)
 
 
