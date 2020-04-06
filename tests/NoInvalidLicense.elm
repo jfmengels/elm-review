@@ -1,9 +1,6 @@
 module NoInvalidLicense exposing (rule)
 
-{-| Forbid the use of dependencies that use unknown or forbidden licenses.
-
-
-# Rule
+{-|
 
 @docs rule
 
