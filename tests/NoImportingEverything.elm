@@ -1,103 +1,92 @@
-module NoImportingEverything exposing (rule, Configuration)
+module NoImportingEverything exposing (rule)
 
-{-| Forbid importing everything from a module.
+{-|
 
-
-# Rule and configuration
-
-@docs rule, Configuration
+@docs rule
 
 -}
 
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Node as Node exposing (Node)
-import Elm.Syntax.Range exposing (Range)
 import Review.Rule as Rule exposing (Error, Rule)
+import Set exposing (Set)
 
 
-{-| Configuration for the rule.
--}
-type alias Configuration =
-    { exceptions : List String }
+{-| Forbids importing everything from a module.
 
-
-{-| Forbid importing everything from a module. Doing so can be confusing,
-especially to newcomers when the exposed functions and types are unknown to them.
-
-A preferred pattern is to import functions by name (`import Html exposing (div, span)`)
-or using qualified imports (`import Html`, then `Html.div`). If the module name
-is too long, don't forget that you can do qualified imports using an alias
-(`import Html.Attributes as Attr`).
-
-You can make exceptions for some modules by adding them to the `exceptions`
-field, like `{ exceptions = [ "Html", "Html.Attributes" ] }`. The name should be
-the exact name of the import. Allowing importing everything from `Html` will not
-allow the same thing for `Html.Events`, unless explicitly specified.
+When you import everything from a module, it becomes harder to know where a function
+or a type comes from. The official guide even
+[recommends against importing everything](https://guide.elm-lang.org/webapps/modules.html#using-modules).
 
     config =
-        [ NoImportingEverything.rule { exceptions = [] }
+        [ NoImportingEverything.rule []
+        ]
+
+Teams often have an agreement on the list of imports from which it is okay to expose everything, so
+you can configure a list of exceptions.
+
+    config =
+        [ NoImportingEverything.rule [ "Html", "Some.Module" ]
         ]
 
 
 ## Fail
 
-    import Html exposing (..)
+    import A exposing (..)
+    import A as B exposing (..)
 
 
 ## Success
 
-    -- NoImportingEverything.rule { exceptions = [] }
-    import Html exposing (div, p, textarea)
+    import A as B exposing (B(..), C, d)
 
-    -- NoImportingEverything.rule { exceptions = [ "Html" ] }
+    -- If configured with `[ "Html" ]`
     import Html exposing (..)
 
-
-# When not to use this rule
-
-If you prefer importing most of your modules using `exposing (..)`, then you
-should not use this rule.
-
 -}
-rule : Configuration -> Rule
-rule config =
+rule : List String -> Rule
+rule exceptions =
     Rule.newModuleRuleSchema "NoImportingEverything" ()
-        |> Rule.withSimpleImportVisitor (importVisitor config)
+        |> Rule.withSimpleImportVisitor (importVisitor <| exceptionsToSet exceptions)
         |> Rule.fromModuleRuleSchema
 
 
-error : Range -> String -> Error {}
-error range name =
-    Rule.error
-        { message = "Do not expose everything from " ++ name
-        , details =
-            [ "Exposing `(..)` from a module means making all its exposed functions and types available in the file's namespace. This makes it hard to tell which module a function or type comes from."
-            , "A preferred pattern is to import functions by name (`import Html exposing (div, span)`) or to use qualified imports (`import Html`, then `Html.div`). If the module name is too long, you can give an alias to the imported module (`import Html.Attributes as Attr`)."
-            ]
-        }
-        range
+exceptionsToSet : List String -> Set (List String)
+exceptionsToSet exceptions =
+    exceptions
+        |> List.map (String.split ".")
+        |> Set.fromList
 
 
-importVisitor : Configuration -> Node Import -> List (Error {})
-importVisitor config node =
-    let
-        { moduleName, exposingList } =
-            Node.value node
-
-        name : String
-        name =
-            moduleName
-                |> Node.value
-                |> String.join "."
-    in
-    if List.member name config.exceptions then
+importVisitor : Set (List String) -> Node Import -> List (Error {})
+importVisitor exceptions node =
+    if Set.member (moduleName node) exceptions then
         []
 
     else
-        case exposingList |> Maybe.map Node.value of
+        case
+            Node.value node
+                |> .exposingList
+                |> Maybe.map Node.value
+        of
             Just (Exposing.All range) ->
-                [ error range name ]
+                [ Rule.error
+                    { message = "Prefer listing what you wish to import and/or using qualified imports"
+                    , details = [ "When you import everything from a module, it becomes harder to know where a function or a type comes from" ]
+                    }
+                    { start = { row = range.start.row, column = range.start.column - 1 }
+                    , end = { row = range.end.row, column = range.end.column + 1 }
+                    }
+                ]
 
             _ ->
                 []
+
+
+moduleName : Node Import -> List String
+moduleName node =
+    node
+        |> Node.value
+        |> .moduleName
+        |> Node.value
