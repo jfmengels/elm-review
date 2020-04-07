@@ -209,7 +209,8 @@ There are situations where you don't want review rules to report errors:
 
 1.  You copied and updated over an external library because one of your needs wasn't met, and you don't want to modify it more than necessary.
 2.  Your project contains generated source code, over which you have no control or for which you do not care that some rules are enforced (like the reports of unused variables).
-3.  You want to enable a rule to solve a pain point, but there are too many errors in the project for you to fix in one go. You might then want to ignore the parts of the project where the problem has not yet been solved.
+3.  You want to introduce a rule progressively, because there are too many errors in the project for you to fix in one go. You can then ignore the parts of the project where the problem has not yet been solved, and fix them as you go.
+4.  You wish to disable some rules for tests files (or enable some only for tests).
 
 You can use the following functions to ignore errors in directories or files.
 
