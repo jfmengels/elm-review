@@ -1315,6 +1315,7 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
             ]
                 |> List.concat
                 |> Exceptions.apply exceptions (accessInternalError >> .filePath)
+                |> List.map (setRuleName schema.name)
     in
     ( errors, Rule schema.name exceptions (runProjectRule wrappedSchema newCache) )
 
@@ -1567,9 +1568,7 @@ errorsFromFinalEvaluationForProject (ProjectRuleSchema schema) initialContext co
                     IsPrepared { moduleContext } ->
                         List.foldl moduleContext.foldProjectContexts initialContext contextsPerModule
         in
-        finalContext
-            |> makeFinalEvaluationForProject schema.finalEvaluationFns
-            |> List.map (setRuleName schema.name)
+        makeFinalEvaluationForProject schema.finalEvaluationFns finalContext
 
 
 {-| Concatenate the errors of the previous step and of the last step.
