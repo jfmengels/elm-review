@@ -18,8 +18,20 @@ import Review.Rule as Rule exposing (Error, Rule)
 {-| Reports links in the `README.md` that point to this project's package documentation on <https://package.elm-lang.org/>,
 where the version is set to `latest` or a different version than the current version of the package.
 
-**NOTE**: Just make sure to run tests between bumping the Elm version and publishing the package,
-otherwise the link for a given version could link to a previous one.
+The problem with linking to `latest` is that if you release a new version later,
+the users who read the README for the older version will be directed to a version
+where the module/function/section you pointed to may not exist anymore.
+
+This rule ensures that you always use the correct version in all of your releases,
+and that you do not forget to update the links.
+
+This rule provides automatic fixes, so you won't to do the tedious job of updating
+the links yourself.
+
+**NOTE**: Just make sure to run tests between bumping the version of the package
+and publishing the package. Otherwise the link for a given version could link to a previous one.
+
+**NOTE**: A similar rule would be useful for links inside the modules. I'll be working on that too!
 
 -}
 rule : Rule
@@ -113,7 +125,7 @@ notAMatch { projectName, version } readmeKey row match =
                 in
                 Rule.errorForReadmeWithFix readmeKey
                     { message = "Link does not point to the current version of the package"
-                    , details = [ "I suggest to run elm-review in fix mode" ]
+                    , details = [ "I suggest to run elm-review --fix to get the correct links." ]
                     }
                     range
                     [ Fix.replaceRangeBy range <| "https://package.elm-lang.org/packages/" ++ projectName ++ "/" ++ version ++ Maybe.withDefault "" rest ]

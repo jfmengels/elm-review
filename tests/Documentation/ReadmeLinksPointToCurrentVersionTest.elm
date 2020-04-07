@@ -57,7 +57,7 @@ message =
 
 details : List String
 details =
-    [ "I suggest to run elm-review in fix mode" ]
+    [ "I suggest to run elm-review --fix to get the correct links." ]
 
 
 readmeWithLink : String -> String

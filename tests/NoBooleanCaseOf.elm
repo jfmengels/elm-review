@@ -66,18 +66,6 @@ rule =
         |> Rule.fromModuleRuleSchema
 
 
-error : Node a -> Error {}
-error node =
-    Rule.error
-        { message = "Replace `case..of` by an `if` condition"
-        , details =
-            [ "The idiomatic way to check for a condition is to use an `if` expression."
-            , "Read more about it at: https://guide.elm-lang.org/core_language.html#if-expressions"
-            ]
-        }
-        (Node.range node)
-
-
 expressionVisitor : Node Expression -> List (Error {})
 expressionVisitor node =
     case Node.value node of
@@ -90,6 +78,18 @@ expressionVisitor node =
 
         _ ->
             []
+
+
+error : Node a -> Error {}
+error node =
+    Rule.error
+        { message = "Replace `case..of` by an `if` condition"
+        , details =
+            [ "The idiomatic way to check for a condition is to use an `if` expression."
+            , "Read more about it at: https://guide.elm-lang.org/core_language.html#if-expressions"
+            ]
+        }
+        (Node.range node)
 
 
 isBoolConstructor : Node Pattern -> Bool
