@@ -4,7 +4,8 @@ import Browser
 import Html exposing (Html, button, div, input, label, p, text, textarea)
 import Html.Attributes as Attr
 import Html.Events as Events
-import NoDebug
+import NoDebug.Log
+import NoDebug.TodoOrToString
 import NoUnused.CustomTypeConstructors
 import NoUnused.Variables
 import Reporter
@@ -81,9 +82,10 @@ g n = n + 1
 
 config : Model -> List Rule
 config model =
-    [ ( model.noDebugEnabled, NoDebug.rule )
+    [ ( model.noDebugEnabled, NoDebug.Log.rule )
+    , ( model.noDebugEnabled, NoDebug.TodoOrToString.rule )
     , ( model.noUnusedVariablesEnabled, NoUnused.Variables.rule )
-    , ( model.noUnusedTypeConstructorsEnabled, NoUnused.CustomTypeConstructors.rule )
+    , ( model.noUnusedTypeConstructorsEnabled, NoUnused.CustomTypeConstructors.rule [] )
     ]
         |> List.filter Tuple.first
         |> List.map Tuple.second
@@ -195,9 +197,9 @@ viewConfigurationPanel model =
             [ Attr.style "display" "flex"
             , Attr.style "flex-direction" "column"
             ]
-            [ viewCheckbox UserToggledNoDebugRule "NoDebug" model.noDebugEnabled
-            , viewCheckbox UserToggledNoUnusedVariablesRule "NoUnusedVariables" model.noUnusedVariablesEnabled
-            , viewCheckbox UserToggledNoUnusedTypeConstructorsRule "NoUnusedTypeConstructors" model.noUnusedTypeConstructorsEnabled
+            [ viewCheckbox UserToggledNoDebugRule "NoDebug rules" model.noDebugEnabled
+            , viewCheckbox UserToggledNoUnusedVariablesRule "NoUnused.Variables" model.noUnusedVariablesEnabled
+            , viewCheckbox UserToggledNoUnusedTypeConstructorsRule "NoUnused.CustomTypeConstructors" model.noUnusedTypeConstructorsEnabled
             ]
         ]
 
@@ -237,8 +239,13 @@ configurationAsText model =
         rules : List { import_ : String, configExpression : String }
         rules =
             [ ( model.noDebugEnabled
-              , { import_ = "NoDebug"
-                , configExpression = "NoDebug.rule"
+              , { import_ = "NoDebug.Log"
+                , configExpression = "NoDebug.Log.rule"
+                }
+              )
+            , ( model.noDebugEnabled
+              , { import_ = "NoDebug.TodoOrToString"
+                , configExpression = "NoDebug.TodoOrToString.rule"
                 }
               )
             , ( model.noUnusedVariablesEnabled
@@ -248,7 +255,7 @@ configurationAsText model =
               )
             , ( model.noUnusedTypeConstructorsEnabled
               , { import_ = "NoUnused.CustomTypeConstructors"
-                , configExpression = "NoUnused.CustomTypeConstructors.rule"
+                , configExpression = "NoUnused.CustomTypeConstructors.rule []"
                 }
               )
             ]
