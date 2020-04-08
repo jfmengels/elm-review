@@ -2,7 +2,7 @@ module NoMissingTypeAnnotationTest exposing (all)
 
 import NoMissingTypeAnnotation exposing (rule)
 import Review.Test
-import Test exposing (..)
+import Test exposing (Test, describe, test)
 
 
 details : List String

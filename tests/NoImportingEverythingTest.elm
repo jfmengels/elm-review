@@ -2,13 +2,7 @@ module NoImportingEverythingTest exposing (all)
 
 import NoImportingEverything exposing (rule)
 import Review.Test
-import Test exposing (..)
-
-
-details : List String
-details =
-    [ "Type annotations help you understand what happens in the code, and it will help the compiler give better error messages."
-    ]
+import Test exposing (Test, describe, test)
 
 
 all : Test

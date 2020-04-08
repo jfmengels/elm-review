@@ -2,7 +2,7 @@ module NoExposingEverythingTest exposing (all)
 
 import NoExposingEverything exposing (rule)
 import Review.Test
-import Test exposing (..)
+import Test exposing (Test, describe, test)
 
 
 all : Test

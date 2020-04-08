@@ -66,6 +66,7 @@ createPackageElmJson _ =
             createPackageElmJson ()
 
 
+rawPackageElmJson : String
 rawPackageElmJson =
     """{
     "type": "package",
