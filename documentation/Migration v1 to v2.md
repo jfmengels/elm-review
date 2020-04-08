@@ -1,6 +1,30 @@
 # Migration from v1 to v2
 
+## I CAN'T RUN ELM-REVIEW V1 ANYMORE!
+
+If you are trying to run v1 of the `elm-review` CLI and it suddenly stopped working, I am very sorry about that!
+
+Fortunately, there is an easy fix: updating the CLI to version `1.0.2`.
+
+```
+npm install -D elm-review@1.0.2
+```
+
+The problem is that previous versions try to build an application behind the scenes, and installs the `jfmengels/elm-review` package every time.
+Those versions were not saying **which** version of `jfmengels/elm-review` to use though, due to limitations of what `elm install` offered and `elm-json` offered at the time.
+
+And now that v2 has been released, well it may well try to install a version of `jfmengels/elm-review` that doesn't work for your project.
+
+But `elm-json`'s author @zwilias was very responsive to this need, and version `1.0.2` now installs `jfmengels/elm-review` `1.0.0 <= x < 2.0.0`. So kudos to him!
+
 ## Rule writing
+
+
+The API for the rules you created in v1 is pretty much the same in v2.
+
+The differences are mostly functions and types that were renamed, and a single argument somewhere to add.
+
+You fortunately won't have to change anything in the logic of your rule or tests.
 
 - [`newSchema`] is renamed to [`newModuleRuleSchema`]. It now takes the initial context as a new argument. If you were using [`withInitialContext`], then you should use that function's value, otherwise you can use `()`.
 - [`fromSchema`] is renamed to [`fromModuleRuleSchema`]
