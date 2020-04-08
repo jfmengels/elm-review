@@ -183,10 +183,10 @@ Evaluating/visiting a node means two things:
 
 ## Creating a project rule
 
-Project rules can look the global picture of an Elm project. Contrary to module
-rules, who forget everything about the module they were looking at when going from
+Project rules can look at the global picture of an Elm project. Contrary to module
+rules, which forget everything about the module they were looking at when going from
 one module to another, project rules can retain information about previously
-analyzed modules, and use it report errors when analyzing a different module or
+analyzed modules, and use it to report errors when analyzing a different module or
 after all modules have been visited.
 
 Project rules can also report errors in the `elm.json` or the `README.md` files.
