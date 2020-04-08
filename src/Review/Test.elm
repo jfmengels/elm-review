@@ -322,39 +322,39 @@ interested in project related details, then you should use [`runOnModules`](#run
 -}
 runOnModulesWithProjectData : Project -> Rule -> List String -> ReviewResult
 runOnModulesWithProjectData project rule sources =
-    if List.isEmpty sources then
-        FailedRun ErrorMessage.missingSources
-
-    else
-        let
-            projectWithModules : Project
-            projectWithModules =
-                sources
-                    |> List.indexedMap
-                        (\index source ->
-                            { path = "TestContent_" ++ String.fromInt index ++ ".elm"
-                            , source = source
-                            }
-                        )
-                    |> List.foldl Project.addModule project
-        in
-        case Project.modulesThatFailedToParse projectWithModules of
-            { source } :: _ ->
-                let
-                    fileAndIndex : { source : String, index : Int }
-                    fileAndIndex =
-                        { source = source
-                        , index = indexOf source sources |> Maybe.withDefault -1
+    let
+        projectWithModules : Project
+        projectWithModules =
+            sources
+                |> List.indexedMap
+                    (\index source ->
+                        { path = "TestContent_" ++ String.fromInt index ++ ".elm"
+                        , source = source
                         }
-                in
-                FailedRun <| ErrorMessage.parsingFailure (List.length sources == 1) fileAndIndex
+                    )
+                |> List.foldl Project.addModule project
+    in
+    case Project.modulesThatFailedToParse projectWithModules of
+        { source } :: _ ->
+            let
+                fileAndIndex : { source : String, index : Int }
+                fileAndIndex =
+                    { source = source
+                    , index = indexOf source sources |> Maybe.withDefault -1
+                    }
+            in
+            FailedRun <| ErrorMessage.parsingFailure (List.length sources == 1) fileAndIndex
 
-            [] ->
-                let
-                    modules : List ProjectModule
-                    modules =
-                        Project.modules projectWithModules
-                in
+        [] ->
+            let
+                modules : List ProjectModule
+                modules =
+                    Project.modules projectWithModules
+            in
+            if List.isEmpty modules then
+                FailedRun ErrorMessage.missingSources
+
+            else
                 case findDuplicateModuleNames Set.empty modules of
                     Just moduleName ->
                         FailedRun <| ErrorMessage.duplicateModuleName moduleName
