@@ -78,6 +78,8 @@ import Review.Rule as Rule exposing (Direction)
 -- MODULE VISITOR
 
 
+{-| The context the Scope visitors will collect and store in your `moduleContext`.
+-}
 type ModuleContext
     = ModuleContext InnerModuleContext
 
@@ -97,6 +99,29 @@ type alias InnerModuleContext =
     }
 
 
+{-| Create an initial `moduleContext` for the scope for module rules. Use this value when
+initializing the scope inside your `initialModuleContext`.
+
+Using [`Scope.addModuleVisitors`](#addModuleVisitors) requires your module context
+to be a record with a `scope : Scope.ModuleContext` field.
+
+    type alias ModuleContext =
+        { scope : Scope.ModuleContext
+
+        -- ...other fields
+        }
+
+    initialModuleContext : ModuleContext
+    initialModuleContext =
+        { scope = Scope.initialModuleContext
+
+        -- ...other fields
+        }
+
+**NOTE**: If you are building a project rule, don't use this value inside your
+`fromProjectToModule` function. Instead, use [`Scope.fromProjectToModule`](#fromProjectToModule).
+
+-}
 initialModuleContext : ModuleContext
 initialModuleContext =
     fromProjectToModule initialProjectContext
@@ -106,6 +131,8 @@ initialModuleContext =
 -- PROJECT VISITOR
 
 
+{-| The context the Scope visitors will collect and store in your `projectContext`.
+-}
 type ProjectContext
     = ProjectContext InnerProjectContext
 
@@ -116,6 +143,28 @@ type alias InnerProjectContext =
     }
 
 
+{-| Create an initial `projectContext` for the scope for project rules. Use this value when
+initializing the scope inside your `initialProjectContext`.
+
+Using [`Scope.addProjectVisitors`](#addProjectVisitors) requires your project context
+to be a record with a `scope : Scope.ProjectContext` field.
+
+Look at the [`Scope.addProjectVisitors`](#addProjectVisitors) example for the
+wiring logic related to `withModuleContext` that you can copy-paste then adapt to your needs.
+
+    type alias ProjectContext =
+        { scope : Scope.ProjectContext
+
+        -- ...other fields
+        }
+
+    initialProjectContext : ProjectContext
+    initialProjectContext =
+        { scope = Scope.initialProjectContext
+        , otherFields = ()
+        }
+
+-}
 initialProjectContext : ProjectContext
 initialProjectContext =
     ProjectContext
@@ -124,6 +173,17 @@ initialProjectContext =
         }
 
 
+{-| Get a `Scope.ModuleContext` from a `Scope.ProjectContext`. Use this in your own
+`fromProjectToModule`.
+
+    fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> ProjectContext -> ModuleContext
+    fromProjectToModule moduleKey moduleName projectContext =
+        { scope = Scope.fromProjectToModule projectContext.scope
+
+        -- ...other fields
+        }
+
+-}
 fromProjectToModule : ProjectContext -> ModuleContext
 fromProjectToModule (ProjectContext projectContext) =
     { scopes = nonemptyList_fromElement emptyScope
@@ -142,6 +202,17 @@ fromProjectToModule (ProjectContext projectContext) =
         |> ModuleContext
 
 
+{-| Get a `Scope.ProjectContext` from a `Scope.ModuleContext`. Use this in your own
+`fromModuleToProject`.
+
+    fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> ModuleContext -> ProjectContext
+    fromModuleToProject moduleKey moduleName moduleContext =
+        { scope = Scope.fromModuleToProject moduleName moduleContext.scope
+
+        -- ...other fields
+        }
+
+-}
 fromModuleToProject : Node ModuleName -> ModuleContext -> ProjectContext
 fromModuleToProject moduleName (ModuleContext moduleContext) =
     ProjectContext
@@ -159,6 +230,16 @@ fromModuleToProject moduleName (ModuleContext moduleContext) =
         }
 
 
+{-| Fold `Scope.ProjectContext`s. Use this in your own `foldProjectContexts`.
+
+    foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
+    foldProjectContexts newContext previousContext =
+        { scope = Scope.foldProjectContexts newContext.scope previousContext.scope
+
+        -- ...other fields
+        }
+
+-}
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts (ProjectContext a) (ProjectContext b) =
     ProjectContext
@@ -186,6 +267,70 @@ emptyScope =
     }
 
 
+{-| Adds the scope visitors to your project rule.
+
+Using `addProjectVisitors` requires your project context
+to be a record with a `scope : Scope.ProjectContext` field.
+
+**NOTE**: You need to use this function **before** your other visitors, otherwise
+the scope may not be up-to-date when you access it.
+
+Adding project visitors adds a bit of wiring, but you can pretty much copy-paste
+the code below and adapt it to your needs.
+
+    rule : Rule
+    rule =
+        Rule.newProjectRuleSchema "RuleName" initialProjectContext
+            |> Scope.addProjectVisitors
+            -- |> addOtherVisitors
+            |> Rule.withModuleContext
+                { fromProjectToModule = fromProjectToModule
+                , fromModuleToProject = fromModuleToProject
+                , foldProjectContexts = foldProjectContexts
+                }
+            |> Rule.fromProjectRuleSchema
+
+    type alias ProjectContext =
+        { scope : Scope.ProjectContext
+
+        -- ...other fields
+        }
+
+    type alias ModuleContext =
+        { scope : Scope.ModuleContext
+
+        -- ...other fields
+        }
+
+    initialProjectContext : ProjectContext
+    initialProjectContext =
+        { scope = Scope.initialProjectContext
+
+        -- ...other fields
+        }
+
+    fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> ProjectContext -> ModuleContext
+    fromProjectToModule moduleKey moduleName projectContext =
+        { scope = Scope.fromProjectToModule projectContext.scope
+
+        -- ...other fields
+        }
+
+    fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> ModuleContext -> ProjectContext
+    fromModuleToProject moduleKey moduleName moduleContext =
+        { scope = Scope.fromModuleToProject moduleName moduleContext.scope
+
+        -- ...other fields
+        }
+
+    foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
+    foldProjectContexts newContext previousContext =
+        { scope = Scope.foldProjectContexts newContext.scope previousContext.scope
+
+        -- ...other fields
+        }
+
+-}
 addProjectVisitors :
     Rule.ProjectRuleSchema { schemaState | canAddModuleVisitor : () } { projectContext | scope : ProjectContext } { moduleContext | scope : ModuleContext }
     -> Rule.ProjectRuleSchema { schemaState | canAddModuleVisitor : (), hasAtLeastOneVisitor : (), withModuleContext : Rule.Required } { projectContext | scope : ProjectContext } { moduleContext | scope : ModuleContext }
@@ -196,6 +341,37 @@ addProjectVisitors schema =
         |> Rule.withModuleVisitor internalAddModuleVisitors
 
 
+{-| Adds the scope visitors to your module rule.
+
+Using `addModuleVisitors` requires your module context
+to be a record with a `scope : Scope.ModuleContext` field.
+
+**NOTE**: You need to use this function **before** your other visitors, otherwise
+the scope may not be up-to-date when you access it.
+
+    rule : Rule
+    rule =
+        Rule.newModuleRuleSchema "RuleName" initialContext
+            -- Scope.addModuleVisitors needs to be added before your own visitors
+            |> Scope.addModuleVisitors
+            -- |> addOtherVisitors
+            |> Rule.fromModuleRuleSchema
+
+    type alias Context =
+        -- Scope expects a context with a record, containing the `scope` field.
+        { scope : Scope.ModuleContext
+
+        -- ...other fields
+        }
+
+    initialContext : Context
+    initialContext =
+        { scope = Scope.initialModuleContext
+
+        -- ...other fields
+        }
+
+-}
 addModuleVisitors :
     Rule.ModuleRuleSchema { schemaState | canCollectProjectData : () } { moduleContext | scope : ModuleContext }
     -> Rule.ModuleRuleSchema { schemaState | canCollectProjectData : (), hasAtLeastOneVisitor : () } { moduleContext | scope : ModuleContext }
@@ -410,45 +586,58 @@ declarationListVisitor declarations innerContext =
 
 registerDeclaration : Node Declaration -> InnerModuleContext -> InnerModuleContext
 registerDeclaration declaration innerContext =
-    case declarationNameNode declaration of
-        Just ( variableType, nameNode ) ->
-            innerContext.scopes
-                |> registerVariable
-                    { variableType = variableType
-                    , node = nameNode
-                    }
-                    (Node.value nameNode)
-                |> updateScope innerContext
+    let
+        scope : Nonempty Scope
+        scope =
+            List.foldl
+                (\( variableType, nameNode ) accumulatorScope ->
+                    registerVariable
+                        { variableType = variableType
+                        , node = nameNode
+                        }
+                        (Node.value nameNode)
+                        accumulatorScope
+                )
+                innerContext.scopes
+                (declarationNameNode declaration)
+    in
+    updateScope innerContext scope
 
-        Nothing ->
-            innerContext
 
-
-declarationNameNode : Node Declaration -> Maybe ( VariableType, Node String )
+declarationNameNode : Node Declaration -> List ( VariableType, Node String )
 declarationNameNode (Node _ declaration) =
     case declaration of
         Declaration.FunctionDeclaration function ->
-            Just
-                ( TopLevelVariable
-                , function.declaration
+            [ ( TopLevelVariable
+              , function.declaration
                     |> Node.value
                     |> .name
-                )
+              )
+            ]
 
-        Declaration.CustomTypeDeclaration type_ ->
-            Just ( TopLevelVariable, type_.name )
+        Declaration.CustomTypeDeclaration { name, constructors } ->
+            ( TopLevelVariable, name )
+                :: List.map
+                    (\constructor ->
+                        ( CustomTypeConstructor
+                        , constructor
+                            |> Node.value
+                            |> .name
+                        )
+                    )
+                    constructors
 
         Declaration.AliasDeclaration alias_ ->
-            Just ( TopLevelVariable, alias_.name )
+            [ ( TopLevelVariable, alias_.name ) ]
 
         Declaration.PortDeclaration port_ ->
-            Just ( Port, port_.name )
+            [ ( Port, port_.name ) ]
 
         Declaration.InfixDeclaration _ ->
-            Nothing
+            []
 
         Declaration.Destructuring _ _ ->
-            Nothing
+            []
 
 
 registerExposed : Node Declaration -> InnerModuleContext -> InnerModuleContext
@@ -747,6 +936,7 @@ type alias VariableInfo =
 
 type VariableType
     = TopLevelVariable
+    | CustomTypeConstructor
     | FunctionParameter
     | LetVariable
     | PatternVariable
@@ -944,6 +1134,34 @@ findInList predicate list =
 -- ACCESS
 
 
+{-| Get the name of the module where a function or type was defined.
+
+  - The second argument (`String`) is the function name
+  - The third argument (`List String`) is the module name that was used next to the function name where you found it
+
+If the element was defined in the current module, then the result will be `[]`.
+
+    expressionVisitor : Node Expression -> Direction -> Context -> ( List (Error {}), Context )
+    expressionVisitor node direction context =
+        case ( direction, Node.value node ) of
+            ( Rule.OnEnter, Expression.FunctionOrValue moduleName "button" ) ->
+                if Scope.realModuleName context.scope "button" moduleName == [ "Html" ] then
+                    ( [ createError node ], context )
+
+                else
+                    ( [], context )
+
+            _ ->
+                ( [], context )
+
+**Known problems**:
+
+  - Does not make the distinction between types and functions/values/custom type constructors.
+    This will likely warrant splitting this function into two later on.
+
+Help is welcome!
+
+-}
 realModuleName : ModuleContext -> String -> List String -> List String
 realModuleName (ModuleContext context) functionOrType moduleName =
     if List.length moduleName == 0 then

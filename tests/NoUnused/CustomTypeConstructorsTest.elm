@@ -538,4 +538,25 @@ a = [ My.Module.Bar, My.Module.Baz ]
 """ ]
                     |> Review.Test.runOnModulesWithProjectData project (rule [])
                     |> Review.Test.expectNoErrors
+        , test "should correctly find the custom type constructor that gets shadowed" <|
+            \() ->
+                [ """module A exposing (main)
+import Other exposing (Msg(..))
+type Msg = NoOp
+
+a = NoOp
+""", """module Other exposing (Msg(..))
+type Msg = NoOp
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData project (rule [])
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Other"
+                          , [ Review.Test.error
+                                { message = "Type constructor `NoOp` is not used."
+                                , details = details
+                                , under = "NoOp"
+                                }
+                            ]
+                          )
+                        ]
         ]

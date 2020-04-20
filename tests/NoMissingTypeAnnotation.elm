@@ -20,6 +20,7 @@ Type annotations help you understand what happens in the code, and it will help 
         ]
 
 This rule does not report declarations without a type annotation inside a `let in`.
+For that, enable [`NoMissingTypeAnnotationInLetIn`](./NoMissingTypeAnnotationInLetIn).
 
 
 ## Fail

@@ -14,7 +14,7 @@ details =
 all : Test
 all =
     describe "NoMissingTypeAnnotation"
-        [ test "should not report anything when all top-level declarations have a type signature" <|
+        [ test "should not report anything when all top-level declarations have a type annotation" <|
             \_ ->
                 """module A exposing (..)
 hasTypeAnnotation : Int
