@@ -98,26 +98,25 @@ and for which a parsing error will be reported when running [`Review.review`](./
 -}
 addModule : { path : String, source : String } -> Project -> Project
 addModule { path, source } project =
-    recomputeModuleGraphIfNeeded <|
-        case parseSource source of
-            Ok ast ->
-                project
-                    |> addModuleToProject
-                        { path = path
-                        , source = source
-                        , ast = ast
-                        }
-                    |> removeFileFromFilesThatFailedToParse path
-                    |> recomputeModuleGraphIfNeeded
+    case parseSource source of
+        Ok ast ->
+            project
+                |> addModuleToProject
+                    { path = path
+                    , source = source
+                    , ast = ast
+                    }
+                |> removeFileFromFilesThatFailedToParse path
+                |> recomputeModuleGraphIfNeeded
 
-            Err _ ->
-                project
-                    |> removeFileFromProject path
-                    |> addFileThatFailedToParse
-                        { path = path
-                        , source = source
-                        }
-                    |> recomputeModuleGraphIfNeeded
+        Err _ ->
+            project
+                |> removeFileFromProject path
+                |> addFileThatFailedToParse
+                    { path = path
+                    , source = source
+                    }
+                |> recomputeModuleGraphIfNeeded
 
 
 positionAsInt : { row : Int, column : Int } -> Int
