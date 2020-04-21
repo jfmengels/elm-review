@@ -68,7 +68,7 @@ type alias Project =
 new : Project
 new =
     Internal.Project
-        { modules = []
+        { modules = Dict.empty
         , modulesThatFailedToParse = []
         , elmJson = Nothing
         , readme = Nothing
@@ -102,12 +102,12 @@ addModule { path, source } project =
         case parseSource source of
             Ok ast ->
                 project
-                    |> removeFileFromProject path
                     |> addModuleToProject
                         { path = path
                         , source = source
                         , ast = ast
                         }
+                    |> removeFileFromFilesThatFailedToParse path
                     |> recomputeModuleGraphIfNeeded
 
             Err _ ->
@@ -133,14 +133,14 @@ positionAsInt { row, column } =
 addParsedModule : { path : String, source : String, ast : Elm.Syntax.File.File } -> Project -> Project
 addParsedModule module_ project =
     project
-        |> removeFileFromProject module_.path
+        |> removeFileFromFilesThatFailedToParse module_.path
         |> addModuleToProject module_
         |> recomputeModuleGraphIfNeeded
 
 
 addModuleToProject : ProjectModule -> Project -> Project
 addModuleToProject module_ (Internal.Project project) =
-    Internal.Project { project | modules = sanitizeModule module_ :: project.modules }
+    Internal.Project { project | modules = Dict.insert module_.path (sanitizeModule module_) project.modules }
 
 
 sanitizeModule : ProjectModule -> ProjectModule
@@ -172,10 +172,15 @@ removeModule path project =
 
 removeFileFromProject : String -> Project -> Project
 removeFileFromProject path (Internal.Project project) =
+    Internal.Project { project | modules = Dict.remove path project.modules }
+        |> removeFileFromFilesThatFailedToParse path
+
+
+removeFileFromFilesThatFailedToParse : String -> Project -> Project
+removeFileFromFilesThatFailedToParse path (Internal.Project project) =
     Internal.Project
         { project
-            | modules = List.filter (\module_ -> module_.path /= path) project.modules
-            , modulesThatFailedToParse = List.filter (\file -> file.path /= path) project.modulesThatFailedToParse
+            | modulesThatFailedToParse = List.filter (\file -> file.path /= path) project.modulesThatFailedToParse
         }
 
 
@@ -201,7 +206,7 @@ elmProcessContext =
 -}
 modules : Project -> List ProjectModule
 modules (Internal.Project project) =
-    project.modules
+    Dict.values project.modules
 
 
 {-| Get the list of file paths that failed to parse, because they were syntactically invalid Elm code.
@@ -228,7 +233,7 @@ precomputeModuleGraph ((Internal.Project p) as project) =
             project
 
         Nothing ->
-            Internal.Project { p | moduleGraph = Just <| Internal.buildModuleGraph p.modules }
+            Internal.Project { p | moduleGraph = Just <| Internal.buildModuleGraph <| Dict.values p.modules }
 
 
 

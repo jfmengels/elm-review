@@ -21,7 +21,7 @@ import Vendor.Graph as Graph exposing (Graph)
 
 type Project
     = Project
-        { modules : List ProjectModule
+        { modules : Dict String ProjectModule
         , modulesThatFailedToParse : List { path : String, source : String }
         , elmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
         , readme : Maybe { path : String, content : String }
@@ -57,7 +57,7 @@ moduleGraph (Project project) =
             graph
 
         Nothing ->
-            buildModuleGraph project.modules
+            buildModuleGraph <| Dict.values project.modules
 
 
 buildModuleGraph : List ProjectModule -> Graph ModuleName ()
