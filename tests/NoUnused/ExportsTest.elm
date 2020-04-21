@@ -95,6 +95,7 @@ all =
         [ functionsAndValuesTests
         , typesTests
         , typeAliasesTests
+        , duplicateModuleNameTests
 
         -- TODO Add tests that report exposing the type's variants if they are never used.
         ]
@@ -591,4 +592,23 @@ type alias B = A.OtherType
                             ]
                           )
                         ]
+        ]
+
+
+duplicateModuleNameTests : Test
+duplicateModuleNameTests =
+    describe "Duplicate module names"
+        [ test "should not report a used export even if it is imported through a module whose name appears twice" <|
+            \() ->
+                [ """module Main exposing (main)
+import A as X
+import B as X
+main = X.a X.b
+""", """module A exposing (a)
+a = 1
+""", """module B exposing (b)
+b = 2
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
         ]

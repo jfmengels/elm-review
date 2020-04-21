@@ -86,7 +86,7 @@ type ModuleContext
 
 type alias InnerModuleContext =
     { scopes : Nonempty Scope
-    , importAliases : Dict String (List String)
+    , importAliases : Dict String (List ModuleName)
     , importedFunctionOrTypes : Dict String (List String)
     , dependenciesModules : Dict String Elm.Docs.Module
     , modules : Dict ModuleName Elm.Docs.Module
@@ -813,9 +813,9 @@ registerImportAlias import_ innerContext =
         Just alias_ ->
             { innerContext
                 | importAliases =
-                    Dict.insert
+                    Dict.update
                         (Node.value alias_ |> getModuleName)
-                        (Node.value import_.moduleName)
+                        (\previousValue -> Just <| Node.value import_.moduleName :: Maybe.withDefault [] previousValue)
                         innerContext.importAliases
             }
 
@@ -1173,11 +1173,47 @@ realModuleName (ModuleContext context) functionOrType moduleName =
                 |> Maybe.withDefault []
 
     else if List.length moduleName == 1 then
-        Dict.get (getModuleName moduleName) context.importAliases
-            |> Maybe.withDefault moduleName
+        case Dict.get (getModuleName moduleName) context.importAliases of
+            Just [ aliasedModuleName ] ->
+                aliasedModuleName
+
+            Just aliases ->
+                case
+                    findInList
+                        (\aliasedModuleName ->
+                            case Dict.get aliasedModuleName context.modules of
+                                Just module_ ->
+                                    isDeclaredInModule functionOrType module_
+
+                                Nothing ->
+                                    False
+                        )
+                        aliases
+                of
+                    Just aliasedModuleName ->
+                        aliasedModuleName
+
+                    Nothing ->
+                        List.head aliases
+                            |> Maybe.withDefault moduleName
+
+            Nothing ->
+                moduleName
 
     else
         moduleName
+
+
+isDeclaredInModule : String -> Elm.Docs.Module -> Bool
+isDeclaredInModule functionOrType module_ =
+    List.any (.name >> (==) functionOrType) module_.values
+        || List.any (.name >> (==) functionOrType) module_.aliases
+        || List.any
+            (\union ->
+                (union.name == functionOrType)
+                    || List.any (Tuple.first >> (==) functionOrType) union.tags
+            )
+            module_.unions
 
 
 isInScope : String -> Nonempty Scope -> Bool

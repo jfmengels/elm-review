@@ -7,8 +7,8 @@ import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Fixtures.Dependencies as Dependencies
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
-import Review.Scope as Scope
 import Review.Test
+import Scope
 import Test exposing (Test, test)
 
 
@@ -96,11 +96,23 @@ import ExposesEverything exposing (..)
 import Foo.Bar
 import Html exposing (..)
 import Http exposing (get)
+import Something.B as Something
+import Something.C as Something
 
 localValue = 1
+localValueValueToBeShadowed = 1
+type Msg = SomeMsgToBeShadowed
 
 a : SomeCustomType -> SomeTypeAlias -> SomeOtherTypeAlias -> NonExposedCustomType
 a = localValue
+    localValueValueToBeShadowed
+    SomeMsgToBeShadowed
+    SomeOtherMsg
+    Something.b
+    Something.c
+    Something.BAlias
+    Something.Foo
+    Something.Bar
     unknownValue
     exposedElement
     nonExposedElement
@@ -124,7 +136,15 @@ nonExposedElement = 2
 """, """module ExposesEverything exposing (..)
 type SomeCustomType = VariantA | VariantB
 type alias SomeTypeAlias = {}
+type Msg = SomeMsgToBeShadowed | SomeOtherMsg
 elementFromExposesEverything = 1
+localValueValueToBeShadowed = 1
+""", """module Something.B exposing (..)
+b = 1
+type Foo = Bar
+type alias BAlias = {}
+""", """module Something.C exposing (..)
+c = 1
 """ ]
                     |> Review.Test.runOnModulesWithProjectData project projectRule
                     |> Review.Test.expectErrorsForModules
@@ -136,6 +156,14 @@ elementFromExposesEverything = 1
 <nothing>.SomeOtherTypeAlias -> ExposesSomeThings.SomeOtherTypeAlias
 <nothing>.NonExposedCustomType -> <nothing>.NonExposedCustomType
 <nothing>.localValue -> <nothing>.localValue
+<nothing>.localValueValueToBeShadowed -> <nothing>.localValueValueToBeShadowed
+<nothing>.SomeMsgToBeShadowed -> <nothing>.SomeMsgToBeShadowed
+<nothing>.SomeOtherMsg -> ExposesEverything.SomeOtherMsg
+Something.b -> Something.B.b
+Something.c -> Something.C.c
+Something.BAlias -> Something.B.BAlias
+Something.Foo -> Something.B.Foo
+Something.Bar -> Something.B.Bar
 <nothing>.unknownValue -> <nothing>.unknownValue
 <nothing>.exposedElement -> ExposesSomeThings.exposedElement
 <nothing>.nonExposedElement -> <nothing>.nonExposedElement
@@ -165,6 +193,22 @@ Http.get -> Http.get
                             ]
                           )
                         , ( "ExposesEverything"
+                          , [ Review.Test.error
+                                { message = ""
+                                , details = [ "details" ]
+                                , under = "module"
+                                }
+                            ]
+                          )
+                        , ( "Something.B"
+                          , [ Review.Test.error
+                                { message = ""
+                                , details = [ "details" ]
+                                , under = "module"
+                                }
+                            ]
+                          )
+                        , ( "Something.C"
                           , [ Review.Test.error
                                 { message = ""
                                 , details = [ "details" ]
