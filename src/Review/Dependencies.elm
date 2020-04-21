@@ -197,7 +197,25 @@ elmParser =
     , version = "1.0.0"
     , interfaces =
         Dict.fromList
-            [ ( [ "Url", "Parser" ]
+            [ ( [ "Parser" ]
+              , [ -- infix left 5 (|=) = keeper
+                  Interface.Operator
+                    { direction = Node.Node Range.emptyRange Infix.Left
+                    , precedence = Node.Node Range.emptyRange 5
+                    , operator = Node.Node Range.emptyRange "|="
+                    , function = Node.Node Range.emptyRange "keeper"
+                    }
+
+                -- infix left 6 (|.) = ignorer
+                , Interface.Operator
+                    { direction = Node.Node Range.emptyRange Infix.Left
+                    , precedence = Node.Node Range.emptyRange 6
+                    , operator = Node.Node Range.emptyRange "|."
+                    , function = Node.Node Range.emptyRange "ignorer"
+                    }
+                ]
+              )
+            , ( [ "Parser", "Advanced" ]
               , [ -- infix left 5 (|=) = keeper
                   Interface.Operator
                     { direction = Node.Node Range.emptyRange Infix.Left
