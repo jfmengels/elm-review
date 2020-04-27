@@ -253,18 +253,12 @@ several files, and where the context of the project is important.
     all =
         test "test title" <|
             \() ->
-                let
-                    project : Project
-                    project =
-                        Project.new
-                            |> Project.addElmJson elmJsonToConstructManually
-                in
                 [ """
     module A exposing (a)
     a = 1""", """
     module B exposing (a)
     a = 1""" ]
-                    |> Review.Test.runOnModulesWithProjectData project rule
+                    |> Review.Test.runOnModules rule
                     |> Review.Test.expectNoErrors
 
 The source codes need to be syntactically valid Elm code. If the code
@@ -299,14 +293,20 @@ several modules, and where the context of the project is important.
 
     all : Test
     all =
-        test "test without errors" <|
+        test "test title" <|
             \() ->
+                let
+                    project : Project
+                    project =
+                        Project.new
+                            |> Project.addElmJson elmJsonToConstructManually
+                in
                 [ """
     module A exposing (a)
     a = 1""", """
     module B exposing (a)
     a = 1""" ]
-                    |> Review.Test.runOnModules rule
+                    |> Review.Test.runOnModulesWithProjectData project rule
                     |> Review.Test.expectNoErrors
 
 The source codes need to be syntactically valid Elm code. If the code
