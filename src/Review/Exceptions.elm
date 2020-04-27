@@ -48,7 +48,10 @@ addDirectories directories (Exceptions exceptions) =
                                 dir ++ "/"
                     )
     in
-    Exceptions { exceptions | directories = cleanedDirectories ++ exceptions.directories }
+    Exceptions
+        { directories = cleanedDirectories ++ exceptions.directories
+        , files = exceptions.files
+        }
 
 
 addFiles : List String -> Exceptions -> Exceptions
@@ -60,7 +63,10 @@ addFiles files (Exceptions exceptions) =
                 |> List.map makePathOSAgnostic
                 |> Set.fromList
     in
-    Exceptions { exceptions | files = Set.union cleanedFiles exceptions.files }
+    Exceptions
+        { files = Set.union cleanedFiles exceptions.files
+        , directories = exceptions.directories
+        }
 
 
 apply : Exceptions -> (a -> String) -> List a -> List a
