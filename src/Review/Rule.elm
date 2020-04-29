@@ -614,10 +614,14 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache exce
                         previousCache
 
                     else
-                        { newModuleRuleCache | initialContext = Just initialContext }
+                        { initialContext = Just initialContext
+                        , moduleResults = newModuleRuleCache.moduleResults
+                        }
 
                 Nothing ->
-                    { newModuleRuleCache | initialContext = Just initialContext }
+                    { initialContext = Just initialContext
+                    , moduleResults = newModuleRuleCache.moduleResults
+                    }
 
         computeErrors_ : ProjectModule -> List (Error {})
         computeErrors_ =
@@ -657,7 +661,7 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache exce
     ( errors
     , runModuleRule
         moduleRuleSchema
-        { startCache | moduleResults = moduleResults }
+        { initialContext = startCache.initialContext, moduleResults = moduleResults }
         |> Rule schema.name exceptions
     )
 

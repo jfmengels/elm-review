@@ -39,13 +39,14 @@ addDirectories directories (Exceptions exceptions) =
         cleanedDirectories =
             directories
                 |> List.map
-                    (\dir ->
-                        makePathOSAgnostic <|
-                            if String.endsWith "/" dir then
-                                dir
+                    (makePathOSAgnostic
+                        >> (\dir ->
+                                if String.endsWith "/" dir then
+                                    dir
 
-                            else
-                                dir ++ "/"
+                                else
+                                    dir ++ "/"
+                           )
                     )
     in
     Exceptions
@@ -96,4 +97,4 @@ isInAnIgnoredDirectory directories path =
 
 makePathOSAgnostic : String -> String
 makePathOSAgnostic path =
-    String.replace "\"" "/" path
+    String.replace "\\" "/" path
