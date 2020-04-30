@@ -464,11 +464,11 @@ with `OnEnter`, before the children of the node are visited, and once with
 `OnExit`, after the children of the node have been visited.
 In most cases, you'll only want to handle the `OnEnter` case, but there are cases
 where you'll want to visit a [`Node`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#Node)
-containing the module name (of the form `[ "My", "Module" ]` when the module name is `My.Module`)
-is also passed for convenience.after having seen its children. For instance, if
-you are trying to detect the unused variables defined inside of a `let in` expression,
-you will want to collect the declaration of variables, note which ones are used,
-and at the end of the block, report the ones that weren't used.
+after having seen its children.
+
+For instance, if you are trying to detect the unused variables defined inside
+of a `let in` expression, you will want to collect the declaration of variables,
+note which ones are used, and at the end of the block report the ones that weren't used.
 
     expressionVisitor : Context -> Direction -> Node Expression -> ( List (Error {}), Context )
     expressionVisitor context direction node =
