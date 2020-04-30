@@ -4,7 +4,7 @@
 
 `elm-review` analyzes [Elm](https://elm-lang.org/) projects, to help find mistakes before your users find them.
 
-![elm-review reporter output](https://github.com/jfmengels/elm-review/blob/master/documentation/images/elm-review-report.png?raw=true)
+[![elm-review reporter output](https://github.com/jfmengels/elm-review/blob/2.0.0/documentation/images/elm-review-report.png?raw=true)](https://github.com/jfmengels/elm-review/blob/2.0.0/documentation/images/elm-review-report-hq.png?raw=true)
 
 ## What does `elm-review` do?
 
