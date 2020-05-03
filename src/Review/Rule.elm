@@ -2901,17 +2901,15 @@ forbids using `Debug.todo` anywhere in the code, except in tests.
     expressionVisitor node =
         case Node.value node of
             Expression.FunctionOrValue [ "Debug" ] "todo" ->
-                ( [ Rule.error
-                        { message = "Remove the use of `Debug.todo` before shipping to production"
-                        , details = [ "`Debug.todo` is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing its use before committing and attempting to push to production." ]
-                        }
-                        (Node.range node)
-                  ]
-                , context
-                )
+                [ Rule.error
+                    { message = "Remove the use of `Debug.todo` before shipping to production"
+                    , details = [ "`Debug.todo` is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing its use before committing and attempting to push to production." ]
+                    }
+                    (Node.range node)
+                ]
 
             _ ->
-                ( [], context )
+                []
 
 -}
 ignoreErrorsForDirectories : List String -> Rule -> Rule
@@ -2968,17 +2966,15 @@ by hardcoding an exception into the rule (that forbids the use of `Html.button` 
     expressionVisitor node context =
         case Node.value node of
             Expression.FunctionOrValue [ "Html" ] "button" ->
-                ( [ Rule.error
-                        { message = "Do not use `Html.button` directly"
-                        , details = [ "At fruits.com, we've built a nice `Button` module that suits our needs better. Using this module instead of `Html.button` ensures we have a consistent button experience across the website." ]
-                        }
-                        (Node.range node)
-                  ]
-                , context
-                )
+                [ Rule.error
+                    { message = "Do not use `Html.button` directly"
+                    , details = [ "At fruits.com, we've built a nice `Button` module that suits our needs better. Using this module instead of `Html.button` ensures we have a consistent button experience across the website." ]
+                    }
+                    (Node.range node)
+                ]
 
             _ ->
-                ( [], context )
+                []
 
 -}
 ignoreErrorsForFiles : List String -> Rule -> Rule
