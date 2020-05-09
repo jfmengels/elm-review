@@ -459,7 +459,7 @@ based on the order in which I apply these fixes.
 For this reason, I require that the ranges (for replacing and removing) and
 the positions (for inserting) of every fix to be mutually exclusive.
 
-Hint: Maybe you duplicated a fix, or you targetted the wrong node for one
+Hint: Maybe you duplicated a fix, or you targeted the wrong node for one
 of your fixes."""
 
 
