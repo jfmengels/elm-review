@@ -1,4 +1,4 @@
-module Review.Test.ErrorMessage exposing
+module Review.Test.FailureMessage exposing
     ( ExpectedErrorData
     , parsingFailure, globalErrorInTest, messageMismatch, emptyDetails, unexpectedDetails, wrongLocation, didNotExpectErrors
     , underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
@@ -6,7 +6,7 @@ module Review.Test.ErrorMessage exposing
     , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
     )
 
-{-| ReviewError messages for the `Review.Test` module.
+{-| Failure messages for the `Review.Test` module.
 
 
 # ReviewError messages

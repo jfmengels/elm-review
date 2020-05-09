@@ -111,7 +111,7 @@ import Review.Error as Error
 import Review.Fix as Fix
 import Review.Project as Project exposing (Project, ProjectModule)
 import Review.Rule as Rule exposing (ReviewError, Rule)
-import Review.Test.ErrorMessage as ErrorMessage
+import Review.Test.FailureMessage as FailureMessage
 import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
 
@@ -343,7 +343,7 @@ runOnModulesWithProjectData project rule sources =
                     , index = indexOf source sources |> Maybe.withDefault -1
                     }
             in
-            FailedRun <| ErrorMessage.parsingFailure (List.length sources == 1) fileAndIndex
+            FailedRun <| FailureMessage.parsingFailure (List.length sources == 1) fileAndIndex
 
         [] ->
             let
@@ -352,12 +352,12 @@ runOnModulesWithProjectData project rule sources =
                     Project.modules projectWithModules
             in
             if List.isEmpty modules then
-                FailedRun ErrorMessage.missingSources
+                FailedRun FailureMessage.missingSources
 
             else
                 case findDuplicateModuleNames Set.empty modules of
                     Just moduleName ->
-                        FailedRun <| ErrorMessage.duplicateModuleName moduleName
+                        FailedRun <| FailureMessage.duplicateModuleName moduleName
 
                     Nothing ->
                         let
@@ -369,7 +369,7 @@ runOnModulesWithProjectData project rule sources =
                         in
                         case ListExtra.find (\err_ -> Rule.errorFilePath err_ == "GLOBAL ERROR") errors of
                             Just globalError ->
-                                FailedRun <| ErrorMessage.globalErrorInTest globalError
+                                FailedRun <| FailureMessage.globalErrorInTest globalError
 
                             Nothing ->
                                 List.concat
@@ -555,7 +555,7 @@ expectNoErrors reviewResult =
                 |> List.map
                     (\{ errors, moduleName } () ->
                         List.isEmpty errors
-                            |> Expect.true (ErrorMessage.didNotExpectErrors moduleName errors)
+                            |> Expect.true (FailureMessage.didNotExpectErrors moduleName errors)
                     )
                 |> (\expectations -> Expect.all expectations ())
 
@@ -603,7 +603,7 @@ expectErrors expectedErrors reviewResult =
             checkAllErrorsMatch runResult expectedErrors
 
         SuccessfulRun _ ->
-            Expect.fail ErrorMessage.needToUsedExpectErrorsForModules
+            Expect.fail FailureMessage.needToUsedExpectErrorsForModules
 
 
 {-| Assert that the rule reported some errors, by specifying which ones and the
@@ -671,7 +671,7 @@ expectErrorsForModules expectedErrorsList reviewResult =
             in
             case maybeUnknownModule of
                 Just unknownModule ->
-                    ErrorMessage.unknownModulesInExpectedErrors unknownModule
+                    FailureMessage.unknownModulesInExpectedErrors unknownModule
                         |> Expect.fail
 
                 Nothing ->
@@ -933,7 +933,7 @@ checkIfLocationIsAmbiguousInSourceCode sourceCode error_ under =
             String.indexes under sourceCode
     in
     (List.length occurrencesInSourceCode == 1)
-        |> Expect.true (ErrorMessage.locationIsAmbiguousInSourceCode sourceCode error_ under occurrencesInSourceCode)
+        |> Expect.true (FailureMessage.locationIsAmbiguousInSourceCode sourceCode error_ under occurrencesInSourceCode)
 
 
 
@@ -958,10 +958,10 @@ checkErrorsMatch runResult expectedErrors errors =
                 :: checkErrorsMatch runResult restOfExpectedErrors restOfErrors
 
         ( expected :: restOfExpectedErrors, [] ) ->
-            [ always <| Expect.fail <| ErrorMessage.expectedMoreErrors runResult.moduleName <| List.map extractExpectedErrorData (expected :: restOfExpectedErrors) ]
+            [ always <| Expect.fail <| FailureMessage.expectedMoreErrors runResult.moduleName <| List.map extractExpectedErrorData (expected :: restOfExpectedErrors) ]
 
         ( [], error_ :: restOfErrors ) ->
-            [ always <| Expect.fail <| ErrorMessage.tooManyErrors runResult.moduleName (error_ :: restOfErrors) ]
+            [ always <| Expect.fail <| FailureMessage.tooManyErrors runResult.moduleName (error_ :: restOfErrors) ]
 
 
 checkErrorMatch : CodeInspector -> ExpectedError -> ReviewError -> (() -> Expectation)
@@ -970,7 +970,7 @@ checkErrorMatch codeInspector ((ExpectedError expectedError_) as expectedError) 
         [ \() ->
             (expectedError_.message == Rule.errorMessage error_)
                 |> Expect.true
-                    (ErrorMessage.messageMismatch
+                    (FailureMessage.messageMismatch
                         (extractExpectedErrorData expectedError)
                         error_
                     )
@@ -990,7 +990,7 @@ checkMessageAppearsUnder codeInspector error_ (ExpectedError expectedError) =
                         [ \() ->
                             case under of
                                 "" ->
-                                    ErrorMessage.underMayNotBeEmpty
+                                    FailureMessage.underMayNotBeEmpty
                                         { message = expectedError.message
                                         , codeAtLocation = codeAtLocation
                                         }
@@ -1000,7 +1000,7 @@ checkMessageAppearsUnder codeInspector error_ (ExpectedError expectedError) =
                                     Expect.pass
                         , \() ->
                             (codeAtLocation == under)
-                                |> Expect.true (ErrorMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
+                                |> Expect.true (FailureMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
                         , \() -> codeInspector.checkIfLocationIsAmbiguous error_ under
                         ]
 
@@ -1008,15 +1008,15 @@ checkMessageAppearsUnder codeInspector error_ (ExpectedError expectedError) =
                     Expect.all
                         [ \() ->
                             (codeAtLocation == under)
-                                |> Expect.true (ErrorMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
+                                |> Expect.true (FailureMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
                         , \() ->
                             (Rule.errorRange error_ == range)
-                                |> Expect.true (ErrorMessage.wrongLocation error_ range under)
+                                |> Expect.true (FailureMessage.wrongLocation error_ range under)
                         ]
 
         Nothing ->
             \() ->
-                ErrorMessage.locationNotFound error_
+                FailureMessage.locationNotFound error_
                     |> Expect.fail
 
 
@@ -1024,10 +1024,10 @@ checkDetailsAreCorrect : ReviewError -> ExpectedError -> (() -> Expectation)
 checkDetailsAreCorrect error_ (ExpectedError expectedError) =
     Expect.all
         [ (not <| List.isEmpty <| Rule.errorDetails error_)
-            |> Expect.true (ErrorMessage.emptyDetails error_)
+            |> Expect.true (FailureMessage.emptyDetails error_)
             |> always
         , (Rule.errorDetails error_ == expectedError.details)
-            |> Expect.true (ErrorMessage.unexpectedDetails expectedError.details error_)
+            |> Expect.true (FailureMessage.unexpectedDetails expectedError.details error_)
             |> always
         ]
 
@@ -1039,30 +1039,30 @@ checkFixesAreCorrect codeInspector ((Error.ReviewError err) as error_) ((Expecte
             Expect.pass
 
         ( Just _, Nothing ) ->
-            ErrorMessage.missingFixes (extractExpectedErrorData expectedError)
+            FailureMessage.missingFixes (extractExpectedErrorData expectedError)
                 |> Expect.fail
 
         ( Nothing, Just _ ) ->
-            ErrorMessage.unexpectedFixes error_
+            FailureMessage.unexpectedFixes error_
                 |> Expect.fail
 
         ( Just expectedFixedSource, Just fixes ) ->
             case Fix.fix err.target fixes codeInspector.source of
                 Fix.Successful fixedSource ->
                     (fixedSource == expectedFixedSource)
-                        |> Expect.true (ErrorMessage.fixedCodeMismatch fixedSource expectedFixedSource error_)
+                        |> Expect.true (FailureMessage.fixedCodeMismatch fixedSource expectedFixedSource error_)
 
                 Fix.Errored Fix.Unchanged ->
-                    Expect.fail <| ErrorMessage.unchangedSourceAfterFix error_
+                    Expect.fail <| FailureMessage.unchangedSourceAfterFix error_
 
                 Fix.Errored (Fix.SourceCodeIsNotValid sourceCode) ->
-                    Expect.fail <| ErrorMessage.invalidSourceAfterFix error_ sourceCode
+                    Expect.fail <| FailureMessage.invalidSourceAfterFix error_ sourceCode
 
                 Fix.Errored Fix.HasCollisionsInFixRanges ->
-                    Expect.fail <| ErrorMessage.hasCollisionsInFixRanges error_
+                    Expect.fail <| FailureMessage.hasCollisionsInFixRanges error_
 
 
-extractExpectedErrorData : ExpectedError -> ErrorMessage.ExpectedErrorData
+extractExpectedErrorData : ExpectedError -> FailureMessage.ExpectedErrorData
 extractExpectedErrorData ((ExpectedError expectedErrorContent) as expectedError) =
     { message = expectedErrorContent.message
     , details = expectedErrorContent.details

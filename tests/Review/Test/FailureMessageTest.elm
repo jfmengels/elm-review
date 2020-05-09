@@ -1,16 +1,16 @@
-module Review.Test.ErrorMessageTest exposing (all)
+module Review.Test.FailureMessageTest exposing (all)
 
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
 import Review.Error exposing (ReviewError)
 import Review.Fix as Fix
-import Review.Test.ErrorMessage as ErrorMessage exposing (ExpectedErrorData)
+import Review.Test.FailureMessage as FailureMessage exposing (ExpectedErrorData)
 import Test exposing (Test, describe, test)
 
 
 all : Test
 all =
-    describe "Test.ErrorMessage"
+    describe "Review.Test.FailureMessage"
         [ parsingFailureTest
         , didNotExpectErrorsTest
         , messageMismatchTest
@@ -58,7 +58,7 @@ parsingFailureTest =
     describe "parsingFailure"
         [ test "when there is only one file" <|
             \() ->
-                ErrorMessage.parsingFailure True { index = 0, source = "module MyModule exposing (.." }
+                FailureMessage.parsingFailure True { index = 0, source = "module MyModule exposing (.." }
                     |> expectMessageEqual """
 TEST SOURCE CODE PARSING ERROR
 
@@ -69,7 +69,7 @@ Hint: Maybe you forgot to add the module definition at the top, like:
   `module A exposing (..)`"""
         , test "when there are multiple files" <|
             \() ->
-                ErrorMessage.parsingFailure False { index = 32, source = "module MyModule exposing (.." }
+                FailureMessage.parsingFailure False { index = 32, source = "module MyModule exposing (.." }
                     |> expectMessageEqual """
 TEST SOURCE CODE PARSING ERROR
 
@@ -105,7 +105,7 @@ didNotExpectErrorsTest =
                         dummyRange
                     ]
             in
-            ErrorMessage.didNotExpectErrors "ModuleName" errors
+            FailureMessage.didNotExpectErrors "ModuleName" errors
                 |> expectMessageEqual """
 DID NOT EXPECT ERRORS
 
@@ -138,7 +138,7 @@ messageMismatchTest =
                         }
                         dummyRange
             in
-            ErrorMessage.messageMismatch expectedError error
+            FailureMessage.messageMismatch expectedError error
                 |> expectMessageEqual """
 UNEXPECTED ERROR MESSAGE
 
@@ -165,7 +165,7 @@ underMismatchTest =
                             }
                             dummyRange
                 in
-                ErrorMessage.underMismatch
+                FailureMessage.underMismatch
                     error
                     { under = "abcd"
                     , codeAtLocation = "abcd = 1"
@@ -198,7 +198,7 @@ calling `Rule.error`."""
                             }
                             dummyRange
                 in
-                ErrorMessage.underMismatch
+                FailureMessage.underMismatch
                     error
                     { under = "abcd =\n  1\n  + 2"
                     , codeAtLocation = "abcd =\n  1"
@@ -248,7 +248,7 @@ unexpectedDetailsTest =
                             }
                             dummyRange
                 in
-                ErrorMessage.unexpectedDetails
+                FailureMessage.unexpectedDetails
                     expectedDetails
                     error
                     |> expectMessageEqual """
@@ -286,7 +286,7 @@ when I was expecting them to be:
                             }
                             dummyRange
                 in
-                ErrorMessage.unexpectedDetails
+                FailureMessage.unexpectedDetails
                     expectedDetails
                     error
                     |> expectMessageEqual """
@@ -331,7 +331,7 @@ emptyDetailsTest =
                             }
                             dummyRange
                 in
-                ErrorMessage.emptyDetails
+                FailureMessage.emptyDetails
                     error
                     |> expectMessageEqual """
 EMPTY ERROR DETAILS
@@ -363,7 +363,7 @@ wrongLocationTest =
                             }
                             { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
                 in
-                ErrorMessage.wrongLocation
+                FailureMessage.wrongLocation
                     error
                     { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
                     "abcd"
@@ -399,7 +399,7 @@ but I found it at:
                             }
                             { start = { row = 4, column = 1 }, end = { row = 5, column = 3 } }
                 in
-                ErrorMessage.wrongLocation
+                FailureMessage.wrongLocation
                     error
                     { start = { row = 2, column = 1 }, end = { row = 3, column = 3 } }
                     "abcd =\n  1"
@@ -443,7 +443,7 @@ locationNotFoundTest =
                         }
                         { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
             in
-            ErrorMessage.locationNotFound error
+            FailureMessage.locationNotFound error
                 |> expectMessageEqual """
 COULD NOT FIND LOCATION FOR ERROR
 
@@ -464,7 +464,7 @@ underMayNotBeEmptyTest : Test
 underMayNotBeEmptyTest =
     test "underMayNotBeEmpty" <|
         \() ->
-            ErrorMessage.underMayNotBeEmpty
+            FailureMessage.underMayNotBeEmpty
                 { message = "Some error"
                 , codeAtLocation = "abcd = 1"
                 }
@@ -502,7 +502,7 @@ expectedMoreErrorsTest =
                       }
                     ]
             in
-            ErrorMessage.expectedMoreErrors "MyModule" missingErrors
+            FailureMessage.expectedMoreErrors "MyModule" missingErrors
                 |> expectMessageEqual """
 RULE REPORTED LESS ERRORS THAN EXPECTED
 
@@ -528,7 +528,7 @@ tooManyErrorsTest =
                             { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
                         ]
                 in
-                ErrorMessage.tooManyErrors "MyModule" extraErrors
+                FailureMessage.tooManyErrors "MyModule" extraErrors
                     |> expectMessageEqual """
 RULE REPORTED MORE ERRORS THAN EXPECTED
 
@@ -554,7 +554,7 @@ I found 1 error too many for module `MyModule`:
                             { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
                         ]
                 in
-                ErrorMessage.tooManyErrors "MyOtherModule" extraErrors
+                FailureMessage.tooManyErrors "MyOtherModule" extraErrors
                     |> expectMessageEqual """
 RULE REPORTED MORE ERRORS THAN EXPECTED
 
@@ -590,7 +590,7 @@ locationIsAmbiguousInSourceCodeTest =
                             }
                             { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
                 in
-                ErrorMessage.locationIsAmbiguousInSourceCode
+                FailureMessage.locationIsAmbiguousInSourceCode
                     sourceCode
                     error
                     under
@@ -634,7 +634,7 @@ Tip: I found them at:
                             }
                             { start = { row = 3, column = 1 }, end = { row = 4, column = 3 } }
                 in
-                ErrorMessage.locationIsAmbiguousInSourceCode
+                FailureMessage.locationIsAmbiguousInSourceCode
                     sourceCode
                     error
                     under
@@ -670,7 +670,7 @@ needToUsedExpectErrorsForModulesTest : Test
 needToUsedExpectErrorsForModulesTest =
     test "needToUsedExpectErrorsForModules" <|
         \() ->
-            ErrorMessage.needToUsedExpectErrorsForModules
+            FailureMessage.needToUsedExpectErrorsForModules
                 |> expectMessageEqual """
 AMBIGUOUS MODULE FOR ERROR
 
@@ -698,7 +698,7 @@ missingSourcesTest : Test
 missingSourcesTest =
     test "missingSources" <|
         \() ->
-            ErrorMessage.missingSources
+            FailureMessage.missingSources
                 |> expectMessageEqual """
 MISSING SOURCES
 
@@ -714,7 +714,7 @@ duplicateModuleNameTest : Test
 duplicateModuleNameTest =
     test "duplicateModuleName" <|
         \() ->
-            ErrorMessage.duplicateModuleName [ "My", "Module" ]
+            FailureMessage.duplicateModuleName [ "My", "Module" ]
                 |> expectMessageEqual """
 DUPLICATE MODULE NAMES
 
@@ -732,7 +732,7 @@ unknownModulesInExpectedErrorsTest : Test
 unknownModulesInExpectedErrorsTest =
     test "unknownModulesInExpectedErrors" <|
         \() ->
-            ErrorMessage.unknownModulesInExpectedErrors "My.Module"
+            FailureMessage.unknownModulesInExpectedErrors "My.Module"
                 |> expectMessageEqual """
 UNKNOWN MODULES IN EXPECTED ERRORS
 
@@ -758,7 +758,7 @@ missingFixesTest =
                     , under = "Debug.log"
                     }
             in
-            ErrorMessage.missingFixes expectedError
+            FailureMessage.missingFixes expectedError
                 |> expectMessageEqual """
 MISSING FIXES
 
@@ -790,7 +790,7 @@ unexpectedFixesTest =
                         range
                         |> Review.Error.withFixes [ Fix.removeRange range ]
             in
-            ErrorMessage.unexpectedFixes error
+            FailureMessage.unexpectedFixes error
                 |> expectMessageEqual """
 UNEXPECTED FIXES
 
@@ -840,7 +840,7 @@ abcd =
                         }
                         { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
             in
-            ErrorMessage.fixedCodeMismatch
+            FailureMessage.fixedCodeMismatch
                 sourceCode
                 expectedSourceCode
                 error
@@ -882,7 +882,7 @@ unchangedSourceAfterFixTest =
                         }
                         { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
             in
-            ErrorMessage.unchangedSourceAfterFix error
+            FailureMessage.unchangedSourceAfterFix error
                 |> expectMessageEqual """
 UNCHANGED SOURCE AFTER FIX
 
@@ -920,7 +920,7 @@ abcd =
                         }
                         { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
             in
-            ErrorMessage.invalidSourceAfterFix
+            FailureMessage.invalidSourceAfterFix
                 error
                 sourceCode
                 |> expectMessageEqual """
@@ -960,7 +960,7 @@ hasCollisionsInFixRangesTest =
                         }
                         { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
             in
-            ErrorMessage.hasCollisionsInFixRanges error
+            FailureMessage.hasCollisionsInFixRanges error
                 |> expectMessageEqual """
 FOUND COLLISIONS IN FIX RANGES
 
