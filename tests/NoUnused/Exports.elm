@@ -277,18 +277,27 @@ exposedElements nodes =
             (\node ->
                 case Node.value node of
                     Exposing.FunctionExpose name ->
-                        Just <| ( name, { range = Node.range node, exposedElement = Function } )
+                        Just ( name, { range = untilEndOfVariable name (Node.range node), exposedElement = Function } )
 
                     Exposing.TypeOrAliasExpose name ->
-                        Just <| ( name, { range = Node.range node, exposedElement = TypeOrTypeAlias } )
+                        Just ( name, { range = untilEndOfVariable name (Node.range node), exposedElement = TypeOrTypeAlias } )
 
                     Exposing.TypeExpose { name } ->
-                        Just <| ( name, { range = Node.range node, exposedElement = ExposedType } )
+                        Just ( name, { range = untilEndOfVariable name (Node.range node), exposedElement = ExposedType } )
 
-                    Exposing.InfixExpose name ->
+                    Exposing.InfixExpose _ ->
                         Nothing
             )
         |> Dict.fromList
+
+
+untilEndOfVariable : String -> Range -> Range
+untilEndOfVariable name range =
+    if range.start.row == range.end.row then
+        range
+
+    else
+        { range | end = { row = range.start.row, column = range.start.column + String.length name } }
 
 
 

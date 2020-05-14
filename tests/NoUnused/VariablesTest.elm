@@ -555,7 +555,7 @@ import Foo
                     [ Review.Test.error
                         { message = "Imported type `C` is not used"
                         , details = details
-                        , under = "C\n        ,"
+                        , under = "C"
                         }
                         |> Review.Test.whenFixed """module SomeModule exposing (d)
 import Foo
@@ -590,6 +590,41 @@ import Foo
         ( C
         , a
         )"""
+                    ]
+    , test "should report unused imported functions (multiple imports on several lines, function first)" <|
+        \() ->
+            """module SomeModule exposing (d)
+import Foo
+    exposing
+        ( a
+        , b
+        )
+d = 1"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Imported variable `a` is not used"
+                        , details = details
+                        , under = "a"
+                        }
+                        |> Review.Test.whenFixed
+                            """module SomeModule exposing (d)
+import Foo
+    exposing
+        ( b
+        )
+d = 1"""
+                    , Review.Test.error
+                        { message = "Imported variable `b` is not used"
+                        , details = details
+                        , under = "b"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (d)
+import Foo
+    exposing
+        ( a
+        )
+d = 1"""
                     ]
     , test "should report unused operator import" <|
         \() ->
@@ -737,6 +772,23 @@ a = ()"""
 import Html.Styled exposing (Html)
 a : Html
 a = ()"""
+                    ]
+    , test "should report import alias if the name is the same thing as the module name" <|
+        \() ->
+            """module SomeModule exposing (a)
+import Html as Html
+a = Html.div"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Module `Html` is aliased as `Html`"
+                        , details = [ "The alias is the same as the module name, and brings no useful value" ]
+                        , under = "Html"
+                        }
+                        |> Review.Test.atExactly { start = { row = 2, column = 16 }, end = { row = 2, column = 20 } }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+import Html
+a = Html.div"""
                     ]
     , test "should not report import that exposes a used exposed type" <|
         \() ->

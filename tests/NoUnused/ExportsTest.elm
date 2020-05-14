@@ -592,6 +592,34 @@ type alias B = A.OtherType
                             ]
                           )
                         ]
+        , test "should report the correct range when exports are on multiple lines" <|
+            \() ->
+                [ """module A
+             exposing ( Card
+    , Link
+    , init
+    , toElement
+    )
+type Card = Card
+type Link = Link
+init = 1
+""", """
+module Exposed exposing (..)
+import A
+a = A.Card A.init A.toElement
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData package_ rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "A"
+                          , [ Review.Test.error
+                                { message = "Exposed type or type alias `Link` is never used outside this module."
+                                , details = details
+                                , under = "Link"
+                                }
+                                |> Review.Test.atExactly { start = { row = 3, column = 7 }, end = { row = 3, column = 11 } }
+                            ]
+                          )
+                        ]
         ]
 
 
