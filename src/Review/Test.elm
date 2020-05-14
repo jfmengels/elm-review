@@ -903,24 +903,30 @@ getCodeAtLocationInSourceCode sourceCode =
 
         else
             let
-                firstLine : Maybe String
+                firstLine : String
                 firstLine =
-                    Array.get (start.row - 1) lines
-                        |> Maybe.map (String.dropLeft (start.column - 1))
+                    case Array.get (start.row - 1) lines of
+                        Just str ->
+                            String.dropLeft (start.column - 1) str
 
-                lastLine : Maybe String
+                        Nothing ->
+                            ""
+
+                lastLine : String
                 lastLine =
-                    Array.get (end.row - 1) lines
-                        |> Maybe.map (String.left end.column)
+                    case Array.get (end.row - 1) lines of
+                        Just str ->
+                            String.left end.column str
+
+                        Nothing ->
+                            ""
             in
-            [ [ firstLine ]
+            [ firstLine
             , Array.slice start.row (end.row - 1) lines
                 |> Array.toList
-                |> List.map Just
-            , [ lastLine ]
+                |> String.join "\n"
+            , lastLine
             ]
-                |> List.concat
-                |> List.filterMap identity
                 |> String.join "\n"
                 |> Just
 
