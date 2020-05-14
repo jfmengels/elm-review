@@ -27,6 +27,8 @@ module Scope exposing
 
 {- Copied over from https://github.com/jfmengels/elm-review-scope
 
+   Version: 0.1.1
+
    Copyright (c) 2020, Jeroen Engels
    All rights reserved.
 
@@ -1164,44 +1166,45 @@ Help is welcome!
 -}
 realModuleName : ModuleContext -> String -> List String -> List String
 realModuleName (ModuleContext context) functionOrType moduleName =
-    if List.length moduleName == 0 then
-        if isInScope functionOrType context.scopes then
-            []
+    case moduleName of
+        [] ->
+            if isInScope functionOrType context.scopes then
+                []
 
-        else
-            Dict.get functionOrType context.importedFunctionOrTypes
-                |> Maybe.withDefault []
+            else
+                Dict.get functionOrType context.importedFunctionOrTypes
+                    |> Maybe.withDefault []
 
-    else if List.length moduleName == 1 then
-        case Dict.get (getModuleName moduleName) context.importAliases of
-            Just [ aliasedModuleName ] ->
-                aliasedModuleName
+        _ :: [] ->
+            case Dict.get (getModuleName moduleName) context.importAliases of
+                Just [ aliasedModuleName ] ->
+                    aliasedModuleName
 
-            Just aliases ->
-                case
-                    findInList
-                        (\aliasedModuleName ->
-                            case Dict.get aliasedModuleName context.modules of
-                                Just module_ ->
-                                    isDeclaredInModule functionOrType module_
+                Just aliases ->
+                    case
+                        findInList
+                            (\aliasedModuleName ->
+                                case Dict.get aliasedModuleName context.modules of
+                                    Just module_ ->
+                                        isDeclaredInModule functionOrType module_
 
-                                Nothing ->
-                                    False
-                        )
-                        aliases
-                of
-                    Just aliasedModuleName ->
-                        aliasedModuleName
+                                    Nothing ->
+                                        False
+                            )
+                            aliases
+                    of
+                        Just aliasedModuleName ->
+                            aliasedModuleName
 
-                    Nothing ->
-                        List.head aliases
-                            |> Maybe.withDefault moduleName
+                        Nothing ->
+                            List.head aliases
+                                |> Maybe.withDefault moduleName
 
-            Nothing ->
-                moduleName
+                Nothing ->
+                    moduleName
 
-    else
-        moduleName
+        _ ->
+            moduleName
 
 
 isDeclaredInModule : String -> Elm.Docs.Module -> Bool
