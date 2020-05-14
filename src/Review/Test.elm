@@ -911,7 +911,7 @@ getCodeAtLocationInSourceCode sourceCode =
                 lastLine : Maybe String
                 lastLine =
                     Array.get (end.row - 1) lines
-                        |> Maybe.map (String.dropRight end.column)
+                        |> Maybe.map (String.left end.column)
             in
             [ [ firstLine ]
             , Array.slice start.row (end.row - 1) lines

@@ -555,7 +555,7 @@ import Foo
                     [ Review.Test.error
                         { message = "Imported type `C` is not used"
                         , details = details
-                        , under = "C\n  "
+                        , under = "C\n        ,"
                         }
                         |> Review.Test.whenFixed """module SomeModule exposing (d)
 import Foo
