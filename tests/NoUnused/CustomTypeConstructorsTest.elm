@@ -559,4 +559,20 @@ type Msg = NoOp
                             ]
                           )
                         ]
+        , test "should not report type constructors in confusing situations" <|
+            \() ->
+                [ """module A exposing (A(..))
+type A = Foo | Bar
+"""
+                , """module B exposing (B(..))
+type B = A | B
+"""
+                , """module C exposing (foo)
+import A exposing (A(..))
+import B exposing (B(..))
+foo = [ (Foo, A), (Bar, B) ]
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData project (rule [])
+                    |> Review.Test.expectNoErrors
         ]

@@ -240,6 +240,19 @@ config = []
 """
                     |> Review.Test.runWithProjectData package_ rule
                     |> Review.Test.expectNoErrors
+        , test "should not report a function in a 'shadowed' module" <|
+            \() ->
+                [ """module Foo exposing (foo)
+foo = 1
+""", """module Bar exposing (bar)
+bar = 2
+""", """module Main exposing (main)
+import Bar as Foo
+import Foo
+main = [ Foo.foo, Foo.bar ]
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
         ]
 
 

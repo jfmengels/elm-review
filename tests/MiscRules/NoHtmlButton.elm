@@ -32,7 +32,7 @@ expressionVisitor : Node Expression -> Direction -> Context -> ( List (Error {})
 expressionVisitor node direction context =
     case ( direction, Node.value node ) of
         ( Rule.OnEnter, FunctionOrValue moduleName "button" ) ->
-            if Scope.realModuleName context.scope "button" moduleName == [ "Html" ] then
+            if Scope.moduleNameForValue context.scope "button" moduleName == [ "Html" ] then
                 ( [ Rule.error
                         { message = "Do not use `Html.button` directly"
                         , details = [ "At fruits.com, we've built a nice `Button` module that suits our needs better. Using this module instead of `Html.button` ensures we have a consistent button experience across the website." ]
