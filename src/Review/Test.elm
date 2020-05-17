@@ -145,12 +145,15 @@ type alias CodeInspector =
 {-| An expectation for an error. Use [`error`](#error) to create one.
 -}
 type ExpectedError
-    = ExpectedError
-        { message : String
-        , details : List String
-        , under : Under
-        , fixedSource : Maybe String
-        }
+    = ExpectedError ExpectedErrorDetails
+
+
+type alias ExpectedErrorDetails =
+    { message : String
+    , details : List String
+    , under : Under
+    , fixedSource : Maybe String
+    }
 
 
 type Under
@@ -946,9 +949,120 @@ checkIfLocationIsAmbiguousInSourceCode sourceCode error_ under =
 -- RUNNING THE CHECKS
 
 
+type alias ReorderState =
+    { expectedErrors : List ExpectedError
+    , reviewErrors : List ReviewError
+    , pairs : List ( ExpectedError, ReviewError )
+    , expectedErrorsWithNoMatch : List ExpectedError
+    }
+
+
+reorderErrors : CodeInspector -> ReorderState -> ( List ExpectedError, List ReviewError )
+reorderErrors codeInspector reorderState =
+    case reorderState.expectedErrors of
+        [] ->
+            ( List.reverse <| reorderState.expectedErrorsWithNoMatch ++ List.map Tuple.first reorderState.pairs
+            , List.reverse <| reorderState.reviewErrors ++ List.map Tuple.second reorderState.pairs
+            )
+
+        ((ExpectedError expectedErrorDetails) as expectedError) :: restOfExpectedErrors ->
+            case findBestMatchingReviewError codeInspector expectedErrorDetails reorderState.reviewErrors { error = Nothing, confidenceLevel = 0 } of
+                Just reviewError ->
+                    reorderErrors codeInspector
+                        { reorderState
+                            | pairs = ( expectedError, reviewError ) :: reorderState.pairs
+                            , reviewErrors = removeFirstOccurrence reviewError reorderState.reviewErrors
+                            , expectedErrors = restOfExpectedErrors
+                        }
+
+                Nothing ->
+                    reorderErrors codeInspector
+                        { reorderState
+                            | expectedErrorsWithNoMatch = expectedError :: reorderState.expectedErrorsWithNoMatch
+                            , expectedErrors = restOfExpectedErrors
+                        }
+
+
+removeFirstOccurrence : a -> List a -> List a
+removeFirstOccurrence elementToRemove list =
+    case list of
+        [] ->
+            []
+
+        x :: xs ->
+            if x == elementToRemove then
+                xs
+
+            else
+                x :: removeFirstOccurrence elementToRemove xs
+
+
+findBestMatchingReviewError : CodeInspector -> ExpectedErrorDetails -> List ReviewError -> { error : Maybe ReviewError, confidenceLevel : Int } -> Maybe ReviewError
+findBestMatchingReviewError codeInspector expectedErrorDetails reviewErrors bestMatch =
+    case reviewErrors of
+        [] ->
+            bestMatch.error
+
+        reviewError :: restOfReviewErrors ->
+            let
+                confidenceLevel : Int
+                confidenceLevel =
+                    matchingConfidenceLevel codeInspector expectedErrorDetails reviewError
+            in
+            if confidenceLevel > bestMatch.confidenceLevel then
+                findBestMatchingReviewError
+                    codeInspector
+                    expectedErrorDetails
+                    restOfReviewErrors
+                    { error = Just reviewError, confidenceLevel = confidenceLevel }
+
+            else
+                findBestMatchingReviewError
+                    codeInspector
+                    expectedErrorDetails
+                    restOfReviewErrors
+                    bestMatch
+
+
+matchingConfidenceLevel : CodeInspector -> ExpectedErrorDetails -> ReviewError -> Int
+matchingConfidenceLevel codeInspector expectedErrorDetails reviewError =
+    if expectedErrorDetails.message /= Rule.errorMessage reviewError then
+        0
+
+    else
+        case expectedErrorDetails.under of
+            Under under ->
+                if codeInspector.getCodeAtLocation (Rule.errorRange reviewError) /= Just under then
+                    1
+
+                else
+                    2
+
+            UnderExactly under range ->
+                if codeInspector.getCodeAtLocation (Rule.errorRange reviewError) /= Just under then
+                    1
+
+                else if range /= Rule.errorRange reviewError then
+                    2
+
+                else
+                    3
+
+
 checkAllErrorsMatch : SuccessfulRunResult -> List ExpectedError -> Expectation
-checkAllErrorsMatch runResult expectedErrors =
-    checkErrorsMatch runResult expectedErrors runResult.errors
+checkAllErrorsMatch runResult unorderedExpectedErrors =
+    let
+        ( expectedErrors, reviewErrors ) =
+            reorderErrors
+                runResult.inspector
+                { expectedErrors = unorderedExpectedErrors
+                , reviewErrors = runResult.errors
+                , pairs = []
+                , expectedErrorsWithNoMatch = []
+                }
+    in
+    --checkErrorsMatch runResult unorderedExpectedErrors runResult.errors
+    checkErrorsMatch runResult expectedErrors reviewErrors
         |> List.reverse
         |> (\expectations -> Expect.all expectations ())
 
@@ -972,6 +1086,7 @@ checkErrorsMatch runResult expectedErrors errors =
 
 checkErrorMatch : CodeInspector -> ExpectedError -> ReviewError -> (() -> Expectation)
 checkErrorMatch codeInspector ((ExpectedError expectedError_) as expectedError) error_ =
+    -- TODO Look here for comparison
     Expect.all
         [ \() ->
             (expectedError_.message == Rule.errorMessage error_)
@@ -1007,7 +1122,8 @@ checkMessageAppearsUnder codeInspector error_ (ExpectedError expectedError) =
                         , \() ->
                             (codeAtLocation == under)
                                 |> Expect.true (FailureMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
-                        , \() -> codeInspector.checkIfLocationIsAmbiguous error_ under
+                        , \() ->
+                            codeInspector.checkIfLocationIsAmbiguous error_ under
                         ]
 
                 UnderExactly under range ->
