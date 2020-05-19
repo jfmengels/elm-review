@@ -1061,27 +1061,34 @@ checkAllErrorsMatch runResult unorderedExpectedErrors =
                 , expectedErrorsWithNoMatch = []
                 }
     in
-    --checkErrorsMatch runResult unorderedExpectedErrors runResult.errors
-    checkErrorsMatch runResult expectedErrors reviewErrors
+    checkErrorsMatch runResult expectedErrors (List.length reviewErrors) reviewErrors
         |> List.reverse
         |> (\expectations -> Expect.all expectations ())
 
 
-checkErrorsMatch : SuccessfulRunResult -> List ExpectedError -> List ReviewError -> List (() -> Expectation)
-checkErrorsMatch runResult expectedErrors errors =
+checkErrorsMatch : SuccessfulRunResult -> List ExpectedError -> Int -> List ReviewError -> List (() -> Expectation)
+checkErrorsMatch runResult expectedErrors expectedNumberOfErrors errors =
     case ( expectedErrors, errors ) of
         ( [], [] ) ->
             [ always Expect.pass ]
 
         ( expected :: restOfExpectedErrors, error_ :: restOfErrors ) ->
             checkErrorMatch runResult.inspector expected error_
-                :: checkErrorsMatch runResult restOfExpectedErrors restOfErrors
+                :: checkErrorsMatch runResult restOfExpectedErrors expectedNumberOfErrors restOfErrors
 
         ( expected :: restOfExpectedErrors, [] ) ->
-            [ always <| Expect.fail <| FailureMessage.expectedMoreErrors runResult.moduleName <| List.map extractExpectedErrorData (expected :: restOfExpectedErrors) ]
+            [ \() ->
+                (expected :: restOfExpectedErrors)
+                    |> List.map extractExpectedErrorData
+                    |> FailureMessage.expectedMoreErrors runResult.moduleName expectedNumberOfErrors
+                    |> Expect.fail
+            ]
 
         ( [], error_ :: restOfErrors ) ->
-            [ always <| Expect.fail <| FailureMessage.tooManyErrors runResult.moduleName (error_ :: restOfErrors) ]
+            [ \() ->
+                FailureMessage.tooManyErrors runResult.moduleName (error_ :: restOfErrors)
+                    |> Expect.fail
+            ]
 
 
 checkErrorMatch : CodeInspector -> ExpectedError -> ReviewError -> (() -> Expectation)

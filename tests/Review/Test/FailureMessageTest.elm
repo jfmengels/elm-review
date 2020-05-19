@@ -502,11 +502,12 @@ expectedMoreErrorsTest =
                       }
                     ]
             in
-            FailureMessage.expectedMoreErrors "MyModule" missingErrors
+            FailureMessage.expectedMoreErrors "MyModule" 5 missingErrors
                 |> expectMessageEqual """
 RULE REPORTED LESS ERRORS THAN EXPECTED
 
-I expected to see 2 more errors for module `MyModule`:
+I expected to see 5 errors for module `MyModule` but only found 3.
+Here are the 2 I could not find:
 
   - `Remove the use of `Debug` before shipping to production`
   - `Remove the use of `Debug` before shipping to production`

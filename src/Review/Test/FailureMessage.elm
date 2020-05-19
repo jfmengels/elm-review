@@ -200,17 +200,19 @@ but I found it at:
   """ ++ rangeAsString (Rule.errorRange error)
 
 
-expectedMoreErrors : String -> List ExpectedErrorData -> String
-expectedMoreErrors moduleName missingExpectedErrors =
+expectedMoreErrors : String -> Int -> List ExpectedErrorData -> String
+expectedMoreErrors moduleName expectedNumberOfErrors missingExpectedErrors =
     let
         numberOfErrors : Int
         numberOfErrors =
             List.length missingExpectedErrors
     in
-    """RULE REPORTED LESS ERRORS THAN EXPECTED
+    ("""RULE REPORTED LESS ERRORS THAN EXPECTED
 
-I expected to see """
-        ++ (String.fromInt numberOfErrors ++ " more " ++ pluralizeErrors numberOfErrors ++ " for module `" ++ moduleName ++ "`:\n\n")
+I expected to see """ ++ String.fromInt expectedNumberOfErrors ++ """ errors for module `""" ++ moduleName ++ """` but only found """ ++ String.fromInt (expectedNumberOfErrors - numberOfErrors) ++ """.
+Here are the """ ++ String.fromInt numberOfErrors ++ """ I could not find:
+
+""")
         ++ (missingExpectedErrors
                 |> List.map expectedErrorToString
                 |> String.join "\n"
