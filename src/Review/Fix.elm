@@ -1,6 +1,7 @@
 module Review.Fix exposing
     ( Fix, removeRange, replaceRangeBy, insertAt
     , FixResult(..), Problem(..), fix
+    , toRecord
     )
 
 {-| Tools to write automatic error fixes.
@@ -122,6 +123,11 @@ in the context of your rule.
 @docs FixResult, Problem, fix
 
 [CLI]: https://github.com/jfmengels/node-elm-review
+
+
+# Tooling
+
+@docs toRecord
 
 -}
 
@@ -380,3 +386,31 @@ getRowAtLine lines rowIndex =
 
         Nothing ->
             ""
+
+
+
+-- TOOLING
+
+
+{-| Describe a fix as a range to replace by something else.
+
+This is meant for external tooling. You shouldn't have to care about this
+
+-}
+toRecord : Fix -> { range : Range, replacement : String }
+toRecord fix_ =
+    case fix_ of
+        Error.Replacement range replacement ->
+            { range = range
+            , replacement = replacement
+            }
+
+        Error.Removal range ->
+            { range = range
+            , replacement = ""
+            }
+
+        Error.InsertAt position replacement ->
+            { range = { start = position, end = position }
+            , replacement = replacement
+            }
