@@ -698,10 +698,16 @@ expectErrorsForModules expectedErrorsList reviewResult =
 
     test "report an error when a module is unused" <|
         \() ->
+            let
+                project : Project
+                project =
+                    Project.new
+                        |> Project.addElmJson elmJsonToConstructManually
+            in
             """
     module ModuleA exposing (a)
     a = 1"""
-                |> Review.Test.runWithProjectData rule
+                |> Review.Test.runWithProjectData project rule
                 |> Review.Test.expectErrorsForElmJson
                     [ Review.Test.error
                         { message = "Unused dependency `author/package`"
@@ -713,7 +719,7 @@ expectErrorsForModules expectedErrorsList reviewResult =
 Alternatively, or if you need to specify errors for other files too, you can use [`expectErrorsForModules`](#expectErrorsForModules), specifying `elm.json` as the module name.
 
     sourceCode
-        |> Review.Test.runOnModules rule
+        |> Review.Test.runOnModulesWithProjectData project rule
         |> Review.Test.expectErrorsForModules
             [ ( "ModuleB", [ Review.Test.error someErrorModuleB ] )
             , ( "elm.json", [ Review.Test.error someErrorForElmJson ] )
@@ -733,11 +739,17 @@ expectErrorsForElmJson expectedErrors reviewResult =
 
     test "report an error when a module is unused" <|
         \() ->
+            let
+                project : Project
+                project =
+                    Project.new
+                        |> Project.addReadme { path = "README.md", context = "# Project\n..." }
+            in
             """
     module ModuleA exposing (a)
     a = 1"""
-                |> Review.Test.runWithProjectData rule
-                |> Review.Test.expectErrorsForElmJson
+                |> Review.Test.runWithProjectData project rule
+                |> Review.Test.expectErrorsForReadme
                     [ Review.Test.error
                         { message = "Invalid link"
                         , details = [ "README contains an invalid link" ]
@@ -748,7 +760,7 @@ expectErrorsForElmJson expectedErrors reviewResult =
 Alternatively, or if you need to specify errors for other files too, you can use [`expectErrorsForModules`](#expectErrorsForModules), specifying `README.md` as the module name.
 
     sourceCode
-        |> Review.Test.runOnModules rule
+        |> Review.Test.runOnModulesWithProjectData project rule
         |> Review.Test.expectErrorsForModules
             [ ( "ModuleB", [ Review.Test.error someErrorModuleB ] )
             , ( "README.md", [ Review.Test.error someErrorForReadme ] )
