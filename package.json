@@ -2,7 +2,7 @@
   "name": "",
   "version": "1.0.0",
   "scripts": {
-    "test": "elm make --docs=/tmp/docs.json && elm-format src/ --validate && elm-test && npm run phantom-tests && elm-review",
+    "test": "elm make --docs=docs.json && elm-format src/ --validate && elm-test && npm run phantom-tests && elm-review",
     "phantom-tests": "node phantom-type-tests/run.js"
   },
   "dependencies": {
