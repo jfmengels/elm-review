@@ -75,7 +75,7 @@ Before you start adding rules though, I suggest reading the rest of this documen
 ## Write your own rule
 
 You can write your own rule using this package's API and [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/).
-Check out the [`Review.Rule`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.0.2/Review-Rule) documentation for how to get started.
+Check out the [`Review.Rule`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.1.0/Review-Rule) documentation for how to get started.
 
 Here's an example of a rule that prevents a typo in a string that was made too often at your company.
 
@@ -174,7 +174,7 @@ When wondering whether to enable a rule, I suggest using this checklist:
 
 ## Is there a way to ignore an error or disable a rule only in some locations?
 
-You can prevent errors from being reported by either changing the implementation of your rules or by [configuring exceptions](https://package.elm-lang.org/packages/jfmengels/elm-review/2.0.2/Review-Rule#configuring-exceptions) for directories or for files.
+You can prevent errors from being reported by either changing the implementation of your rules or by [configuring exceptions](https://package.elm-lang.org/packages/jfmengels/elm-review/2.1.0/Review-Rule#configuring-exceptions) for directories or for files.
 
 It is however not possible to ignore errors on a case-by-case basis, for several reasons:
 
