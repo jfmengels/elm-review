@@ -1,4 +1,4 @@
-module NoInvalidLicense exposing (rule)
+module NoUnapprovedLicense exposing (rule)
 
 {-|
 
@@ -18,7 +18,7 @@ import Set exposing (Set)
 {-| Forbid the use of dependencies that use unknown or forbidden licenses.
 
     config =
-        [ NoInvalidLicense.rule
+        [ NoUnapprovedLicense.rule
             { allowed = [ "BSD-3-Clause", "MIT" ]
             , forbidden = [ "GPL-3.0-only", "GPL-3.0-or-later" ]
             }
@@ -27,7 +27,7 @@ import Set exposing (Set)
 -}
 rule : Configuration -> Rule
 rule configuration =
-    Rule.newProjectRuleSchema "NoInvalidLicense" initialProjectContext
+    Rule.newProjectRuleSchema "NoUnapprovedLicense" initialProjectContext
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
         |> Rule.withDependenciesProjectVisitor dependenciesVisitor
         |> Rule.withFinalProjectEvaluation (finalEvaluationForProject configuration)

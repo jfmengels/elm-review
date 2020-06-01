@@ -1,9 +1,9 @@
-module NoInvalidLicenseTest exposing (all)
+module NoUnapprovedLicenseTest exposing (all)
 
 import Elm.Docs
 import Elm.Project
 import Json.Decode as Decode
-import NoInvalidLicense exposing (rule)
+import NoUnapprovedLicense exposing (rule)
 import Review.Project as Project exposing (Project)
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Test
@@ -108,7 +108,7 @@ a = 1
 
 all : Test
 all =
-    describe "NoInvalidLicense"
+    describe "NoUnapprovedLicense"
         [ test "should not report anything if there is no `elm.json` file" <|
             \() ->
                 sourceCode
