@@ -3,7 +3,7 @@
     "name": "jfmengels/elm-review",
     "summary": "Analyzes Elm projects, to help find mistakes before your users find them.",
     "license": "BSD-3-Clause",
-    "version": "2.1.0",
+    "version": "2.1.1",
     "exposed-modules": [
         "Review.Rule",
         "Review.Project",
