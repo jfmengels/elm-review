@@ -8,7 +8,6 @@ on: [push, pull_request]
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
   test:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
@@ -20,6 +19,34 @@ jobs:
     
     - name: Setup Node.js environment
       uses: actions/setup-node@v1.4.2
-    
+
+    - name: Install dependencies
+      run: npm ci
+
     - name: Run tests
       run: npm test
+
+  publish:
+    needs: [test] # make sure all your other jobs succeed before trying to publish
+
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v2
+
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v1.4.2
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Runs a single command using the runners shell
+      - name: Elm Publish
+        uses: dillonkearns/elm-publish-action@master
+        with:
+          # Token provided by GitHub
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-elm: ./node_modules/.bin/elm
