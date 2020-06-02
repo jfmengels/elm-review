@@ -4,6 +4,7 @@ module Review.Test.FailureMessage exposing
     , underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
     , needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
     , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
+    , fixedCodeWhitespaceMismatch
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -19,8 +20,10 @@ module Review.Test.FailureMessage exposing
 
 -}
 
+import Ansi
 import Elm.Syntax.Range exposing (Range)
 import Review.Rule as Rule exposing (ReviewError)
+import Vendor.Diff as Diff
 import Vendor.ListExtra as ListExtra
 
 
@@ -404,6 +407,67 @@ but I was expecting:
   """ ++ formatSourceCode expectedSourceCode
 
 
+fixedCodeWhitespaceMismatch : SourceCode -> SourceCode -> ReviewError -> String
+fixedCodeWhitespaceMismatch resultingSourceCode expectedSourceCode error =
+    let
+        ( resulting, expected ) =
+            highlightDifferencesInSourceCodes resultingSourceCode expectedSourceCode
+    in
+    (Ansi.bold >> Ansi.red) "FIXED CODE MISMATCH (WHITESPACE ISSUE)" ++ """
+
+I found a different fixed source code than expected for the error with the
+following message:
+
+  """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
+
+The problem is related to """ ++ (Ansi.bold >> Ansi.yellow) "WHITESPACE!" ++ """
+I found the following result after the fixes have been applied:
+
+  """ ++ resulting ++ """
+
+but I was expecting:
+
+  """ ++ expected
+
+
+highlightDifferencesInSourceCodes : SourceCode -> SourceCode -> ( String, String )
+highlightDifferencesInSourceCodes a b =
+    let
+        ( resA, resB ) =
+            List.map2 highlightWhiteSpaceDifferences
+                (String.lines a)
+                (String.lines b)
+                |> List.unzip
+    in
+    ( formatSourceCodeWithFormatter replaceWhitespace resA, formatSourceCodeWithFormatter replaceWhitespace resB )
+
+
+highlightWhiteSpaceDifferences : String -> String -> ( String, String )
+highlightWhiteSpaceDifferences aString bString =
+    Diff.diff (String.toList aString) (String.toList bString)
+        |> List.foldl
+            (\change ( a, b ) ->
+                case change of
+                    Diff.NoChange str ->
+                        ( a ++ String.fromChar str, b ++ String.fromChar str )
+
+                    Diff.Added str ->
+                        ( a ++ Ansi.backgroundRed (String.fromChar str), b )
+
+                    Diff.Removed str ->
+                        ( a, b ++ Ansi.backgroundRed (String.fromChar str) )
+            )
+            ( "", "" )
+
+
+replaceWhitespace : List String -> List String
+replaceWhitespace lines =
+    lines
+        |> List.map (String.replace " " (Ansi.cyan "·"))
+        |> String.join (Ansi.cyan "↵\n")
+        |> String.split "\n"
+
+
 unchangedSourceAfterFix : ReviewError -> String
 unchangedSourceAfterFix error =
     """UNCHANGED SOURCE AFTER FIX
@@ -471,15 +535,18 @@ of your fixes."""
 
 formatSourceCode : String -> String
 formatSourceCode string =
-    let
-        lines =
-            String.lines string
-    in
+    formatSourceCodeWithFormatter identity (String.lines string)
+
+
+formatSourceCodeWithFormatter : (List String -> List String) -> List String -> String
+formatSourceCodeWithFormatter formatter lines =
     if List.length lines == 1 then
-        "`" ++ string ++ "`"
+        formatter lines
+            |> String.join "\n"
+            |> wrapInQuotes
 
     else
-        lines
+        formatter lines
             |> List.map
                 (\str ->
                     if str == "" then
@@ -489,7 +556,7 @@ formatSourceCode string =
                         "    " ++ str
                 )
             |> String.join "\n"
-            |> (\str -> "```\n" ++ str ++ "\n  ```")
+            |> wrapInTripleQuotes
 
 
 listOccurrencesAsLocations : SourceCode -> String -> List Int -> String
@@ -577,6 +644,11 @@ expectedErrorToString expectedError =
 wrapInQuotes : String -> String
 wrapInQuotes string =
     "`" ++ string ++ "`"
+
+
+wrapInTripleQuotes : String -> String
+wrapInTripleQuotes str =
+    "```\n" ++ str ++ "\n  ```"
 
 
 rangeAsString : Range -> String

@@ -1200,8 +1200,14 @@ checkFixesAreCorrect codeInspector ((Error.ReviewError err) as error_) ((Expecte
         ( Just expectedFixedSource, Just fixes ) ->
             case Fix.fix err.target fixes codeInspector.source of
                 Fix.Successful fixedSource ->
-                    (fixedSource == expectedFixedSource)
-                        |> Expect.true (FailureMessage.fixedCodeMismatch fixedSource expectedFixedSource error_)
+                    if fixedSource == expectedFixedSource then
+                        Expect.pass
+
+                    else if String.replace " " "" fixedSource == String.replace " " "" expectedFixedSource then
+                        Expect.fail (FailureMessage.fixedCodeWhitespaceMismatch fixedSource expectedFixedSource error_)
+
+                    else
+                        Expect.fail (FailureMessage.fixedCodeMismatch fixedSource expectedFixedSource error_)
 
                 Fix.Errored Fix.Unchanged ->
                     Expect.fail <| FailureMessage.unchangedSourceAfterFix error_
