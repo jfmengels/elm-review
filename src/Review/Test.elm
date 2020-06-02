@@ -935,13 +935,23 @@ getCodeAtLocationInSourceCode sourceCode =
 
                         Nothing ->
                             ""
+
+                resultingLines : List String
+                resultingLines =
+                    if start.row + 1 == end.row then
+                        [ firstLine
+                        , lastLine
+                        ]
+
+                    else
+                        [ firstLine
+                        , Array.slice start.row (end.row - 1) lines
+                            |> Array.toList
+                            |> String.join "\n"
+                        , lastLine
+                        ]
             in
-            [ firstLine
-            , Array.slice start.row (end.row - 1) lines
-                |> Array.toList
-                |> String.join "\n"
-            , lastLine
-            ]
+            resultingLines
                 |> String.join "\n"
                 |> Just
 
