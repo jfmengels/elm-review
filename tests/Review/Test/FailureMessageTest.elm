@@ -60,7 +60,7 @@ parsingFailureTest =
             \() ->
                 FailureMessage.parsingFailure True { index = 0, source = "module MyModule exposing (.." }
                     |> expectMessageEqual """
-TEST SOURCE CODE PARSING ERROR
+\u{001B}[31m\u{001B}[1mTEST SOURCE CODE PARSING ERROR\u{001B}[22m\u{001B}[39m
 
 I could not parse the test source code, because it was not valid Elm code.
 
@@ -71,7 +71,7 @@ Hint: Maybe you forgot to add the module definition at the top, like:
             \() ->
                 FailureMessage.parsingFailure False { index = 32, source = "module MyModule exposing (.." }
                     |> expectMessageEqual """
-TEST SOURCE CODE PARSING ERROR
+\u{001B}[31m\u{001B}[1mTEST SOURCE CODE PARSING ERROR\u{001B}[22m\u{001B}[39m
 
 I could not parse one of the test source codes, because it was not valid
 Elm code.
@@ -107,7 +107,7 @@ didNotExpectErrorsTest =
             in
             FailureMessage.didNotExpectErrors "ModuleName" errors
                 |> expectMessageEqual """
-DID NOT EXPECT ERRORS
+\u{001B}[31m\u{001B}[1mDID NOT EXPECT ERRORS\u{001B}[22m\u{001B}[39m
 
 I expected no errors for module `ModuleName` but found:
 
@@ -140,7 +140,7 @@ messageMismatchTest =
             in
             FailureMessage.messageMismatch expectedError error
                 |> expectMessageEqual """
-UNEXPECTED ERROR MESSAGE
+\u{001B}[31m\u{001B}[1mUNEXPECTED ERROR MESSAGE\u{001B}[22m\u{001B}[39m
 
 I was looking for the error with the following message:
 
@@ -171,7 +171,7 @@ underMismatchTest =
                     , codeAtLocation = "abcd = 1"
                     }
                     |> expectMessageEqual """
-UNEXPECTED ERROR LOCATION
+\u{001B}[31m\u{001B}[1mUNEXPECTED ERROR LOCATION\u{001B}[22m\u{001B}[39m
 
 I found an error with the following message:
 
@@ -204,7 +204,7 @@ calling `Rule.error`."""
                     , codeAtLocation = "abcd =\n  1"
                     }
                     |> expectMessageEqual """
-UNEXPECTED ERROR LOCATION
+\u{001B}[31m\u{001B}[1mUNEXPECTED ERROR LOCATION\u{001B}[22m\u{001B}[39m
 
 I found an error with the following message:
 
@@ -252,7 +252,7 @@ unexpectedDetailsTest =
                     expectedDetails
                     error
                     |> expectMessageEqual """
-UNEXPECTED ERROR DETAILS
+\u{001B}[31m\u{001B}[1mUNEXPECTED ERROR DETAILS\u{001B}[22m\u{001B}[39m
 
 I found an error with the following message:
 
@@ -290,7 +290,7 @@ when I was expecting them to be:
                     expectedDetails
                     error
                     |> expectMessageEqual """
-UNEXPECTED ERROR DETAILS
+\u{001B}[31m\u{001B}[1mUNEXPECTED ERROR DETAILS\u{001B}[22m\u{001B}[39m
 
 I found an error with the following message:
 
@@ -334,7 +334,7 @@ emptyDetailsTest =
                 FailureMessage.emptyDetails
                     error
                     |> expectMessageEqual """
-EMPTY ERROR DETAILS
+\u{001B}[31m\u{001B}[1mEMPTY ERROR DETAILS\u{001B}[22m\u{001B}[39m
 
 I found an error with the following message:
 
@@ -368,7 +368,7 @@ wrongLocationTest =
                     { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
                     "abcd"
                     |> expectMessageEqual """
-UNEXPECTED ERROR LOCATION
+\u{001B}[31m\u{001B}[1mUNEXPECTED ERROR LOCATION\u{001B}[22m\u{001B}[39m
 
 I was looking for the error with the following message:
 
@@ -404,7 +404,7 @@ but I found it at:
                     { start = { row = 2, column = 1 }, end = { row = 3, column = 3 } }
                     "abcd =\n  1"
                     |> expectMessageEqual """
-UNEXPECTED ERROR LOCATION
+\u{001B}[31m\u{001B}[1mUNEXPECTED ERROR LOCATION\u{001B}[22m\u{001B}[39m
 
 I was looking for the error with the following message:
 
@@ -445,7 +445,7 @@ locationNotFoundTest =
             in
             FailureMessage.locationNotFound error
                 |> expectMessageEqual """
-COULD NOT FIND LOCATION FOR ERROR
+\u{001B}[31m\u{001B}[1mCOULD NOT FIND LOCATION FOR ERROR\u{001B}[22m\u{001B}[39m
 
 I was looking for the error with the following message:
 
@@ -469,7 +469,7 @@ underMayNotBeEmptyTest =
                 , codeAtLocation = "abcd = 1"
                 }
                 |> expectMessageEqual """
-COULD NOT FIND LOCATION FOR ERROR
+\u{001B}[31m\u{001B}[1mCOULD NOT FIND LOCATION FOR ERROR\u{001B}[22m\u{001B}[39m
 
 I was looking for the error with the following message:
 
@@ -504,7 +504,7 @@ expectedMoreErrorsTest =
             in
             FailureMessage.expectedMoreErrors "MyModule" 5 missingErrors
                 |> expectMessageEqual """
-RULE REPORTED LESS ERRORS THAN EXPECTED
+\u{001B}[31m\u{001B}[1mRULE REPORTED LESS ERRORS THAN EXPECTED\u{001B}[22m\u{001B}[39m
 
 I expected to see 5 errors for module `MyModule` but only found 3.
 Here are the 2 I could not find:
@@ -531,7 +531,7 @@ tooManyErrorsTest =
                 in
                 FailureMessage.tooManyErrors "MyModule" extraErrors
                     |> expectMessageEqual """
-RULE REPORTED MORE ERRORS THAN EXPECTED
+\u{001B}[31m\u{001B}[1mRULE REPORTED MORE ERRORS THAN EXPECTED\u{001B}[22m\u{001B}[39m
 
 I found 1 error too many for module `MyModule`:
 
@@ -557,7 +557,7 @@ I found 1 error too many for module `MyModule`:
                 in
                 FailureMessage.tooManyErrors "MyOtherModule" extraErrors
                     |> expectMessageEqual """
-RULE REPORTED MORE ERRORS THAN EXPECTED
+\u{001B}[31m\u{001B}[1mRULE REPORTED MORE ERRORS THAN EXPECTED\u{001B}[22m\u{001B}[39m
 
 I found 2 errors too many for module `MyOtherModule`:
 
@@ -597,7 +597,7 @@ locationIsAmbiguousInSourceCodeTest =
                     under
                     (String.indexes under sourceCode)
                     |> expectMessageEqual """
-AMBIGUOUS ERROR LOCATION
+\u{001B}[31m\u{001B}[1mAMBIGUOUS ERROR LOCATION\u{001B}[22m\u{001B}[39m
 
 Your test passes, but where the message appears is ambiguous.
 
@@ -641,7 +641,7 @@ Tip: I found them at:
                     under
                     (String.indexes under sourceCode)
                     |> expectMessageEqual """
-AMBIGUOUS ERROR LOCATION
+\u{001B}[31m\u{001B}[1mAMBIGUOUS ERROR LOCATION\u{001B}[22m\u{001B}[39m
 
 Your test passes, but where the message appears is ambiguous.
 
@@ -673,7 +673,7 @@ needToUsedExpectErrorsForModulesTest =
         \() ->
             FailureMessage.needToUsedExpectErrorsForModules
                 |> expectMessageEqual """
-AMBIGUOUS MODULE FOR ERROR
+\u{001B}[31m\u{001B}[1mAMBIGUOUS MODULE FOR ERROR\u{001B}[22m\u{001B}[39m
 
 You gave me several modules, and you expect some errors. I need to know for
 which module you expect these errors to be reported.
@@ -701,7 +701,7 @@ missingSourcesTest =
         \() ->
             FailureMessage.missingSources
                 |> expectMessageEqual """
-MISSING SOURCES
+\u{001B}[31m\u{001B}[1mMISSING SOURCES\u{001B}[22m\u{001B}[39m
 
 You used `runOnModules` or `runOnModulesWithProjectData` with an empty list
 of sources files.
@@ -717,7 +717,7 @@ duplicateModuleNameTest =
         \() ->
             FailureMessage.duplicateModuleName [ "My", "Module" ]
                 |> expectMessageEqual """
-DUPLICATE MODULE NAMES
+\u{001B}[31m\u{001B}[1mDUPLICATE MODULE NAMES\u{001B}[22m\u{001B}[39m
 
 I found several modules named `My.Module` in the test source codes.
 
@@ -735,7 +735,7 @@ unknownModulesInExpectedErrorsTest =
         \() ->
             FailureMessage.unknownModulesInExpectedErrors "My.Module"
                 |> expectMessageEqual """
-UNKNOWN MODULES IN EXPECTED ERRORS
+\u{001B}[31m\u{001B}[1mUNKNOWN MODULES IN EXPECTED ERRORS\u{001B}[22m\u{001B}[39m
 
 I expected errors for a module named `My.Module` in the list passed to
 `expectErrorsForModules`, but I couldn't find a module in the test source
@@ -761,7 +761,7 @@ missingFixesTest =
             in
             FailureMessage.missingFixes expectedError
                 |> expectMessageEqual """
-MISSING FIXES
+\u{001B}[31m\u{001B}[1mMISSING FIXES\u{001B}[22m\u{001B}[39m
 
 I expected that the error with the following message
 
@@ -793,7 +793,7 @@ unexpectedFixesTest =
             in
             FailureMessage.unexpectedFixes error
                 |> expectMessageEqual """
-UNEXPECTED FIXES
+\u{001B}[31m\u{001B}[1mUNEXPECTED FIXES\u{001B}[22m\u{001B}[39m
 
 I expected that the error with the following message
 
@@ -846,7 +846,7 @@ abcd =
                 expectedSourceCode
                 error
                 |> expectMessageEqual """
-FIXED CODE MISMATCH
+\u{001B}[31m\u{001B}[1mFIXED CODE MISMATCH\u{001B}[22m\u{001B}[39m
 
 I found a different fixed source code than expected for the error with the
 following message:
@@ -885,7 +885,7 @@ unchangedSourceAfterFixTest =
             in
             FailureMessage.unchangedSourceAfterFix error
                 |> expectMessageEqual """
-UNCHANGED SOURCE AFTER FIX
+\u{001B}[31m\u{001B}[1mUNCHANGED SOURCE AFTER FIX\u{001B}[22m\u{001B}[39m
 
 I got something unexpected when applying the fixes provided by the error
 with the following message:
@@ -925,7 +925,7 @@ abcd =
                 error
                 sourceCode
                 |> expectMessageEqual """
-INVALID SOURCE AFTER FIX
+\u{001B}[31m\u{001B}[1mINVALID SOURCE AFTER FIX\u{001B}[22m\u{001B}[39m
 
 I got something unexpected when applying the fixes provided by the error
 with the following message:
@@ -963,7 +963,7 @@ hasCollisionsInFixRangesTest =
             in
             FailureMessage.hasCollisionsInFixRanges error
                 |> expectMessageEqual """
-FOUND COLLISIONS IN FIX RANGES
+\u{001B}[31m\u{001B}[1mFOUND COLLISIONS IN FIX RANGES\u{001B}[22m\u{001B}[39m
 
 I got something unexpected when applying the fixes provided by the error
 with the following message:
