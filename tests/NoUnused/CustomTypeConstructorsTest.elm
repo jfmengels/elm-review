@@ -142,14 +142,14 @@ type Foo = Bar | Baz"""
                     |> Review.Test.runWithProjectData project (rule [])
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Type constructor `Baz` is not used."
-                            , details = details
-                            , under = "Baz"
-                            }
-                        , Review.Test.error
                             { message = "Type constructor `Bar` is not used."
                             , details = details
                             , under = "Bar"
+                            }
+                        , Review.Test.error
+                            { message = "Type constructor `Baz` is not used."
+                            , details = details
+                            , under = "Baz"
                             }
                         ]
         ]

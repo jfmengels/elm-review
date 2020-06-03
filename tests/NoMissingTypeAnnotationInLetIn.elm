@@ -28,6 +28,7 @@ For that, enable [`NoMissingTypeAnnotation`](./NoMissingTypeAnnotation).
     a : number
     a =
         let
+            -- Missing annotation
             b =
                 2
         in
@@ -36,6 +37,8 @@ For that, enable [`NoMissingTypeAnnotation`](./NoMissingTypeAnnotation).
 
 ## Success
 
+    -- Top-level annotation is not necessary, but good to have!
+    a : number
     a =
         let
             b : number

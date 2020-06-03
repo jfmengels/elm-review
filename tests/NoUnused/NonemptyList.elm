@@ -92,7 +92,7 @@ fromElement x =
 {-| Return the head of the list.
 -}
 head : Nonempty a -> a
-head (Nonempty x xs) =
+head (Nonempty x _) =
     x
 
 

@@ -781,7 +781,7 @@ a = Html.div"""
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Module `Html` is aliased as `Html`"
+                        { message = "Module `Html` is aliased as itself"
                         , details = [ "The alias is the same as the module name, and brings no useful value" ]
                         , under = "Html"
                         }
@@ -1396,9 +1396,6 @@ port input : (() -> msg) -> Sub msg"""
                         , details = details
                         , under = "input"
                         }
-                        |> Review.Test.whenFixed """port module SomeModule exposing (a)
-a = 1
-"""
                     ]
     , test "should report unused ports (outgoing)" <|
         \() ->
@@ -1412,8 +1409,5 @@ port output : String -> Cmd msg"""
                         , details = details
                         , under = "output"
                         }
-                        |> Review.Test.whenFixed """port module SomeModule exposing (a)
-a = 1
-"""
                     ]
     ]

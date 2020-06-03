@@ -8,14 +8,21 @@ import Test exposing (Test, describe, test)
 all : Test
 all =
     describe "NoExposingEverything"
-        [ test "should not when a module exposes a limited set of things" <|
+        [ test "should not report anything when a module exposes a limited set of things" <|
             \_ ->
-                "module A exposing (B(..), C, d)"
+                """
+module A exposing (B(..), C, d)
+type B = B
+d = 1
+"""
                     |> Review.Test.run rule
                     |> Review.Test.expectNoErrors
         , test "should report when a module exposes everything" <|
             \_ ->
-                "module A exposing (..)"
+                """
+module A exposing (..)
+import B exposing (..)
+"""
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
@@ -25,5 +32,6 @@ all =
                                 ]
                             , under = "(..)"
                             }
+                            |> Review.Test.atExactly { start = { row = 2, column = 19 }, end = { row = 2, column = 23 } }
                         ]
         ]

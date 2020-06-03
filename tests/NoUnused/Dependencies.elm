@@ -98,7 +98,7 @@ fromProjectToModule _ _ projectContext =
 
 
 fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> ModuleContext -> ProjectContext
-fromModuleToProject moduleKey moduleName importedModuleNames =
+fromModuleToProject _ _ importedModuleNames =
     { moduleNameToDependency = Dict.empty
     , directProjectDependencies = Set.empty
     , importedModuleNames = importedModuleNames
@@ -194,7 +194,10 @@ error elmJsonKey packageName =
     Rule.errorForElmJson elmJsonKey
         (\elmJson ->
             { message = "Unused dependency `" ++ packageName ++ "`"
-            , details = [ "To remove it, I recommend installing `elm-json` and running `elm-json uninstall " ++ packageName ++ "`" ]
+            , details =
+                [ "To remove it, I recommend running the following command:"
+                , "    elm-json uninstall " ++ packageName
+                ]
             , range = findPackageNameInElmJson packageName elmJson
             }
         )

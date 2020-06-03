@@ -27,7 +27,7 @@ module Scope exposing
 
 {- Copied over from https://github.com/jfmengels/elm-review-scope
 
-   Version: 0.2.0
+   Version: 0.2.1
 
    Copyright (c) 2020, Jeroen Engels
    All rights reserved.
@@ -225,9 +225,9 @@ fromProjectToModule (ProjectContext projectContext) =
 fromModuleToProject : Node ModuleName -> ModuleContext -> ProjectContext
 fromModuleToProject moduleName (ModuleContext moduleContext) =
     ProjectContext
-        { dependenciesModules = moduleContext.dependenciesModules
+        { dependenciesModules = Dict.empty
         , modules =
-            Dict.insert (Node.value moduleName)
+            Dict.singleton (Node.value moduleName)
                 { name = String.join "." (Node.value moduleName)
                 , comment = ""
                 , unions = moduleContext.exposedUnions
@@ -235,7 +235,6 @@ fromModuleToProject moduleName (ModuleContext moduleContext) =
                 , values = moduleContext.exposedValues
                 , binops = moduleContext.exposedBinops
                 }
-                moduleContext.modules
         }
 
 
@@ -250,10 +249,10 @@ fromModuleToProject moduleName (ModuleContext moduleContext) =
 
 -}
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
-foldProjectContexts (ProjectContext a) (ProjectContext b) =
+foldProjectContexts (ProjectContext newContext) (ProjectContext previousContext) =
     ProjectContext
-        { dependenciesModules = Dict.union b.dependenciesModules a.dependenciesModules
-        , modules = Dict.union b.modules a.modules
+        { dependenciesModules = previousContext.dependenciesModules
+        , modules = Dict.union previousContext.modules newContext.modules
         }
 
 

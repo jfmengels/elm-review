@@ -56,8 +56,8 @@ rule =
     Rule.newModuleRuleSchema "NoUnused.Variables" initialContext
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withImportVisitor importVisitor
-        |> Rule.withExpressionVisitor expressionVisitor
         |> Rule.withDeclarationVisitor declarationVisitor
+        |> Rule.withExpressionVisitor expressionVisitor
         |> Rule.withFinalModuleEvaluation finalEvaluation
         |> Rule.fromModuleRuleSchema
 
@@ -216,7 +216,7 @@ fix declaredModules { variableType, rangeToRemove } =
                     True
 
                 Port ->
-                    True
+                    False
     in
     if shouldOfferFix then
         [ Fix.removeRange rangeToRemove ]
@@ -264,7 +264,7 @@ importVisitor ((Node _ import_) as node) context =
                 Just moduleAlias ->
                     if Node.value moduleAlias == Node.value import_.moduleName then
                         [ Rule.errorWithFix
-                            { message = "Module `Html` is aliased as `Html`"
+                            { message = "Module `" ++ String.join "." (Node.value moduleAlias) ++ "` is aliased as itself"
                             , details = [ "The alias is the same as the module name, and brings no useful value" ]
                             }
                             (Node.range moduleAlias)
@@ -291,7 +291,7 @@ importVisitor ((Node _ import_) as node) context =
 
 
 registerModuleNameOrAlias : Node Import -> Context -> Context
-registerModuleNameOrAlias ((Node range { exposingList, moduleAlias, moduleName }) as node) context =
+registerModuleNameOrAlias ((Node range { moduleAlias, moduleName }) as node) context =
     case moduleAlias of
         Just _ ->
             registerModuleAlias node context
@@ -381,7 +381,7 @@ expressionVisitor (Node range value) direction context =
                                         |> registerFunction letBlockContext function
                                         |> markUsedTypesAndModules namesUsedInArgumentPatterns
 
-                                Expression.LetDestructuring pattern _ ->
+                                Expression.LetDestructuring _ _ ->
                                     context_
                         )
                         { context | scopes = NonemptyList.cons emptyScope context.scopes }
@@ -408,7 +408,7 @@ expressionVisitor (Node range value) direction context =
                 usedVariables =
                     cases
                         |> List.map
-                            (\( patternNode, expressionNode ) ->
+                            (\( patternNode, _ ) ->
                                 getUsedVariablesFromPattern patternNode
                             )
                         |> foldUsedTypesAndModules
@@ -480,19 +480,14 @@ getUsedTypesFromPattern patternNode =
             []
 
         Pattern.NamedPattern qualifiedNameRef patterns ->
-            let
-                usedVariable : List String
-                usedVariable =
-                    case qualifiedNameRef.moduleName of
-                        [] ->
-                            [ qualifiedNameRef.name ]
+            case qualifiedNameRef.moduleName of
+                [] ->
+                    qualifiedNameRef.name :: List.concatMap getUsedTypesFromPattern patterns
 
-                        moduleName ->
-                            []
-            in
-            usedVariable ++ List.concatMap getUsedTypesFromPattern patterns
+                _ ->
+                    List.concatMap getUsedTypesFromPattern patterns
 
-        Pattern.AsPattern pattern alias_ ->
+        Pattern.AsPattern pattern _ ->
             getUsedTypesFromPattern pattern
 
         Pattern.ParenthesizedPattern pattern ->
@@ -539,19 +534,14 @@ getUsedModulesFromPattern patternNode =
             []
 
         Pattern.NamedPattern qualifiedNameRef patterns ->
-            let
-                usedVariable : List String
-                usedVariable =
-                    case qualifiedNameRef.moduleName of
-                        [] ->
-                            []
+            case qualifiedNameRef.moduleName of
+                [] ->
+                    List.concatMap getUsedModulesFromPattern patterns
 
-                        moduleName ->
-                            [ getModuleName moduleName ]
-            in
-            usedVariable ++ List.concatMap getUsedModulesFromPattern patterns
+                moduleName ->
+                    getModuleName moduleName :: List.concatMap getUsedModulesFromPattern patterns
 
-        Pattern.AsPattern pattern alias_ ->
+        Pattern.AsPattern pattern _ ->
             getUsedModulesFromPattern pattern
 
         Pattern.ParenthesizedPattern pattern ->
@@ -842,6 +832,7 @@ collectFromExposing exposingNode =
                                     )
 
                             Exposing.TypeOrAliasExpose name ->
+                                -- TODO Detect whether it is a custom type or type alias
                                 Just
                                     ( name
                                     , { variableType = ImportedItem ImportedType
@@ -852,7 +843,7 @@ collectFromExposing exposingNode =
 
                             Exposing.TypeExpose { name, open } ->
                                 case open of
-                                    Just openRange ->
+                                    Just _ ->
                                         -- TODO Change this behavior once we know the contents of the open range, using dependencies or the interfaces of the other modules
                                         Nothing
 
@@ -898,7 +889,7 @@ collectTypesFromTypeAnnotation node =
                         ( [], str ) ->
                             [ str ]
 
-                        ( moduleName, _ ) ->
+                        _ ->
                             []
             in
             name ++ List.concatMap collectTypesFromTypeAnnotation params
@@ -935,7 +926,7 @@ collectModuleNamesFromTypeAnnotation node =
                 name : List String
                 name =
                     case Node.value nameNode of
-                        ( [], str ) ->
+                        ( [], _ ) ->
                             []
 
                         ( moduleName, _ ) ->
