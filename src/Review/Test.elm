@@ -1083,7 +1083,7 @@ checkAllErrorsMatch runResult unorderedExpectedErrors =
                 , expectedErrorsWithNoMatch = []
                 }
     in
-    checkErrorsMatch runResult expectedErrors (List.length reviewErrors) reviewErrors
+    checkErrorsMatch runResult expectedErrors (List.length expectedErrors) reviewErrors
         |> List.reverse
         |> (\expectations -> Expect.all expectations ())
 
