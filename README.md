@@ -82,7 +82,7 @@ Here's an example of a rule that prevents a typo in a string that was made too o
 ```elm
 module NoStringWithMisspelledCompanyName exposing (rule)
 
-import Elm.Syntax.Expression exposing (Expression)
+import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)
 import Review.Rule as Rule exposing (Error, Rule)
 
