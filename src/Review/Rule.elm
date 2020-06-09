@@ -877,13 +877,13 @@ removeExtensibleRecordTypeVariable function =
 {-| Used for phantom type constraints. You can safely ignore this type.
 -}
 type Required
-    = Required
+    = Required Never
 
 
 {-| Used for phantom type constraints. You can safely ignore this type.
 -}
 type Forbidden
-    = Forbidden
+    = Forbidden Never
 
 
 {-| Specify, if the project rule has a [module visitor](#withModuleVisitor), how to:
