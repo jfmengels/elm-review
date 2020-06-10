@@ -577,9 +577,9 @@ reverseVisitors (ModuleRuleSchema schema) =
 
 
 type alias ModuleRuleCache moduleContext =
-    { initialContext : moduleContext
-    , elmJson : SimpleCacheEntryFor (Maybe Elm.Project.Project) moduleContext
+    { elmJson : SimpleCacheEntryFor (Maybe Elm.Project.Project) moduleContext
     , readme : SimpleCacheEntryFor (Maybe String) moduleContext
+    , dependencies : SimpleCacheEntryFor (Dict String Review.Project.Dependency.Dependency) moduleContext
     , moduleResults : ModuleRuleResultCache
     }
 
@@ -653,35 +653,48 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) maybePreviousCache
                 Nothing ->
                     computeReadme ()
 
-        initialContext : moduleContext
-        initialContext =
-            readmeCacheEntry.context
-                |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencies project)
+        dependenciesCacheEntry : SimpleCacheEntryFor (Dict String Review.Project.Dependency.Dependency) moduleContext
+        dependenciesCacheEntry =
+            let
+                dependencies : Dict String Review.Project.Dependency.Dependency
+                dependencies =
+                    Review.Project.dependencies project
 
-        newCache : ModuleRuleCache moduleContext
-        newCache =
+                computeDependencies : () -> SimpleCacheEntryFor (Dict String Review.Project.Dependency.Dependency) moduleContext
+                computeDependencies () =
+                    { value = dependencies
+                    , context =
+                        readmeCacheEntry.context
+                            |> accumulateContext schema.dependenciesVisitors dependencies
+                    }
+            in
             case maybePreviousCache of
                 Just previousCache ->
-                    if previousCache.initialContext == initialContext then
-                        previousCache
+                    if previousCache.dependencies.value == dependencies && readmeCacheEntry.context == previousCache.readme.context then
+                        previousCache.dependencies
 
                     else
-                        { initialContext = initialContext
-                        , elmJson = elmJsonCacheEntry
-                        , readme = readmeCacheEntry
-                        , moduleResults = Dict.empty
-                        }
+                        computeDependencies ()
 
                 Nothing ->
-                    { initialContext = initialContext
-                    , elmJson = elmJsonCacheEntry
-                    , readme = readmeCacheEntry
-                    , moduleResults = Dict.empty
-                    }
+                    computeDependencies ()
 
-        computeErrors_ : ProjectModule -> List (Error {})
-        computeErrors_ =
-            computeErrors moduleRuleSchema initialContext
+        initialContext : moduleContext
+        initialContext =
+            dependenciesCacheEntry.context
+
+        previousModuleResults : ModuleRuleResultCache
+        previousModuleResults =
+            case maybePreviousCache of
+                Nothing ->
+                    Dict.empty
+
+                Just previousCache ->
+                    if dependenciesCacheEntry.context == initialContext then
+                        previousCache.moduleResults
+
+                    else
+                        Dict.empty
 
         modulesToAnalyze : List ProjectModule
         modulesToAnalyze =
@@ -695,7 +708,11 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) maybePreviousCache
                 (\module_ cache ->
                     case Dict.get module_.path cache of
                         Nothing ->
-                            Dict.insert module_.path { source = module_.source, errors = computeErrors_ module_ } cache
+                            Dict.insert module_.path
+                                { source = module_.source
+                                , errors = computeErrors moduleRuleSchema initialContext module_
+                                }
+                                cache
 
                         Just cacheEntry ->
                             if cacheEntry.source == module_.source then
@@ -703,9 +720,13 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) maybePreviousCache
                                 cache
 
                             else
-                                Dict.insert module_.path { source = module_.source, errors = computeErrors_ module_ } cache
+                                Dict.insert module_.path
+                                    { source = module_.source
+                                    , errors = computeErrors moduleRuleSchema initialContext module_
+                                    }
+                                    cache
                 )
-                newCache.moduleResults
+                previousModuleResults
                 modulesToAnalyze
 
         errors : List (Error {})
@@ -718,9 +739,9 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) maybePreviousCache
     , runModuleRule
         moduleRuleSchema
         (Just
-            { initialContext = newCache.initialContext
-            , elmJson = elmJsonCacheEntry
+            { elmJson = elmJsonCacheEntry
             , readme = readmeCacheEntry
+            , dependencies = dependenciesCacheEntry
             , moduleResults = moduleResults
             }
         )
