@@ -1242,11 +1242,14 @@ withContextFromImportedModules (ProjectRuleSchema schema) =
 
 
 type alias ProjectRuleCache projectContext =
-    Dict String
-        { source : String
-        , errors : List (Error {})
-        , context : projectContext
-        }
+    Dict String (CacheEntry projectContext)
+
+
+type alias CacheEntry projectContext =
+    { source : String
+    , errors : List (Error {})
+    , context : projectContext
+    }
 
 
 runProjectRule : ProjectRuleSchema schemaState projectContext moduleContext -> ProjectRuleCache projectContext -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
@@ -1383,7 +1386,7 @@ computeModules (ProjectRuleSchema schema) visitors project initialContext nodeCo
                 visitors.visitors
                 |> reverseVisitors
 
-        computeModule : ProjectRuleCache projectContext -> List ProjectModule -> ProjectModule -> { source : String, errors : List (Error {}), context : projectContext }
+        computeModule : ProjectRuleCache projectContext -> List ProjectModule -> ProjectModule -> CacheEntry projectContext
         computeModule cache importedModules module_ =
             let
                 moduleKey : ModuleKey
@@ -1463,7 +1466,7 @@ computeModuleAndCacheResult :
     TraversalType
     -> Dict ModuleName ProjectModule
     -> Graph ModuleName ()
-    -> (ProjectRuleCache projectContext -> List ProjectModule -> ProjectModule -> { source : String, errors : List (Error {}), context : projectContext })
+    -> (ProjectRuleCache projectContext -> List ProjectModule -> ProjectModule -> CacheEntry projectContext)
     -> Graph.NodeContext ModuleName ()
     -> ( ProjectRuleCache projectContext, Set ModuleName )
     -> ( ProjectRuleCache projectContext, Set ModuleName )
@@ -1489,9 +1492,10 @@ computeModuleAndCacheResult traversalType modules graph computeModule { node, in
                                             |> Maybe.andThen (\nodeContext -> Dict.get nodeContext.node.label modules)
                                     )
 
+                compute : Maybe (CacheEntry projectContext) -> ( ProjectRuleCache projectContext, Set ModuleName )
                 compute previousResult =
                     let
-                        result : { source : String, errors : List (Error {}), context : projectContext }
+                        result : CacheEntry projectContext
                         result =
                             computeModule cache importedModules module_
                     in
