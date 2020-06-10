@@ -1244,7 +1244,7 @@ withContextFromImportedModules (ProjectRuleSchema schema) =
 type alias ProjectRuleCache projectContext =
     { elmJson : CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext
     , readme : CacheEntryFor (Maybe { readmeKey : ReadmeKey, content : String }) projectContext
-    , initialContext : projectContext
+    , dependencies : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
     , moduleContexts : Dict String (CacheEntry projectContext)
     , finalEvaluationErrors : List (Error {})
     }
@@ -1265,19 +1265,19 @@ type alias CacheEntryFor value projectContext =
 
 
 runProjectRule : ProjectRuleSchema schemaState projectContext moduleContext -> Maybe (ProjectRuleCache projectContext) -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
-runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptions project nodeContexts =
+runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) maybePreviousCache exceptions project nodeContexts =
     let
         cacheWithInitialContext : ProjectRuleCache projectContext
         cacheWithInitialContext =
-            computeCacheWithInitialContext (ProjectRuleSchema schema) project startCache
+            computeCacheWithInitialContext (ProjectRuleSchema schema) project maybePreviousCache
 
-        ( projectRelatedErrors, initialContext ) =
-            ( cacheWithInitialContext.readme.errors, cacheWithInitialContext.readme.context )
-                |> accumulateWithListOfVisitors schema.dependenciesVisitors (Review.Project.dependencies project)
+        initialContext : projectContext
+        initialContext =
+            cacheWithInitialContext.dependencies.context
 
         previousModuleContexts : Dict String (CacheEntry projectContext)
         previousModuleContexts =
-            case startCache of
+            case maybePreviousCache of
                 Just { moduleContexts } ->
                     moduleContexts
 
@@ -1334,35 +1334,46 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
                 allModulesContext =
                     List.map Tuple.second contextsAndErrorsPerModule
             in
-            if Just initialContext == Maybe.map .initialContext startCache && allModulesContext == previousAllModulesContext then
-                -- TODO
-                startCache
-                    |> Maybe.map .finalEvaluationErrors
-                    |> Maybe.withDefault []
+            case maybePreviousCache of
+                Just previousCache ->
+                    if initialContext == previousCache.dependencies.context && allModulesContext == previousAllModulesContext then
+                        previousCache.finalEvaluationErrors
 
-            else
-                errorsFromFinalEvaluationForProject wrappedSchema initialContext allModulesContext
+                    else
+                        errorsFromFinalEvaluationForProject wrappedSchema initialContext allModulesContext
 
-        errors : List (Error {})
-        errors =
-            [ projectRelatedErrors
-            , List.concatMap Tuple.first contextsAndErrorsPerModule
-            , errorsFromFinalEvaluation
-            ]
-                |> List.concat
-                |> Exceptions.apply exceptions (accessInternalError >> .filePath)
-                |> List.map (setRuleName schema.name)
+                Nothing ->
+                    errorsFromFinalEvaluationForProject wrappedSchema initialContext allModulesContext
 
         newCache : ProjectRuleCache projectContext
         newCache =
             { elmJson = cacheWithInitialContext.elmJson
             , readme = cacheWithInitialContext.readme
-            , initialContext = initialContext
+            , dependencies = cacheWithInitialContext.dependencies
             , moduleContexts = newCachedModuleContexts
             , finalEvaluationErrors = errorsFromFinalEvaluation
             }
+
+        errors : List (Error {})
+        errors =
+            errorsFromCache newCache
+                |> Exceptions.apply exceptions (accessInternalError >> .filePath)
+                |> List.map (setRuleName schema.name)
     in
     ( errors, Rule schema.name exceptions (runProjectRule wrappedSchema (Just newCache)) )
+
+
+errorsFromCache : ProjectRuleCache projectContext -> List (Error {})
+errorsFromCache cache =
+    List.concat
+        [ cache.elmJson.errors
+        , cache.readme.errors
+        , cache.dependencies.errors
+        , cache.moduleContexts
+            |> Dict.values
+            |> List.concatMap (\cacheEntry -> cacheEntry.errors)
+        , cache.finalEvaluationErrors
+        ]
 
 
 computeCacheWithInitialContext : ProjectRuleSchema schemaState projectContext moduleContext -> Project -> Maybe (ProjectRuleCache projectContext) -> ProjectRuleCache projectContext
@@ -1448,10 +1459,45 @@ computeCacheWithInitialContext (ProjectRuleSchema schema) project maybePreviousC
 
                 Nothing ->
                     computeReadme ()
+
+        dependenciesCacheEntry : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
+        dependenciesCacheEntry =
+            let
+                dependencies : Dict String Review.Project.Dependency.Dependency
+                dependencies =
+                    Review.Project.dependencies project
+
+                computeDependencies : () -> CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
+                computeDependencies () =
+                    let
+                        ( errorsForVisitor, contextForVisitor ) =
+                            ( elmJsonCacheEntry.errors, elmJsonCacheEntry.context )
+                                |> accumulateWithListOfVisitors schema.dependenciesVisitors dependencies
+                    in
+                    { value = dependencies
+                    , errors = errorsForVisitor
+                    , context = contextForVisitor
+                    }
+            in
+            case maybePreviousCache of
+                Just previousCache ->
+                    if
+                        -- If the previous context stayed the same
+                        (previousCache.readme.context /= readmeCacheEntry.context)
+                            -- and the readme stayed the same
+                            || (previousCache.dependencies.value == dependencies)
+                    then
+                        previousCache.dependencies
+
+                    else
+                        computeDependencies ()
+
+                Nothing ->
+                    computeDependencies ()
     in
     { elmJson = elmJsonCacheEntry
     , readme = readmeCacheEntry
-    , initialContext = elmJsonCacheEntry.context -- TODO
+    , dependencies = dependenciesCacheEntry
     , moduleContexts = Dict.empty
     , finalEvaluationErrors = []
     }
