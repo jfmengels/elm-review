@@ -579,6 +579,7 @@ reverseVisitors (ModuleRuleSchema schema) =
 type alias ModuleRuleCache moduleContext =
     { initialContext : moduleContext
     , elmJson : SimpleCacheEntryFor (Maybe Elm.Project.Project) moduleContext
+    , readme : SimpleCacheEntryFor (Maybe String) moduleContext
     , moduleResults : ModuleRuleResultCache
     }
 
@@ -599,20 +600,20 @@ type alias ModuleRuleResultCache =
 runModuleRule : ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> Maybe (ModuleRuleCache moduleContext) -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
 runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) maybePreviousCache exceptions project _ =
     let
-        elmJson : Maybe Elm.Project.Project
-        elmJson =
-            Review.Project.elmJson project
-                |> Maybe.map .project
-
         elmJsonCacheEntry : SimpleCacheEntryFor (Maybe Elm.Project.Project) moduleContext
         elmJsonCacheEntry =
             let
+                elmJson : Maybe Elm.Project.Project
+                elmJson =
+                    Review.Project.elmJson project
+                        |> Maybe.map .project
+
                 computeElmJson : () -> SimpleCacheEntryFor (Maybe Elm.Project.Project) moduleContext
                 computeElmJson () =
                     { value = elmJson
                     , context =
                         schema.initialContext
-                            |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project |> Maybe.map .project)
+                            |> accumulateContext schema.elmJsonVisitors elmJson
                     }
             in
             case maybePreviousCache of
@@ -626,10 +627,35 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) maybePreviousCache
                 Nothing ->
                     computeElmJson ()
 
+        readmeCacheEntry : SimpleCacheEntryFor (Maybe String) moduleContext
+        readmeCacheEntry =
+            let
+                readme : Maybe String
+                readme =
+                    Review.Project.readme project |> Maybe.map .content
+
+                computeReadme : () -> SimpleCacheEntryFor (Maybe String) moduleContext
+                computeReadme () =
+                    { value = readme
+                    , context =
+                        elmJsonCacheEntry.context
+                            |> accumulateContext schema.readmeVisitors readme
+                    }
+            in
+            case maybePreviousCache of
+                Just previousCache ->
+                    if previousCache.readme.value == readme && elmJsonCacheEntry.context == previousCache.elmJson.context then
+                        previousCache.readme
+
+                    else
+                        computeReadme ()
+
+                Nothing ->
+                    computeReadme ()
+
         initialContext : moduleContext
         initialContext =
-            elmJsonCacheEntry.context
-                |> accumulateContext schema.readmeVisitors (Review.Project.readme project |> Maybe.map .content)
+            readmeCacheEntry.context
                 |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencies project)
 
         newCache : ModuleRuleCache moduleContext
@@ -642,12 +668,14 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) maybePreviousCache
                     else
                         { initialContext = initialContext
                         , elmJson = elmJsonCacheEntry
+                        , readme = readmeCacheEntry
                         , moduleResults = Dict.empty
                         }
 
                 Nothing ->
                     { initialContext = initialContext
                     , elmJson = elmJsonCacheEntry
+                    , readme = readmeCacheEntry
                     , moduleResults = Dict.empty
                     }
 
@@ -692,6 +720,7 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) maybePreviousCache
         (Just
             { initialContext = newCache.initialContext
             , elmJson = elmJsonCacheEntry
+            , readme = readmeCacheEntry
             , moduleResults = moduleResults
             }
         )
