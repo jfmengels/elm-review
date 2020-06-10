@@ -816,7 +816,10 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
                     , finalEvaluationFns = List.reverse schema.finalEvaluationFns
                 }
             )
-            { moduleContexts = Dict.empty }
+            { initialContext = Nothing
+            , moduleContexts = Dict.empty
+            , finalEvaluationErrors = []
+            }
         )
 
 
@@ -1242,7 +1245,9 @@ withContextFromImportedModules (ProjectRuleSchema schema) =
 
 
 type alias ProjectRuleCache projectContext =
-    { moduleContexts : Dict String (CacheEntry projectContext)
+    { initialContext : Maybe projectContext
+    , moduleContexts : Dict String (CacheEntry projectContext)
+    , finalEvaluationErrors : List (Error {})
     }
 
 
@@ -1313,19 +1318,43 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
                 |> Dict.values
                 |> List.map (\cacheEntry -> ( cacheEntry.errors, cacheEntry.context ))
 
+        errorsFromFinalEvaluation : List (Error {})
+        errorsFromFinalEvaluation =
+            let
+                previousAllModulesContext : List projectContext
+                previousAllModulesContext =
+                    startCache.moduleContexts
+                        |> Dict.values
+                        |> List.map .context
+
+                allModulesContext : List projectContext
+                allModulesContext =
+                    List.map Tuple.second contextsAndErrorsPerModule
+            in
+            if Just initialContext == startCache.initialContext && allModulesContext == previousAllModulesContext then
+                startCache.finalEvaluationErrors
+
+            else
+                errorsFromFinalEvaluationForProject wrappedSchema initialContext allModulesContext
+
         errors : List (Error {})
         errors =
             [ projectRelatedErrors
             , List.concatMap Tuple.first contextsAndErrorsPerModule
-            , contextsAndErrorsPerModule
-                |> List.map Tuple.second
-                |> errorsFromFinalEvaluationForProject wrappedSchema initialContext
+            , errorsFromFinalEvaluation
             ]
                 |> List.concat
                 |> Exceptions.apply exceptions (accessInternalError >> .filePath)
                 |> List.map (setRuleName schema.name)
+
+        newCache : ProjectRuleCache projectContext
+        newCache =
+            { initialContext = Just initialContext
+            , moduleContexts = newCachedModuleContexts
+            , finalEvaluationErrors = errorsFromFinalEvaluation
+            }
     in
-    ( errors, Rule schema.name exceptions (runProjectRule wrappedSchema { moduleContexts = newCachedModuleContexts }) )
+    ( errors, Rule schema.name exceptions (runProjectRule wrappedSchema newCache) )
 
 
 computeModules :
