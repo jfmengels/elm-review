@@ -557,7 +557,7 @@ fromModuleRuleSchema : ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : (
 fromModuleRuleSchema ((ModuleRuleSchema { name }) as schema) =
     runModuleRule
         (reverseVisitors schema)
-        newModuleRuleCache
+        Nothing
         |> Rule name Exceptions.init
 
 
@@ -577,8 +577,15 @@ reverseVisitors (ModuleRuleSchema schema) =
 
 
 type alias ModuleRuleCache moduleContext =
-    { initialContext : Maybe moduleContext
+    { initialContext : moduleContext
+    , elmJson : SimpleCacheEntryFor (Maybe Elm.Project.Project) moduleContext
     , moduleResults : ModuleRuleResultCache
+    }
+
+
+type alias SimpleCacheEntryFor value moduleContext =
+    { value : value
+    , context : moduleContext
     }
 
 
@@ -589,38 +596,59 @@ type alias ModuleRuleResultCache =
         }
 
 
-newModuleRuleCache : ModuleRuleCache moduleContext
-newModuleRuleCache =
-    { initialContext = Nothing
-    , moduleResults = Dict.empty
-    }
-
-
-runModuleRule : ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleCache moduleContext -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
-runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache exceptions project _ =
+runModuleRule : ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> Maybe (ModuleRuleCache moduleContext) -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
+runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) maybePreviousCache exceptions project _ =
     let
+        elmJson : Maybe Elm.Project.Project
+        elmJson =
+            Review.Project.elmJson project
+                |> Maybe.map .project
+
+        elmJsonCacheEntry : SimpleCacheEntryFor (Maybe Elm.Project.Project) moduleContext
+        elmJsonCacheEntry =
+            let
+                computeElmJson : () -> SimpleCacheEntryFor (Maybe Elm.Project.Project) moduleContext
+                computeElmJson () =
+                    { value = elmJson
+                    , context =
+                        schema.initialContext
+                            |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project |> Maybe.map .project)
+                    }
+            in
+            case maybePreviousCache of
+                Just previousCache ->
+                    if previousCache.elmJson.value == elmJson then
+                        previousCache.elmJson
+
+                    else
+                        computeElmJson ()
+
+                Nothing ->
+                    computeElmJson ()
+
         initialContext : moduleContext
         initialContext =
-            schema.initialContext
-                |> accumulateContext schema.elmJsonVisitors (Review.Project.elmJson project |> Maybe.map .project)
+            elmJsonCacheEntry.context
                 |> accumulateContext schema.readmeVisitors (Review.Project.readme project |> Maybe.map .content)
                 |> accumulateContext schema.dependenciesVisitors (Review.Project.dependencies project)
 
-        startCache : ModuleRuleCache moduleContext
-        startCache =
-            case previousCache.initialContext of
-                Just previousInitialContext ->
-                    if previousInitialContext == initialContext then
+        newCache : ModuleRuleCache moduleContext
+        newCache =
+            case maybePreviousCache of
+                Just previousCache ->
+                    if previousCache.initialContext == initialContext then
                         previousCache
 
                     else
-                        { initialContext = Just initialContext
-                        , moduleResults = newModuleRuleCache.moduleResults
+                        { initialContext = initialContext
+                        , elmJson = elmJsonCacheEntry
+                        , moduleResults = Dict.empty
                         }
 
                 Nothing ->
-                    { initialContext = Just initialContext
-                    , moduleResults = newModuleRuleCache.moduleResults
+                    { initialContext = initialContext
+                    , elmJson = elmJsonCacheEntry
+                    , moduleResults = Dict.empty
                     }
 
         computeErrors_ : ProjectModule -> List (Error {})
@@ -649,7 +677,7 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache exce
                             else
                                 Dict.insert module_.path { source = module_.source, errors = computeErrors_ module_ } cache
                 )
-                startCache.moduleResults
+                newCache.moduleResults
                 modulesToAnalyze
 
         errors : List (Error {})
@@ -661,7 +689,12 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) previousCache exce
     ( errors
     , runModuleRule
         moduleRuleSchema
-        { initialContext = startCache.initialContext, moduleResults = moduleResults }
+        (Just
+            { initialContext = newCache.initialContext
+            , elmJson = elmJsonCacheEntry
+            , moduleResults = moduleResults
+            }
+        )
         |> Rule schema.name exceptions
     )
 
