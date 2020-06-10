@@ -816,11 +816,7 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
                     , finalEvaluationFns = List.reverse schema.finalEvaluationFns
                 }
             )
-            { elmJson = Nothing
-            , initialContext = Nothing
-            , moduleContexts = Dict.empty
-            , finalEvaluationErrors = []
-            }
+            Nothing
         )
 
 
@@ -1246,8 +1242,8 @@ withContextFromImportedModules (ProjectRuleSchema schema) =
 
 
 type alias ProjectRuleCache projectContext =
-    { elmJson : Maybe (CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext)
-    , initialContext : Maybe projectContext
+    { elmJson : CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext
+    , initialContext : projectContext
     , moduleContexts : Dict String (CacheEntry projectContext)
     , finalEvaluationErrors : List (Error {})
     }
@@ -1267,23 +1263,9 @@ type alias CacheEntryFor value projectContext =
     }
 
 
-runProjectRule : ProjectRuleSchema schemaState projectContext moduleContext -> ProjectRuleCache projectContext -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
+runProjectRule : ProjectRuleSchema schemaState projectContext moduleContext -> Maybe (ProjectRuleCache projectContext) -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
 runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptions project nodeContexts =
     let
-        projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
-        projectElmJson =
-            Review.Project.elmJson project
-
-        elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
-        elmJsonData =
-            Maybe.map
-                (\elmJson ->
-                    { elmJsonKey = ElmJsonKey { path = elmJson.path, raw = elmJson.raw }
-                    , project = elmJson.project
-                    }
-                )
-                projectElmJson
-
         readmeData : Maybe { readmeKey : ReadmeKey, content : String }
         readmeData =
             Review.Project.readme project
@@ -1294,35 +1276,23 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
                         }
                     )
 
-        elmJsonCacheEntry : CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext
-        elmJsonCacheEntry =
-            let
-                computeElmJson () =
-                    let
-                        ( errorsForVisitor, contextForVisitor ) =
-                            ( [], schema.initialProjectContext )
-                                |> accumulateWithListOfVisitors schema.elmJsonVisitors elmJsonData
-                    in
-                    { value = projectElmJson
-                    , errors = errorsForVisitor
-                    , context = contextForVisitor
-                    }
-            in
-            case startCache.elmJson of
-                Just cacheElmJson ->
-                    if cacheElmJson.value == projectElmJson then
-                        cacheElmJson
-
-                    else
-                        computeElmJson ()
-
-                Nothing ->
-                    computeElmJson ()
+        cacheWithInitialContext : ProjectRuleCache projectContext
+        cacheWithInitialContext =
+            computeCacheWithInitialContext (ProjectRuleSchema schema) project startCache
 
         ( projectRelatedErrors, initialContext ) =
-            ( elmJsonCacheEntry.errors, elmJsonCacheEntry.context )
+            ( cacheWithInitialContext.elmJson.errors, cacheWithInitialContext.elmJson.context )
                 |> accumulateWithListOfVisitors schema.readmeVisitors readmeData
                 |> accumulateWithListOfVisitors schema.dependenciesVisitors (Review.Project.dependencies project)
+
+        previousModuleContexts : Dict String (CacheEntry projectContext)
+        previousModuleContexts =
+            case startCache of
+                Just { moduleContexts } ->
+                    moduleContexts
+
+                Nothing ->
+                    Dict.empty
 
         moduleVisitors :
             Maybe
@@ -1344,10 +1314,16 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
         newCachedModuleContexts =
             case moduleVisitors of
                 Just visitors ->
-                    computeModules wrappedSchema visitors project initialContext nodeContexts startCache.moduleContexts
+                    computeModules
+                        wrappedSchema
+                        visitors
+                        project
+                        initialContext
+                        nodeContexts
+                        previousModuleContexts
 
                 Nothing ->
-                    startCache.moduleContexts
+                    Dict.empty
 
         contextsAndErrorsPerModule : List ( List (Error {}), projectContext )
         contextsAndErrorsPerModule =
@@ -1360,7 +1336,7 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
             let
                 previousAllModulesContext : List projectContext
                 previousAllModulesContext =
-                    startCache.moduleContexts
+                    previousModuleContexts
                         |> Dict.values
                         |> List.map .context
 
@@ -1368,8 +1344,11 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
                 allModulesContext =
                     List.map Tuple.second contextsAndErrorsPerModule
             in
-            if Just initialContext == startCache.initialContext && allModulesContext == previousAllModulesContext then
-                startCache.finalEvaluationErrors
+            if Just initialContext == Maybe.map .initialContext startCache && allModulesContext == previousAllModulesContext then
+                -- TODO
+                startCache
+                    |> Maybe.map .finalEvaluationErrors
+                    |> Maybe.withDefault []
 
             else
                 errorsFromFinalEvaluationForProject wrappedSchema initialContext allModulesContext
@@ -1386,13 +1365,63 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
 
         newCache : ProjectRuleCache projectContext
         newCache =
-            { elmJson = Just elmJsonCacheEntry
-            , initialContext = Just initialContext
+            { elmJson = cacheWithInitialContext.elmJson
+            , initialContext = initialContext
             , moduleContexts = newCachedModuleContexts
             , finalEvaluationErrors = errorsFromFinalEvaluation
             }
     in
-    ( errors, Rule schema.name exceptions (runProjectRule wrappedSchema newCache) )
+    ( errors, Rule schema.name exceptions (runProjectRule wrappedSchema (Just newCache)) )
+
+
+computeCacheWithInitialContext : ProjectRuleSchema schemaState projectContext moduleContext -> Project -> Maybe (ProjectRuleCache projectContext) -> ProjectRuleCache projectContext
+computeCacheWithInitialContext (ProjectRuleSchema schema) project maybePreviousCache =
+    let
+        projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
+        projectElmJson =
+            Review.Project.elmJson project
+
+        elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
+        elmJsonData =
+            Maybe.map
+                (\elmJson ->
+                    { elmJsonKey = ElmJsonKey { path = elmJson.path, raw = elmJson.raw }
+                    , project = elmJson.project
+                    }
+                )
+                projectElmJson
+
+        elmJsonCacheEntry : CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext
+        elmJsonCacheEntry =
+            let
+                computeElmJson : () -> CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext
+                computeElmJson () =
+                    let
+                        ( errorsForVisitor, contextForVisitor ) =
+                            ( [], schema.initialProjectContext )
+                                |> accumulateWithListOfVisitors schema.elmJsonVisitors elmJsonData
+                    in
+                    { value = projectElmJson
+                    , errors = errorsForVisitor
+                    , context = contextForVisitor
+                    }
+            in
+            case maybePreviousCache of
+                Just previousCache ->
+                    if previousCache.elmJson.value == projectElmJson then
+                        previousCache.elmJson
+
+                    else
+                        computeElmJson ()
+
+                Nothing ->
+                    computeElmJson ()
+    in
+    { elmJson = elmJsonCacheEntry
+    , initialContext = elmJsonCacheEntry.context -- TODO
+    , moduleContexts = Dict.empty
+    , finalEvaluationErrors = []
+    }
 
 
 computeModules :
