@@ -816,7 +816,7 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
                     , finalEvaluationFns = List.reverse schema.finalEvaluationFns
                 }
             )
-            Dict.empty
+            { moduleContexts = Dict.empty }
         )
 
 
@@ -1242,7 +1242,8 @@ withContextFromImportedModules (ProjectRuleSchema schema) =
 
 
 type alias ProjectRuleCache projectContext =
-    Dict String (CacheEntry projectContext)
+    { moduleContexts : Dict String (CacheEntry projectContext)
+    }
 
 
 type alias CacheEntry projectContext =
@@ -1297,18 +1298,18 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
                 IsPrepared visitorInfo ->
                     Just visitorInfo
 
-        newCache : ProjectRuleCache projectContext
-        newCache =
+        newCachedModuleContexts : Dict String (CacheEntry projectContext)
+        newCachedModuleContexts =
             case moduleVisitors of
                 Just visitors ->
-                    computeModules wrappedSchema visitors project initialContext nodeContexts startCache
+                    computeModules wrappedSchema visitors project initialContext nodeContexts startCache.moduleContexts
 
                 Nothing ->
-                    startCache
+                    startCache.moduleContexts
 
         contextsAndErrorsPerModule : List ( List (Error {}), projectContext )
         contextsAndErrorsPerModule =
-            newCache
+            newCachedModuleContexts
                 |> Dict.values
                 |> List.map (\cacheEntry -> ( cacheEntry.errors, cacheEntry.context ))
 
@@ -1324,7 +1325,7 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) startCache exceptio
                 |> Exceptions.apply exceptions (accessInternalError >> .filePath)
                 |> List.map (setRuleName schema.name)
     in
-    ( errors, Rule schema.name exceptions (runProjectRule wrappedSchema newCache) )
+    ( errors, Rule schema.name exceptions (runProjectRule wrappedSchema { moduleContexts = newCachedModuleContexts }) )
 
 
 computeModules :
@@ -1336,8 +1337,8 @@ computeModules :
     -> Project
     -> projectContext
     -> List (Graph.NodeContext ModuleName ())
-    -> ProjectRuleCache projectContext
-    -> ProjectRuleCache projectContext
+    -> Dict String (CacheEntry projectContext)
+    -> Dict String (CacheEntry projectContext)
 computeModules (ProjectRuleSchema schema) visitors project initialContext nodeContexts startCache =
     let
         graph : Graph ModuleName ()
@@ -1364,7 +1365,7 @@ computeModules (ProjectRuleSchema schema) visitors project initialContext nodeCo
                     )
                     Dict.empty
 
-        newStartCache : ProjectRuleCache projectContext
+        newStartCache : Dict String (CacheEntry projectContext)
         newStartCache =
             startCache
                 |> Dict.filter (\path _ -> Set.member path projectModulePaths)
@@ -1386,7 +1387,7 @@ computeModules (ProjectRuleSchema schema) visitors project initialContext nodeCo
                 visitors.visitors
                 |> reverseVisitors
 
-        computeModule : ProjectRuleCache projectContext -> List ProjectModule -> ProjectModule -> CacheEntry projectContext
+        computeModule : Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> CacheEntry projectContext
         computeModule cache importedModules module_ =
             let
                 moduleKey : ModuleKey
@@ -1466,10 +1467,10 @@ computeModuleAndCacheResult :
     TraversalType
     -> Dict ModuleName ProjectModule
     -> Graph ModuleName ()
-    -> (ProjectRuleCache projectContext -> List ProjectModule -> ProjectModule -> CacheEntry projectContext)
+    -> (Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> CacheEntry projectContext)
     -> Graph.NodeContext ModuleName ()
-    -> ( ProjectRuleCache projectContext, Set ModuleName )
-    -> ( ProjectRuleCache projectContext, Set ModuleName )
+    -> ( Dict String (CacheEntry projectContext), Set ModuleName )
+    -> ( Dict String (CacheEntry projectContext), Set ModuleName )
 computeModuleAndCacheResult traversalType modules graph computeModule { node, incoming } ( cache, invalidatedModules ) =
     case Dict.get node.label modules of
         Nothing ->
@@ -1492,7 +1493,7 @@ computeModuleAndCacheResult traversalType modules graph computeModule { node, in
                                             |> Maybe.andThen (\nodeContext -> Dict.get nodeContext.node.label modules)
                                     )
 
-                compute : Maybe (CacheEntry projectContext) -> ( ProjectRuleCache projectContext, Set ModuleName )
+                compute : Maybe (CacheEntry projectContext) -> ( Dict String (CacheEntry projectContext), Set ModuleName )
                 compute previousResult =
                     let
                         result : CacheEntry projectContext
