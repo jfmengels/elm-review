@@ -3331,7 +3331,7 @@ expressionsInDeclaration node =
         Declaration.CustomTypeDeclaration _ ->
             []
 
-        Declaration.AliasDeclaration { typeAnnotation } ->
+        Declaration.AliasDeclaration _ ->
             []
 
         Declaration.Destructuring _ expr ->
@@ -3423,7 +3423,7 @@ expressionChildren node =
             expression
                 :: List.map (\( _, caseExpression ) -> caseExpression) cases
 
-        Expression.LambdaExpression { args, expression } ->
+        Expression.LambdaExpression { expression } ->
             [ expression ]
 
         Expression.TupledExpression expressions ->

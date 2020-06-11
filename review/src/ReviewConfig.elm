@@ -18,6 +18,7 @@ import NoUnused.CustomTypeConstructors
 import NoUnused.Dependencies
 import NoUnused.Exports
 import NoUnused.Modules
+import NoUnused.Patterns
 import NoUnused.Variables
 import Review.Rule as Rule exposing (Rule)
 
@@ -34,6 +35,8 @@ config =
     , NoUnused.Exports.rule
         |> Rule.ignoreErrorsForFiles [ "tests/Scope.elm" ]
     , NoUnused.Modules.rule
+    , NoUnused.Patterns.rule
+        |> Rule.ignoreErrorsForDirectories [ "tests/" ]
 
     --, NoTodoComment.rule
     --    |> Rule.ignoreErrorsForFiles [ "NoTodoComment" ]

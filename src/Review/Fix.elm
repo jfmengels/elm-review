@@ -295,13 +295,13 @@ rangePosition : Fix -> Int
 rangePosition fix_ =
     positionAsInt <|
         case fix_ of
-            Error.Replacement range replacement ->
+            Error.Replacement range _ ->
                 range.start
 
             Error.Removal range ->
                 range.start
 
-            Error.InsertAt position insertion ->
+            Error.InsertAt position _ ->
                 position
 
 
