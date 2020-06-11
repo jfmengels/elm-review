@@ -27,7 +27,7 @@ module Scope exposing
 
 {- Copied over from https://github.com/jfmengels/elm-review-scope
 
-   Version: 0.2.1
+   Version: 0.2.2
 
    Copyright (c) 2020, Jeroen Engels
    All rights reserved.
@@ -71,7 +71,6 @@ import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
 import Elm.Syntax.Signature exposing (Signature)
 import Elm.Syntax.Type
-import Elm.Syntax.TypeAlias
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
 import Review.Project.Dependency as Dependency exposing (Dependency)
@@ -615,7 +614,7 @@ registerDeclaration declaration innerContext =
                     { variableType = TopLevelVariable
                     , node = alias_.name
                     }
-                |> registerIfExposed (registerExposedTypeAlias alias_) (Node.value alias_.name)
+                |> registerIfExposed registerExposedTypeAlias (Node.value alias_.name)
 
         Declaration.CustomTypeDeclaration { name, constructors } ->
             List.foldl
@@ -677,7 +676,7 @@ registerExposedValue function name innerContext =
 
                     Nothing ->
                         ""
-            , tipe = convertTypeSignatureToDocsType function.signature
+            , tipe = convertTypeSignatureToDocsType innerContext function.signature
             }
                 :: innerContext.exposedValues
     }
@@ -701,8 +700,8 @@ registerExposedCustomType constructors name innerContext =
     }
 
 
-registerExposedTypeAlias : Elm.Syntax.TypeAlias.TypeAlias -> String -> InnerModuleContext -> InnerModuleContext
-registerExposedTypeAlias alias_ name innerContext =
+registerExposedTypeAlias : String -> InnerModuleContext -> InnerModuleContext
+registerExposedTypeAlias name innerContext =
     { innerContext
         | exposedAliases =
             { name = name
@@ -723,40 +722,57 @@ registerIfExposed registerFn name innerContext =
         innerContext
 
 
-convertTypeSignatureToDocsType : Maybe (Node Signature) -> Elm.Type.Type
-convertTypeSignatureToDocsType maybeSignature =
+convertTypeSignatureToDocsType : InnerModuleContext -> Maybe (Node Signature) -> Elm.Type.Type
+convertTypeSignatureToDocsType innerContext maybeSignature =
     case maybeSignature |> Maybe.map (Node.value >> .typeAnnotation) of
         Just typeAnnotation ->
-            syntaxTypeAnnotationToDocsType typeAnnotation
+            syntaxTypeAnnotationToDocsType innerContext typeAnnotation
 
         Nothing ->
             Elm.Type.Tuple []
 
 
-syntaxTypeAnnotationToDocsType : Node TypeAnnotation -> Elm.Type.Type
-syntaxTypeAnnotationToDocsType (Node _ typeAnnotation) =
+syntaxTypeAnnotationToDocsType : InnerModuleContext -> Node TypeAnnotation -> Elm.Type.Type
+syntaxTypeAnnotationToDocsType innerContext (Node _ typeAnnotation) =
     case typeAnnotation of
         TypeAnnotation.GenericType name ->
             Elm.Type.Var name
 
         TypeAnnotation.Typed (Node _ ( moduleName, typeName )) typeParameters ->
-            -- Elm.Type.Type (String.join "." moduleName ++ "." ++ typeName) (List.map syntaxTypeAnnotationToDocsType typeParameters)
-            Elm.Type.Tuple []
+            let
+                realModuleName : List String
+                realModuleName =
+                    moduleNameForType (ModuleContext innerContext) typeName moduleName
+            in
+            Elm.Type.Type (String.join "." realModuleName ++ "." ++ typeName) (List.map (syntaxTypeAnnotationToDocsType innerContext) typeParameters)
 
         TypeAnnotation.Unit ->
             Elm.Type.Tuple []
 
-        TypeAnnotation.Tupled typeAnnotationTypeAnnotationSyntaxElmNodeNodeSyntaxElmListList ->
-            Elm.Type.Tuple []
+        TypeAnnotation.Tupled list ->
+            Elm.Type.Tuple (List.map (syntaxTypeAnnotationToDocsType innerContext) list)
 
-        TypeAnnotation.Record recordDefinitionTypeAnnotationSyntaxElm ->
-            Elm.Type.Tuple []
+        TypeAnnotation.Record updates ->
+            Elm.Type.Record (recordUpdateToDocsType innerContext updates) Nothing
 
-        TypeAnnotation.GenericRecord stringStringNodeNodeSyntaxElm recordDefinitionTypeAnnotationSyntaxElmNodeNodeSyntaxElm ->
-            Elm.Type.Tuple []
+        TypeAnnotation.GenericRecord (Node _ generic) (Node _ updates) ->
+            Elm.Type.Record (recordUpdateToDocsType innerContext updates) (Just generic)
 
-        TypeAnnotation.FunctionTypeAnnotation typeAnnotationTypeAnnotationSyntaxElmNodeNodeSyntaxElm typeAnnotationTypeAnnotationSyntaxElmNodeNodeSyntaxElm2 ->
-            Elm.Type.Tuple []
+        TypeAnnotation.FunctionTypeAnnotation left right ->
+            Elm.Type.Lambda
+                (syntaxTypeAnnotationToDocsType innerContext left)
+                (syntaxTypeAnnotationToDocsType innerContext right)
+
+
+recordUpdateToDocsType : InnerModuleContext -> List (Node TypeAnnotation.RecordField) -> List ( String, Elm.Type.Type )
+recordUpdateToDocsType innerContext updates =
+    List.map
+        (\(Node _ ( name, typeAnnotation )) ->
+            ( Node.value name
+            , syntaxTypeAnnotationToDocsType innerContext typeAnnotation
+            )
+        )
+        updates
 
 
 registerVariable : VariableInfo -> String -> Nonempty Scope -> Nonempty Scope
@@ -1138,7 +1154,7 @@ expressionVisitor (Node _ value) direction context =
                                 (Node.value nameNode)
                                 scopes
 
-                        Expression.LetDestructuring pattern _ ->
+                        Expression.LetDestructuring _ _ ->
                             scopes
                 )
                 (nonemptyList_cons emptyScope context.scopes)
@@ -1434,7 +1450,7 @@ nonemptyList_fromElement x =
 {-| Return the head of the list.
 -}
 nonemptyList_head : Nonempty a -> a
-nonemptyList_head (Nonempty x xs) =
+nonemptyList_head (Nonempty x _) =
     x
 
 

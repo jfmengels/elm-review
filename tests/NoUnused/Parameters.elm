@@ -198,13 +198,14 @@ removeDetails =
 
 
 andThen :
-    (Context -> ( List (Rule.Error {}), Context ))
+    (value -> Context -> ( List (Rule.Error {}), Context ))
+    -> value
     -> ( List (Rule.Error {}), Context )
     -> ( List (Rule.Error {}), Context )
-andThen function ( errors, context ) =
+andThen function value ( errors, context ) =
     let
         ( newErrors, newContext ) =
-            function context
+            function value context
     in
     ( newErrors ++ errors, newContext )
 
@@ -216,14 +217,7 @@ errorsForFunctionImplementation (Node _ { arguments }) context =
 
 errorsForLetDeclarationList : List (Node Expression.LetDeclaration) -> Context -> ( List (Rule.Error {}), Context )
 errorsForLetDeclarationList list context =
-    case list of
-        [] ->
-            ( [], context )
-
-        first :: rest ->
-            context
-                |> errorsForLetDeclaration first
-                |> andThen (errorsForLetDeclarationList rest)
+    List.foldl (andThen errorsForLetDeclaration) ( [], context ) list
 
 
 errorsForLetDeclaration : Node Expression.LetDeclaration -> Context -> ( List (Rule.Error {}), Context )
@@ -248,14 +242,7 @@ type PatternUse
 
 errorsForPatternList : PatternUse -> List (Node Pattern) -> Context -> ( List (Rule.Error {}), Context )
 errorsForPatternList use list context =
-    case list of
-        [] ->
-            ( [], context )
-
-        first :: rest ->
-            context
-                |> errorsForPattern use first
-                |> andThen (errorsForPatternList use rest)
+    List.foldl (andThen (errorsForPattern use)) ( [], context ) list
 
 
 errorsForPattern : PatternUse -> Node Pattern -> Context -> ( List (Rule.Error {}), Context )
@@ -295,7 +282,7 @@ errorsForPattern use (Node range pattern) context =
         Pattern.AsPattern inner name ->
             context
                 |> errorsForAsPattern use range inner name
-                |> andThen (errorsForPattern use inner)
+                |> andThen (errorsForPattern use) inner
 
         Pattern.ParenthesizedPattern inner ->
             errorsForPattern use inner context
@@ -352,7 +339,7 @@ errorsForRecordValueList : PatternUse -> Range -> List (Node String) -> Context 
 errorsForRecordValueList use recordRange list context =
     let
         ( unused, used ) =
-            List.partition (\(Node _ value) -> Set.member value context) list
+            List.partition (isNodeInContext context) list
     in
     case unused of
         [] ->
@@ -393,6 +380,11 @@ errorsForRecordValueList use recordRange list context =
               ]
             , List.foldl forgetNode context unused
             )
+
+
+isNodeInContext : Context -> Node String -> Bool
+isNodeInContext context (Node _ value) =
+    Set.member value context
 
 
 listToMessage : String -> List String -> String

@@ -245,10 +245,7 @@ fromModuleToProject moduleKey moduleName moduleContext =
         moduleContext.usedFunctionsOrValues
             |> Dict.remove ""
             |> Dict.insert moduleNameAsString localUsed
-    , phantomVariables =
-        moduleContext.phantomVariables
-            |> Dict.remove []
-            |> Dict.insert (Node.value moduleName) localPhantomTypes
+    , phantomVariables = Dict.singleton (Node.value moduleName) localPhantomTypes
     }
 
 

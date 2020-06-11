@@ -38,8 +38,8 @@ type Name
 
 withValueVisitor :
     (Node ( ModuleName, String ) -> context -> ( List (Error {}), context ))
-    -> Rule.ModuleRuleSchema { schemaState | canCollectProjectData : () } context
-    -> Rule.ModuleRuleSchema { schemaState | canCollectProjectData : (), hasAtLeastOneVisitor : () } context
+    -> Rule.ModuleRuleSchema state context
+    -> Rule.ModuleRuleSchema { state | hasAtLeastOneVisitor : () } context
 withValueVisitor valueVisitor rule =
     rule
         |> Rule.withDeclarationListVisitor (declarationListVisitor valueVisitor)
@@ -77,21 +77,24 @@ expressionVisitor visitor node direction context =
 
 folder :
     VisitorFunction context
-    -> (context -> List Name -> ( List (Error {}), context ))
+    -> context
+    -> List Name
+    -> ( List (Error {}), context )
 folder visitor context list =
-    case list of
-        [] ->
-            ( [], context )
+    List.foldl (folderHelper visitor) ( [], context ) list
 
-        head :: rest ->
-            let
-                ( headErrors, headContext ) =
-                    applyVisitor visitor head context
 
-                ( restErrors, restContext ) =
-                    folder visitor headContext rest
-            in
-            ( headErrors ++ restErrors, restContext )
+folderHelper :
+    VisitorFunction context
+    -> Name
+    -> ( List (Error {}), context )
+    -> ( List (Error {}), context )
+folderHelper visitor name ( errors, context ) =
+    let
+        ( newErrors, newContext ) =
+            applyVisitor visitor name context
+    in
+    ( newErrors ++ errors, newContext )
 
 
 applyVisitor : VisitorFunction context -> Name -> context -> ( List (Error {}), context )
