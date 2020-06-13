@@ -25,7 +25,7 @@ expressionVisitor (Node.Node range expression) =
 
 
 errorsForCaseBlock : Range -> Expression.CaseBlock -> List (Error {})
-errorsForCaseBlock ({ end } as range) { expression, cases } =
+errorsForCaseBlock range { cases } =
     case cases of
         [ ( Node.Node _ (Pattern.NamedPattern { moduleName, name } []), _ ), _ ] ->
             if moduleName == [] && (name == "True" || name == "False") then

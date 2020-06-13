@@ -889,8 +889,8 @@ In other words, you only need to use this function if the error provides a fix.
 
 -}
 whenFixed : String -> ExpectedError -> ExpectedError
-whenFixed fixedSource ((ExpectedError expectedError_) as expectedError) =
-    ExpectedError { expectedError_ | fixedSource = Just fixedSource }
+whenFixed fixedSource (ExpectedError expectedError) =
+    ExpectedError { expectedError | fixedSource = Just fixedSource }
 
 
 getUnder : ExpectedError -> String

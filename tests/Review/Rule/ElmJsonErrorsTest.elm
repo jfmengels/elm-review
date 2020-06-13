@@ -31,7 +31,7 @@ finalEvaluationForProject maybeElmJsonKey =
     case maybeElmJsonKey of
         Just elmJsonKey ->
             [ Rule.errorForElmJson elmJsonKey
-                (\rawJson ->
+                (\_ ->
                     { message = "Error for elm.json"
                     , details = [ "This is an elm.json error" ]
                     , range = { start = { row = 2, column = 5 }, end = { row = 2, column = 27 } }

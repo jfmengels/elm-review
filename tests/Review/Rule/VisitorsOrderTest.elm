@@ -27,7 +27,7 @@ all =
                             |> Rule.withImportVisitor (\_ context -> ( [], context ++ "\n4 - withImportVisitor" ))
                             |> Rule.withDeclarationListVisitor (\_ context -> ( [], context ++ "\n5 - withDeclarationListVisitor" ))
                             |> Rule.withDeclarationVisitor
-                                (\node direction context ->
+                                (\_ direction context ->
                                     case direction of
                                         Rule.OnEnter ->
                                             ( [], context ++ "\n6 - withDeclarationVisitor (Enter)" )
@@ -36,7 +36,7 @@ all =
                                             ( [], context ++ "\n9 - withDeclarationVisitor (Exit)" )
                                 )
                             |> Rule.withExpressionVisitor
-                                (\node direction context ->
+                                (\_ direction context ->
                                     case direction of
                                         Rule.OnEnter ->
                                             ( [], context ++ "\n7 - withExpressionVisitor (Enter)" )
@@ -90,7 +90,7 @@ a = 1
                             |> Rule.fromModuleRuleSchema
 
                     declarationVisitor : String -> Node Expression -> Rule.Direction -> Context -> ( List (Error {}), Context )
-                    declarationVisitor text node direction context =
+                    declarationVisitor text _ direction context =
                         case direction of
                             Rule.OnEnter ->
                                 ( [], context ++ "\nEnter " ++ text )
@@ -135,7 +135,7 @@ Exit A"""
                             |> Rule.fromModuleRuleSchema
 
                     declarationVisitor : String -> Node Declaration -> Rule.Direction -> Context -> ( List (Error {}), Context )
-                    declarationVisitor text node direction context =
+                    declarationVisitor text _ direction context =
                         case direction of
                             Rule.OnEnter ->
                                 ( [], context ++ "\nEnter " ++ text )

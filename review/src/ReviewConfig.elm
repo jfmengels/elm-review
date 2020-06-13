@@ -19,6 +19,7 @@ import NoUnused.Dependencies
 import NoUnused.Exports
 import NoUnused.Modules
 import NoUnused.Patterns
+import NoUnused.Parameters
 import NoUnused.Variables
 import Review.Rule as Rule exposing (Rule)
 
@@ -37,7 +38,7 @@ config =
     , NoUnused.Modules.rule
     , NoUnused.Patterns.rule
         |> Rule.ignoreErrorsForDirectories [ "tests/" ]
-
+    , NoUnused.Parameters.rule
     --, NoTodoComment.rule
     --    |> Rule.ignoreErrorsForFiles [ "NoTodoComment" ]
     ]
