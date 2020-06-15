@@ -2,7 +2,8 @@ module Review.Rule exposing
     ( Rule
     , ModuleRuleSchema, newModuleRuleSchema, fromModuleRuleSchema
     , withSimpleModuleDefinitionVisitor, withSimpleCommentsVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
-    , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withExpressionVisitorOnEnter, withExpressionVisitorOnExit, withFinalModuleEvaluation
+    , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationVisitorOnEnter, withDeclarationVisitorOnExit, withDeclarationListVisitor
+    , withExpressionVisitor, withExpressionVisitorOnEnter, withExpressionVisitorOnExit, withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
@@ -173,7 +174,8 @@ Evaluating/visiting a node means two things:
 
 ## Builder functions with context
 
-@docs withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction, withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withExpressionVisitorOnEnter, withExpressionVisitorOnExit, withFinalModuleEvaluation
+@docs withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction, withDeclarationVisitor, withDeclarationVisitorOnEnter, withDeclarationVisitorOnExit, withDeclarationListVisitor
+@docs withExpressionVisitor, withExpressionVisitorOnEnter, withExpressionVisitorOnExit, withFinalModuleEvaluation
 
 
 ## Builder functions to analyze the project's data
@@ -289,7 +291,8 @@ type ModuleRuleSchema schemaState moduleContext
         , commentsVisitors : List (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
         , importVisitors : List (Node Import -> moduleContext -> ( List (Error {}), moduleContext ))
         , declarationListVisitors : List (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
-        , declarationVisitors : List (DirectedVisitor Declaration moduleContext)
+        , declarationVisitorsOnEnter : List (Visitor Declaration moduleContext)
+        , declarationVisitorsOnExit : List (Visitor Declaration moduleContext)
         , expressionVisitorsOnEnter : List (Visitor Expression moduleContext)
         , expressionVisitorsOnExit : List (Visitor Expression moduleContext)
         , finalEvaluationFns : List (moduleContext -> List (Error {}))
@@ -757,9 +760,11 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) maybePreviousCache
 computeErrors : ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> moduleContext -> ProjectModule -> List (Error {})
 computeErrors (ModuleRuleSchema schema) initialContext =
     let
-        declarationVisitors : InAndOut (DirectedVisitor Declaration moduleContext)
+        declarationVisitors : InAndOut (Visitor Declaration moduleContext)
         declarationVisitors =
-            inAndOut schema.declarationVisitors
+            { onEnter = List.reverse schema.declarationVisitorsOnEnter
+            , onExit = schema.declarationVisitorsOnExit
+            }
 
         expressionVisitors : InAndOut (Visitor Expression moduleContext)
         expressionVisitors =
@@ -1798,9 +1803,11 @@ noImportedModulesHaveANewContext importedModules invalidatedModules =
 visitModuleForProjectRule : ModuleRuleSchema a moduleContext -> moduleContext -> ProjectModule -> ( List (Error {}), moduleContext )
 visitModuleForProjectRule (ModuleRuleSchema schema) =
     let
-        declarationVisitors : InAndOut (DirectedVisitor Declaration moduleContext)
+        declarationVisitors : InAndOut (Visitor Declaration moduleContext)
         declarationVisitors =
-            inAndOut schema.declarationVisitors
+            { onEnter = List.reverse schema.declarationVisitorsOnEnter
+            , onExit = schema.declarationVisitorsOnExit
+            }
 
         expressionVisitors : InAndOut (Visitor Expression moduleContext)
         expressionVisitors =
@@ -2224,7 +2231,8 @@ emptySchema name_ initialContext =
         , commentsVisitors = []
         , importVisitors = []
         , declarationListVisitors = []
-        , declarationVisitors = []
+        , declarationVisitorsOnEnter = []
+        , declarationVisitorsOnExit = []
         , expressionVisitorsOnEnter = []
         , expressionVisitorsOnExit = []
         , finalEvaluationFns = []
@@ -2575,7 +2583,25 @@ simpler [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) function
 -}
 withDeclarationVisitor : (Node Declaration -> Direction -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withDeclarationVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | declarationVisitors = visitor :: schema.declarationVisitors }
+    ModuleRuleSchema
+        { schema
+            | declarationVisitorsOnEnter = (\node ctx -> visitor node OnEnter ctx) :: schema.declarationVisitorsOnEnter
+            , declarationVisitorsOnExit = (\node ctx -> visitor node OnExit ctx) :: schema.declarationVisitorsOnExit
+        }
+
+
+{-| TODO
+-}
+withDeclarationVisitorOnEnter : (Node Declaration -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withDeclarationVisitorOnEnter visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | declarationVisitorsOnEnter = visitor :: schema.declarationVisitorsOnEnter }
+
+
+{-| TODO
+-}
+withDeclarationVisitorOnExit : (Node Declaration -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withDeclarationVisitorOnExit visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | declarationVisitorsOnExit = visitor :: schema.declarationVisitorsOnExit }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
@@ -3370,7 +3396,7 @@ visitImport importVisitors node moduleContext =
 
 
 visitDeclaration :
-    InAndOut (DirectedVisitor Declaration moduleContext)
+    InAndOut (Visitor Declaration moduleContext)
     -> InAndOut (Visitor Expression moduleContext)
     -> Node Declaration
     -> moduleContext
@@ -3388,9 +3414,9 @@ visitDeclaration declarationVisitors expressionVisitors node moduleContext =
                     (expressionsInDeclaration node)
     in
     ( [], moduleContext )
-        |> visitNodeWithListOfVisitorsAndDirection OnEnter declarationVisitors.onEnter node
+        |> visitNodeWithListOfVisitors declarationVisitors.onEnter node
         |> accumulateExpressionNodes
-        |> visitNodeWithListOfVisitorsAndDirection OnExit declarationVisitors.onExit node
+        |> visitNodeWithListOfVisitors declarationVisitors.onExit node
 
 
 visitNodeWithListOfVisitors :
