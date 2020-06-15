@@ -290,9 +290,14 @@ type ModuleRuleSchema schemaState moduleContext
         , importVisitors : List (Node Import -> moduleContext -> ( List (Error {}), moduleContext ))
         , declarationListVisitors : List (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
         , declarationVisitors : List (DirectedVisitor Declaration moduleContext)
-        , expressionVisitors : List (DirectedVisitor Expression moduleContext)
+        , expressionVisitorsOnEnter : List (Visitor Expression moduleContext)
+        , expressionVisitorsOnExit : List (Visitor Expression moduleContext)
         , finalEvaluationFns : List (moduleContext -> List (Error {}))
         }
+
+
+type alias Visitor nodeType context =
+    Node nodeType -> context -> ( List (Error {}), context )
 
 
 type alias DirectedVisitor nodeType context =
@@ -758,7 +763,9 @@ computeErrors (ModuleRuleSchema schema) initialContext =
 
         expressionVisitors : InAndOut (DirectedVisitor Expression moduleContext)
         expressionVisitors =
-            inAndOut schema.expressionVisitors
+            { onEnter = List.reverse <| List.map (\visitor node direction ctx -> visitor node ctx) schema.expressionVisitorsOnEnter
+            , onExit = List.map (\visitor node direction ctx -> visitor node ctx) schema.expressionVisitorsOnExit
+            }
     in
     \module_ ->
         ( [], initialContext )
@@ -1797,7 +1804,9 @@ visitModuleForProjectRule (ModuleRuleSchema schema) =
 
         expressionVisitors : InAndOut (DirectedVisitor Expression moduleContext)
         expressionVisitors =
-            inAndOut schema.expressionVisitors
+            { onEnter = List.reverse <| List.map (\visitor node direction ctx -> visitor node ctx) schema.expressionVisitorsOnEnter
+            , onExit = List.map (\visitor node direction ctx -> visitor node ctx) schema.expressionVisitorsOnExit
+            }
     in
     \initialContext module_ ->
         ( [], initialContext )
@@ -2216,7 +2225,8 @@ emptySchema name_ initialContext =
         , importVisitors = []
         , declarationListVisitors = []
         , declarationVisitors = []
-        , expressionVisitors = []
+        , expressionVisitorsOnEnter = []
+        , expressionVisitorsOnExit = []
         , finalEvaluationFns = []
         }
 
@@ -2674,7 +2684,12 @@ simpler [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) function.
 -}
 withExpressionVisitor : (Node Expression -> Direction -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withExpressionVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | expressionVisitors = visitor :: schema.expressionVisitors }
+    ModuleRuleSchema
+        { schema
+            | expressionVisitors = visitor :: schema.expressionVisitors
+            , expressionVisitorsOnEnter = (\node ctx -> visitor node OnEnter ctx) :: schema.expressionVisitorsOnEnter
+            , expressionVisitorsOnExit = (\node ctx -> visitor node OnExit ctx) :: schema.expressionVisitorsOnExit
+        }
 
 
 {-| Add a function that makes a final evaluation of the module based only on the
