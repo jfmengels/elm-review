@@ -2,7 +2,7 @@ module Review.Rule exposing
     ( Rule
     , ModuleRuleSchema, newModuleRuleSchema, fromModuleRuleSchema
     , withSimpleModuleDefinitionVisitor, withSimpleCommentsVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
-    , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalModuleEvaluation
+    , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withExpressionVisitorOnEnter, withExpressionVisitorOnExit, withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
@@ -173,7 +173,7 @@ Evaluating/visiting a node means two things:
 
 ## Builder functions with context
 
-@docs withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction, withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withFinalModuleEvaluation
+@docs withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction, withDeclarationVisitor, withDeclarationListVisitor, withExpressionVisitor, withExpressionVisitorOnEnter, withExpressionVisitorOnExit, withFinalModuleEvaluation
 
 
 ## Builder functions to analyze the project's data
@@ -761,10 +761,10 @@ computeErrors (ModuleRuleSchema schema) initialContext =
         declarationVisitors =
             inAndOut schema.declarationVisitors
 
-        expressionVisitors : InAndOut (DirectedVisitor Expression moduleContext)
+        expressionVisitors : InAndOut (Visitor Expression moduleContext)
         expressionVisitors =
-            { onEnter = List.reverse <| List.map (\visitor node direction ctx -> visitor node ctx) schema.expressionVisitorsOnEnter
-            , onExit = List.map (\visitor node direction ctx -> visitor node ctx) schema.expressionVisitorsOnExit
+            { onEnter = List.reverse schema.expressionVisitorsOnEnter
+            , onExit = schema.expressionVisitorsOnExit
             }
     in
     \module_ ->
@@ -1802,10 +1802,10 @@ visitModuleForProjectRule (ModuleRuleSchema schema) =
         declarationVisitors =
             inAndOut schema.declarationVisitors
 
-        expressionVisitors : InAndOut (DirectedVisitor Expression moduleContext)
+        expressionVisitors : InAndOut (Visitor Expression moduleContext)
         expressionVisitors =
-            { onEnter = List.reverse <| List.map (\visitor node direction ctx -> visitor node ctx) schema.expressionVisitorsOnEnter
-            , onExit = List.map (\visitor node direction ctx -> visitor node ctx) schema.expressionVisitorsOnExit
+            { onEnter = List.reverse schema.expressionVisitorsOnEnter
+            , onExit = schema.expressionVisitorsOnExit
             }
     in
     \initialContext module_ ->
@@ -2686,10 +2686,103 @@ withExpressionVisitor : (Node Expression -> Direction -> moduleContext -> ( List
 withExpressionVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema
         { schema
-            | expressionVisitors = visitor :: schema.expressionVisitors
-            , expressionVisitorsOnEnter = (\node ctx -> visitor node OnEnter ctx) :: schema.expressionVisitorsOnEnter
+            | expressionVisitorsOnEnter = (\node ctx -> visitor node OnEnter ctx) :: schema.expressionVisitorsOnEnter
             , expressionVisitorsOnExit = (\node ctx -> visitor node OnExit ctx) :: schema.expressionVisitorsOnExit
         }
+
+
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
+[expressions](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Expression)
+(`1`, `True`, `add 1 2`, `1 + 2`), collect data in the `context` and/or report patterns.
+The expressions are visited in pre-order depth-first search, meaning that an
+expression will be visited, then its first child, the first child's children
+(and so on), then the second child (and so on).
+
+Contrary to [`withExpressionVisitor`](#withExpressionVisitor), the
+visitor function will be called only once, when the expression is "entered",
+meaning before its children are visited.
+
+The following example forbids the use of `Debug.log` even when it is imported like
+`import Debug exposing (log)`.
+
+    import Elm.Syntax.Exposing as Exposing exposing (TopLevelExpose)
+    import Elm.Syntax.Expression as Expression exposing (Expression)
+    import Elm.Syntax.Import exposing (Import)
+    import Elm.Syntax.Node as Node exposing (Node)
+    import Review.Rule as Rule exposing (Direction, Error, Rule)
+
+    type Context
+        = DebugLogWasNotImported
+        | DebugLogWasImported
+
+    rule : Rule
+    rule =
+        Rule.newModuleRuleSchema "NoDebugEvenIfImported" DebugLogWasNotImported
+            |> Rule.withImportVisitor importVisitor
+            |> Rule.withExpressionVisitorOnEnter expressionVisitor
+            |> Rule.fromModuleRuleSchema
+
+    importVisitor : Node Import -> Context -> ( List (Error {}), Context )
+    importVisitor node context =
+        case ( Node.value node |> .moduleName |> Node.value, (Node.value node).exposingList |> Maybe.map Node.value ) of
+            ( [ "Debug" ], Just (Exposing.All _) ) ->
+                ( [], DebugLogWasImported )
+
+            ( [ "Debug" ], Just (Exposing.Explicit exposedFunctions) ) ->
+                let
+                    isLogFunction : Node Exposing.TopLevelExpose -> Bool
+                    isLogFunction exposeNode =
+                        case Node.value exposeNode of
+                            Exposing.FunctionExpose "log" ->
+                                True
+
+                            _ ->
+                                False
+                in
+                if List.any isLogFunction exposedFunctions then
+                    ( [], DebugLogWasImported )
+
+                else
+                    ( [], DebugLogWasNotImported )
+
+            _ ->
+                ( [], DebugLogWasNotImported )
+
+    expressionVisitor : Node Expression -> Context -> ( List (Error {}), Context )
+    expressionVisitor node context =
+        case context of
+            DebugLogWasNotImported ->
+                ( [], context )
+
+            DebugLogWasImported ->
+                case Node.value node of
+                    Expression.FunctionOrValue [] "log" ->
+                        ( [ Rule.error
+                                { message = "Remove the use of `Debug` before shipping to production"
+                                , details = [ "The `Debug` module is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing its use before committing and attempting to push to production." ]
+                                }
+                                (Node.range node)
+                          ]
+                        , context
+                        )
+
+                    _ ->
+                        ( [], context )
+
+Tip: If you do not need to collect or use the `context` in this visitor, you may wish to use the
+simpler [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) function.
+
+-}
+withExpressionVisitorOnEnter : (Node Expression -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withExpressionVisitorOnEnter visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | expressionVisitorsOnEnter = visitor :: schema.expressionVisitorsOnEnter }
+
+
+{-| TODO
+-}
+withExpressionVisitorOnExit : (Node Expression -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withExpressionVisitorOnExit visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | expressionVisitorsOnExit = visitor :: schema.expressionVisitorsOnExit }
 
 
 {-| Add a function that makes a final evaluation of the module based only on the
@@ -3278,7 +3371,7 @@ visitImport importVisitors node moduleContext =
 
 visitDeclaration :
     InAndOut (DirectedVisitor Declaration moduleContext)
-    -> InAndOut (DirectedVisitor Expression moduleContext)
+    -> InAndOut (Visitor Expression moduleContext)
     -> Node Declaration
     -> moduleContext
     -> ( List (Error {}), moduleContext )
@@ -3360,15 +3453,15 @@ expressionsInDeclaration node =
 
 
 visitExpression :
-    InAndOut (DirectedVisitor Expression moduleContext)
+    InAndOut (Visitor Expression moduleContext)
     -> Node Expression
     -> moduleContext
     -> ( List (Error {}), moduleContext )
 visitExpression visitors node moduleContext =
     ( [], moduleContext )
-        |> visitNodeWithListOfVisitorsAndDirection OnEnter visitors.onEnter node
+        |> visitNodeWithListOfVisitors visitors.onEnter node
         |> accumulateList (visitExpression visitors) (expressionChildren node)
-        |> visitNodeWithListOfVisitorsAndDirection OnExit visitors.onExit node
+        |> visitNodeWithListOfVisitors visitors.onExit node
 
 
 expressionChildren : Node Expression -> List (Node Expression)
