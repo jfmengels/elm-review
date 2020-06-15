@@ -2,8 +2,12 @@ module Review.Rule exposing
     ( Rule
     , ModuleRuleSchema, newModuleRuleSchema, fromModuleRuleSchema
     , withSimpleModuleDefinitionVisitor, withSimpleCommentsVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
-    , withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction(..), withDeclarationVisitor, withDeclarationVisitorOnEnter, withDeclarationVisitorOnExit, withDeclarationListVisitor
-    , withExpressionVisitor, withExpressionVisitorOnEnter, withExpressionVisitorOnExit, withFinalModuleEvaluation
+    , withModuleDefinitionVisitor
+    , withCommentsVisitor
+    , withImportVisitor
+    , Direction(..), withDeclarationVisitorOnEnter, withDeclarationVisitorOnExit, withDeclarationVisitor, withDeclarationListVisitor
+    , withExpressionVisitorOnEnter, withExpressionVisitorOnExit, withExpressionVisitor
+    , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
@@ -152,9 +156,9 @@ The traversal of a module rule is the following:
       - The module's list of comments, visited by [`withSimpleCommentsVisitor`](#withSimpleCommentsVisitor) and [`withCommentsVisitor`](#withCommentsVisitor)
       - Each import, visited by [`withSimpleImportVisitor`](#withSimpleImportVisitor) and [`withImportVisitor`](#withImportVisitor)
       - The list of declarations, visited by [`withDeclarationListVisitor`](#withDeclarationListVisitor)
-      - Each declaration, visited by [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) and [`withDeclarationVisitor`](#withDeclarationVisitor).
+      - Each declaration, visited by [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor), [`withDeclarationVisitorOnEnter`](#withDeclarationVisitorOnEnter) and [`withDeclarationVisitorOnExit`](#withDeclarationVisitorOnExit).
         Before evaluating the next declaration, the expression contained in the declaration
-        will be visited recursively by [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) and [`withExpressionVisitor`](#withExpressionVisitor)
+        will be visited recursively by [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor), [`withExpressionVisitorOnEnter`](#withExpressionVisitorOnEnter) and [`withExpressionVisitorOnExit`](#withExpressionVisitorOnExit)
       - A final evaluation is made when the module has fully been visited, using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation)
 
 Evaluating/visiting a node means two things:
@@ -174,8 +178,12 @@ Evaluating/visiting a node means two things:
 
 ## Builder functions with context
 
-@docs withModuleDefinitionVisitor, withCommentsVisitor, withImportVisitor, Direction, withDeclarationVisitor, withDeclarationVisitorOnEnter, withDeclarationVisitorOnExit, withDeclarationListVisitor
-@docs withExpressionVisitor, withExpressionVisitorOnEnter, withExpressionVisitorOnExit, withFinalModuleEvaluation
+@docs withModuleDefinitionVisitor
+@docs withCommentsVisitor
+@docs withImportVisitor
+@docs Direction, withDeclarationVisitorOnEnter, withDeclarationVisitorOnExit, withDeclarationVisitor, withDeclarationListVisitor
+@docs withExpressionVisitorOnEnter, withExpressionVisitorOnExit, withExpressionVisitor
+@docs withFinalModuleEvaluation
 
 
 ## Builder functions to analyze the project's data
@@ -519,7 +527,7 @@ compared internally, which [may cause Elm to crash](https://package.elm-lang.org
 
 If you do need information from other parts of the module, then you should specify
 an initial context, and I recommend using "with\*" functions without "Simple" in
-their name, like [`withExpressionVisitor`](#withExpressionVisitor),
+their name, like [`withExpressionVisitorOnEnter`](#withExpressionVisitorOnEnter),
 [`withImportVisitor`](#withImportVisitor) or [`withFinalModuleEvaluation`](#withFinalModuleEvaluation).
 
     import Review.Rule as Rule exposing (Rule)
@@ -527,7 +535,7 @@ their name, like [`withExpressionVisitor`](#withExpressionVisitor),
     rule : Rule
     rule =
         Rule.newModuleRuleSchema "NoUnusedVariables" initialContext
-            |> Rule.withExpressionVisitor expressionVisitor
+            |> Rule.withExpressionVisitorOnEnter expressionVisitor
             |> Rule.withImportVisitor importVisitor
             |> Rule.fromModuleRuleSchema
 
@@ -2008,8 +2016,8 @@ annotation.
             _ ->
                 []
 
-Note: `withSimpleDeclarationVisitor` is a simplified version of [`withDeclarationVisitor`](#withDeclarationVisitor),
-which isn't passed a [`Direction`](#Direction) (it will only be called `OnEnter`ing the node) and a `context` and doesn't return a context. You can use `withSimpleDeclarationVisitor` even if you use "non-simple with\*" functions.
+Note: `withSimpleDeclarationVisitor` is a simplified version of [`withDeclarationVisitorOnEnter`](#withDeclarationVisitorOnEnter),
+which isn't passed a `context` and doesn't return one either. You can use `withSimpleDeclarationVisitor` even if you use "non-simple with\*" functions.
 
 -}
 withSimpleDeclarationVisitor : (Node Declaration -> List (Error {})) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
@@ -2055,8 +2063,8 @@ The following example forbids using the Debug module.
             _ ->
                 []
 
-Note: `withSimpleExpressionVisitor` is a simplified version of [`withExpressionVisitor`](#withExpressionVisitor),
-which isn't passed a [`Direction`](#Direction) (it will only be called `OnEnter`ing the node) and a `context` and doesn't return a context. You can use `withSimpleExpressionVisitor` even if you use "non-simple with\*" functions.
+Note: `withSimpleExpressionVisitor` is a simplified version of [`withExpressionVisitorOnEnter`](#withExpressionVisitorOnEnter),
+which isn't passed a `context` and doesn't return one either. You can use `withSimpleExpressionVisitor` even if you use "non-simple with\*" functions.
 
 -}
 withSimpleExpressionVisitor : (Node Expression -> List (Error {})) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
@@ -2066,102 +2074,6 @@ withSimpleExpressionVisitor visitor schema =
         schema
 
 
-{-| TODO Have this explanation somewhere.
-Adds an initial `context` to start collecting data during your traversal.
-
-In some cases, you can't just report a pattern when you see it, but you want to
-not report or report differently depending on information located in a different
-part of the module. In that case, you collect data as the nodes in the module get
-traversed and store it in what we'll call a `context`. This `context` will be
-available and updated by non-"simple" "with\*" functions, like
-[`withExpressionVisitor`](#withExpressionVisitor) or [`withImportVisitor`](#withImportVisitor).
-
-Once the module has been traversed and you have collected all the data available
-from the module, you can report some final errors using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation).
-
-A few use examples:
-
-  - You want to report the use of `Debug.log`: and if you see a call using a `log`
-    function, you need to check whether `log` was defined in the module, or imported
-    using `import Debug exposing (log)` or `import Debug exposing (..)`.
-  - You wish to report unused variables, so you need to register the declared and
-    imported variables, and note when they get used.
-  - You noticed plenty of bad or inconsistent uses of the `Html.button` function,
-    so you built a nice `Button` module. You now want to forbid all uses of
-    `Html.button`, except in the `Button` module ([`See simplified example`](#withModuleDefinitionVisitor)).
-
-The `context` you choose needs to be of the same type for all visitors. In practice,
-it is similar to a `Model` for a rule.
-
-The following example forbids calling `Rule.newModuleRuleSchema` with a name that is not
-the same as the module's name (forbidding `Rule.newModuleRuleSchema "OtherRuleName"` when the
-module name is `RuleName`).
-
-    import Elm.Syntax.Expression as Expression exposing (Expression)
-    import Elm.Syntax.Module as Module exposing (Module)
-    import Elm.Syntax.Node as Node exposing (Node)
-    import Review.Rule as Rule exposing (Direction, Error, Rule)
-
-    type alias Context =
-        -- Contains the module name's last part
-        Maybe String
-
-    rule : Rule
-    rule =
-        Rule.newModuleRuleSchema "NoDifferentNameForRuleAndModuleName" Nothing
-            |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-            |> Rule.withExpressionVisitor expressionVisitor
-            |> Rule.fromModuleRuleSchema
-
-    moduleDefinitionVisitor : Node Module -> Context -> ( List (Error {}), Context )
-    moduleDefinitionVisitor node context =
-        let
-            moduleLastName : Maybe String
-            moduleLastName =
-                node
-                    |> Node.value
-                    |> Module.moduleName
-                    |> List.reverse
-                    |> List.head
-        in
-        ( [], moduleLastName )
-
-    expressionVisitor : Node Expression -> Direction -> Context -> ( List (Error {}), Context )
-    expressionVisitor node direction context =
-        case ( direction, Node.value node ) of
-            ( Rule.OnEnter, Expression.Application (function :: ruleNameNode :: _) ) ->
-                case ( Node.value function, Node.value ruleNameNode ) of
-                    ( Expression.FunctionOrValue [ "Rule" ] "newModuleRuleSchema", Expression.Literal ruleName ) ->
-                        if Just ruleName /= context then
-                            let
-                                suggestedName : String
-                                suggestedName =
-                                    case context of
-                                        Just name ->
-                                            " (`" ++ name ++ "`)"
-
-                                        Nothing ->
-                                            ""
-                            in
-                            ( [ Rule.error
-                                    { message = "Rule name should be the same as the module name" ++ suggestedName
-                                    , details = [ "This makes it easier to find the documentation for a rule or to find the rule in the configuration." ]
-                                    }
-                                    (Node.range ruleNameNode)
-                              ]
-                            , context
-                            )
-
-                        else
-                            ( [], context )
-
-                    _ ->
-                        ( [], context )
-
-            _ ->
-                ( [], context )
-
--}
 emptySchema : String -> moduleContext -> ModuleRuleSchema schemaState moduleContext
 emptySchema name_ initialContext =
     ModuleRuleSchema
@@ -2433,7 +2345,14 @@ withImportVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | importVisitors = visitor :: schema.importVisitors }
 
 
-{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
+{-| **DEPRECATED**
+
+Use [`withDeclarationVisitorOnEnter`](#withDeclarationVisitorOnEnter) and [`withDeclarationVisitorOnExit`](#withDeclarationVisitorOnExit) instead.
+In the next major version, this function will be removed and [`withDeclarationVisitorOnEnter`](#withDeclarationVisitorOnEnter) will be renamed to `withDeclarationVisitor`.
+
+**/DEPRECATED**
+
+Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
 [declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Declaration)
 (`someVar = add 1 2`, `type Bool = True | False`, `port output : Json.Encode.Value -> Cmd msg`),
 collect data and/or report patterns. The declarations will be visited in the order of their definition.
@@ -2533,7 +2452,89 @@ withDeclarationVisitor visitor (ModuleRuleSchema schema) =
         }
 
 
-{-| TODO
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
+[declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Declaration)
+(`someVar = add 1 2`, `type Bool = True | False`, `port output : Json.Encode.Value -> Cmd msg`),
+collect data and/or report patterns. The declarations will be visited in the order of their definition.
+
+The following example forbids exposing a function or a value without it having a
+type annotation.
+
+    import Elm.Syntax.Declaration as Declaration exposing (Declaration)
+    import Elm.Syntax.Exposing as Exposing
+    import Elm.Syntax.Module as Module exposing (Module)
+    import Elm.Syntax.Node as Node exposing (Node)
+    import Review.Rule as Rule exposing (Error, Rule)
+
+    type ExposedFunctions
+        = All
+        | OnlySome (List String)
+
+    rule : Rule
+    rule =
+        Rule.newModuleRuleSchema "NoMissingDocumentationForExposedFunctions" (OnlySome [])
+            |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
+            |> Rule.withDeclarationVisitorOnEnter declarationVisitor
+            |> Rule.fromModuleRuleSchema
+
+    moduleDefinitionVisitor : Node Module -> ExposedFunctions -> ( List (Error {}), ExposedFunctions )
+    moduleDefinitionVisitor node context =
+        case Node.value node |> Module.exposingList of
+            Exposing.All _ ->
+                ( [], All )
+
+            Exposing.Explicit exposedValues ->
+                ( [], OnlySome (List.filterMap exposedFunctionName exposedValues) )
+
+    exposedFunctionName : Node Exposing.TopLevelExpose -> Maybe String
+    exposedFunctionName value =
+        case Node.value value of
+            Exposing.FunctionExpose functionName ->
+                Just functionName
+
+            _ ->
+                Nothing
+
+    declarationVisitor : Node Declaration -> ExposedFunctions -> ( List (Error {}), ExposedFunctions )
+    declarationVisitor node direction context =
+        case Node.value node of
+            Declaration.FunctionDeclaration { documentation, declaration } ->
+                let
+                    functionName : String
+                    functionName =
+                        Node.value declaration |> .name |> Node.value
+                in
+                if documentation == Nothing && isExposed context functionName then
+                    ( [ Rule.error
+                            { message = "Exposed function " ++ functionName ++ " is missing a type annotation"
+                            , details =
+                                [ "Type annotations are very helpful for people who use the module. It can give a lot of information without having to read the contents of the function."
+                                , "To add a type annotation, add a line like `" functionName ++ " : ()`, and replace the `()` by the type of the function. If you don't replace `()`, the compiler should give you a suggestion of what the type should be."
+                                ]
+                            }
+                            (Node.range node)
+                      ]
+                    , context
+                    )
+
+                else
+                    ( [], context )
+
+            _ ->
+                ( [], context )
+
+    isExposed : ExposedFunctions -> String -> Bool
+    isExposed exposedFunctions name =
+        case exposedFunctions of
+            All ->
+                True
+
+            OnlySome exposedList ->
+                List.member name exposedList
+
+Tip: If you do not need to collect or use the `context` in this visitor, you may wish to use the
+simpler [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) function.
+
 -}
 withDeclarationVisitorOnEnter : (Node Declaration -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withDeclarationVisitorOnEnter visitor (ModuleRuleSchema schema) =
@@ -2566,7 +2567,14 @@ withDeclarationListVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | declarationListVisitors = visitor :: schema.declarationListVisitors }
 
 
-{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
+{-| **DEPRECATED**
+
+Use [`withExpressionVisitorOnEnter`](#withExpressionVisitorOnEnter) and [`withExpressionVisitorOnExit`](#withExpressionVisitorOnExit) instead.
+In the next major version, this function will be removed and [`withExpressionVisitorOnEnter`](#withExpressionVisitorOnEnter) will be renamed to `withExpressionVisitor`.
+
+**/DEPRECATED**
+
+Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
 [expressions](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Expression)
 (`1`, `True`, `add 1 2`, `1 + 2`), collect data in the `context` and/or report patterns.
 The expressions are visited in pre-order depth-first search, meaning that an
