@@ -287,9 +287,9 @@ type ModuleRuleSchema schemaState moduleContext
         , elmJsonVisitors : List (Maybe Elm.Project.Project -> moduleContext -> moduleContext)
         , readmeVisitors : List (Maybe String -> moduleContext -> moduleContext)
         , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
-        , moduleDefinitionVisitors : List (Node Module -> moduleContext -> ( List (Error {}), moduleContext ))
+        , moduleDefinitionVisitors : List (Visitor Module moduleContext)
         , commentsVisitors : List (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
-        , importVisitors : List (Node Import -> moduleContext -> ( List (Error {}), moduleContext ))
+        , importVisitors : List (Visitor Import moduleContext)
         , declarationListVisitors : List (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
         , declarationVisitorsOnEnter : List (Visitor Declaration moduleContext)
         , declarationVisitorsOnExit : List (Visitor Declaration moduleContext)
@@ -301,16 +301,6 @@ type ModuleRuleSchema schemaState moduleContext
 
 type alias Visitor nodeType context =
     Node nodeType -> context -> ( List (Error {}), context )
-
-
-type alias DirectedVisitor nodeType context =
-    Node nodeType -> Direction -> context -> ( List (Error {}), context )
-
-
-type alias InAndOut visitor =
-    { onEnter : List visitor
-    , onExit : List visitor
-    }
 
 
 
@@ -579,7 +569,9 @@ reverseVisitors (ModuleRuleSchema schema) =
             , moduleDefinitionVisitors = List.reverse schema.moduleDefinitionVisitors
             , commentsVisitors = List.reverse schema.commentsVisitors
             , importVisitors = List.reverse schema.importVisitors
+            , declarationVisitorsOnEnter = List.reverse schema.declarationVisitorsOnEnter
             , declarationListVisitors = List.reverse schema.declarationListVisitors
+            , expressionVisitorsOnEnter = List.reverse schema.expressionVisitorsOnEnter
             , finalEvaluationFns = List.reverse schema.finalEvaluationFns
         }
 
@@ -757,38 +749,17 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) maybePreviousCache
     )
 
 
-computeErrors : ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> moduleContext -> ProjectModule -> List (Error {})
-computeErrors (ModuleRuleSchema schema) initialContext =
-    let
-        declarationVisitors : InAndOut (Visitor Declaration moduleContext)
-        declarationVisitors =
-            { onEnter = List.reverse schema.declarationVisitorsOnEnter
-            , onExit = schema.declarationVisitorsOnExit
-            }
-
-        expressionVisitors : InAndOut (Visitor Expression moduleContext)
-        expressionVisitors =
-            { onEnter = List.reverse schema.expressionVisitorsOnEnter
-            , onExit = schema.expressionVisitorsOnExit
-            }
-    in
-    \module_ ->
-        ( [], initialContext )
-            |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors module_.ast.moduleDefinition
-            |> accumulateWithListOfVisitors schema.commentsVisitors module_.ast.comments
-            |> accumulateList (visitImport schema.importVisitors) module_.ast.imports
-            |> accumulateWithListOfVisitors schema.declarationListVisitors module_.ast.declarations
-            |> accumulateList (visitDeclaration declarationVisitors expressionVisitors) module_.ast.declarations
-            |> makeFinalEvaluation schema.finalEvaluationFns
-            |> List.map (setRuleName schema.name >> setFilePathIfUnset module_)
-            |> List.reverse
-
-
-inAndOut : List (DirectedVisitor nodeType context) -> InAndOut (DirectedVisitor nodeType context)
-inAndOut visitors =
-    { onEnter = List.reverse visitors
-    , onExit = visitors
-    }
+computeErrors : ModuleRuleSchema schemaState moduleContext -> moduleContext -> ProjectModule -> List (Error {})
+computeErrors ((ModuleRuleSchema schema) as moduleVisitor) initialContext module_ =
+    ( [], initialContext )
+        |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors module_.ast.moduleDefinition
+        |> accumulateWithListOfVisitors schema.commentsVisitors module_.ast.comments
+        |> accumulateList (visitImport schema.importVisitors) module_.ast.imports
+        |> accumulateWithListOfVisitors schema.declarationListVisitors module_.ast.declarations
+        |> accumulateList (visitDeclaration moduleVisitor) module_.ast.declarations
+        |> makeFinalEvaluation schema.finalEvaluationFns
+        |> List.map (setRuleName schema.name >> setFilePathIfUnset module_)
+        |> List.reverse
 
 
 accumulateContext : List (element -> context -> context) -> element -> context -> context
@@ -1801,28 +1772,14 @@ noImportedModulesHaveANewContext importedModules invalidatedModules =
 
 
 visitModuleForProjectRule : ModuleRuleSchema a moduleContext -> moduleContext -> ProjectModule -> ( List (Error {}), moduleContext )
-visitModuleForProjectRule (ModuleRuleSchema schema) =
-    let
-        declarationVisitors : InAndOut (Visitor Declaration moduleContext)
-        declarationVisitors =
-            { onEnter = List.reverse schema.declarationVisitorsOnEnter
-            , onExit = schema.declarationVisitorsOnExit
-            }
-
-        expressionVisitors : InAndOut (Visitor Expression moduleContext)
-        expressionVisitors =
-            { onEnter = List.reverse schema.expressionVisitorsOnEnter
-            , onExit = schema.expressionVisitorsOnExit
-            }
-    in
-    \initialContext module_ ->
-        ( [], initialContext )
-            |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors module_.ast.moduleDefinition
-            |> accumulateWithListOfVisitors schema.commentsVisitors module_.ast.comments
-            |> accumulateList (visitImport schema.importVisitors) module_.ast.imports
-            |> accumulateWithListOfVisitors schema.declarationListVisitors module_.ast.declarations
-            |> accumulateList (visitDeclaration declarationVisitors expressionVisitors) module_.ast.declarations
-            |> (\( errors, moduleContext ) -> ( makeFinalEvaluation schema.finalEvaluationFns ( errors, moduleContext ), moduleContext ))
+visitModuleForProjectRule ((ModuleRuleSchema schema) as moduleVisitor) initialContext module_ =
+    ( [], initialContext )
+        |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors module_.ast.moduleDefinition
+        |> accumulateWithListOfVisitors schema.commentsVisitors module_.ast.comments
+        |> accumulateList (visitImport schema.importVisitors) module_.ast.imports
+        |> accumulateWithListOfVisitors schema.declarationListVisitors module_.ast.declarations
+        |> accumulateList (visitDeclaration moduleVisitor) module_.ast.declarations
+        |> (\( errors, moduleContext ) -> ( makeFinalEvaluation schema.finalEvaluationFns ( errors, moduleContext ), moduleContext ))
 
 
 getModuleName : ProjectModule -> ModuleName
@@ -2057,15 +2014,8 @@ which isn't passed a [`Direction`](#Direction) (it will only be called `OnEnter`
 -}
 withSimpleDeclarationVisitor : (Node Declaration -> List (Error {})) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withSimpleDeclarationVisitor visitor schema =
-    withDeclarationVisitor
-        (\node direction moduleContext ->
-            case direction of
-                OnEnter ->
-                    ( visitor node, moduleContext )
-
-                OnExit ->
-                    ( [], moduleContext )
-        )
+    withDeclarationVisitorOnEnter
+        (\node moduleContext -> ( visitor node, moduleContext ))
         schema
 
 
@@ -2111,15 +2061,8 @@ which isn't passed a [`Direction`](#Direction) (it will only be called `OnEnter`
 -}
 withSimpleExpressionVisitor : (Node Expression -> List (Error {})) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withSimpleExpressionVisitor visitor schema =
-    withExpressionVisitor
-        (\node direction moduleContext ->
-            case direction of
-                OnEnter ->
-                    ( visitor node, moduleContext )
-
-                OnExit ->
-                    ( [], moduleContext )
-        )
+    withExpressionVisitorOnEnter
+        (\node moduleContext -> ( visitor node, moduleContext ))
         schema
 
 
@@ -3396,50 +3339,25 @@ visitImport importVisitors node moduleContext =
 
 
 visitDeclaration :
-    InAndOut (Visitor Declaration moduleContext)
-    -> InAndOut (Visitor Expression moduleContext)
+    ModuleRuleSchema schemaState moduleContext
     -> Node Declaration
     -> moduleContext
     -> ( List (Error {}), moduleContext )
-visitDeclaration declarationVisitors expressionVisitors node moduleContext =
-    let
-        accumulateExpressionNodes : ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
-        accumulateExpressionNodes =
-            if List.isEmpty expressionVisitors.onEnter then
-                identity
-
-            else
-                accumulateList
-                    (visitExpression expressionVisitors)
-                    (expressionsInDeclaration node)
-    in
+visitDeclaration (ModuleRuleSchema schema) node moduleContext =
     ( [], moduleContext )
-        |> visitNodeWithListOfVisitors declarationVisitors.onEnter node
-        |> accumulateExpressionNodes
-        |> visitNodeWithListOfVisitors declarationVisitors.onExit node
+        |> visitNodeWithListOfVisitors schema.declarationVisitorsOnEnter node
+        |> accumulateList (visitExpression schema.expressionVisitorsOnEnter schema.expressionVisitorsOnExit) (expressionsInDeclaration node)
+        |> visitNodeWithListOfVisitors schema.declarationVisitorsOnExit node
 
 
 visitNodeWithListOfVisitors :
-    List (Node a -> moduleContext -> ( List (Error {}), moduleContext ))
-    -> Node a
+    List (Visitor nodeType moduleContext)
+    -> Node nodeType
     -> ( List (Error {}), moduleContext )
     -> ( List (Error {}), moduleContext )
 visitNodeWithListOfVisitors visitors node initialErrorsAndContext =
     List.foldl
         (\visitor -> accumulate (visitor node))
-        initialErrorsAndContext
-        visitors
-
-
-visitNodeWithListOfVisitorsAndDirection :
-    Direction
-    -> List (Node a -> Direction -> moduleContext -> ( List (Error {}), moduleContext ))
-    -> Node a
-    -> ( List (Error {}), moduleContext )
-    -> ( List (Error {}), moduleContext )
-visitNodeWithListOfVisitorsAndDirection direction visitors node initialErrorsAndContext =
-    List.foldl
-        (\visitor -> accumulate (visitor node direction))
         initialErrorsAndContext
         visitors
 
@@ -3479,15 +3397,16 @@ expressionsInDeclaration node =
 
 
 visitExpression :
-    InAndOut (Visitor Expression moduleContext)
+    List (Visitor Expression moduleContext)
+    -> List (Visitor Expression moduleContext)
     -> Node Expression
     -> moduleContext
     -> ( List (Error {}), moduleContext )
-visitExpression visitors node moduleContext =
+visitExpression onEnter onExit node moduleContext =
     ( [], moduleContext )
-        |> visitNodeWithListOfVisitors visitors.onEnter node
-        |> accumulateList (visitExpression visitors) (expressionChildren node)
-        |> visitNodeWithListOfVisitors visitors.onExit node
+        |> visitNodeWithListOfVisitors onEnter node
+        |> accumulateList (visitExpression onEnter onExit) (expressionChildren node)
+        |> visitNodeWithListOfVisitors onExit node
 
 
 expressionChildren : Node Expression -> List (Node Expression)
