@@ -2,7 +2,7 @@ module MiscRules.NoHtmlButton exposing (rule)
 
 import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Node as Node exposing (Node)
-import Review.Rule as Rule exposing (Direction, Error, Rule)
+import Review.Rule as Rule exposing (Error, Rule)
 import Scope
 
 
@@ -11,7 +11,7 @@ rule =
     Rule.newModuleRuleSchema "NoHtmlButton" initialContext
         -- Scope.addModuleVisitors should be added before your own visitors
         |> Scope.addModuleVisitors
-        |> Rule.withExpressionVisitor expressionVisitor
+        |> Rule.withExpressionVisitorOnEnter expressionVisitor
         |> Rule.fromModuleRuleSchema
         |> Rule.ignoreErrorsForFiles [ "src/Button.elm" ]
 
@@ -28,10 +28,10 @@ initialContext =
     }
 
 
-expressionVisitor : Node Expression -> Direction -> Context -> ( List (Error {}), Context )
-expressionVisitor node direction context =
-    case ( direction, Node.value node ) of
-        ( Rule.OnEnter, FunctionOrValue moduleName "button" ) ->
+expressionVisitor : Node Expression -> Context -> ( List (Error {}), Context )
+expressionVisitor node context =
+    case Node.value node of
+        FunctionOrValue moduleName "button" ->
             if Scope.moduleNameForValue context.scope "button" moduleName == [ "Html" ] then
                 ( [ Rule.error
                         { message = "Do not use `Html.button` directly"

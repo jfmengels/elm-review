@@ -15,8 +15,7 @@ import Elm.Syntax.Exposing exposing (Exposing(..), TopLevelExpose(..))
 import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Module as Module exposing (Module(..))
 import Elm.Syntax.Node as Node exposing (Node)
-import Elm.Syntax.TypeAnnotation exposing (TypeAnnotation(..))
-import Review.Rule as Rule exposing (Direction, Error, Rule)
+import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
 
@@ -74,8 +73,8 @@ rule : Rule
 rule =
     Rule.newModuleRuleSchema "NoUnusedTypeConstructors" initialContext
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-        |> Rule.withDeclarationVisitor declarationVisitor
-        |> Rule.withExpressionVisitor expressionVisitor
+        |> Rule.withDeclarationVisitorOnEnter declarationVisitor
+        |> Rule.withExpressionVisitorOnEnter expressionVisitor
         |> Rule.withFinalModuleEvaluation finalEvaluation
         |> Rule.fromModuleRuleSchema
 
@@ -140,10 +139,10 @@ moduleDefinitionVisitor moduleNode context =
             )
 
 
-declarationVisitor : Node Declaration -> Direction -> Context -> ( List nothing, Context )
-declarationVisitor node direction context =
-    case ( direction, Node.value node ) of
-        ( Rule.OnEnter, CustomTypeDeclaration { name, constructors } ) ->
+declarationVisitor : Node Declaration -> Context -> ( List nothing, Context )
+declarationVisitor node context =
+    case Node.value node of
+        CustomTypeDeclaration { name, constructors } ->
             if Set.member (Node.value name) context.exposedCustomTypesWithConstructors then
                 ( [], context )
 
@@ -175,14 +174,14 @@ declarationVisitor node direction context =
             ( [], context )
 
 
-expressionVisitor : Node Expression -> Direction -> Context -> ( List nothing, Context )
-expressionVisitor node direction context =
+expressionVisitor : Node Expression -> Context -> ( List nothing, Context )
+expressionVisitor node context =
     if context.exposesEverything then
         ( [], context )
 
     else
-        case ( direction, Node.value node ) of
-            ( Rule.OnEnter, FunctionOrValue [] name ) ->
+        case Node.value node of
+            FunctionOrValue [] name ->
                 ( [], { context | usedFunctionOrValues = Set.insert name context.usedFunctionOrValues } )
 
             _ ->

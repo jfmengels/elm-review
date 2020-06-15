@@ -21,7 +21,7 @@ import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import NoUnused.NonemptyList as NonemptyList exposing (Nonempty)
 import Review.Fix as Fix exposing (Fix)
-import Review.Rule as Rule exposing (Direction, Error, Rule)
+import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
 
@@ -56,8 +56,9 @@ rule =
     Rule.newModuleRuleSchema "NoUnused.Variables" initialContext
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withImportVisitor importVisitor
-        |> Rule.withDeclarationVisitor declarationVisitor
-        |> Rule.withExpressionVisitor expressionVisitor
+        |> Rule.withDeclarationVisitorOnEnter declarationVisitor
+        |> Rule.withExpressionVisitorOnEnter expressionVisitorOnEnter
+        |> Rule.withExpressionVisitorOnExit expressionVisitorOnExit
         |> Rule.withFinalModuleEvaluation finalEvaluation
         |> Rule.fromModuleRuleSchema
 
@@ -337,22 +338,22 @@ moduleAliasRange (Node _ { moduleName }) range =
     { range | start = (Node.range moduleName).end }
 
 
-expressionVisitor : Node Expression -> Direction -> Context -> ( List (Error {}), Context )
-expressionVisitor (Node range value) direction context =
-    case ( direction, value ) of
-        ( Rule.OnEnter, Expression.FunctionOrValue [] name ) ->
+expressionVisitorOnEnter : Node Expression -> Context -> ( List (Error {}), Context )
+expressionVisitorOnEnter (Node range value) context =
+    case value of
+        Expression.FunctionOrValue [] name ->
             ( [], markAsUsed name context )
 
-        ( Rule.OnEnter, Expression.FunctionOrValue moduleName name ) ->
+        Expression.FunctionOrValue moduleName name ->
             ( [], markModuleAsUsed (getModuleName moduleName) context )
 
-        ( Rule.OnEnter, Expression.OperatorApplication name _ _ _ ) ->
+        Expression.OperatorApplication name _ _ _ ->
             ( [], markAsUsed name context )
 
-        ( Rule.OnEnter, Expression.PrefixOperator name ) ->
+        Expression.PrefixOperator name ->
             ( [], markAsUsed name context )
 
-        ( Rule.OnEnter, Expression.LetExpression { declarations, expression } ) ->
+        Expression.LetExpression { declarations, expression } ->
             let
                 letBlockContext : LetBlockContext
                 letBlockContext =
@@ -389,7 +390,7 @@ expressionVisitor (Node range value) direction context =
             in
             ( [], newContext )
 
-        ( Rule.OnEnter, Expression.LambdaExpression { args } ) ->
+        Expression.LambdaExpression { args } ->
             let
                 namesUsedInArgumentPatterns : { types : List String, modules : List String }
                 namesUsedInArgumentPatterns =
@@ -399,10 +400,17 @@ expressionVisitor (Node range value) direction context =
             in
             ( [], markUsedTypesAndModules namesUsedInArgumentPatterns context )
 
-        ( Rule.OnExit, Expression.RecordUpdateExpression expr _ ) ->
+        _ ->
+            ( [], context )
+
+
+expressionVisitorOnExit : Node Expression -> Context -> ( List (Error {}), Context )
+expressionVisitorOnExit (Node _ value) context =
+    case value of
+        Expression.RecordUpdateExpression expr _ ->
             ( [], markAsUsed (Node.value expr) context )
 
-        ( Rule.OnExit, Expression.CaseExpression { cases } ) ->
+        Expression.CaseExpression { cases } ->
             let
                 usedVariables : { types : List String, modules : List String }
                 usedVariables =
@@ -417,7 +425,7 @@ expressionVisitor (Node range value) direction context =
             , markUsedTypesAndModules usedVariables context
             )
 
-        ( Rule.OnExit, Expression.LetExpression _ ) ->
+        Expression.LetExpression _ ->
             let
                 ( errors, remainingUsed ) =
                     makeReport (NonemptyList.head context.scopes)
@@ -548,10 +556,10 @@ getUsedModulesFromPattern patternNode =
             getUsedModulesFromPattern pattern
 
 
-declarationVisitor : Node Declaration -> Direction -> Context -> ( List nothing, Context )
-declarationVisitor node direction context =
-    case ( direction, Node.value node ) of
-        ( Rule.OnEnter, Declaration.FunctionDeclaration function ) ->
+declarationVisitor : Node Declaration -> Context -> ( List nothing, Context )
+declarationVisitor node context =
+    case Node.value node of
+        Declaration.FunctionDeclaration function ->
             let
                 functionImplementation : FunctionImplementation
                 functionImplementation =
@@ -585,7 +593,7 @@ declarationVisitor node direction context =
             in
             ( [], newContext )
 
-        ( Rule.OnEnter, Declaration.CustomTypeDeclaration { name, documentation, constructors } ) ->
+        Declaration.CustomTypeDeclaration { name, documentation, constructors } ->
             let
                 variablesFromConstructorArguments : { types : List String, modules : List String }
                 variablesFromConstructorArguments =
@@ -616,7 +624,7 @@ declarationVisitor node direction context =
                 |> markUsedTypesAndModules variablesFromConstructorArguments
             )
 
-        ( Rule.OnEnter, Declaration.AliasDeclaration { name, typeAnnotation, documentation } ) ->
+        Declaration.AliasDeclaration { name, typeAnnotation, documentation } ->
             let
                 namesUsedInTypeAnnotation : { types : List String, modules : List String }
                 namesUsedInTypeAnnotation =
@@ -633,7 +641,7 @@ declarationVisitor node direction context =
                 |> markUsedTypesAndModules namesUsedInTypeAnnotation
             )
 
-        ( Rule.OnEnter, Declaration.PortDeclaration { name, typeAnnotation } ) ->
+        Declaration.PortDeclaration { name, typeAnnotation } ->
             let
                 namesUsedInTypeAnnotation : { types : List String, modules : List String }
                 namesUsedInTypeAnnotation =
@@ -650,13 +658,10 @@ declarationVisitor node direction context =
                     (Node.value name)
             )
 
-        ( Rule.OnEnter, Declaration.InfixDeclaration _ ) ->
+        Declaration.InfixDeclaration _ ->
             ( [], context )
 
-        ( Rule.OnEnter, Declaration.Destructuring _ _ ) ->
-            ( [], context )
-
-        ( Rule.OnExit, _ ) ->
+        Declaration.Destructuring _ _ ->
             ( [], context )
 
 
