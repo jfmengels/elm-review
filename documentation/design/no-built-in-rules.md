@@ -14,7 +14,7 @@ to decide carefully whether or not to enable it. `elm-review` will just provide
 the tools to do so.
 
 If there are no core rules, then there are also no technical distinctions
-between then and package rules. They all have access to the same tools, and
+between them and package rules. They all have access to the same tools, and
 there is no rule that can do more than an other could.
 
 A benefit of this, is that `elm-review` will not need to have a major version
