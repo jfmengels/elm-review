@@ -5,7 +5,7 @@ module Review.Rule exposing
     , withModuleDefinitionVisitor
     , withCommentsVisitor
     , withImportVisitor
-    , Direction(..), withDeclarationVisitorOnEnter, withDeclarationVisitorOnExit, withDeclarationVisitor, withDeclarationListVisitor
+    , Direction(..), withDeclarationEnterVisitor, withDeclarationExitVisitor, withDeclarationVisitor, withDeclarationListVisitor
     , withExpressionEnterVisitor, withExpressionExitVisitor, withExpressionVisitor
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
@@ -156,7 +156,7 @@ The traversal of a module rule is the following:
       - The module's list of comments, visited by [`withSimpleCommentsVisitor`](#withSimpleCommentsVisitor) and [`withCommentsVisitor`](#withCommentsVisitor)
       - Each import, visited by [`withSimpleImportVisitor`](#withSimpleImportVisitor) and [`withImportVisitor`](#withImportVisitor)
       - The list of declarations, visited by [`withDeclarationListVisitor`](#withDeclarationListVisitor)
-      - Each declaration, visited by [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor), [`withDeclarationVisitorOnEnter`](#withDeclarationVisitorOnEnter) and [`withDeclarationVisitorOnExit`](#withDeclarationVisitorOnExit).
+      - Each declaration, visited by [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor), [`withDeclarationEnterVisitor`](#withDeclarationEnterVisitor) and [`withDeclarationExitVisitor`](#withDeclarationExitVisitor).
         Before evaluating the next declaration, the expression contained in the declaration
         will be visited recursively by [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor), [`withExpressionEnterVisitor`](#withExpressionEnterVisitor) and [`withExpressionExitVisitor`](#withExpressionExitVisitor)
       - A final evaluation is made when the module has fully been visited, using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation)
@@ -181,7 +181,7 @@ Evaluating/visiting a node means two things:
 @docs withModuleDefinitionVisitor
 @docs withCommentsVisitor
 @docs withImportVisitor
-@docs Direction, withDeclarationVisitorOnEnter, withDeclarationVisitorOnExit, withDeclarationVisitor, withDeclarationListVisitor
+@docs Direction, withDeclarationEnterVisitor, withDeclarationExitVisitor, withDeclarationVisitor, withDeclarationListVisitor
 @docs withExpressionEnterVisitor, withExpressionExitVisitor, withExpressionVisitor
 @docs withFinalModuleEvaluation
 
@@ -463,7 +463,19 @@ duplicateModuleNames visitedModules projectModules =
                         }
 
 
-{-| Represents whether a node is being traversed before having seen its children (`OnEnter`ing the node), or after (`OnExit`ing the node).
+{-| **DEPRECATED**
+
+This is used in [`withDeclarationVisitor`](#withDeclarationVisitor) and [`withDeclarationVisitor`](#withDeclarationVisitor),
+which are deprecated and will be removed in the next major version. This type will be removed along with them.
+
+To replicate the same behavior, take a look at
+
+  - [`withDeclarationEnterVisitor`](#withDeclarationEnterVisitor) and [`withDeclarationExitVisitor`](#withDeclarationExitVisitor).
+  - [`withExpressionEnterVisitor`](#withExpressionEnterVisitor) and [`withExpressionExitVisitor`](#withExpressionExitVisitor).
+
+**/DEPRECATED**
+
+Represents whether a node is being traversed before having seen its children (`OnEnter`ing the node), or after (`OnExit`ing the node).
 
 When visiting the AST, declaration and expression nodes are visited twice: once
 with `OnEnter`, before the children of the node are visited, and once with
@@ -2016,13 +2028,13 @@ annotation.
             _ ->
                 []
 
-Note: `withSimpleDeclarationVisitor` is a simplified version of [`withDeclarationVisitorOnEnter`](#withDeclarationVisitorOnEnter),
+Note: `withSimpleDeclarationVisitor` is a simplified version of [`withDeclarationEnterVisitor`](#withDeclarationEnterVisitor),
 which isn't passed a `context` and doesn't return one either. You can use `withSimpleDeclarationVisitor` even if you use "non-simple with\*" functions.
 
 -}
 withSimpleDeclarationVisitor : (Node Declaration -> List (Error {})) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withSimpleDeclarationVisitor visitor schema =
-    withDeclarationVisitorOnEnter
+    withDeclarationEnterVisitor
         (\node moduleContext -> ( visitor node, moduleContext ))
         schema
 
@@ -2347,8 +2359,8 @@ withImportVisitor visitor (ModuleRuleSchema schema) =
 
 {-| **DEPRECATED**
 
-Use [`withDeclarationVisitorOnEnter`](#withDeclarationVisitorOnEnter) and [`withDeclarationVisitorOnExit`](#withDeclarationVisitorOnExit) instead.
-In the next major version, this function will be removed and [`withDeclarationVisitorOnEnter`](#withDeclarationVisitorOnEnter) will be renamed to `withDeclarationVisitor`.
+Use [`withDeclarationEnterVisitor`](#withDeclarationEnterVisitor) and [`withDeclarationExitVisitor`](#withDeclarationExitVisitor) instead.
+In the next major version, this function will be removed and [`withDeclarationEnterVisitor`](#withDeclarationEnterVisitor) will be renamed to `withDeclarationVisitor`.
 
 **/DEPRECATED**
 
@@ -2474,7 +2486,7 @@ type annotation.
     rule =
         Rule.newModuleRuleSchema "NoMissingDocumentationForExposedFunctions" (OnlySome [])
             |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-            |> Rule.withDeclarationVisitorOnEnter declarationVisitor
+            |> Rule.withDeclarationEnterVisitor declarationVisitor
             |> Rule.fromModuleRuleSchema
 
     moduleDefinitionVisitor : Node Module -> ExposedFunctions -> ( List (Error {}), ExposedFunctions )
@@ -2536,15 +2548,15 @@ Tip: If you do not need to collect or use the `context` in this visitor, you may
 simpler [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) function.
 
 -}
-withDeclarationVisitorOnEnter : (Node Declaration -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withDeclarationVisitorOnEnter visitor (ModuleRuleSchema schema) =
+withDeclarationEnterVisitor : (Node Declaration -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withDeclarationEnterVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | declarationVisitorsOnEnter = visitor :: schema.declarationVisitorsOnEnter }
 
 
 {-| TODO
 -}
-withDeclarationVisitorOnExit : (Node Declaration -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withDeclarationVisitorOnExit visitor (ModuleRuleSchema schema) =
+withDeclarationExitVisitor : (Node Declaration -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withDeclarationExitVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | declarationVisitorsOnExit = visitor :: schema.declarationVisitorsOnExit }
 
 
