@@ -74,7 +74,7 @@ rule =
     Rule.newModuleRuleSchema "NoUnusedTypeConstructors" initialContext
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withDeclarationVisitorOnEnter declarationVisitor
-        |> Rule.withExpressionVisitorOnEnter expressionVisitor
+        |> Rule.withExpressionEnterVisitor expressionVisitor
         |> Rule.withFinalModuleEvaluation finalEvaluation
         |> Rule.fromModuleRuleSchema
 

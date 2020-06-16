@@ -6,7 +6,7 @@ module Review.Rule exposing
     , withCommentsVisitor
     , withImportVisitor
     , Direction(..), withDeclarationVisitorOnEnter, withDeclarationVisitorOnExit, withDeclarationVisitor, withDeclarationListVisitor
-    , withExpressionVisitorOnEnter, withExpressionVisitorOnExit, withExpressionVisitor
+    , withExpressionEnterVisitor, withExpressionExitVisitor, withExpressionVisitor
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
@@ -158,7 +158,7 @@ The traversal of a module rule is the following:
       - The list of declarations, visited by [`withDeclarationListVisitor`](#withDeclarationListVisitor)
       - Each declaration, visited by [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor), [`withDeclarationVisitorOnEnter`](#withDeclarationVisitorOnEnter) and [`withDeclarationVisitorOnExit`](#withDeclarationVisitorOnExit).
         Before evaluating the next declaration, the expression contained in the declaration
-        will be visited recursively by [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor), [`withExpressionVisitorOnEnter`](#withExpressionVisitorOnEnter) and [`withExpressionVisitorOnExit`](#withExpressionVisitorOnExit)
+        will be visited recursively by [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor), [`withExpressionEnterVisitor`](#withExpressionEnterVisitor) and [`withExpressionExitVisitor`](#withExpressionExitVisitor)
       - A final evaluation is made when the module has fully been visited, using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation)
 
 Evaluating/visiting a node means two things:
@@ -182,7 +182,7 @@ Evaluating/visiting a node means two things:
 @docs withCommentsVisitor
 @docs withImportVisitor
 @docs Direction, withDeclarationVisitorOnEnter, withDeclarationVisitorOnExit, withDeclarationVisitor, withDeclarationListVisitor
-@docs withExpressionVisitorOnEnter, withExpressionVisitorOnExit, withExpressionVisitor
+@docs withExpressionEnterVisitor, withExpressionExitVisitor, withExpressionVisitor
 @docs withFinalModuleEvaluation
 
 
@@ -527,7 +527,7 @@ compared internally, which [may cause Elm to crash](https://package.elm-lang.org
 
 If you do need information from other parts of the module, then you should specify
 an initial context, and I recommend using "with\*" functions without "Simple" in
-their name, like [`withExpressionVisitorOnEnter`](#withExpressionVisitorOnEnter),
+their name, like [`withExpressionEnterVisitor`](#withExpressionEnterVisitor),
 [`withImportVisitor`](#withImportVisitor) or [`withFinalModuleEvaluation`](#withFinalModuleEvaluation).
 
     import Review.Rule as Rule exposing (Rule)
@@ -535,7 +535,7 @@ their name, like [`withExpressionVisitorOnEnter`](#withExpressionVisitorOnEnter)
     rule : Rule
     rule =
         Rule.newModuleRuleSchema "NoUnusedVariables" initialContext
-            |> Rule.withExpressionVisitorOnEnter expressionVisitor
+            |> Rule.withExpressionEnterVisitor expressionVisitor
             |> Rule.withImportVisitor importVisitor
             |> Rule.fromModuleRuleSchema
 
@@ -2063,13 +2063,13 @@ The following example forbids using the Debug module.
             _ ->
                 []
 
-Note: `withSimpleExpressionVisitor` is a simplified version of [`withExpressionVisitorOnEnter`](#withExpressionVisitorOnEnter),
+Note: `withSimpleExpressionVisitor` is a simplified version of [`withExpressionEnterVisitor`](#withExpressionEnterVisitor),
 which isn't passed a `context` and doesn't return one either. You can use `withSimpleExpressionVisitor` even if you use "non-simple with\*" functions.
 
 -}
 withSimpleExpressionVisitor : (Node Expression -> List (Error {})) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withSimpleExpressionVisitor visitor schema =
-    withExpressionVisitorOnEnter
+    withExpressionEnterVisitor
         (\node moduleContext -> ( visitor node, moduleContext ))
         schema
 
@@ -2569,8 +2569,8 @@ withDeclarationListVisitor visitor (ModuleRuleSchema schema) =
 
 {-| **DEPRECATED**
 
-Use [`withExpressionVisitorOnEnter`](#withExpressionVisitorOnEnter) and [`withExpressionVisitorOnExit`](#withExpressionVisitorOnExit) instead.
-In the next major version, this function will be removed and [`withExpressionVisitorOnEnter`](#withExpressionVisitorOnEnter) will be renamed to `withExpressionVisitor`.
+Use [`withExpressionEnterVisitor`](#withExpressionEnterVisitor) and [`withExpressionExitVisitor`](#withExpressionExitVisitor) instead.
+In the next major version, this function will be removed and [`withExpressionEnterVisitor`](#withExpressionEnterVisitor) will be renamed to `withExpressionVisitor`.
 
 **/DEPRECATED**
 
@@ -2696,7 +2696,7 @@ The following example forbids the use of `Debug.log` even when it is imported li
     rule =
         Rule.newModuleRuleSchema "NoDebugEvenIfImported" DebugLogWasNotImported
             |> Rule.withImportVisitor importVisitor
-            |> Rule.withExpressionVisitorOnEnter expressionVisitor
+            |> Rule.withExpressionEnterVisitor expressionVisitor
             |> Rule.fromModuleRuleSchema
 
     importVisitor : Node Import -> Context -> ( List (Error {}), Context )
@@ -2750,15 +2750,15 @@ Tip: If you do not need to collect or use the `context` in this visitor, you may
 simpler [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) function.
 
 -}
-withExpressionVisitorOnEnter : (Node Expression -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withExpressionVisitorOnEnter visitor (ModuleRuleSchema schema) =
+withExpressionEnterVisitor : (Node Expression -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withExpressionEnterVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | expressionVisitorsOnEnter = visitor :: schema.expressionVisitorsOnEnter }
 
 
 {-| TODO
 -}
-withExpressionVisitorOnExit : (Node Expression -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withExpressionVisitorOnExit visitor (ModuleRuleSchema schema) =
+withExpressionExitVisitor : (Node Expression -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withExpressionExitVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | expressionVisitorsOnExit = visitor :: schema.expressionVisitorsOnExit }
 
 

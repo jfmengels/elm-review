@@ -11,7 +11,7 @@ rule =
     Rule.newModuleRuleSchema "NoHtmlButton" initialContext
         -- Scope.addModuleVisitors should be added before your own visitors
         |> Scope.addModuleVisitors
-        |> Rule.withExpressionVisitorOnEnter expressionVisitor
+        |> Rule.withExpressionEnterVisitor expressionVisitor
         |> Rule.fromModuleRuleSchema
         |> Rule.ignoreErrorsForFiles [ "src/Button.elm" ]
 
