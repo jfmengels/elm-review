@@ -316,16 +316,11 @@ positionAsInt { row, column } =
 
 comparePosition : { row : Int, column : Int } -> { row : Int, column : Int } -> Order
 comparePosition a b =
-    let
-        order : Order
-        order =
-            compare a.row b.row
-    in
-    case order of
+    case compare a.row b.row of
         EQ ->
             compare a.column b.column
 
-        _ ->
+        order ->
             order
 
 
