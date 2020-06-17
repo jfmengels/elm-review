@@ -3633,3 +3633,52 @@ accumulate visitor ( previousErrors, previousContext ) =
             visitor previousContext
     in
     ( newErrors ++ previousErrors, newContext )
+
+
+
+--type ModuleRuleSchema2 schemaState function moduleContext
+--    = Schema2 (ModuleRuleSchemaInternal schemaState moduleContext) (Maybe (AvailableData -> function))
+--
+--
+--type ModuleRuleSchemaInternal a b
+--    = ModuleRuleSchemaInternal String
+--
+--
+--new : String -> ModuleRuleSchema2 {} moduleContext moduleContext
+--new name =
+--    Schema2 (ModuleRuleSchemaInternal name) Nothing
+--
+--
+--withInitialContext : initFunction -> ModuleRuleSchema2 schemaState initFunction moduleContext -> ModuleRuleSchema2 { schemaState | hasInitialContext : () } initFunction moduleContext
+--withInitialContext initFunction (Schema2 (ModuleRuleSchemaInternal internal) _) =
+--    Schema2 (ModuleRuleSchemaInternal internal) (Just initFunction)
+--
+--
+--type alias AvailableData =
+--    { lookupTable : LookupTable
+--    }
+--
+--
+--type Metadata
+--    = Metadata
+--
+--
+--type LookupTable
+--    = LookupTable
+--
+--
+--withLookupTable : ModuleRuleSchema2 schemaState initFunction moduleContext -> ModuleRuleSchema2 schemaState (LookupTable -> initFunction) moduleContext
+--withLookupTable (Schema2 underlying initFunction) =
+--    Schema2 underlying (\availableData -> initFunction availableData.lookupTable)
+--
+--
+--rule : {
+--    init : init
+--    , visitors: ...
+-- }
+--
+--init : Rule.Context Context
+--init =
+--    Context.succeed (\metadata scope -> {})
+--        |> Context.withMetadata
+--        |> Context.withScope
