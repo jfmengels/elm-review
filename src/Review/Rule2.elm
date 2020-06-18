@@ -254,6 +254,7 @@ import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range as Range exposing (Range)
+import Review.Context exposing (Context)
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix exposing (Fix)
@@ -828,7 +829,15 @@ type ModuleVisitor projectContext moduleContext
     | IsPrepared
         { visitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
         , moduleContext : ModuleContextFunctions projectContext moduleContext
+        , newModuleContext : Maybe (NewModuleContext projectContext moduleContext)
         }
+
+
+type alias NewModuleContext projectContext moduleContext =
+    { fromProjectToModule : Context projectContext moduleContext
+    , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
+    , foldProjectContexts : projectContext -> projectContext -> projectContext
+    }
 
 
 type alias ModuleContextFunctions projectContext moduleContext =
@@ -1217,7 +1226,15 @@ withModuleContext moduleContext (ProjectRuleSchema schema) =
                 IsPrepared _ ->
                     []
     in
-    ProjectRuleSchema { schema | moduleVisitor = IsPrepared { visitors = visitors, moduleContext = moduleContext } }
+    ProjectRuleSchema
+        { schema
+            | moduleVisitor =
+                IsPrepared
+                    { visitors = visitors
+                    , moduleContext = moduleContext
+                    , newModuleContext = Nothing
+                    }
+        }
 
 
 {-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will visit the project's
@@ -1374,6 +1391,7 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) maybePreviousCache 
             Maybe
                 { visitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
                 , moduleContext : ModuleContextFunctions projectContext moduleContext
+                , newModuleContext : Maybe (NewModuleContext projectContext moduleContext)
                 }
         moduleVisitors =
             case schema.moduleVisitor of
@@ -1594,6 +1612,7 @@ computeModules :
     ->
         { visitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
         , moduleContext : ModuleContextFunctions projectContext moduleContext
+        , newModuleContext : Maybe (NewModuleContext projectContext moduleContext)
         }
     -> Project
     -> projectContext
