@@ -1,8 +1,8 @@
-module NoLeftPizza exposing (rule)
+module NoLeftPizza exposing (rule, Strictness(..))
 
 {-|
 
-@docs rule
+@docs rule, Strictness
 
 -}
 
@@ -16,6 +16,18 @@ import Review.Fix as Fix
 import Review.Rule as Rule exposing (Direction, Error, Rule)
 
 
+{-| Specify how strict the rule should be.
+
+Specifying `Any` means that _any_ use of `<|` will be flagged, whereas
+`Redundant` limits it to cases where `<|` can be removed - without adding any
+parenthesis - without changing the semantics.
+
+-}
+type Strictness
+    = Any
+    | Redundant
+
+
 {-| Forbids using the left pizza operator (<|) in infix position.
 
 Expressions like `foo <| "hello" ++ world` will be flagged, and a fix will be
@@ -23,27 +35,27 @@ proposed to write the expression to `foo ("hello" ++ world)`.
 
 To use this rule, add it to your `elm-review` config like so:
 
-    module ReviewConfig exposing (config)
-
     import NoLeftPizza
     import Review.Rule exposing (Rule)
 
     config : List Rule
     config =
-        [ NoLeftPizza.rule
+        [ NoLeftPizza.rule NoLeftPizza.Any
         ]
+
+The above configuration results in absolutely any use of `<|` being flagged. If
+you'd prefer only flagging redundant usage (such as `foo <| bar`), pass
+`NoLeftPizza.Redundant` as the configuration option.
 
 If you would prefer to keep writing tests in the more "traditional" style which
 uses `<|`, you can disable the rule for `tests/` like so:
 
-    module ReviewConfig exposing (config)
-
     import NoLeftPizza
     import Review.Rule exposing (Rule)
 
     config : List Rule
     config =
-        [ NoLeftPizza.rule
+        [ NoLeftPizza.rule NoLeftPizza.Any
             |> Rule.ignoreErrorsForDirectories
                 [ -- Test functions are traditionally built up using a left pizza.
                   -- While we don't want them in our regular code, let's allow them
@@ -52,172 +64,114 @@ uses `<|`, you can disable the rule for `tests/` like so:
                 ]
         ]
 
+Or pass `NoLeftPizza.Redundant` which will only apply to redundant usage:
+
+    import NoLeftPizza
+    import Review.Rule exposing (Rule)
+
+    config : List Rule
+    config =
+        [ NoLeftPizza.rule NoLeftPizza.Redundant
+        ]
+
 -}
-rule : Rule
-rule =
-    Rule.newModuleRuleSchema "NoLeftPizza" emptyContext
-        |> Rule.withDeclarationVisitor declarationVisitor
-        |> Rule.withExpressionVisitor expressionVisitor
+rule : Strictness -> Rule
+rule strictness =
+    Rule.newModuleRuleSchema "NoLeftPizza" strictness
+        |> Rule.withSimpleExpressionVisitor (expressionVisitor strictness)
         |> Rule.fromModuleRuleSchema
 
 
-type alias Context =
-    { pizzaExpression : Maybe PizzaExpression
-    }
+expressionVisitor : Strictness -> Node Expression -> List (Error {})
+expressionVisitor strictness node =
+    case Node.value node of
+        Expression.OperatorApplication "<|" _ left right ->
+            case makeError strictness node left right of
+                Just error ->
+                    [ error ]
+
+                Nothing ->
+                    []
+
+        _ ->
+            []
 
 
-type alias PizzaExpression =
-    { node : Node Expression
-    , left : Node Expression
-    , right : Node Expression
-    }
+makeError : Strictness -> Node Expression -> Node Expression -> Node Expression -> Maybe (Error {})
+makeError strictness node left right =
+    case ( strictness, isSimpleExpression right ) of
+        ( Any, False ) ->
+            Just (produceError strictness node left (parenthesized right))
+
+        ( Redundant, False ) ->
+            Nothing
+
+        _ ->
+            Just (produceError strictness node left right)
 
 
-emptyContext : Context
-emptyContext =
-    { pizzaExpression = Nothing
-    }
-
-
-declarationVisitor : Node Declaration -> Direction -> Context -> ( List (Error {}), Context )
-declarationVisitor _ direction context =
-    case direction of
-        Rule.OnEnter ->
-            ( [], emptyContext )
-
-        Rule.OnExit ->
-            ( buildErrors context, emptyContext )
-
-
-expressionVisitor : Node Expression -> Direction -> Context -> ( List (Error {}), Context )
-expressionVisitor node direction context =
-    case ( direction, Node.value node ) of
-        ( Rule.OnExit, Expression.OperatorApplication "<|" _ left right ) ->
-            ( buildErrors context
-            , { emptyContext
-                | pizzaExpression =
-                    Just
-                        { left = left
-                        , right = right
-                        , node = node
-                        }
-              }
-            )
-
-        ( Rule.OnExit, Expression.OperatorApplication op dir left right ) ->
-            case context.pizzaExpression of
-                Just pizza ->
-                    if Node.value left == Node.value pizza.node then
-                        ( [], extendPizza op dir right node pizza )
-
-                    else
-                        ( buildErrors context, emptyContext )
-
-                _ ->
-                    ( [], context )
-
-        ( _, _ ) ->
-            ( [], context )
-
-
-extendPizza :
-    String
-    -> InfixDirection
-    -> Node Expression
-    -> Node Expression
-    -> PizzaExpression
-    -> Context
-extendPizza op dir right current pizza =
-    let
-        rightNode =
-            Node.Node
-                (Range.combine [ Node.range pizza.right, Node.range right ])
-                (Expression.OperatorApplication op dir pizza.right right)
-
-        newPizza =
-            { left = pizza.left
-            , right = rightNode
-            , node = current
-            }
-    in
-    { pizzaExpression = Just newPizza }
-
-
-buildErrors : Context -> List (Error {})
-buildErrors { pizzaExpression } =
-    pizzaExpression
-        |> Maybe.map (makeError >> List.singleton)
-        |> Maybe.withDefault []
-
-
-makeError : PizzaExpression -> Error {}
-makeError pizza =
-    Rule.errorWithFix
-        { message = "That's a left pizza (<|) operator application there!"
-        , details =
-            [ "We prefer using either parenthesized function application like `Html.text (context.translate Foo.Bar)` or right pizza's like `foo |> bar`."
-            , "The proposed fix rewrites the expression to a simple parenthesized expression, however, this may not always be what you want. Use your best judgement!"
-            ]
-        }
-        (Node.range pizza.node)
-        [ Fix.replaceRangeBy (Node.range pizza.node)
-            (NoLeftPizzaUtil.expressionToString (Node.range pizza.node)
-                (Expression.Application
-                    [ pizza.left
-                    , parenthesize pizza.right
-                    ]
-                )
+produceError : Strictness -> Node Expression -> Node Expression -> Node Expression -> Error {}
+produceError strictness node left right =
+    Rule.errorWithFix (infoFor strictness)
+        (Node.range node)
+        [ Fix.replaceRangeBy (Node.range node)
+            (NoLeftPizzaUtil.expressionToString (Node.range node)
+                (Expression.Application [ left, right ])
             )
         ]
 
 
-parenthesize : Node Expression -> Node Expression
-parenthesize ((Node.Node range value) as node) =
-    case value of
-        Expression.UnitExpr ->
-            node
+infoFor : Strictness -> { message : String, details : List String }
+infoFor strictness =
+    case strictness of
+        Any ->
+            { message = "That's a left pizza (<|) operator application there!"
+            , details =
+                [ "We prefer using either parenthesized function application like `Html.text (context.translate Foo.Bar)` or right pizza's like `foo |> bar`."
+                , "The proposed fix rewrites the expression to a simple parenthesized expression, however, this may not always be what you want. Use your best judgement!"
+                ]
+            }
 
-        Expression.FunctionOrValue _ _ ->
-            node
+        Redundant ->
+            { message = "Redundant left pizza (<|) operator application"
+            , details =
+                [ "This left pizza operator can be removed without any further changes, without changing the semantics of your code."
+                , "Using `<|` like this adds visual noise to code that can make it harder to read."
+                ]
+            }
+
+
+parenthesized : Node Expression -> Node Expression
+parenthesized ((Node.Node range _) as node) =
+    Node.Node range (Expression.ParenthesizedExpression node)
+
+
+isSimpleExpression : Node Expression -> Bool
+isSimpleExpression (Node.Node _ expr) =
+    case expr of
+        Expression.Application _ ->
+            False
+
+        Expression.OperatorApplication _ _ _ _ ->
+            False
+
+        Expression.IfBlock _ _ _ ->
+            False
 
         Expression.Operator _ ->
-            node
+            False
 
-        Expression.Integer _ ->
-            node
+        Expression.LetExpression _ ->
+            False
 
-        Expression.Hex _ ->
-            node
+        Expression.CaseExpression _ ->
+            False
 
-        Expression.Floatable _ ->
-            node
+        Expression.LambdaExpression _ ->
+            False
 
-        Expression.Literal _ ->
-            node
-
-        Expression.CharLiteral _ ->
-            node
-
-        Expression.TupledExpression _ ->
-            node
-
-        Expression.ParenthesizedExpression _ ->
-            node
-
-        Expression.RecordExpr _ ->
-            node
-
-        Expression.ListExpr _ ->
-            node
-
-        Expression.RecordAccess _ _ ->
-            node
-
-        Expression.RecordAccessFunction _ ->
-            node
-
-        Expression.RecordUpdateExpression _ _ ->
-            node
+        Expression.GLSLExpression _ ->
+            False
 
         _ ->
-            Node.Node range (Expression.ParenthesizedExpression node)
+            True
