@@ -19,17 +19,19 @@ type ProjectRuleSchema schemaState projectContext moduleContext
         { name : String
         , projectContextCreator : ProjectContextCreator projectContext
 
+        -- TODO add moduleVisitor or implement rule logic
         --, moduleVisitor : ModuleVisitorState projectContext moduleContext
         , elmJsonVisitors : List ({ elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
         , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
         , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
         , finalEvaluationFns : List (projectContext -> List (Error {}))
 
+        -- Define this at the same time as the module visitor?
         --, traversalType : TraversalType
         }
 
 
-newProjectSchema : String -> ProjectContextCreator projectContext -> ProjectRuleSchema schemaState projectContext moduleContext
+newProjectSchema : String -> ProjectContextCreator projectContext -> ProjectRuleSchema {} projectContext moduleContext
 newProjectSchema name projectContextCreator =
     ProjectRuleSchema
         { name = name
@@ -48,7 +50,7 @@ newProjectSchema name projectContextCreator =
 withElmJsonVisitor :
     ({ elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
     -> ProjectRuleSchema schemaState projectContext moduleContext
-    -> ProjectRuleSchema schemaState projectContext moduleContext
+    -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
 withElmJsonVisitor visitor (ProjectRuleSchema projectRuleSchema) =
     -- BREAKING CHANGE, elm.json is now
     ProjectRuleSchema { projectRuleSchema | elmJsonVisitors = visitor :: projectRuleSchema.elmJsonVisitors }
@@ -57,7 +59,7 @@ withElmJsonVisitor visitor (ProjectRuleSchema projectRuleSchema) =
 withReadmeVisitor :
     (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
     -> ProjectRuleSchema schemaState projectContext moduleContext
-    -> ProjectRuleSchema schemaState projectContext moduleContext
+    -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
 withReadmeVisitor visitor (ProjectRuleSchema projectRuleSchema) =
     ProjectRuleSchema { projectRuleSchema | readmeVisitors = visitor :: projectRuleSchema.readmeVisitors }
 
@@ -65,7 +67,7 @@ withReadmeVisitor visitor (ProjectRuleSchema projectRuleSchema) =
 withDependenciesVisitor :
     (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     -> ProjectRuleSchema schemaState projectContext moduleContext
-    -> ProjectRuleSchema schemaState projectContext moduleContext
+    -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
 withDependenciesVisitor visitor (ProjectRuleSchema projectRuleSchema) =
     ProjectRuleSchema { projectRuleSchema | dependenciesVisitors = visitor :: projectRuleSchema.dependenciesVisitors }
 
@@ -73,11 +75,11 @@ withDependenciesVisitor visitor (ProjectRuleSchema projectRuleSchema) =
 withFinalProjectEvaluation :
     (projectContext -> List (Error {}))
     -> ProjectRuleSchema schemaState projectContext moduleContext
-    -> ProjectRuleSchema schemaState projectContext moduleContext
+    -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
 withFinalProjectEvaluation visitor (ProjectRuleSchema projectRuleSchema) =
     ProjectRuleSchema { projectRuleSchema | finalEvaluationFns = visitor :: projectRuleSchema.finalEvaluationFns }
 
 
-fromProjectSchema : ProjectRuleSchema schemaState projectContext moduleContext -> Rule
+fromProjectSchema : ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext -> Rule
 fromProjectSchema (ProjectRuleSchema projectRuleSchema) =
     Rule
