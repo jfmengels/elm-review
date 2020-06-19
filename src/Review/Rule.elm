@@ -485,22 +485,25 @@ where you'll want to visit a [`Node`](https://package.elm-lang.org/packages/stil
 after having seen its children.
 
 For instance, if you are trying to detect the unused variables defined inside
-of a `let in` expression, you will want to collect the declaration of variables,
+of a let expression, you will want to collect the declaration of variables,
 note which ones are used, and at the end of the block report the ones that weren't used.
 
-    expressionVisitor : Context -> Direction -> Node Expression -> ( List (Error {}), Context )
-    expressionVisitor context direction node =
-        case ( direction, node ) of
+    expressionVisitor : Node Expression -> Direction -> Context -> ( List (Error {}), Context )
+    expressionVisitor node direction context =
+        case ( direction, Node.value node ) of
             ( Rule.OnEnter, Expression.FunctionOrValue moduleName name ) ->
                 ( [], markVariableAsUsed context name )
 
-            -- Find variables declared in `let in` expression
-            ( Rule.OnEnter, LetExpression letBlock ) ->
+            -- Find variables declared in let expression
+            ( Rule.OnEnter, Expression.LetExpression letBlock ) ->
                 ( [], registerVariables context letBlock )
 
-            -- When exiting the `let in expression, report the variables that were not used.
-            ( Rule.OnExit, LetExpression _ ) ->
+            -- When exiting the let expression, report the variables that were not used.
+            ( Rule.OnExit, Expression.LetExpression _ ) ->
                 ( unusedVariables context |> List.map createError, context )
+
+            _ ->
+                ( [], context )
 
 -}
 type Direction
@@ -2553,7 +2556,46 @@ withDeclarationEnterVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | declarationVisitorsOnEnter = visitor :: schema.declarationVisitorsOnEnter }
 
 
-{-| TODO
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
+[declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Declaration)
+(`someVar = add 1 2`, `type Bool = True | False`, `port output : Json.Encode.Value -> Cmd msg`),
+collect data and/or report patterns. The declarations will be visited in the order of their definition.
+
+The following example reports unused parameters from top-level declarations.
+
+    import Elm.Syntax.Declaration as Declaration exposing (Declaration)
+    import Elm.Syntax.Expression as Expression exposing (Expression)
+    import Elm.Syntax.Node as Node exposing (Node)
+    import Review.Rule as Rule exposing (Direction, Error, Rule)
+
+    rule : Rule
+    rule =
+        Rule.newModuleRuleSchema "NoDebugEvenIfImported" DebugLogWasNotImported
+            |> Rule.withDeclarationEnterVisitor declarationEnterVisitor
+            |> Rule.withDeclarationExitVisitor declarationExitVisitor
+            -- Omitted, but this marks parameters as used
+            |> Rule.withExpressionVisitor expressionVisitor
+            |> Rule.fromModuleRuleSchema
+
+    declarationEnterVisitor : Node Declaration -> fContext -> ( List (Error {}), Context )
+    declarationEnterVisitor node context =
+        case Node.value node of
+            Declaration.FunctionDeclaration function ->
+                ( [], registerArguments context function )
+
+            _ ->
+                ( [], context )
+
+    declarationExitVisitor : Node Declaration -> Context -> ( List (Error {}), Context )
+    declarationExitVisitor node context =
+        case Node.value node of
+            -- When exiting the function expression, report the parameters that were not used.
+            Declaration.FunctionDeclaration function ->
+                ( unusedParameters context |> List.map createError, removeArguments context )
+
+            _ ->
+                ( [], context )
+
 -}
 withDeclarationExitVisitor : (Node Declaration -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withDeclarationExitVisitor visitor (ModuleRuleSchema schema) =
@@ -2767,7 +2809,51 @@ withExpressionEnterVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | expressionVisitorsOnEnter = visitor :: schema.expressionVisitorsOnEnter }
 
 
-{-| TODO
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
+[expressions](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Expression)
+(`1`, `True`, `add 1 2`, `1 + 2`), collect data in the `context` and/or report patterns.
+The expressions are visited in pre-order depth-first search, meaning that an
+expression will be visited, then its first child, the first child's children
+(and so on), then the second child (and so on).
+
+Contrary to [`withExpressionEnterVisitor`](#withExpressionEnterVisitor), the
+visitor function will be called when the expression is "exited",
+meaning after its children are visited.
+
+    import Elm.Syntax.Expression as Expression exposing (Expression)
+    import Elm.Syntax.Node as Node exposing (Node)
+    import Review.Rule as Rule exposing (Direction, Error, Rule)
+
+    rule : Rule
+    rule =
+        Rule.newModuleRuleSchema "NoDebugEvenIfImported" DebugLogWasNotImported
+            |> Rule.withExpressionEnterVisitor expressionEnterVisitor
+            |> Rule.withExpressionExitVisitor expressionExitVisitor
+            |> Rule.fromModuleRuleSchema
+
+    expressionEnterVisitor : Node Expression -> fContext -> ( List (Error {}), Context )
+    expressionEnterVisitor node context =
+        case Node.value node of
+            Expression.FunctionOrValue moduleName name ->
+                ( [], markVariableAsUsed context name )
+
+            -- Find variables declared in let expression
+            Expression.LetExpression letBlock ->
+                ( [], registerVariables context letBlock )
+
+            _ ->
+                ( [], context )
+
+    expressionExitVisitor : Node Expression -> Context -> ( List (Error {}), Context )
+    expressionExitVisitor node context =
+        case Node.value node of
+            -- When exiting the let expression, report the variables that were not used.
+            Expression.LetExpression _ ->
+                ( unusedVariables context |> List.map createError, removeVariables context )
+
+            _ ->
+                ( [], context )
+
 -}
 withExpressionExitVisitor : (Node Expression -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withExpressionExitVisitor visitor (ModuleRuleSchema schema) =
