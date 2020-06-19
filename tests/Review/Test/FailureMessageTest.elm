@@ -821,8 +821,8 @@ fixedCodeMismatchTest =
     test "fixedCodeMismatch" <|
         \() ->
             let
-                sourceCode : String
-                sourceCode =
+                fixedSourceCode : String
+                fixedSourceCode =
                     """module A exposing (b)
 abcd =
   1"""
@@ -842,7 +842,7 @@ abcd =
                         { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
             in
             FailureMessage.fixedCodeMismatch
-                sourceCode
+                fixedSourceCode
                 expectedSourceCode
                 error
                 |> expectMessageEqual """

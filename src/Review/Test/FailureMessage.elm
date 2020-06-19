@@ -388,7 +388,7 @@ but I was expecting:
 fixedCodeWhitespaceMismatch : SourceCode -> SourceCode -> ReviewError -> String
 fixedCodeWhitespaceMismatch resultingSourceCode expectedSourceCode error =
     let
-        ( resulting, expected ) =
+        ( expected, resulting ) =
             highlightDifferencesInSourceCodes resultingSourceCode expectedSourceCode
     in
     failureMessage "FIXED CODE MISMATCH (WHITESPACE ISSUE)"
