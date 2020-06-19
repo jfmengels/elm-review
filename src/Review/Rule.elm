@@ -1104,7 +1104,7 @@ but are unused in the rest of the project.
             -- Omitted, but this will collect the exposed functions
             |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
             -- Omitted, but this will collect uses of exported functions
-            |> Rule.withExpressionVisitor expressionVisitor
+            |> Rule.withExpressionEnterVisitor expressionVisitor
 
     type alias ProjectContext =
         { -- Modules exposed by the package, that we should not report
@@ -2223,7 +2223,7 @@ The example is simplified to only forbid the use of the `Html.button` expression
     rule =
         Rule.newModuleRuleSchema "NoHtmlButton" HtmlButtonIsForbidden
             |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-            |> Rule.withExpressionVisitor expressionVisitor
+            |> Rule.withExpressionEnterVisitor expressionVisitor
             |> Rule.fromModuleRuleSchema
 
     moduleDefinitionVisitor : Node Module -> Context -> ( List (Error {}), Context )
@@ -2234,13 +2234,13 @@ The example is simplified to only forbid the use of the `Html.button` expression
         else
             ( [], HtmlButtonIsForbidden )
 
-    expressionVisitor : Node Expression -> Direction -> Context -> ( List (Error {}), Context )
-    expressionVisitor node direction context =
-        case ( direction, context ) of
-            ( Rule.OnEnter, HtmlButtonIsAllowed ) ->
+    expressionVisitor : Node Expression -> Context -> ( List (Error {}), Context )
+    expressionVisitor node context =
+        case context of
+            HtmlButtonIsAllowed ->
                 ( [], context )
 
-            ( Rule.OnEnter, HtmlButtonIsForbidden ) ->
+            HtmlButtonIsForbidden ->
                 case Node.value node of
                     Expression.FunctionOrValue [ "Html" ] "button" ->
                         ( [ Rule.error
@@ -2255,7 +2255,7 @@ The example is simplified to only forbid the use of the `Html.button` expression
                     _ ->
                         ( [], context )
 
-            ( _, _ ) ->
+            _ ->
                 ( [], context )
 
 Tip: If you do not need to collect data in this visitor, you may wish to use the
@@ -2574,7 +2574,7 @@ The following example reports unused parameters from top-level declarations.
             |> Rule.withDeclarationEnterVisitor declarationEnterVisitor
             |> Rule.withDeclarationExitVisitor declarationExitVisitor
             -- Omitted, but this marks parameters as used
-            |> Rule.withExpressionVisitor expressionVisitor
+            |> Rule.withExpressionEnterVisitor expressionVisitor
             |> Rule.fromModuleRuleSchema
 
     declarationEnterVisitor : Node Declaration -> fContext -> ( List (Error {}), Context )
@@ -2612,7 +2612,7 @@ visitor used with this function is called before the visitor added with
 [withDeclarationVisitor](#withDeclarationVisitor). You can use this visitor in
 order to look ahead and add the module's types and variables into your context,
 before visiting the contents of the module using [withDeclarationVisitor](#withDeclarationVisitor)
-and [withExpressionVisitor](#withExpressionVisitor). Otherwise, using
+and [withExpressionEnterVisitor](#withExpressionEnterVisitor). Otherwise, using
 [withDeclarationVisitor](#withDeclarationVisitor) is probably a simpler choice.
 
 -}
@@ -3339,7 +3339,7 @@ forbids using `Debug.todo` anywhere in the code, except in tests.
     rule : Rule
     rule =
         Rule.newModuleRuleSchema "NoDebugEvenIfImported" DebugLogWasNotImported
-            |> Rule.withExpressionVisitor expressionVisitor
+            |> Rule.withSimpleExpressionVisitor expressionVisitor
             |> Rule.fromModuleRuleSchema
             |> Rule.ignoreErrorsForDirectories [ "tests/" ]
 

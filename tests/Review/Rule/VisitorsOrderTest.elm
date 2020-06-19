@@ -26,24 +26,10 @@ all =
                             |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ++ "\n3 - withModuleDefinitionVisitor" ))
                             |> Rule.withImportVisitor (\_ context -> ( [], context ++ "\n4 - withImportVisitor" ))
                             |> Rule.withDeclarationListVisitor (\_ context -> ( [], context ++ "\n5 - withDeclarationListVisitor" ))
-                            |> Rule.withDeclarationVisitor
-                                (\_ direction context ->
-                                    case direction of
-                                        Rule.OnEnter ->
-                                            ( [], context ++ "\n6 - withDeclarationVisitor (Enter)" )
-
-                                        Rule.OnExit ->
-                                            ( [], context ++ "\n9 - withDeclarationVisitor (Exit)" )
-                                )
-                            |> Rule.withExpressionVisitor
-                                (\_ direction context ->
-                                    case direction of
-                                        Rule.OnEnter ->
-                                            ( [], context ++ "\n7 - withExpressionVisitor (Enter)" )
-
-                                        Rule.OnExit ->
-                                            ( [], context ++ "\n8 - withExpressionVisitor (Exit)" )
-                                )
+                            |> Rule.withDeclarationEnterVisitor (\_ context -> ( [], context ++ "\n6 - withDeclarationEnterVisitor" ))
+                            |> Rule.withDeclarationExitVisitor (\_ context -> ( [], context ++ "\n9 - withDeclarationExitVisitor" ))
+                            |> Rule.withExpressionEnterVisitor (\_ context -> ( [], context ++ "\n7 - withExpressionEnterVisitor" ))
+                            |> Rule.withExpressionExitVisitor (\_ context -> ( [], context ++ "\n8 - withExpressionExitVisitor" ))
                             |> Rule.withFinalModuleEvaluation finalEvaluation
                             |> Rule.fromModuleRuleSchema
 
@@ -69,10 +55,10 @@ a = 1
 3 - withModuleDefinitionVisitor
 4 - withImportVisitor
 5 - withDeclarationListVisitor
-6 - withDeclarationVisitor (Enter)
-7 - withExpressionVisitor (Enter)
-8 - withExpressionVisitor (Exit)
-9 - withDeclarationVisitor (Exit)"""
+6 - withDeclarationEnterVisitor
+7 - withExpressionEnterVisitor
+8 - withExpressionExitVisitor
+9 - withDeclarationExitVisitor"""
                             , details = [ "details" ]
                             , under = "module"
                             }
