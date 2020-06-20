@@ -3643,10 +3643,10 @@ functionToExpression function =
 
 
 accumulateList : (Node a -> context -> ( List (Error {}), context )) -> List (Node a) -> ( List (Error {}), context ) -> ( List (Error {}), context )
-accumulateList visitor nodes ( previousErrors, previousContext ) =
+accumulateList visitor nodes initialErrorsAndContext =
     List.foldl
         (\node -> accumulate (visitor node))
-        ( previousErrors, previousContext )
+        initialErrorsAndContext
         nodes
 
 
