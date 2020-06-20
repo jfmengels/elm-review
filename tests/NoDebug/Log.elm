@@ -11,6 +11,7 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Node as Node exposing (Node)
 import Review.Rule as Rule exposing (Error, Rule)
+import Review.Rule3 as Rule3
 
 
 {-| Forbid the use of [`Debug.log`](https://package.elm-lang.org/packages/elm/core/latest/Debug) before it goes into production or fails in the CI.
@@ -54,10 +55,10 @@ do not ship to production.
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoDebugLog" { hasLogBeenImported = False }
-        |> Rule.withImportVisitor importVisitor
-        |> Rule.withExpressionVisitor expressionVisitor
-        |> Rule.fromModuleRuleSchema
+    Rule3.newModuleRuleSchema_New "NoDebugLog" { hasLogBeenImported = False }
+        |> Rule3.withImportVisitor_New importVisitor
+        |> Rule3.withExpressionVisitor_New expressionVisitor
+        |> Rule3.fromModuleRuleSchema_New
 
 
 type alias Context =

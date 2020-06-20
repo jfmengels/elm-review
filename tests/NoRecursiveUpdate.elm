@@ -10,6 +10,7 @@ import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)
 import Review.Rule as Rule exposing (Error, Rule)
+import Review.Rule3 as Rule3
 
 
 {-| Reports when the `update` function calls itself.
@@ -54,10 +55,10 @@ To add the rule to your configuration:
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoRecursiveUpdate" { isInUpdateFunction = False }
-        |> Rule.withDeclarationEnterVisitor declarationVisitor
-        |> Rule.withExpressionEnterVisitor expressionVisitor
-        |> Rule.fromModuleRuleSchema
+    Rule3.newModuleRuleSchema_New "NoRecursiveUpdate" { isInUpdateFunction = False }
+        |> Rule3.withDeclarationEnterVisitor_New declarationVisitor
+        |> Rule3.withExpressionEnterVisitor_New expressionVisitor
+        |> Rule3.fromModuleRuleSchema_New
 
 
 type alias Context =

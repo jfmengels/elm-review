@@ -12,6 +12,7 @@ module NoExtraBooleanComparison exposing (rule)
 import Elm.Syntax.Expression as Expression exposing (Expression(..))
 import Elm.Syntax.Node as Node exposing (Node)
 import Review.Rule as Rule exposing (Error, Rule)
+import Review.Rule3 as Rule3
 
 
 {-| Forbid the use of boolean comparisons that can be simplified.
@@ -62,9 +63,9 @@ You should not use this rule if you
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoExtraBooleanComparison" ()
-        |> Rule.withSimpleExpressionVisitor expressionVisitor
-        |> Rule.fromModuleRuleSchema
+    Rule3.newModuleRuleSchema_New "NoExtraBooleanComparison" ()
+        |> Rule3.withSimpleExpressionVisitor_New expressionVisitor
+        |> Rule3.fromModuleRuleSchema_New
 
 
 error : Node a -> String -> String -> Error {}

@@ -18,6 +18,7 @@ import Elm.Writer as Writer
 import NoUnused.Patterns.NameVisitor as NameVisitor
 import Review.Fix as Fix
 import Review.Rule as Rule exposing (Rule)
+import Review.Rule3 as Rule3
 import Set exposing (Set)
 
 
@@ -54,11 +55,11 @@ Value `something` is not used:
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoUnused.Patterns" initialContext
-        |> Rule.withExpressionEnterVisitor expressionEnterVisitor
-        |> Rule.withExpressionExitVisitor expressionExitVisitor
-        |> NameVisitor.withValueVisitor valueVisitor
-        |> Rule.fromModuleRuleSchema
+    Rule3.newModuleRuleSchema_New "NoUnused.Patterns" initialContext
+        |> Rule3.withExpressionEnterVisitor_New expressionEnterVisitor
+        |> Rule3.withExpressionExitVisitor_New expressionExitVisitor
+        |> NameVisitor.withValueVisitor_New valueVisitor
+        |> Rule3.fromModuleRuleSchema_New
 
 
 expressionEnterVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )

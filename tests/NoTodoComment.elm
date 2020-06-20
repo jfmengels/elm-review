@@ -3,13 +3,14 @@ module NoTodoComment exposing (rule)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Review.Rule as Rule exposing (Error, Rule)
+import Review.Rule3 as Rule3
 
 
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoTodoComment" ()
-        |> Rule.withSimpleCommentsVisitor commentsVisitor
-        |> Rule.fromModuleRuleSchema
+    Rule3.newModuleRuleSchema_New "NoTodoComment" ()
+        |> Rule3.withSimpleCommentsVisitor_New commentsVisitor
+        |> Rule3.fromModuleRuleSchema_New
 
 
 commentsVisitor : List (Node String) -> List (Error {})

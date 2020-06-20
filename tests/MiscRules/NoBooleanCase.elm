@@ -5,13 +5,14 @@ import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Pattern as Pattern
 import Elm.Syntax.Range exposing (Range)
 import Review.Rule as Rule exposing (Error, Rule)
+import Review.Rule3 as Rule3
 
 
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoBooleanCase" ()
-        |> Rule.withSimpleExpressionVisitor expressionVisitor
-        |> Rule.fromModuleRuleSchema
+    Rule3.newModuleRuleSchema_New "NoBooleanCase" ()
+        |> Rule3.withSimpleExpressionVisitor_New expressionVisitor
+        |> Rule3.fromModuleRuleSchema_New
 
 
 expressionVisitor : Node Expression -> List (Error {})

@@ -22,6 +22,7 @@ import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import NoUnused.NonemptyList as NonemptyList exposing (Nonempty)
 import Review.Fix as Fix exposing (Fix)
 import Review.Rule as Rule exposing (Error, Rule)
+import Review.Rule3 as Rule3
 import Set exposing (Set)
 
 
@@ -53,14 +54,14 @@ import Set exposing (Set)
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoUnused.Variables" initialContext
-        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-        |> Rule.withImportVisitor importVisitor
-        |> Rule.withDeclarationEnterVisitor declarationVisitor
-        |> Rule.withExpressionEnterVisitor expressionEnterVisitor
-        |> Rule.withExpressionExitVisitor expressionExitVisitor
-        |> Rule.withFinalModuleEvaluation finalEvaluation
-        |> Rule.fromModuleRuleSchema
+    Rule3.newModuleRuleSchema_New "NoUnused.Variables" initialContext
+        |> Rule3.withModuleDefinitionVisitor_New moduleDefinitionVisitor
+        |> Rule3.withImportVisitor_New importVisitor
+        |> Rule3.withDeclarationEnterVisitor_New declarationVisitor
+        |> Rule3.withExpressionEnterVisitor_New expressionEnterVisitor
+        |> Rule3.withExpressionExitVisitor_New expressionExitVisitor
+        |> Rule3.withFinalModuleEvaluation_New finalEvaluation
+        |> Rule3.fromModuleRuleSchema_New
 
 
 type alias Context =

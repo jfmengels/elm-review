@@ -11,6 +11,7 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Node as Node exposing (Node)
 import Review.Rule as Rule exposing (Error, Rule)
+import Review.Rule3 as Rule3
 
 
 {-| Forbid the use of [`Debug.todo`] and [`Debug.toString`].
@@ -75,10 +76,10 @@ can configure the rule like this.
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoDebug.TodoOrToString" init
-        |> Rule.withImportVisitor importVisitor
-        |> Rule.withExpressionVisitor expressionVisitor
-        |> Rule.fromModuleRuleSchema
+    Rule3.newModuleRuleSchema_New "NoDebug.TodoOrToString" init
+        |> Rule3.withImportVisitor_New importVisitor
+        |> Rule3.withExpressionVisitor_New expressionVisitor
+        |> Rule3.fromModuleRuleSchema_New
 
 
 type alias Context =

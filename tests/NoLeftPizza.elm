@@ -11,6 +11,7 @@ import Elm.Syntax.Node as Node exposing (Node)
 import NoLeftPizzaUtil
 import Review.Fix as Fix
 import Review.Rule as Rule exposing (Error, Rule)
+import Review.Rule3 as Rule3
 
 
 {-| Specify how strict the rule should be.
@@ -74,9 +75,9 @@ Or pass `NoLeftPizza.Redundant` which will only apply to redundant usage:
 -}
 rule : Strictness -> Rule
 rule strictness =
-    Rule.newModuleRuleSchema "NoLeftPizza" strictness
-        |> Rule.withSimpleExpressionVisitor (expressionVisitor strictness)
-        |> Rule.fromModuleRuleSchema
+    Rule3.newModuleRuleSchema_New "NoLeftPizza" strictness
+        |> Rule3.withSimpleExpressionVisitor_New (expressionVisitor strictness)
+        |> Rule3.fromModuleRuleSchema_New
 
 
 expressionVisitor : Strictness -> Node Expression -> List (Error {})

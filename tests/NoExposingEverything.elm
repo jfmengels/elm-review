@@ -10,6 +10,7 @@ import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.Node as Node exposing (Node)
 import Review.Rule as Rule exposing (Error, Rule)
+import Review.Rule3 as Rule3
 
 
 {-| Forbids exporting everything from a module.
@@ -43,9 +44,9 @@ in the following manner:
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoExposingEverything" ()
-        |> Rule.withSimpleModuleDefinitionVisitor moduleDefinitionVisitor
-        |> Rule.fromModuleRuleSchema
+    Rule3.newModuleRuleSchema_New "NoExposingEverything" ()
+        |> Rule3.withSimpleModuleDefinitionVisitor_New moduleDefinitionVisitor
+        |> Rule3.fromModuleRuleSchema_New
 
 
 moduleDefinitionVisitor : Node Module -> List (Error {})

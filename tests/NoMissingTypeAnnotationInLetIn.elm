@@ -9,6 +9,7 @@ module NoMissingTypeAnnotationInLetIn exposing (rule)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)
 import Review.Rule as Rule exposing (Error, Rule)
+import Review.Rule3 as Rule3
 
 
 {-| Reports `let in` declarations that do not have a type annotation.
@@ -50,9 +51,9 @@ For that, enable [`NoMissingTypeAnnotation`](./NoMissingTypeAnnotation).
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoMissingTypeAnnotationInLetIn" ()
-        |> Rule.withSimpleExpressionVisitor expressionVisitor
-        |> Rule.fromModuleRuleSchema
+    Rule3.newModuleRuleSchema_New "NoMissingTypeAnnotationInLetIn" ()
+        |> Rule3.withSimpleExpressionVisitor_New expressionVisitor
+        |> Rule3.fromModuleRuleSchema_New
 
 
 expressionVisitor : Node Expression -> List (Error {})

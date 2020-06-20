@@ -16,6 +16,7 @@ import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Module as Module exposing (Module(..))
 import Elm.Syntax.Node as Node exposing (Node)
 import Review.Rule as Rule exposing (Error, Rule)
+import Review.Rule3 as Rule3
 import Set exposing (Set)
 
 
@@ -71,12 +72,12 @@ in your editor, rather than when running your tests or [elm-xref](https://github
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoUnusedTypeConstructors" initialContext
-        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-        |> Rule.withDeclarationEnterVisitor declarationVisitor
-        |> Rule.withExpressionEnterVisitor expressionVisitor
-        |> Rule.withFinalModuleEvaluation finalEvaluation
-        |> Rule.fromModuleRuleSchema
+    Rule3.newModuleRuleSchema_New "NoUnusedTypeConstructors" initialContext
+        |> Rule3.withModuleDefinitionVisitor_New moduleDefinitionVisitor
+        |> Rule3.withDeclarationEnterVisitor_New declarationVisitor
+        |> Rule3.withExpressionEnterVisitor_New expressionVisitor
+        |> Rule3.withFinalModuleEvaluation_New finalEvaluation
+        |> Rule3.fromModuleRuleSchema_New
 
 
 type alias Context =
