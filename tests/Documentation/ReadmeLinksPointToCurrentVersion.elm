@@ -13,6 +13,7 @@ import Elm.Version
 import Regex exposing (Regex)
 import Review.Fix as Fix
 import Review.Rule as Rule exposing (Error, Rule)
+import Review.Rule3 as Rule3
 
 
 {-| Reports links in the `README.md` that point to this project's package documentation on <https://package.elm-lang.org/>,
@@ -36,10 +37,10 @@ and publishing the package. Otherwise the link for a given version could link to
 -}
 rule : Rule
 rule =
-    Rule.newProjectRuleSchema "ReadmeLinksPointToCurrentVersion" initialProjectContext
-        |> Rule.withElmJsonProjectVisitor elmJsonVisitor
-        |> Rule.withReadmeProjectVisitor readmeVisitor
-        |> Rule.fromProjectRuleSchema
+    Rule3.newProjectRuleSchema "ReadmeLinksPointToCurrentVersion" initialProjectContext
+        |> Rule3.withElmJsonProjectVisitor elmJsonVisitor
+        |> Rule3.withReadmeProjectVisitor readmeVisitor
+        |> Rule3.fromProjectRuleSchema
 
 
 type alias ProjectContext =

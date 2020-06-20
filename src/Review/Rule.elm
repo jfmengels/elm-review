@@ -1,5 +1,5 @@
 module Review.Rule exposing
-    ( Rule
+    ( Rule(..)
     , ModuleRuleSchema, newModuleRuleSchema, fromModuleRuleSchema
     , withSimpleModuleDefinitionVisitor, withSimpleCommentsVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
     , withModuleDefinitionVisitor
@@ -10,11 +10,12 @@ module Review.Rule exposing
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
-    , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
+    , Error(..), error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey(..), errorForElmJson, ReadmeKey(..), errorForReadme, errorForReadmeWithFix
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review
     , Required, Forbidden
+    , CacheEntry, CacheEntryFor, ProjectRuleCache, accessInternalError, accumulateWithListOfVisitors, makeFinalEvaluationForProject, setRuleName
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -271,7 +272,9 @@ unwanted patterns.
 You can create [module rules](#creating-a-module-rule) or [project rules](#creating-a-project-rule).
 
 -}
-type Rule
+type
+    Rule
+    -- TODO Jeroen not supposed to expose everything
     = Rule String Exceptions (Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule ))
 
 
@@ -1839,7 +1842,7 @@ errorsFromFinalEvaluationForProject (ProjectRuleSchema schema) initialContext co
 makeFinalEvaluationForProject : List (projectContext -> List (Error {})) -> projectContext -> List (Error {})
 makeFinalEvaluationForProject finalEvaluationFns projectContext =
     List.concatMap
-        (\visitor -> visitor projectContext)
+        (\finalEvaluationFn -> finalEvaluationFn projectContext)
         finalEvaluationFns
 
 
@@ -2915,7 +2918,9 @@ withFinalModuleEvaluation visitor (ModuleRuleSchema schema) =
 {-| Represents an error found by a [`Rule`](#Rule). These are created by the
 rules.
 -}
-type Error scope
+type
+    Error scope
+    -- TODO Jeroen not supposed to expose everything
     = UnspecifiedError InternalError
     | SpecifiedError InternalError
 
@@ -3065,7 +3070,9 @@ to prevent creating errors for it if you have not visited it.
 You can get a `ElmJsonKey` using the [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor) function.
 
 -}
-type ElmJsonKey
+type
+    ElmJsonKey
+    -- TODO Jeroen not supposed to expose everything
     = ElmJsonKey
         { path : String
         , raw : String
@@ -3108,7 +3115,9 @@ to prevent creating errors for it if you have not visited it.
 You can get a `ReadmeKey` using the [`withReadmeProjectVisitor`](#withReadmeProjectVisitor) function.
 
 -}
-type ReadmeKey
+type
+    ReadmeKey
+    -- TODO Jeroen not supposed to expose everything
     = ReadmeKey
         { path : String
         , content : String

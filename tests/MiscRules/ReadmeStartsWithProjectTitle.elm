@@ -4,14 +4,15 @@ import Elm.Package
 import Elm.Project
 import Elm.Syntax.Range exposing (Range)
 import Review.Rule as Rule exposing (Error, Rule)
+import Review.Rule3 as Rule3
 
 
 rule : Rule
 rule =
-    Rule.newProjectRuleSchema "ReadmeStartsWithProjectTitle" initialProjectContext
-        |> Rule.withElmJsonProjectVisitor elmJsonVisitor
-        |> Rule.withReadmeProjectVisitor readmeVisitor
-        |> Rule.fromProjectRuleSchema
+    Rule3.newProjectRuleSchema "ReadmeStartsWithProjectTitle" initialProjectContext
+        |> Rule3.withElmJsonProjectVisitor elmJsonVisitor
+        |> Rule3.withReadmeProjectVisitor readmeVisitor
+        |> Rule3.fromProjectRuleSchema
 
 
 type alias ProjectContext =
