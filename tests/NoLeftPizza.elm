@@ -6,14 +6,11 @@ module NoLeftPizza exposing (rule, Strictness(..))
 
 -}
 
-import Elm.Syntax.Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
-import Elm.Syntax.Infix exposing (InfixDirection)
 import Elm.Syntax.Node as Node exposing (Node)
-import Elm.Syntax.Range as Range
 import NoLeftPizzaUtil
 import Review.Fix as Fix
-import Review.Rule as Rule exposing (Direction, Error, Rule)
+import Review.Rule as Rule exposing (Error, Rule)
 
 
 {-| Specify how strict the rule should be.
