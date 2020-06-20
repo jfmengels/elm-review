@@ -15,7 +15,7 @@ module Review.Rule exposing
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review
     , Required, Forbidden
-    , CacheEntry, CacheEntryFor, ProjectRuleCache, accessInternalError, accumulateWithListOfVisitors, makeFinalEvaluationForProject, setRuleName
+    , CacheEntry, CacheEntryFor, ModuleRuleResultCache, ProjectRuleCache, Visitor, accessInternalError, accumulateList, accumulateWithListOfVisitors, makeFinalEvaluation, makeFinalEvaluationForProject, runModuleRule, setFilePathIfUnset, setRuleName, visitDeclaration, visitImport
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -782,7 +782,14 @@ computeErrors ((ModuleRuleSchema schema) as moduleVisitor) initialContext module
         |> accumulateWithListOfVisitors schema.commentsVisitors module_.ast.comments
         |> accumulateList (visitImport schema.importVisitors) module_.ast.imports
         |> accumulateWithListOfVisitors schema.declarationListVisitors module_.ast.declarations
-        |> accumulateList (visitDeclaration moduleVisitor) module_.ast.declarations
+        |> accumulateList
+            (visitDeclaration
+                schema.declarationVisitorsOnEnter
+                schema.declarationVisitorsOnExit
+                schema.expressionVisitorsOnEnter
+                schema.expressionVisitorsOnExit
+            )
+            module_.ast.declarations
         |> makeFinalEvaluation schema.finalEvaluationFns
         |> List.map (setRuleName schema.name >> setFilePathIfUnset module_)
         |> List.reverse
@@ -1804,7 +1811,14 @@ visitModuleForProjectRule ((ModuleRuleSchema schema) as moduleVisitor) initialCo
         |> accumulateWithListOfVisitors schema.commentsVisitors module_.ast.comments
         |> accumulateList (visitImport schema.importVisitors) module_.ast.imports
         |> accumulateWithListOfVisitors schema.declarationListVisitors module_.ast.declarations
-        |> accumulateList (visitDeclaration moduleVisitor) module_.ast.declarations
+        |> accumulateList
+            (visitDeclaration
+                schema.declarationVisitorsOnEnter
+                schema.declarationVisitorsOnExit
+                schema.expressionVisitorsOnEnter
+                schema.expressionVisitorsOnExit
+            )
+            module_.ast.declarations
         |> (\( errors, moduleContext ) -> ( makeFinalEvaluation schema.finalEvaluationFns ( errors, moduleContext ), moduleContext ))
 
 
@@ -3454,15 +3468,18 @@ visitImport importVisitors node moduleContext =
 
 
 visitDeclaration :
-    ModuleRuleSchema schemaState moduleContext
+    List (Visitor Declaration moduleContext)
+    -> List (Visitor Declaration moduleContext)
+    -> List (Visitor Expression moduleContext)
+    -> List (Visitor Expression moduleContext)
     -> Node Declaration
     -> moduleContext
     -> ( List (Error {}), moduleContext )
-visitDeclaration (ModuleRuleSchema schema) node moduleContext =
+visitDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit expressionVisitorsOnEnter expressionVisitorsOnExit node moduleContext =
     ( [], moduleContext )
-        |> visitNodeWithListOfVisitors schema.declarationVisitorsOnEnter node
-        |> accumulateList (visitExpression schema.expressionVisitorsOnEnter schema.expressionVisitorsOnExit) (expressionsInDeclaration node)
-        |> visitNodeWithListOfVisitors schema.declarationVisitorsOnExit node
+        |> visitNodeWithListOfVisitors declarationVisitorsOnEnter node
+        |> accumulateList (visitExpression expressionVisitorsOnEnter expressionVisitorsOnExit) (expressionsInDeclaration node)
+        |> visitNodeWithListOfVisitors declarationVisitorsOnExit node
 
 
 visitNodeWithListOfVisitors :
