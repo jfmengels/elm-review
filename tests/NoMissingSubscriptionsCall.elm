@@ -70,8 +70,8 @@ rule =
 moduleVisitor : Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor schema =
     schema
-        |> Rule.withDeclarationVisitor declarationVisitor
-        |> Rule.withExpressionVisitor expressionVisitor
+        |> Rule.withDeclarationEnterVisitor declarationVisitor
+        |> Rule.withExpressionEnterVisitor expressionVisitor
         |> Rule.withFinalModuleEvaluation finalEvaluation
 
 
@@ -134,41 +134,10 @@ foldProjectContexts newContext previousContext =
     }
 
 
-expressionVisitor : Node Expression -> Rule.Direction -> ModuleContext -> ( List (Error {}), ModuleContext )
-expressionVisitor node direction moduleContext =
-    case ( direction, Node.value node ) of
-        ( Rule.OnEnter, Expression.FunctionOrValue moduleName "update" ) ->
-            let
-                realModuleName : List String
-                realModuleName =
-                    Scope.moduleNameForValue moduleContext.scope "update" moduleName
-            in
-            if Set.member realModuleName moduleContext.modulesThatExposeSubscriptionsAndUpdate then
-                ( [], { moduleContext | usesUpdateOfModule = Dict.insert realModuleName (Node.range node) moduleContext.usesUpdateOfModule } )
-
-            else
-                ( [], moduleContext )
-
-        ( Rule.OnEnter, Expression.FunctionOrValue moduleName "subscriptions" ) ->
-            let
-                realModuleName : List String
-                realModuleName =
-                    Scope.moduleNameForValue moduleContext.scope "subscriptions" moduleName
-            in
-            if Set.member realModuleName moduleContext.modulesThatExposeSubscriptionsAndUpdate then
-                ( [], { moduleContext | usesSubscriptionsOfModule = Set.insert realModuleName moduleContext.usesSubscriptionsOfModule } )
-
-            else
-                ( [], moduleContext )
-
-        _ ->
-            ( [], moduleContext )
-
-
-declarationVisitor : Node Declaration -> Rule.Direction -> ModuleContext -> ( List (Error nothing), ModuleContext )
-declarationVisitor declaration direction moduleContext =
-    case ( direction, Node.value declaration ) of
-        ( Rule.OnEnter, Declaration.FunctionDeclaration function ) ->
+declarationVisitor : Node Declaration -> ModuleContext -> ( List (Error nothing), ModuleContext )
+declarationVisitor node moduleContext =
+    case Node.value node of
+        Declaration.FunctionDeclaration function ->
             case
                 function.declaration
                     |> Node.value
@@ -183,6 +152,37 @@ declarationVisitor declaration direction moduleContext =
 
                 _ ->
                     ( [], moduleContext )
+
+        _ ->
+            ( [], moduleContext )
+
+
+expressionVisitor : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
+expressionVisitor node moduleContext =
+    case Node.value node of
+        Expression.FunctionOrValue moduleName "update" ->
+            let
+                realModuleName : List String
+                realModuleName =
+                    Scope.moduleNameForValue moduleContext.scope "update" moduleName
+            in
+            if Set.member realModuleName moduleContext.modulesThatExposeSubscriptionsAndUpdate then
+                ( [], { moduleContext | usesUpdateOfModule = Dict.insert realModuleName (Node.range node) moduleContext.usesUpdateOfModule } )
+
+            else
+                ( [], moduleContext )
+
+        Expression.FunctionOrValue moduleName "subscriptions" ->
+            let
+                realModuleName : List String
+                realModuleName =
+                    Scope.moduleNameForValue moduleContext.scope "subscriptions" moduleName
+            in
+            if Set.member realModuleName moduleContext.modulesThatExposeSubscriptionsAndUpdate then
+                ( [], { moduleContext | usesSubscriptionsOfModule = Set.insert realModuleName moduleContext.usesSubscriptionsOfModule } )
+
+            else
+                ( [], moduleContext )
 
         _ ->
             ( [], moduleContext )

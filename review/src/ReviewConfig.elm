@@ -42,4 +42,5 @@ config =
     --, NoTodoComment.rule
     --    |> Rule.ignoreErrorsForFiles [ "NoTodoComment" ]
     ]
-        |> List.map (Rule.ignoreErrorsForDirectories [ "src/Vendor/" ])
+        |> List.map (Rule.ignoreErrorsForDirectories [ "src/Vendor/"])
+        |> List.map (Rule.ignoreErrorsForFiles [ "tests/NoUnused/Patterns/NameVisitor.elm"])

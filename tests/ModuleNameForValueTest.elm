@@ -218,14 +218,14 @@ moduleRule =
 moduleVisitor : Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor schema =
     schema
-        |> Rule.withExpressionEnterVisitor expressionVisitor
+        |> Rule.withExpressionVisitor expressionVisitor
         |> Rule.withFinalModuleEvaluation finalEvaluation
 
 
-expressionVisitor : Node Expression -> ModuleContext -> ( List nothing, ModuleContext )
-expressionVisitor node context =
-    case Node.value node of
-        Expression.FunctionOrValue moduleName name ->
+expressionVisitor : Node Expression -> Rule.Direction -> ModuleContext -> ( List nothing, ModuleContext )
+expressionVisitor node direction context =
+    case ( direction, Node.value node ) of
+        ( Rule.OnEnter, Expression.FunctionOrValue moduleName name ) ->
             let
                 nameInCode : String
                 nameInCode =

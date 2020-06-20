@@ -53,38 +53,54 @@ Value `something` is not used:
 rule : Rule
 rule =
     Rule.newModuleRuleSchema "NoUnused.Parameters" initialContext
-        |> Rule.withDeclarationVisitor declarationVisitor
-        |> Rule.withExpressionVisitor expressionVisitor
+        |> Rule.withDeclarationEnterVisitor declarationEnterVisitor
+        |> Rule.withDeclarationExitVisitor declarationExitVisitor
+        |> Rule.withExpressionEnterVisitor expressionEnterVisitor
+        |> Rule.withExpressionExitVisitor expressionExitVisitor
         |> NameVisitor.withValueVisitor valueVisitor
         |> Rule.fromModuleRuleSchema
 
 
-declarationVisitor : Node Declaration -> Rule.Direction -> Context -> ( List (Rule.Error {}), Context )
-declarationVisitor node direction context =
-    case ( direction, Node.value node ) of
-        ( Rule.OnEnter, Declaration.FunctionDeclaration { declaration } ) ->
+declarationEnterVisitor : Node Declaration -> Context -> ( List (Rule.Error {}), Context )
+declarationEnterVisitor node context =
+    case Node.value node of
+        Declaration.FunctionDeclaration { declaration } ->
             ( [], rememberFunctionImplementation declaration context )
 
-        ( Rule.OnExit, Declaration.FunctionDeclaration { declaration } ) ->
+        _ ->
+            ( [], context )
+
+
+declarationExitVisitor : Node Declaration -> Context -> ( List (Rule.Error {}), Context )
+declarationExitVisitor node context =
+    case Node.value node of
+        Declaration.FunctionDeclaration { declaration } ->
             errorsForFunctionImplementation declaration context
 
         _ ->
             ( [], context )
 
 
-expressionVisitor : Node Expression -> Rule.Direction -> Context -> ( List (Rule.Error {}), Context )
-expressionVisitor (Node _ expression) direction context =
-    case ( direction, expression ) of
-        ( Rule.OnEnter, Expression.LambdaExpression { args } ) ->
+expressionEnterVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
+expressionEnterVisitor node context =
+    case Node.value node of
+        Expression.LambdaExpression { args } ->
             ( [], rememberPatternList args context )
 
-        ( Rule.OnExit, Expression.LambdaExpression { args } ) ->
-            errorsForPatternList Lambda args context
-
-        ( Rule.OnEnter, Expression.LetExpression { declarations } ) ->
+        Expression.LetExpression { declarations } ->
             ( [], rememberLetDeclarationList declarations context )
 
-        ( Rule.OnExit, Expression.LetExpression { declarations } ) ->
+        _ ->
+            ( [], context )
+
+
+expressionExitVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
+expressionExitVisitor node context =
+    case Node.value node of
+        Expression.LambdaExpression { args } ->
+            errorsForPatternList Lambda args context
+
+        Expression.LetExpression { declarations } ->
             errorsForLetDeclarationList declarations context
 
         _ ->

@@ -27,7 +27,7 @@ module Scope exposing
 
 {- Copied over from https://github.com/jfmengels/elm-review-scope
 
-   Version: 0.2.2
+   Version: 0.3.0
 
    Copyright (c) 2020, Jeroen Engels
    All rights reserved.
@@ -397,26 +397,49 @@ internalAddModuleVisitors schema =
             (mapInnerModuleContext importVisitor |> pairWithNoErrors)
         |> Rule.withDeclarationListVisitor
             (mapInnerModuleContext declarationListVisitor |> pairWithNoErrors)
-        |> Rule.withDeclarationVisitor
-            (\visitedElement direction outerContext ->
+        |> Rule.withDeclarationEnterVisitor
+            (\visitedElement outerContext ->
                 let
                     innerContext : InnerModuleContext
                     innerContext =
                         outerContext.scope
                             |> unboxModule
-                            |> declarationVisitor visitedElement direction
+                            |> declarationEnterVisitor visitedElement
                 in
                 ( [], { outerContext | scope = ModuleContext innerContext } )
             )
-        |> Rule.withExpressionVisitor
-            (\visitedElement direction outerContext ->
+        |> Rule.withDeclarationExitVisitor
+            (\visitedElement outerContext ->
                 let
                     innerContext : InnerModuleContext
                     innerContext =
                         outerContext.scope
                             |> unboxModule
-                            |> popScope visitedElement direction
-                            |> expressionVisitor visitedElement direction
+                            |> declarationExitVisitor visitedElement
+                in
+                ( [], { outerContext | scope = ModuleContext innerContext } )
+            )
+        |> Rule.withExpressionEnterVisitor
+            (\visitedElement outerContext ->
+                let
+                    innerContext : InnerModuleContext
+                    innerContext =
+                        outerContext.scope
+                            |> unboxModule
+                            |> popScope visitedElement Rule.OnEnter
+                            |> expressionEnterVisitor visitedElement
+                in
+                ( [], { outerContext | scope = ModuleContext innerContext } )
+            )
+        |> Rule.withExpressionExitVisitor
+            (\visitedElement outerContext ->
+                let
+                    innerContext : InnerModuleContext
+                    innerContext =
+                        outerContext.scope
+                            |> unboxModule
+                            |> popScope visitedElement Rule.OnExit
+                            |> expressionExitVisitor visitedElement
                 in
                 ( [], { outerContext | scope = ModuleContext innerContext } )
             )
@@ -1021,10 +1044,10 @@ type VariableType
     | Port
 
 
-declarationVisitor : Node Declaration -> Rule.Direction -> InnerModuleContext -> InnerModuleContext
-declarationVisitor declaration direction context =
-    case ( direction, Node.value declaration ) of
-        ( Rule.OnEnter, Declaration.FunctionDeclaration function ) ->
+declarationEnterVisitor : Node Declaration -> InnerModuleContext -> InnerModuleContext
+declarationEnterVisitor node context =
+    case Node.value node of
+        Declaration.FunctionDeclaration function ->
             let
                 newScope : Scope
                 newScope =
@@ -1034,7 +1057,14 @@ declarationVisitor declaration direction context =
                 |> nonemptyList_cons newScope
                 |> updateScope context
 
-        ( Rule.OnExit, Declaration.FunctionDeclaration function ) ->
+        _ ->
+            context
+
+
+declarationExitVisitor : Node Declaration -> InnerModuleContext -> InnerModuleContext
+declarationExitVisitor node context =
+    case Node.value node of
+        Declaration.FunctionDeclaration _ ->
             { context | scopes = nonemptyList_pop context.scopes }
 
         _ ->
@@ -1133,10 +1163,10 @@ popScope node direction context =
                 context
 
 
-expressionVisitor : Node Expression -> Direction -> InnerModuleContext -> InnerModuleContext
-expressionVisitor (Node _ value) direction context =
-    case ( direction, value ) of
-        ( Rule.OnEnter, Expression.LetExpression { declarations, expression } ) ->
+expressionEnterVisitor : Node Expression -> InnerModuleContext -> InnerModuleContext
+expressionEnterVisitor node context =
+    case Node.value node of
+        Expression.LetExpression { declarations, expression } ->
             List.foldl
                 (\declaration scopes ->
                     case Node.value declaration of
@@ -1161,10 +1191,7 @@ expressionVisitor (Node _ value) direction context =
                 declarations
                 |> updateScope context
 
-        ( Rule.OnExit, Expression.LetExpression _ ) ->
-            { context | scopes = nonemptyList_pop context.scopes }
-
-        ( Rule.OnEnter, Expression.CaseExpression caseBlock ) ->
+        Expression.CaseExpression caseBlock ->
             let
                 cases : List ( Node Expression, Dict String VariableInfo )
                 cases =
@@ -1187,7 +1214,17 @@ expressionVisitor (Node _ value) direction context =
             in
             { context | scopes = nonemptyList_mapHead (\scope -> { scope | cases = cases }) context.scopes }
 
-        ( Rule.OnExit, Expression.CaseExpression caseBlock ) ->
+        _ ->
+            context
+
+
+expressionExitVisitor : Node Expression -> InnerModuleContext -> InnerModuleContext
+expressionExitVisitor node context =
+    case Node.value node of
+        Expression.LetExpression _ ->
+            { context | scopes = nonemptyList_pop context.scopes }
+
+        Expression.CaseExpression _ ->
             { context | scopes = nonemptyList_mapHead (\scope -> { scope | cases = [] }) context.scopes }
 
         _ ->
@@ -1220,10 +1257,10 @@ A value can be either a function, a constant, a custom type constructor or a typ
 
 If the element was defined in the current module, then the result will be `[]`.
 
-    expressionVisitor : Node Expression -> Direction -> Context -> ( List (Error {}), Context )
-    expressionVisitor node direction context =
-        case ( direction, Node.value node ) of
-            ( Rule.OnEnter, Expression.FunctionOrValue moduleName "button" ) ->
+    expressionVisitor : Node Expression -> Context -> ( List (Error {}), Context )
+    expressionVisitor node context =
+        case Node.value node of
+            Expression.FunctionOrValue moduleName "button" ->
                 if Scope.moduleNameForValue context.scope "button" moduleName == [ "Html" ] then
                     ( [ createError node ], context )
 

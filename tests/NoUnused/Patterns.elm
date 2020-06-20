@@ -55,24 +55,32 @@ Value `something` is not used:
 rule : Rule
 rule =
     Rule.newModuleRuleSchema "NoUnused.Patterns" initialContext
-        |> Rule.withExpressionVisitor expressionVisitor
+        |> Rule.withExpressionEnterVisitor expressionEnterVisitor
+        |> Rule.withExpressionExitVisitor expressionExitVisitor
         |> NameVisitor.withValueVisitor valueVisitor
         |> Rule.fromModuleRuleSchema
 
 
-expressionVisitor : Node Expression -> Rule.Direction -> Context -> ( List (Rule.Error {}), Context )
-expressionVisitor (Node _ expression) direction context =
-    case ( direction, expression ) of
-        ( Rule.OnEnter, Expression.LetExpression { declarations } ) ->
+expressionEnterVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
+expressionEnterVisitor node context =
+    case Node.value node of
+        Expression.LetExpression { declarations } ->
             ( [], rememberLetDeclarationList declarations context )
 
-        ( Rule.OnExit, Expression.LetExpression { declarations } ) ->
-            errorsForLetDeclarationList declarations context
-
-        ( Rule.OnEnter, Expression.CaseExpression { cases } ) ->
+        Expression.CaseExpression { cases } ->
             ( [], rememberCaseList cases context )
 
-        ( Rule.OnExit, Expression.CaseExpression { cases } ) ->
+        _ ->
+            ( [], context )
+
+
+expressionExitVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
+expressionExitVisitor node context =
+    case Node.value node of
+        Expression.LetExpression { declarations } ->
+            errorsForLetDeclarationList declarations context
+
+        Expression.CaseExpression { cases } ->
             errorsForCaseList cases context
 
         _ ->

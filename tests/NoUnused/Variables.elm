@@ -57,8 +57,8 @@ rule =
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withImportVisitor importVisitor
         |> Rule.withDeclarationEnterVisitor declarationVisitor
-        |> Rule.withExpressionEnterVisitor expressionVisitorOnEnter
-        |> Rule.withExpressionExitVisitor expressionVisitorOnExit
+        |> Rule.withExpressionEnterVisitor expressionEnterVisitor
+        |> Rule.withExpressionExitVisitor expressionExitVisitor
         |> Rule.withFinalModuleEvaluation finalEvaluation
         |> Rule.fromModuleRuleSchema
 
@@ -338,8 +338,8 @@ moduleAliasRange (Node _ { moduleName }) range =
     { range | start = (Node.range moduleName).end }
 
 
-expressionVisitorOnEnter : Node Expression -> Context -> ( List (Error {}), Context )
-expressionVisitorOnEnter (Node range value) context =
+expressionEnterVisitor : Node Expression -> Context -> ( List (Error {}), Context )
+expressionEnterVisitor (Node range value) context =
     case value of
         Expression.FunctionOrValue [] name ->
             ( [], markAsUsed name context )
@@ -404,9 +404,9 @@ expressionVisitorOnEnter (Node range value) context =
             ( [], context )
 
 
-expressionVisitorOnExit : Node Expression -> Context -> ( List (Error {}), Context )
-expressionVisitorOnExit (Node _ value) context =
-    case value of
+expressionExitVisitor : Node Expression -> Context -> ( List (Error {}), Context )
+expressionExitVisitor node context =
+    case Node.value node of
         Expression.RecordUpdateExpression expr _ ->
             ( [], markAsUsed (Node.value expr) context )
 

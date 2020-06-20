@@ -55,8 +55,8 @@ To add the rule to your configuration:
 rule : Rule
 rule =
     Rule.newModuleRuleSchema "NoRecursiveUpdate" { isInUpdateFunction = False }
-        |> Rule.withDeclarationVisitor declarationVisitor
-        |> Rule.withExpressionVisitor expressionVisitor
+        |> Rule.withDeclarationEnterVisitor declarationVisitor
+        |> Rule.withExpressionEnterVisitor expressionVisitor
         |> Rule.fromModuleRuleSchema
 
 
@@ -65,10 +65,10 @@ type alias Context =
     }
 
 
-declarationVisitor : Node Declaration -> Rule.Direction -> Context -> ( List nothing, Context )
-declarationVisitor declaration direction _ =
-    case ( direction, Node.value declaration ) of
-        ( Rule.OnEnter, Declaration.FunctionDeclaration function ) ->
+declarationVisitor : Node Declaration -> Context -> ( List nothing, Context )
+declarationVisitor node _ =
+    case Node.value node of
+        Declaration.FunctionDeclaration function ->
             ( []
             , { isInUpdateFunction =
                     (function.declaration
@@ -84,11 +84,11 @@ declarationVisitor declaration direction _ =
             ( [], { isInUpdateFunction = False } )
 
 
-expressionVisitor : Node Expression -> Rule.Direction -> Context -> ( List (Error {}), Context )
-expressionVisitor node direction context =
+expressionVisitor : Node Expression -> Context -> ( List (Error {}), Context )
+expressionVisitor node context =
     if context.isInUpdateFunction then
-        case ( direction, Node.value node ) of
-            ( Rule.OnEnter, Expression.FunctionOrValue [] "update" ) ->
+        case Node.value node of
+            Expression.FunctionOrValue [] "update" ->
                 ( [ Rule.error
                         { message = "`update` shouldn't call itself"
                         , details = [ "If you wish to have the same behavior for different messages, move that behavior into a new function and call have it called in the handling of both messages." ]

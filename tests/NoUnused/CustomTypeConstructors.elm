@@ -20,7 +20,7 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Signature exposing (Signature)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
-import Review.Rule as Rule exposing (Direction, Error, Rule)
+import Review.Rule as Rule exposing (Error, Rule)
 import Scope
 import Set exposing (Set)
 
@@ -129,8 +129,8 @@ moduleVisitor schema =
     schema
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withDeclarationListVisitor declarationListVisitor
-        |> Rule.withDeclarationVisitor declarationVisitor
-        |> Rule.withExpressionVisitor expressionVisitor
+        |> Rule.withDeclarationEnterVisitor declarationVisitor
+        |> Rule.withExpressionEnterVisitor expressionVisitor
 
 
 
@@ -385,10 +385,10 @@ register node context =
 -- DECLARATION VISITOR
 
 
-declarationVisitor : Node Declaration -> Direction -> ModuleContext -> ( List nothing, ModuleContext )
-declarationVisitor node direction context =
-    case ( direction, Node.value node ) of
-        ( Rule.OnEnter, Declaration.CustomTypeDeclaration { name, constructors } ) ->
+declarationVisitor : Node Declaration -> ModuleContext -> ( List nothing, ModuleContext )
+declarationVisitor node context =
+    case Node.value node of
+        Declaration.CustomTypeDeclaration { name, constructors } ->
             let
                 constructorsForCustomType : Dict String (Node String)
                 constructorsForCustomType =
@@ -417,7 +417,7 @@ declarationVisitor node direction context =
               }
             )
 
-        ( Rule.OnEnter, Declaration.FunctionDeclaration function ) ->
+        Declaration.FunctionDeclaration function ->
             ( [], markPhantomTypesFromTypeSignatureAsUsed function.signature context )
 
         _ ->
@@ -428,13 +428,13 @@ declarationVisitor node direction context =
 -- EXPRESSION VISITOR
 
 
-expressionVisitor : Node Expression -> Direction -> ModuleContext -> ( List nothing, ModuleContext )
-expressionVisitor node direction moduleContext =
-    case ( direction, Node.value node ) of
-        ( Rule.OnEnter, Expression.FunctionOrValue moduleName name ) ->
+expressionVisitor : Node Expression -> ModuleContext -> ( List nothing, ModuleContext )
+expressionVisitor node moduleContext =
+    case Node.value node of
+        Expression.FunctionOrValue moduleName name ->
             ( [], registerUsedFunctionOrValue moduleName name moduleContext )
 
-        ( Rule.OnEnter, Expression.LetExpression { declarations } ) ->
+        Expression.LetExpression { declarations } ->
             ( []
             , declarations
                 |> List.filterMap

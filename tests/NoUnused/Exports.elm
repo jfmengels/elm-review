@@ -63,7 +63,7 @@ moduleVisitor schema =
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withImportVisitor importVisitor
         |> Rule.withDeclarationListVisitor declarationListVisitor
-        |> Rule.withExpressionVisitor expressionVisitor
+        |> Rule.withExpressionEnterVisitor expressionVisitor
 
 
 
@@ -609,10 +609,10 @@ collectTypesFromTypeAnnotation scope node =
 -- EXPRESSION VISITOR
 
 
-expressionVisitor : Node Expression -> Rule.Direction -> ModuleContext -> ( List nothing, ModuleContext )
-expressionVisitor node direction moduleContext =
-    case ( direction, Node.value node ) of
-        ( Rule.OnEnter, Expression.FunctionOrValue moduleName name ) ->
+expressionVisitor : Node Expression -> ModuleContext -> ( List nothing, ModuleContext )
+expressionVisitor node moduleContext =
+    case Node.value node of
+        Expression.FunctionOrValue moduleName name ->
             ( []
             , registerAsUsed
                 ( Scope.moduleNameForValue moduleContext.scope name moduleName, name )
