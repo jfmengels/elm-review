@@ -41,7 +41,7 @@ import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Metadata as Metadata
 import Review.Project exposing (Project, ProjectModule)
 import Review.Project.Dependency
-import Review.Rule exposing (CacheEntryFor, Direction(..), ElmJsonKey(..), Error(..), Forbidden, ModuleRuleResultCache, ProjectRuleCache, ReadmeKey(..), Required, Rule(..), Visitor, accessInternalError, accumulateList, accumulateWithListOfVisitors, makeFinalEvaluation, makeFinalEvaluationForProject, setFilePathIfUnset, setRuleName, visitDeclaration, visitImport)
+import Review.Rule exposing (CacheEntryFor, Direction(..), ElmJsonKey(..), Error(..), Forbidden, ModuleKey(..), ModuleRuleResultCache, ProjectRuleCache, ReadmeKey(..), Required, Rule(..), Visitor, accessInternalError, accumulateList, accumulateWithListOfVisitors, makeFinalEvaluation, makeFinalEvaluationForProject, setFilePathIfUnset, setRuleName, visitDeclaration, visitImport)
 import Vendor.Graph as Graph
 
 
@@ -49,8 +49,6 @@ type ProjectRuleSchema schemaState projectContext moduleContext
     = ProjectRuleSchema
         { name : String
         , initialProjectContext : projectContext
-
-        -- TODO add moduleVisitor or implement rule logic
         , moduleVisitor : ModuleVisitorState_New projectContext moduleContext
         , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
         , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
@@ -82,9 +80,20 @@ type ModuleVisitorState_New projectContext moduleContext
     | HasVisitors_New (List (ModuleVisitor {} projectContext moduleContext -> ModuleVisitor { hasAtLeastOneVisitor : () } projectContext moduleContext))
     | IsPrepared_New
         { visitors : List (ModuleVisitor {} projectContext moduleContext -> ModuleVisitor { hasAtLeastOneVisitor : () } projectContext moduleContext)
-
-        --, moduleContext : ModuleContextFunctions projectContext moduleContext
+        , moduleContext : ModuleContextOptions projectContext moduleContext
         }
+
+
+type ModuleContextOptions projectContext moduleContext
+    = Simple (Context projectContext moduleContext)
+    | Braided (ModuleContextFunctions projectContext moduleContext)
+
+
+type alias ModuleContextFunctions projectContext moduleContext =
+    { fromProjectToModule : ModuleKey -> Node ModuleName -> projectContext -> moduleContext
+    , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
+    , foldProjectContexts : projectContext -> projectContext -> projectContext
+    }
 
 
 type
@@ -553,118 +562,6 @@ computeProjectContext (ProjectRuleSchema schema) project maybePreviousCache =
     , moduleContexts = Dict.empty
     , finalEvaluationErrors = []
     }
-
-
-
---computeModules :
---    ProjectRuleSchema schemaState projectContext moduleContext
---    ->
---        { visitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
---        , moduleContext : ModuleContextFunctions projectContext moduleContext
---        }
---    -> Project
---    -> projectContext
---    -> List (Graph.NodeContext ModuleName ())
---    -> Dict String (CacheEntry projectContext)
---    -> Dict String (CacheEntry projectContext)
---computeModules (ProjectRuleSchema schema) visitors project initialContext nodeContexts startCache =
---    let
---        graph : Graph ModuleName ()
---        graph =
---            Review.Project.Internal.moduleGraph project
---
---        projectModulePaths : Set String
---        projectModulePaths =
---            project
---                |> Review.Project.modules
---                |> List.map .path
---                |> Set.fromList
---
---        modules : Dict ModuleName ProjectModule
---        modules =
---            project
---                |> Review.Project.modules
---                |> List.foldl
---                    (\module_ dict ->
---                        Dict.insert
---                            (getModuleName module_)
---                            module_
---                            dict
---                    )
---                    Dict.empty
---
---        newStartCache : Dict String (CacheEntry projectContext)
---        newStartCache =
---            startCache
---                |> Dict.filter (\path _ -> Set.member path projectModulePaths)
---
---        dummyInitialContext : moduleContext
---        dummyInitialContext =
---            visitors.moduleContext.fromProjectToModule
---                (ModuleKey "dummy")
---                (Node.Node Range.emptyRange [ "Dummy" ])
---                initialContext
---
---        moduleVisitor : ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext
---        moduleVisitor =
---            List.foldl
---                (\addVisitors (ModuleRuleSchema moduleVisitorSchema) ->
---                    addVisitors (ModuleRuleSchema moduleVisitorSchema)
---                )
---                (emptySchema "" dummyInitialContext)
---                visitors.visitors
---                |> reverseVisitors
---
---        computeModule : Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> CacheEntry projectContext
---        computeModule cache importedModules module_ =
---            let
---                moduleKey : ModuleKey
---                moduleKey =
---                    ModuleKey module_.path
---
---                moduleNameNode_ : Node ModuleName
---                moduleNameNode_ =
---                    moduleNameNode module_.ast.moduleDefinition
---
---                initialModuleContext : moduleContext
---                initialModuleContext =
---                    case schema.traversalType of
---                        AllModulesInParallel ->
---                            visitors.moduleContext.fromProjectToModule
---                                moduleKey
---                                moduleNameNode_
---                                initialContext
---
---                        ImportedModulesFirst ->
---                            importedModules
---                                |> List.filterMap
---                                    (\importedModule ->
---                                        Dict.get importedModule.path cache
---                                            |> Maybe.map .context
---                                    )
---                                |> List.foldl visitors.moduleContext.foldProjectContexts initialContext
---                                |> visitors.moduleContext.fromProjectToModule moduleKey moduleNameNode_
---
---                ( moduleErrors, context ) =
---                    visitModuleForProjectRule
---                        moduleVisitor
---                        initialModuleContext
---                        module_
---            in
---            { source = module_.source
---            , errors = List.map (setFilePathIfUnset module_) moduleErrors
---            , context =
---                visitors.moduleContext.fromModuleToProject
---                    moduleKey
---                    moduleNameNode_
---                    context
---            }
---    in
---    List.foldl
---        (computeModuleAndCacheResult schema.traversalType modules graph computeModule)
---        ( newStartCache, Set.empty )
---        nodeContexts
---        |> Tuple.first
 
 
 errorsFromFinalEvaluationForProject : ProjectRuleSchema schemaState projectContext moduleContext -> projectContext -> List projectContext -> List (Error {})

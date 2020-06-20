@@ -10,7 +10,7 @@ module Review.Rule exposing
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
-    , Error(..), error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey(..), errorForElmJson, ReadmeKey(..), errorForReadme, errorForReadmeWithFix
+    , Error(..), error, errorWithFix, ModuleKey(..), errorForModule, errorForModuleWithFix, ElmJsonKey(..), errorForElmJson, ReadmeKey(..), errorForReadme, errorForReadmeWithFix
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review
@@ -3034,7 +3034,9 @@ You can get a `ModuleKey` from the `fromProjectToModule` and `fromModuleToProjec
 functions that you define when using [`newProjectRuleSchema`](#newProjectRuleSchema).
 
 -}
-type ModuleKey
+type
+    ModuleKey
+    -- TODO Jeroen not supposed to expose everything
     = ModuleKey String
 
 
