@@ -776,7 +776,7 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) maybePreviousCache
 
 
 computeErrors : ModuleRuleSchema schemaState moduleContext -> moduleContext -> ProjectModule -> List (Error {})
-computeErrors ((ModuleRuleSchema schema) as moduleVisitor) initialContext module_ =
+computeErrors (ModuleRuleSchema schema) initialContext module_ =
     ( [], initialContext )
         |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors module_.ast.moduleDefinition
         |> accumulateWithListOfVisitors schema.commentsVisitors module_.ast.comments
@@ -1805,7 +1805,7 @@ noImportedModulesHaveANewContext importedModules invalidatedModules =
 
 
 visitModuleForProjectRule : ModuleRuleSchema a moduleContext -> moduleContext -> ProjectModule -> ( List (Error {}), moduleContext )
-visitModuleForProjectRule ((ModuleRuleSchema schema) as moduleVisitor) initialContext module_ =
+visitModuleForProjectRule (ModuleRuleSchema schema) initialContext module_ =
     ( [], initialContext )
         |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors module_.ast.moduleDefinition
         |> accumulateWithListOfVisitors schema.commentsVisitors module_.ast.comments

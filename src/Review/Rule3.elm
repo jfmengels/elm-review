@@ -1,4 +1,31 @@
-module Review.Rule3 exposing (ModuleVisitor, ProjectRuleSchema, fromModuleRuleSchema_New, fromProjectRuleSchema, newModuleRuleSchema_New, newProjectRuleSchema, withCommentsVisitor_New, withDeclarationEnterVisitor_New, withDeclarationExitVisitor_New, withDeclarationListVisitor_New, withDeclarationVisitor_New, withDependenciesVisitor, withElmJsonProjectVisitor, withExpressionEnterVisitor_New, withExpressionExitVisitor_New, withExpressionVisitor_New, withFinalModuleEvaluation_New, withFinalProjectEvaluation, withImportVisitor_New, withModuleDefinitionVisitor_New, withReadmeProjectVisitor, withSimpleCommentsVisitor_New, withSimpleDeclarationVisitor_New, withSimpleExpressionVisitor_New, withSimpleImportVisitor_New, withSimpleModuleDefinitionVisitor_New)
+module Review.Rule3 exposing
+    ( ModuleVisitor
+    , ProjectRuleSchema
+    , fromModuleRuleSchema_New
+    , fromProjectRuleSchema
+    , newModuleRuleSchema_New
+    , newProjectRuleSchema
+    , withCommentsVisitor_New
+    , withDeclarationEnterVisitor_New
+    , withDeclarationExitVisitor_New
+    , withDeclarationListVisitor_New
+    , withDeclarationVisitor_New
+    , withDependenciesVisitor
+    , withElmJsonProjectVisitor
+    , withExpressionEnterVisitor_New
+    , withExpressionExitVisitor_New
+    , withExpressionVisitor_New
+    , withFinalModuleEvaluation_New
+    , withFinalProjectEvaluation
+    , withImportVisitor_New
+    , withModuleDefinitionVisitor_New
+    , withReadmeProjectVisitor
+    , withSimpleCommentsVisitor_New
+    , withSimpleDeclarationVisitor_New
+    , withSimpleExpressionVisitor_New
+    , withSimpleImportVisitor_New
+    , withSimpleModuleDefinitionVisitor_New
+    )
 
 import Dict exposing (Dict)
 import Elm.Project
@@ -10,7 +37,6 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range as Range
 import Review.Context as Context exposing (Context)
-import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Metadata as Metadata
 import Review.Project exposing (Project, ProjectModule)
@@ -209,7 +235,7 @@ runModuleRule_New ((ModuleVisitor schema) as moduleRuleSchema) maybePreviousCach
 
 
 computeErrors_New : ModuleVisitor schemaState () moduleContext -> Context.AvailableData -> ProjectModule -> List (Error {})
-computeErrors_New ((ModuleVisitor schema) as moduleVisitor) availableData module_ =
+computeErrors_New (ModuleVisitor schema) availableData module_ =
     let
         initialContext : moduleContext
         initialContext =
