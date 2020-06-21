@@ -1,8 +1,9 @@
-module Review.Context exposing (AvailableData, Context, RequestedData, apply, availableData, init, withMetadata)
+module Review.Context exposing (AvailableData, Context, RequestedData, apply, init, withMetadata, withModuleKey)
 
 import Elm.Syntax.Node as Node
 import Elm.Syntax.Range as Range
 import Review.Metadata as Metadata exposing (Metadata)
+import Review.Rule exposing (ModuleKey)
 
 
 type Context projectContext moduleContext
@@ -29,21 +30,16 @@ withMetadata (Context fn (RequestedData requested)) =
         (RequestedData { requested | metadata = True })
 
 
-withInt : Context Int (projectContext -> moduleContext) -> Context projectContext moduleContext
-withInt (Context fn (RequestedData requested)) =
+withModuleKey : Context ModuleKey (projectContext -> moduleContext) -> Context projectContext moduleContext
+withModuleKey (Context fn (RequestedData requested)) =
     Context
-        (\data -> fn data 100)
+        (\data -> fn data data.moduleKey)
         (RequestedData { requested | metadata = True })
 
 
 type alias AvailableData =
     { metadata : Metadata
-    }
-
-
-availableData : AvailableData
-availableData =
-    { metadata = Metadata.create { moduleNameNode = Node.Node Range.emptyRange [] }
+    , moduleKey : ModuleKey
     }
 
 

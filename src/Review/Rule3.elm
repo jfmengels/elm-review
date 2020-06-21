@@ -6,11 +6,12 @@ module Review.Rule3 exposing
     , newModuleRuleSchema_New
     , newProjectRuleSchema
     , withCommentsVisitor_New
+    , withContextFromImportedModules_New
     , withDeclarationEnterVisitor_New
     , withDeclarationExitVisitor_New
     , withDeclarationListVisitor_New
     , withDeclarationVisitor_New
-    , withDependenciesVisitor
+    , withDependenciesProjectVisitor
     , withElmJsonProjectVisitor
     , withExpressionEnterVisitor_New
     , withExpressionExitVisitor_New
@@ -18,7 +19,10 @@ module Review.Rule3 exposing
     , withFinalModuleEvaluation_New
     , withFinalProjectEvaluation
     , withImportVisitor_New
+    , withModuleContext
+    , withModuleContextCreator_New
     , withModuleDefinitionVisitor_New
+    , withModuleVisitor_New
     , withReadmeProjectVisitor
     , withSimpleCommentsVisitor_New
     , withSimpleDeclarationVisitor_New
@@ -41,7 +45,7 @@ import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Metadata as Metadata
 import Review.Project exposing (Project, ProjectModule)
 import Review.Project.Dependency
-import Review.Rule exposing (CacheEntryFor, Direction(..), ElmJsonKey(..), Error(..), Forbidden, ModuleKey(..), ModuleRuleResultCache, ProjectRuleCache, ReadmeKey(..), Required, Rule(..), Visitor, accessInternalError, accumulateList, accumulateWithListOfVisitors, makeFinalEvaluation, makeFinalEvaluationForProject, setFilePathIfUnset, setRuleName, visitDeclaration, visitImport)
+import Review.Rule exposing (CacheEntry, CacheEntryFor, Direction(..), ElmJsonKey(..), Error(..), Forbidden, ModuleKey(..), ModuleRuleResultCache, ProjectRuleCache, ReadmeKey(..), Required, Rule(..), TraversalType(..), Visitor, accessInternalError, accumulateList, accumulateWithListOfVisitors, makeFinalEvaluation, makeFinalEvaluationForProject, removeErrorPhantomType, setFilePathIfUnset, setRuleName, visitDeclaration, visitImport)
 import Vendor.Graph as Graph
 
 
@@ -49,29 +53,39 @@ type ProjectRuleSchema schemaState projectContext moduleContext
     = ProjectRuleSchema
         { name : String
         , initialProjectContext : projectContext
-        , moduleVisitor : ModuleVisitorState_New projectContext moduleContext
         , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
         , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
         , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
-        , finalEvaluationFns : List (projectContext -> List (Error {}))
+        , moduleVisitors : List (ModuleVisitor {} projectContext moduleContext -> ModuleVisitor { hasAtLeastOneVisitor : () } projectContext moduleContext)
+        , moduleContextCreator : Maybe (Context projectContext moduleContext)
+        , folder : Maybe (Folder projectContext moduleContext)
 
-        -- Define this at the same time as the module visitor?
-        --, traversalType : TraversalType
+        -- TODO Jeroen Only allow to set it if there is a folder, but not several times
+        , traversalType : TraversalType
+        , finalEvaluationFns : List (projectContext -> List (Error {}))
         }
 
 
-newProjectRuleSchema : String -> projectContext -> ProjectRuleSchema {} projectContext moduleContext
+type alias Folder projectContext moduleContext =
+    { -- TODO Make this `Context moduleContext projectContext`?
+      fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
+    , foldProjectContexts : projectContext -> projectContext -> projectContext
+    }
+
+
+newProjectRuleSchema : String -> projectContext -> ProjectRuleSchema { canAddModuleVisitor : (), withModuleContext : Forbidden } projectContext moduleContext
 newProjectRuleSchema name initialProjectContext =
     ProjectRuleSchema
         { name = name
         , initialProjectContext = initialProjectContext
-        , moduleVisitor = NoModuleVisitor_New
         , elmJsonVisitors = []
         , readmeVisitors = []
         , dependenciesVisitors = []
+        , moduleVisitors = []
+        , moduleContextCreator = Nothing
+        , folder = Nothing
+        , traversalType = AllModulesInParallel
         , finalEvaluationFns = []
-
-        --, traversalType : TraversalType
         }
 
 
@@ -131,29 +145,13 @@ emptyModuleVisitor name moduleContext =
         }
 
 
-withModuleVisitor :
+withModuleVisitor_New :
     (ModuleVisitor {} projectContext moduleContext -> ModuleVisitor { hasAtLeastOneVisitor : () } projectContext moduleContext)
-    -> ProjectRuleSchema schemaState projectContext moduleContext
-    -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
-withModuleVisitor visitor (ProjectRuleSchema schema) =
-    let
-        previousModuleVisitors : List (ModuleVisitor {} projectContext moduleContext -> ModuleVisitor { hasAtLeastOneVisitor : () } projectContext moduleContext)
-        previousModuleVisitors =
-            case schema.moduleVisitor of
-                NoModuleVisitor_New ->
-                    []
-
-                HasVisitors_New list ->
-                    list
-
-                IsPrepared_New _ ->
-                    []
-    in
-    ProjectRuleSchema
-        { schema
-            | moduleVisitor =
-                HasVisitors_New (removeExtensibleRecordTypeVariable_New visitor :: previousModuleVisitors)
-        }
+    -> ProjectRuleSchema { projectSchemaState | canAddModuleVisitor : () } projectContext moduleContext
+    -- TODO BREAKING Change: add hasAtLeastOneVisitor : ()
+    -> ProjectRuleSchema { projectSchemaState | canAddModuleVisitor : (), withModuleContext : Required } projectContext moduleContext
+withModuleVisitor_New visitor (ProjectRuleSchema schema) =
+    ProjectRuleSchema { schema | moduleVisitors = visitor :: schema.moduleVisitors }
 
 
 newModuleRuleSchema_New : String -> moduleContext -> ModuleVisitor { moduleContext : Required } () moduleContext
@@ -161,8 +159,47 @@ newModuleRuleSchema_New name moduleContext =
     emptyModuleVisitor name moduleContext
 
 
-withModuleContext : Context () moduleContext -> ModuleVisitor { schema | moduleContext : Required } () moduleContext -> ModuleVisitor { schema | moduleContext : Forbidden } () moduleContext
-withModuleContext moduleContextCreator (ModuleVisitor moduleVisitor) =
+withModuleContext :
+    { fromProjectToModule : ModuleKey -> Node ModuleName -> projectContext -> moduleContext
+    , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
+    , foldProjectContexts : projectContext -> projectContext -> projectContext
+    }
+    -> ProjectRuleSchema { schemaState | canAddModuleVisitor : (), withModuleContext : Required } projectContext moduleContext
+    -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : (), withModuleContext : Forbidden } projectContext moduleContext
+withModuleContext moduleContext (ProjectRuleSchema schema) =
+    let
+        moduleContextCreator : Context projectContext moduleContext
+        moduleContextCreator =
+            Context.init
+                (\moduleKey metadata projectContext ->
+                    moduleContext.fromProjectToModule
+                        moduleKey
+                        (Metadata.moduleNameNode metadata)
+                        projectContext
+                )
+                |> Context.withModuleKey
+                |> Context.withMetadata
+    in
+    ProjectRuleSchema
+        { schema
+            | moduleContextCreator = Just moduleContextCreator
+            , folder =
+                Just
+                    { fromModuleToProject = moduleContext.fromModuleToProject
+                    , foldProjectContexts = moduleContext.foldProjectContexts
+                    }
+        }
+
+
+withContextFromImportedModules_New : ProjectRuleSchema schemaState projectContext moduleContext -> ProjectRuleSchema schemaState projectContext moduleContext
+withContextFromImportedModules_New (ProjectRuleSchema schema) =
+    ProjectRuleSchema { schema | traversalType = ImportedModulesFirst }
+
+
+{-| TODO Jeroen check if this is used. If not, use this name for setting the module context creator on project rules
+-}
+withModuleContextCreator_New : Context () moduleContext -> ModuleVisitor { schema | moduleContext : Required } () moduleContext -> ModuleVisitor { schema | moduleContext : Forbidden } () moduleContext
+withModuleContextCreator_New moduleContextCreator (ModuleVisitor moduleVisitor) =
     ModuleVisitor { moduleVisitor | moduleContextCreator = moduleContextCreator }
 
 
@@ -208,7 +245,9 @@ runModuleRule_New ((ModuleVisitor schema) as moduleRuleSchema) maybePreviousCach
 
         availableData : Context.AvailableData
         availableData =
+            -- TODO Jeroen Update
             { metadata = Metadata.create { moduleNameNode = Node.Node Range.emptyRange [] }
+            , moduleKey = ModuleKey "dummy"
             }
 
         moduleResults : ModuleRuleResultCache
@@ -288,6 +327,7 @@ withElmJsonProjectVisitor :
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
 withElmJsonProjectVisitor visitor (ProjectRuleSchema projectRuleSchema) =
     -- TODO BREAKING CHANGE, make elm.json mandatory
+    -- TODO BREAKING CHANGE, Rename to withElmJsonVisitor
     ProjectRuleSchema { projectRuleSchema | elmJsonVisitors = visitor :: projectRuleSchema.elmJsonVisitors }
 
 
@@ -296,23 +336,31 @@ withReadmeProjectVisitor :
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
 withReadmeProjectVisitor visitor (ProjectRuleSchema projectRuleSchema) =
+    -- TODO BREAKING CHANGE, Rename to withReadmeVisitor
     ProjectRuleSchema { projectRuleSchema | readmeVisitors = visitor :: projectRuleSchema.readmeVisitors }
 
 
-withDependenciesVisitor :
+withDependenciesProjectVisitor :
     (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
-withDependenciesVisitor visitor (ProjectRuleSchema projectRuleSchema) =
+withDependenciesProjectVisitor visitor (ProjectRuleSchema projectRuleSchema) =
+    -- TODO BREAKING CHANGE, Rename to withDependenciesVisitor
     ProjectRuleSchema { projectRuleSchema | dependenciesVisitors = visitor :: projectRuleSchema.dependenciesVisitors }
 
 
 withFinalProjectEvaluation :
-    (projectContext -> List (Error {}))
+    (projectContext -> List (Error { useErrorForModule : () }))
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
 withFinalProjectEvaluation visitor (ProjectRuleSchema projectRuleSchema) =
-    ProjectRuleSchema { projectRuleSchema | finalEvaluationFns = visitor :: projectRuleSchema.finalEvaluationFns }
+    let
+        removeErrorPhantomTypeFromEvaluation : (projectContext -> List (Error b)) -> (projectContext -> List (Error {}))
+        removeErrorPhantomTypeFromEvaluation function projectContext =
+            function projectContext
+                |> List.map removeErrorPhantomType
+    in
+    ProjectRuleSchema { projectRuleSchema | finalEvaluationFns = removeErrorPhantomTypeFromEvaluation visitor :: projectRuleSchema.finalEvaluationFns }
 
 
 fromProjectRuleSchema : ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext -> Rule
@@ -347,51 +395,48 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) maybePreviousCache 
         initialContext =
             cacheWithInitialContext.dependencies.context
 
-        --previousModuleContexts : Dict String (CacheEntry projectContext)
-        --previousModuleContexts =
-        --    case maybePreviousCache of
-        --        Just { moduleContexts } ->
-        --            moduleContexts
-        --
-        --        Nothing ->
-        --            Dict.empty
-        --
-        --moduleVisitors :
-        --    Maybe
-        --        { visitors : List (ModuleRuleSchema {} projectContext moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } projectContext moduleContext)
-        --        , moduleContext : ModuleContextOptions projectContext moduleContext
-        --        }
-        --moduleVisitors =
-        --    case schema.moduleVisitor of
-        --        NoModuleVisitor ->
-        --            Nothing
-        --
-        --        HasVisitors _ ->
-        --            Nothing
-        --
-        --        IsPrepared visitorInfo ->
-        --            Just visitorInfo
-        --
-        --newCachedModuleContexts : Dict String (CacheEntry projectContext)
-        --newCachedModuleContexts =
-        --    case moduleVisitors of
-        --        Just visitors ->
-        --            computeModules
-        --                wrappedSchema
-        --                visitors
-        --                project
-        --                initialContext
-        --                nodeContexts
-        --                previousModuleContexts
-        --
-        --        Nothing ->
-        --            Dict.empty
-        --
-        --contextsAndErrorsPerModule : List ( List (Error {}), projectContext )
-        --contextsAndErrorsPerModule =
-        --    newCachedModuleContexts
-        --        |> Dict.values
-        --        |> List.map (\cacheEntry -> ( cacheEntry.errors, cacheEntry.context ))
+        moduleVisitors : List (ModuleVisitor {} projectContext moduleContext -> ModuleVisitor { hasAtLeastOneVisitor : () } projectContext moduleContext)
+        moduleVisitors =
+            schema.moduleVisitors
+
+        folder : Maybe (Folder projectContext moduleContext)
+        folder =
+            schema.folder
+
+        computeModules_New () =
+            let
+                previousModuleContexts : Dict String (CacheEntry projectContext)
+                previousModuleContexts =
+                    case maybePreviousCache of
+                        Just { moduleContexts } ->
+                            moduleContexts
+
+                        Nothing ->
+                            Dict.empty
+
+                newCachedModuleContexts : Dict String (CacheEntry projectContext)
+                newCachedModuleContexts =
+                    if List.isEmpty moduleVisitors then
+                        Dict.empty
+
+                    else
+                        --computeModules
+                        --    wrappedSchema
+                        --    visitors
+                        --    project
+                        --    initialContext
+                        --    nodeContexts
+                        --    previousModuleContexts
+                        Debug.todo "computemodules"
+
+                contextsAndErrorsPerModule : List ( List (Error {}), projectContext )
+                contextsAndErrorsPerModule =
+                    newCachedModuleContexts
+                        |> Dict.values
+                        |> List.map (\cacheEntry -> ( cacheEntry.errors, cacheEntry.context ))
+            in
+            ()
+
         errorsFromFinalEvaluation : List (Error {})
         errorsFromFinalEvaluation =
             let

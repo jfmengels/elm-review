@@ -15,7 +15,7 @@ module Review.Rule exposing
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review
     , Required, Forbidden
-    , CacheEntry, CacheEntryFor, ModuleRuleResultCache, ProjectRuleCache, Visitor, accessInternalError, accumulateList, accumulateWithListOfVisitors, makeFinalEvaluation, makeFinalEvaluationForProject, runModuleRule, setFilePathIfUnset, setRuleName, visitDeclaration, visitImport
+    , CacheEntry, CacheEntryFor, ModuleRuleResultCache, ProjectRuleCache, TraversalType(..), Visitor, accessInternalError, accumulateList, accumulateWithListOfVisitors, makeFinalEvaluation, makeFinalEvaluationForProject, removeErrorPhantomType, runModuleRule, setFilePathIfUnset, setRuleName, visitDeclaration, visitImport
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -851,8 +851,11 @@ type alias ModuleContextFunctions projectContext moduleContext =
     }
 
 
-type TraversalType
+type
+    TraversalType
+    -- TODO Jeroen not supposed to expose everything
     = AllModulesInParallel
+      -- TODO Add way to traverse in opposite order
     | ImportedModulesFirst
 
 

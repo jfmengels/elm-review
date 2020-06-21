@@ -21,6 +21,7 @@ import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Signature exposing (Signature)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Review.Rule as Rule exposing (Error, Rule)
+import Review.Rule3 as Rule3
 import Scope
 import Set exposing (Set)
 
@@ -107,30 +108,30 @@ I would love help with improving this :)
 -}
 rule : List { moduleName : String, typeName : String, index : Int } -> Rule
 rule phantomTypes =
-    Rule.newProjectRuleSchema "NoUnused.CustomTypeConstructors" (initialProjectContext phantomTypes)
-        |> Scope.addProjectVisitors
-        |> Rule.withModuleVisitor moduleVisitor
-        |> Rule.withModuleContext
+    Rule3.newProjectRuleSchema "NoUnused.CustomTypeConstructors" (initialProjectContext phantomTypes)
+        |> Scope.addProjectVisitors_New
+        |> Rule3.withModuleVisitor_New moduleVisitor
+        |> Rule3.withModuleContext
             { fromProjectToModule = fromProjectToModule
             , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
             }
-        |> Rule.withElmJsonProjectVisitor elmJsonVisitor
-        |> Rule.withFinalProjectEvaluation finalProjectEvaluation
-        |> Rule.fromProjectRuleSchema
+        |> Rule3.withElmJsonProjectVisitor elmJsonVisitor
+        |> Rule3.withFinalProjectEvaluation finalProjectEvaluation
+        |> Rule3.fromProjectRuleSchema
 
 
 
 -- MODULE VISITOR
 
 
-moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
+moduleVisitor : Rule3.ModuleVisitor {} ProjectContext ModuleContext -> Rule3.ModuleVisitor { hasAtLeastOneVisitor : () } ProjectContext ModuleContext
 moduleVisitor schema =
     schema
-        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-        |> Rule.withDeclarationListVisitor declarationListVisitor
-        |> Rule.withDeclarationEnterVisitor declarationVisitor
-        |> Rule.withExpressionEnterVisitor expressionVisitor
+        |> Rule3.withModuleDefinitionVisitor_New moduleDefinitionVisitor
+        |> Rule3.withDeclarationListVisitor_New declarationListVisitor
+        |> Rule3.withDeclarationEnterVisitor_New declarationVisitor
+        |> Rule3.withExpressionEnterVisitor_New expressionVisitor
 
 
 

@@ -3,6 +3,7 @@ module Scope exposing
     , ProjectContext, addProjectVisitors
     , initialProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
     , moduleNameForValue, moduleNameForType
+    , addProjectVisitors_New
     )
 
 {-| Collect and infer information automatically for you
@@ -75,6 +76,7 @@ import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Rule as Rule exposing (Direction)
+import Review.Rule3 as Rule3
 import Set exposing (Set)
 
 
@@ -348,6 +350,16 @@ addProjectVisitors schema =
         |> Rule.withModuleVisitor internalAddModuleVisitors
 
 
+addProjectVisitors_New :
+    Rule3.ProjectRuleSchema { schemaState | canAddModuleVisitor : () } { projectContext | scope : ProjectContext } { moduleContext | scope : ModuleContext }
+    -> Rule3.ProjectRuleSchema { schemaState | canAddModuleVisitor : (), hasAtLeastOneVisitor : (), withModuleContext : Rule.Required } { projectContext | scope : ProjectContext } { moduleContext | scope : ModuleContext }
+addProjectVisitors_New schema =
+    schema
+        |> Rule3.withContextFromImportedModules_New
+        |> Rule3.withDependenciesProjectVisitor (mapInnerProjectContext dependenciesProjectVisitor)
+        |> Rule3.withModuleVisitor_New internalAddModuleVisitors_New
+
+
 {-| Adds the scope visitors to your module rule.
 
 Using `addModuleVisitors` requires your module context
@@ -426,7 +438,7 @@ internalAddModuleVisitors schema =
                     innerContext =
                         outerContext.scope
                             |> unboxModule
-                            |> popScope visitedElement Rule.OnEnter
+                            |> popScopeEnter visitedElement
                             |> expressionEnterVisitor visitedElement
                 in
                 ( [], { outerContext | scope = ModuleContext innerContext } )
@@ -438,7 +450,64 @@ internalAddModuleVisitors schema =
                     innerContext =
                         outerContext.scope
                             |> unboxModule
-                            |> popScope visitedElement Rule.OnExit
+                            |> popScopeExit visitedElement
+                            |> expressionExitVisitor visitedElement
+                in
+                ( [], { outerContext | scope = ModuleContext innerContext } )
+            )
+
+
+internalAddModuleVisitors_New : Rule3.ModuleVisitor schemaState projectContext { moduleContext | scope : ModuleContext } -> Rule3.ModuleVisitor { schemaState | hasAtLeastOneVisitor : () } projectContext { moduleContext | scope : ModuleContext }
+internalAddModuleVisitors_New schema =
+    schema
+        |> Rule3.withModuleDefinitionVisitor_New
+            (mapInnerModuleContext moduleDefinitionVisitor |> pairWithNoErrors)
+        |> Rule3.withImportVisitor_New
+            (mapInnerModuleContext importVisitor |> pairWithNoErrors)
+        |> Rule3.withDeclarationListVisitor_New
+            (mapInnerModuleContext declarationListVisitor |> pairWithNoErrors)
+        |> Rule3.withDeclarationEnterVisitor_New
+            (\visitedElement outerContext ->
+                let
+                    innerContext : InnerModuleContext
+                    innerContext =
+                        outerContext.scope
+                            |> unboxModule
+                            |> declarationEnterVisitor visitedElement
+                in
+                ( [], { outerContext | scope = ModuleContext innerContext } )
+            )
+        |> Rule3.withDeclarationExitVisitor_New
+            (\visitedElement outerContext ->
+                let
+                    innerContext : InnerModuleContext
+                    innerContext =
+                        outerContext.scope
+                            |> unboxModule
+                            |> declarationExitVisitor visitedElement
+                in
+                ( [], { outerContext | scope = ModuleContext innerContext } )
+            )
+        |> Rule3.withExpressionEnterVisitor_New
+            (\visitedElement outerContext ->
+                let
+                    innerContext : InnerModuleContext
+                    innerContext =
+                        outerContext.scope
+                            |> unboxModule
+                            |> popScopeEnter visitedElement
+                            |> expressionEnterVisitor visitedElement
+                in
+                ( [], { outerContext | scope = ModuleContext innerContext } )
+            )
+        |> Rule3.withExpressionExitVisitor_New
+            (\visitedElement outerContext ->
+                let
+                    innerContext : InnerModuleContext
+                    innerContext =
+                        outerContext.scope
+                            |> unboxModule
+                            |> popScopeExit visitedElement
                             |> expressionExitVisitor visitedElement
                 in
                 ( [], { outerContext | scope = ModuleContext innerContext } )
@@ -1134,33 +1203,37 @@ collectNamesFromPattern pattern =
             collectNamesFromPattern subPattern
 
 
-popScope : Node Expression -> Direction -> InnerModuleContext -> InnerModuleContext
-popScope node direction context =
+popScopeEnter : Node Expression -> InnerModuleContext -> InnerModuleContext
+popScopeEnter node context =
+    let
+        currentScope : Scope
+        currentScope =
+            nonemptyList_head context.scopes
+
+        caseExpression : Maybe ( Node Expression, Dict String VariableInfo )
+        caseExpression =
+            findInList (\( expressionNode, _ ) -> node == expressionNode) currentScope.cases
+    in
+    case caseExpression of
+        Nothing ->
+            context
+
+        Just ( _, names ) ->
+            { context | scopes = nonemptyList_cons { emptyScope | names = names, caseToExit = node } context.scopes }
+
+
+popScopeExit : Node Expression -> InnerModuleContext -> InnerModuleContext
+popScopeExit node context =
     let
         currentScope : Scope
         currentScope =
             nonemptyList_head context.scopes
     in
-    case direction of
-        Rule.OnEnter ->
-            let
-                caseExpression : Maybe ( Node Expression, Dict String VariableInfo )
-                caseExpression =
-                    findInList (\( expressionNode, _ ) -> node == expressionNode) currentScope.cases
-            in
-            case caseExpression of
-                Nothing ->
-                    context
+    if node == currentScope.caseToExit then
+        { context | scopes = nonemptyList_pop context.scopes }
 
-                Just ( _, names ) ->
-                    { context | scopes = nonemptyList_cons { emptyScope | names = names, caseToExit = node } context.scopes }
-
-        Rule.OnExit ->
-            if node == currentScope.caseToExit then
-                { context | scopes = nonemptyList_pop context.scopes }
-
-            else
-                context
+    else
+        context
 
 
 expressionEnterVisitor : Node Expression -> InnerModuleContext -> InnerModuleContext
