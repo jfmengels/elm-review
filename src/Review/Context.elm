@@ -43,8 +43,8 @@ type alias AvailableData =
     }
 
 
-apply : AvailableData -> projectContext -> Context projectContext moduleContext -> moduleContext
-apply data projectContext (Context fn _) =
+apply : AvailableData -> Context projectContext moduleContext -> projectContext -> moduleContext
+apply data (Context fn _) projectContext =
     fn data projectContext
 
 

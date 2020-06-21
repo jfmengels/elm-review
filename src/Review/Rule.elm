@@ -15,7 +15,7 @@ module Review.Rule exposing
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review
     , Required, Forbidden
-    , CacheEntry, CacheEntryFor, ModuleRuleResultCache, ProjectRuleCache, TraversalType(..), Visitor, accessInternalError, accumulateList, accumulateWithListOfVisitors, makeFinalEvaluation, makeFinalEvaluationForProject, removeErrorPhantomType, runModuleRule, setFilePathIfUnset, setRuleName, visitDeclaration, visitImport
+    , CacheEntry, CacheEntryFor, ModuleRuleResultCache, ModuleVisitorFunctions, ProjectRuleCache, TraversalType(..), Visitor, accessInternalError, accumulateList, accumulateWithListOfVisitors, computeModuleAndCacheResult, getModuleName, makeFinalEvaluation, makeFinalEvaluationForProject, moduleNameNode, removeErrorPhantomType, runModuleRule, setFilePathIfUnset, setRuleName, visitDeclaration, visitImport, visitModuleForProjectRule
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -1664,6 +1664,22 @@ computeModules (ProjectRuleSchema schema) visitors project initialContext nodeCo
                 visitors.visitors
                 |> reverseVisitors
 
+        moduleVisitorFunctions :
+            ModuleVisitorFunctions
+                { name : String
+                , initialContext : moduleContext
+                , elmJsonVisitors : List (Maybe Elm.Project.Project -> moduleContext -> moduleContext)
+                , readmeVisitors : List (Maybe String -> moduleContext -> moduleContext)
+                , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
+                }
+                moduleContext
+        moduleVisitorFunctions =
+            let
+                (ModuleRuleSchema moduleRuleSchema) =
+                    moduleVisitor
+            in
+            moduleRuleSchema
+
         computeModule : Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> CacheEntry projectContext
         computeModule cache importedModules module_ =
             let
@@ -1696,7 +1712,7 @@ computeModules (ProjectRuleSchema schema) visitors project initialContext nodeCo
 
                 ( moduleErrors, context ) =
                     visitModuleForProjectRule
-                        moduleVisitor
+                        moduleVisitorFunctions
                         initialModuleContext
                         module_
             in
@@ -1807,8 +1823,22 @@ noImportedModulesHaveANewContext importedModules invalidatedModules =
         |> Set.isEmpty
 
 
-visitModuleForProjectRule : ModuleRuleSchema a moduleContext -> moduleContext -> ProjectModule -> ( List (Error {}), moduleContext )
-visitModuleForProjectRule (ModuleRuleSchema schema) initialContext module_ =
+type alias ModuleVisitorFunctions something moduleContext =
+    { something
+        | moduleDefinitionVisitors : List (Visitor Module moduleContext)
+        , commentsVisitors : List (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
+        , importVisitors : List (Visitor Import moduleContext)
+        , declarationListVisitors : List (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
+        , declarationVisitorsOnEnter : List (Visitor Declaration moduleContext)
+        , declarationVisitorsOnExit : List (Visitor Declaration moduleContext)
+        , expressionVisitorsOnEnter : List (Visitor Expression moduleContext)
+        , expressionVisitorsOnExit : List (Visitor Expression moduleContext)
+        , finalEvaluationFns : List (moduleContext -> List (Error {}))
+    }
+
+
+visitModuleForProjectRule : ModuleVisitorFunctions something moduleContext -> moduleContext -> ProjectModule -> ( List (Error {}), moduleContext )
+visitModuleForProjectRule schema initialContext module_ =
     ( [], initialContext )
         |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors module_.ast.moduleDefinition
         |> accumulateWithListOfVisitors schema.commentsVisitors module_.ast.comments

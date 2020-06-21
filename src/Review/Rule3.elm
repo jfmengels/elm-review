@@ -45,8 +45,10 @@ import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Metadata as Metadata
 import Review.Project exposing (Project, ProjectModule)
 import Review.Project.Dependency
-import Review.Rule exposing (CacheEntry, CacheEntryFor, Direction(..), ElmJsonKey(..), Error(..), Forbidden, ModuleKey(..), ModuleRuleResultCache, ProjectRuleCache, ReadmeKey(..), Required, Rule(..), TraversalType(..), Visitor, accessInternalError, accumulateList, accumulateWithListOfVisitors, makeFinalEvaluation, makeFinalEvaluationForProject, removeErrorPhantomType, setFilePathIfUnset, setRuleName, visitDeclaration, visitImport)
-import Vendor.Graph as Graph
+import Review.Project.Internal
+import Review.Rule exposing (CacheEntry, CacheEntryFor, Direction(..), ElmJsonKey(..), Error(..), Forbidden, ModuleKey(..), ModuleRuleResultCache, ModuleVisitorFunctions, ProjectRuleCache, ReadmeKey(..), Required, Rule(..), TraversalType(..), Visitor, accessInternalError, accumulateList, accumulateWithListOfVisitors, computeModuleAndCacheResult, getModuleName, makeFinalEvaluation, makeFinalEvaluationForProject, moduleNameNode, removeErrorPhantomType, setFilePathIfUnset, setRuleName, visitDeclaration, visitImport, visitModuleForProjectRule)
+import Set exposing (Set)
+import Vendor.Graph as Graph exposing (Graph)
 
 
 type ProjectRuleSchema schemaState projectContext moduleContext
@@ -130,9 +132,14 @@ type
 
 emptyModuleVisitor : String -> moduleContext -> ModuleVisitor { moduleContext : Required } () moduleContext
 emptyModuleVisitor name moduleContext =
+    emptyModuleVisitor2 name (Context.init (always moduleContext))
+
+
+emptyModuleVisitor2 : String -> Context projectContext moduleContext -> ModuleVisitor schemaState projectContext moduleContext
+emptyModuleVisitor2 name moduleContextCreator =
     ModuleVisitor
         { name = name
-        , moduleContextCreator = Context.init (always moduleContext)
+        , moduleContextCreator = moduleContextCreator
         , moduleDefinitionVisitors = []
         , commentsVisitors = []
         , importVisitors = []
@@ -213,7 +220,7 @@ fromModuleRuleSchema_New ((ModuleVisitor { name }) as schema) =
         |> Rule name Exceptions.init
 
 
-reverseVisitors_New : ModuleVisitor schemaState () moduleContext -> ModuleVisitor schemaState () moduleContext
+reverseVisitors_New : ModuleVisitor schemaState projectContext moduleContext -> ModuleVisitor schemaState projectContext moduleContext
 reverseVisitors_New (ModuleVisitor schema) =
     ModuleVisitor
         { name = schema.name
@@ -287,7 +294,7 @@ computeErrors_New (ModuleVisitor schema) availableData module_ =
     let
         initialContext : moduleContext
         initialContext =
-            Context.apply availableData () schema.moduleContextCreator
+            Context.apply availableData schema.moduleContextCreator ()
     in
     ( [], initialContext )
         |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors module_.ast.moduleDefinition
@@ -399,21 +406,18 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) maybePreviousCache 
         moduleVisitors =
             schema.moduleVisitors
 
-        folder : Maybe (Folder projectContext moduleContext)
-        folder =
-            schema.folder
+        previousModuleContexts : Dict String (CacheEntry projectContext)
+        previousModuleContexts =
+            case maybePreviousCache of
+                Just { moduleContexts } ->
+                    moduleContexts
+
+                Nothing ->
+                    Dict.empty
 
         computeModules_New () =
+            -- TODO Implement this now
             let
-                previousModuleContexts : Dict String (CacheEntry projectContext)
-                previousModuleContexts =
-                    case maybePreviousCache of
-                        Just { moduleContexts } ->
-                            moduleContexts
-
-                        Nothing ->
-                            Dict.empty
-
                 newCachedModuleContexts : Dict String (CacheEntry projectContext)
                 newCachedModuleContexts =
                     if List.isEmpty moduleVisitors then
@@ -436,6 +440,10 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) maybePreviousCache 
                         |> List.map (\cacheEntry -> ( cacheEntry.errors, cacheEntry.context ))
             in
             ()
+
+        folder : Maybe (Folder projectContext moduleContext)
+        folder =
+            schema.folder
 
         errorsFromFinalEvaluation : List (Error {})
         errorsFromFinalEvaluation =
@@ -480,6 +488,132 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) maybePreviousCache 
                 |> List.map (setRuleName schema.name)
     in
     ( errors, Rule schema.name exceptions (runProjectRule wrappedSchema (Just newCache)) )
+
+
+computeModules :
+    ProjectRuleSchema schemaState projectContext moduleContext
+    -> List (ModuleVisitor {} projectContext moduleContext -> ModuleVisitor { hasAtLeastOneVisitor : () } projectContext moduleContext)
+    -> Context projectContext moduleContext
+    -> Folder projectContext moduleContext
+    -> Project
+    -> projectContext
+    -> List (Graph.NodeContext ModuleName ())
+    -> Dict String (CacheEntry projectContext)
+    -> Dict String (CacheEntry projectContext)
+computeModules (ProjectRuleSchema schema) visitors moduleContextCreator folder project initialProjectContext nodeContexts startCache =
+    let
+        graph : Graph ModuleName ()
+        graph =
+            Review.Project.Internal.moduleGraph project
+
+        projectModulePaths : Set String
+        projectModulePaths =
+            project
+                |> Review.Project.modules
+                |> List.map .path
+                |> Set.fromList
+
+        modules : Dict ModuleName ProjectModule
+        modules =
+            project
+                |> Review.Project.modules
+                |> List.foldl
+                    (\module_ dict ->
+                        Dict.insert
+                            (getModuleName module_)
+                            module_
+                            dict
+                    )
+                    Dict.empty
+
+        newStartCache : Dict String (CacheEntry projectContext)
+        newStartCache =
+            startCache
+                |> Dict.filter (\path _ -> Set.member path projectModulePaths)
+
+        moduleVisitor : ModuleVisitor { hasAtLeastOneVisitor : () } projectContext moduleContext
+        moduleVisitor =
+            -- TODO Jeroen do this directly in withModuleVisitor
+            List.foldl
+                (\addVisitors (ModuleVisitor moduleVisitorSchema) ->
+                    addVisitors (ModuleVisitor moduleVisitorSchema)
+                )
+                (emptyModuleVisitor2 schema.name moduleContextCreator)
+                visitors
+                |> reverseVisitors_New
+
+        moduleVisitorFunctions : ModuleVisitorFunctions { name : String, moduleContextCreator : Context projectContext moduleContext } moduleContext
+        moduleVisitorFunctions =
+            let
+                (ModuleVisitor moduleVisitorFunctions_) =
+                    moduleVisitor
+            in
+            moduleVisitorFunctions_
+
+        computeModule : Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> CacheEntry projectContext
+        computeModule cache importedModules module_ =
+            let
+                moduleKey : ModuleKey
+                moduleKey =
+                    ModuleKey module_.path
+
+                moduleNameNode_ : Node ModuleName
+                moduleNameNode_ =
+                    moduleNameNode module_.ast.moduleDefinition
+
+                metadata : Metadata.Metadata
+                metadata =
+                    Metadata.create { moduleNameNode = Node.Node Range.emptyRange [] }
+
+                availableData : Context.AvailableData
+                availableData =
+                    { metadata = metadata
+                    , moduleKey = moduleKey
+                    }
+
+                initialModuleContext : moduleContext
+                initialModuleContext =
+                    case schema.traversalType of
+                        AllModulesInParallel ->
+                            Context.apply availableData moduleContextCreator initialProjectContext
+
+                        ImportedModulesFirst ->
+                            -- TODO Require to have a folder when we use this.
+                            -- Also, when we use a folder, require either ImportedModulesFirst or ImportedModulesLast
+                            -- Or is this not very important?
+                            let
+                                projectContext : projectContext
+                                projectContext =
+                                    importedModules
+                                        |> List.filterMap
+                                            (\importedModule ->
+                                                Dict.get importedModule.path cache
+                                                    |> Maybe.map .context
+                                            )
+                                        |> List.foldl folder.foldProjectContexts initialProjectContext
+                            in
+                            Context.apply availableData moduleContextCreator projectContext
+
+                ( moduleErrors, context ) =
+                    visitModuleForProjectRule
+                        moduleVisitorFunctions
+                        initialModuleContext
+                        module_
+            in
+            { source = module_.source
+            , errors = List.map (setFilePathIfUnset module_) moduleErrors
+            , context =
+                folder.fromModuleToProject
+                    moduleKey
+                    moduleNameNode_
+                    context
+            }
+    in
+    List.foldl
+        (computeModuleAndCacheResult schema.traversalType modules graph computeModule)
+        ( newStartCache, Set.empty )
+        nodeContexts
+        |> Tuple.first
 
 
 computeProjectContext : ProjectRuleSchema schemaState projectContext moduleContext -> Project -> Maybe (ProjectRuleCache projectContext) -> ProjectRuleCache projectContext
