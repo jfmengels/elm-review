@@ -244,8 +244,8 @@ available for rules to access using
 [`Review.Rule.withElmJsonModuleVisitor`](./Review-Rule#withElmJsonModuleVisitor) and
 [`Review.Rule.withElmJsonProjectVisitor`](./Review-Rule#withElmJsonProjectVisitor).
 
-The `raw` value should be the raw JSON as a string, and `contents` corresponds to
-[`elm/project-metadata-utils`'s Project project structure](https://package.elm-lang.org/packages/elm/project-metadata-utils/latest/Elm-Project).
+The `raw` value should be the raw JSON as a string, and `project` corresponds to
+[`elm/project-metadata-utils`'s `Elm.Project.Project` type](https://package.elm-lang.org/packages/elm/project-metadata-utils/latest/Elm-Project#Project).
 
 -}
 addElmJson : { path : String, raw : String, project : Elm.Project.Project } -> Project -> Project
@@ -255,10 +255,10 @@ addElmJson elmJson_ (Internal.Project project) =
 
 {-| Get the contents of the `elm.json` file, if available.
 
-This will give you a `Project` type from the
+This will give you a `Elm.Project.Project` type from the
 [`elm/project-metadata-utils`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.0/Elm-Project)
 package, so you will need to install and use it to gain access to the
-information inside the `elm.json` file.
+information from the `elm.json` file.
 
 -}
 elmJson : Project -> Maybe { path : String, raw : String, project : Elm.Project.Project }
