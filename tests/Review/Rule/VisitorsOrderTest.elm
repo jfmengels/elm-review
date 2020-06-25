@@ -4,6 +4,7 @@ import Elm.Syntax.Declaration exposing (Declaration)
 import Elm.Syntax.Expression exposing (Expression)
 import Elm.Syntax.Node exposing (Node)
 import Review.Rule as Rule exposing (Error, Rule)
+import Review.Rule3 as Rule3
 import Review.Test
 import Test exposing (Test, test)
 
@@ -20,29 +21,29 @@ all =
                 let
                     rule : Rule
                     rule =
-                        Rule.newModuleRuleSchema "TestRule" "\n0 - initial context"
-                            |> Rule.withElmJsonModuleVisitor (\_ context -> context ++ "\n1.1 - withElmJsonModuleVisitor")
-                            |> Rule.withElmJsonModuleVisitor (\_ context -> context ++ "\n1.2 - withElmJsonModuleVisitor")
-                            |> Rule.withReadmeModuleVisitor (\_ context -> context ++ "\n2.1 - withReadmeModuleVisitor")
-                            |> Rule.withReadmeModuleVisitor (\_ context -> context ++ "\n2.2 - withReadmeModuleVisitor")
-                            |> Rule.withDependenciesModuleVisitor (\_ context -> context ++ "\n3.1 - withDependenciesModuleVisitor")
-                            |> Rule.withDependenciesModuleVisitor (\_ context -> context ++ "\n3.2 - withDependenciesModuleVisitor")
-                            |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ++ "\n4.1 - withModuleDefinitionVisitor" ))
-                            |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ++ "\n4.2 - withModuleDefinitionVisitor" ))
-                            |> Rule.withImportVisitor (\_ context -> ( [], context ++ "\n5.1 - withImportVisitor" ))
-                            |> Rule.withImportVisitor (\_ context -> ( [], context ++ "\n5.2 - withImportVisitor" ))
-                            |> Rule.withDeclarationListVisitor (\_ context -> ( [], context ++ "\n6.1 - withDeclarationListVisitor" ))
-                            |> Rule.withDeclarationListVisitor (\_ context -> ( [], context ++ "\n6.2 - withDeclarationListVisitor" ))
-                            |> Rule.withDeclarationEnterVisitor (\_ context -> ( [], context ++ "\n7.1 - withDeclarationEnterVisitor" ))
-                            |> Rule.withDeclarationEnterVisitor (\_ context -> ( [], context ++ "\n7.2 - withDeclarationEnterVisitor" ))
-                            |> Rule.withDeclarationExitVisitor (\_ context -> ( [], context ++ "\n10.2 - withDeclarationExitVisitor" ))
-                            |> Rule.withDeclarationExitVisitor (\_ context -> ( [], context ++ "\n10.1 - withDeclarationExitVisitor" ))
-                            |> Rule.withExpressionEnterVisitor (\_ context -> ( [], context ++ "\n8.1 - withExpressionEnterVisitor" ))
-                            |> Rule.withExpressionEnterVisitor (\_ context -> ( [], context ++ "\n8.2 - withExpressionEnterVisitor" ))
-                            |> Rule.withExpressionExitVisitor (\_ context -> ( [], context ++ "\n9.2 - withExpressionExitVisitor" ))
-                            |> Rule.withExpressionExitVisitor (\_ context -> ( [], context ++ "\n9.1 - withExpressionExitVisitor" ))
-                            |> Rule.withFinalModuleEvaluation finalEvaluation
-                            |> Rule.fromModuleRuleSchema
+                        Rule3.newModuleRuleSchema "Visitor order" "\n0 - initial context"
+                            |> Rule3.withElmJsonModuleVisitor (\_ context -> context ++ "\n1.1 - withElmJsonModuleVisitor")
+                            |> Rule3.withElmJsonModuleVisitor (\_ context -> context ++ "\n1.2 - withElmJsonModuleVisitor")
+                            |> Rule3.withReadmeModuleVisitor (\_ context -> context ++ "\n2.1 - withReadmeModuleVisitor")
+                            |> Rule3.withReadmeModuleVisitor (\_ context -> context ++ "\n2.2 - withReadmeModuleVisitor")
+                            |> Rule3.withDependenciesModuleVisitor (\_ context -> context ++ "\n3.1 - withDependenciesModuleVisitor")
+                            |> Rule3.withDependenciesModuleVisitor (\_ context -> context ++ "\n3.2 - withDependenciesModuleVisitor")
+                            |> Rule3.withModuleDefinitionVisitor (\_ context -> ( [], context ++ "\n4.1 - withModuleDefinitionVisitor" ))
+                            |> Rule3.withModuleDefinitionVisitor (\_ context -> ( [], context ++ "\n4.2 - withModuleDefinitionVisitor" ))
+                            |> Rule3.withImportVisitor (\_ context -> ( [], context ++ "\n5.1 - withImportVisitor" ))
+                            |> Rule3.withImportVisitor (\_ context -> ( [], context ++ "\n5.2 - withImportVisitor" ))
+                            |> Rule3.withDeclarationListVisitor (\_ context -> ( [], context ++ "\n6.1 - withDeclarationListVisitor" ))
+                            |> Rule3.withDeclarationListVisitor (\_ context -> ( [], context ++ "\n6.2 - withDeclarationListVisitor" ))
+                            |> Rule3.withDeclarationEnterVisitor (\_ context -> ( [], context ++ "\n7.1 - withDeclarationEnterVisitor" ))
+                            |> Rule3.withDeclarationEnterVisitor (\_ context -> ( [], context ++ "\n7.2 - withDeclarationEnterVisitor" ))
+                            |> Rule3.withDeclarationExitVisitor (\_ context -> ( [], context ++ "\n10.2 - withDeclarationExitVisitor" ))
+                            |> Rule3.withDeclarationExitVisitor (\_ context -> ( [], context ++ "\n10.1 - withDeclarationExitVisitor" ))
+                            |> Rule3.withExpressionEnterVisitor (\_ context -> ( [], context ++ "\n8.1 - withExpressionEnterVisitor" ))
+                            |> Rule3.withExpressionEnterVisitor (\_ context -> ( [], context ++ "\n8.2 - withExpressionEnterVisitor" ))
+                            |> Rule3.withExpressionExitVisitor (\_ context -> ( [], context ++ "\n9.2 - withExpressionExitVisitor" ))
+                            |> Rule3.withExpressionExitVisitor (\_ context -> ( [], context ++ "\n9.1 - withExpressionExitVisitor" ))
+                            |> Rule3.withFinalModuleEvaluation finalEvaluation
+                            |> Rule3.fromModuleRuleSchema
 
                     finalEvaluation : Context -> List (Error {})
                     finalEvaluation context =

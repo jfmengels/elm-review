@@ -11,7 +11,9 @@ module Review.Rule3 exposing
     , withDeclarationExitVisitor
     , withDeclarationListVisitor
     , withDeclarationVisitor
+    , withDependenciesModuleVisitor
     , withDependenciesProjectVisitor
+    , withElmJsonModuleVisitor
     , withElmJsonProjectVisitor
     , withExpressionEnterVisitor
     , withExpressionExitVisitor
@@ -22,6 +24,7 @@ module Review.Rule3 exposing
     , withModuleContext
     , withModuleDefinitionVisitor
     , withModuleVisitor
+    , withReadmeModuleVisitor
     , withReadmeProjectVisitor
     , withSimpleCommentsVisitor
     , withSimpleDeclarationVisitor
@@ -101,6 +104,11 @@ type ModuleRuleSchema schemaState moduleContext
         , expressionVisitorsOnEnter : List (Visitor Expression moduleContext)
         , expressionVisitorsOnExit : List (Visitor Expression moduleContext)
         , finalEvaluationFns : List (moduleContext -> List (Error {}))
+
+        -- Project visitors
+        , elmJsonVisitors : List (Maybe Elm.Project.Project -> moduleContext -> moduleContext)
+        , readmeVisitors : List (Maybe String -> moduleContext -> moduleContext)
+        , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
         }
 
 
@@ -113,7 +121,7 @@ withModuleVisitor visitor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | moduleVisitors = visitor :: schema.moduleVisitors }
 
 
-newModuleRuleSchema : String -> moduleContext -> ModuleRuleSchema { moduleContext : Required } moduleContext
+newModuleRuleSchema : String -> moduleContext -> ModuleRuleSchema { canCollectProjectData : () } moduleContext
 newModuleRuleSchema name initialModuleContext =
     ModuleRuleSchema
         { name = name
@@ -128,6 +136,9 @@ newModuleRuleSchema name initialModuleContext =
         , expressionVisitorsOnEnter = []
         , expressionVisitorsOnExit = []
         , finalEvaluationFns = []
+        , elmJsonVisitors = []
+        , readmeVisitors = []
+        , dependenciesVisitors = []
         }
 
 
@@ -185,19 +196,16 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 Nothing ->
                     Debug.todo "Define initial module context"
 
-        --elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> moduleContext -> ( List (Error {}), moduleContext ))
-        --elmJsonVisitors =
-        --    schema.elmJsonVisitors
         projectRule : ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext moduleContext
         projectRule =
             ProjectRuleSchema
                 { name = schema.name
                 , initialProjectContext = initialContext
-                , elmJsonVisitors = [] -- List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
-                , readmeVisitors = [] -- (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
-                , dependenciesVisitors = [] -- (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
+                , elmJsonVisitors = compactProjectDataVisitors (Maybe.map .project) schema.elmJsonVisitors
+                , readmeVisitors = compactProjectDataVisitors (Maybe.map .content) schema.readmeVisitors
+                , dependenciesVisitors = compactProjectDataVisitors identity schema.dependenciesVisitors
                 , moduleVisitors = [ removeExtensibleRecordTypeVariable (always moduleVisitor) ]
-                , moduleContextCreator = Just (Context.init (always initialContext))
+                , moduleContextCreator = Just (Context.init identity)
                 , folder = Nothing
 
                 -- TODO Jeroen Only allow to set it if there is a folder, but not several times
@@ -206,6 +214,27 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 }
     in
     fromProjectRuleSchema projectRule
+
+
+compactProjectDataVisitors : (rawData -> data) -> List (data -> moduleContext -> moduleContext) -> List (rawData -> moduleContext -> ( List nothing, moduleContext ))
+compactProjectDataVisitors getData visitors =
+    if List.isEmpty visitors then
+        []
+
+    else
+        [ \rawData moduleContext ->
+            let
+                data : data
+                data =
+                    getData rawData
+            in
+            ( []
+            , List.foldl
+                (\visitor moduleContext_ -> visitor data moduleContext_)
+                moduleContext
+                (List.reverse visitors)
+            )
+        ]
 
 
 {-| This function that is supplied by the user will be stored in the `ProjectRuleSchema`,
@@ -222,30 +251,99 @@ removeExtensibleRecordTypeVariable function =
     function >> (\(ModuleRuleSchema param) -> ModuleRuleSchema param)
 
 
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the project's
+[`elm.json`](https://package.elm-lang.org/packages/elm/project-metadata-utils/latest/Elm-Project) file.
 
---runModuleRule_New
---    (reverseVisitors_New moduleVisitor)
---    Nothing
---    |> Rule schema.name Exceptions.init
---fromProjectRuleSchema : ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext -> Rule
---fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
---    Rule schema.name
---        Exceptions.init
---        (Review.Visitor.run (fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema) Nothing)
---fromProjectRuleSchemaToRunnableProjectVisitor : ProjectRuleSchema schemaState projectContext moduleContext -> Review.Visitor.RunnableProjectVisitor projectContext moduleContext
---fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
---    { name = schema.name
---    , initialProjectContext = schema.initialProjectContext
---    , elmJsonVisitors = List.reverse schema.elmJsonVisitors
---    , readmeVisitors = List.reverse schema.readmeVisitors
---    , dependenciesVisitors = List.reverse schema.dependenciesVisitors
---    , moduleVisitor = mergeModuleVisitors schema.name schema.moduleContextCreator schema.moduleVisitors
---    , folder = schema.folder
---
---    -- TODO Jeroen Only allow to set it if there is a folder, but not several times
---    , traversalType = schema.traversalType
---    , finalEvaluationFns = List.reverse schema.finalEvaluationFns
---    }
+The following example forbids exposing a module in an "Internal" directory in your `elm.json` file.
+
+    import Elm.Module
+    import Elm.Project
+    import Elm.Syntax.Module as Module exposing (Module)
+    import Elm.Syntax.Node as Node exposing (Node)
+    import Review.Rule as Rule exposing (Error, Rule)
+
+    type alias Context =
+        Maybe Elm.Project.Project
+
+    rule : Rule
+    rule =
+        Rule.newModuleRuleSchema "DoNoExposeInternalModules" Nothing
+            |> Rule.withElmJsonModuleVisitor elmJsonVisitor
+            |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
+            |> Rule.fromModuleRuleSchema
+
+    elmJsonVisitor : Maybe Elm.Project.Project -> Context -> Context
+    elmJsonVisitor elmJson context =
+        elmJson
+
+    moduleDefinitionVisitor : Node Module -> Context -> ( List (Error {}), Context )
+    moduleDefinitionVisitor node context =
+        let
+            moduleName : List String
+            moduleName =
+                Node.value node |> Module.moduleName
+        in
+        if List.member "Internal" moduleName then
+            case context of
+                Just (Elm.Project.Package { exposed }) ->
+                    let
+                        exposedModules : List String
+                        exposedModules =
+                            case exposed of
+                                Elm.Project.ExposedList names ->
+                                    names
+                                        |> List.map Elm.Module.toString
+
+                                Elm.Project.ExposedDict fakeDict ->
+                                    fakeDict
+                                        |> List.concatMap Tuple.second
+                                        |> List.map Elm.Module.toString
+                    in
+                    if List.member (String.join "." moduleName) exposedModules then
+                        ( [ Rule.error "Do not expose modules in `Internal` as part of the public API" (Node.range node) ], context )
+
+                    else
+                        ( [], context )
+
+                _ ->
+                    ( [], context )
+
+        else
+            ( [], context )
+
+-}
+withElmJsonModuleVisitor :
+    (Maybe Elm.Project.Project -> moduleContext -> moduleContext)
+    -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
+    -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
+withElmJsonModuleVisitor visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | elmJsonVisitors = visitor :: schema.elmJsonVisitors }
+
+
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit
+the project's `README.md` file.
+-}
+withReadmeModuleVisitor :
+    (Maybe String -> moduleContext -> moduleContext)
+    -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
+    -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
+withReadmeModuleVisitor visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | readmeVisitors = visitor :: schema.readmeVisitors }
+
+
+{-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will visit the project's
+[dependencies](./Review-Project-Dependency).
+
+You can use this look at the modules contained in dependencies, which can make the rule very precise when it targets
+specific functions.
+
+-}
+withDependenciesModuleVisitor :
+    (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
+    -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
+    -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
+withDependenciesModuleVisitor visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | dependenciesVisitors = visitor :: schema.dependenciesVisitors }
 
 
 withElmJsonProjectVisitor :
@@ -360,6 +458,9 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
                         , expressionVisitorsOnEnter = []
                         , expressionVisitorsOnExit = []
                         , finalEvaluationFns = []
+                        , elmJsonVisitors = []
+                        , readmeVisitors = []
+                        , dependenciesVisitors = []
                         }
             in
             Just

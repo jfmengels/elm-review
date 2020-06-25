@@ -248,7 +248,7 @@ computeProjectContext projectVisitor project maybePreviousCache =
                 computeReadme () =
                     let
                         ( errorsForVisitor, contextForVisitor ) =
-                            ( elmJsonCacheEntry.errors, elmJsonCacheEntry.context )
+                            ( [], elmJsonCacheEntry.context )
                                 |> accumulateWithListOfVisitors projectVisitor.readmeVisitors readmeData
                     in
                     { value = readmeData
@@ -274,6 +274,7 @@ computeProjectContext projectVisitor project maybePreviousCache =
 
         dependenciesCacheEntry : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
         dependenciesCacheEntry =
+            -- TODO Rewrite these steps to make it less likely to make an error at every step
             let
                 dependencies : Dict String Review.Project.Dependency.Dependency
                 dependencies =
@@ -283,7 +284,7 @@ computeProjectContext projectVisitor project maybePreviousCache =
                 computeDependencies () =
                     let
                         ( errorsForVisitor, contextForVisitor ) =
-                            ( elmJsonCacheEntry.errors, elmJsonCacheEntry.context )
+                            ( [], readmeCacheEntry.context )
                                 |> accumulateWithListOfVisitors projectVisitor.dependenciesVisitors dependencies
                     in
                     { value = dependencies
@@ -296,7 +297,7 @@ computeProjectContext projectVisitor project maybePreviousCache =
                     if
                         -- If the previous context stayed the same
                         (previousCache.readme.context /= readmeCacheEntry.context)
-                            -- and the readme stayed the same
+                            -- and the dependencies stayed the same
                             || (previousCache.dependencies.value == dependencies)
                     then
                         previousCache.dependencies
