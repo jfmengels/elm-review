@@ -75,9 +75,9 @@ Or pass `NoLeftPizza.Redundant` which will only apply to redundant usage:
 -}
 rule : Strictness -> Rule
 rule strictness =
-    Rule3.newModuleRuleSchema_New "NoLeftPizza" strictness
-        |> Rule3.withSimpleExpressionVisitor_New (expressionVisitor strictness)
-        |> Rule3.fromModuleRuleSchema_New
+    Rule3.newModuleRuleSchema "NoLeftPizza" strictness
+        |> Rule3.withSimpleExpressionVisitor (expressionVisitor strictness)
+        |> Rule3.fromModuleRuleSchema
 
 
 expressionVisitor : Strictness -> Node Expression -> List (Error {})

@@ -62,9 +62,9 @@ evaluated.
 -}
 rule : Rule
 rule =
-    Rule3.newModuleRuleSchema_New "NoBooleanCaseOf" ()
-        |> Rule3.withSimpleExpressionVisitor_New expressionVisitor
-        |> Rule3.fromModuleRuleSchema_New
+    Rule3.newModuleRuleSchema "NoBooleanCaseOf" ()
+        |> Rule3.withSimpleExpressionVisitor expressionVisitor
+        |> Rule3.fromModuleRuleSchema
 
 
 expressionVisitor : Node Expression -> List (Error {})

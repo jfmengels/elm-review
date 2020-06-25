@@ -110,7 +110,7 @@ rule : List { moduleName : String, typeName : String, index : Int } -> Rule
 rule phantomTypes =
     Rule3.newProjectRuleSchema "NoUnused.CustomTypeConstructors" (initialProjectContext phantomTypes)
         |> Scope.addProjectVisitors_New
-        |> Rule3.withModuleVisitor_New moduleVisitor
+        |> Rule3.withModuleVisitor moduleVisitor
         |> Rule3.withModuleContext
             { fromProjectToModule = fromProjectToModule
             , fromModuleToProject = fromModuleToProject
@@ -128,10 +128,10 @@ rule phantomTypes =
 moduleVisitor : Rule3.ModuleRuleSchema {} ModuleContext -> Rule3.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor schema =
     schema
-        |> Rule3.withModuleDefinitionVisitor_New moduleDefinitionVisitor
-        |> Rule3.withDeclarationListVisitor_New declarationListVisitor
-        |> Rule3.withDeclarationEnterVisitor_New declarationVisitor
-        |> Rule3.withExpressionEnterVisitor_New expressionVisitor
+        |> Rule3.withModuleDefinitionVisitor moduleDefinitionVisitor
+        |> Rule3.withDeclarationListVisitor declarationListVisitor
+        |> Rule3.withDeclarationEnterVisitor declarationVisitor
+        |> Rule3.withExpressionEnterVisitor expressionVisitor
 
 
 

@@ -64,9 +64,9 @@ import Review.Rule3 as Rule3
 -}
 rule : Rule
 rule =
-    Rule3.newModuleRuleSchema_New "NoListLiteralsConcat" ()
-        |> Rule3.withSimpleExpressionVisitor_New expressionVisitor
-        |> Rule3.fromModuleRuleSchema_New
+    Rule3.newModuleRuleSchema "NoListLiteralsConcat" ()
+        |> Rule3.withSimpleExpressionVisitor expressionVisitor
+        |> Rule3.fromModuleRuleSchema
 
 
 error : Range -> Error {}

@@ -355,9 +355,9 @@ addProjectVisitors_New :
     -> Rule3.ProjectRuleSchema { schemaState | canAddModuleVisitor : (), hasAtLeastOneVisitor : (), withModuleContext : Rule.Required } { projectContext | scope : ProjectContext } { moduleContext | scope : ModuleContext }
 addProjectVisitors_New schema =
     schema
-        |> Rule3.withContextFromImportedModules_New
+        |> Rule3.withContextFromImportedModules
         |> Rule3.withDependenciesProjectVisitor (mapInnerProjectContext dependenciesProjectVisitor)
-        |> Rule3.withModuleVisitor_New internalAddModuleVisitors_New
+        |> Rule3.withModuleVisitor internalAddModuleVisitors_New
 
 
 {-| Adds the scope visitors to your module rule.
@@ -460,13 +460,13 @@ internalAddModuleVisitors schema =
 internalAddModuleVisitors_New : Rule3.ModuleRuleSchema schemaState { moduleContext | scope : ModuleContext } -> Rule3.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } { moduleContext | scope : ModuleContext }
 internalAddModuleVisitors_New schema =
     schema
-        |> Rule3.withModuleDefinitionVisitor_New
+        |> Rule3.withModuleDefinitionVisitor
             (mapInnerModuleContext moduleDefinitionVisitor |> pairWithNoErrors)
-        |> Rule3.withImportVisitor_New
+        |> Rule3.withImportVisitor
             (mapInnerModuleContext importVisitor |> pairWithNoErrors)
-        |> Rule3.withDeclarationListVisitor_New
+        |> Rule3.withDeclarationListVisitor
             (mapInnerModuleContext declarationListVisitor |> pairWithNoErrors)
-        |> Rule3.withDeclarationEnterVisitor_New
+        |> Rule3.withDeclarationEnterVisitor
             (\visitedElement outerContext ->
                 let
                     innerContext : InnerModuleContext
@@ -477,7 +477,7 @@ internalAddModuleVisitors_New schema =
                 in
                 ( [], { outerContext | scope = ModuleContext innerContext } )
             )
-        |> Rule3.withDeclarationExitVisitor_New
+        |> Rule3.withDeclarationExitVisitor
             (\visitedElement outerContext ->
                 let
                     innerContext : InnerModuleContext
@@ -488,7 +488,7 @@ internalAddModuleVisitors_New schema =
                 in
                 ( [], { outerContext | scope = ModuleContext innerContext } )
             )
-        |> Rule3.withExpressionEnterVisitor_New
+        |> Rule3.withExpressionEnterVisitor
             (\visitedElement outerContext ->
                 let
                     innerContext : InnerModuleContext
@@ -500,7 +500,7 @@ internalAddModuleVisitors_New schema =
                 in
                 ( [], { outerContext | scope = ModuleContext innerContext } )
             )
-        |> Rule3.withExpressionExitVisitor_New
+        |> Rule3.withExpressionExitVisitor
             (\visitedElement outerContext ->
                 let
                     innerContext : InnerModuleContext

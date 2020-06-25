@@ -44,9 +44,9 @@ in the following manner:
 -}
 rule : Rule
 rule =
-    Rule3.newModuleRuleSchema_New "NoExposingEverything" ()
-        |> Rule3.withSimpleModuleDefinitionVisitor_New moduleDefinitionVisitor
-        |> Rule3.fromModuleRuleSchema_New
+    Rule3.newModuleRuleSchema "NoExposingEverything" ()
+        |> Rule3.withSimpleModuleDefinitionVisitor moduleDefinitionVisitor
+        |> Rule3.fromModuleRuleSchema
 
 
 moduleDefinitionVisitor : Node Module -> List (Error {})

@@ -190,8 +190,8 @@ withValueVisitor_New valueVisitor rule =
             ValueVisitor valueVisitor
     in
     rule
-        |> Rule3.withDeclarationListVisitor_New (declarationListVisitor visitor)
-        |> Rule3.withExpressionEnterVisitor_New (expressionVisitor visitor)
+        |> Rule3.withDeclarationListVisitor (declarationListVisitor visitor)
+        |> Rule3.withExpressionEnterVisitor (expressionVisitor visitor)
 
 
 

@@ -53,13 +53,13 @@ Value `something` is not used:
 -}
 rule : Rule
 rule =
-    Rule3.newModuleRuleSchema_New "NoUnused.Parameters" initialContext
-        |> Rule3.withDeclarationEnterVisitor_New declarationEnterVisitor
-        |> Rule3.withDeclarationExitVisitor_New declarationExitVisitor
-        |> Rule3.withExpressionEnterVisitor_New expressionEnterVisitor
-        |> Rule3.withExpressionExitVisitor_New expressionExitVisitor
+    Rule3.newModuleRuleSchema "NoUnused.Parameters" initialContext
+        |> Rule3.withDeclarationEnterVisitor declarationEnterVisitor
+        |> Rule3.withDeclarationExitVisitor declarationExitVisitor
+        |> Rule3.withExpressionEnterVisitor expressionEnterVisitor
+        |> Rule3.withExpressionExitVisitor expressionExitVisitor
         |> NameVisitor.withValueVisitor_New valueVisitor
-        |> Rule3.fromModuleRuleSchema_New
+        |> Rule3.fromModuleRuleSchema
 
 
 declarationEnterVisitor : Node Declaration -> Context -> ( List (Rule.Error {}), Context )

@@ -8,9 +8,9 @@ import Review.Rule3 as Rule3
 
 rule : Rule
 rule =
-    Rule3.newModuleRuleSchema_New "NoTodoComment" ()
-        |> Rule3.withSimpleCommentsVisitor_New commentsVisitor
-        |> Rule3.fromModuleRuleSchema_New
+    Rule3.newModuleRuleSchema "NoTodoComment" ()
+        |> Rule3.withSimpleCommentsVisitor commentsVisitor
+        |> Rule3.fromModuleRuleSchema
 
 
 commentsVisitor : List (Node String) -> List (Error {})

@@ -76,10 +76,10 @@ can configure the rule like this.
 -}
 rule : Rule
 rule =
-    Rule3.newModuleRuleSchema_New "NoDebug.TodoOrToString" init
-        |> Rule3.withImportVisitor_New importVisitor
-        |> Rule3.withExpressionVisitor_New expressionVisitor
-        |> Rule3.fromModuleRuleSchema_New
+    Rule3.newModuleRuleSchema "NoDebug.TodoOrToString" init
+        |> Rule3.withImportVisitor importVisitor
+        |> Rule3.withExpressionVisitor expressionVisitor
+        |> Rule3.fromModuleRuleSchema
 
 
 type alias Context =

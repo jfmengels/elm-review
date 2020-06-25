@@ -63,9 +63,9 @@ You should not use this rule if you
 -}
 rule : Rule
 rule =
-    Rule3.newModuleRuleSchema_New "NoExtraBooleanComparison" ()
-        |> Rule3.withSimpleExpressionVisitor_New expressionVisitor
-        |> Rule3.fromModuleRuleSchema_New
+    Rule3.newModuleRuleSchema "NoExtraBooleanComparison" ()
+        |> Rule3.withSimpleExpressionVisitor expressionVisitor
+        |> Rule3.fromModuleRuleSchema
 
 
 error : Node a -> String -> String -> Error {}

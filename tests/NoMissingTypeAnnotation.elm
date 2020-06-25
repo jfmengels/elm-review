@@ -47,9 +47,9 @@ For that, enable [`NoMissingTypeAnnotationInLetIn`](./NoMissingTypeAnnotationInL
 -}
 rule : Rule
 rule =
-    Rule3.newModuleRuleSchema_New "NoMissingTypeAnnotation" ()
-        |> Rule3.withSimpleDeclarationVisitor_New declarationVisitor
-        |> Rule3.fromModuleRuleSchema_New
+    Rule3.newModuleRuleSchema "NoMissingTypeAnnotation" ()
+        |> Rule3.withSimpleDeclarationVisitor declarationVisitor
+        |> Rule3.fromModuleRuleSchema
 
 
 declarationVisitor : Node Declaration -> List (Error {})
