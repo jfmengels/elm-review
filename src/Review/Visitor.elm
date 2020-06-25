@@ -53,8 +53,7 @@ type alias RunnableProjectVisitor projectContext moduleContext =
 
 
 type alias Folder projectContext moduleContext =
-    { -- TODO Make this `Context moduleContext projectContext`
-      fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
+    { fromModuleToProject : Context moduleContext projectContext
     , foldProjectContexts : projectContext -> projectContext -> projectContext
     }
 
@@ -383,10 +382,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project in
             , context =
                 case projectVisitor.folder of
                     Just { fromModuleToProject } ->
-                        fromModuleToProject
-                            moduleKey
-                            moduleNameNode_
-                            context
+                        Context.apply availableData fromModuleToProject context
 
                     Nothing ->
                         initialProjectContext

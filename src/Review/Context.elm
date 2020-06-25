@@ -1,16 +1,14 @@
 module Review.Context exposing (AvailableData, Context, RequestedData, apply, init, withMetadata, withModuleKey)
 
-import Elm.Syntax.Node as Node
-import Elm.Syntax.Range as Range
-import Review.Metadata as Metadata exposing (Metadata)
+import Review.Metadata exposing (Metadata)
 import Review.Rule exposing (ModuleKey)
 
 
-type Context projectContext moduleContext
-    = Context (AvailableData -> projectContext -> moduleContext) RequestedData
+type Context from to
+    = Context (AvailableData -> from -> to) RequestedData
 
 
-init : (projectContext -> moduleContext) -> Context projectContext moduleContext
+init : (from -> to) -> Context from to
 init fromProjectToModule =
     Context
         (always fromProjectToModule)
@@ -23,14 +21,14 @@ type RequestedData
         }
 
 
-withMetadata : Context Metadata (projectContext -> moduleContext) -> Context projectContext moduleContext
+withMetadata : Context Metadata (from -> to) -> Context from to
 withMetadata (Context fn (RequestedData requested)) =
     Context
         (\data -> fn data data.metadata)
         (RequestedData { requested | metadata = True })
 
 
-withModuleKey : Context ModuleKey (projectContext -> moduleContext) -> Context projectContext moduleContext
+withModuleKey : Context ModuleKey (from -> to) -> Context from to
 withModuleKey (Context fn (RequestedData requested)) =
     Context
         (\data -> fn data data.moduleKey)
@@ -43,12 +41,12 @@ type alias AvailableData =
     }
 
 
-apply : AvailableData -> Context projectContext moduleContext -> projectContext -> moduleContext
-apply data (Context fn _) projectContext =
-    fn data projectContext
+apply : AvailableData -> Context from to -> from -> to
+apply data (Context fn _) from =
+    fn data from
 
 
-requestedData : Context projectContext moduleContext -> RequestedData
+requestedData : Context from to -> RequestedData
 requestedData (Context _ requested) =
     requested
 

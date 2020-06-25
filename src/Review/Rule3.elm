@@ -46,7 +46,7 @@ import Review.Project exposing (Project, ProjectModule)
 import Review.Project.Dependency
 import Review.Project.Internal
 import Review.Rule exposing (CacheEntry, CacheEntryFor, Direction(..), ElmJsonKey(..), Error(..), Forbidden, ModuleKey(..), ModuleRuleResultCache, ModuleVisitorFunctions, ProjectRuleCache, ReadmeKey(..), Required, Rule(..), TraversalType(..), Visitor, accumulateList, accumulateWithListOfVisitors, makeFinalEvaluation, moduleNameNode, removeErrorPhantomType, setFilePathIfUnset, setRuleName, visitDeclaration, visitImport)
-import Review.Visitor
+import Review.Visitor exposing (Folder)
 import Vendor.Graph as Graph exposing (Graph)
 
 
@@ -65,13 +65,6 @@ type ProjectRuleSchema schemaState projectContext moduleContext
         , traversalType : TraversalType
         , finalEvaluationFns : List (projectContext -> List (Error {}))
         }
-
-
-type alias Folder projectContext moduleContext =
-    { -- TODO Make this `Context moduleContext projectContext`?
-      fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
-    , foldProjectContexts : projectContext -> projectContext -> projectContext
-    }
 
 
 newProjectRuleSchema : String -> projectContext -> ProjectRuleSchema { canAddModuleVisitor : (), withModuleContext : Forbidden } projectContext moduleContext
@@ -158,13 +151,13 @@ withModuleContext :
     }
     -> ProjectRuleSchema { schemaState | canAddModuleVisitor : (), withModuleContext : Required } projectContext moduleContext
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : (), withModuleContext : Forbidden } projectContext moduleContext
-withModuleContext moduleContext (ProjectRuleSchema schema) =
+withModuleContext functions (ProjectRuleSchema schema) =
     let
         moduleContextCreator : Context projectContext moduleContext
         moduleContextCreator =
             Context.init
                 (\moduleKey metadata projectContext ->
-                    moduleContext.fromProjectToModule
+                    functions.fromProjectToModule
                         moduleKey
                         (Metadata.moduleNameNode metadata)
                         projectContext
@@ -177,8 +170,11 @@ withModuleContext moduleContext (ProjectRuleSchema schema) =
             | moduleContextCreator = Just moduleContextCreator
             , folder =
                 Just
-                    { fromModuleToProject = moduleContext.fromModuleToProject
-                    , foldProjectContexts = moduleContext.foldProjectContexts
+                    { fromModuleToProject =
+                        Context.init (\moduleKey metadata moduleContext -> functions.fromModuleToProject moduleKey (Metadata.moduleNameNode metadata) moduleContext)
+                            |> Context.withModuleKey
+                            |> Context.withMetadata
+                    , foldProjectContexts = functions.foldProjectContexts
                     }
         }
 
