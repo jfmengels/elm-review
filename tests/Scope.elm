@@ -457,7 +457,7 @@ internalAddModuleVisitors schema =
             )
 
 
-internalAddModuleVisitors_New : Rule3.ModuleVisitor schemaState projectContext { moduleContext | scope : ModuleContext } -> Rule3.ModuleVisitor { schemaState | hasAtLeastOneVisitor : () } projectContext { moduleContext | scope : ModuleContext }
+internalAddModuleVisitors_New : Rule3.ModuleVisitor schemaState { moduleContext | scope : ModuleContext } -> Rule3.ModuleVisitor { schemaState | hasAtLeastOneVisitor : () } { moduleContext | scope : ModuleContext }
 internalAddModuleVisitors_New schema =
     schema
         |> Rule3.withModuleDefinitionVisitor_New

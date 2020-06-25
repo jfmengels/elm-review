@@ -20,7 +20,33 @@ import Review.Metadata as Metadata
 import Review.Project exposing (Project, ProjectModule)
 import Review.Project.Dependency
 import Review.Project.Internal
-import Review.Rule exposing (CacheEntry, CacheEntryFor, Direction(..), ElmJsonKey(..), Error(..), Forbidden, ModuleKey(..), ModuleRuleResultCache, ModuleVisitorFunctions, ProjectRuleCache, ReadmeKey(..), Required, Rule(..), TraversalType(..), Visitor, accessInternalError, accumulateList, accumulateWithListOfVisitors, computeModuleAndCacheResult, getModuleName, makeFinalEvaluation, moduleNameNode, setFilePathIfUnset, setRuleName, visitDeclaration, visitImport)
+import Review.Rule
+    exposing
+        ( CacheEntry
+        , CacheEntryFor
+        , ElmJsonKey(..)
+        , Error
+        , Forbidden
+        , ModuleKey(..)
+        , ModuleRuleResultCache
+        , ModuleVisitorFunctions
+        , ProjectRuleCache
+        , ReadmeKey(..)
+        , Required
+        , Rule(..)
+        , Visitor
+        , accessInternalError
+        , accumulateList
+        , accumulateWithListOfVisitors
+        , computeModuleAndCacheResult
+        , getModuleName
+        , makeFinalEvaluation
+        , moduleNameNode
+        , setFilePathIfUnset
+        , setRuleName
+        , visitDeclaration
+        , visitImport
+        )
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
