@@ -2,6 +2,7 @@ module Review.Visitor exposing
     ( Folder
     , RunnableModuleVisitor
     , RunnableProjectVisitor
+    , TraversalAndFolder(..)
     , run
     )
 
@@ -22,6 +23,7 @@ import Review.Project.Internal
 import Review.Rule exposing (CacheEntry, CacheEntryFor, Direction(..), ElmJsonKey(..), Error(..), Forbidden, ModuleKey(..), ModuleRuleResultCache, ModuleVisitorFunctions, ProjectRuleCache, ReadmeKey(..), Required, Rule(..), TraversalType(..), Visitor, accessInternalError, accumulateList, accumulateWithListOfVisitors, computeModuleAndCacheResult, getModuleName, makeFinalEvaluation, moduleNameNode, setFilePathIfUnset, setRuleName, visitDeclaration, visitImport)
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
+import Vendor.IntDict as IntDict
 
 
 type alias RunnableModuleVisitor moduleContext =
@@ -44,12 +46,14 @@ type alias RunnableProjectVisitor projectContext moduleContext =
     , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
     , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     , moduleVisitor : Maybe ( RunnableModuleVisitor moduleContext, Context projectContext moduleContext )
-    , folder : Maybe (Folder projectContext moduleContext)
-
-    -- TODO Jeroen Only allow to set it if there is a folder, but not several times
-    , traversalType : TraversalType
+    , traversalAndFolder : TraversalAndFolder projectContext moduleContext
     , finalEvaluationFns : List (projectContext -> List (Error {}))
     }
+
+
+type TraversalAndFolder projectContext moduleContext
+    = TraverseAllModulesInParallel (Maybe (Folder projectContext moduleContext))
+    | TraverseImportedModulesFirst (Folder projectContext moduleContext)
 
 
 type alias Folder projectContext moduleContext =
@@ -347,11 +351,11 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project in
 
                 initialModuleContext : moduleContext
                 initialModuleContext =
-                    case ( projectVisitor.traversalType, projectVisitor.folder ) of
-                        ( AllModulesInParallel, _ ) ->
+                    case projectVisitor.traversalAndFolder of
+                        TraverseAllModulesInParallel _ ->
                             Context.apply availableData moduleContextCreator initialProjectContext
 
-                        ( ImportedModulesFirst, Just { foldProjectContexts } ) ->
+                        TraverseImportedModulesFirst { foldProjectContexts } ->
                             let
                                 projectContext : projectContext
                                 projectContext =
@@ -366,11 +370,6 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project in
                             -- It is never used anywhere else
                             Context.apply availableData moduleContextCreator projectContext
 
-                        ( ImportedModulesFirst, Nothing ) ->
-                            -- TODO Require to have a folder when we use this.
-                            -- Also, when we use a folder, require either ImportedModulesFirst or ImportedModulesLast
-                            Debug.todo "Impossible state, make it impossible"
-
                 ( moduleErrors, context ) =
                     visitModuleForProjectRule
                         moduleVisitor
@@ -380,7 +379,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project in
             { source = module_.source
             , errors = List.map (setFilePathIfUnset module_) moduleErrors
             , context =
-                case projectVisitor.folder of
+                case getFolderFromTraversal projectVisitor.traversalAndFolder of
                     Just { fromModuleToProject } ->
                         Context.apply availableData fromModuleToProject context
 
@@ -389,10 +388,97 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project in
             }
     in
     List.foldl
-        (computeModuleAndCacheResult projectVisitor.traversalType modules graph computeModule)
+        (computeModuleAndCacheResult projectVisitor.traversalAndFolder modules graph computeModule)
         ( newStartCache, Set.empty )
         nodeContexts
         |> Tuple.first
+
+
+computeModuleAndCacheResult :
+    TraversalAndFolder projectContext moduleContext
+    -> Dict ModuleName ProjectModule
+    -> Graph ModuleName ()
+    -> (Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> CacheEntry projectContext)
+    -> Graph.NodeContext ModuleName ()
+    -> ( Dict String (CacheEntry projectContext), Set ModuleName )
+    -> ( Dict String (CacheEntry projectContext), Set ModuleName )
+computeModuleAndCacheResult traversalAndFolder modules graph computeModule { node, incoming } ( cache, invalidatedModules ) =
+    case Dict.get node.label modules of
+        Nothing ->
+            ( cache, invalidatedModules )
+
+        Just module_ ->
+            let
+                importedModules : List ProjectModule
+                importedModules =
+                    case traversalAndFolder of
+                        TraverseAllModulesInParallel _ ->
+                            []
+
+                        TraverseImportedModulesFirst _ ->
+                            incoming
+                                |> IntDict.keys
+                                |> List.filterMap
+                                    (\key ->
+                                        Graph.get key graph
+                                            |> Maybe.andThen (\nodeContext -> Dict.get nodeContext.node.label modules)
+                                    )
+
+                compute : Maybe (CacheEntry projectContext) -> ( Dict String (CacheEntry projectContext), Set ModuleName )
+                compute previousResult =
+                    let
+                        result : CacheEntry projectContext
+                        result =
+                            computeModule cache importedModules module_
+                    in
+                    ( Dict.insert module_.path result cache
+                    , if Just result.context /= Maybe.map .context previousResult then
+                        Set.insert (getModuleName module_) invalidatedModules
+
+                      else
+                        invalidatedModules
+                    )
+            in
+            case Dict.get module_.path cache of
+                Nothing ->
+                    compute Nothing
+
+                Just cacheEntry ->
+                    if cacheEntry.source == module_.source && (traversesAllModulesInParallel traversalAndFolder || noImportedModulesHaveANewContext importedModules invalidatedModules) then
+                        -- The module's source and the module's imported modules' context are unchanged, we will later return the cached errors and context
+                        ( cache, invalidatedModules )
+
+                    else
+                        compute (Just cacheEntry)
+
+
+traversesAllModulesInParallel : TraversalAndFolder projectContext moduleContext -> Bool
+traversesAllModulesInParallel traversalAndFolder =
+    case traversalAndFolder of
+        TraverseAllModulesInParallel _ ->
+            True
+
+        TraverseImportedModulesFirst _ ->
+            False
+
+
+noImportedModulesHaveANewContext : List ProjectModule -> Set ModuleName -> Bool
+noImportedModulesHaveANewContext importedModules invalidatedModules =
+    importedModules
+        |> List.map getModuleName
+        |> Set.fromList
+        |> Set.intersect invalidatedModules
+        |> Set.isEmpty
+
+
+getFolderFromTraversal : TraversalAndFolder projectContext moduleContext -> Maybe (Folder projectContext moduleContext)
+getFolderFromTraversal traversalAndFolder =
+    case traversalAndFolder of
+        TraverseAllModulesInParallel maybeFolder ->
+            maybeFolder
+
+        TraverseImportedModulesFirst folder ->
+            Just folder
 
 
 visitModuleForProjectRule : RunnableModuleVisitor moduleContext -> moduleContext -> ProjectModule -> ( List (Error {}), moduleContext )
@@ -418,15 +504,15 @@ visitModuleForProjectRule schema initialContext module_ =
 
 
 errorsFromFinalEvaluationForProject : RunnableProjectVisitor projectContext moduleContext -> projectContext -> List projectContext -> List (Error {})
-errorsFromFinalEvaluationForProject schema initialContext contextsPerModule =
-    if List.isEmpty schema.finalEvaluationFns then
+errorsFromFinalEvaluationForProject projectVisitor initialContext contextsPerModule =
+    if List.isEmpty projectVisitor.finalEvaluationFns then
         []
 
     else
         let
             finalContext : projectContext
             finalContext =
-                case schema.folder of
+                case getFolderFromTraversal projectVisitor.traversalAndFolder of
                     Just { foldProjectContexts } ->
                         List.foldl foldProjectContexts initialContext contextsPerModule
 
@@ -435,4 +521,4 @@ errorsFromFinalEvaluationForProject schema initialContext contextsPerModule =
         in
         List.concatMap
             (\finalEvaluationFn -> finalEvaluationFn finalContext)
-            schema.finalEvaluationFns
+            projectVisitor.finalEvaluationFns

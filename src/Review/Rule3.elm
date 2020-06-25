@@ -366,10 +366,17 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
     , readmeVisitors = List.reverse schema.readmeVisitors
     , dependenciesVisitors = List.reverse schema.dependenciesVisitors
     , moduleVisitor = mergeModuleVisitors schema.name schema.moduleContextCreator schema.moduleVisitors
-    , folder = schema.folder
+    , traversalAndFolder =
+        case ( schema.traversalType, schema.folder ) of
+            ( AllModulesInParallel, _ ) ->
+                Review.Visitor.TraverseAllModulesInParallel schema.folder
 
-    -- TODO Jeroen Only allow to set it if there is a folder, but not several times
-    , traversalType = schema.traversalType
+            ( ImportedModulesFirst, Just folder ) ->
+                Review.Visitor.TraverseImportedModulesFirst folder
+
+            ( ImportedModulesFirst, Nothing ) ->
+                -- TODO Jeroen Only allow to set it if there is a folder, but not several times
+                Review.Visitor.TraverseAllModulesInParallel Nothing
     , finalEvaluationFns = List.reverse schema.finalEvaluationFns
     }
 
