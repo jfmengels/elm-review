@@ -188,32 +188,35 @@ withContextFromImportedModules (ProjectRuleSchema schema) =
 -}
 fromModuleRuleSchema : ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> Rule
 fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
-    let
-        initialContext : moduleContext
-        initialContext =
-            case schema.initialModuleContext of
-                Just initialModuleContext ->
-                    initialModuleContext
+    -- TODO BREAKING CHANGE Add canCollectData as a pre-requisite to using fromModuleRuleSchema
+    ProjectRuleSchema
+        { name = schema.name
+        , initialProjectContext = getInitialContextFromModuleRule moduleVisitor
+        , elmJsonVisitors = compactProjectDataVisitors (Maybe.map .project) schema.elmJsonVisitors
+        , readmeVisitors = compactProjectDataVisitors (Maybe.map .content) schema.readmeVisitors
+        , dependenciesVisitors = compactProjectDataVisitors identity schema.dependenciesVisitors
+        , moduleVisitors = [ removeExtensibleRecordTypeVariable (always moduleVisitor) ]
+        , moduleContextCreator = Just (Context.init identity)
+        , folder = Nothing
+        , traversalType = AllModulesInParallel
+        , finalEvaluationFns = []
+        }
+        |> fromProjectRuleSchema
 
-                Nothing ->
-                    Debug.todo "Define initial module context"
 
-        projectRule : ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext moduleContext
-        projectRule =
-            ProjectRuleSchema
-                { name = schema.name
-                , initialProjectContext = initialContext
-                , elmJsonVisitors = compactProjectDataVisitors (Maybe.map .project) schema.elmJsonVisitors
-                , readmeVisitors = compactProjectDataVisitors (Maybe.map .content) schema.readmeVisitors
-                , dependenciesVisitors = compactProjectDataVisitors identity schema.dependenciesVisitors
-                , moduleVisitors = [ removeExtensibleRecordTypeVariable (always moduleVisitor) ]
-                , moduleContextCreator = Just (Context.init identity)
-                , folder = Nothing
-                , traversalType = AllModulesInParallel
-                , finalEvaluationFns = []
-                }
-    in
-    fromProjectRuleSchema projectRule
+getInitialContextFromModuleRule : ModuleRuleSchema schemaState moduleContext -> moduleContext
+getInitialContextFromModuleRule ((ModuleRuleSchema schema) as moduleVisitor) =
+    case schema.initialModuleContext of
+        Just initialModuleContext ->
+            initialModuleContext
+
+        Nothing ->
+            -- Hack: For module rules, we know we will always have a module context
+            -- I am adding a `|>` to prevent TCO from kicking in, so that people get a runtime crash and an report it
+            -- rather than a mysterious.
+            -- Note: People can call this rule on a module rule built in `withModuleVisitor`, which we will prevent
+            -- in the next major version
+            moduleVisitor |> getInitialContextFromModuleRule
 
 
 compactProjectDataVisitors : (rawData -> data) -> List (data -> moduleContext -> moduleContext) -> List (rawData -> moduleContext -> ( List nothing, moduleContext ))
