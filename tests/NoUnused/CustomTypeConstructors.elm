@@ -125,7 +125,7 @@ rule phantomTypes =
 -- MODULE VISITOR
 
 
-moduleVisitor : Rule3.ModuleVisitor {} ModuleContext -> Rule3.ModuleVisitor { hasAtLeastOneVisitor : () } ModuleContext
+moduleVisitor : Rule3.ModuleRuleSchema {} ModuleContext -> Rule3.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor schema =
     schema
         |> Rule3.withModuleDefinitionVisitor_New moduleDefinitionVisitor

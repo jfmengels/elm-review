@@ -1,5 +1,5 @@
 module Review.Rule3 exposing
-    ( ModuleVisitor
+    ( ModuleRuleSchema
     , ProjectRuleSchema
     , fromModuleRuleSchema_New
     , fromProjectRuleSchema
@@ -54,7 +54,7 @@ type ProjectRuleSchema schemaState projectContext moduleContext
         , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
         , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
         , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
-        , moduleVisitors : List (ModuleVisitor {} moduleContext -> ModuleVisitor { hasAtLeastOneVisitor : () } moduleContext)
+        , moduleVisitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
         , moduleContextCreator : Maybe (Context projectContext moduleContext)
         , folder : Maybe (Folder projectContext moduleContext)
 
@@ -87,10 +87,8 @@ type alias ModuleContextFunctions projectContext moduleContext =
     }
 
 
-type
-    ModuleVisitor schemaState moduleContext
-    -- TODO Jeroen check if projectContext is necessary
-    = ModuleVisitor
+type ModuleRuleSchema schemaState moduleContext
+    = ModuleRuleSchema
         { name : String
         , initialModuleContext : Maybe moduleContext
         , moduleContextCreator : Context () moduleContext
@@ -107,7 +105,7 @@ type
 
 
 withModuleVisitor_New :
-    (ModuleVisitor {} moduleContext -> ModuleVisitor { hasAtLeastOneVisitor : () } moduleContext)
+    (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
     -> ProjectRuleSchema { projectSchemaState | canAddModuleVisitor : () } projectContext moduleContext
     -- TODO BREAKING Change: add hasAtLeastOneVisitor : ()
     -> ProjectRuleSchema { projectSchemaState | canAddModuleVisitor : (), withModuleContext : Required } projectContext moduleContext
@@ -115,9 +113,9 @@ withModuleVisitor_New visitor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | moduleVisitors = visitor :: schema.moduleVisitors }
 
 
-newModuleRuleSchema_New : String -> moduleContext -> ModuleVisitor { moduleContext : Required } moduleContext
+newModuleRuleSchema_New : String -> moduleContext -> ModuleRuleSchema { moduleContext : Required } moduleContext
 newModuleRuleSchema_New name initialModuleContext =
-    ModuleVisitor
+    ModuleRuleSchema
         { name = name
         , initialModuleContext = Just initialModuleContext
         , moduleContextCreator = Context.init (always initialModuleContext)
@@ -175,8 +173,8 @@ withContextFromImportedModules_New (ProjectRuleSchema schema) =
 
 {-| Create a [`Rule`](#Rule) from a configured [`ModuleRuleSchema`](#ModuleRuleSchema).
 -}
-fromModuleRuleSchema_New : ModuleVisitor { schemaState | hasAtLeastOneVisitor : () } moduleContext -> Rule
-fromModuleRuleSchema_New ((ModuleVisitor schema) as moduleVisitor) =
+fromModuleRuleSchema_New : ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> Rule
+fromModuleRuleSchema_New ((ModuleRuleSchema schema) as moduleVisitor) =
     let
         initialContext : moduleContext
         initialContext =
@@ -218,10 +216,10 @@ whatever we want it to be, and we'll change it something that makes sense but
 without the extensible record type variable.
 -}
 removeExtensibleRecordTypeVariable :
-    (ModuleVisitor {} moduleContext -> ModuleVisitor { a | hasAtLeastOneVisitor : () } moduleContext)
-    -> (ModuleVisitor {} moduleContext -> ModuleVisitor { hasAtLeastOneVisitor : () } moduleContext)
+    (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { a | hasAtLeastOneVisitor : () } moduleContext)
+    -> (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
 removeExtensibleRecordTypeVariable function =
-    function >> (\(ModuleVisitor param) -> ModuleVisitor param)
+    function >> (\(ModuleRuleSchema param) -> ModuleRuleSchema param)
 
 
 
@@ -325,7 +323,7 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
 mergeModuleVisitors :
     projectContext
     -> Maybe (Context projectContext moduleContext)
-    -> List (ModuleVisitor schemaState1 moduleContext -> ModuleVisitor schemaState2 moduleContext)
+    -> List (ModuleRuleSchema schemaState1 moduleContext -> ModuleRuleSchema schemaState2 moduleContext)
     -> Maybe ( Review.Visitor.RunnableModuleVisitor moduleContext, Context projectContext moduleContext )
 mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
     case ( maybeModuleContextCreator, List.isEmpty visitors ) of
@@ -347,9 +345,9 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
                 initialModuleContext =
                     Context.apply dummyAvailableData moduleContextCreator initialProjectContext
 
-                emptyModuleVisitor : ModuleVisitor schemaState moduleContext
+                emptyModuleVisitor : ModuleRuleSchema schemaState moduleContext
                 emptyModuleVisitor =
-                    ModuleVisitor
+                    ModuleRuleSchema
                         { name = ""
                         , initialModuleContext = Just initialModuleContext
                         , moduleContextCreator = Context.init (always initialModuleContext)
@@ -366,8 +364,8 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
             in
             Just
                 ( List.foldl
-                    (\addVisitors (ModuleVisitor moduleVisitorSchema) ->
-                        addVisitors (ModuleVisitor moduleVisitorSchema)
+                    (\addVisitors (ModuleRuleSchema moduleVisitorSchema) ->
+                        addVisitors (ModuleRuleSchema moduleVisitorSchema)
                     )
                     emptyModuleVisitor
                     visitors
@@ -376,21 +374,8 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
                 )
 
 
-fromModuleRuleSchemaToRunnableModuleVisitor : ModuleVisitor schemaState moduleContext -> Review.Visitor.RunnableModuleVisitor moduleContext
-fromModuleRuleSchemaToRunnableModuleVisitor (ModuleVisitor schema) =
-    --
-    --    { name = name
-    --        , moduleContextCreator = moduleContextCreator
-    --        , moduleDefinitionVisitors = []
-    --        , commentsVisitors = []
-    --        , importVisitors = []
-    --        , declarationListVisitors = []
-    --        , declarationVisitorsOnEnter = []
-    --        , declarationVisitorsOnExit = []
-    --        , expressionVisitorsOnEnter = []
-    --        , expressionVisitorsOnExit = []
-    --        , finalEvaluationFns = []
-    --        }
+fromModuleRuleSchemaToRunnableModuleVisitor : ModuleRuleSchema schemaState moduleContext -> Review.Visitor.RunnableModuleVisitor moduleContext
+fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     { moduleDefinitionVisitors = List.reverse schema.moduleDefinitionVisitors
     , commentsVisitors = List.reverse schema.commentsVisitors
     , importVisitors = List.reverse schema.importVisitors
@@ -403,93 +388,93 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleVisitor schema) =
     }
 
 
-withSimpleModuleDefinitionVisitor_New : (Node Module -> List (Error {})) -> ModuleVisitor schemaState moduleContext -> ModuleVisitor { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withSimpleModuleDefinitionVisitor_New : (Node Module -> List (Error {})) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withSimpleModuleDefinitionVisitor_New visitor schema =
     withModuleDefinitionVisitor_New (\node moduleContext -> ( visitor node, moduleContext )) schema
 
 
-withModuleDefinitionVisitor_New : (Node Module -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleVisitor schemaState moduleContext -> ModuleVisitor { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withModuleDefinitionVisitor_New visitor (ModuleVisitor schema) =
-    ModuleVisitor { schema | moduleDefinitionVisitors = visitor :: schema.moduleDefinitionVisitors }
+withModuleDefinitionVisitor_New : (Node Module -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withModuleDefinitionVisitor_New visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | moduleDefinitionVisitors = visitor :: schema.moduleDefinitionVisitors }
 
 
-withSimpleCommentsVisitor_New : (List (Node String) -> List (Error {})) -> ModuleVisitor schemaState moduleContext -> ModuleVisitor { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withSimpleCommentsVisitor_New : (List (Node String) -> List (Error {})) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withSimpleCommentsVisitor_New visitor schema =
     withCommentsVisitor_New (\node moduleContext -> ( visitor node, moduleContext )) schema
 
 
-withCommentsVisitor_New : (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleVisitor schemaState moduleContext -> ModuleVisitor { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withCommentsVisitor_New visitor (ModuleVisitor schema) =
-    ModuleVisitor { schema | commentsVisitors = visitor :: schema.commentsVisitors }
+withCommentsVisitor_New : (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withCommentsVisitor_New visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | commentsVisitors = visitor :: schema.commentsVisitors }
 
 
-withSimpleImportVisitor_New : (Node Import -> List (Error {})) -> ModuleVisitor schemaState moduleContext -> ModuleVisitor { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withSimpleImportVisitor_New : (Node Import -> List (Error {})) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withSimpleImportVisitor_New visitor schema =
     withImportVisitor_New (\node moduleContext -> ( visitor node, moduleContext )) schema
 
 
-withImportVisitor_New : (Node Import -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleVisitor schemaState moduleContext -> ModuleVisitor { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withImportVisitor_New visitor (ModuleVisitor schema) =
-    ModuleVisitor { schema | importVisitors = visitor :: schema.importVisitors }
+withImportVisitor_New : (Node Import -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withImportVisitor_New visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | importVisitors = visitor :: schema.importVisitors }
 
 
-withSimpleDeclarationVisitor_New : (Node Declaration -> List (Error {})) -> ModuleVisitor schemaState moduleContext -> ModuleVisitor { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withSimpleDeclarationVisitor_New : (Node Declaration -> List (Error {})) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withSimpleDeclarationVisitor_New visitor schema =
     withDeclarationEnterVisitor_New
         (\node moduleContext -> ( visitor node, moduleContext ))
         schema
 
 
-withDeclarationVisitor_New : (Node Declaration -> Direction -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleVisitor schemaState moduleContext -> ModuleVisitor { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withDeclarationVisitor_New visitor (ModuleVisitor schema) =
-    ModuleVisitor
+withDeclarationVisitor_New : (Node Declaration -> Direction -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withDeclarationVisitor_New visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema
         { schema
             | declarationVisitorsOnEnter = (\node ctx -> visitor node OnEnter ctx) :: schema.declarationVisitorsOnEnter
             , declarationVisitorsOnExit = (\node ctx -> visitor node OnExit ctx) :: schema.declarationVisitorsOnExit
         }
 
 
-withDeclarationEnterVisitor_New : (Node Declaration -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleVisitor schemaState moduleContext -> ModuleVisitor { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withDeclarationEnterVisitor_New visitor (ModuleVisitor schema) =
-    ModuleVisitor { schema | declarationVisitorsOnEnter = visitor :: schema.declarationVisitorsOnEnter }
+withDeclarationEnterVisitor_New : (Node Declaration -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withDeclarationEnterVisitor_New visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | declarationVisitorsOnEnter = visitor :: schema.declarationVisitorsOnEnter }
 
 
-withDeclarationExitVisitor_New : (Node Declaration -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleVisitor schemaState moduleContext -> ModuleVisitor { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withDeclarationExitVisitor_New visitor (ModuleVisitor schema) =
-    ModuleVisitor { schema | declarationVisitorsOnExit = visitor :: schema.declarationVisitorsOnExit }
+withDeclarationExitVisitor_New : (Node Declaration -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withDeclarationExitVisitor_New visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | declarationVisitorsOnExit = visitor :: schema.declarationVisitorsOnExit }
 
 
-withDeclarationListVisitor_New : (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleVisitor schemaState moduleContext -> ModuleVisitor { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withDeclarationListVisitor_New visitor (ModuleVisitor schema) =
-    ModuleVisitor { schema | declarationListVisitors = visitor :: schema.declarationListVisitors }
+withDeclarationListVisitor_New : (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withDeclarationListVisitor_New visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | declarationListVisitors = visitor :: schema.declarationListVisitors }
 
 
-withSimpleExpressionVisitor_New : (Node Expression -> List (Error {})) -> ModuleVisitor schemaState moduleContext -> ModuleVisitor { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withSimpleExpressionVisitor_New : (Node Expression -> List (Error {})) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withSimpleExpressionVisitor_New visitor schema =
     withExpressionEnterVisitor_New
         (\node moduleContext -> ( visitor node, moduleContext ))
         schema
 
 
-withExpressionVisitor_New : (Node Expression -> Direction -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleVisitor schemaState moduleContext -> ModuleVisitor { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withExpressionVisitor_New visitor (ModuleVisitor schema) =
-    ModuleVisitor
+withExpressionVisitor_New : (Node Expression -> Direction -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withExpressionVisitor_New visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema
         { schema
             | expressionVisitorsOnEnter = (\node ctx -> visitor node OnEnter ctx) :: schema.expressionVisitorsOnEnter
             , expressionVisitorsOnExit = (\node ctx -> visitor node OnExit ctx) :: schema.expressionVisitorsOnExit
         }
 
 
-withExpressionEnterVisitor_New : (Node Expression -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleVisitor schemaState moduleContext -> ModuleVisitor { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withExpressionEnterVisitor_New visitor (ModuleVisitor schema) =
-    ModuleVisitor { schema | expressionVisitorsOnEnter = visitor :: schema.expressionVisitorsOnEnter }
+withExpressionEnterVisitor_New : (Node Expression -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withExpressionEnterVisitor_New visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | expressionVisitorsOnEnter = visitor :: schema.expressionVisitorsOnEnter }
 
 
-withExpressionExitVisitor_New : (Node Expression -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleVisitor schemaState moduleContext -> ModuleVisitor { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withExpressionExitVisitor_New visitor (ModuleVisitor schema) =
-    ModuleVisitor { schema | expressionVisitorsOnExit = visitor :: schema.expressionVisitorsOnExit }
+withExpressionExitVisitor_New : (Node Expression -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withExpressionExitVisitor_New visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | expressionVisitorsOnExit = visitor :: schema.expressionVisitorsOnExit }
 
 
-withFinalModuleEvaluation_New : (moduleContext -> List (Error {})) -> ModuleVisitor { schemaState | hasAtLeastOneVisitor : () } moduleContext -> ModuleVisitor { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withFinalModuleEvaluation_New visitor (ModuleVisitor schema) =
-    ModuleVisitor { schema | finalEvaluationFns = visitor :: schema.finalEvaluationFns }
+withFinalModuleEvaluation_New : (moduleContext -> List (Error {})) -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withFinalModuleEvaluation_New visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | finalEvaluationFns = visitor :: schema.finalEvaluationFns }
