@@ -88,8 +88,8 @@ type alias Folder projectContext moduleContext =
     }
 
 
-run : RunnableProjectVisitor projectContext moduleContext -> Maybe (ProjectRuleCache projectContext) -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
-run projectVisitor maybePreviousCache exceptions project nodeContexts =
+run : String -> RunnableProjectVisitor projectContext moduleContext -> Maybe (ProjectRuleCache projectContext) -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
+run name projectVisitor maybePreviousCache exceptions project nodeContexts =
     let
         cacheWithInitialContext : ProjectRuleCache projectContext
         cacheWithInitialContext =
@@ -173,8 +173,8 @@ run projectVisitor maybePreviousCache exceptions project nodeContexts =
                     errorsFromCache newCache
                         |> Exceptions.apply exceptions (accessInternalError >> .filePath)
     in
-    ( List.map (setRuleName projectVisitor.name) errors
-    , Rule projectVisitor.name exceptions (run projectVisitor (Just newCache))
+    ( List.map (setRuleName name) errors
+    , Rule name exceptions (run name projectVisitor (Just newCache))
     )
 
 

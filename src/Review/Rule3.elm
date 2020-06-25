@@ -63,6 +63,8 @@ type ProjectRuleSchema schemaState projectContext moduleContext
 
         -- TODO Jeroen Only allow to set it if there is a folder, but not several times
         , traversalType : TraversalType
+
+        -- TODO Jeroen Only allow to set it if there is a folder and module visitors?
         , finalEvaluationFns : List (projectContext -> List (Error {}))
         }
 
@@ -207,8 +209,6 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 , moduleVisitors = [ removeExtensibleRecordTypeVariable (always moduleVisitor) ]
                 , moduleContextCreator = Just (Context.init identity)
                 , folder = Nothing
-
-                -- TODO Jeroen Only allow to set it if there is a folder, but not several times
                 , traversalType = AllModulesInParallel
                 , finalEvaluationFns = []
                 }
@@ -392,7 +392,7 @@ fromProjectRuleSchema : ProjectRuleSchema { schemaState | hasAtLeastOneVisitor :
 fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
     Rule schema.name
         Exceptions.init
-        (Review.Visitor.run (fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema) Nothing)
+        (Review.Visitor.run schema.name (fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema) Nothing)
 
 
 fromProjectRuleSchemaToRunnableProjectVisitor : ProjectRuleSchema schemaState projectContext moduleContext -> Review.Visitor.RunnableProjectVisitor projectContext moduleContext
@@ -412,7 +412,6 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
                 Review.Visitor.TraverseImportedModulesFirst folder
 
             ( ImportedModulesFirst, Nothing ) ->
-                -- TODO Jeroen Only allow to set it if there is a folder, but not several times
                 Review.Visitor.TraverseAllModulesInParallel Nothing
     , finalEvaluationFns = List.reverse schema.finalEvaluationFns
     }
