@@ -119,6 +119,7 @@ run projectVisitor maybePreviousCache exceptions project nodeContexts =
                         projectVisitor
                         moduleVisitor
                         project
+                        exceptions
                         initialContext
                         nodeContexts
                         previousModuleContexts
@@ -164,11 +165,17 @@ run projectVisitor maybePreviousCache exceptions project nodeContexts =
 
         errors : List (Error {})
         errors =
-            errorsFromCache newCache
-                |> Exceptions.apply exceptions (accessInternalError >> .filePath)
-                |> List.map (setRuleName projectVisitor.name)
+            case projectVisitor.traversalAndFolder of
+                TraverseAllModulesInParallel _ ->
+                    errorsFromCache newCache
+
+                TraverseImportedModulesFirst _ ->
+                    errorsFromCache newCache
+                        |> Exceptions.apply exceptions (accessInternalError >> .filePath)
     in
-    ( errors, Rule projectVisitor.name exceptions (run projectVisitor (Just newCache)) )
+    ( List.map (setRuleName projectVisitor.name) errors
+    , Rule projectVisitor.name exceptions (run projectVisitor (Just newCache))
+    )
 
 
 errorsFromCache : ProjectRuleCache projectContext -> List (Error {})
@@ -324,35 +331,46 @@ computeModules :
     RunnableProjectVisitor projectContext moduleContext
     -> ( RunnableModuleVisitor moduleContext, Context projectContext moduleContext )
     -> Project
+    -> Exceptions
     -> projectContext
     -> List (Graph.NodeContext ModuleName ())
     -> Dict String (CacheEntry projectContext)
     -> Dict String (CacheEntry projectContext)
-computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project initialProjectContext nodeContexts startCache =
+computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions initialProjectContext nodeContexts startCache =
     let
         graph : Graph ModuleName ()
         graph =
             Review.Project.Internal.moduleGraph project
 
+        moduleToAnalyze : List ProjectModule
+        moduleToAnalyze =
+            case projectVisitor.traversalAndFolder of
+                TraverseAllModulesInParallel _ ->
+                    Exceptions.apply
+                        exceptions
+                        .path
+                        (Review.Project.modules project)
+
+                TraverseImportedModulesFirst _ ->
+                    Review.Project.modules project
+
         projectModulePaths : Set String
         projectModulePaths =
-            project
-                |> Review.Project.modules
+            moduleToAnalyze
                 |> List.map .path
                 |> Set.fromList
 
         modules : Dict ModuleName ProjectModule
         modules =
-            project
-                |> Review.Project.modules
-                |> List.foldl
-                    (\module_ dict ->
-                        Dict.insert
-                            (getModuleName module_)
-                            module_
-                            dict
-                    )
-                    Dict.empty
+            List.foldl
+                (\module_ dict ->
+                    Dict.insert
+                        (getModuleName module_)
+                        module_
+                        dict
+                )
+                Dict.empty
+                moduleToAnalyze
 
         newStartCache : Dict String (CacheEntry projectContext)
         newStartCache =
