@@ -275,6 +275,14 @@ You can create [module rules](#creating-a-module-rule) or [project rules](#creat
 type
     Rule
     -- TODO Jeroen not supposed to expose everything
+    -- TODO Now Turn rule internals into a record with a type alias, and pass that to `Review.Visitor`.
+    -- The `runRules` function will be in charge to unwrap the rule and re-wrap the result
+    -- This will remove the need for importing `Review.Rule` inside `Review.Visitor`
+    -- The next steps should be to:
+    --    - TODO Add support for creating rules with metadata (maybe first? maybe last?)
+    --    - TODO Make this module use `Review.Visitor` and remove the need to use `Rule3`, removing a lot of types/functions from the exports.
+    --    - TODO Add docs where needed to make the tests pass
+    --    - TODO Find where we introduced breaking changes and limit those
     = Rule
         { exceptions : Exceptions
         , ruleImplementation : Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
