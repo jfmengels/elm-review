@@ -401,8 +401,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
 
 fromProjectRuleSchemaToRunnableProjectVisitor : ProjectRuleSchema schemaState projectContext moduleContext -> Review.Visitor.RunnableProjectVisitor projectContext moduleContext
 fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
-    { name = schema.name
-    , initialProjectContext = schema.initialProjectContext
+    { initialProjectContext = schema.initialProjectContext
     , elmJsonVisitors = List.reverse schema.elmJsonVisitors
     , readmeVisitors = List.reverse schema.readmeVisitors
     , dependenciesVisitors = List.reverse schema.dependenciesVisitors
