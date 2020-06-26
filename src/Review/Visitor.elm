@@ -1,6 +1,5 @@
 module Review.Visitor exposing
     ( Folder
-    , RuleInternals
     , RunnableModuleVisitor
     , RunnableProjectVisitor
     , TraversalAndFolder(..)
@@ -37,15 +36,6 @@ import Review.Rule
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
-
-
-type alias RuleInternals =
-    -- TODO Import this in Review.Rule
-    { exceptions : Exceptions
-
-    -- TODO Can we get rid of exceptions either above or in the ruleImplementation?
-    , ruleImplementation : Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
-    }
 
 
 type alias RunnableProjectVisitor projectContext moduleContext =

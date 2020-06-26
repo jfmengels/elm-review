@@ -589,7 +589,7 @@ newModuleRuleSchema name_ moduleContext =
 {-| Create a [`Rule`](#Rule) from a configured [`ModuleRuleSchema`](#ModuleRuleSchema).
 -}
 fromModuleRuleSchema : ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> Rule
-fromModuleRuleSchema ((ModuleRuleSchema { name }) as schema) =
+fromModuleRuleSchema schema =
     Rule
         { exceptions = Exceptions.init
         , ruleImplementation = runModuleRule (reverseVisitors schema) Nothing

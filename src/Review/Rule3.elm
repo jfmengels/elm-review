@@ -6,12 +6,10 @@ module Review.Rule3 exposing
     , newModuleRuleSchema
     , newProjectRuleSchema
     , review
-    , withCommentsVisitor
     , withContextFromImportedModules
     , withDeclarationEnterVisitor
     , withDeclarationExitVisitor
     , withDeclarationListVisitor
-    , withDeclarationVisitor
     , withDependenciesModuleVisitor
     , withDependenciesProjectVisitor
     , withElmJsonModuleVisitor
@@ -45,7 +43,7 @@ import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range as Range
 import Review.Context as Context exposing (Context)
 import Review.Error exposing (ReviewError)
-import Review.Exceptions as Exceptions exposing (Exceptions)
+import Review.Exceptions as Exceptions
 import Review.Metadata as Metadata
 import Review.Project exposing (Project)
 import Review.Project.Dependency
@@ -103,13 +101,6 @@ newProjectRuleSchema name initialProjectContext =
         , traversalType = AllModulesInParallel
         , finalEvaluationFns = []
         }
-
-
-type alias ModuleContextFunctions projectContext moduleContext =
-    { fromProjectToModule : ModuleKey -> Node ModuleName -> projectContext -> moduleContext
-    , fromModuleToProject : ModuleKey -> Node ModuleName -> moduleContext -> projectContext
-    , foldProjectContexts : projectContext -> projectContext -> projectContext
-    }
 
 
 type ModuleRuleSchema schemaState moduleContext
@@ -546,15 +537,6 @@ withSimpleDeclarationVisitor visitor schema =
     withDeclarationEnterVisitor
         (\node moduleContext -> ( visitor node, moduleContext ))
         schema
-
-
-withDeclarationVisitor : (Node Declaration -> Direction -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withDeclarationVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema
-        { schema
-            | declarationVisitorsOnEnter = (\node ctx -> visitor node OnEnter ctx) :: schema.declarationVisitorsOnEnter
-            , declarationVisitorsOnExit = (\node ctx -> visitor node OnExit ctx) :: schema.declarationVisitorsOnExit
-        }
 
 
 withDeclarationEnterVisitor : (Node Declaration -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext

@@ -75,7 +75,7 @@ import Elm.Syntax.Type
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
 import Review.Project.Dependency as Dependency exposing (Dependency)
-import Review.Rule as Rule exposing (Direction)
+import Review.Rule as Rule
 import Review.Rule3 as Rule3
 import Set exposing (Set)
 
