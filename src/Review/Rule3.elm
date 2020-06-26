@@ -5,6 +5,7 @@ module Review.Rule3 exposing
     , fromProjectRuleSchema
     , newModuleRuleSchema
     , newProjectRuleSchema
+    , review
     , withCommentsVisitor
     , withContextFromImportedModules
     , withDeclarationEnterVisitor
@@ -43,11 +44,15 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range as Range
 import Review.Context as Context exposing (Context)
+import Review.Error exposing (ReviewError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Metadata as Metadata
+import Review.Project exposing (Project)
 import Review.Project.Dependency
-import Review.Rule exposing (CacheEntry, CacheEntryFor, Direction(..), ElmJsonKey(..), Error(..), Forbidden, ModuleKey(..), ModuleRuleResultCache, ModuleVisitorFunctions, ProjectRuleCache, ReadmeKey(..), Required, Rule(..), TraversalType(..), Visitor, removeErrorPhantomType)
+import Review.Project.Internal
+import Review.Rule exposing (CacheEntry, CacheEntryFor, Direction(..), ElmJsonKey(..), Error(..), Forbidden, ModuleKey(..), ModuleRuleResultCache, ModuleVisitorFunctions, ProjectRuleCache, ReadmeKey(..), Required, Rule(..), TraversalType(..), Visitor, duplicateModuleNames, errorToReviewError, parsingError, removeErrorPhantomType, runRules)
 import Review.Visitor exposing (Folder)
+import Vendor.Graph as Graph
 
 
 type ProjectRuleSchema schemaState projectContext moduleContext
@@ -581,3 +586,114 @@ withExpressionExitVisitor visitor (ModuleRuleSchema schema) =
 withFinalModuleEvaluation : (moduleContext -> List (Error {})) -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withFinalModuleEvaluation visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | finalEvaluationFns = visitor :: schema.finalEvaluationFns }
+
+
+
+-- REVIEWING
+
+
+{-| Review a project and gives back the errors raised by the given rules.
+
+Note that you won't need to use this function when writing a rule. You should
+only need it if you try to make `elm-review` run in a new environment.
+
+    import Review.Project as Project exposing (Project, ProjectModule)
+    import Review.Rule as Rule exposing (Rule)
+
+    config : List Rule
+    config =
+        [ Some.Rule.rule
+        , Some.Other.Rule.rule
+        ]
+
+    project : Project
+    project =
+        Project.new
+            |> Project.addModule { path = "src/A.elm", source = "module A exposing (a)\na = 1" }
+            |> Project.addModule { path = "src/B.elm", source = "module B exposing (b)\nb = 1" }
+
+    doReview =
+        let
+            ( errors, rulesWithCachedValues ) =
+                Rule.review rules project
+        in
+        doSomethingWithTheseValues
+
+The resulting `List Rule` is the same list of rules given as input, but with an
+updated internal cache to make it faster to re-run the rules on the same project.
+If you plan on re-reviewing with the same rules and project, for instance to
+review the project after a file has changed, you may want to store the rules in
+your `Model`.
+
+The rules are functions, so doing so will make your model unable to be
+exported/imported with `elm/browser`'s debugger, and may cause a crash if you try
+to compare them or the model that holds them.
+
+-}
+review : List Rule -> Project -> ( List ReviewError, List Rule )
+review rules project =
+    case Review.Project.modulesThatFailedToParse project of
+        [] ->
+            case Review.Project.modules project |> duplicateModuleNames Dict.empty of
+                Just duplicate ->
+                    let
+                        paths : String
+                        paths =
+                            duplicate.paths
+                                |> List.sort
+                                |> List.map (\s -> "\n  - " ++ s)
+                                |> String.join ""
+
+                        moduleNames : String
+                        moduleNames =
+                            String.join "." duplicate.moduleName
+                    in
+                    ( [ Review.Error.ReviewError
+                            { filePath = "GLOBAL ERROR"
+                            , ruleName = "Incorrect project"
+                            , message = "Found several modules named `" ++ moduleNames ++ "`"
+                            , details =
+                                [ "I found several modules with the name `" ++ moduleNames ++ "`. Depending on how I choose to resolve this, I might give you different reports. Since this is a compiler error anyway, I require this problem to be solved. Please fix this then try running `elm-review` again."
+                                , "Here are the paths to some of the files that share a module name:" ++ paths
+                                , "It is possible that you requested me to look at several projects, and that modules from each project share the same name. I don't recommend reviewing several projects at the same time, as I can only handle one `elm.json`. I instead suggest running `elm-review` twice, once for each project."
+                                ]
+                            , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
+                            , fixes = Nothing
+                            , target = Review.Error.Global
+                            }
+                      ]
+                    , rules
+                    )
+
+                Nothing ->
+                    let
+                        sortedModules : Result (Graph.Edge ()) (List (Graph.NodeContext ModuleName ()))
+                        sortedModules =
+                            project
+                                |> Review.Project.Internal.moduleGraph
+                                |> Graph.checkAcyclic
+                                |> Result.map Graph.topologicalSort
+                    in
+                    case sortedModules of
+                        Err _ ->
+                            ( [ Review.Error.ReviewError
+                                    { filePath = "GLOBAL ERROR"
+                                    , ruleName = "Incorrect project"
+                                    , message = "Import cycle discovered"
+                                    , details =
+                                        [ "I detected an import cycle in your project. This prevents me from working correctly, and results in a error for the Elm compiler anyway. Please resolve it using the compiler's suggestions, then try running `elm-review` again."
+                                        ]
+                                    , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
+                                    , fixes = Nothing
+                                    , target = Review.Error.Global
+                                    }
+                              ]
+                            , rules
+                            )
+
+                        Ok nodeContexts ->
+                            runRules rules project nodeContexts
+                                |> Tuple.mapFirst (List.map errorToReviewError)
+
+        modulesThatFailedToParse ->
+            ( List.map parsingError modulesThatFailedToParse, rules )

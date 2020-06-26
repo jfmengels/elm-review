@@ -15,7 +15,7 @@ module Review.Rule exposing
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review
     , Required, Forbidden
-    , CacheEntry, CacheEntryFor, ModuleRuleResultCache, ModuleVisitorFunctions, ProjectRuleCache, TraversalType(..), Visitor, accessInternalError, accumulateList, accumulateWithListOfVisitors, computeModuleAndCacheResult, getModuleName, makeFinalEvaluation, makeFinalEvaluationForProject, moduleNameNode, removeErrorPhantomType, runModuleRule, setFilePathIfUnset, setRuleName, visitDeclaration, visitImport, visitModuleForProjectRule
+    , CacheEntry, CacheEntryFor, ModuleRuleResultCache, ModuleVisitorFunctions, ProjectRuleCache, TraversalType(..), Visitor, accessInternalError, accumulateList, accumulateWithListOfVisitors, computeModuleAndCacheResult, duplicateModuleNames, errorToReviewError, getModuleName, makeFinalEvaluation, makeFinalEvaluationForProject, moduleNameNode, parsingError, removeErrorPhantomType, runModuleRule, runRules, setFilePathIfUnset, setRuleName, visitDeclaration, visitImport, visitModuleForProjectRule
     )
 
 {-| This module contains functions that are used for writing rules.

@@ -111,6 +111,7 @@ import Review.Error as Error
 import Review.Fix as Fix
 import Review.Project as Project exposing (Project, ProjectModule)
 import Review.Rule as Rule exposing (ReviewError, Rule)
+import Review.Rule3 as Rule3
 import Review.Test.FailureMessage as FailureMessage
 import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
@@ -367,7 +368,7 @@ runOnModulesWithProjectData project rule sources =
                             errors : List ReviewError
                             errors =
                                 projectWithModules
-                                    |> Rule.review [ rule ]
+                                    |> Rule3.review [ rule ]
                                     |> Tuple.first
                         in
                         case ListExtra.find (\err_ -> Rule.errorFilePath err_ == "GLOBAL ERROR") errors of
