@@ -275,7 +275,10 @@ You can create [module rules](#creating-a-module-rule) or [project rules](#creat
 type
     Rule
     -- TODO Jeroen not supposed to expose everything
-    = Rule String Exceptions (Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule ))
+    = Rule
+        { exceptions : Exceptions
+        , ruleImplementation : Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
+        }
 
 
 {-| Represents a schema for a module [`Rule`](#Rule).
@@ -424,10 +427,10 @@ review rules project =
 runRules : List Rule -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), List Rule )
 runRules rules project nodeContexts =
     List.foldl
-        (\(Rule _ exceptions fn) ( errors, previousRules ) ->
+        (\(Rule { exceptions, ruleImplementation }) ( errors, previousRules ) ->
             let
                 ( ruleErrors, ruleWithCache ) =
-                    fn exceptions project nodeContexts
+                    ruleImplementation exceptions project nodeContexts
             in
             ( List.concat [ List.map removeErrorPhantomType ruleErrors, errors ], ruleWithCache :: previousRules )
         )
@@ -579,10 +582,10 @@ newModuleRuleSchema name_ moduleContext =
 -}
 fromModuleRuleSchema : ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> Rule
 fromModuleRuleSchema ((ModuleRuleSchema { name }) as schema) =
-    runModuleRule
-        (reverseVisitors schema)
-        Nothing
-        |> Rule name Exceptions.init
+    Rule
+        { exceptions = Exceptions.init
+        , ruleImplementation = runModuleRule (reverseVisitors schema) Nothing
+        }
 
 
 reverseVisitors : ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema schemaState moduleContext
@@ -760,18 +763,17 @@ runModuleRule ((ModuleRuleSchema schema) as moduleRuleSchema) maybePreviousCache
             moduleResults
                 |> Dict.values
                 |> List.concatMap .errors
-    in
-    ( errors
-    , runModuleRule
-        moduleRuleSchema
-        (Just
+
+        newCache : ModuleRuleCache moduleContext
+        newCache =
             { elmJson = elmJsonCacheEntry
             , readme = readmeCacheEntry
             , dependencies = dependenciesCacheEntry
             , moduleResults = moduleResults
             }
-        )
-        |> Rule schema.name exceptions
+    in
+    ( errors
+    , Rule { exceptions = exceptions, ruleImplementation = runModuleRule moduleRuleSchema (Just newCache) }
     )
 
 
@@ -907,19 +909,20 @@ newProjectRuleSchema name_ initialProjectContext =
 -}
 fromProjectRuleSchema : ProjectRuleSchema { schemaState | withModuleContext : Forbidden, hasAtLeastOneVisitor : () } projectContext moduleContext -> Rule
 fromProjectRuleSchema (ProjectRuleSchema schema) =
-    Rule schema.name
-        Exceptions.init
-        (runProjectRule
-            (ProjectRuleSchema
-                { schema
-                    | elmJsonVisitors = List.reverse schema.elmJsonVisitors
-                    , readmeVisitors = List.reverse schema.readmeVisitors
-                    , dependenciesVisitors = List.reverse schema.dependenciesVisitors
-                    , finalEvaluationFns = List.reverse schema.finalEvaluationFns
-                }
-            )
-            Nothing
-        )
+    Rule
+        { exceptions = Exceptions.init
+        , ruleImplementation =
+            runProjectRule
+                (ProjectRuleSchema
+                    { schema
+                        | elmJsonVisitors = List.reverse schema.elmJsonVisitors
+                        , readmeVisitors = List.reverse schema.readmeVisitors
+                        , dependenciesVisitors = List.reverse schema.dependenciesVisitors
+                        , finalEvaluationFns = List.reverse schema.finalEvaluationFns
+                    }
+                )
+                Nothing
+        }
 
 
 {-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will
@@ -1462,7 +1465,7 @@ runProjectRule ((ProjectRuleSchema schema) as wrappedSchema) maybePreviousCache 
                 |> Exceptions.apply exceptions (accessInternalError >> .filePath)
                 |> List.map (setRuleName schema.name)
     in
-    ( errors, Rule schema.name exceptions (runProjectRule wrappedSchema (Just newCache)) )
+    ( errors, Rule { exceptions = exceptions, ruleImplementation = runProjectRule wrappedSchema (Just newCache) } )
 
 
 errorsFromCache : ProjectRuleCache projectContext -> List (Error {})
@@ -3417,11 +3420,11 @@ forbids using `Debug.todo` anywhere in the code, except in tests.
 
 -}
 ignoreErrorsForDirectories : List String -> Rule -> Rule
-ignoreErrorsForDirectories directories (Rule name exceptions fn) =
+ignoreErrorsForDirectories directories (Rule rule) =
     Rule
-        name
-        (Exceptions.addDirectories directories exceptions)
-        fn
+        { exceptions = Exceptions.addDirectories directories rule.exceptions
+        , ruleImplementation = rule.ruleImplementation
+        }
 
 
 {-| Ignore the errors reported for specific file paths.
@@ -3482,11 +3485,11 @@ by hardcoding an exception into the rule (that forbids the use of `Html.button` 
 
 -}
 ignoreErrorsForFiles : List String -> Rule -> Rule
-ignoreErrorsForFiles files (Rule name exceptions fn) =
+ignoreErrorsForFiles files (Rule rule) =
     Rule
-        name
-        (Exceptions.addFiles files exceptions)
-        fn
+        { exceptions = Exceptions.addFiles files rule.exceptions
+        , ruleImplementation = rule.ruleImplementation
+        }
 
 
 

@@ -393,9 +393,10 @@ withFinalProjectEvaluation visitor (ProjectRuleSchema projectRuleSchema) =
 
 fromProjectRuleSchema : ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext -> Rule
 fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
-    Rule schema.name
-        Exceptions.init
-        (Review.Visitor.run schema.name (fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema) Nothing)
+    Rule
+        { exceptions = Exceptions.init
+        , ruleImplementation = Review.Visitor.run schema.name (fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema) Nothing
+        }
 
 
 fromProjectRuleSchemaToRunnableProjectVisitor : ProjectRuleSchema schemaState projectContext moduleContext -> Review.Visitor.RunnableProjectVisitor projectContext moduleContext

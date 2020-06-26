@@ -1,5 +1,6 @@
 module Review.Visitor exposing
     ( Folder
+    , RuleInternals
     , RunnableModuleVisitor
     , RunnableProjectVisitor
     , TraversalAndFolder(..)
@@ -50,6 +51,13 @@ import Review.Rule
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
+
+
+type alias RuleInternals =
+    -- TODO Import this in Review.Rule
+    { exceptions : Exceptions
+    , ruleImplementation : Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
+    }
 
 
 type alias RunnableModuleVisitor moduleContext =
@@ -174,7 +182,7 @@ run name projectVisitor maybePreviousCache exceptions project nodeContexts =
                         |> Exceptions.apply exceptions (accessInternalError >> .filePath)
     in
     ( List.map (setRuleName name) errors
-    , Rule name exceptions (run name projectVisitor (Just newCache))
+    , Rule { exceptions = exceptions, ruleImplementation = run name projectVisitor (Just newCache) }
     )
 
 
