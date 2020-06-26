@@ -1,4 +1,4 @@
-module Review.Context exposing (AvailableData, Context, RequestedData, apply, init, withMetadata, withModuleKey)
+module Review.Context exposing (AvailableData, Context, RequestedData, apply, init, requestedData, withMetadata, withModuleKey)
 
 import Review.Metadata exposing (Metadata)
 import Review.Rule exposing (ModuleKey)
