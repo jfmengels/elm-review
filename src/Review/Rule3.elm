@@ -50,8 +50,23 @@ import Review.Metadata as Metadata
 import Review.Project exposing (Project)
 import Review.Project.Dependency
 import Review.Project.Internal
-import Review.Rule exposing (CacheEntry, CacheEntryFor, Direction(..), ElmJsonKey(..), Error(..), Forbidden, ModuleKey(..), ModuleRuleResultCache, ModuleVisitorFunctions, ProjectRuleCache, ReadmeKey(..), Required, Rule(..), TraversalType(..), Visitor, duplicateModuleNames, errorToReviewError, parsingError, removeErrorPhantomType, runRules)
-import Review.Visitor exposing (Folder)
+import Review.Rule
+    exposing
+        ( Direction(..)
+        , ElmJsonKey(..)
+        , Error(..)
+        , Forbidden
+        , ModuleKey(..)
+        , ReadmeKey(..)
+        , Required
+        , Rule(..)
+        , TraversalType(..)
+        , duplicateModuleNames
+        , errorToReviewError
+        , parsingError
+        , removeErrorPhantomType
+        )
+import Review.Visitor exposing (Folder, Visitor)
 import Vendor.Graph as Graph
 
 
@@ -697,3 +712,17 @@ review rules project =
 
         modulesThatFailedToParse ->
             ( List.map parsingError modulesThatFailedToParse, rules )
+
+
+runRules : List Rule -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), List Rule )
+runRules rules project nodeContexts =
+    List.foldl
+        (\(Rule { exceptions, ruleImplementation }) ( errors, previousRules ) ->
+            let
+                ( ruleErrors, ruleWithCache ) =
+                    ruleImplementation exceptions project nodeContexts
+            in
+            ( List.concat [ List.map removeErrorPhantomType ruleErrors, errors ], ruleWithCache :: previousRules )
+        )
+        ( [], [] )
+        rules

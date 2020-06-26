@@ -4,17 +4,19 @@ module Review.Visitor exposing
     , RunnableModuleVisitor
     , RunnableProjectVisitor
     , TraversalAndFolder(..)
+    , Visitor
     , run
     )
 
 import Dict exposing (Dict)
 import Elm.Project
-import Elm.Syntax.Declaration exposing (Declaration)
-import Elm.Syntax.Expression exposing (Expression)
+import Elm.Syntax.Declaration as Declaration exposing (Declaration)
+import Elm.Syntax.Expression as Expression exposing (Expression, Function)
 import Elm.Syntax.Import exposing (Import)
-import Elm.Syntax.Module exposing (Module)
+import Elm.Syntax.Infix as Infix
+import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
-import Elm.Syntax.Node exposing (Node)
+import Elm.Syntax.Node as Node exposing (Node)
 import Review.Context as Context exposing (Context)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Metadata as Metadata
@@ -23,30 +25,14 @@ import Review.Project.Dependency
 import Review.Project.Internal
 import Review.Rule
     exposing
-        ( CacheEntry
-        , CacheEntryFor
-        , ElmJsonKey(..)
+        ( ElmJsonKey(..)
         , Error
-        , Forbidden
         , ModuleKey(..)
-        , ModuleRuleResultCache
-        , ModuleVisitorFunctions
-        , ProjectRuleCache
         , ReadmeKey(..)
-        , Required
         , Rule(..)
-        , Visitor
         , accessInternalError
-        , accumulateList
-        , accumulateWithListOfVisitors
-        , computeModuleAndCacheResult
-        , getModuleName
-        , makeFinalEvaluation
-        , moduleNameNode
+        , mapInternalError
         , setFilePathIfUnset
-        , setRuleName
-        , visitDeclaration
-        , visitImport
         )
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
@@ -59,6 +45,17 @@ type alias RuleInternals =
 
     -- TODO Can we get rid of exceptions either above or in the ruleImplementation?
     , ruleImplementation : Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
+    }
+
+
+type alias RunnableProjectVisitor projectContext moduleContext =
+    { initialProjectContext : projectContext
+    , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
+    , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
+    , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
+    , moduleVisitor : Maybe ( RunnableModuleVisitor moduleContext, Context projectContext moduleContext )
+    , traversalAndFolder : TraversalAndFolder projectContext moduleContext
+    , finalEvaluationFns : List (projectContext -> List (Error {}))
     }
 
 
@@ -75,15 +72,8 @@ type alias RunnableModuleVisitor moduleContext =
     }
 
 
-type alias RunnableProjectVisitor projectContext moduleContext =
-    { initialProjectContext : projectContext
-    , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
-    , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
-    , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
-    , moduleVisitor : Maybe ( RunnableModuleVisitor moduleContext, Context projectContext moduleContext )
-    , traversalAndFolder : TraversalAndFolder projectContext moduleContext
-    , finalEvaluationFns : List (projectContext -> List (Error {}))
-    }
+type alias Visitor nodeType context =
+    Node nodeType -> context -> ( List (Error {}), context )
 
 
 type TraversalAndFolder projectContext moduleContext
@@ -94,6 +84,29 @@ type TraversalAndFolder projectContext moduleContext
 type alias Folder projectContext moduleContext =
     { fromModuleToProject : Context moduleContext projectContext
     , foldProjectContexts : projectContext -> projectContext -> projectContext
+    }
+
+
+type alias ProjectRuleCache projectContext =
+    { elmJson : CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext
+    , readme : CacheEntryFor (Maybe { readmeKey : ReadmeKey, content : String }) projectContext
+    , dependencies : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
+    , moduleContexts : Dict String (CacheEntry projectContext)
+    , finalEvaluationErrors : List (Error {})
+    }
+
+
+type alias CacheEntry projectContext =
+    { source : String
+    , errors : List (Error {})
+    , context : projectContext
+    }
+
+
+type alias CacheEntryFor value projectContext =
+    { value : value
+    , errors : List (Error {})
+    , context : projectContext
     }
 
 
@@ -185,6 +198,11 @@ run name projectVisitor maybePreviousCache exceptions project nodeContexts =
     ( List.map (setRuleName name) errors
     , Rule { exceptions = exceptions, ruleImplementation = run name projectVisitor (Just newCache) }
     )
+
+
+setRuleName : String -> Error scope -> Error scope
+setRuleName ruleName error_ =
+    mapInternalError (\err -> { err | ruleName = ruleName }) error_
 
 
 errorsFromCache : ProjectRuleCache projectContext -> List (Error {})
@@ -553,6 +571,190 @@ visitModuleForProjectRule schema initialContext module_ =
         |> (\( errors, moduleContext ) -> ( makeFinalEvaluation schema.finalEvaluationFns ( errors, moduleContext ), moduleContext ))
 
 
+visitImport :
+    List (Node Import -> moduleContext -> ( List (Error {}), moduleContext ))
+    -> Node Import
+    -> moduleContext
+    -> ( List (Error {}), moduleContext )
+visitImport importVisitors node moduleContext =
+    visitNodeWithListOfVisitors importVisitors node ( [], moduleContext )
+
+
+visitDeclaration :
+    List (Visitor Declaration moduleContext)
+    -> List (Visitor Declaration moduleContext)
+    -> List (Visitor Expression moduleContext)
+    -> List (Visitor Expression moduleContext)
+    -> Node Declaration
+    -> moduleContext
+    -> ( List (Error {}), moduleContext )
+visitDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit expressionVisitorsOnEnter expressionVisitorsOnExit node moduleContext =
+    ( [], moduleContext )
+        |> visitNodeWithListOfVisitors declarationVisitorsOnEnter node
+        |> accumulateList (visitExpression expressionVisitorsOnEnter expressionVisitorsOnExit) (expressionsInDeclaration node)
+        |> visitNodeWithListOfVisitors declarationVisitorsOnExit node
+
+
+visitExpression :
+    List (Visitor Expression moduleContext)
+    -> List (Visitor Expression moduleContext)
+    -> Node Expression
+    -> moduleContext
+    -> ( List (Error {}), moduleContext )
+visitExpression onEnter onExit node moduleContext =
+    ( [], moduleContext )
+        |> visitNodeWithListOfVisitors onEnter node
+        |> accumulateList (visitExpression onEnter onExit) (expressionChildren node)
+        |> visitNodeWithListOfVisitors onExit node
+
+
+{-| Concatenate the errors of the previous step and of the last step.
+-}
+makeFinalEvaluation : List (context -> List (Error {})) -> ( List (Error {}), context ) -> List (Error {})
+makeFinalEvaluation finalEvaluationFns ( previousErrors, context ) =
+    List.concat
+        [ List.concatMap
+            (\visitor -> visitor context)
+            finalEvaluationFns
+        , previousErrors
+        ]
+
+
+expressionChildren : Node Expression -> List (Node Expression)
+expressionChildren node =
+    case Node.value node of
+        Expression.Application expressions ->
+            expressions
+
+        Expression.Literal _ ->
+            []
+
+        Expression.Integer _ ->
+            []
+
+        Expression.Floatable _ ->
+            []
+
+        Expression.UnitExpr ->
+            []
+
+        Expression.ListExpr elements ->
+            elements
+
+        Expression.FunctionOrValue _ _ ->
+            []
+
+        Expression.RecordExpr fields ->
+            List.map (Node.value >> (\( _, expr ) -> expr)) fields
+
+        Expression.RecordUpdateExpression _ setters ->
+            List.map (Node.value >> (\( _, expr ) -> expr)) setters
+
+        Expression.ParenthesizedExpression expr ->
+            [ expr ]
+
+        Expression.Operator _ ->
+            []
+
+        Expression.OperatorApplication _ direction left right ->
+            case direction of
+                Infix.Left ->
+                    [ left, right ]
+
+                Infix.Right ->
+                    [ right, left ]
+
+                Infix.Non ->
+                    [ left, right ]
+
+        Expression.IfBlock cond then_ else_ ->
+            [ cond, then_, else_ ]
+
+        Expression.LetExpression { expression, declarations } ->
+            List.map
+                (\declaration ->
+                    case Node.value declaration of
+                        Expression.LetFunction function ->
+                            functionToExpression function
+
+                        Expression.LetDestructuring _ expr ->
+                            expr
+                )
+                declarations
+                ++ [ expression ]
+
+        Expression.CaseExpression { expression, cases } ->
+            expression
+                :: List.map (\( _, caseExpression ) -> caseExpression) cases
+
+        Expression.LambdaExpression { expression } ->
+            [ expression ]
+
+        Expression.TupledExpression expressions ->
+            expressions
+
+        Expression.PrefixOperator _ ->
+            []
+
+        Expression.Hex _ ->
+            []
+
+        Expression.Negation expr ->
+            [ expr ]
+
+        Expression.CharLiteral _ ->
+            []
+
+        Expression.RecordAccess expr _ ->
+            [ expr ]
+
+        Expression.RecordAccessFunction _ ->
+            []
+
+        Expression.GLSLExpression _ ->
+            []
+
+
+expressionsInDeclaration : Node Declaration -> List (Node Expression)
+expressionsInDeclaration node =
+    case Node.value node of
+        Declaration.FunctionDeclaration function ->
+            [ functionToExpression function ]
+
+        Declaration.CustomTypeDeclaration _ ->
+            []
+
+        Declaration.AliasDeclaration _ ->
+            []
+
+        Declaration.Destructuring _ expr ->
+            [ expr ]
+
+        Declaration.PortDeclaration _ ->
+            []
+
+        Declaration.InfixDeclaration _ ->
+            []
+
+
+visitNodeWithListOfVisitors :
+    List (Visitor nodeType moduleContext)
+    -> Node nodeType
+    -> ( List (Error {}), moduleContext )
+    -> ( List (Error {}), moduleContext )
+visitNodeWithListOfVisitors visitors node initialErrorsAndContext =
+    List.foldl
+        (\visitor -> accumulate (visitor node))
+        initialErrorsAndContext
+        visitors
+
+
+functionToExpression : Function -> Node Expression
+functionToExpression function =
+    Node.value function.declaration
+        |> .expression
+
+
 
 -- FINAL EVALUATION
 
@@ -576,3 +778,54 @@ errorsFromFinalEvaluationForProject projectVisitor initialContext contextsPerMod
         List.concatMap
             (\finalEvaluationFn -> finalEvaluationFn finalContext)
             projectVisitor.finalEvaluationFns
+
+
+moduleNameNode : Node Module -> Node ModuleName
+moduleNameNode node =
+    case Node.value node of
+        Module.NormalModule data ->
+            data.moduleName
+
+        Module.PortModule data ->
+            data.moduleName
+
+        Module.EffectModule data ->
+            data.moduleName
+
+
+getModuleName : ProjectModule -> ModuleName
+getModuleName module_ =
+    module_.ast.moduleDefinition
+        |> Node.value
+        |> Module.moduleName
+
+
+accumulateWithListOfVisitors :
+    List (a -> context -> ( List (Error {}), context ))
+    -> a
+    -> ( List (Error {}), context )
+    -> ( List (Error {}), context )
+accumulateWithListOfVisitors visitors element initialErrorsAndContext =
+    List.foldl
+        (\visitor -> accumulate (visitor element))
+        initialErrorsAndContext
+        visitors
+
+
+accumulateList : (Node a -> context -> ( List (Error {}), context )) -> List (Node a) -> ( List (Error {}), context ) -> ( List (Error {}), context )
+accumulateList visitor nodes initialErrorsAndContext =
+    List.foldl
+        (\node -> accumulate (visitor node))
+        initialErrorsAndContext
+        nodes
+
+
+{-| Concatenate the errors of the previous step and of the last step, and take the last step's context.
+-}
+accumulate : (context -> ( List (Error {}), context )) -> ( List (Error {}), context ) -> ( List (Error {}), context )
+accumulate visitor ( previousErrors, previousContext ) =
+    let
+        ( newErrors, newContext ) =
+            visitor previousContext
+    in
+    ( newErrors ++ previousErrors, newContext )
