@@ -13,7 +13,6 @@ import Elm.Version
 import Regex exposing (Regex)
 import Review.Fix as Fix
 import Review.Rule as Rule exposing (Error, Rule)
-import Review.Rule3 as Rule3
 
 
 {-| Reports links in the `README.md` that point to this project's package documentation on <https://package.elm-lang.org/>,

@@ -1,7 +1,4 @@
-module NoUnused.Patterns.NameVisitor exposing
-    ( withValueVisitor
-    , withValueVisitor_New
-    )
+module NoUnused.Patterns.NameVisitor exposing (withValueVisitor)
 
 {-| Visit each name in the module.
 
@@ -39,7 +36,6 @@ import Elm.Syntax.Signature exposing (Signature)
 import Elm.Syntax.Type as Type
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Review.Rule as Rule exposing (Error)
-import Review.Rule3 as Rule3
 
 
 type Visitor context
@@ -174,20 +170,6 @@ withValueAndTypeVisitors { valueVisitor, typeVisitor } rule =
     let
         visitor =
             ValueAndTypeVisitor valueVisitor typeVisitor
-    in
-    rule
-        |> Rule.withDeclarationListVisitor (declarationListVisitor visitor)
-        |> Rule.withExpressionEnterVisitor (expressionVisitor visitor)
-
-
-withValueVisitor_New :
-    (Node ( ModuleName, String ) -> context -> ( List (Error {}), context ))
-    -> Rule.ModuleRuleSchema state context
-    -> Rule.ModuleRuleSchema { state | hasAtLeastOneVisitor : () } context
-withValueVisitor_New valueVisitor rule =
-    let
-        visitor =
-            ValueVisitor valueVisitor
     in
     rule
         |> Rule.withDeclarationListVisitor (declarationListVisitor visitor)

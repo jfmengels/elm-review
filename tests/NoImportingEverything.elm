@@ -10,7 +10,6 @@ import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Node as Node exposing (Node)
 import Review.Rule as Rule exposing (Error, Rule)
-import Review.Rule3 as Rule3
 import Set exposing (Set)
 
 

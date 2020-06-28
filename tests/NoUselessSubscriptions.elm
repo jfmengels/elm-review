@@ -10,7 +10,6 @@ import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Review.Rule as Rule exposing (Error, Rule)
-import Review.Rule3 as Rule3
 
 
 {-| Reports `subscriptions` functions that never return a subscription.
@@ -45,8 +44,8 @@ that turn out to be unnecessary later.
 -}
 rule : Rule
 rule =
-    Rule3.newModuleRuleSchema "NoUselessSubscriptions" ()
-        |> Rule3.withSimpleDeclarationVisitor declarationVisitor
+    Rule.newModuleRuleSchema "NoUselessSubscriptions" ()
+        |> Rule.withSimpleDeclarationVisitor declarationVisitor
         |> Rule.fromModuleRuleSchema
 
 

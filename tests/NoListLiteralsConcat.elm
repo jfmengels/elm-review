@@ -10,7 +10,6 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Review.Rule as Rule exposing (Error, Rule)
-import Review.Rule3 as Rule3
 
 
 {-| Reports when an operation on lists could be simplified to a single literal list.

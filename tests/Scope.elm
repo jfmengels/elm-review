@@ -76,7 +76,6 @@ import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Rule as Rule
-import Review.Rule3 as Rule3
 import Set exposing (Set)
 
 
@@ -351,13 +350,13 @@ addProjectVisitors schema =
 
 
 addProjectVisitors_New :
-    Rule3.ProjectRuleSchema { schemaState | canAddModuleVisitor : () } { projectContext | scope : ProjectContext } { moduleContext | scope : ModuleContext }
-    -> Rule3.ProjectRuleSchema { schemaState | canAddModuleVisitor : (), hasAtLeastOneVisitor : (), withModuleContext : Rule.Required } { projectContext | scope : ProjectContext } { moduleContext | scope : ModuleContext }
+    Rule.ProjectRuleSchema { schemaState | canAddModuleVisitor : () } { projectContext | scope : ProjectContext } { moduleContext | scope : ModuleContext }
+    -> Rule.ProjectRuleSchema { schemaState | canAddModuleVisitor : (), hasAtLeastOneVisitor : (), withModuleContext : Rule.Required } { projectContext | scope : ProjectContext } { moduleContext | scope : ModuleContext }
 addProjectVisitors_New schema =
     schema
-        |> Rule3.withContextFromImportedModules
-        |> Rule3.withDependenciesProjectVisitor (mapInnerProjectContext dependenciesProjectVisitor)
-        |> Rule3.withModuleVisitor internalAddModuleVisitors_New
+        |> Rule.withContextFromImportedModules
+        |> Rule.withDependenciesProjectVisitor (mapInnerProjectContext dependenciesProjectVisitor)
+        |> Rule.withModuleVisitor internalAddModuleVisitors
 
 
 {-| Adds the scope visitors to your module rule.
@@ -444,63 +443,6 @@ internalAddModuleVisitors schema =
                 ( [], { outerContext | scope = ModuleContext innerContext } )
             )
         |> Rule.withExpressionExitVisitor
-            (\visitedElement outerContext ->
-                let
-                    innerContext : InnerModuleContext
-                    innerContext =
-                        outerContext.scope
-                            |> unboxModule
-                            |> popScopeExit visitedElement
-                            |> expressionExitVisitor visitedElement
-                in
-                ( [], { outerContext | scope = ModuleContext innerContext } )
-            )
-
-
-internalAddModuleVisitors_New : Rule3.ModuleRuleSchema schemaState { moduleContext | scope : ModuleContext } -> Rule3.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } { moduleContext | scope : ModuleContext }
-internalAddModuleVisitors_New schema =
-    schema
-        |> Rule3.withModuleDefinitionVisitor
-            (mapInnerModuleContext moduleDefinitionVisitor |> pairWithNoErrors)
-        |> Rule3.withImportVisitor
-            (mapInnerModuleContext importVisitor |> pairWithNoErrors)
-        |> Rule3.withDeclarationListVisitor
-            (mapInnerModuleContext declarationListVisitor |> pairWithNoErrors)
-        |> Rule3.withDeclarationEnterVisitor
-            (\visitedElement outerContext ->
-                let
-                    innerContext : InnerModuleContext
-                    innerContext =
-                        outerContext.scope
-                            |> unboxModule
-                            |> declarationEnterVisitor visitedElement
-                in
-                ( [], { outerContext | scope = ModuleContext innerContext } )
-            )
-        |> Rule3.withDeclarationExitVisitor
-            (\visitedElement outerContext ->
-                let
-                    innerContext : InnerModuleContext
-                    innerContext =
-                        outerContext.scope
-                            |> unboxModule
-                            |> declarationExitVisitor visitedElement
-                in
-                ( [], { outerContext | scope = ModuleContext innerContext } )
-            )
-        |> Rule3.withExpressionEnterVisitor
-            (\visitedElement outerContext ->
-                let
-                    innerContext : InnerModuleContext
-                    innerContext =
-                        outerContext.scope
-                            |> unboxModule
-                            |> popScopeEnter visitedElement
-                            |> expressionEnterVisitor visitedElement
-                in
-                ( [], { outerContext | scope = ModuleContext innerContext } )
-            )
-        |> Rule3.withExpressionExitVisitor
             (\visitedElement outerContext ->
                 let
                     innerContext : InnerModuleContext

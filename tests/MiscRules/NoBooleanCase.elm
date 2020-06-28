@@ -5,7 +5,6 @@ import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Pattern as Pattern
 import Elm.Syntax.Range exposing (Range)
 import Review.Rule as Rule exposing (Error, Rule)
-import Review.Rule3 as Rule3
 
 
 rule : Rule

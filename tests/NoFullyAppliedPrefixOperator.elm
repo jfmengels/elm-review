@@ -10,7 +10,6 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Review.Rule as Rule exposing (Error, Rule)
-import Review.Rule3 as Rule3
 
 
 {-| Reports when an operator is used as a prefix operator and all the operands are already given.
@@ -40,8 +39,8 @@ import Review.Rule3 as Rule3
 -}
 rule : Rule
 rule =
-    Rule3.newModuleRuleSchema "NoFullyAppliedPrefixOperator" ()
-        |> Rule3.withSimpleExpressionVisitor expressionVisitor
+    Rule.newModuleRuleSchema "NoFullyAppliedPrefixOperator" ()
+        |> Rule.withSimpleExpressionVisitor expressionVisitor
         |> Rule.fromModuleRuleSchema
 
 

@@ -4,7 +4,6 @@ import Elm.Syntax.Declaration exposing (Declaration)
 import Elm.Syntax.Expression exposing (Expression)
 import Elm.Syntax.Node exposing (Node)
 import Review.Rule as Rule exposing (Error, Rule)
-import Review.Rule3 as Rule3
 import Review.Test
 import Test exposing (Test, test)
 

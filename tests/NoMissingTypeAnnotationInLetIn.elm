@@ -9,7 +9,6 @@ module NoMissingTypeAnnotationInLetIn exposing (rule)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)
 import Review.Rule as Rule exposing (Error, Rule)
-import Review.Rule3 as Rule3
 
 
 {-| Reports `let in` declarations that do not have a type annotation.

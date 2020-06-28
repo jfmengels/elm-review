@@ -18,7 +18,6 @@ import Elm.Writer as Writer
 import NoUnused.Patterns.NameVisitor as NameVisitor
 import Review.Fix as Fix
 import Review.Rule as Rule exposing (Rule)
-import Review.Rule3 as Rule3
 import Set exposing (Set)
 
 
@@ -58,7 +57,7 @@ rule =
     Rule.newModuleRuleSchema "NoUnused.Patterns" initialContext
         |> Rule.withExpressionEnterVisitor expressionEnterVisitor
         |> Rule.withExpressionExitVisitor expressionExitVisitor
-        |> NameVisitor.withValueVisitor_New valueVisitor
+        |> NameVisitor.withValueVisitor valueVisitor
         |> Rule.fromModuleRuleSchema
 
 

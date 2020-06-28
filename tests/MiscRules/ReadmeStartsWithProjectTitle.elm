@@ -4,7 +4,6 @@ import Elm.Package
 import Elm.Project
 import Elm.Syntax.Range exposing (Range)
 import Review.Rule as Rule exposing (Error, Rule)
-import Review.Rule3 as Rule3
 
 
 rule : Rule

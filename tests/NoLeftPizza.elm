@@ -11,7 +11,6 @@ import Elm.Syntax.Node as Node exposing (Node)
 import NoLeftPizzaUtil
 import Review.Fix as Fix
 import Review.Rule as Rule exposing (Error, Rule)
-import Review.Rule3 as Rule3
 
 
 {-| Specify how strict the rule should be.
