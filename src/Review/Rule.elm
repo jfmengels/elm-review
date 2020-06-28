@@ -1,5 +1,5 @@
 module Review.Rule exposing
-    ( Rule(..)
+    ( Rule
     , ModuleRuleSchema, newModuleRuleSchema, fromModuleRuleSchema
     , withSimpleModuleDefinitionVisitor, withSimpleCommentsVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
     , withModuleDefinitionVisitor
@@ -10,12 +10,11 @@ module Review.Rule exposing
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
-    , Error, error, errorWithFix, ModuleKey(..), errorForModule, errorForModuleWithFix, ElmJsonKey(..), errorForElmJson, ReadmeKey(..), errorForReadme, errorForReadmeWithFix
+    , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review
     , Required, Forbidden
-    , TraversalType(..), Visitor, accessInternalError, duplicateModuleNames, errorToReviewError, mapInternalError, parsingError, removeErrorPhantomType, setFilePathIfUnset
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -274,7 +273,6 @@ You can create [module rules](#creating-a-module-rule) or [project rules](#creat
 -}
 type
     Rule
-    -- TODO Jeroen not supposed to expose everything
     -- The next steps should be to:
     --    - TODO Add support for creating rules with metadata (maybe first? maybe last?)
     --    - TODO Add docs where needed to make the tests pass
@@ -758,9 +756,7 @@ type alias ModuleContextFunctions projectContext moduleContext =
     }
 
 
-type
-    TraversalType
-    -- TODO Jeroen not supposed to expose everything
+type TraversalType
     = AllModulesInParallel
       -- TODO Add way to traverse in opposite order
     | ImportedModulesFirst
@@ -2638,9 +2634,7 @@ You can get a `ModuleKey` from the `fromProjectToModule` and `fromModuleToProjec
 functions that you define when using [`newProjectRuleSchema`](#newProjectRuleSchema).
 
 -}
-type
-    ModuleKey
-    -- TODO Jeroen not supposed to expose everything
+type ModuleKey
     = ModuleKey String
 
 
@@ -2690,9 +2684,7 @@ to prevent creating errors for it if you have not visited it.
 You can get a `ElmJsonKey` using the [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor) function.
 
 -}
-type
-    ElmJsonKey
-    -- TODO Jeroen not supposed to expose everything
+type ElmJsonKey
     = ElmJsonKey
         { path : String
         , raw : String
@@ -2735,9 +2727,7 @@ to prevent creating errors for it if you have not visited it.
 You can get a `ReadmeKey` using the [`withReadmeProjectVisitor`](#withReadmeProjectVisitor) function.
 
 -}
-type
-    ReadmeKey
-    -- TODO Jeroen not supposed to expose everything
+type ReadmeKey
     = ReadmeKey
         { path : String
         , content : String
