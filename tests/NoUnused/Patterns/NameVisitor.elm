@@ -182,16 +182,16 @@ withValueAndTypeVisitors { valueVisitor, typeVisitor } rule =
 
 withValueVisitor_New :
     (Node ( ModuleName, String ) -> context -> ( List (Error {}), context ))
-    -> Rule3.ModuleRuleSchema state context
-    -> Rule3.ModuleRuleSchema { state | hasAtLeastOneVisitor : () } context
+    -> Rule.ModuleRuleSchema state context
+    -> Rule.ModuleRuleSchema { state | hasAtLeastOneVisitor : () } context
 withValueVisitor_New valueVisitor rule =
     let
         visitor =
             ValueVisitor valueVisitor
     in
     rule
-        |> Rule3.withDeclarationListVisitor (declarationListVisitor visitor)
-        |> Rule3.withExpressionEnterVisitor (expressionVisitor visitor)
+        |> Rule.withDeclarationListVisitor (declarationListVisitor visitor)
+        |> Rule.withExpressionEnterVisitor (expressionVisitor visitor)
 
 
 

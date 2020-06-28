@@ -10,9 +10,9 @@ import Review.Rule3 as Rule3
 
 rule : Rule
 rule =
-    Rule3.newModuleRuleSchema "NoBooleanCase" ()
-        |> Rule3.withSimpleExpressionVisitor expressionVisitor
-        |> Rule3.fromModuleRuleSchema
+    Rule.newModuleRuleSchema "NoBooleanCase" ()
+        |> Rule.withSimpleExpressionVisitor expressionVisitor
+        |> Rule.fromModuleRuleSchema
 
 
 expressionVisitor : Node Expression -> List (Error {})

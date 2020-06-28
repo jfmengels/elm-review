@@ -37,10 +37,10 @@ and publishing the package. Otherwise the link for a given version could link to
 -}
 rule : Rule
 rule =
-    Rule3.newProjectRuleSchema "ReadmeLinksPointToCurrentVersion" initialProjectContext
-        |> Rule3.withElmJsonProjectVisitor elmJsonVisitor
-        |> Rule3.withReadmeProjectVisitor readmeVisitor
-        |> Rule3.fromProjectRuleSchema
+    Rule.newProjectRuleSchema "ReadmeLinksPointToCurrentVersion" initialProjectContext
+        |> Rule.withElmJsonProjectVisitor elmJsonVisitor
+        |> Rule.withReadmeProjectVisitor readmeVisitor
+        |> Rule.fromProjectRuleSchema
 
 
 type alias ProjectContext =

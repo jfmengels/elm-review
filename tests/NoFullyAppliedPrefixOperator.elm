@@ -42,7 +42,7 @@ rule : Rule
 rule =
     Rule3.newModuleRuleSchema "NoFullyAppliedPrefixOperator" ()
         |> Rule3.withSimpleExpressionVisitor expressionVisitor
-        |> Rule3.fromModuleRuleSchema
+        |> Rule.fromModuleRuleSchema
 
 
 error : Range -> Error {}

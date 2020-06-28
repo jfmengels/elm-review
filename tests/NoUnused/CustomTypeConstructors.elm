@@ -108,30 +108,30 @@ I would love help with improving this :)
 -}
 rule : List { moduleName : String, typeName : String, index : Int } -> Rule
 rule phantomTypes =
-    Rule3.newProjectRuleSchema "NoUnused.CustomTypeConstructors" (initialProjectContext phantomTypes)
+    Rule.newProjectRuleSchema "NoUnused.CustomTypeConstructors" (initialProjectContext phantomTypes)
         |> Scope.addProjectVisitors_New
-        |> Rule3.withModuleVisitor moduleVisitor
-        |> Rule3.withModuleContext
+        |> Rule.withModuleVisitor moduleVisitor
+        |> Rule.withModuleContext
             { fromProjectToModule = fromProjectToModule
             , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
             }
-        |> Rule3.withElmJsonProjectVisitor elmJsonVisitor
-        |> Rule3.withFinalProjectEvaluation finalProjectEvaluation
-        |> Rule3.fromProjectRuleSchema
+        |> Rule.withElmJsonProjectVisitor elmJsonVisitor
+        |> Rule.withFinalProjectEvaluation finalProjectEvaluation
+        |> Rule.fromProjectRuleSchema
 
 
 
 -- MODULE VISITOR
 
 
-moduleVisitor : Rule3.ModuleRuleSchema {} ModuleContext -> Rule3.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
+moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor schema =
     schema
-        |> Rule3.withModuleDefinitionVisitor moduleDefinitionVisitor
-        |> Rule3.withDeclarationListVisitor declarationListVisitor
-        |> Rule3.withDeclarationEnterVisitor declarationVisitor
-        |> Rule3.withExpressionEnterVisitor expressionVisitor
+        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
+        |> Rule.withDeclarationListVisitor declarationListVisitor
+        |> Rule.withDeclarationEnterVisitor declarationVisitor
+        |> Rule.withExpressionEnterVisitor expressionVisitor
 
 
 

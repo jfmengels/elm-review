@@ -65,7 +65,7 @@ rule : Rule
 rule =
     Rule3.newModuleRuleSchema "NoExtraBooleanComparison" ()
         |> Rule3.withSimpleExpressionVisitor expressionVisitor
-        |> Rule3.fromModuleRuleSchema
+        |> Rule.fromModuleRuleSchema
 
 
 error : Node a -> String -> String -> Error {}

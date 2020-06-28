@@ -51,9 +51,9 @@ For that, enable [`NoMissingTypeAnnotation`](./NoMissingTypeAnnotation).
 -}
 rule : Rule
 rule =
-    Rule3.newModuleRuleSchema "NoMissingTypeAnnotationInLetIn" ()
-        |> Rule3.withSimpleExpressionVisitor expressionVisitor
-        |> Rule3.fromModuleRuleSchema
+    Rule.newModuleRuleSchema "NoMissingTypeAnnotationInLetIn" ()
+        |> Rule.withSimpleExpressionVisitor expressionVisitor
+        |> Rule.fromModuleRuleSchema
 
 
 expressionVisitor : Node Expression -> List (Error {})

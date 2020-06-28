@@ -72,12 +72,12 @@ in your editor, rather than when running your tests or [elm-xref](https://github
 -}
 rule : Rule
 rule =
-    Rule3.newModuleRuleSchema "NoUnusedTypeConstructors" initialContext
-        |> Rule3.withModuleDefinitionVisitor moduleDefinitionVisitor
-        |> Rule3.withDeclarationEnterVisitor declarationVisitor
-        |> Rule3.withExpressionEnterVisitor expressionVisitor
-        |> Rule3.withFinalModuleEvaluation finalEvaluation
-        |> Rule3.fromModuleRuleSchema
+    Rule.newModuleRuleSchema "NoUnusedTypeConstructors" initialContext
+        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
+        |> Rule.withDeclarationEnterVisitor declarationVisitor
+        |> Rule.withExpressionEnterVisitor expressionVisitor
+        |> Rule.withFinalModuleEvaluation finalEvaluation
+        |> Rule.fromModuleRuleSchema
 
 
 type alias Context =

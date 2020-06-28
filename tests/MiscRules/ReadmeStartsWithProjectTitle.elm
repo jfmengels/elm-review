@@ -9,10 +9,10 @@ import Review.Rule3 as Rule3
 
 rule : Rule
 rule =
-    Rule3.newProjectRuleSchema "ReadmeStartsWithProjectTitle" initialProjectContext
-        |> Rule3.withElmJsonProjectVisitor elmJsonVisitor
-        |> Rule3.withReadmeProjectVisitor readmeVisitor
-        |> Rule3.fromProjectRuleSchema
+    Rule.newProjectRuleSchema "ReadmeStartsWithProjectTitle" initialProjectContext
+        |> Rule.withElmJsonProjectVisitor elmJsonVisitor
+        |> Rule.withReadmeProjectVisitor readmeVisitor
+        |> Rule.fromProjectRuleSchema
 
 
 type alias ProjectContext =

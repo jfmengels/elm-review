@@ -54,14 +54,14 @@ import Set exposing (Set)
 -}
 rule : Rule
 rule =
-    Rule3.newModuleRuleSchema "NoUnused.Variables" initialContext
-        |> Rule3.withModuleDefinitionVisitor moduleDefinitionVisitor
-        |> Rule3.withImportVisitor importVisitor
-        |> Rule3.withDeclarationEnterVisitor declarationVisitor
-        |> Rule3.withExpressionEnterVisitor expressionEnterVisitor
-        |> Rule3.withExpressionExitVisitor expressionExitVisitor
-        |> Rule3.withFinalModuleEvaluation finalEvaluation
-        |> Rule3.fromModuleRuleSchema
+    Rule.newModuleRuleSchema "NoUnused.Variables" initialContext
+        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
+        |> Rule.withImportVisitor importVisitor
+        |> Rule.withDeclarationEnterVisitor declarationVisitor
+        |> Rule.withExpressionEnterVisitor expressionEnterVisitor
+        |> Rule.withExpressionExitVisitor expressionExitVisitor
+        |> Rule.withFinalModuleEvaluation finalEvaluation
+        |> Rule.fromModuleRuleSchema
 
 
 type alias Context =

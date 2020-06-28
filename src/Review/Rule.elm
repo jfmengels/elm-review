@@ -814,7 +814,7 @@ newProjectRuleSchema name initialProjectContext =
 
 {-| Create a [`Rule`](#Rule) from a configured [`ProjectRuleSchema`](#ProjectRuleSchema).
 -}
-fromProjectRuleSchema : ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext -> Rule
+fromProjectRuleSchema : ProjectRuleSchema { schemaState | withModuleContext : Forbidden, hasAtLeastOneVisitor : () } projectContext moduleContext -> Rule
 fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
     Rule
         { exceptions = Exceptions.init
@@ -930,12 +930,12 @@ in order to specify how to create a `moduleContext` from a `projectContext` and 
 
 -}
 withModuleVisitor :
-    (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
+    (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { moduleSchemaState | hasAtLeastOneVisitor : () } moduleContext)
     -> ProjectRuleSchema { projectSchemaState | canAddModuleVisitor : () } projectContext moduleContext
     -- TODO BREAKING Change: add hasAtLeastOneVisitor : ()
     -> ProjectRuleSchema { projectSchemaState | canAddModuleVisitor : (), withModuleContext : Required } projectContext moduleContext
 withModuleVisitor visitor (ProjectRuleSchema schema) =
-    ProjectRuleSchema { schema | moduleVisitors = visitor :: schema.moduleVisitors }
+    ProjectRuleSchema { schema | moduleVisitors = removeExtensibleRecordTypeVariable visitor :: schema.moduleVisitors }
 
 
 {-| This function that is supplied by the user will be stored in the `ProjectRuleSchema`,

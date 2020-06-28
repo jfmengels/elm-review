@@ -47,7 +47,7 @@ rule : Rule
 rule =
     Rule3.newModuleRuleSchema "NoUselessSubscriptions" ()
         |> Rule3.withSimpleDeclarationVisitor declarationVisitor
-        |> Rule3.fromModuleRuleSchema
+        |> Rule.fromModuleRuleSchema
 
 
 declarationVisitor : Node Declaration -> List (Error {})

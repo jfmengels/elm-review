@@ -55,10 +55,10 @@ To add the rule to your configuration:
 -}
 rule : Rule
 rule =
-    Rule3.newModuleRuleSchema "NoRecursiveUpdate" { isInUpdateFunction = False }
-        |> Rule3.withDeclarationEnterVisitor declarationVisitor
-        |> Rule3.withExpressionEnterVisitor expressionVisitor
-        |> Rule3.fromModuleRuleSchema
+    Rule.newModuleRuleSchema "NoRecursiveUpdate" { isInUpdateFunction = False }
+        |> Rule.withDeclarationEnterVisitor declarationVisitor
+        |> Rule.withExpressionEnterVisitor expressionVisitor
+        |> Rule.fromModuleRuleSchema
 
 
 type alias Context =

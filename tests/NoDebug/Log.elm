@@ -55,10 +55,10 @@ do not ship to production.
 -}
 rule : Rule
 rule =
-    Rule3.newModuleRuleSchema "NoDebugLog" { hasLogBeenImported = False }
-        |> Rule3.withImportVisitor importVisitor
-        |> Rule3.withExpressionVisitor expressionVisitor
-        |> Rule3.fromModuleRuleSchema
+    Rule.newModuleRuleSchema "NoDebugLog" { hasLogBeenImported = False }
+        |> Rule.withImportVisitor importVisitor
+        |> Rule.withExpressionVisitor expressionVisitor
+        |> Rule.fromModuleRuleSchema
 
 
 type alias Context =

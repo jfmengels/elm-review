@@ -48,9 +48,9 @@ you can configure a list of exceptions.
 -}
 rule : List String -> Rule
 rule exceptions =
-    Rule3.newModuleRuleSchema "NoImportingEverything" ()
-        |> Rule3.withSimpleImportVisitor (importVisitor <| exceptionsToSet exceptions)
-        |> Rule3.fromModuleRuleSchema
+    Rule.newModuleRuleSchema "NoImportingEverything" ()
+        |> Rule.withSimpleImportVisitor (importVisitor <| exceptionsToSet exceptions)
+        |> Rule.fromModuleRuleSchema
 
 
 exceptionsToSet : List String -> Set (List String)

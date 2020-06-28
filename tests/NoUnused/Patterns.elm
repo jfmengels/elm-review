@@ -55,11 +55,11 @@ Value `something` is not used:
 -}
 rule : Rule
 rule =
-    Rule3.newModuleRuleSchema "NoUnused.Patterns" initialContext
-        |> Rule3.withExpressionEnterVisitor expressionEnterVisitor
-        |> Rule3.withExpressionExitVisitor expressionExitVisitor
+    Rule.newModuleRuleSchema "NoUnused.Patterns" initialContext
+        |> Rule.withExpressionEnterVisitor expressionEnterVisitor
+        |> Rule.withExpressionExitVisitor expressionExitVisitor
         |> NameVisitor.withValueVisitor_New valueVisitor
-        |> Rule3.fromModuleRuleSchema
+        |> Rule.fromModuleRuleSchema
 
 
 expressionEnterVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
