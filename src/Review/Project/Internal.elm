@@ -3,6 +3,7 @@ module Review.Project.Internal exposing
     , ProjectModule
     , buildModuleGraph
     , moduleGraph
+    , sourceDirectories
     )
 
 {-| Holds all the information related to the project such as the contents of
@@ -27,6 +28,7 @@ type Project
         , readme : Maybe { path : String, content : String }
         , dependencies : Dict String Dependency
         , moduleGraph : Maybe (Graph ModuleName ())
+        , sourceDirectories : List String
         }
 
 
@@ -36,6 +38,7 @@ type alias ProjectModule =
     { path : String
     , source : String
     , ast : Elm.Syntax.File.File
+    , isInSourceDirectories : Bool
     }
 
 
@@ -58,6 +61,11 @@ moduleGraph (Project project) =
 
         Nothing ->
             buildModuleGraph <| Dict.values project.modules
+
+
+sourceDirectories : Project -> List String
+sourceDirectories (Project project) =
+    project.sourceDirectories
 
 
 buildModuleGraph : List ProjectModule -> Graph ModuleName ()

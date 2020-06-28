@@ -15,7 +15,7 @@ module Review.Rule exposing
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review
     , Required, Forbidden
-    , ModuleMetadata, initContextCreator, moduleNameFromMetadata, moduleNameNodeFromMetadata, withModuleContext2, withModuleMetadata
+    , ModuleMetadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, newModuleRuleSchema2, withModuleContext2, withModuleMetadata
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -593,39 +593,62 @@ newModuleRuleSchema name initialModuleContext =
         }
 
 
+newModuleRuleSchema2 : String -> ContextCreator () moduleContext -> ModuleRuleSchema {} moduleContext
+newModuleRuleSchema2 name moduleContextCreator =
+    ModuleRuleSchema
+        { name = name
+        , initialModuleContext = Nothing
+        , moduleContextCreator = moduleContextCreator
+        , moduleDefinitionVisitors = []
+        , commentsVisitors = []
+        , importVisitors = []
+        , declarationListVisitors = []
+        , declarationVisitorsOnEnter = []
+        , declarationVisitorsOnExit = []
+        , expressionVisitorsOnEnter = []
+        , expressionVisitorsOnExit = []
+        , finalEvaluationFns = []
+        , elmJsonVisitors = []
+        , readmeVisitors = []
+        , dependenciesVisitors = []
+        }
+
+
 {-| Create a [`Rule`](#Rule) from a configured [`ModuleRuleSchema`](#ModuleRuleSchema).
 -}
 fromModuleRuleSchema : ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> Rule
 fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
     -- TODO BREAKING CHANGE Add canCollectData as a pre-requisite to using fromModuleRuleSchema
-    ProjectRuleSchema
-        { name = schema.name
-        , initialProjectContext = getInitialContextFromModuleRule moduleVisitor
-        , elmJsonVisitors = compactProjectDataVisitors (Maybe.map .project) schema.elmJsonVisitors
-        , readmeVisitors = compactProjectDataVisitors (Maybe.map .content) schema.readmeVisitors
-        , dependenciesVisitors = compactProjectDataVisitors identity schema.dependenciesVisitors
-        , moduleVisitors = [ removeExtensibleRecordTypeVariable (always moduleVisitor) ]
-        , moduleContextCreator = Just (initContextCreator identity)
-        , folder = Nothing
-        , traversalType = AllModulesInParallel
-        , finalEvaluationFns = []
-        }
-        |> fromProjectRuleSchema
-
-
-getInitialContextFromModuleRule : ModuleRuleSchema schemaState moduleContext -> moduleContext
-getInitialContextFromModuleRule ((ModuleRuleSchema schema) as moduleVisitor) =
     case schema.initialModuleContext of
         Just initialModuleContext ->
-            initialModuleContext
+            ProjectRuleSchema
+                { name = schema.name
+                , initialProjectContext = initialModuleContext
+                , elmJsonVisitors = compactProjectDataVisitors (Maybe.map .project) schema.elmJsonVisitors
+                , readmeVisitors = compactProjectDataVisitors (Maybe.map .content) schema.readmeVisitors
+                , dependenciesVisitors = compactProjectDataVisitors identity schema.dependenciesVisitors
+                , moduleVisitors = [ removeExtensibleRecordTypeVariable (always moduleVisitor) ]
+                , moduleContextCreator = Just (initContextCreator identity)
+                , folder = Nothing
+                , traversalType = AllModulesInParallel
+                , finalEvaluationFns = []
+                }
+                |> fromProjectRuleSchema
 
         Nothing ->
-            -- Hack: For module rules, we know we will always have a module context
-            -- I am adding a `|>` to prevent TCO from kicking in, so that people get a runtime crash and a report it
-            -- rather than a mysterious infinite loop.
-            -- Note: People can call this rule on a module rule built in `withModuleVisitor`, which we will prevent
-            -- in the next major version
-            moduleVisitor |> getInitialContextFromModuleRule
+            ProjectRuleSchema
+                { name = schema.name
+                , initialProjectContext = ()
+                , elmJsonVisitors = []
+                , readmeVisitors = []
+                , dependenciesVisitors = []
+                , moduleVisitors = [ removeExtensibleRecordTypeVariable (always moduleVisitor) ]
+                , moduleContextCreator = Just schema.moduleContextCreator
+                , folder = Nothing
+                , traversalType = AllModulesInParallel
+                , finalEvaluationFns = []
+                }
+                |> fromProjectRuleSchema
 
 
 compactProjectDataVisitors : (rawData -> data) -> List (data -> moduleContext -> moduleContext) -> List (rawData -> moduleContext -> ( List nothing, moduleContext ))
@@ -778,7 +801,11 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
             let
                 dummyAvailableData : AvailableData
                 dummyAvailableData =
-                    { metadata = createMetadata { moduleNameNode = Node.Node Range.emptyRange [] }
+                    { metadata =
+                        createMetadata
+                            { moduleNameNode = Node.Node Range.emptyRange []
+                            , isInSourceDirectories = True
+                            }
                     , moduleKey = ModuleKey "dummy"
                     }
 
@@ -3211,7 +3238,10 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
 
                 metadata : ModuleMetadata
                 metadata =
-                    createMetadata { moduleNameNode = moduleNameNode module_.ast.moduleDefinition }
+                    createMetadata
+                        { moduleNameNode = moduleNameNode module_.ast.moduleDefinition
+                        , isInSourceDirectories = module_.isInSourceDirectories
+                        }
 
                 availableData : AvailableData
                 availableData =
@@ -3646,6 +3676,7 @@ type RequestedData
 
 initContextCreator : (from -> to) -> ContextCreator from to
 initContextCreator fromProjectToModule =
+    -- TODO Try to get rid of the ()/from when using in a module rule
     ContextCreator
         (always fromProjectToModule)
         (RequestedData { metadata = False })
@@ -3683,10 +3714,11 @@ type alias AvailableData =
 type ModuleMetadata
     = ModuleMetadata
         { moduleNameNode : Node ModuleName
+        , isInSourceDirectories : Bool
         }
 
 
-createMetadata : { moduleNameNode : Node ModuleName } -> ModuleMetadata
+createMetadata : { moduleNameNode : Node ModuleName, isInSourceDirectories : Bool } -> ModuleMetadata
 createMetadata data =
     ModuleMetadata data
 
@@ -3699,3 +3731,8 @@ moduleNameNodeFromMetadata (ModuleMetadata metadata) =
 moduleNameFromMetadata : ModuleMetadata -> ModuleName
 moduleNameFromMetadata (ModuleMetadata metadata) =
     Node.value metadata.moduleNameNode
+
+
+isInSourceDirectories : ModuleMetadata -> Bool
+isInSourceDirectories (ModuleMetadata metadata) =
+    metadata.isInSourceDirectories

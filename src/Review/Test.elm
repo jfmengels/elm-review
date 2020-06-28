@@ -331,7 +331,7 @@ runOnModulesWithProjectData project rule sources =
             sources
                 |> List.indexedMap
                     (\index source ->
-                        { path = "TestContent_" ++ String.fromInt index ++ ".elm"
+                        { path = "src/File_" ++ String.fromInt index ++ ".elm"
                         , source = source
                         }
                     )

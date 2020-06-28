@@ -75,22 +75,24 @@ can configure the rule like this.
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoDebug.TodoOrToString" init
+    Rule.newModuleRuleSchema2 "NoDebug.TodoOrToString" (Rule.initContextCreator initialContext |> Rule.withModuleMetadata)
         |> Rule.withImportVisitor importVisitor
-        |> Rule.withExpressionVisitor expressionVisitor
+        |> Rule.withExpressionEnterVisitor expressionVisitor
         |> Rule.fromModuleRuleSchema
 
 
 type alias Context =
     { hasTodoBeenImported : Bool
     , hasToStringBeenImported : Bool
+    , isInSourceDirectories : Bool
     }
 
 
-init : Context
-init =
+initialContext : Rule.ModuleMetadata -> () -> Context
+initialContext metadata () =
     { hasTodoBeenImported = False
     , hasToStringBeenImported = False
+    , isInSourceDirectories = Rule.isInSourceDirectories metadata
     }
 
 
@@ -118,13 +120,13 @@ importVisitor node context =
     if moduleName == [ "Debug" ] then
         case node |> Node.value |> .exposingList |> Maybe.map Node.value of
             Just (Exposing.All _) ->
-                ( [], { hasTodoBeenImported = True, hasToStringBeenImported = True } )
+                ( [], { hasTodoBeenImported = True, hasToStringBeenImported = True, isInSourceDirectories = context.isInSourceDirectories } )
 
             Just (Exposing.Explicit importedNames) ->
                 ( []
-                , { context
-                    | hasTodoBeenImported = List.any (is "todo") importedNames
-                    , hasToStringBeenImported = List.any (is "toString") importedNames
+                , { hasTodoBeenImported = List.any (is "todo") importedNames
+                  , hasToStringBeenImported = List.any (is "toString") importedNames
+                  , isInSourceDirectories = context.isInSourceDirectories
                   }
                 )
 
@@ -145,28 +147,32 @@ is name node =
             False
 
 
-expressionVisitor : Node Expression -> Rule.Direction -> Context -> ( List (Error {}), Context )
-expressionVisitor node direction context =
-    case ( direction, Node.value node ) of
-        ( Rule.OnEnter, Expression.FunctionOrValue [ "Debug" ] name ) ->
-            if name == "todo" then
-                ( [ error node name ], context )
+expressionVisitor : Node Expression -> Context -> ( List (Error {}), Context )
+expressionVisitor node context =
+    if not context.isInSourceDirectories then
+        ( [], context )
 
-            else if name == "toString" then
-                ( [ error node name ], context )
+    else
+        case Node.value node of
+            Expression.FunctionOrValue [ "Debug" ] name ->
+                if name == "todo" then
+                    ( [ error node name ], context )
 
-            else
+                else if name == "toString" then
+                    ( [ error node name ], context )
+
+                else
+                    ( [], context )
+
+            Expression.FunctionOrValue [] name ->
+                if name == "todo" && context.hasTodoBeenImported then
+                    ( [ error node name ], context )
+
+                else if name == "toString" && context.hasToStringBeenImported then
+                    ( [ error node name ], context )
+
+                else
+                    ( [], context )
+
+            _ ->
                 ( [], context )
-
-        ( Rule.OnEnter, Expression.FunctionOrValue [] name ) ->
-            if name == "todo" && context.hasTodoBeenImported then
-                ( [ error node name ], context )
-
-            else if name == "toString" && context.hasToStringBeenImported then
-                ( [ error node name ], context )
-
-            else
-                ( [], context )
-
-        _ ->
-            ( [], context )

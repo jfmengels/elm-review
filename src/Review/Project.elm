@@ -74,6 +74,7 @@ new =
         , readme = Nothing
         , dependencies = Dict.empty
         , moduleGraph = Nothing
+        , sourceDirectories = [ "src/" ]
         }
 
 
@@ -105,6 +106,7 @@ addModule { path, source } project =
                     { path = path
                     , source = source
                     , ast = ast
+                    , isInSourceDirectories = List.any (\dir -> String.startsWith dir path) (Internal.sourceDirectories project)
                     }
                 |> removeFileFromFilesThatFailedToParse path
                 |> recomputeModuleGraphIfNeeded
@@ -130,10 +132,15 @@ positionAsInt { row, column } =
 {-| Add an already parsed module to the project. This module will then be analyzed by the rules.
 -}
 addParsedModule : { path : String, source : String, ast : Elm.Syntax.File.File } -> Project -> Project
-addParsedModule module_ project =
+addParsedModule { path, source, ast } project =
     project
-        |> removeFileFromFilesThatFailedToParse module_.path
-        |> addModuleToProject module_
+        |> removeFileFromFilesThatFailedToParse path
+        |> addModuleToProject
+            { path = path
+            , source = source
+            , ast = ast
+            , isInSourceDirectories = List.any (\dir -> String.startsWith dir path) (Internal.sourceDirectories project)
+            }
         |> recomputeModuleGraphIfNeeded
 
 
@@ -250,7 +257,47 @@ The `raw` value should be the raw JSON as a string, and `project` corresponds to
 -}
 addElmJson : { path : String, raw : String, project : Elm.Project.Project } -> Project -> Project
 addElmJson elmJson_ (Internal.Project project) =
-    Internal.Project { project | elmJson = Just elmJson_ }
+    let
+        sourceDirectories : List String
+        sourceDirectories =
+            sourceDirectoriesForProject elmJson_.project
+
+        modules_ : Dict String Internal.ProjectModule
+        modules_ =
+            if project.sourceDirectories == sourceDirectories then
+                project.modules
+
+            else
+                Dict.map
+                    (\_ value ->
+                        { value | isInSourceDirectories = List.any (\dir -> String.startsWith dir value.path) sourceDirectories }
+                    )
+                    project.modules
+    in
+    Internal.Project
+        { project
+            | elmJson = Just elmJson_
+            , sourceDirectories = sourceDirectories
+            , modules = modules_
+        }
+
+
+sourceDirectoriesForProject : Elm.Project.Project -> List String
+sourceDirectoriesForProject elmJson_ =
+    case elmJson_ of
+        Elm.Project.Application { dirs } ->
+            List.map
+                (\dir ->
+                    if String.endsWith "/" dir then
+                        dir
+
+                    else
+                        dir ++ "/"
+                )
+                dirs
+
+        Elm.Project.Package _ ->
+            [ "src/" ]
 
 
 {-| Get the contents of the `elm.json` file, if available.
