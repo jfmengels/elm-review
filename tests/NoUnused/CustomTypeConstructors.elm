@@ -108,7 +108,7 @@ I would love help with improving this :)
 rule : List { moduleName : String, typeName : String, index : Int } -> Rule
 rule phantomTypes =
     Rule.newProjectRuleSchema "NoUnused.CustomTypeConstructors" (initialProjectContext phantomTypes)
-        |> Scope.addProjectVisitors_New
+        |> Scope.addProjectVisitors
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContext
             { fromProjectToModule = fromProjectToModule

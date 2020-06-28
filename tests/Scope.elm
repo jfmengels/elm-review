@@ -3,7 +3,6 @@ module Scope exposing
     , ProjectContext, addProjectVisitors
     , initialProjectContext, fromProjectToModule, fromModuleToProject, foldProjectContexts
     , moduleNameForValue, moduleNameForType
-    , addProjectVisitors_New
     )
 
 {-| Collect and infer information automatically for you
@@ -343,16 +342,6 @@ addProjectVisitors :
     Rule.ProjectRuleSchema { schemaState | canAddModuleVisitor : () } { projectContext | scope : ProjectContext } { moduleContext | scope : ModuleContext }
     -> Rule.ProjectRuleSchema { schemaState | canAddModuleVisitor : (), hasAtLeastOneVisitor : (), withModuleContext : Rule.Required } { projectContext | scope : ProjectContext } { moduleContext | scope : ModuleContext }
 addProjectVisitors schema =
-    schema
-        |> Rule.withContextFromImportedModules
-        |> Rule.withDependenciesProjectVisitor (mapInnerProjectContext dependenciesProjectVisitor)
-        |> Rule.withModuleVisitor internalAddModuleVisitors
-
-
-addProjectVisitors_New :
-    Rule.ProjectRuleSchema { schemaState | canAddModuleVisitor : () } { projectContext | scope : ProjectContext } { moduleContext | scope : ModuleContext }
-    -> Rule.ProjectRuleSchema { schemaState | canAddModuleVisitor : (), hasAtLeastOneVisitor : (), withModuleContext : Rule.Required } { projectContext | scope : ProjectContext } { moduleContext | scope : ModuleContext }
-addProjectVisitors_New schema =
     schema
         |> Rule.withContextFromImportedModules
         |> Rule.withDependenciesProjectVisitor (mapInnerProjectContext dependenciesProjectVisitor)
