@@ -15,6 +15,7 @@ module Review.Rule exposing
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review
     , Required, Forbidden
+    , ModuleMetadata, initContextCreator, moduleNameFromMetadata, moduleNameNodeFromMetadata, withModuleContext2, withModuleMetadata
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -1124,7 +1125,7 @@ withModuleContext functions (ProjectRuleSchema schema) =
                         projectContext
                 )
                 |> withModuleKey
-                |> withMetadata
+                |> withModuleMetadata
     in
     ProjectRuleSchema
         { schema
@@ -1134,7 +1135,26 @@ withModuleContext functions (ProjectRuleSchema schema) =
                     { fromModuleToProject =
                         initContextCreator (\moduleKey metadata moduleContext -> functions.fromModuleToProject moduleKey (moduleNameNodeFromMetadata metadata) moduleContext)
                             |> withModuleKey
-                            |> withMetadata
+                            |> withModuleMetadata
+                    , foldProjectContexts = functions.foldProjectContexts
+                    }
+        }
+
+
+withModuleContext2 :
+    { fromProjectToModule : ContextCreator projectContext moduleContext
+    , fromModuleToProject : ContextCreator moduleContext projectContext
+    , foldProjectContexts : projectContext -> projectContext -> projectContext
+    }
+    -> ProjectRuleSchema { schemaState | canAddModuleVisitor : (), withModuleContext : Required } projectContext moduleContext
+    -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : (), withModuleContext : Forbidden } projectContext moduleContext
+withModuleContext2 functions (ProjectRuleSchema schema) =
+    ProjectRuleSchema
+        { schema
+            | moduleContextCreator = Just functions.fromProjectToModule
+            , folder =
+                Just
+                    { fromModuleToProject = functions.fromModuleToProject
                     , foldProjectContexts = functions.foldProjectContexts
                     }
         }
@@ -3189,7 +3209,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                 moduleKey =
                     ModuleKey module_.path
 
-                metadata : Metadata
+                metadata : ModuleMetadata
                 metadata =
                     createMetadata { moduleNameNode = moduleNameNode module_.ast.moduleDefinition }
 
@@ -3618,20 +3638,10 @@ type ContextCreator from to
     = ContextCreator (AvailableData -> from -> to) RequestedData
 
 
-type Metadata
-    = Metadata
-        { moduleNameNode : Node ModuleName
+type RequestedData
+    = RequestedData
+        { metadata : Bool
         }
-
-
-createMetadata : { moduleNameNode : Node ModuleName } -> Metadata
-createMetadata data =
-    Metadata data
-
-
-moduleNameNodeFromMetadata : Metadata -> Node ModuleName
-moduleNameNodeFromMetadata (Metadata metadata) =
-    metadata.moduleNameNode
 
 
 initContextCreator : (from -> to) -> ContextCreator from to
@@ -3641,14 +3651,13 @@ initContextCreator fromProjectToModule =
         (RequestedData { metadata = False })
 
 
-type RequestedData
-    = RequestedData
-        { metadata : Bool
-        }
+applyContextCreator : AvailableData -> ContextCreator from to -> from -> to
+applyContextCreator data (ContextCreator fn _) from =
+    fn data from
 
 
-withMetadata : ContextCreator Metadata (from -> to) -> ContextCreator from to
-withMetadata (ContextCreator fn (RequestedData requested)) =
+withModuleMetadata : ContextCreator ModuleMetadata (from -> to) -> ContextCreator from to
+withModuleMetadata (ContextCreator fn (RequestedData requested)) =
     ContextCreator
         (\data -> fn data data.metadata)
         (RequestedData { requested | metadata = True })
@@ -3662,16 +3671,31 @@ withModuleKey (ContextCreator fn (RequestedData requested)) =
 
 
 type alias AvailableData =
-    { metadata : Metadata
+    { metadata : ModuleMetadata
     , moduleKey : ModuleKey
     }
 
 
-applyContextCreator : AvailableData -> ContextCreator from to -> from -> to
-applyContextCreator data (ContextCreator fn _) from =
-    fn data from
+
+-- METADATA
 
 
-requestedData : ContextCreator from to -> RequestedData
-requestedData (ContextCreator _ requested) =
-    requested
+type ModuleMetadata
+    = ModuleMetadata
+        { moduleNameNode : Node ModuleName
+        }
+
+
+createMetadata : { moduleNameNode : Node ModuleName } -> ModuleMetadata
+createMetadata data =
+    ModuleMetadata data
+
+
+moduleNameNodeFromMetadata : ModuleMetadata -> Node ModuleName
+moduleNameNodeFromMetadata (ModuleMetadata metadata) =
+    metadata.moduleNameNode
+
+
+moduleNameFromMetadata : ModuleMetadata -> ModuleName
+moduleNameFromMetadata (ModuleMetadata metadata) =
+    Node.value metadata.moduleNameNode

@@ -58,9 +58,9 @@ rule =
     Rule.newProjectRuleSchema "NoMissingSubscriptionsCall" initialProjectContext
         |> Scope.addProjectVisitors
         |> Rule.withModuleVisitor moduleVisitor
-        |> Rule.withModuleContext
-            { fromProjectToModule = fromProjectToModule
-            , fromModuleToProject = fromModuleToProject
+        |> Rule.withModuleContext2
+            { fromProjectToModule = Rule.initContextCreator fromProjectToModule
+            , fromModuleToProject = Rule.initContextCreator fromModuleToProject |> Rule.withModuleMetadata
             , foldProjectContexts = foldProjectContexts
             }
         |> Rule.withContextFromImportedModules
@@ -101,8 +101,8 @@ initialProjectContext =
     }
 
 
-fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> ProjectContext -> ModuleContext
-fromProjectToModule _ _ projectContext =
+fromProjectToModule : ProjectContext -> ModuleContext
+fromProjectToModule projectContext =
     { scope = Scope.fromProjectToModule projectContext.scope
     , modulesThatExposeSubscriptionsAndUpdate = projectContext.modulesThatExposeSubscriptionsAndUpdate
     , definesUpdate = False
@@ -112,12 +112,12 @@ fromProjectToModule _ _ projectContext =
     }
 
 
-fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> ModuleContext -> ProjectContext
-fromModuleToProject _ moduleName moduleContext =
-    { scope = Scope.fromModuleToProject moduleName moduleContext.scope
+fromModuleToProject : Rule.ModuleMetadata -> ModuleContext -> ProjectContext
+fromModuleToProject metadata moduleContext =
+    { scope = Scope.fromModuleToProject (Rule.moduleNameNodeFromMetadata metadata) moduleContext.scope
     , modulesThatExposeSubscriptionsAndUpdate =
         if moduleContext.definesSubscriptions && moduleContext.definesUpdate then
-            Set.singleton (Node.value moduleName)
+            Set.singleton (Rule.moduleNameFromMetadata metadata)
 
         else
             Set.empty
