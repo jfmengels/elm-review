@@ -4,7 +4,7 @@ import Elm.Project
 import Json.Decode as Decode
 import NoDebug.TodoOrToString exposing (rule)
 import Review.Project
-import Review.Test exposing (ReviewResult)
+import Review.Test
 import Test exposing (Test, describe, test)
 
 

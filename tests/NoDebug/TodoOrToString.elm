@@ -75,24 +75,28 @@ can configure the rule like this.
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema2 "NoDebug.TodoOrToString" (Rule.initContextCreator initialContext |> Rule.withModuleMetadata)
+    Rule.newModuleRuleSchemaUsingContextCreator "NoDebug.TodoOrToString" contextCreator
         |> Rule.withImportVisitor importVisitor
         |> Rule.withExpressionEnterVisitor expressionVisitor
         |> Rule.fromModuleRuleSchema
+
+
+contextCreator : Rule.ContextCreator () Context
+contextCreator =
+    Rule.initContextCreator
+        (\metadata () ->
+            { hasTodoBeenImported = False
+            , hasToStringBeenImported = False
+            , isInSourceDirectories = Rule.isInSourceDirectories metadata
+            }
+        )
+        |> Rule.withMetadata
 
 
 type alias Context =
     { hasTodoBeenImported : Bool
     , hasToStringBeenImported : Bool
     , isInSourceDirectories : Bool
-    }
-
-
-initialContext : Rule.ModuleMetadata -> () -> Context
-initialContext metadata () =
-    { hasTodoBeenImported = False
-    , hasToStringBeenImported = False
-    , isInSourceDirectories = Rule.isInSourceDirectories metadata
     }
 
 

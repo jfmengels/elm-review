@@ -2,6 +2,7 @@ module Review.Rule exposing
     ( Rule
     , ModuleRuleSchema, newModuleRuleSchema, fromModuleRuleSchema
     , withSimpleModuleDefinitionVisitor, withSimpleCommentsVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
+    , newModuleRuleSchemaUsingContextCreator
     , withModuleDefinitionVisitor
     , withCommentsVisitor
     , withImportVisitor
@@ -9,13 +10,13 @@ module Review.Rule exposing
     , withExpressionEnterVisitor, withExpressionExitVisitor, withExpressionVisitor
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
-    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
+    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
+    , ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleKey
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review
     , Required, Forbidden
-    , ModuleMetadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, newModuleRuleSchema2, withModuleContext2, withModuleMetadata
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -179,6 +180,7 @@ Evaluating/visiting a node means two things:
 
 ## Builder functions with context
 
+@docs newModuleRuleSchemaUsingContextCreator
 @docs withModuleDefinitionVisitor
 @docs withCommentsVisitor
 @docs withImportVisitor
@@ -205,7 +207,12 @@ Project rules can also report errors in the `elm.json` or the `README.md` files.
 If you are new to writing rules, I would recommend learning [how to build a module rule](#creating-a-module-rule)
 first, as they are in practice a simpler version of project rules.
 
-@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
+@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
+
+
+## Requesting more information
+
+@docs ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleKey
 
 
 ## Errors
@@ -593,8 +600,47 @@ newModuleRuleSchema name initialModuleContext =
         }
 
 
-newModuleRuleSchema2 : String -> ContextCreator () moduleContext -> ModuleRuleSchema {} moduleContext
-newModuleRuleSchema2 name moduleContextCreator =
+{-| Same as [`newModuleRuleSchema`](#newModuleRuleSchema), except that you can request for data to help initialize the context.
+compared internally, which [may cause Elm to crash](https://package.elm-lang.org/packages/elm/core/latest/Basics#(==)).
+
+    module My.Rule.Name exposing (rule)
+
+    import Review.Rule as Rule exposing (Rule)
+
+    rule : Rule
+    rule =
+        Rule.newModuleRuleSchema "My.Rule.Name" ()
+            |> Rule.withSimpleExpressionVisitor expressionVisitor
+            |> Rule.withSimpleImportVisitor importVisitor
+            |> Rule.fromModuleRuleSchema
+
+If you do need information from other parts of the module, then you should specify
+an initial context, and I recommend using "with\*" functions without "Simple" in
+their name, like [`withExpressionEnterVisitor`](#withExpressionEnterVisitor),
+[`withImportVisitor`](#withImportVisitor) or [`withFinalModuleEvaluation`](#withFinalModuleEvaluation).
+
+    import Review.Rule as Rule exposing (Rule)
+
+    rule : Rule
+    rule =
+        Rule.newModuleRuleSchemaUsingContextCreator "Rule.Name" contextCreator
+            -- visitors
+            |> Rule.fromModuleRuleSchema
+
+    contextCreator : Rule.ContextCreator () Context
+    contextCreator =
+        Rule.initContextCreator
+            (\metadata () ->
+                { hasTodoBeenImported = False
+                , hasToStringBeenImported = False
+                , isInSourceDirectories = Rule.isInSourceDirectories metadata
+                }
+            )
+            |> Rule.withMetadata
+
+-}
+newModuleRuleSchemaUsingContextCreator : String -> ContextCreator () moduleContext -> ModuleRuleSchema {} moduleContext
+newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
     ModuleRuleSchema
         { name = name
         , initialModuleContext = Nothing
@@ -1152,7 +1198,7 @@ withModuleContext functions (ProjectRuleSchema schema) =
                         projectContext
                 )
                 |> withModuleKey
-                |> withModuleMetadata
+                |> withMetadata
     in
     ProjectRuleSchema
         { schema
@@ -1162,20 +1208,50 @@ withModuleContext functions (ProjectRuleSchema schema) =
                     { fromModuleToProject =
                         initContextCreator (\moduleKey metadata moduleContext -> functions.fromModuleToProject moduleKey (moduleNameNodeFromMetadata metadata) moduleContext)
                             |> withModuleKey
-                            |> withModuleMetadata
+                            |> withMetadata
                     , foldProjectContexts = functions.foldProjectContexts
                     }
         }
 
 
-withModuleContext2 :
+{-| Use a [`ContextCreator`](#ContextCreator) to initialize your `moduleContext` and `projectContext`. This will allow
+you to request more information
+
+    import Review.Rule as Rule exposing (Rule)
+
+    rule : Rule
+    rule =
+        Rule.newProjectRuleSchema "NoMissingSubscriptionsCall" initialProjectContext
+            |> Rule.withModuleVisitor moduleVisitor
+            |> Rule.withModuleContextUsingContextCreator
+                { fromProjectToModule = Rule.initContextCreator fromProjectToModule
+                , fromModuleToProject =
+                    Rule.initContextCreator fromModuleToProject
+                        |> Rule.withModuleKey
+                        |> Rule.withMetadata
+                , foldProjectContexts = foldProjectContexts
+                }
+            |> Rule.fromProjectRuleSchema
+
+    fromProjectToModule : ProjectContext -> ModuleContext
+    fromProjectToModule projectContext =
+        { -- something
+        }
+
+    fromModuleToProject : Rule.ModuleKey -> Metadata -> ModuleContext -> ProjectContext
+    fromModuleToProject moduleKey Metadata moduleContext =
+        { moduleKeys = Dict.singleton (Rule.moduleNameFromMetadata metadata) moduleKey
+        }
+
+-}
+withModuleContextUsingContextCreator :
     { fromProjectToModule : ContextCreator projectContext moduleContext
     , fromModuleToProject : ContextCreator moduleContext projectContext
     , foldProjectContexts : projectContext -> projectContext -> projectContext
     }
     -> ProjectRuleSchema { schemaState | canAddModuleVisitor : (), withModuleContext : Required } projectContext moduleContext
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : (), withModuleContext : Forbidden } projectContext moduleContext
-withModuleContext2 functions (ProjectRuleSchema schema) =
+withModuleContextUsingContextCreator functions (ProjectRuleSchema schema) =
     ProjectRuleSchema
         { schema
             | moduleContextCreator = Just functions.fromProjectToModule
@@ -3236,7 +3312,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                 moduleKey =
                     ModuleKey module_.path
 
-                metadata : ModuleMetadata
+                metadata : Metadata
                 metadata =
                     createMetadata
                         { moduleNameNode = moduleNameNode module_.ast.moduleDefinition
@@ -3664,6 +3740,12 @@ accumulate visitor ( previousErrors, previousContext ) =
 -- TODO Move this to a different module later on
 
 
+{-| Create a context based on some other context.
+Use functions like [`withMetadata`](#withMetadata) to request more information.
+
+`from` will usually be a `projectContext` and `to` a `moduleContext`.
+
+-}
 type ContextCreator from to
     = ContextCreator (AvailableData -> from -> to) RequestedData
 
@@ -3674,6 +3756,20 @@ type RequestedData
         }
 
 
+{-| Initialize a new context creator.
+
+    contextCreator : Rule.ContextCreator () Context
+    contextCreator =
+        Rule.initContextCreator
+            (\metadata () ->
+                { moduleName = Rule.moduleNameFromMetadata metadata
+
+                -- ...other fields
+                }
+            )
+            |> Rule.withMetadata
+
+-}
 initContextCreator : (from -> to) -> ContextCreator from to
 initContextCreator fromProjectToModule =
     -- TODO Try to get rid of the ()/from when using in a module rule
@@ -3687,13 +3783,44 @@ applyContextCreator data (ContextCreator fn _) from =
     fn data from
 
 
-withModuleMetadata : ContextCreator ModuleMetadata (from -> to) -> ContextCreator from to
-withModuleMetadata (ContextCreator fn (RequestedData requested)) =
+{-| Request metadata about the module.
+
+    contextCreator : Rule.ContextCreator () Context
+    contextCreator =
+        Rule.initContextCreator
+            (\metadata () ->
+                { moduleName = Rule.moduleNameFromMetadata metadata
+                , moduleNameNode = Rule.moduleNameNodeFromMetadata metadata
+                , isInSourceDirectories = Rule.isInSourceDirectories metadata
+
+                -- ...other fields
+                }
+            )
+            |> Rule.withMetadata
+
+-}
+withMetadata : ContextCreator Metadata (from -> to) -> ContextCreator from to
+withMetadata (ContextCreator fn (RequestedData requested)) =
     ContextCreator
         (\data -> fn data data.metadata)
         (RequestedData { requested | metadata = True })
 
 
+{-| Request the [module key](ModuleKey) for this module.
+
+    rule =
+        Rule.newProjectRuleSchema "NoMissingSubscriptionsCall" initialProjectContext
+            |> Scope.addProjectVisitors
+            |> Rule.withModuleVisitor moduleVisitor
+            |> Rule.withModuleContextUsingContextCreator
+                { fromProjectToModule = Rule.initContextCreator fromProjectToModule
+                , fromModuleToProject = Rule.initContextCreator fromModuleToProject |> Rule.withModuleKey
+                , foldProjectContexts = foldProjectContexts
+                }
+
+TODO Make this unavailable to module rules
+
+-}
 withModuleKey : ContextCreator ModuleKey (from -> to) -> ContextCreator from to
 withModuleKey (ContextCreator fn (RequestedData requested)) =
     ContextCreator
@@ -3702,7 +3829,7 @@ withModuleKey (ContextCreator fn (RequestedData requested)) =
 
 
 type alias AvailableData =
-    { metadata : ModuleMetadata
+    { metadata : Metadata
     , moduleKey : ModuleKey
     }
 
@@ -3711,28 +3838,40 @@ type alias AvailableData =
 -- METADATA
 
 
-type ModuleMetadata
-    = ModuleMetadata
+{-| Metadata for the module being visited.
+
+Do not store the metadata directly in your context. Prefer storing the indiviaual pieces of informa
+
+-}
+type Metadata
+    = Metadata
         { moduleNameNode : Node ModuleName
         , isInSourceDirectories : Bool
         }
 
 
-createMetadata : { moduleNameNode : Node ModuleName, isInSourceDirectories : Bool } -> ModuleMetadata
+createMetadata : { moduleNameNode : Node ModuleName, isInSourceDirectories : Bool } -> Metadata
 createMetadata data =
-    ModuleMetadata data
+    Metadata data
 
 
-moduleNameNodeFromMetadata : ModuleMetadata -> Node ModuleName
-moduleNameNodeFromMetadata (ModuleMetadata metadata) =
-    metadata.moduleNameNode
-
-
-moduleNameFromMetadata : ModuleMetadata -> ModuleName
-moduleNameFromMetadata (ModuleMetadata metadata) =
+{-| Get the module name of the current module.
+-}
+moduleNameFromMetadata : Metadata -> ModuleName
+moduleNameFromMetadata (Metadata metadata) =
     Node.value metadata.moduleNameNode
 
 
-isInSourceDirectories : ModuleMetadata -> Bool
-isInSourceDirectories (ModuleMetadata metadata) =
+{-| Get the [`Node`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#Node) to the module name of the current module.
+-}
+moduleNameNodeFromMetadata : Metadata -> Node ModuleName
+moduleNameNodeFromMetadata (Metadata metadata) =
+    metadata.moduleNameNode
+
+
+{-| Learn whether the current module is in the "source-directories" of the project. You can use this information to
+know whether the module is part of the tests or of the production code.
+-}
+isInSourceDirectories : Metadata -> Bool
+isInSourceDirectories (Metadata metadata) =
     metadata.isInSourceDirectories

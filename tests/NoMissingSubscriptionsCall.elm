@@ -58,9 +58,9 @@ rule =
     Rule.newProjectRuleSchema "NoMissingSubscriptionsCall" initialProjectContext
         |> Scope.addProjectVisitors
         |> Rule.withModuleVisitor moduleVisitor
-        |> Rule.withModuleContext2
+        |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = Rule.initContextCreator fromProjectToModule
-            , fromModuleToProject = Rule.initContextCreator fromModuleToProject |> Rule.withModuleMetadata
+            , fromModuleToProject = Rule.initContextCreator fromModuleToProject |> Rule.withMetadata
             , foldProjectContexts = foldProjectContexts
             }
         |> Rule.withContextFromImportedModules
@@ -112,7 +112,7 @@ fromProjectToModule projectContext =
     }
 
 
-fromModuleToProject : Rule.ModuleMetadata -> ModuleContext -> ProjectContext
+fromModuleToProject : Rule.Metadata -> ModuleContext -> ProjectContext
 fromModuleToProject metadata moduleContext =
     { scope = Scope.fromModuleToProject (Rule.moduleNameNodeFromMetadata metadata) moduleContext.scope
     , modulesThatExposeSubscriptionsAndUpdate =
