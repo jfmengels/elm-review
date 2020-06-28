@@ -1,4 +1,4 @@
-module Review.Metadata exposing (Metadata, create, moduleNameNode)
+module Review.Metadata exposing (Metadata, createMetadata, moduleNameNode)
 
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node exposing (Node)
@@ -10,8 +10,8 @@ type Metadata
         }
 
 
-create : { moduleNameNode : Node ModuleName } -> Metadata
-create data =
+createMetadata : { moduleNameNode : Node ModuleName } -> Metadata
+createMetadata data =
     Metadata data
 
 

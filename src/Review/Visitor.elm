@@ -403,7 +403,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
 
                 metadata : Metadata.Metadata
                 metadata =
-                    Metadata.create { moduleNameNode = moduleNameNode module_.ast.moduleDefinition }
+                    Metadata.createMetadata { moduleNameNode = moduleNameNode module_.ast.moduleDefinition }
 
                 availableData : Context.AvailableData
                 availableData =

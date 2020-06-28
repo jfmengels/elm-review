@@ -448,7 +448,7 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
             let
                 dummyAvailableData : Context.AvailableData
                 dummyAvailableData =
-                    { metadata = Metadata.create { moduleNameNode = Node.Node Range.emptyRange [] }
+                    { metadata = Metadata.createMetadata { moduleNameNode = Node.Node Range.emptyRange [] }
                     , moduleKey = ModuleKey "dummy"
                     }
 
