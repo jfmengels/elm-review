@@ -1049,7 +1049,7 @@ It is not necessary for the function to be commutative (i.e. that
 `foldProjectContexts a b` equals `foldProjectContexts b a`). It is fine to take
 the value from the "initial" `projectContext` and ignore the other one, especially
 for data computed in the project-related visitors (for which you will probably
-define a dummy value in the `fromModuleToProject` function). if it helps, imagine
+define a dummy value in the `fromModuleToProject` function). If it helps, imagine
 that the second argument is the initial `projectContext`, or that it is an accumulator
 just like in `List.foldl`.
 
