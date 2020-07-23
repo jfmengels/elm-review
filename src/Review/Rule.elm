@@ -15,7 +15,7 @@ module Review.Rule exposing
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
-    , review
+    , review, ruleName
     , Required, Forbidden
     )
 
@@ -243,7 +243,7 @@ reason or seemingly inappropriately.
 
 # Running rules
 
-@docs review
+@docs review, ruleName
 
 
 # Internals
@@ -286,7 +286,8 @@ type
     --    - TODO Add docs where needed to make the tests pass
     --    - TODO Find where we introduced breaking changes and limit those
     = Rule
-        { exceptions : Exceptions
+        { name : String
+        , exceptions : Exceptions
         , ruleImplementation : Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
         }
 
@@ -476,6 +477,16 @@ duplicateModuleNames visitedModules projectModules =
                                         |> List.map .path
                                    )
                         }
+
+
+{-| Get the name of a rule.
+
+You should not have to use this when writing a rule.
+
+-}
+ruleName : Rule -> String
+ruleName (Rule rule) =
+    rule.name
 
 
 {-| **DEPRECATED**
@@ -804,7 +815,8 @@ newProjectRuleSchema name initialProjectContext =
 fromProjectRuleSchema : ProjectRuleSchema { schemaState | withModuleContext : Forbidden, hasAtLeastOneVisitor : () } projectContext moduleContext -> Rule
 fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
     Rule
-        { exceptions = Exceptions.init
+        { name = schema.name
+        , exceptions = Exceptions.init
         , ruleImplementation = runProjectVisitor schema.name (fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema) Nothing
         }
 
@@ -2874,7 +2886,8 @@ forbids using `Debug.todo` anywhere in the code, except in tests.
 ignoreErrorsForDirectories : List String -> Rule -> Rule
 ignoreErrorsForDirectories directories (Rule rule) =
     Rule
-        { exceptions = Exceptions.addDirectories directories rule.exceptions
+        { name = rule.name
+        , exceptions = Exceptions.addDirectories directories rule.exceptions
         , ruleImplementation = rule.ruleImplementation
         }
 
@@ -2939,7 +2952,8 @@ by hardcoding an exception into the rule (that forbids the use of `Html.button` 
 ignoreErrorsForFiles : List String -> Rule -> Rule
 ignoreErrorsForFiles files (Rule rule) =
     Rule
-        { exceptions = Exceptions.addFiles files rule.exceptions
+        { name = rule.name
+        , exceptions = Exceptions.addFiles files rule.exceptions
         , ruleImplementation = rule.ruleImplementation
         }
 
@@ -3097,13 +3111,17 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
                         |> Exceptions.apply exceptions (accessInternalError >> .filePath)
     in
     ( List.map (setRuleName name) errors
-    , Rule { exceptions = exceptions, ruleImplementation = runProjectVisitor name projectVisitor (Just newCache) }
+    , Rule
+        { name = name
+        , exceptions = exceptions
+        , ruleImplementation = runProjectVisitor name projectVisitor (Just newCache)
+        }
     )
 
 
 setRuleName : String -> Error scope -> Error scope
-setRuleName ruleName error_ =
-    mapInternalError (\err -> { err | ruleName = ruleName }) error_
+setRuleName ruleName_ error_ =
+    mapInternalError (\err -> { err | ruleName = ruleName_ }) error_
 
 
 errorsFromCache : ProjectRuleCache projectContext -> List (Error {})
