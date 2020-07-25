@@ -25,7 +25,8 @@ Often a good API, that guides users to correct solutions, is the best way to go,
 But if a rule seems like the best solution, remember to discuss it with your team.
 It's easy to mix up patterns that are objectively bad, with patterns that you personally find problematic, and forbidding patterns that other people find useful can be very disruptive.
 
-## Try it
+
+## Try it out
 
 The easiest way to run `elm-review`, if you have `Node.js` and `npm` installed, is to use the [`elm-review` CLI tool](https://github.com/jfmengels/node-elm-review).
 
@@ -38,7 +39,21 @@ npm install elm-review --save-dev
 npm install -g elm-review
 ```
 
-You can also try [the online version here](https://elm-review.now.sh), where you can copy-paste your source code and see the review errors.
+You can also **try it out without installing it or configuring it** if you have Node.js installed.
+All you need is to find a configuration on GitHub, and `elm-review` packages are encouraged to provide an example one, then run `elm-review` by specifying the name of the GitHub repository and the path to the configuration:
+
+```bash
+npx elm-review --template jfmengels/review-unused/example
+```
+
+Do you want to find and remove all the dead code in your project? Then run the following command (this might take a while if your project has a lot of dead code though!), and think about whether you want this goodness in your project!
+
+```bash
+npx elm-review --template jfmengels/review-unused/example --fix-all
+```
+
+More information on that in [the CLI documentation](https://github.com/jfmengels/node-elm-review#try-it-out).
+
 
 ## Configuration
 
