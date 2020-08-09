@@ -41,6 +41,15 @@ that turn out to be unnecessary later.
             , view = view
             }
 
+
+## Try it out
+
+You can try this rule out by running the following command:
+
+```bash
+elm-review --template jfmengels/review-tea/example --rules NoUselessSubscriptions
+```
+
 -}
 rule : Rule
 rule =

@@ -36,6 +36,15 @@ import Review.Rule as Rule exposing (Error, Rule)
     _ =
         (+)
 
+
+## Try it out
+
+You can try this rule out by running the following command:
+
+```bash
+elm-review --template jfmengels/elm-review-simplification/example --rules NoFullyAppliedPrefixOperator
+```
+
 -}
 rule : Rule
 rule =

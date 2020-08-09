@@ -60,6 +60,15 @@ import Review.Rule as Rule exposing (Error, Rule)
             , [ 4, mysteryNumber, 6 ]
             ]
 
+
+## Try it out
+
+You can try this rule out by running the following command:
+
+```bash
+elm-review --template jfmengels/elm-review-simplification/example --rules NoListLiteralsConcat
+```
+
 -}
 rule : Rule
 rule =

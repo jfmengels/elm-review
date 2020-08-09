@@ -386,6 +386,25 @@ id = Id
                             ]
                         )
                     |> Review.Test.expectNoErrors
+        , test "should not report a custom type, when it is used aliased by a type alias" <|
+            \() ->
+                """
+module MyModule exposing (Thing)
+import IdModule exposing (Id)
+
+type ThingType = ThingType
+type alias ThingId = Id ThingType
+type alias Thing = { id : Id ThingType }
+"""
+                    |> Review.Test.runWithProjectData project
+                        (rule
+                            [ { moduleName = "IdModule"
+                              , typeName = "Id"
+                              , index = 0
+                              }
+                            ]
+                        )
+                    |> Review.Test.expectNoErrors
         ]
 
 

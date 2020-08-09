@@ -51,10 +51,19 @@ You should not use this rule if you are developing an application that is not
 put into production, and you do not care about having stray debug logs, and you
 do not ship to production.
 
+
+## Try it out
+
+You can try this rule out by running the following command:
+
+```bash
+elm-review --template jfmengels/review-debug/example --rules NoDebug.Log
+```
+
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoDebugLog" { hasLogBeenImported = False }
+    Rule.newModuleRuleSchema "NoDebug.Log" { hasLogBeenImported = False }
         |> Rule.withImportVisitor importVisitor
         |> Rule.withExpressionVisitor expressionVisitor
         |> Rule.fromModuleRuleSchema

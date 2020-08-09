@@ -18,7 +18,6 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
-import Elm.Syntax.Signature exposing (Signature)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Review.Rule as Rule exposing (Error, Rule)
 import Scope
@@ -103,6 +102,15 @@ I would love help with improving this :)
         = A
         | B
         | C
+
+
+## Try it out
+
+You can try this rule out by running the following command:
+
+```bash
+elm-review --template jfmengels/review-unused/example --rules NoUnused.CustomTypeConstructors
+```
 
 -}
 rule : List { moduleName : String, typeName : String, index : Int } -> Rule
@@ -418,7 +426,10 @@ declarationVisitor node context =
             )
 
         Declaration.FunctionDeclaration function ->
-            ( [], markPhantomTypesFromTypeSignatureAsUsed function.signature context )
+            ( [], markPhantomTypesFromTypeAnnotationAsUsed (Maybe.map (Node.value >> .typeAnnotation) function.signature) context )
+
+        Declaration.AliasDeclaration { typeAnnotation } ->
+            ( [], markPhantomTypesFromTypeAnnotationAsUsed (Just typeAnnotation) context )
 
         _ ->
             ( [], context )
@@ -441,12 +452,12 @@ expressionVisitor node moduleContext =
                     (\declaration ->
                         case Node.value declaration of
                             Expression.LetFunction function ->
-                                Just function.signature
+                                Just (Maybe.map (Node.value >> .typeAnnotation) function.signature)
 
                             Expression.LetDestructuring _ _ ->
                                 Nothing
                     )
-                |> List.foldl markPhantomTypesFromTypeSignatureAsUsed moduleContext
+                |> List.foldl markPhantomTypesFromTypeAnnotationAsUsed moduleContext
             )
 
         _ ->
@@ -533,17 +544,17 @@ errorForModule moduleKey node =
 -- TYPE ANNOTATION UTILITY FUNCTIONS
 
 
-markPhantomTypesFromTypeSignatureAsUsed : Maybe (Node Signature) -> ModuleContext -> ModuleContext
-markPhantomTypesFromTypeSignatureAsUsed maybeSignature moduleContext =
+markPhantomTypesFromTypeAnnotationAsUsed : Maybe (Node TypeAnnotation) -> ModuleContext -> ModuleContext
+markPhantomTypesFromTypeAnnotationAsUsed maybeTypeAnnotation moduleContext =
     let
         used : List ( ModuleName, CustomTypeName )
         used =
-            case maybeSignature of
-                Just signature ->
-                    signature
-                        |> Node.value
-                        |> .typeAnnotation
-                        |> collectTypesUsedAsPhantomVariables moduleContext.scope moduleContext.phantomVariables
+            case maybeTypeAnnotation of
+                Just typeAnnotation ->
+                    collectTypesUsedAsPhantomVariables
+                        moduleContext.scope
+                        moduleContext.phantomVariables
+                        typeAnnotation
 
                 Nothing ->
                     []

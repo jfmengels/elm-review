@@ -29,6 +29,15 @@ A dependency is considered unused if none of its modules are imported in the pro
         [ NoUnused.Dependencies.rule
         ]
 
+
+## Try it out
+
+You can try this rule out by running the following command:
+
+```bash
+elm-review --template jfmengels/review-unused/example --rules NoUnused.Dependencies
+```
+
 -}
 rule : Rule
 rule =

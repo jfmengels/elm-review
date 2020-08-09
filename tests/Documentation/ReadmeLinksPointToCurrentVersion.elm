@@ -33,6 +33,15 @@ and publishing the package. Otherwise the link for a given version could link to
 
 **NOTE**: A similar rule would be useful for links inside the modules. I'll be working on that too!
 
+
+## Try it out
+
+You can try this rule out by running the following command:
+
+```bash
+elm-review --template jfmengels/review-documentation/example --rules NoUselessSubscriptions
+```
+
 -}
 rule : Rule
 rule =

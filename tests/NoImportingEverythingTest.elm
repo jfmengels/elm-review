@@ -39,7 +39,7 @@ import Html exposing (..)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Prefer listing what you wish to import and/or using qualified imports"
-                            , details = [ "When you import everything from a module, it becomes harder to know where a function or a type comes from" ]
+                            , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
                             , under = "(..)"
                             }
                         ]

@@ -44,6 +44,15 @@ you can configure a list of exceptions.
     -- If configured with `[ "Html" ]`
     import Html exposing (..)
 
+
+## Try it out
+
+You can try this rule out by running the following command:
+
+```bash
+elm-review --template jfmengels/review-common/example --rules NoImportingEverything
+```
+
 -}
 rule : List String -> Rule
 rule exceptions =
@@ -73,7 +82,7 @@ importVisitor exceptions node =
             Just (Exposing.All range) ->
                 [ Rule.error
                     { message = "Prefer listing what you wish to import and/or using qualified imports"
-                    , details = [ "When you import everything from a module, it becomes harder to know where a function or a type comes from" ]
+                    , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
                     }
                     { start = { row = range.start.row, column = range.start.column - 1 }
                     , end = { row = range.end.row, column = range.end.column + 1 }

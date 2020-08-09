@@ -68,6 +68,15 @@ can configure the rule like this.
     else
         b
 
+
+## Try it out
+
+You can try this rule out by running the following command:
+
+```bash
+elm-review --template jfmengels/review-debug/example --rules NoDebug.TodoOrToString
+```
+
 [`Debug.log`]: https://package.elm-lang.org/packages/elm/core/latest/Debug#log
 [`Debug.todo`]: https://package.elm-lang.org/packages/elm/core/latest/Debug#todo
 [`Debug.toString`]: https://package.elm-lang.org/packages/elm/core/latest/Debug#toString

@@ -16,7 +16,7 @@ import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
 import Elm.Writer as Writer
 import NoUnused.Patterns.NameVisitor as NameVisitor
-import Review.Fix as Fix
+import Review.Fix as Fix exposing (Fix)
 import Review.Rule as Rule exposing (Rule)
 import Set exposing (Set)
 
@@ -50,6 +50,15 @@ Value `something` is not used:
 
         Nothing ->
             False
+
+
+## Try it out
+
+You can try this rule out by running the following command:
+
+```bash
+elm-review --template jfmengels/review-unused/example --rules NoUnused.Patterns
+```
 
 -}
 rule : Rule
@@ -325,9 +334,11 @@ errorsForRecordValueList recordRange list context =
 
         firstNode :: restNodes ->
             let
+                first : String
                 first =
-                    firstNode |> Node.value
+                    Node.value firstNode
 
+                rest : List String
                 rest =
                     List.map Node.value restNodes
 
@@ -384,6 +395,7 @@ errorsForAsPattern : Range -> Node Pattern -> Node String -> Context -> ( List (
 errorsForAsPattern patternRange inner (Node range name) context =
     if Set.member name context then
         let
+            fix : List Fix
             fix =
                 [ inner
                     |> Writer.writePattern

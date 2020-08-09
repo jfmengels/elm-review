@@ -1,4 +1,4 @@
-module NoLeftPizzaUtil exposing (expressionToString)
+module Util exposing (expressionToString)
 
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)

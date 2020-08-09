@@ -40,6 +40,15 @@ in the following manner:
 
     module A exposing (B(..), C, d)
 
+
+## Try it out
+
+You can try this rule out by running the following command:
+
+```bash
+elm-review --template jfmengels/review-common/example --rules NoExposingEverything
+```
+
 -}
 rule : Rule
 rule =

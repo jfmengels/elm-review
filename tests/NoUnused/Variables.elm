@@ -50,6 +50,15 @@ import Set exposing (Set)
     a n =
         n + 1
 
+
+## Try it out
+
+You can try this rule out by running the following command:
+
+```bash
+elm-review --template jfmengels/review-unused/example --rules NoUnused.Variables
+```
+
 -}
 rule : Rule
 rule =
@@ -234,6 +243,7 @@ moduleDefinitionVisitor (Node _ moduleNode) context =
 
         Exposing.Explicit list ->
             let
+                names : List String
                 names =
                     List.filterMap
                         (\(Node _ node) ->
@@ -430,6 +440,7 @@ expressionExitVisitor node context =
                 ( errors, remainingUsed ) =
                     makeReport (NonemptyList.head context.scopes)
 
+                contextWithPoppedScope : Context
                 contextWithPoppedScope =
                     { context | scopes = NonemptyList.pop context.scopes }
             in
