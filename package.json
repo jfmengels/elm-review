@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "scripts": {
     "test": "elm make --docs=docs.json && elm-format src/ --validate && elm-test && npm run phantom-tests && elm-review",
-    "phantom-tests": "node phantom-type-tests/run.js"
+    "phantom-tests": "node phantom-type-tests/run.js",
+    "backport-rules": "cp -r ../review-{common,debug,documentation,tea,unused}/{src,tests}/* tests ; cp -r ../elm-review-{simplification,noop,imports,noredundantconcat}/{src,tests}/* tests ; cp -r ../elm-review-scope/{src,tests}/* tests"
   },
   "dependencies": {
     "elm": "^0.19.1-3",
