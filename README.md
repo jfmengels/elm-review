@@ -40,7 +40,7 @@ npm install -g elm-review
 ```
 
 You can also **try it out without installing it or configuring it** if you have Node.js installed.
-All you need is to find a configuration on GitHub, and `elm-review` packages are encouraged to provide an example one, then run `elm-review` by specifying the name of the GitHub repository and the path to the configuration:
+All you need is to find a configuration on GitHub, and note that `elm-review` packages are encouraged to provide an example one. Once you found the configuration, run `elm-review` by specifying the name of the GitHub repository and the path to the configuration:
 
 ```bash
 npx elm-review --template jfmengels/review-unused/example
@@ -91,6 +91,8 @@ Before you start adding rules though, I suggest reading the rest of this documen
 
 You can write your own rule using this package's API and [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/).
 Check out the [`Review.Rule`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.2.0/Review-Rule) documentation for how to get started.
+
+**NOTE**: If you want to create a package containing `elm-review` rules, I highly recommend using the [CLI's](https://github.com/jfmengels/node-elm-review/) `elm-review new-package` subcommand. If you want to add/create a rule, then `elm-review new-rule` will help you get set up.
 
 Here's an example of a rule that prevents a typo in a string that was made too often at your company.
 
