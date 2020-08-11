@@ -68,7 +68,7 @@ dependenciesVisitor dependencies projectContext =
 elmJsonVisitor : Maybe { elmJsonKey : Rule.ElmJsonKey, project : Elm.Project.Project } -> ProjectContext -> ( List nothing, ProjectContext )
 elmJsonVisitor maybeProject projectContext =
     case maybeProject of
-        Just { elmJsonKey, project } ->
+        Just { elmJsonKey } ->
             ( [], { projectContext | elmJsonKey = Just elmJsonKey } )
 
         Nothing ->
