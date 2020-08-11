@@ -114,6 +114,7 @@ buildModuleGraph mods =
 nodesAndEdges : (ModuleName -> Maybe Int) -> ProjectModule -> Int -> ( Graph.Node ModuleName, List (Graph.Edge ()) )
 nodesAndEdges getModuleId module_ moduleId =
     let
+        moduleName : ModuleName
         moduleName =
             getModuleName module_
     in
