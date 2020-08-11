@@ -14,12 +14,17 @@ when inside the directory containing this file.
 import Documentation.ReadmeLinksPointToCurrentVersion
 import NoDebug.Log
 import NoDebug.TodoOrToString
+import NoExposingEverything
+import NoImportingEverything
+import NoMissingTypeAnnotation
+import NoMissingTypeAnnotationInLetIn
+import NoMissingTypeExpose
 import NoUnused.CustomTypeConstructors
 import NoUnused.Dependencies
 import NoUnused.Exports
 import NoUnused.Modules
-import NoUnused.Patterns
 import NoUnused.Parameters
+import NoUnused.Patterns
 import NoUnused.Variables
 import Review.Rule as Rule exposing (Rule)
 
@@ -30,17 +35,22 @@ config =
     , NoDebug.Log.rule
     , NoDebug.TodoOrToString.rule
         |> Rule.ignoreErrorsForDirectories [ "tests/" ]
+    , NoExposingEverything.rule
+        |> Rule.ignoreErrorsForDirectories [ "tests/" ]
+    , NoImportingEverything.rule []
+    , NoMissingTypeAnnotation.rule
+    , NoMissingTypeAnnotationInLetIn.rule
+        |> Rule.ignoreErrorsForDirectories [ "tests/" ]
+
+    --, NoMissingTypeExpose.rule
+    --    |> Rule.ignoreErrorsForFiles [ "src/Review/Rule.elm" ]
     , NoUnused.CustomTypeConstructors.rule []
-    , NoUnused.Variables.rule
     , NoUnused.Dependencies.rule
     , NoUnused.Exports.rule
-        |> Rule.ignoreErrorsForFiles [ "tests/Scope.elm" ]
     , NoUnused.Modules.rule
-    , NoUnused.Patterns.rule
-        |> Rule.ignoreErrorsForDirectories [ "tests/" ]
     , NoUnused.Parameters.rule
-    --, NoTodoComment.rule
-    --    |> Rule.ignoreErrorsForFiles [ "NoTodoComment" ]
+    , NoUnused.Patterns.rule
+    , NoUnused.Variables.rule
     ]
-        |> List.map (Rule.ignoreErrorsForDirectories [ "src/Vendor/"])
-        |> List.map (Rule.ignoreErrorsForFiles [ "tests/NoUnused/Patterns/NameVisitor.elm"])
+        |> List.map (Rule.ignoreErrorsForDirectories [ "src/Vendor/", "tests/Vendor/" ])
+        |> List.map (Rule.ignoreErrorsForFiles [ "tests/NoUnused/Patterns/NameVisitor.elm" ])
