@@ -152,6 +152,10 @@ config =
     ]
 ```
 
+If you want to write a rule but might not have an idea of where to start,
+have a look on the [elm-review-rule-ideas](https://github.com/jfmengels/elm-review-rule-ideas)
+repository. You may also want to look for rules in the [Elm packages registry](https://package.elm-lang.org/) and in the [GitHub `elm-review` topic](https://github.com/topics/elm-review).
+
 
 ## When to write or enable a rule
 
