@@ -192,9 +192,15 @@ computeModuleNameLookupTables ((Project project) as rawProject) nodeContexts =
 
 computeModuleNameLookupTable : Project -> Dict ModuleName ProjectModule -> Graph.NodeContext ModuleName () -> ModuleNameLookupTable
 computeModuleNameLookupTable (Project project) modules { node, incoming } =
-    let
-        _ =
-            Dict.get node.label modules
-                |> Debug.log "ok"
-    in
-    ModuleNameLookupTableInternal.empty
+    case Dict.get node.label modules of
+        Just module_ ->
+            let
+                exposedNames =
+                    1
+
+                -- Continue doing the same thing as Scope does
+            in
+            ModuleNameLookupTableInternal.empty
+
+        Nothing ->
+            ModuleNameLookupTableInternal.empty
