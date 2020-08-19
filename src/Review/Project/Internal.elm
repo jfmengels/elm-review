@@ -2,7 +2,7 @@ module Review.Project.Internal exposing
     ( Project(..)
     , ProjectModule
     , buildModuleGraph
-    , computeModuleNameLookupTable
+    , computeModuleNameLookupTables
     , getModuleName
     , moduleGraph
     , moduleNameLookupTables
@@ -20,6 +20,7 @@ import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
+import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Project.Dependency exposing (Dependency)
 import Vendor.Graph as Graph exposing (Graph)
 
@@ -72,7 +73,11 @@ moduleNameLookupTables : Graph (List String) () -> Project -> Dict ModuleName Mo
 moduleNameLookupTables graph ((Project project) as rawProject) =
     case project.moduleNameLookupTables of
         Nothing ->
-            computeModuleNameLookupTable rawProject graph
+            graph
+                |> Graph.checkAcyclic
+                |> Result.map Graph.topologicalSort
+                |> Result.withDefault []
+                |> computeModuleNameLookupTables rawProject
 
         Just moduleNameLookupTables_ ->
             moduleNameLookupTables_
@@ -156,6 +161,13 @@ getModuleName module_ =
         |> Elm.Syntax.Module.moduleName
 
 
-computeModuleNameLookupTable : Project -> Graph ModuleName () -> Dict ModuleName ModuleNameLookupTable
-computeModuleNameLookupTable project graph =
-    Dict.empty
+computeModuleNameLookupTables : Project -> List (Graph.NodeContext ModuleName ()) -> Dict ModuleName ModuleNameLookupTable
+computeModuleNameLookupTables project nodeContexts =
+    nodeContexts
+        |> List.map (\nodeContext -> ( nodeContext.node.label, computeModuleNameLookupTable project nodeContext ))
+        |> Dict.fromList
+
+
+computeModuleNameLookupTable : Project -> Graph.NodeContext ModuleName () -> ModuleNameLookupTable
+computeModuleNameLookupTable (Project project) { node, incoming } =
+    ModuleNameLookupTableInternal.empty
