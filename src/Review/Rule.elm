@@ -3296,8 +3296,8 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
         moduleNameLookupTables =
             Review.Project.Internal.moduleNameLookupTables graph project
 
-        moduleToAnalyze : List ProjectModule
-        moduleToAnalyze =
+        modulesToAnalyze : List ProjectModule
+        modulesToAnalyze =
             case projectVisitor.traversalAndFolder of
                 TraverseAllModulesInParallel _ ->
                     Exceptions.apply
@@ -3310,7 +3310,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
 
         projectModulePaths : Set String
         projectModulePaths =
-            moduleToAnalyze
+            modulesToAnalyze
                 |> List.map .path
                 |> Set.fromList
 
@@ -3324,7 +3324,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                         dict
                 )
                 Dict.empty
-                moduleToAnalyze
+                modulesToAnalyze
 
         newStartCache : Dict String (CacheEntry projectContext)
         newStartCache =

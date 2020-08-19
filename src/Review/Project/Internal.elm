@@ -14,6 +14,7 @@ the `elm.json` file, the project modules and the project dependencies.
 -}
 
 import Dict exposing (Dict)
+import Elm.Docs
 import Elm.Project
 import Elm.Syntax.File
 import Elm.Syntax.Module
@@ -21,7 +22,7 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
-import Review.Project.Dependency exposing (Dependency)
+import Review.Project.Dependency as Dependency exposing (Dependency)
 import Vendor.Graph as Graph exposing (Graph)
 
 
@@ -162,12 +163,38 @@ getModuleName module_ =
 
 
 computeModuleNameLookupTables : Project -> List (Graph.NodeContext ModuleName ()) -> Dict ModuleName ModuleNameLookupTable
-computeModuleNameLookupTables project nodeContexts =
+computeModuleNameLookupTables ((Project project) as rawProject) nodeContexts =
+    let
+        dependenciesModules : Dict String Elm.Docs.Module
+        dependenciesModules =
+            project.dependencies
+                |> Dict.values
+                |> List.concatMap Dependency.modules
+                |> List.map (\dependencyModule -> ( dependencyModule.name, dependencyModule ))
+                |> Dict.fromList
+
+        modules : Dict ModuleName ProjectModule
+        modules =
+            List.foldl
+                (\module_ dict ->
+                    Dict.insert
+                        (getModuleName module_)
+                        module_
+                        dict
+                )
+                Dict.empty
+                (Dict.values project.modules)
+    in
     nodeContexts
-        |> List.map (\nodeContext -> ( nodeContext.node.label, computeModuleNameLookupTable project nodeContext ))
+        |> List.map (\nodeContext -> ( nodeContext.node.label, computeModuleNameLookupTable rawProject modules nodeContext ))
         |> Dict.fromList
 
 
-computeModuleNameLookupTable : Project -> Graph.NodeContext ModuleName () -> ModuleNameLookupTable
-computeModuleNameLookupTable (Project project) { node, incoming } =
+computeModuleNameLookupTable : Project -> Dict ModuleName ProjectModule -> Graph.NodeContext ModuleName () -> ModuleNameLookupTable
+computeModuleNameLookupTable (Project project) modules { node, incoming } =
+    let
+        _ =
+            Dict.get node.label modules
+                |> Debug.log "ok"
+    in
     ModuleNameLookupTableInternal.empty
