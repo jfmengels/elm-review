@@ -266,7 +266,9 @@ import Elm.Syntax.Range as Range exposing (Range)
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix exposing (Fix)
-import Review.Project exposing (ModuleNameLookupTable, Project, ProjectModule)
+import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
+import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
+import Review.Project exposing (Project, ProjectModule)
 import Review.Project.Dependency
 import Review.Project.Internal
 import Set exposing (Set)
@@ -866,6 +868,7 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
                             , isInSourceDirectories = True
                             }
                     , moduleKey = ModuleKey "dummy"
+                    , moduleNameLookupTable = ModuleNameLookupTableInternal.empty
                     }
 
                 initialModuleContext : moduleContext
@@ -3342,6 +3345,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                 availableData =
                     { metadata = metadata
                     , moduleKey = moduleKey
+                    , moduleNameLookupTable = ModuleNameLookupTableInternal.empty
                     }
 
                 initialModuleContext : moduleContext
@@ -3833,7 +3837,7 @@ withMetadata (ContextCreator fn (RequestedData requested)) =
 withModuleNameLookupTable : ContextCreator ModuleNameLookupTable (from -> to) -> ContextCreator from to
 withModuleNameLookupTable (ContextCreator fn (RequestedData requested)) =
     ContextCreator
-        (\data -> fn data ())
+        (\data -> fn data data.moduleNameLookupTable)
         (RequestedData { requested | moduleNameLookupTable = True })
 
 
@@ -3862,6 +3866,7 @@ withModuleKey (ContextCreator fn (RequestedData requested)) =
 type alias AvailableData =
     { metadata : Metadata
     , moduleKey : ModuleKey
+    , moduleNameLookupTable : ModuleNameLookupTable
     }
 
 

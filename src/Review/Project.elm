@@ -4,7 +4,6 @@ module Review.Project exposing
     , addElmJson, elmJson
     , addReadme, readme
     , addDependency, removeDependencies, dependencies
-    , ModuleNameLookupTable
     )
 
 {-| Represents the contents of the project to be analyzed. This information will
@@ -78,10 +77,6 @@ new =
         , sourceDirectories = [ "src/" ]
         , moduleNameLookupTables = Dict.empty
         }
-
-
-type alias ModuleNameLookupTable =
-    Internal.ModuleNameLookupTable
 
 
 
@@ -245,6 +240,7 @@ precomputeModuleGraph ((Internal.Project p) as project) =
             project
 
         Nothing ->
+            --|> Internal.Project.compute
             Internal.Project { p | moduleGraph = Just <| Internal.buildModuleGraph <| Dict.values p.modules }
 
 

@@ -1,6 +1,5 @@
 module Review.Project.Internal exposing
-    ( ModuleNameLookupTable
-    , Project(..)
+    ( Project(..)
     , ProjectModule
     , buildModuleGraph
     , moduleGraph
@@ -17,6 +16,7 @@ import Elm.Syntax.File
 import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
+import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Project.Dependency exposing (Dependency)
 import Vendor.Graph as Graph exposing (Graph)
 
@@ -42,10 +42,6 @@ type alias ProjectModule =
     , ast : Elm.Syntax.File.File
     , isInSourceDirectories : Bool
     }
-
-
-type alias ModuleNameLookupTable =
-    ()
 
 
 {-| Get the module graph for the project in the form of a

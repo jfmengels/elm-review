@@ -2,7 +2,7 @@ module MiscRules.NoHtmlButton exposing (rule)
 
 import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Node as Node exposing (Node)
-import Review.Project exposing (ModuleNameLookupTable)
+import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
 import Scope
 
