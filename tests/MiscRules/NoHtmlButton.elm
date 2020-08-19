@@ -2,6 +2,7 @@ module MiscRules.NoHtmlButton exposing (rule)
 
 import Elm.Syntax.Expression exposing (Expression(..))
 import Elm.Syntax.Node as Node exposing (Node)
+import Review.Project exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
 import Scope
 
@@ -16,25 +17,22 @@ rule =
         |> Rule.ignoreErrorsForFiles [ "src/Button.elm" ]
 
 
-type alias NewScope =
-    ()
-
-
 type alias Context =
     -- Scope expects a context with a record, containing the `scope` field.
     { scope : Scope.ModuleContext
-    , newScope : NewScope
+    , moduleNameLookupTable : ModuleNameLookupTable
     }
 
 
 contextCreator : Rule.ContextCreator () Context
 contextCreator =
     Rule.initContextCreator
-        (\() ->
+        (\moduleNameLookupTable () ->
             { scope = Scope.initialModuleContext
-            , newScope = ()
+            , moduleNameLookupTable = moduleNameLookupTable
             }
         )
+        |> Rule.withModuleNameLookupTable
 
 
 expressionVisitor : Node Expression -> Context -> ( List (Error {}), Context )

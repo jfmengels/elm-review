@@ -1,5 +1,6 @@
 module Review.Project.Internal exposing
-    ( Project(..)
+    ( ModuleNameLookupTable
+    , Project(..)
     , ProjectModule
     , buildModuleGraph
     , moduleGraph
@@ -29,6 +30,7 @@ type Project
         , dependencies : Dict String Dependency
         , moduleGraph : Maybe (Graph ModuleName ())
         , sourceDirectories : List String
+        , moduleNameLookupTables : Dict String ModuleNameLookupTable
         }
 
 
@@ -40,6 +42,10 @@ type alias ProjectModule =
     , ast : Elm.Syntax.File.File
     , isInSourceDirectories : Bool
     }
+
+
+type alias ModuleNameLookupTable =
+    ()
 
 
 {-| Get the module graph for the project in the form of a

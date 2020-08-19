@@ -17,6 +17,7 @@ module Review.Rule exposing
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review, ruleName
     , Required, Forbidden
+    , withModuleNameLookupTable
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -265,7 +266,7 @@ import Elm.Syntax.Range as Range exposing (Range)
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix exposing (Fix)
-import Review.Project exposing (Project, ProjectModule)
+import Review.Project exposing (ModuleNameLookupTable, Project, ProjectModule)
 import Review.Project.Dependency
 import Review.Project.Internal
 import Set exposing (Set)
@@ -3771,6 +3772,7 @@ type ContextCreator from to
 type RequestedData
     = RequestedData
         { metadata : Bool
+        , moduleNameLookupTable : Bool
         }
 
 
@@ -3793,7 +3795,11 @@ initContextCreator fromProjectToModule =
     -- TODO Try to get rid of the ()/from when using in a module rule
     ContextCreator
         (always fromProjectToModule)
-        (RequestedData { metadata = False })
+        (RequestedData
+            { metadata = False
+            , moduleNameLookupTable = False
+            }
+        )
 
 
 applyContextCreator : AvailableData -> ContextCreator from to -> from -> to
@@ -3822,6 +3828,13 @@ withMetadata (ContextCreator fn (RequestedData requested)) =
     ContextCreator
         (\data -> fn data data.metadata)
         (RequestedData { requested | metadata = True })
+
+
+withModuleNameLookupTable : ContextCreator ModuleNameLookupTable (from -> to) -> ContextCreator from to
+withModuleNameLookupTable (ContextCreator fn (RequestedData requested)) =
+    ContextCreator
+        (\data -> fn data ())
+        (RequestedData { requested | moduleNameLookupTable = True })
 
 
 {-| Request the [module key](ModuleKey) for this module.

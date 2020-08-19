@@ -4,6 +4,7 @@ module Review.Project exposing
     , addElmJson, elmJson
     , addReadme, readme
     , addDependency, removeDependencies, dependencies
+    , ModuleNameLookupTable
     )
 
 {-| Represents the contents of the project to be analyzed. This information will
@@ -75,7 +76,12 @@ new =
         , dependencies = Dict.empty
         , moduleGraph = Nothing
         , sourceDirectories = [ "src/" ]
+        , moduleNameLookupTables = Dict.empty
         }
+
+
+type alias ModuleNameLookupTable =
+    Internal.ModuleNameLookupTable
 
 
 
