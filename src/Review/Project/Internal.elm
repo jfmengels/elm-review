@@ -2,7 +2,10 @@ module Review.Project.Internal exposing
     ( Project(..)
     , ProjectModule
     , buildModuleGraph
+    , computeModuleNameLookupTable
+    , getModuleName
     , moduleGraph
+    , moduleNameLookupTables
     , sourceDirectories
     )
 
@@ -30,7 +33,7 @@ type Project
         , dependencies : Dict String Dependency
         , moduleGraph : Maybe (Graph ModuleName ())
         , sourceDirectories : List String
-        , moduleNameLookupTables : Dict String ModuleNameLookupTable
+        , moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
         }
 
 
@@ -63,6 +66,16 @@ moduleGraph (Project project) =
 
         Nothing ->
             buildModuleGraph <| Dict.values project.modules
+
+
+moduleNameLookupTables : Graph (List String) () -> Project -> Dict ModuleName ModuleNameLookupTable
+moduleNameLookupTables graph ((Project project) as rawProject) =
+    case project.moduleNameLookupTables of
+        Nothing ->
+            computeModuleNameLookupTable rawProject graph
+
+        Just moduleNameLookupTables_ ->
+            moduleNameLookupTables_
 
 
 sourceDirectories : Project -> List String
@@ -141,3 +154,8 @@ getModuleName module_ =
     module_.ast.moduleDefinition
         |> Node.value
         |> Elm.Syntax.Module.moduleName
+
+
+computeModuleNameLookupTable : Project -> Graph ModuleName () -> Dict ModuleName ModuleNameLookupTable
+computeModuleNameLookupTable project graph =
+    Dict.empty

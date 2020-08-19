@@ -46,10 +46,12 @@ import Elm.Parser as Parser
 import Elm.Processing
 import Elm.Project
 import Elm.Syntax.File exposing (File)
+import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
 import Review.Dependencies
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal as Internal exposing (Project)
+import Vendor.Graph exposing (Graph)
 
 
 
@@ -75,7 +77,7 @@ new =
         , dependencies = Dict.empty
         , moduleGraph = Nothing
         , sourceDirectories = [ "src/" ]
-        , moduleNameLookupTables = Dict.empty
+        , moduleNameLookupTables = Nothing
         }
 
 
@@ -240,8 +242,19 @@ precomputeModuleGraph ((Internal.Project p) as project) =
             project
 
         Nothing ->
-            --|> Internal.Project.compute
-            Internal.Project { p | moduleGraph = Just <| Internal.buildModuleGraph <| Dict.values p.modules }
+            let
+                moduleGraph : Graph ModuleName ()
+                moduleGraph =
+                    Internal.buildModuleGraph <| Dict.values p.modules
+
+                projectWithGraph =
+                    { p | moduleGraph = Just moduleGraph }
+            in
+            Internal.Project
+                { projectWithGraph
+                    | moduleNameLookupTables =
+                        Just (Internal.computeModuleNameLookupTable (Internal.Project projectWithGraph) moduleGraph)
+                }
 
 
 

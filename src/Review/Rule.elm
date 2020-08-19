@@ -3292,6 +3292,10 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
         graph =
             Review.Project.Internal.moduleGraph project
 
+        moduleNameLookupTables : Dict ModuleName ModuleNameLookupTable
+        moduleNameLookupTables =
+            Review.Project.Internal.moduleNameLookupTables graph project
+
         moduleToAnalyze : List ProjectModule
         moduleToAnalyze =
             case projectVisitor.traversalAndFolder of
@@ -3345,7 +3349,9 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                 availableData =
                     { metadata = metadata
                     , moduleKey = moduleKey
-                    , moduleNameLookupTable = ModuleNameLookupTableInternal.empty
+                    , moduleNameLookupTable =
+                        Dict.get (Review.Project.Internal.getModuleName module_) moduleNameLookupTables
+                            |> Maybe.withDefault ModuleNameLookupTableInternal.empty
                     }
 
                 initialModuleContext : moduleContext
