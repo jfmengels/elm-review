@@ -8,24 +8,33 @@ import Scope
 
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoHtmlButton" initialContext
+    Rule.newModuleRuleSchemaUsingContextCreator "NoHtmlButton" contextCreator
         -- Scope.addModuleVisitors should be added before your own visitors
-        |> Scope.addModuleVisitors
+        --|> Scope.addModuleVisitors
         |> Rule.withExpressionEnterVisitor expressionVisitor
         |> Rule.fromModuleRuleSchema
         |> Rule.ignoreErrorsForFiles [ "src/Button.elm" ]
 
 
+type alias NewScope =
+    ()
+
+
 type alias Context =
     -- Scope expects a context with a record, containing the `scope` field.
     { scope : Scope.ModuleContext
+    , newScope : NewScope
     }
 
 
-initialContext : Context
-initialContext =
-    { scope = Scope.initialModuleContext
-    }
+contextCreator : Rule.ContextCreator () Context
+contextCreator =
+    Rule.initContextCreator
+        (\() ->
+            { scope = Scope.initialModuleContext
+            , newScope = ()
+            }
+        )
 
 
 expressionVisitor : Node Expression -> Context -> ( List (Error {}), Context )
