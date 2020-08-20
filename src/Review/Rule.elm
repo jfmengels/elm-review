@@ -410,7 +410,7 @@ review rules project =
 
                         Ok nodeContexts ->
                             let
-                                ( scopeErrors, newScopeRule, cache ) =
+                                ( scopeErrors, newScopeRule, extract ) =
                                     -- TODO Later use newScopeRule for to avoid recomputing it all over everytime
                                     runProjectVisitor
                                         "DUMMY"
@@ -421,7 +421,7 @@ review rules project =
                                         nodeContexts
 
                                 _ =
-                                    Debug.log "cache" cache
+                                    Debug.log "moduleNameLookupTables" extract
                             in
                             if not (List.isEmpty scopeErrors) then
                                 ( List.map errorToReviewError scopeErrors, rules )
@@ -714,6 +714,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 , folder = Nothing
                 , traversalType = AllModulesInParallel
                 , finalEvaluationFns = []
+                , dataExtractor = Nothing
                 }
                 |> fromProjectRuleSchema
 
@@ -729,6 +730,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 , folder = Nothing
                 , traversalType = AllModulesInParallel
                 , finalEvaluationFns = []
+                , dataExtractor = Nothing
                 }
                 |> fromProjectRuleSchema
 
@@ -780,6 +782,9 @@ type ProjectRuleSchema schemaState projectContext moduleContext
 
         -- TODO Jeroen Only allow to set it if there is a folder and module visitors?
         , finalEvaluationFns : List (projectContext -> List (Error {}))
+
+        -- TODO Breaking change only allow a single data extractor, and only for project rules
+        , dataExtractor : Maybe (projectContext -> Extract)
         }
 
 
@@ -832,6 +837,7 @@ newProjectRuleSchema name initialProjectContext =
         , folder = Nothing
         , traversalType = AllModulesInParallel
         , finalEvaluationFns = []
+        , dataExtractor = Nothing
         }
 
 
@@ -875,6 +881,7 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
             ( ImportedModulesFirst, Nothing ) ->
                 TraverseAllModulesInParallel Nothing
     , finalEvaluationFns = List.reverse schema.finalEvaluationFns
+    , dataExtractor = schema.dataExtractor
     }
 
 
@@ -1380,6 +1387,18 @@ withFinalProjectEvaluation visitor (ProjectRuleSchema schema) =
                 |> List.map removeErrorPhantomType
     in
     ProjectRuleSchema { schema | finalEvaluationFns = removeErrorPhantomTypeFromEvaluation visitor :: schema.finalEvaluationFns }
+
+
+type Extract
+    = Extract (Dict String ModuleNameLookupTable)
+
+
+withDataExtractor :
+    (projectContext -> Extract)
+    -> ProjectRuleSchema schemaState projectContext moduleContext
+    -> ProjectRuleSchema schemaState projectContext moduleContext
+withDataExtractor dataExtractor (ProjectRuleSchema schema) =
+    ProjectRuleSchema { schema | dataExtractor = Just dataExtractor }
 
 
 removeErrorPhantomTypeFromVisitor : (element -> projectContext -> ( List (Error b), projectContext )) -> (element -> projectContext -> ( List (Error {}), projectContext ))
@@ -3008,6 +3027,7 @@ type alias RunnableProjectVisitor projectContext moduleContext =
     , moduleVisitor : Maybe ( RunnableModuleVisitor moduleContext, ContextCreator projectContext moduleContext )
     , traversalAndFolder : TraversalAndFolder projectContext moduleContext
     , finalEvaluationFns : List (projectContext -> List (Error {}))
+    , dataExtractor : Maybe (projectContext -> Extract)
     }
 
 
@@ -3062,7 +3082,7 @@ type alias CacheEntryFor value projectContext =
     }
 
 
-runProjectVisitor : String -> RunnableProjectVisitor projectContext moduleContext -> Maybe (ProjectRuleCache projectContext) -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule, Maybe (ProjectRuleCache projectContext) )
+runProjectVisitor : String -> RunnableProjectVisitor projectContext moduleContext -> Maybe (ProjectRuleCache projectContext) -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule, Maybe Extract )
 runProjectVisitor name projectVisitor maybePreviousCache exceptions project nodeContexts =
     let
         cacheWithInitialContext : ProjectRuleCache projectContext
@@ -3104,19 +3124,18 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
                 |> Dict.values
                 |> List.map (\cacheEntry -> ( cacheEntry.errors, cacheEntry.context ))
 
+        previousAllModulesContext : List projectContext
+        previousAllModulesContext =
+            previousModuleContexts
+                |> Dict.values
+                |> List.map .context
+
+        allModulesContext : List projectContext
+        allModulesContext =
+            List.map Tuple.second contextsAndErrorsPerModule
+
         errorsFromFinalEvaluation : List (Error {})
         errorsFromFinalEvaluation =
-            let
-                previousAllModulesContext : List projectContext
-                previousAllModulesContext =
-                    previousModuleContexts
-                        |> Dict.values
-                        |> List.map .context
-
-                allModulesContext : List projectContext
-                allModulesContext =
-                    List.map Tuple.second contextsAndErrorsPerModule
-            in
             case maybePreviousCache of
                 Just previousCache ->
                     if initialContext == previousCache.dependencies.context && allModulesContext == previousAllModulesContext then
@@ -3165,7 +3184,26 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
                 in
                 ( newErrors, newRule )
         }
-    , Just newCache
+    , case
+        projectVisitor.dataExtractor
+      of
+        Just dataExtractor ->
+            let
+                -- TODO THis is already computed during the final project evaluation
+                -- Re-use the data instead of re-computing
+                contextToAnalyze : projectContext
+                contextToAnalyze =
+                    case getFolderFromTraversal projectVisitor.traversalAndFolder of
+                        Just { foldProjectContexts } ->
+                            List.foldl foldProjectContexts initialContext allModulesContext
+
+                        Nothing ->
+                            initialContext
+            in
+            Just (dataExtractor contextToAnalyze)
+
+        Nothing ->
+            Nothing
     )
 
 
@@ -3973,4 +4011,5 @@ scopeRule : RunnableProjectVisitor () moduleContext
 scopeRule =
     newProjectRuleSchema "DUMMY" ()
         |> withElmJsonProjectVisitor (\_ () -> ( [], () ))
+        |> withDataExtractor (\_ -> Extract (Dict.singleton "some dummy data" ModuleNameLookupTableInternal.empty))
         |> fromProjectRuleSchemaToRunnableProjectVisitor
