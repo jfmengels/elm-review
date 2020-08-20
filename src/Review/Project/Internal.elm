@@ -16,13 +16,15 @@ the `elm.json` file, the project modules and the project dependencies.
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Project
+import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.File
 import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
-import Elm.Syntax.Node as Node
+import Elm.Syntax.Node as Node exposing (Node)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Project.Dependency as Dependency exposing (Dependency)
+import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 
 
@@ -186,21 +188,55 @@ computeModuleNameLookupTables ((Project project) as rawProject) nodeContexts =
                 (Dict.values project.modules)
     in
     nodeContexts
-        |> List.map (\nodeContext -> ( nodeContext.node.label, computeModuleNameLookupTable rawProject modules nodeContext ))
+        |> List.filterMap
+            (\nodeContext ->
+                case Dict.get nodeContext.node.label modules of
+                    Just module_ ->
+                        Just ( nodeContext.node.label, computeModuleNameLookupTable rawProject module_.ast nodeContext )
+
+                    Nothing ->
+                        -- TODO Fail here?
+                        Nothing
+            )
         |> Dict.fromList
 
 
-computeModuleNameLookupTable : Project -> Dict ModuleName ProjectModule -> Graph.NodeContext ModuleName () -> ModuleNameLookupTable
-computeModuleNameLookupTable (Project project) modules { node, incoming } =
-    case Dict.get node.label modules of
-        Just module_ ->
-            let
-                exposedNames =
-                    1
+computeModuleNameLookupTable : Project -> Elm.Syntax.File.File -> Graph.NodeContext ModuleName () -> ModuleNameLookupTable
+computeModuleNameLookupTable (Project project) ast { node, incoming } =
+    let
+        exposedForModule : ExposedForModule
+        exposedForModule =
+            case Node.value ast.moduleDefinition |> Elm.Syntax.Module.exposingList of
+                Exposing.All _ ->
+                    Everything
 
-                -- Continue doing the same thing as Scope does
-            in
-            ModuleNameLookupTableInternal.empty
+                Exposing.Explicit list ->
+                    Specific (exposedElements list)
+    in
+    ModuleNameLookupTableInternal.empty
 
-        Nothing ->
-            ModuleNameLookupTableInternal.empty
+
+type ExposedForModule
+    = Everything
+    | Specific (Set String)
+
+
+exposedElements : List (Node Exposing.TopLevelExpose) -> Set String
+exposedElements nodes =
+    nodes
+        |> List.filterMap
+            (\node ->
+                case Node.value node of
+                    Exposing.FunctionExpose name ->
+                        Just name
+
+                    Exposing.TypeOrAliasExpose name ->
+                        Just name
+
+                    Exposing.TypeExpose { name } ->
+                        Just name
+
+                    Exposing.InfixExpose _ ->
+                        Nothing
+            )
+        |> Set.fromList
