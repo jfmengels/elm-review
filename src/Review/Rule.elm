@@ -836,7 +836,18 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
     Rule
         { name = schema.name
         , exceptions = Exceptions.init
-        , ruleImplementation = runProjectVisitor schema.name (fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema) Nothing
+        , ruleImplementation =
+            \exceptions project nodeContexts ->
+                let
+                    ( errors, newRule, cache ) =
+                        runProjectVisitor schema.name
+                            (fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema)
+                            Nothing
+                            exceptions
+                            project
+                            nodeContexts
+                in
+                ( errors, newRule )
         }
 
 
@@ -3045,7 +3056,7 @@ type alias CacheEntryFor value projectContext =
     }
 
 
-runProjectVisitor : String -> RunnableProjectVisitor projectContext moduleContext -> Maybe (ProjectRuleCache projectContext) -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
+runProjectVisitor : String -> RunnableProjectVisitor projectContext moduleContext -> Maybe (ProjectRuleCache projectContext) -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule, Maybe (ProjectRuleCache projectContext) )
 runProjectVisitor name projectVisitor maybePreviousCache exceptions project nodeContexts =
     let
         cacheWithInitialContext : ProjectRuleCache projectContext
@@ -3134,8 +3145,21 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
     , Rule
         { name = name
         , exceptions = exceptions
-        , ruleImplementation = runProjectVisitor name projectVisitor (Just newCache)
+        , ruleImplementation =
+            \newExceptions newProject newNodeContexts ->
+                let
+                    ( newErrors, newRule, _ ) =
+                        runProjectVisitor
+                            name
+                            projectVisitor
+                            (Just newCache)
+                            newExceptions
+                            newProject
+                            newNodeContexts
+                in
+                ( newErrors, newRule )
         }
+    , Just newCache
     )
 
 
