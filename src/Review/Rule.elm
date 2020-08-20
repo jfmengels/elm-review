@@ -378,28 +378,7 @@ review rules project =
         [] ->
             case Review.Project.modules project |> duplicateModuleNames Dict.empty of
                 Just duplicate ->
-                    let
-                        paths : String
-                        paths =
-                            duplicate.paths
-                                |> List.sort
-                                |> List.map (\s -> "\n  - " ++ s)
-                                |> String.join ""
-                    in
-                    ( [ Review.Error.ReviewError
-                            { filePath = "GLOBAL ERROR"
-                            , ruleName = "Incorrect project"
-                            , message = "Found several modules named `" ++ String.join "." duplicate.moduleName ++ "`"
-                            , details =
-                                [ "I found several modules with the name `" ++ String.join "." duplicate.moduleName ++ "`. Depending on how I choose to resolve this, I might give you different reports. Since this is a compiler error anyway, I require this problem to be solved. Please fix this then try running `elm-review` again."
-                                , "Here are the paths to some of the files that share a module name:" ++ paths
-                                , "It is possible that you requested me to look at several projects, and that modules from each project share the same name. I don't recommend reviewing several projects at the same time, as I can only handle one `elm.json`. I instead suggest running `elm-review` twice, once for each project."
-                                ]
-                            , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
-                            , fixes = Nothing
-                            , target = Review.Error.Global
-                            }
-                      ]
+                    ( [ duplicateModulesGlobalError duplicate ]
                     , rules
                     )
 
@@ -435,6 +414,31 @@ review rules project =
 
         modulesThatFailedToParse ->
             ( List.map parsingError modulesThatFailedToParse, rules )
+
+
+duplicateModulesGlobalError : { moduleName : ModuleName, paths : List String } -> ReviewError
+duplicateModulesGlobalError duplicate =
+    let
+        paths : String
+        paths =
+            duplicate.paths
+                |> List.sort
+                |> List.map (\s -> "\n  - " ++ s)
+                |> String.join ""
+    in
+    Review.Error.ReviewError
+        { filePath = "GLOBAL ERROR"
+        , ruleName = "Incorrect project"
+        , message = "Found several modules named `" ++ String.join "." duplicate.moduleName ++ "`"
+        , details =
+            [ "I found several modules with the name `" ++ String.join "." duplicate.moduleName ++ "`. Depending on how I choose to resolve this, I might give you different reports. Since this is a compiler error anyway, I require this problem to be solved. Please fix this then try running `elm-review` again."
+            , "Here are the paths to some of the files that share a module name:" ++ paths
+            , "It is possible that you requested me to look at several projects, and that modules from each project share the same name. I don't recommend reviewing several projects at the same time, as I can only handle one `elm.json`. I instead suggest running `elm-review` twice, once for each project."
+            ]
+        , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
+        , fixes = Nothing
+        , target = Review.Error.Global
+        }
 
 
 runRules : List Rule -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), List Rule )
