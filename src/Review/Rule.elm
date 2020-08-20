@@ -410,12 +410,18 @@ review rules project =
 
                         Ok nodeContexts ->
                             let
-                                (Rule { ruleImplementation }) =
-                                    scopeRule
-
-                                ( scopeErrors, newScopeRule ) =
+                                ( scopeErrors, newScopeRule, cache ) =
                                     -- TODO Later use newScopeRule for to avoid recomputing it all over everytime
-                                    ruleImplementation Exceptions.init project nodeContexts
+                                    runProjectVisitor
+                                        "DUMMY"
+                                        scopeRule
+                                        Nothing
+                                        Exceptions.init
+                                        project
+                                        nodeContexts
+
+                                _ =
+                                    Debug.log "cache" cache
                             in
                             if not (List.isEmpty scopeErrors) then
                                 ( List.map errorToReviewError scopeErrors, rules )
@@ -3963,8 +3969,8 @@ isInSourceDirectories (Metadata metadata) =
 -- SCOPE RULE
 
 
-scopeRule : Rule
+scopeRule : RunnableProjectVisitor () moduleContext
 scopeRule =
-    newModuleRuleSchema "DUMMY" ()
-        |> withSimpleExpressionVisitor (\_ -> [])
-        |> fromModuleRuleSchema
+    newProjectRuleSchema "DUMMY" ()
+        |> withElmJsonProjectVisitor (\_ () -> ( [], () ))
+        |> fromProjectRuleSchemaToRunnableProjectVisitor
