@@ -270,7 +270,7 @@ import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Project exposing (Project, ProjectModule)
 import Review.Project.Dependency
-import Review.Project.Internal
+import Review.Project.Internal exposing (Project(..))
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
@@ -420,6 +420,23 @@ review rules project =
                                         project
                                         nodeContexts
 
+                                moduleNameLookupTables : Dict ModuleName ModuleNameLookupTable
+                                moduleNameLookupTables =
+                                    case extract of
+                                        Just (Extract moduleNameLookupTables_) ->
+                                            moduleNameLookupTables_
+
+                                        Nothing ->
+                                            Dict.empty
+
+                                projectWithLookupTable : Project
+                                projectWithLookupTable =
+                                    let
+                                        (Project p) =
+                                            project
+                                    in
+                                    Project { p | moduleNameLookupTables = Just moduleNameLookupTables }
+
                                 _ =
                                     Debug.log "moduleNameLookupTables" extract
                             in
@@ -427,7 +444,7 @@ review rules project =
                                 ( List.map errorToReviewError scopeErrors, rules )
 
                             else
-                                runRules rules project nodeContexts
+                                runRules rules projectWithLookupTable nodeContexts
                                     |> Tuple.mapFirst (List.map errorToReviewError)
 
         modulesThatFailedToParse ->
@@ -1390,7 +1407,7 @@ withFinalProjectEvaluation visitor (ProjectRuleSchema schema) =
 
 
 type Extract
-    = Extract (Dict String ModuleNameLookupTable)
+    = Extract (Dict ModuleName ModuleNameLookupTable)
 
 
 withDataExtractor :
@@ -4011,5 +4028,5 @@ scopeRule : RunnableProjectVisitor () moduleContext
 scopeRule =
     newProjectRuleSchema "DUMMY" ()
         |> withElmJsonProjectVisitor (\_ () -> ( [], () ))
-        |> withDataExtractor (\_ -> Extract (Dict.singleton "some dummy data" ModuleNameLookupTableInternal.empty))
+        |> withDataExtractor (\_ -> Extract (Dict.singleton [ "some dummy data" ] ModuleNameLookupTableInternal.empty))
         |> fromProjectRuleSchemaToRunnableProjectVisitor
