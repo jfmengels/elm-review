@@ -409,8 +409,20 @@ review rules project =
                             )
 
                         Ok nodeContexts ->
-                            runRules rules project nodeContexts
-                                |> Tuple.mapFirst (List.map errorToReviewError)
+                            let
+                                (Rule { ruleImplementation }) =
+                                    scopeRule
+
+                                ( scopeErrors, newScopeRule ) =
+                                    -- TODO Later use newScopeRule for to avoid recomputing it all over everytime
+                                    ruleImplementation Exceptions.init project nodeContexts
+                            in
+                            if not (List.isEmpty scopeErrors) then
+                                ( List.map errorToReviewError scopeErrors, rules )
+
+                            else
+                                runRules rules project nodeContexts
+                                    |> Tuple.mapFirst (List.map errorToReviewError)
 
         modulesThatFailedToParse ->
             ( List.map parsingError modulesThatFailedToParse, rules )
@@ -3921,3 +3933,14 @@ know whether the module is part of the tests or of the production code.
 isInSourceDirectories : Metadata -> Bool
 isInSourceDirectories (Metadata metadata) =
     metadata.isInSourceDirectories
+
+
+
+-- SCOPE RULE
+
+
+scopeRule : Rule
+scopeRule =
+    newModuleRuleSchema "DUMMY" ()
+        |> withSimpleExpressionVisitor (\_ -> [])
+        |> fromModuleRuleSchema
