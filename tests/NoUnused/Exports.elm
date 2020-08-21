@@ -25,8 +25,8 @@ import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Review.Fix as Fix exposing (Fix)
+import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
-import Scope
 import Set exposing (Set)
 
 
@@ -46,18 +46,17 @@ then nothing will be reported.
 You can try this rule out by running the following command:
 
 ```bash
-elm-review --template jfmengels/review-unused/example --rules NoUnused.Exports
+elm - review --template jfmengels/review-unused/example --rules NoUnused.Exports
 ```
 
 -}
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "NoUnused.Exports" initialProjectContext
-        |> Scope.addProjectVisitors
         |> Rule.withModuleVisitor moduleVisitor
-        |> Rule.withModuleContext
-            { fromProjectToModule = fromProjectToModule
-            , fromModuleToProject = fromModuleToProject
+        |> Rule.withModuleContextUsingContextCreator
+            { fromProjectToModule = Rule.initContextCreator fromProjectToModule |> Rule.withModuleNameLookupTable
+            , fromModuleToProject = Rule.initContextCreator fromModuleToProject |> Rule.withModuleKey |> Rule.withMetadata
             , foldProjectContexts = foldProjectContexts
             }
         |> Rule.withContextFromImportedModules
@@ -80,8 +79,7 @@ moduleVisitor schema =
 
 
 type alias ProjectContext =
-    { scope : Scope.ProjectContext
-    , projectType : ProjectType
+    { projectType : ProjectType
     , modules :
         Dict ModuleName
             { moduleKey : Rule.ModuleKey
@@ -110,7 +108,7 @@ type ExposedElementType
 
 
 type alias ModuleContext =
-    { scope : Scope.ModuleContext
+    { lookupTable : ModuleNameLookupTable
     , exposesEverything : Bool
     , exposed : Dict String ExposedElement
     , used : Set ( ModuleName, String )
@@ -120,16 +118,15 @@ type alias ModuleContext =
 
 initialProjectContext : ProjectContext
 initialProjectContext =
-    { scope = Scope.initialProjectContext
-    , projectType = IsApplication
+    { projectType = IsApplication
     , modules = Dict.empty
     , used = Set.empty
     }
 
 
-fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> ProjectContext -> ModuleContext
-fromProjectToModule _ _ projectContext =
-    { scope = Scope.fromProjectToModule projectContext.scope
+fromProjectToModule : ModuleNameLookupTable -> ProjectContext -> ModuleContext
+fromProjectToModule lookupTable _ =
+    { lookupTable = lookupTable
     , exposesEverything = False
     , exposed = Dict.empty
     , used = Set.empty
@@ -137,27 +134,25 @@ fromProjectToModule _ _ projectContext =
     }
 
 
-fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> ModuleContext -> ProjectContext
-fromModuleToProject moduleKey moduleName moduleContext =
-    { scope = Scope.fromModuleToProject moduleName moduleContext.scope
-    , projectType = IsApplication
+fromModuleToProject : Rule.ModuleKey -> Rule.Metadata -> ModuleContext -> ProjectContext
+fromModuleToProject moduleKey metadata moduleContext =
+    { projectType = IsApplication
     , modules =
         Dict.singleton
-            (Node.value moduleName)
+            (Rule.moduleNameFromMetadata metadata)
             { moduleKey = moduleKey
             , exposed = moduleContext.exposed
             }
     , used =
         moduleContext.elementsNotToReport
-            |> Set.map (Tuple.pair <| Node.value moduleName)
+            |> Set.map (Tuple.pair <| Rule.moduleNameFromMetadata metadata)
             |> Set.union moduleContext.used
     }
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts newContext previousContext =
-    { scope = Scope.foldProjectContexts newContext.scope previousContext.scope
-    , projectType = previousContext.projectType
+    { projectType = previousContext.projectType
     , modules = Dict.union previousContext.modules newContext.modules
     , used = Set.union newContext.used previousContext.used
     }
@@ -447,7 +442,7 @@ declarationListVisitor declarations moduleContext =
         testFunctions : List String
         testFunctions =
             declarations
-                |> List.filterMap (testFunctionName moduleContext.scope)
+                |> List.filterMap (testFunctionName moduleContext)
 
         allUsedTypes : List ( ModuleName, String )
         allUsedTypes =
@@ -521,16 +516,19 @@ declarationName declaration =
             Nothing
 
 
-testFunctionName : Scope.ModuleContext -> Node Declaration -> Maybe String
-testFunctionName scope declaration =
-    case Node.value declaration of
+testFunctionName : ModuleContext -> Node Declaration -> Maybe String
+testFunctionName moduleContext node =
+    case Node.value node of
         Declaration.FunctionDeclaration function ->
             case
                 function.signature
                     |> Maybe.map (Node.value >> .typeAnnotation >> Node.value)
             of
-                Just (TypeAnnotation.Typed (Node _ ( moduleName, name )) _) ->
-                    if name == "Test" && Scope.moduleNameForType scope name moduleName == [ "Test" ] then
+                Just (TypeAnnotation.Typed typeNode _) ->
+                    if
+                        (Tuple.second (Node.value typeNode) == "Test")
+                            && (ModuleNameLookupTable.moduleNameFor moduleContext.lookupTable typeNode == Just [ "Test" ])
+                    then
                         function.declaration
                             |> Node.value
                             |> .name
@@ -552,7 +550,7 @@ typesUsedInDeclaration moduleContext declaration =
     case Node.value declaration of
         Declaration.FunctionDeclaration function ->
             ( function.signature
-                |> Maybe.map (Node.value >> .typeAnnotation >> collectTypesFromTypeAnnotation moduleContext.scope)
+                |> Maybe.map (Node.value >> .typeAnnotation >> collectTypesFromTypeAnnotation moduleContext)
                 |> Maybe.withDefault []
             , False
             )
@@ -560,7 +558,7 @@ typesUsedInDeclaration moduleContext declaration =
         Declaration.CustomTypeDeclaration type_ ->
             ( type_.constructors
                 |> List.concatMap (Node.value >> .arguments)
-                |> List.concatMap (collectTypesFromTypeAnnotation moduleContext.scope)
+                |> List.concatMap (collectTypesFromTypeAnnotation moduleContext)
             , not <|
                 case Dict.get (Node.value type_.name) moduleContext.exposed |> Maybe.map .elementType of
                     Just ExposedType ->
@@ -571,7 +569,7 @@ typesUsedInDeclaration moduleContext declaration =
             )
 
         Declaration.AliasDeclaration alias_ ->
-            ( collectTypesFromTypeAnnotation moduleContext.scope alias_.typeAnnotation, False )
+            ( collectTypesFromTypeAnnotation moduleContext alias_.typeAnnotation, False )
 
         Declaration.PortDeclaration _ ->
             ( [], False )
@@ -583,29 +581,33 @@ typesUsedInDeclaration moduleContext declaration =
             ( [], False )
 
 
-collectTypesFromTypeAnnotation : Scope.ModuleContext -> Node TypeAnnotation -> List ( ModuleName, String )
-collectTypesFromTypeAnnotation scope node =
+collectTypesFromTypeAnnotation : ModuleContext -> Node TypeAnnotation -> List ( ModuleName, String )
+collectTypesFromTypeAnnotation moduleContext node =
     case Node.value node of
         TypeAnnotation.FunctionTypeAnnotation a b ->
-            collectTypesFromTypeAnnotation scope a ++ collectTypesFromTypeAnnotation scope b
+            collectTypesFromTypeAnnotation moduleContext a ++ collectTypesFromTypeAnnotation moduleContext b
 
-        TypeAnnotation.Typed (Node _ ( moduleName, name )) params ->
-            ( Scope.moduleNameForType scope name moduleName, name )
-                :: List.concatMap (collectTypesFromTypeAnnotation scope) params
+        TypeAnnotation.Typed (Node range ( _, name )) params ->
+            case ModuleNameLookupTable.moduleNameAt moduleContext.lookupTable range of
+                Just moduleName ->
+                    ( moduleName, name ) :: List.concatMap (collectTypesFromTypeAnnotation moduleContext) params
+
+                Nothing ->
+                    List.concatMap (collectTypesFromTypeAnnotation moduleContext) params
 
         TypeAnnotation.Record list ->
             list
                 |> List.map (Node.value >> Tuple.second)
-                |> List.concatMap (collectTypesFromTypeAnnotation scope)
+                |> List.concatMap (collectTypesFromTypeAnnotation moduleContext)
 
-        TypeAnnotation.GenericRecord name list ->
+        TypeAnnotation.GenericRecord _ list ->
             list
                 |> Node.value
                 |> List.map (Node.value >> Tuple.second)
-                |> List.concatMap (collectTypesFromTypeAnnotation scope)
+                |> List.concatMap (collectTypesFromTypeAnnotation moduleContext)
 
         TypeAnnotation.Tupled list ->
-            List.concatMap (collectTypesFromTypeAnnotation scope) list
+            List.concatMap (collectTypesFromTypeAnnotation moduleContext) list
 
         TypeAnnotation.GenericType _ ->
             []
@@ -621,12 +623,17 @@ collectTypesFromTypeAnnotation scope node =
 expressionVisitor : Node Expression -> ModuleContext -> ( List nothing, ModuleContext )
 expressionVisitor node moduleContext =
     case Node.value node of
-        Expression.FunctionOrValue moduleName name ->
-            ( []
-            , registerAsUsed
-                ( Scope.moduleNameForValue moduleContext.scope name moduleName, name )
-                moduleContext
-            )
+        Expression.FunctionOrValue _ name ->
+            case ModuleNameLookupTable.moduleNameFor moduleContext.lookupTable node of
+                Just moduleName ->
+                    ( []
+                    , registerAsUsed
+                        ( moduleName, name )
+                        moduleContext
+                    )
+
+                Nothing ->
+                    ( [], moduleContext )
 
         _ ->
             ( [], moduleContext )
