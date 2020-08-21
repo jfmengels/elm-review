@@ -420,14 +420,9 @@ review rules project =
                                         project
                                         nodeContexts
 
-                                moduleNameLookupTables : Dict ModuleName ModuleNameLookupTable
+                                moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
                                 moduleNameLookupTables =
-                                    case extract of
-                                        Just (Extract moduleNameLookupTables_) ->
-                                            moduleNameLookupTables_
-
-                                        Nothing ->
-                                            Dict.empty
+                                    Maybe.map (\(Extract moduleNameLookupTables_) -> moduleNameLookupTables_) extract
 
                                 projectWithLookupTable : Project
                                 projectWithLookupTable =
@@ -435,7 +430,7 @@ review rules project =
                                         (Project p) =
                                             project
                                     in
-                                    Project { p | moduleNameLookupTables = Just moduleNameLookupTables }
+                                    Project { p | moduleNameLookupTables = moduleNameLookupTables }
 
                                 _ =
                                     Debug.log "moduleNameLookupTables" extract
@@ -3395,7 +3390,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
 
         moduleNameLookupTables : Dict ModuleName ModuleNameLookupTable
         moduleNameLookupTables =
-            Review.Project.Internal.moduleNameLookupTables graph project
+            Review.Project.Internal.moduleNameLookupTables project
 
         moduleToAnalyze : List ProjectModule
         moduleToAnalyze =

@@ -69,18 +69,9 @@ moduleGraph (Project project) =
             buildModuleGraph <| Dict.values project.modules
 
 
-moduleNameLookupTables : Graph (List String) () -> Project -> Dict ModuleName ModuleNameLookupTable
-moduleNameLookupTables graph ((Project project) as rawProject) =
-    case project.moduleNameLookupTables of
-        Nothing ->
-            graph
-                |> Graph.checkAcyclic
-                |> Result.map Graph.topologicalSort
-                |> Result.withDefault []
-                |> computeModuleNameLookupTables rawProject
-
-        Just moduleNameLookupTables_ ->
-            moduleNameLookupTables_
+moduleNameLookupTables : Project -> Dict ModuleName ModuleNameLookupTable
+moduleNameLookupTables (Project project) =
+    Maybe.withDefault Dict.empty project.moduleNameLookupTables
 
 
 sourceDirectories : Project -> List String
