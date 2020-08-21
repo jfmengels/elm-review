@@ -12,8 +12,8 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
+import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
-import Scope
 import Set exposing (Set)
 
 
@@ -58,17 +58,16 @@ This won't fail if `SomeModule` does not define a `subscriptions` function.
 You can try this rule out by running the following command:
 
 ```bash
-elm-review --template jfmengels/review-tea/example --rules NoMissingSubscriptionsCall
+elm - review --template jfmengels/review-tea/example --rules NoMissingSubscriptionsCall
 ```
 
 -}
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "NoMissingSubscriptionsCall" initialProjectContext
-        |> Scope.addProjectVisitors
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContextUsingContextCreator
-            { fromProjectToModule = Rule.initContextCreator fromProjectToModule
+            { fromProjectToModule = Rule.initContextCreator fromProjectToModule |> Rule.withModuleNameLookupTable
             , fromModuleToProject = Rule.initContextCreator fromModuleToProject |> Rule.withMetadata
             , foldProjectContexts = foldProjectContexts
             }
@@ -85,14 +84,12 @@ moduleVisitor schema =
 
 
 type alias ProjectContext =
-    { scope : Scope.ProjectContext
-    , modulesThatExposeSubscriptionsAndUpdate : Set ModuleName
+    { modulesThatExposeSubscriptionsAndUpdate : Set ModuleName
     }
 
 
 type alias ModuleContext =
-    { scope : Scope.ModuleContext
-    , modulesThatExposeSubscriptionsAndUpdate : Set ModuleName
+    { modulesThatExposeSubscriptionsAndUpdate : Set ModuleName
 
     --, usesUpdate : Bool
     --, usesSubscription : Bool
@@ -100,31 +97,30 @@ type alias ModuleContext =
     , definesSubscriptions : Bool
     , usesUpdateOfModule : Dict ModuleName Range
     , usesSubscriptionsOfModule : Set ModuleName
+    , lookupTable : ModuleNameLookupTable
     }
 
 
 initialProjectContext : ProjectContext
 initialProjectContext =
-    { scope = Scope.initialProjectContext
-    , modulesThatExposeSubscriptionsAndUpdate = Set.empty
+    { modulesThatExposeSubscriptionsAndUpdate = Set.empty
     }
 
 
-fromProjectToModule : ProjectContext -> ModuleContext
-fromProjectToModule projectContext =
-    { scope = Scope.fromProjectToModule projectContext.scope
-    , modulesThatExposeSubscriptionsAndUpdate = projectContext.modulesThatExposeSubscriptionsAndUpdate
+fromProjectToModule : ModuleNameLookupTable -> ProjectContext -> ModuleContext
+fromProjectToModule lookupTable projectContext =
+    { modulesThatExposeSubscriptionsAndUpdate = projectContext.modulesThatExposeSubscriptionsAndUpdate
     , definesUpdate = False
     , definesSubscriptions = False
     , usesUpdateOfModule = Dict.empty
     , usesSubscriptionsOfModule = Set.empty
+    , lookupTable = lookupTable
     }
 
 
 fromModuleToProject : Rule.Metadata -> ModuleContext -> ProjectContext
 fromModuleToProject metadata moduleContext =
-    { scope = Scope.fromModuleToProject (Rule.moduleNameNodeFromMetadata metadata) moduleContext.scope
-    , modulesThatExposeSubscriptionsAndUpdate =
+    { modulesThatExposeSubscriptionsAndUpdate =
         if moduleContext.definesSubscriptions && moduleContext.definesUpdate then
             Set.singleton (Rule.moduleNameFromMetadata metadata)
 
@@ -135,8 +131,7 @@ fromModuleToProject metadata moduleContext =
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts newContext previousContext =
-    { scope = Scope.foldProjectContexts newContext.scope previousContext.scope
-    , modulesThatExposeSubscriptionsAndUpdate =
+    { modulesThatExposeSubscriptionsAndUpdate =
         Set.union
             newContext.modulesThatExposeSubscriptionsAndUpdate
             previousContext.modulesThatExposeSubscriptionsAndUpdate
@@ -169,29 +164,29 @@ declarationVisitor node moduleContext =
 expressionVisitor : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
 expressionVisitor node moduleContext =
     case Node.value node of
-        Expression.FunctionOrValue moduleName "update" ->
-            let
-                realModuleName : List String
-                realModuleName =
-                    Scope.moduleNameForValue moduleContext.scope "update" moduleName
-            in
-            if Set.member realModuleName moduleContext.modulesThatExposeSubscriptionsAndUpdate then
-                ( [], { moduleContext | usesUpdateOfModule = Dict.insert realModuleName (Node.range node) moduleContext.usesUpdateOfModule } )
+        Expression.FunctionOrValue _ "update" ->
+            case ModuleNameLookupTable.moduleNameFor moduleContext.lookupTable node of
+                Just realModuleName ->
+                    if Set.member realModuleName moduleContext.modulesThatExposeSubscriptionsAndUpdate then
+                        ( [], { moduleContext | usesUpdateOfModule = Dict.insert realModuleName (Node.range node) moduleContext.usesUpdateOfModule } )
 
-            else
-                ( [], moduleContext )
+                    else
+                        ( [], moduleContext )
 
-        Expression.FunctionOrValue moduleName "subscriptions" ->
-            let
-                realModuleName : List String
-                realModuleName =
-                    Scope.moduleNameForValue moduleContext.scope "subscriptions" moduleName
-            in
-            if Set.member realModuleName moduleContext.modulesThatExposeSubscriptionsAndUpdate then
-                ( [], { moduleContext | usesSubscriptionsOfModule = Set.insert realModuleName moduleContext.usesSubscriptionsOfModule } )
+                Nothing ->
+                    ( [], moduleContext )
 
-            else
-                ( [], moduleContext )
+        Expression.FunctionOrValue _ "subscriptions" ->
+            case ModuleNameLookupTable.moduleNameFor moduleContext.lookupTable node of
+                Just realModuleName ->
+                    if Set.member realModuleName moduleContext.modulesThatExposeSubscriptionsAndUpdate then
+                        ( [], { moduleContext | usesSubscriptionsOfModule = Set.insert realModuleName moduleContext.usesSubscriptionsOfModule } )
+
+                    else
+                        ( [], moduleContext )
+
+                Nothing ->
+                    ( [], moduleContext )
 
         _ ->
             ( [], moduleContext )
