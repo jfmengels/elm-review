@@ -1,4 +1,4 @@
-module Review.ModuleNameLookupTable.Internal exposing (ModuleNameLookupTable(..), add, empty, toRangeLike)
+module Review.ModuleNameLookupTable.Internal exposing (ModuleNameLookupTable(..), add, addMultiple, empty, toRangeLike)
 
 import Dict exposing (Dict)
 import Elm.Syntax.ModuleName exposing (ModuleName)
@@ -17,6 +17,14 @@ empty =
 add : Range -> ModuleName -> ModuleNameLookupTable -> ModuleNameLookupTable
 add range moduleName (ModuleNameLookupTable moduleNameLookupTable) =
     ModuleNameLookupTable (Dict.insert (toRangeLike range) moduleName moduleNameLookupTable)
+
+
+addMultiple : List ( Range, ModuleName ) -> ModuleNameLookupTable -> ModuleNameLookupTable
+addMultiple elements moduleNameLookupTable =
+    List.foldl
+        (\( range, moduleName ) lookupTable -> add range moduleName lookupTable)
+        moduleNameLookupTable
+        elements
 
 
 type alias RangeLike =

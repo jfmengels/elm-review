@@ -4023,12 +4023,12 @@ isInSourceDirectories (Metadata metadata) =
 -- SCOPE RULE
 
 
-scopeRule : RunnableProjectVisitor InnerProjectContext InnerModuleContext
+scopeRule : RunnableProjectVisitor ScopeProjectContext ScopeModuleContext
 scopeRule =
-    newProjectRuleSchema "DUMMY" scope_initialProjectContext
+    newProjectRuleSchema "elm-review-scope__INTERNAL" scope_initialProjectContext
         |> withContextFromImportedModules
-        |> withDependenciesProjectVisitor (scope_internalDependenciesVisitor |> pairWithNoErrors)
-        |> withModuleVisitor scope_internalAddModuleVisitors
+        |> withDependenciesProjectVisitor (scope_internalDependenciesVisitor |> scope_pairWithNoErrors)
+        |> withModuleVisitor scope_moduleVisitor
         |> withModuleContext
             { fromProjectToModule = scope_fromProjectToModule
             , fromModuleToProject = scope_fromModuleToProject
@@ -4038,14 +4038,14 @@ scopeRule =
         |> fromProjectRuleSchemaToRunnableProjectVisitor
 
 
-type alias InnerProjectContext =
+type alias ScopeProjectContext =
     { dependenciesModules : Dict String Elm.Docs.Module
     , modules : Dict ModuleName Elm.Docs.Module
     , lookupTables : Dict ModuleName ModuleNameLookupTable
     }
 
 
-type alias InnerModuleContext =
+type alias ScopeModuleContext =
     { scopes : Nonempty Scope
     , localTypes : Set String
     , importAliases : Dict String (List ModuleName)
@@ -4067,7 +4067,7 @@ type alias InnerModuleContext =
 -- PROJECT VISITOR
 
 
-scope_initialProjectContext : InnerProjectContext
+scope_initialProjectContext : ScopeProjectContext
 scope_initialProjectContext =
     { dependenciesModules = Dict.empty
     , modules = Dict.empty
@@ -4086,7 +4086,7 @@ scope_initialProjectContext =
         }
 
 -}
-scope_fromProjectToModule : a -> b -> InnerProjectContext -> InnerModuleContext
+scope_fromProjectToModule : a -> b -> ScopeProjectContext -> ScopeModuleContext
 scope_fromProjectToModule _ _ projectContext =
     { scopes = nonemptyList_fromElement emptyScope
     , localTypes = Set.empty
@@ -4106,7 +4106,7 @@ scope_fromProjectToModule _ _ projectContext =
         |> registerPrelude
 
 
-scope_fromModuleToProject : a -> Node ModuleName -> InnerModuleContext -> InnerProjectContext
+scope_fromModuleToProject : a -> Node ModuleName -> ScopeModuleContext -> ScopeProjectContext
 scope_fromModuleToProject _ moduleName moduleContext =
     { dependenciesModules = Dict.empty
     , modules =
@@ -4122,7 +4122,7 @@ scope_fromModuleToProject _ moduleName moduleContext =
     }
 
 
-scope_foldProjectContexts : InnerProjectContext -> InnerProjectContext -> InnerProjectContext
+scope_foldProjectContexts : ScopeProjectContext -> ScopeProjectContext -> ScopeProjectContext
 scope_foldProjectContexts newContext previousContext =
     { dependenciesModules = previousContext.dependenciesModules
     , modules = Dict.union previousContext.modules newContext.modules
@@ -4149,19 +4149,19 @@ emptyScope =
     }
 
 
-scope_internalAddModuleVisitors : ModuleRuleSchema schemaState InnerModuleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } InnerModuleContext
-scope_internalAddModuleVisitors schema =
+scope_moduleVisitor : ModuleRuleSchema schemaState ScopeModuleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ScopeModuleContext
+scope_moduleVisitor schema =
     schema
-        |> withModuleDefinitionVisitor (moduleDefinitionVisitor |> pairWithNoErrors)
-        |> withImportVisitor (importVisitor |> pairWithNoErrors)
-        |> withDeclarationListVisitor (declarationListVisitor |> pairWithNoErrors)
-        |> withDeclarationEnterVisitor (scope_declarationEnterVisitor |> pairWithNoErrors)
-        |> withDeclarationExitVisitor (scope_declarationExitVisitor |> pairWithNoErrors)
+        |> withModuleDefinitionVisitor (scope_moduleDefinitionVisitor |> scope_pairWithNoErrors)
+        |> withImportVisitor (scope_importVisitor |> scope_pairWithNoErrors)
+        |> withDeclarationListVisitor (scope_declarationListVisitor |> scope_pairWithNoErrors)
+        |> withDeclarationEnterVisitor (scope_declarationEnterVisitor |> scope_pairWithNoErrors)
+        |> withDeclarationExitVisitor (scope_declarationExitVisitor |> scope_pairWithNoErrors)
         |> withExpressionEnterVisitor
             (\visitedElement context ->
                 ( []
                 , context
-                    |> popScopeEnter visitedElement
+                    |> scope_popScopeEnter visitedElement
                     |> scope_expressionEnterVisitor visitedElement
                 )
             )
@@ -4169,14 +4169,14 @@ scope_internalAddModuleVisitors schema =
             (\visitedElement context ->
                 ( []
                 , context
-                    |> popScopeExit visitedElement
+                    |> scope_popScopeExit visitedElement
                     |> expressionExitVisitor visitedElement
                 )
             )
 
 
-pairWithNoErrors : (visited -> context -> context) -> visited -> context -> ( List nothing, context )
-pairWithNoErrors fn visited context =
+scope_pairWithNoErrors : (visited -> context -> context) -> visited -> context -> ( List nothing, context )
+scope_pairWithNoErrors fn visited context =
     ( [], fn visited context )
 
 
@@ -4198,7 +4198,7 @@ scope_internalDependenciesVisitor dependencies innerContext =
     { innerContext | dependenciesModules = dependenciesModules }
 
 
-registerPrelude : InnerModuleContext -> InnerModuleContext
+registerPrelude : ScopeModuleContext -> ScopeModuleContext
 registerPrelude innerContext =
     List.foldl registerImportExposed innerContext elmCorePrelude
 
@@ -4303,12 +4303,12 @@ createFakeImport { moduleName, moduleAlias, exposingList } =
     }
 
 
-declarationListVisitor : List (Node Declaration) -> InnerModuleContext -> InnerModuleContext
-declarationListVisitor declarations innerContext =
+scope_declarationListVisitor : List (Node Declaration) -> ScopeModuleContext -> ScopeModuleContext
+scope_declarationListVisitor declarations innerContext =
     List.foldl registerDeclaration innerContext declarations
 
 
-registerDeclaration : Node Declaration -> InnerModuleContext -> InnerModuleContext
+registerDeclaration : Node Declaration -> ScopeModuleContext -> ScopeModuleContext
 registerDeclaration declaration innerContext =
     case Node.value declaration of
         Declaration.FunctionDeclaration function ->
@@ -4367,7 +4367,7 @@ registerDeclaration declaration innerContext =
             innerContext
 
 
-addToScope : { variableType : VariableType, node : Node String } -> InnerModuleContext -> InnerModuleContext
+addToScope : { variableType : VariableType, node : Node String } -> ScopeModuleContext -> ScopeModuleContext
 addToScope variableData innerContext =
     let
         newScopes : Nonempty Scope
@@ -4380,7 +4380,7 @@ addToScope variableData innerContext =
     { innerContext | scopes = newScopes }
 
 
-registerExposedValue : Expression.Function -> String -> InnerModuleContext -> InnerModuleContext
+registerExposedValue : Expression.Function -> String -> ScopeModuleContext -> ScopeModuleContext
 registerExposedValue function name innerContext =
     { innerContext
         | exposedValues =
@@ -4398,7 +4398,7 @@ registerExposedValue function name innerContext =
     }
 
 
-registerExposedCustomType : List (Node Elm.Syntax.Type.ValueConstructor) -> String -> InnerModuleContext -> InnerModuleContext
+registerExposedCustomType : List (Node Elm.Syntax.Type.ValueConstructor) -> String -> ScopeModuleContext -> ScopeModuleContext
 registerExposedCustomType constructors name innerContext =
     { innerContext
         | exposedUnions =
@@ -4416,7 +4416,7 @@ registerExposedCustomType constructors name innerContext =
     }
 
 
-registerExposedTypeAlias : String -> InnerModuleContext -> InnerModuleContext
+registerExposedTypeAlias : String -> ScopeModuleContext -> ScopeModuleContext
 registerExposedTypeAlias name innerContext =
     { innerContext
         | exposedAliases =
@@ -4429,7 +4429,7 @@ registerExposedTypeAlias name innerContext =
     }
 
 
-registerIfExposed : (String -> InnerModuleContext -> InnerModuleContext) -> String -> InnerModuleContext -> InnerModuleContext
+registerIfExposed : (String -> ScopeModuleContext -> ScopeModuleContext) -> String -> ScopeModuleContext -> ScopeModuleContext
 registerIfExposed registerFn name innerContext =
     if innerContext.exposesEverything || Dict.member name innerContext.exposedNames then
         registerFn name innerContext
@@ -4438,7 +4438,7 @@ registerIfExposed registerFn name innerContext =
         innerContext
 
 
-convertTypeSignatureToDocsType : InnerModuleContext -> Maybe (Node Signature) -> Elm.Type.Type
+convertTypeSignatureToDocsType : ScopeModuleContext -> Maybe (Node Signature) -> Elm.Type.Type
 convertTypeSignatureToDocsType innerContext maybeSignature =
     case maybeSignature |> Maybe.map (Node.value >> .typeAnnotation) of
         Just typeAnnotation ->
@@ -4448,7 +4448,7 @@ convertTypeSignatureToDocsType innerContext maybeSignature =
             Elm.Type.Tuple []
 
 
-syntaxTypeAnnotationToDocsType : InnerModuleContext -> Node TypeAnnotation -> Elm.Type.Type
+syntaxTypeAnnotationToDocsType : ScopeModuleContext -> Node TypeAnnotation -> Elm.Type.Type
 syntaxTypeAnnotationToDocsType innerContext (Node _ typeAnnotation) =
     case typeAnnotation of
         TypeAnnotation.GenericType name ->
@@ -4480,7 +4480,7 @@ syntaxTypeAnnotationToDocsType innerContext (Node _ typeAnnotation) =
                 (syntaxTypeAnnotationToDocsType innerContext right)
 
 
-recordUpdateToDocsType : InnerModuleContext -> List (Node TypeAnnotation.RecordField) -> List ( String, Elm.Type.Type )
+recordUpdateToDocsType : ScopeModuleContext -> List (Node TypeAnnotation.RecordField) -> List ( String, Elm.Type.Type )
 recordUpdateToDocsType innerContext updates =
     List.map
         (\(Node _ ( name, typeAnnotation )) ->
@@ -4498,7 +4498,7 @@ registerVariable variableInfo name scopes =
         scopes
 
 
-updateScope : InnerModuleContext -> Nonempty Scope -> InnerModuleContext
+updateScope : ScopeModuleContext -> Nonempty Scope -> ScopeModuleContext
 updateScope innerContext scopes =
     { innerContext | scopes = scopes }
 
@@ -4507,8 +4507,8 @@ updateScope innerContext scopes =
 -- MODULE DEFINITION VISITOR
 
 
-moduleDefinitionVisitor : Node Module -> InnerModuleContext -> InnerModuleContext
-moduleDefinitionVisitor node innerContext =
+scope_moduleDefinitionVisitor : Node Module -> ScopeModuleContext -> ScopeModuleContext
+scope_moduleDefinitionVisitor node innerContext =
     case Module.exposingList (Node.value node) of
         Exposing.All _ ->
             { innerContext | exposesEverything = True }
@@ -4542,14 +4542,14 @@ exposedElements nodes =
 -- IMPORT VISITOR
 
 
-importVisitor : Node Import -> InnerModuleContext -> InnerModuleContext
-importVisitor (Node _ import_) innerContext =
+scope_importVisitor : Node Import -> ScopeModuleContext -> ScopeModuleContext
+scope_importVisitor (Node _ import_) innerContext =
     innerContext
         |> registerImportAlias import_
         |> registerImportExposed import_
 
 
-registerImportAlias : Import -> InnerModuleContext -> InnerModuleContext
+registerImportAlias : Import -> ScopeModuleContext -> ScopeModuleContext
 registerImportAlias import_ innerContext =
     case import_.moduleAlias of
         Nothing ->
@@ -4581,7 +4581,7 @@ registerImportAlias import_ innerContext =
             }
 
 
-registerImportExposed : Import -> InnerModuleContext -> InnerModuleContext
+registerImportExposed : Import -> ScopeModuleContext -> ScopeModuleContext
 registerImportExposed import_ innerContext =
     case import_.exposingList |> Maybe.map Node.value of
         Nothing ->
@@ -4727,7 +4727,7 @@ type VariableType
     | Port
 
 
-scope_declarationEnterVisitor : Node Declaration -> InnerModuleContext -> InnerModuleContext
+scope_declarationEnterVisitor : Node Declaration -> ScopeModuleContext -> ScopeModuleContext
 scope_declarationEnterVisitor node context =
     case Node.value node of
         Declaration.FunctionDeclaration function ->
@@ -4735,16 +4735,55 @@ scope_declarationEnterVisitor node context =
                 newScope : Scope
                 newScope =
                     { emptyScope | names = parameters <| .arguments <| Node.value function.declaration }
+
+                newContext : ScopeModuleContext
+                newContext =
+                    context.scopes
+                        |> nonemptyList_cons newScope
+                        |> updateScope context
+
+                moduleNamesFromSignature : List ( Range, ModuleName )
+                moduleNamesFromSignature =
+                    function.signature
+                        |> Maybe.map (Node.value >> .typeAnnotation >> collectModuleNamesFromTypeAnnotation newContext)
+                        |> Maybe.withDefault []
+
+                moduleNamesFromArguments : List ( Range, ModuleName )
+                moduleNamesFromArguments =
+                    function.declaration
+                        |> Node.value
+                        |> .arguments
+                        |> List.concatMap (collectModuleNamesFromPattern newContext)
+
+                lookupTable : ModuleNameLookupTable
+                lookupTable =
+                    ModuleNameLookupTableInternal.addMultiple
+                        (moduleNamesFromSignature ++ moduleNamesFromArguments)
+                        newContext.lookupTable
             in
-            context.scopes
-                |> nonemptyList_cons newScope
-                |> updateScope context
+            { newContext | lookupTable = lookupTable }
+
+        Declaration.CustomTypeDeclaration { constructors } ->
+            { context
+                | lookupTable =
+                    ModuleNameLookupTableInternal.addMultiple
+                        (constructors |> List.concatMap (Node.value >> .arguments) |> List.concatMap (collectModuleNamesFromTypeAnnotation context))
+                        context.lookupTable
+            }
+
+        Declaration.AliasDeclaration { typeAnnotation } ->
+            { context
+                | lookupTable =
+                    ModuleNameLookupTableInternal.addMultiple
+                        (collectModuleNamesFromTypeAnnotation context typeAnnotation)
+                        context.lookupTable
+            }
 
         _ ->
             context
 
 
-scope_declarationExitVisitor : Node Declaration -> InnerModuleContext -> InnerModuleContext
+scope_declarationExitVisitor : Node Declaration -> ScopeModuleContext -> ScopeModuleContext
 scope_declarationExitVisitor node context =
     case Node.value node of
         Declaration.FunctionDeclaration _ ->
@@ -4771,27 +4810,6 @@ parameters patterns =
 collectNamesFromPattern : Node Pattern -> List (Node String)
 collectNamesFromPattern pattern =
     case Node.value pattern of
-        Pattern.AllPattern ->
-            []
-
-        Pattern.UnitPattern ->
-            []
-
-        Pattern.CharPattern _ ->
-            []
-
-        Pattern.StringPattern _ ->
-            []
-
-        Pattern.IntPattern _ ->
-            []
-
-        Pattern.HexPattern _ ->
-            []
-
-        Pattern.FloatPattern _ ->
-            []
-
         Pattern.TuplePattern subPatterns ->
             List.concatMap collectNamesFromPattern subPatterns
 
@@ -4816,9 +4834,37 @@ collectNamesFromPattern pattern =
         Pattern.ParenthesizedPattern subPattern ->
             collectNamesFromPattern subPattern
 
+        _ ->
+            []
 
-popScopeEnter : Node Expression -> InnerModuleContext -> InnerModuleContext
-popScopeEnter node context =
+
+collectModuleNamesFromPattern : ScopeModuleContext -> Node Pattern -> List ( Range, ModuleName )
+collectModuleNamesFromPattern context pattern =
+    case Node.value pattern of
+        Pattern.TuplePattern subPatterns ->
+            List.concatMap (collectModuleNamesFromPattern context) subPatterns
+
+        Pattern.UnConsPattern left right ->
+            List.concatMap (collectModuleNamesFromPattern context) [ left, right ]
+
+        Pattern.ListPattern subPatterns ->
+            List.concatMap (collectModuleNamesFromPattern context) subPatterns
+
+        Pattern.NamedPattern { moduleName, name } subPatterns ->
+            ( Node.range pattern, moduleNameForType context name moduleName ) :: List.concatMap (collectModuleNamesFromPattern context) subPatterns
+
+        Pattern.AsPattern subPattern _ ->
+            collectModuleNamesFromPattern context subPattern
+
+        Pattern.ParenthesizedPattern subPattern ->
+            collectModuleNamesFromPattern context subPattern
+
+        _ ->
+            []
+
+
+scope_popScopeEnter : Node Expression -> ScopeModuleContext -> ScopeModuleContext
+scope_popScopeEnter node context =
     let
         currentScope : Scope
         currentScope =
@@ -4836,8 +4882,8 @@ popScopeEnter node context =
             { context | scopes = nonemptyList_cons { emptyScope | names = names, caseToExit = node } context.scopes }
 
 
-popScopeExit : Node Expression -> InnerModuleContext -> InnerModuleContext
-popScopeExit node context =
+scope_popScopeExit : Node Expression -> ScopeModuleContext -> ScopeModuleContext
+scope_popScopeExit node context =
     let
         currentScope : Scope
         currentScope =
@@ -4850,56 +4896,86 @@ popScopeExit node context =
         context
 
 
-scope_expressionEnterVisitor : Node Expression -> InnerModuleContext -> InnerModuleContext
+scope_expressionEnterVisitor : Node Expression -> ScopeModuleContext -> ScopeModuleContext
 scope_expressionEnterVisitor node context =
     case Node.value node of
         Expression.LetExpression { declarations, expression } ->
-            List.foldl
-                (\declaration scopes ->
-                    case Node.value declaration of
-                        Expression.LetFunction function ->
-                            let
-                                nameNode : Node String
-                                nameNode =
-                                    function.declaration
-                                        |> Node.value
-                                        |> .name
-                            in
-                            registerVariable
-                                { variableType = LetVariable, node = nameNode }
-                                -- TODO Check if the name as 2nd arg is not redundant with the 1st argument's node field
-                                (Node.value nameNode)
-                                scopes
+            let
+                newContext : ScopeModuleContext
+                newContext =
+                    List.foldl
+                        (\declaration scopes ->
+                            case Node.value declaration of
+                                Expression.LetFunction function ->
+                                    let
+                                        nameNode : Node String
+                                        nameNode =
+                                            function.declaration
+                                                |> Node.value
+                                                |> .name
+                                    in
+                                    registerVariable
+                                        { variableType = LetVariable, node = nameNode }
+                                        -- TODO Check if the name as 2nd arg is not redundant with the 1st argument's node field
+                                        (Node.value nameNode)
+                                        scopes
 
-                        Expression.LetDestructuring _ _ ->
-                            scopes
-                )
-                (nonemptyList_cons emptyScope context.scopes)
-                declarations
-                |> updateScope context
+                                Expression.LetDestructuring _ _ ->
+                                    scopes
+                        )
+                        (nonemptyList_cons emptyScope context.scopes)
+                        declarations
+                        |> updateScope context
+
+                moduleNames : List ( Range, ModuleName )
+                moduleNames =
+                    declarations
+                        |> List.concatMap
+                            (\declaration ->
+                                case Node.value declaration of
+                                    Expression.LetFunction function ->
+                                        -- TODO LOOKUP also take the ones from the destructuring
+                                        function.signature
+                                            |> Maybe.map (Node.value >> .typeAnnotation >> collectModuleNamesFromTypeAnnotation newContext)
+                                            |> Maybe.withDefault []
+
+                                    Expression.LetDestructuring pattern _ ->
+                                        collectModuleNamesFromPattern newContext pattern
+                            )
+            in
+            { newContext | lookupTable = ModuleNameLookupTableInternal.addMultiple moduleNames newContext.lookupTable }
 
         Expression.CaseExpression caseBlock ->
             let
                 cases : List ( Node Expression, Dict String VariableInfo )
                 cases =
-                    caseBlock.cases
-                        |> List.map
-                            (\( pattern, expression ) ->
-                                ( expression
-                                , collectNamesFromPattern pattern
-                                    |> List.map
-                                        (\node_ ->
-                                            ( Node.value node_
-                                            , { node = node_
-                                              , variableType = PatternVariable
-                                              }
-                                            )
+                    List.map
+                        (\( pattern, expression ) ->
+                            ( expression
+                            , collectNamesFromPattern pattern
+                                |> List.map
+                                    (\node_ ->
+                                        ( Node.value node_
+                                        , { node = node_
+                                          , variableType = PatternVariable
+                                          }
                                         )
-                                    |> Dict.fromList
-                                )
+                                    )
+                                |> Dict.fromList
                             )
+                        )
+                        caseBlock.cases
+
+                moduleNames : List ( Range, ModuleName )
+                moduleNames =
+                    List.concatMap
+                        (\( pattern, _ ) -> collectModuleNamesFromPattern context pattern)
+                        caseBlock.cases
             in
-            { context | scopes = nonemptyList_mapHead (\scope -> { scope | cases = cases }) context.scopes }
+            { context
+                | scopes = nonemptyList_mapHead (\scope -> { scope | cases = cases }) context.scopes
+                , lookupTable = ModuleNameLookupTableInternal.addMultiple moduleNames context.lookupTable
+            }
 
         Expression.FunctionOrValue moduleName name ->
             { context
@@ -4910,11 +4986,43 @@ scope_expressionEnterVisitor node context =
                         context.lookupTable
             }
 
+        Expression.LambdaExpression { args } ->
+            { context
+                | lookupTable =
+                    ModuleNameLookupTableInternal.addMultiple
+                        (List.concatMap (collectModuleNamesFromPattern context) args)
+                        context.lookupTable
+            }
+
         _ ->
             context
 
 
-expressionExitVisitor : Node Expression -> InnerModuleContext -> InnerModuleContext
+collectModuleNamesFromTypeAnnotation : ScopeModuleContext -> Node TypeAnnotation -> List ( Range, ModuleName )
+collectModuleNamesFromTypeAnnotation context typeAnnotationNode =
+    case Node.value typeAnnotationNode of
+        TypeAnnotation.Typed (Node range ( moduleName, name )) args ->
+            ( range, moduleNameForType context name moduleName ) :: List.concatMap (collectModuleNamesFromTypeAnnotation context) args
+
+        TypeAnnotation.Tupled nodes ->
+            List.concatMap (collectModuleNamesFromTypeAnnotation context) nodes
+
+        TypeAnnotation.Record fields ->
+            List.concatMap (Node.value >> Tuple.second >> collectModuleNamesFromTypeAnnotation context) fields
+
+        TypeAnnotation.GenericRecord _ fields ->
+            fields
+                |> Node.value
+                |> List.concatMap (Node.value >> Tuple.second >> collectModuleNamesFromTypeAnnotation context)
+
+        TypeAnnotation.FunctionTypeAnnotation left right ->
+            collectModuleNamesFromTypeAnnotation context left ++ collectModuleNamesFromTypeAnnotation context right
+
+        _ ->
+            []
+
+
+expressionExitVisitor : Node Expression -> ScopeModuleContext -> ScopeModuleContext
 expressionExitVisitor node context =
     case Node.value node of
         Expression.LetExpression _ ->
@@ -4967,7 +5075,7 @@ If the element was defined in the current module, then the result will be `[]`.
                 ( [], context )
 
 -}
-moduleNameForValue : InnerModuleContext -> String -> List String -> List String
+moduleNameForValue : ScopeModuleContext -> String -> List String -> List String
 moduleNameForValue context valueName moduleName =
     case moduleName of
         [] ->
@@ -5017,7 +5125,7 @@ A type can be either a custom type or a type alias.
   - The third argument (`List String`) is the module name that was used next to the type name where you found it
 
 -}
-moduleNameForType : InnerModuleContext -> String -> List String -> List String
+moduleNameForType : ScopeModuleContext -> String -> List String -> List String
 moduleNameForType context typeName moduleName =
     case moduleName of
         [] ->
