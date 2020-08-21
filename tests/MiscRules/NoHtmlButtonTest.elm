@@ -48,20 +48,19 @@ b = Foo.bar 1
 c = baz
 """
                 |> Review.Test.expectNoErrors
-    , Test.only <|
-        test "should report the use of `Html.button` as an expression" <|
-            \() ->
-                testRule """
+    , test "should report the use of `Html.button` as an expression" <|
+        \() ->
+            testRule """
 import Html
 a = Html.button
 """
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = message
-                            , details = details
-                            , under = "Html.button"
-                            }
-                        ]
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = message
+                        , details = details
+                        , under = "Html.button"
+                        }
+                    ]
     , test "should report the use of `Html.button` even if it is not imported" <|
         \() ->
             testRule """

@@ -882,7 +882,7 @@ registerImportAlias import_ innerContext =
             { innerContext
                 | importAliases =
                     Dict.update
-                        (Node.value alias_ |> getModuleName)
+                        (Node.value alias_ |> joinModuleName)
                         (\previousValue -> Just <| Node.value import_.moduleName :: Maybe.withDefault [] previousValue)
                         innerContext.importAliases
             }
@@ -902,7 +902,7 @@ registerImportExposed import_ innerContext =
 
                 module_ : Elm.Docs.Module
                 module_ =
-                    (case Dict.get (getModuleName moduleName) innerContext.dependenciesModules of
+                    (case Dict.get (joinModuleName moduleName) innerContext.dependenciesModules of
                         Just m ->
                             Just m
 
@@ -910,7 +910,7 @@ registerImportExposed import_ innerContext =
                             Dict.get moduleName innerContext.modules
                     )
                         |> Maybe.withDefault
-                            { name = getModuleName moduleName
+                            { name = joinModuleName moduleName
                             , comment = ""
                             , unions = []
                             , values = []
@@ -1287,7 +1287,7 @@ moduleNameForValue (ModuleContext context) valueName moduleName =
                     |> Maybe.withDefault []
 
         _ :: [] ->
-            case Dict.get (getModuleName moduleName) context.importAliases of
+            case Dict.get (joinModuleName moduleName) context.importAliases of
                 Just [ aliasedModuleName ] ->
                     aliasedModuleName
 
@@ -1337,7 +1337,7 @@ moduleNameForType (ModuleContext context) typeName moduleName =
                     |> Maybe.withDefault []
 
         _ :: [] ->
-            case Dict.get (getModuleName moduleName) context.importAliases of
+            case Dict.get (joinModuleName moduleName) context.importAliases of
                 Just [ aliasedModuleName ] ->
                     aliasedModuleName
 
@@ -1392,8 +1392,8 @@ isInScope name scopes =
 -- MISC
 
 
-getModuleName : List String -> String
-getModuleName name =
+joinModuleName : List String -> String
+joinModuleName name =
     String.join "." name
 
 
