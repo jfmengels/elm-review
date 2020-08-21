@@ -29,9 +29,7 @@ contextCreator =
     Rule.initContextCreator
         (\moduleNameLookupTable () ->
             { scope = Scope.initialModuleContext
-
-            -- TODO FIND OUT WHY THINGS ARE NOT PASSED TO THE RULE
-            , moduleNameLookupTable = Debug.log "HTML button moduleNameLookupTable" moduleNameLookupTable
+            , moduleNameLookupTable = moduleNameLookupTable
             }
         )
         |> Rule.withModuleNameLookupTable

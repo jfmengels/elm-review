@@ -4023,5 +4023,12 @@ scopeRule : RunnableProjectVisitor () moduleContext
 scopeRule =
     newProjectRuleSchema "DUMMY" ()
         |> withElmJsonProjectVisitor (\_ () -> ( [], () ))
-        |> withDataExtractor (\_ -> Extract (Dict.singleton [ "some dummy data" ] ModuleNameLookupTableInternal.empty))
+        |> withDataExtractor
+            (\_ ->
+                Extract
+                    (ModuleNameLookupTableInternal.empty
+                        |> ModuleNameLookupTableInternal.add Range.emptyRange [ "Some", "Module" ]
+                        |> Dict.singleton [ "A" ]
+                    )
+            )
         |> fromProjectRuleSchemaToRunnableProjectVisitor
