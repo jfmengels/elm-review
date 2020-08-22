@@ -19,8 +19,8 @@ import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
+import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
-import Scope
 import Set exposing (Set)
 
 
@@ -109,18 +109,18 @@ I would love help with improving this :)
 You can try this rule out by running the following command:
 
 ```bash
-elm-review --template jfmengels/review-unused/example --rules NoUnused.CustomTypeConstructors
+elm - review --template jfmengels/review-unused/example --rules NoUnused.CustomTypeConstructors
 ```
 
 -}
 rule : List { moduleName : String, typeName : String, index : Int } -> Rule
 rule phantomTypes =
     Rule.newProjectRuleSchema "NoUnused.CustomTypeConstructors" (initialProjectContext phantomTypes)
-        |> Scope.addProjectVisitors
+        |> Rule.withContextFromImportedModules
         |> Rule.withModuleVisitor moduleVisitor
-        |> Rule.withModuleContext
-            { fromProjectToModule = fromProjectToModule
-            , fromModuleToProject = fromModuleToProject
+        |> Rule.withModuleContextUsingContextCreator
+            { fromProjectToModule = Rule.initContextCreator fromProjectToModule |> Rule.withModuleNameLookupTable |> Rule.withMetadata
+            , fromModuleToProject = Rule.initContextCreator fromModuleToProject |> Rule.withModuleKey |> Rule.withMetadata
             , foldProjectContexts = foldProjectContexts
             }
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
@@ -165,8 +165,7 @@ type ExposedConstructors
 
 
 type alias ProjectContext =
-    { scope : Scope.ProjectContext
-    , exposedModules : Set ModuleNameAsString
+    { exposedModules : Set ModuleNameAsString
     , exposedConstructors : Dict ModuleNameAsString ExposedConstructors
     , usedConstructors : Dict ModuleNameAsString (Set ConstructorName)
     , phantomVariables : Dict ModuleName (List ( CustomTypeName, Int ))
@@ -174,7 +173,7 @@ type alias ProjectContext =
 
 
 type alias ModuleContext =
-    { scope : Scope.ModuleContext
+    { lookupTable : ModuleNameLookupTable
     , exposedCustomTypesWithConstructors : Set CustomTypeName
     , isExposed : Bool
     , exposesEverything : Bool
@@ -187,8 +186,7 @@ type alias ModuleContext =
 
 initialProjectContext : List { moduleName : String, typeName : String, index : Int } -> ProjectContext
 initialProjectContext phantomTypes =
-    { scope = Scope.initialProjectContext
-    , exposedModules = Set.empty
+    { exposedModules = Set.empty
     , exposedConstructors = Dict.empty
     , usedConstructors = Dict.empty
     , phantomVariables =
@@ -203,11 +201,11 @@ initialProjectContext phantomTypes =
     }
 
 
-fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> ProjectContext -> ModuleContext
-fromProjectToModule _ (Node.Node _ moduleName) projectContext =
-    { scope = Scope.fromProjectToModule projectContext.scope
+fromProjectToModule : ModuleNameLookupTable -> Rule.Metadata -> ProjectContext -> ModuleContext
+fromProjectToModule lookupTable metadata projectContext =
+    { lookupTable = lookupTable
     , exposedCustomTypesWithConstructors = Set.empty
-    , isExposed = Set.member (String.join "." moduleName) projectContext.exposedModules
+    , isExposed = Set.member (Rule.moduleNameFromMetadata metadata |> String.join ".") projectContext.exposedModules
     , exposedConstructors = projectContext.exposedConstructors
     , exposesEverything = False
     , declaredTypesWithConstructors = Dict.empty
@@ -216,8 +214,8 @@ fromProjectToModule _ (Node.Node _ moduleName) projectContext =
     }
 
 
-fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> ModuleContext -> ProjectContext
-fromModuleToProject moduleKey moduleName moduleContext =
+fromModuleToProject : Rule.ModuleKey -> Rule.Metadata -> ModuleContext -> ProjectContext
+fromModuleToProject moduleKey metadata moduleContext =
     let
         localUsed : Set ConstructorName
         localUsed =
@@ -231,12 +229,15 @@ fromModuleToProject moduleKey moduleName moduleContext =
                 |> Dict.get []
                 |> Maybe.withDefault []
 
+        moduleName : ModuleName
+        moduleName =
+            Rule.moduleNameFromMetadata metadata
+
         moduleNameAsString : ModuleNameAsString
         moduleNameAsString =
-            String.join "." <| Node.value moduleName
+            String.join "." moduleName
     in
-    { scope = Scope.fromModuleToProject moduleName moduleContext.scope
-    , exposedModules = Set.empty
+    { exposedModules = Set.empty
     , exposedConstructors =
         if moduleContext.isExposed then
             Dict.empty
@@ -253,14 +254,13 @@ fromModuleToProject moduleKey moduleName moduleContext =
         moduleContext.usedFunctionsOrValues
             |> Dict.remove ""
             |> Dict.insert moduleNameAsString localUsed
-    , phantomVariables = Dict.singleton (Node.value moduleName) localPhantomTypes
+    , phantomVariables = Dict.singleton moduleName localPhantomTypes
     }
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts newContext previousContext =
-    { scope = Scope.foldProjectContexts newContext.scope previousContext.scope
-    , exposedModules = previousContext.exposedModules
+    { exposedModules = previousContext.exposedModules
     , exposedConstructors = Dict.union newContext.exposedConstructors previousContext.exposedConstructors
     , usedConstructors =
         Dict.merge
@@ -442,8 +442,13 @@ declarationVisitor node context =
 expressionVisitor : Node Expression -> ModuleContext -> ( List nothing, ModuleContext )
 expressionVisitor node moduleContext =
     case Node.value node of
-        Expression.FunctionOrValue moduleName name ->
-            ( [], registerUsedFunctionOrValue moduleName name moduleContext )
+        Expression.FunctionOrValue _ name ->
+            case ModuleNameLookupTable.moduleNameFor moduleContext.lookupTable node of
+                Just moduleName ->
+                    ( [], registerUsedFunctionOrValue moduleName name moduleContext )
+
+                Nothing ->
+                    ( [], moduleContext )
 
         Expression.LetExpression { declarations } ->
             ( []
@@ -470,15 +475,10 @@ registerUsedFunctionOrValue moduleName name moduleContext =
         moduleContext
 
     else
-        let
-            realModuleName : ModuleName
-            realModuleName =
-                Scope.moduleNameForValue moduleContext.scope name moduleName
-        in
         { moduleContext
             | usedFunctionsOrValues =
                 insertIntoUsedFunctionsOrValues
-                    ( realModuleName, name )
+                    ( moduleName, name )
                     moduleContext.usedFunctionsOrValues
         }
 
@@ -552,7 +552,7 @@ markPhantomTypesFromTypeAnnotationAsUsed maybeTypeAnnotation moduleContext =
             case maybeTypeAnnotation of
                 Just typeAnnotation ->
                     collectTypesUsedAsPhantomVariables
-                        moduleContext.scope
+                        moduleContext
                         moduleContext.phantomVariables
                         typeAnnotation
 
@@ -611,29 +611,31 @@ collectGenericsFromTypeAnnotation node =
             []
 
 
-collectTypesUsedAsPhantomVariables : Scope.ModuleContext -> Dict ModuleName (List ( CustomTypeName, Int )) -> Node TypeAnnotation -> List ( ModuleName, CustomTypeName )
-collectTypesUsedAsPhantomVariables scope phantomVariables node =
+collectTypesUsedAsPhantomVariables : ModuleContext -> Dict ModuleName (List ( CustomTypeName, Int )) -> Node TypeAnnotation -> List ( ModuleName, CustomTypeName )
+collectTypesUsedAsPhantomVariables moduleContext phantomVariables node =
     case Node.value node of
         TypeAnnotation.FunctionTypeAnnotation a b ->
-            collectTypesUsedAsPhantomVariables scope phantomVariables a
-                ++ collectTypesUsedAsPhantomVariables scope phantomVariables b
+            collectTypesUsedAsPhantomVariables moduleContext phantomVariables a
+                ++ collectTypesUsedAsPhantomVariables moduleContext phantomVariables b
 
-        TypeAnnotation.Typed (Node.Node _ ( moduleNameOfPhantomContainer, name )) params ->
+        TypeAnnotation.Typed (Node.Node typeRange ( _, name )) params ->
             let
-                realModuleNameOfPhantomContainer : ModuleName
-                realModuleNameOfPhantomContainer =
-                    Scope.moduleNameForType scope name moduleNameOfPhantomContainer
+                moduleNameOfPhantomContainer : ModuleName
+                moduleNameOfPhantomContainer =
+                    ModuleNameLookupTable.moduleNameAt moduleContext.lookupTable typeRange
+                        |> Maybe.withDefault []
 
                 typesUsedInThePhantomVariablePosition : List ( ModuleName, CustomTypeName )
                 typesUsedInThePhantomVariablePosition =
-                    Dict.get realModuleNameOfPhantomContainer phantomVariables
+                    Dict.get moduleNameOfPhantomContainer phantomVariables
                         |> Maybe.withDefault []
                         |> List.filter (\( type_, _ ) -> type_ == name)
                         |> List.filterMap
                             (\( _, index ) ->
                                 case listAtIndex index params |> Maybe.map Node.value of
-                                    Just (TypeAnnotation.Typed (Node.Node _ ( moduleNameOfPhantomVariable, typeName )) _) ->
-                                        Just ( Scope.moduleNameForType scope typeName moduleNameOfPhantomVariable, typeName )
+                                    Just (TypeAnnotation.Typed (Node.Node subTypeRange ( _, typeName )) _) ->
+                                        ModuleNameLookupTable.moduleNameAt moduleContext.lookupTable subTypeRange
+                                            |> Maybe.map (\moduleNameOfPhantomVariable -> ( moduleNameOfPhantomVariable, typeName ))
 
                                     _ ->
                                         Nothing
@@ -641,19 +643,19 @@ collectTypesUsedAsPhantomVariables scope phantomVariables node =
             in
             List.concat
                 [ typesUsedInThePhantomVariablePosition
-                , List.concatMap (collectTypesUsedAsPhantomVariables scope phantomVariables) params
+                , List.concatMap (collectTypesUsedAsPhantomVariables moduleContext phantomVariables) params
                 ]
 
         TypeAnnotation.Record list ->
             list
-                |> List.concatMap (Node.value >> Tuple.second >> collectTypesUsedAsPhantomVariables scope phantomVariables)
+                |> List.concatMap (Node.value >> Tuple.second >> collectTypesUsedAsPhantomVariables moduleContext phantomVariables)
 
         TypeAnnotation.GenericRecord _ list ->
             Node.value list
-                |> List.concatMap (Node.value >> Tuple.second >> collectTypesUsedAsPhantomVariables scope phantomVariables)
+                |> List.concatMap (Node.value >> Tuple.second >> collectTypesUsedAsPhantomVariables moduleContext phantomVariables)
 
         TypeAnnotation.Tupled list ->
-            List.concatMap (collectTypesUsedAsPhantomVariables scope phantomVariables) list
+            List.concatMap (collectTypesUsedAsPhantomVariables moduleContext phantomVariables) list
 
         TypeAnnotation.GenericType _ ->
             []
