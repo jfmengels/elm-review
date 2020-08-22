@@ -3,83 +3,16 @@ module ModuleNameForValueTest exposing (all)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Fixtures.Dependencies as Dependencies
+import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
-import Scope
 import Test exposing (Test, test)
 
 
 all : Test
 all =
     Test.describe "Scope.moduleNameForValue"
-        [ forModuleRule
-        , forProjectRule
-        ]
-
-
-forModuleRule : Test
-forModuleRule =
-    Test.describe "module rule"
-        [ test "should return the module that defined the value" <|
-            \() ->
-                """module A exposing (..)
-import Bar as Baz exposing (baz)
-import ExposesSomeThings exposing (..)
-import ExposesEverything exposing (..)
-import Foo.Bar
-import Html exposing (..)
-import Http exposing (get)
-
-localValue = 1
-
-a = localValue
-    unknownValue
-    exposedElement
-    nonExposedElement
-    elementFromExposesEverything
-    VariantA
-    Foo.bar
-    Foo.Bar
-    Baz.foo
-    baz
-    button
-    Http.get
-    get
-    always
-    True
-    Just
-"""
-                    |> Review.Test.runWithProjectData project moduleRule
-                    |> Review.Test.expectErrors
-                        [ Review.Test.error
-                            { message = """
-<nothing>.localValue -> <nothing>.localValue
-<nothing>.unknownValue -> <nothing>.unknownValue
-<nothing>.exposedElement -> <nothing>.exposedElement
-<nothing>.nonExposedElement -> <nothing>.nonExposedElement
-<nothing>.elementFromExposesEverything -> <nothing>.elementFromExposesEverything
-<nothing>.VariantA -> <nothing>.VariantA
-Foo.bar -> Foo.bar
-Foo.Bar -> Foo.Bar
-Baz.foo -> Bar.foo
-<nothing>.baz -> Bar.baz
-<nothing>.button -> Html.button
-Http.get -> Http.get
-<nothing>.get -> Http.get
-<nothing>.always -> Basics.always
-<nothing>.True -> Basics.True
-<nothing>.Just -> Maybe.Just"""
-                            , details = [ "details" ]
-                            , under = "module"
-                            }
-                        ]
-        ]
-
-
-forProjectRule : Test
-forProjectRule =
-    Test.describe "project rule"
         [ test "should return the module that defined the value" <|
             \() ->
                 [ """module A exposing (..)
@@ -175,7 +108,7 @@ Http.get -> Http.get
 
 
 type alias ModuleContext =
-    { scope : Scope.ModuleContext
+    { lookupTable : ModuleNameLookupTable
     , texts : List String
     }
 
@@ -189,43 +122,27 @@ project =
 
 projectRule : Rule
 projectRule =
-    Rule.newProjectRuleSchema "TestRule" { scope = Scope.initialProjectContext }
-        |> Scope.addProjectVisitors
-        |> Rule.withModuleVisitor moduleVisitor
-        |> Rule.withModuleContext
-            { fromProjectToModule =
-                \_ _ projectContext ->
-                    { scope = Scope.fromProjectToModule projectContext.scope
-                    , texts = []
-                    }
-            , fromModuleToProject =
-                \_ moduleNameNode moduleContext ->
-                    { scope = Scope.fromModuleToProject moduleNameNode moduleContext.scope
-                    }
-            , foldProjectContexts = \a b -> { scope = Scope.foldProjectContexts a.scope b.scope }
-            }
-        |> Rule.fromProjectRuleSchema
-
-
-moduleRule : Rule
-moduleRule =
-    Rule.newModuleRuleSchema "TestRule" { scope = Scope.initialModuleContext, texts = [] }
-        |> Scope.addModuleVisitors
-        |> moduleVisitor
+    Rule.newModuleRuleSchemaUsingContextCreator "TestRule" contextCreator
+        |> Rule.withExpressionEnterVisitor expressionVisitor
+        |> Rule.withFinalModuleEvaluation finalEvaluation
         |> Rule.fromModuleRuleSchema
 
 
-moduleVisitor : Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
-moduleVisitor schema =
-    schema
-        |> Rule.withExpressionVisitor expressionVisitor
-        |> Rule.withFinalModuleEvaluation finalEvaluation
+contextCreator : Rule.ContextCreator () ModuleContext
+contextCreator =
+    Rule.initContextCreator
+        (\lookupTable () ->
+            { lookupTable = lookupTable
+            , texts = []
+            }
+        )
+        |> Rule.withModuleNameLookupTable
 
 
-expressionVisitor : Node Expression -> Rule.Direction -> ModuleContext -> ( List nothing, ModuleContext )
-expressionVisitor node direction context =
-    case ( direction, Node.value node ) of
-        ( Rule.OnEnter, Expression.FunctionOrValue moduleName name ) ->
+expressionVisitor : Node Expression -> ModuleContext -> ( List nothing, ModuleContext )
+expressionVisitor node context =
+    case Node.value node of
+        Expression.FunctionOrValue moduleName name ->
             let
                 nameInCode : String
                 nameInCode =
@@ -238,12 +155,15 @@ expressionVisitor node direction context =
 
                 realName : String
                 realName =
-                    case Scope.moduleNameForValue context.scope name moduleName of
-                        [] ->
+                    case ModuleNameLookupTable.moduleNameFor context.lookupTable node of
+                        Just [] ->
                             "<nothing>." ++ name
 
-                        moduleName_ ->
+                        Just moduleName_ ->
                             String.join "." moduleName_ ++ "." ++ name
+
+                        Nothing ->
+                            "!!! UNKNOWN !!!"
             in
             ( [], { context | texts = context.texts ++ [ nameInCode ++ " -> " ++ realName ] } )
 
