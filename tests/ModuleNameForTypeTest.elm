@@ -4,10 +4,10 @@ import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Fixtures.Dependencies as Dependencies
+import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
-import Scope
 import Test exposing (Test, test)
 
 
@@ -74,7 +74,7 @@ type alias BAlias = {}
 
 
 type alias ModuleContext =
-    { scope : Scope.ModuleContext
+    { lookupTable : ModuleNameLookupTable
     , texts : List String
     }
 
@@ -88,66 +88,58 @@ project =
 
 projectRule : Rule
 projectRule =
-    Rule.newProjectRuleSchema "TestRule" { scope = Scope.initialProjectContext }
-        |> Scope.addProjectVisitors
-        |> Rule.withModuleVisitor moduleVisitor
-        |> Rule.withModuleContext
-            { fromProjectToModule =
-                \_ _ projectContext ->
-                    { scope = Scope.fromProjectToModule projectContext.scope
-                    , texts = []
-                    }
-            , fromModuleToProject =
-                \_ moduleNameNode moduleContext ->
-                    { scope = Scope.fromModuleToProject moduleNameNode moduleContext.scope
-                    }
-            , foldProjectContexts = \a b -> { scope = Scope.foldProjectContexts a.scope b.scope }
-            }
-        |> Rule.fromProjectRuleSchema
-
-
-moduleVisitor : Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
-moduleVisitor schema =
-    schema
-        |> Rule.withDeclarationVisitor declarationVisitor
+    Rule.newModuleRuleSchemaUsingContextCreator "TestRule" contextCreator
+        |> Rule.withDeclarationEnterVisitor declarationVisitor
         |> Rule.withFinalModuleEvaluation finalEvaluation
+        |> Rule.fromModuleRuleSchema
 
 
-declarationVisitor : Node Declaration -> Rule.Direction -> ModuleContext -> ( List nothing, ModuleContext )
-declarationVisitor node direction context =
-    case ( direction, Node.value node ) of
-        ( Rule.OnEnter, Declaration.CustomTypeDeclaration { constructors } ) ->
+contextCreator : Rule.ContextCreator () ModuleContext
+contextCreator =
+    Rule.initContextCreator
+        (\lookupTable () ->
+            { lookupTable = lookupTable
+            , texts = []
+            }
+        )
+        |> Rule.withModuleNameLookupTable
+
+
+declarationVisitor : Node Declaration -> ModuleContext -> ( List nothing, ModuleContext )
+declarationVisitor node context =
+    case Node.value node of
+        Declaration.CustomTypeDeclaration { constructors } ->
             let
                 types : List String
                 types =
                     constructors
                         |> List.concatMap (Node.value >> .arguments)
-                        |> List.concatMap (typeAnnotationNames context.scope)
+                        |> List.concatMap (typeAnnotationNames context)
             in
             ( [], { context | texts = context.texts ++ types } )
 
-        ( Rule.OnEnter, Declaration.AliasDeclaration { typeAnnotation } ) ->
-            ( [], { context | texts = context.texts ++ typeAnnotationNames context.scope typeAnnotation } )
+        Declaration.AliasDeclaration { typeAnnotation } ->
+            ( [], { context | texts = context.texts ++ typeAnnotationNames context typeAnnotation } )
 
-        ( Rule.OnEnter, Declaration.FunctionDeclaration function ) ->
+        Declaration.FunctionDeclaration function ->
             case function.signature |> Maybe.map (Node.value >> .typeAnnotation) of
                 Nothing ->
                     ( [], context )
 
                 Just typeAnnotation ->
-                    ( [], { context | texts = context.texts ++ typeAnnotationNames context.scope typeAnnotation } )
+                    ( [], { context | texts = context.texts ++ typeAnnotationNames context typeAnnotation } )
 
         _ ->
             ( [], context )
 
 
-typeAnnotationNames : Scope.ModuleContext -> Node TypeAnnotation -> List String
-typeAnnotationNames scope typeAnnotation =
+typeAnnotationNames : ModuleContext -> Node TypeAnnotation -> List String
+typeAnnotationNames moduleContext typeAnnotation =
     case Node.value typeAnnotation of
         TypeAnnotation.GenericType name ->
             [ "<nothing>." ++ name ++ " -> <generic>" ]
 
-        TypeAnnotation.Typed (Node _ ( moduleName, typeName )) typeParameters ->
+        TypeAnnotation.Typed (Node typeRange ( moduleName, typeName )) typeParameters ->
             let
                 nameInCode : String
                 nameInCode =
@@ -160,30 +152,33 @@ typeAnnotationNames scope typeAnnotation =
 
                 realName : String
                 realName =
-                    case Scope.moduleNameForType scope typeName moduleName of
-                        [] ->
+                    case ModuleNameLookupTable.moduleNameAt moduleContext.lookupTable typeRange of
+                        Just [] ->
                             "<nothing>." ++ typeName
 
-                        moduleName_ ->
+                        Just moduleName_ ->
                             String.join "." moduleName_ ++ "." ++ typeName
+
+                        Nothing ->
+                            "!!! UNKNOWN !!!"
             in
             (nameInCode ++ " -> " ++ realName)
-                :: List.concatMap (typeAnnotationNames scope) typeParameters
+                :: List.concatMap (typeAnnotationNames moduleContext) typeParameters
 
         TypeAnnotation.Unit ->
             []
 
         TypeAnnotation.Tupled typeAnnotations ->
-            List.concatMap (typeAnnotationNames scope) typeAnnotations
+            List.concatMap (typeAnnotationNames moduleContext) typeAnnotations
 
         TypeAnnotation.Record typeAnnotations ->
-            List.concatMap (Node.value >> Tuple.second >> typeAnnotationNames scope) typeAnnotations
+            List.concatMap (Node.value >> Tuple.second >> typeAnnotationNames moduleContext) typeAnnotations
 
         TypeAnnotation.GenericRecord _ typeAnnotations ->
-            List.concatMap (Node.value >> Tuple.second >> typeAnnotationNames scope) (Node.value typeAnnotations)
+            List.concatMap (Node.value >> Tuple.second >> typeAnnotationNames moduleContext) (Node.value typeAnnotations)
 
         TypeAnnotation.FunctionTypeAnnotation arg returnType ->
-            typeAnnotationNames scope arg ++ typeAnnotationNames scope returnType
+            typeAnnotationNames moduleContext arg ++ typeAnnotationNames moduleContext returnType
 
 
 finalEvaluation : ModuleContext -> List (Error {})
