@@ -4986,6 +4986,15 @@ scope_expressionEnterVisitor node context =
                         context.lookupTable
             }
 
+        Expression.RecordUpdateExpression (Node range name) _ ->
+            { context
+                | lookupTable =
+                    ModuleNameLookupTableInternal.add
+                        range
+                        (moduleNameForValue context name [])
+                        context.lookupTable
+            }
+
         Expression.LambdaExpression { args } ->
             { context
                 | lookupTable =

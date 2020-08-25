@@ -46,6 +46,7 @@ a = localValue
     Foo.Bar
     Baz.foo
     baz
+    { baz | a = 1 }
     button
     Http.get
     get
@@ -91,6 +92,7 @@ Something.Bar -> Something.B.Bar
 Foo.bar -> Foo.bar
 Foo.Bar -> Foo.Bar
 Baz.foo -> Bar.foo
+<nothing>.baz -> Bar.baz
 <nothing>.baz -> Bar.baz
 <nothing>.button -> Html.button
 Http.get -> Http.get
@@ -166,6 +168,22 @@ expressionVisitor node context =
                             "!!! UNKNOWN !!!"
             in
             ( [], { context | texts = context.texts ++ [ nameInCode ++ " -> " ++ realName ] } )
+
+        Expression.RecordUpdateExpression (Node range name) _ ->
+            let
+                realName : String
+                realName =
+                    case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
+                        Just [] ->
+                            "<nothing>." ++ name
+
+                        Just moduleName_ ->
+                            String.join "." moduleName_ ++ "." ++ name
+
+                        Nothing ->
+                            "!!! UNKNOWN !!!"
+            in
+            ( [], { context | texts = context.texts ++ [ "<nothing>." ++ name ++ " -> " ++ realName ] } )
 
         _ ->
             ( [], context )
