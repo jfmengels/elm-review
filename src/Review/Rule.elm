@@ -429,7 +429,7 @@ review rules project =
 
                                 moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
                                 moduleNameLookupTables =
-                                    Maybe.map (\(Extract moduleNameLookupTables_) -> moduleNameLookupTables_) extract
+                                    Maybe.map (\(Extract scope) -> scope.lookupTables) extract
 
                                 projectWithLookupTable : Project
                                 projectWithLookupTable =
@@ -1406,7 +1406,10 @@ withFinalProjectEvaluation visitor (ProjectRuleSchema schema) =
 
 
 type Extract
-    = Extract (Dict ModuleName ModuleNameLookupTable)
+    = Extract
+        { modules : Dict ModuleName Elm.Docs.Module
+        , lookupTables : Dict ModuleName ModuleNameLookupTable
+        }
 
 
 withDataExtractor :
@@ -4034,7 +4037,13 @@ scopeRule =
             , fromModuleToProject = scope_fromModuleToProject
             , foldProjectContexts = scope_foldProjectContexts
             }
-        |> withDataExtractor (\projectContext -> Extract projectContext.lookupTables)
+        |> withDataExtractor
+            (\projectContext ->
+                Extract
+                    { modules = projectContext.modules
+                    , lookupTables = projectContext.lookupTables
+                    }
+            )
         |> fromProjectRuleSchemaToRunnableProjectVisitor
 
 
