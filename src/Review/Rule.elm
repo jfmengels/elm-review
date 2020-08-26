@@ -417,8 +417,8 @@ review rules project =
 
                         Ok nodeContexts ->
                             let
-                                ( scopeErrors, newScopeRule, extract ) =
-                                    -- TODO Later use newScopeRule for to avoid recomputing it all over everytime
+                                scopeResult : { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
+                                scopeResult =
                                     runProjectVisitor
                                         "DUMMY"
                                         scopeRule
@@ -429,7 +429,7 @@ review rules project =
 
                                 moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
                                 moduleNameLookupTables =
-                                    Maybe.map (\(Extract moduleNameLookupTables_) -> moduleNameLookupTables_) extract
+                                    Maybe.map (\(Extract moduleNameLookupTables_) -> moduleNameLookupTables_) scopeResult.extract
 
                                 projectWithLookupTable : Project
                                 projectWithLookupTable =
@@ -439,8 +439,8 @@ review rules project =
                                     in
                                     Project { p | moduleNameLookupTables = moduleNameLookupTables }
                             in
-                            if not (List.isEmpty scopeErrors) then
-                                ( List.map errorToReviewError scopeErrors, rules )
+                            if not (List.isEmpty scopeResult.errors) then
+                                ( List.map errorToReviewError scopeResult.errors, rules )
 
                             else
                                 runRules rules projectWithLookupTable nodeContexts
@@ -529,8 +529,8 @@ reviewWithPrecollectionOfData rules maybeProjectData project =
 
                         Ok nodeContexts ->
                             let
-                                ( scopeErrors, newScopeRule, extract ) =
-                                    -- TODO Later use newScopeRule for to avoid recomputing it all over everytime
+                                scopeResult : { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
+                                scopeResult =
                                     runProjectVisitor
                                         "DUMMY"
                                         scopeRule
@@ -541,7 +541,7 @@ reviewWithPrecollectionOfData rules maybeProjectData project =
 
                                 moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
                                 moduleNameLookupTables =
-                                    Maybe.map (\(Extract moduleNameLookupTables_) -> moduleNameLookupTables_) extract
+                                    Maybe.map (\(Extract moduleNameLookupTables_) -> moduleNameLookupTables_) scopeResult.extract
 
                                 projectWithLookupTable : Project
                                 projectWithLookupTable =
@@ -551,8 +551,8 @@ reviewWithPrecollectionOfData rules maybeProjectData project =
                                     in
                                     Project { p | moduleNameLookupTables = moduleNameLookupTables }
                             in
-                            if not (List.isEmpty scopeErrors) then
-                                { errors = List.map errorToReviewError scopeErrors
+                            if not (List.isEmpty scopeResult.errors) then
+                                { errors = List.map errorToReviewError scopeResult.errors
                                 , rules = rules
                                 , projectData = Just ProjectData
                                 }
@@ -995,7 +995,8 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
         , ruleImplementation =
             \exceptions project nodeContexts ->
                 let
-                    ( errors, newRule, cache ) =
+                    result : { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
+                    result =
                         runProjectVisitor schema.name
                             (fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema)
                             Nothing
@@ -1003,7 +1004,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                             project
                             nodeContexts
                 in
-                ( errors, newRule )
+                ( result.errors, result.rule )
         }
 
 
@@ -3226,7 +3227,14 @@ type alias CacheEntryFor value projectContext =
     }
 
 
-runProjectVisitor : String -> RunnableProjectVisitor projectContext moduleContext -> Maybe (ProjectRuleCache projectContext) -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule, Maybe Extract )
+runProjectVisitor :
+    String
+    -> RunnableProjectVisitor projectContext moduleContext
+    -> Maybe (ProjectRuleCache projectContext)
+    -> Exceptions
+    -> Project
+    -> List (Graph.NodeContext ModuleName ())
+    -> { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
 runProjectVisitor name projectVisitor maybePreviousCache exceptions project nodeContexts =
     let
         cacheWithInitialContext : ProjectRuleCache projectContext
@@ -3310,45 +3318,48 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
                     errorsFromCache newCache
                         |> Exceptions.apply exceptions (accessInternalError >> .filePath)
     in
-    ( List.map (setRuleName name) errors
-    , Rule
-        { name = name
-        , exceptions = exceptions
-        , ruleImplementation =
-            \newExceptions newProject newNodeContexts ->
+    { errors = List.map (setRuleName name) errors
+    , rule =
+        Rule
+            { name = name
+            , exceptions = exceptions
+            , ruleImplementation =
+                \newExceptions newProject newNodeContexts ->
+                    let
+                        result : { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
+                        result =
+                            runProjectVisitor
+                                name
+                                projectVisitor
+                                (Just newCache)
+                                newExceptions
+                                newProject
+                                newNodeContexts
+                    in
+                    ( result.errors, result.rule )
+            }
+    , extract =
+        case
+            projectVisitor.dataExtractor
+        of
+            Just dataExtractor ->
                 let
-                    ( newErrors, newRule, _ ) =
-                        runProjectVisitor
-                            name
-                            projectVisitor
-                            (Just newCache)
-                            newExceptions
-                            newProject
-                            newNodeContexts
+                    -- TODO THis is already computed during the final project evaluation
+                    -- Re-use the data instead of re-computing
+                    contextToAnalyze : projectContext
+                    contextToAnalyze =
+                        case getFolderFromTraversal projectVisitor.traversalAndFolder of
+                            Just { foldProjectContexts } ->
+                                List.foldl foldProjectContexts initialContext allModulesContext
+
+                            Nothing ->
+                                initialContext
                 in
-                ( newErrors, newRule )
-        }
-    , case
-        projectVisitor.dataExtractor
-      of
-        Just dataExtractor ->
-            let
-                -- TODO THis is already computed during the final project evaluation
-                -- Re-use the data instead of re-computing
-                contextToAnalyze : projectContext
-                contextToAnalyze =
-                    case getFolderFromTraversal projectVisitor.traversalAndFolder of
-                        Just { foldProjectContexts } ->
-                            List.foldl foldProjectContexts initialContext allModulesContext
+                Just (dataExtractor contextToAnalyze)
 
-                        Nothing ->
-                            initialContext
-            in
-            Just (dataExtractor contextToAnalyze)
-
-        Nothing ->
-            Nothing
-    )
+            Nothing ->
+                Nothing
+    }
 
 
 setRuleName : String -> Error scope -> Error scope
