@@ -367,8 +367,8 @@ runOnModulesWithProjectData project rule sources =
                             errors : List ReviewError
                             errors =
                                 projectWithModules
-                                    |> Rule.review [ rule ]
-                                    |> Tuple.first
+                                    |> Rule.reviewWithPrecollectionOfData [ rule ] Nothing
+                                    |> .errors
                         in
                         case ListExtra.find (\err_ -> Rule.errorFilePath err_ == "GLOBAL ERROR") errors of
                             Just globalError ->

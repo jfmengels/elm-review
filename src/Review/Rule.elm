@@ -17,7 +17,7 @@ module Review.Rule exposing
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review, ruleName
     , Required, Forbidden
-    , withModuleNameLookupTable
+    , reviewWithPrecollectionOfData, withModuleNameLookupTable
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -244,7 +244,7 @@ reason or seemingly inappropriately.
 
 # Running rules
 
-@docs review, ruleName
+@docs review, reviewWithPrecollectionOfDat, ruleName
 
 
 # Internals
@@ -448,6 +448,134 @@ review rules project =
 
         modulesThatFailedToParse ->
             ( List.map parsingError modulesThatFailedToParse, rules )
+
+
+{-| Review a project and gives back the errors raised by the given rules.
+
+Note that you won't need to use this function when writing a rule. You should
+only need it if you try to make `elm-review` run in a new environment.
+
+    import Review.Project as Project exposing (Project, ProjectModule)
+    import Review.Rule as Rule exposing (Rule)
+
+    config : List Rule
+    config =
+        [ Some.Rule.rule
+        , Some.Other.Rule.rule
+        ]
+
+    project : Project
+    project =
+        Project.new
+            |> Project.addModule { path = "src/A.elm", source = "module A exposing (a)\na = 1" }
+            |> Project.addModule { path = "src/B.elm", source = "module B exposing (b)\nb = 1" }
+
+    doReview =
+        let
+            ( errors, rulesWithCachedValues ) =
+                Rule.reviewWithPrecollectionOfData rules Nothing project
+        in
+        doSomethingWithTheseValues
+
+The resulting `List Rule` is the same list of rules given as input, but with an
+updated internal cache to make it faster to re-run the rules on the same project.
+If you plan on re-reviewing with the same rules and project, for instance to
+review the project after a file has changed, you may want to store the rules in
+your `Model`.
+
+The rules are functions, so doing so will make your model unable to be
+exported/imported with `elm/browser`'s debugger, and may cause a crash if you try
+to compare them or the model that holds them.
+
+-}
+reviewWithPrecollectionOfData : List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
+reviewWithPrecollectionOfData rules maybeProjectData project =
+    case Review.Project.modulesThatFailedToParse project of
+        [] ->
+            case Review.Project.modules project |> duplicateModuleNames Dict.empty of
+                Just duplicate ->
+                    { errors = [ duplicateModulesGlobalError duplicate ]
+                    , rules = rules
+                    , projectData = Nothing
+                    }
+
+                Nothing ->
+                    let
+                        sortedModules : Result (Graph.Edge ()) (List (Graph.NodeContext ModuleName ()))
+                        sortedModules =
+                            project
+                                |> Review.Project.Internal.moduleGraph
+                                |> Graph.checkAcyclic
+                                |> Result.map Graph.topologicalSort
+                    in
+                    case sortedModules of
+                        Err _ ->
+                            { errors =
+                                [ Review.Error.ReviewError
+                                    { filePath = "GLOBAL ERROR"
+                                    , ruleName = "Incorrect project"
+                                    , message = "Import cycle discovered"
+                                    , details =
+                                        [ "I detected an import cycle in your project. This prevents me from working correctly, and results in a error for the Elm compiler anyway. Please resolve it using the compiler's suggestions, then try running `elm-review` again."
+                                        ]
+                                    , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
+                                    , fixes = Nothing
+                                    , target = Review.Error.Global
+                                    }
+                                ]
+                            , rules = rules
+                            , projectData = Nothing
+                            }
+
+                        Ok nodeContexts ->
+                            let
+                                ( scopeErrors, newScopeRule, extract ) =
+                                    -- TODO Later use newScopeRule for to avoid recomputing it all over everytime
+                                    runProjectVisitor
+                                        "DUMMY"
+                                        scopeRule
+                                        Nothing
+                                        Exceptions.init
+                                        project
+                                        nodeContexts
+
+                                moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
+                                moduleNameLookupTables =
+                                    Maybe.map (\(Extract moduleNameLookupTables_) -> moduleNameLookupTables_) extract
+
+                                projectWithLookupTable : Project
+                                projectWithLookupTable =
+                                    let
+                                        (Project p) =
+                                            project
+                                    in
+                                    Project { p | moduleNameLookupTables = moduleNameLookupTables }
+                            in
+                            if not (List.isEmpty scopeErrors) then
+                                { errors = List.map errorToReviewError scopeErrors
+                                , rules = rules
+                                , projectData = Just ProjectData
+                                }
+
+                            else
+                                let
+                                    ( errors, newRules ) =
+                                        runRules rules projectWithLookupTable nodeContexts
+                                in
+                                { errors = List.map errorToReviewError errors
+                                , rules = newRules
+                                , projectData = Just ProjectData
+                                }
+
+        modulesThatFailedToParse ->
+            { errors = List.map parsingError modulesThatFailedToParse
+            , rules = rules
+            , projectData = Nothing
+            }
+
+
+type ProjectData
+    = ProjectData
 
 
 duplicateModulesGlobalError : { moduleName : ModuleName, paths : List String } -> ReviewError
