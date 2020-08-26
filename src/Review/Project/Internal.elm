@@ -2,7 +2,6 @@ module Review.Project.Internal exposing
     ( Project(..)
     , ProjectModule
     , buildModuleGraph
-    , computeModuleNameLookupTables
     , getModuleName
     , moduleGraph
     , moduleNameLookupTables
@@ -20,7 +19,6 @@ import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
-import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Project.Dependency exposing (Dependency)
 import Vendor.Graph as Graph exposing (Graph)
 
@@ -150,15 +148,3 @@ getModuleName module_ =
     module_.ast.moduleDefinition
         |> Node.value
         |> Elm.Syntax.Module.moduleName
-
-
-computeModuleNameLookupTables : Project -> List (Graph.NodeContext ModuleName ()) -> Dict ModuleName ModuleNameLookupTable
-computeModuleNameLookupTables project nodeContexts =
-    nodeContexts
-        |> List.map (\nodeContext -> ( nodeContext.node.label, computeModuleNameLookupTable project nodeContext ))
-        |> Dict.fromList
-
-
-computeModuleNameLookupTable : Project -> Graph.NodeContext ModuleName () -> ModuleNameLookupTable
-computeModuleNameLookupTable (Project project) { node, incoming } =
-    ModuleNameLookupTableInternal.empty

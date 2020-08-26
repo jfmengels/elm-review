@@ -51,7 +51,7 @@ import Elm.Syntax.Node as Node
 import Review.Dependencies
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal as Internal exposing (Project)
-import Vendor.Graph as Graph exposing (Graph)
+import Vendor.Graph exposing (Graph)
 
 
 
@@ -246,22 +246,8 @@ precomputeModuleGraph ((Internal.Project p) as project) =
                 moduleGraph : Graph ModuleName ()
                 moduleGraph =
                     Internal.buildModuleGraph <| Dict.values p.modules
-
-                projectWithGraph =
-                    { p | moduleGraph = Just moduleGraph }
-
-                nodeContexts : List (Graph.NodeContext ModuleName ())
-                nodeContexts =
-                    moduleGraph
-                        |> Graph.checkAcyclic
-                        |> Result.map Graph.topologicalSort
-                        |> Result.withDefault []
             in
-            Internal.Project
-                { projectWithGraph
-                    | moduleNameLookupTables =
-                        Just (Internal.computeModuleNameLookupTables (Internal.Project projectWithGraph) nodeContexts)
-                }
+            Internal.Project { p | moduleGraph = Just moduleGraph }
 
 
 
