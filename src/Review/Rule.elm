@@ -417,7 +417,12 @@ review rules project =
 
                         Ok nodeContexts ->
                             let
-                                scopeResult : { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
+                                scopeResult :
+                                    { errors : List (Error {})
+                                    , rule : Rule
+                                    , cache : ProjectRuleCache ScopeProjectContext
+                                    , extract : Maybe Extract
+                                    }
                                 scopeResult =
                                     runProjectVisitor
                                         "DUMMY"
@@ -529,12 +534,26 @@ reviewWithPrecollectionOfData rules maybeProjectData project =
 
                         Ok nodeContexts ->
                             let
-                                scopeResult : { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
+                                scopeCache : Maybe (ProjectRuleCache ScopeProjectContext)
+                                scopeCache =
+                                    case maybeProjectData of
+                                        Just (ProjectData data) ->
+                                            Just data
+
+                                        Nothing ->
+                                            Nothing
+
+                                scopeResult :
+                                    { errors : List (Error {})
+                                    , rule : Rule
+                                    , cache : ProjectRuleCache ScopeProjectContext
+                                    , extract : Maybe Extract
+                                    }
                                 scopeResult =
                                     runProjectVisitor
                                         "DUMMY"
                                         scopeRule
-                                        Nothing
+                                        scopeCache
                                         Exceptions.init
                                         project
                                         nodeContexts
@@ -554,7 +573,7 @@ reviewWithPrecollectionOfData rules maybeProjectData project =
                             if not (List.isEmpty scopeResult.errors) then
                                 { errors = List.map errorToReviewError scopeResult.errors
                                 , rules = rules
-                                , projectData = Just ProjectData
+                                , projectData = Just (ProjectData scopeResult.cache)
                                 }
 
                             else
@@ -564,7 +583,7 @@ reviewWithPrecollectionOfData rules maybeProjectData project =
                                 in
                                 { errors = List.map errorToReviewError errors
                                 , rules = newRules
-                                , projectData = Just ProjectData
+                                , projectData = Just (ProjectData scopeResult.cache)
                                 }
 
         modulesThatFailedToParse ->
@@ -575,7 +594,7 @@ reviewWithPrecollectionOfData rules maybeProjectData project =
 
 
 type ProjectData
-    = ProjectData
+    = ProjectData (ProjectRuleCache ScopeProjectContext)
 
 
 duplicateModulesGlobalError : { moduleName : ModuleName, paths : List String } -> ReviewError
@@ -995,7 +1014,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
         , ruleImplementation =
             \exceptions project nodeContexts ->
                 let
-                    result : { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
+                    result : { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
                     result =
                         runProjectVisitor schema.name
                             (fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema)
@@ -3234,7 +3253,7 @@ runProjectVisitor :
     -> Exceptions
     -> Project
     -> List (Graph.NodeContext ModuleName ())
-    -> { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
+    -> { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
 runProjectVisitor name projectVisitor maybePreviousCache exceptions project nodeContexts =
     let
         cacheWithInitialContext : ProjectRuleCache projectContext
@@ -3326,7 +3345,7 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
             , ruleImplementation =
                 \newExceptions newProject newNodeContexts ->
                     let
-                        result : { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
+                        result : { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
                         result =
                             runProjectVisitor
                                 name
@@ -3338,6 +3357,7 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
                     in
                     ( result.errors, result.rule )
             }
+    , cache = newCache
     , extract =
         case
             projectVisitor.dataExtractor
