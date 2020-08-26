@@ -11,13 +11,12 @@ module Review.Rule exposing
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
-    , ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleKey
+    , ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleNameLookupTable, withModuleKey
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
-    , review, ruleName
+    , review, reviewWithPrecollectionOfData, ruleName
     , Required, Forbidden
-    , reviewWithPrecollectionOfData, withModuleNameLookupTable
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -213,7 +212,7 @@ first, as they are in practice a simpler version of project rules.
 
 ## Requesting more information
 
-@docs ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleKey
+@docs ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleNameLookupTable, withModuleKey
 
 
 ## Errors
@@ -244,7 +243,7 @@ reason or seemingly inappropriately.
 
 # Running rules
 
-@docs review, reviewWithPrecollectionOfDat, ruleName
+@docs review, reviewWithPrecollectionOfData, ruleName
 
 
 # Internals
@@ -2007,7 +2006,7 @@ Tip: If you do not need to collect data in this visitor, you may wish to use the
 simpler [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) function.
 
 Tip: The rule above is very brittle. What if `button` was imported using `import Html exposing (button)` or `import Html exposing (..)`, or if `Html` was aliased (`import Html as H`)? Then the rule above would
-not catch and report the use `Html.button`. I highly recommend checking out [`elm-review-scope`](https://github.com/jfmengels/elm-review-scope) to handle all these cases quite simply.
+not catch and report the use `Html.button`. To handle this, check out [`withModuleNameLookupTable`](#withModuleNameLookupTable).
 
 -}
 withModuleDefinitionVisitor : (Node Module -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
@@ -4099,6 +4098,59 @@ withMetadata (ContextCreator fn (RequestedData requested)) =
         (RequestedData { requested | metadata = True })
 
 
+{-| Requests the module name lookup table for the types and functions inside a module.
+
+When encountering a `Expression.FunctionOrValue ModuleName String`, the module name available represents the module name
+that is in the source code. But that module name can be an alias to a different import, or it can be empty, meaning that
+it refers to a local value or one that has been imported explicitly or implicitly. Resolving which module name the type
+or function can be a bit tricky sometimes, and I recommend against doing it yourself.
+
+`elm-review` computes this for you already. Store this value inside your module context, then use
+[`ModuleNameLookupTable.moduleNameFor`](./Review-ModuleNameLookupTable#moduleNameFor) or
+[`ModuleNameLookupTable.moduleNameAt`](./Review-ModuleNameLookupTable#moduleNameAt) to get the name of the module the
+type or value comes from.
+
+    import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
+
+    type alias Context =
+        { lookupTable : ModuleNameLookupTable }
+
+    rule : Rule
+    rule =
+        Rule.newModuleRuleSchemaUsingContextCreator "NoHtmlButton" contextCreator
+            |> Rule.withExpressionEnterVisitor expressionVisitor
+            |> Rule.fromModuleRuleSchema
+            |> Rule.ignoreErrorsForFiles [ "src/Colors.elm" ]
+
+    contextCreator : Rule.ContextCreator () Context
+    contextCreator =
+        Rule.initContextCreator
+            (\lookupTable () -> { lookupTable = lookupTable })
+            |> Rule.withModuleNameLookupTable
+
+    expressionVisitor : Node Expression -> Context -> ( List (Error {}), Context )
+    expressionVisitor node context =
+        case Node.value node of
+            Expression.FunctionOrValue _ "color" ->
+                if ModuleNameLookupTable.moduleNameFor context.lookupTable node == Just [ "Css" ] then
+                    ( [ Rule.error
+                            { message = "Do not use `Css.color` directly, use the Colors module instead"
+                            , details = [ "We made a module which contains all the available colors of our design system. Use the functions in there instead." ]
+                            }
+                            (Node.range node)
+                      ]
+                    , context
+                    )
+
+                else
+                    ( [], context )
+
+            _ ->
+                ( [], context )
+
+Note: If you have been using [`elm-review-scope`](https://github.com/jfmengels/elm-review-scope) before, you might want to use this instead.
+
+-}
 withModuleNameLookupTable : ContextCreator ModuleNameLookupTable (from -> to) -> ContextCreator from to
 withModuleNameLookupTable (ContextCreator fn (RequestedData requested)) =
     ContextCreator
@@ -4184,7 +4236,7 @@ isInSourceDirectories (Metadata metadata) =
 
 scopeRule : RunnableProjectVisitor ScopeProjectContext ScopeModuleContext
 scopeRule =
-    newProjectRuleSchema "elm-review-scope__INTERNAL" scope_initialProjectContext
+    newProjectRuleSchema "elm-review__SCOPE" scope_initialProjectContext
         |> withContextFromImportedModules
         |> withDependenciesProjectVisitor (scope_internalDependenciesVisitor |> scope_pairWithNoErrors)
         |> withModuleVisitor scope_moduleVisitor
