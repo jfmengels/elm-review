@@ -489,102 +489,131 @@ to compare them or the model that holds them.
 -}
 reviewWithPrecollectionOfData : List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
 reviewWithPrecollectionOfData rules maybeProjectData project =
+    checkForModulesThatFailedToParse project
+        |> Result.andThen (\() -> checkForDuplicateModules project)
+        |> Result.andThen (\() -> getModulesSortedByImport project)
+        |> Result.map (runReview project rules maybeProjectData)
+        |> Result.mapError
+            (\errors ->
+                { errors = errors
+                , rules = rules
+                , projectData = maybeProjectData
+                }
+            )
+        |> extractResultValue
+
+
+checkForModulesThatFailedToParse : Project -> Result (List ReviewError) ()
+checkForModulesThatFailedToParse project =
     case Review.Project.modulesThatFailedToParse project of
         [] ->
-            case Review.Project.modules project |> duplicateModuleNames Dict.empty of
-                Just duplicate ->
-                    { errors = [ duplicateModulesGlobalError duplicate ]
-                    , rules = rules
-                    , projectData = Nothing
-                    }
-
-                Nothing ->
-                    let
-                        sortedModules : Result (Graph.Edge ()) (List (Graph.NodeContext ModuleName ()))
-                        sortedModules =
-                            project
-                                |> Review.Project.Internal.moduleGraph
-                                |> Graph.checkAcyclic
-                                |> Result.map Graph.topologicalSort
-                    in
-                    case sortedModules of
-                        Err _ ->
-                            { errors =
-                                [ Review.Error.ReviewError
-                                    { filePath = "GLOBAL ERROR"
-                                    , ruleName = "Incorrect project"
-                                    , message = "Import cycle discovered"
-                                    , details =
-                                        [ "I detected an import cycle in your project. This prevents me from working correctly, and results in a error for the Elm compiler anyway. Please resolve it using the compiler's suggestions, then try running `elm-review` again."
-                                        ]
-                                    , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
-                                    , fixes = Nothing
-                                    , target = Review.Error.Global
-                                    }
-                                ]
-                            , rules = rules
-                            , projectData = Nothing
-                            }
-
-                        Ok nodeContexts ->
-                            let
-                                scopeCache : Maybe (ProjectRuleCache ScopeProjectContext)
-                                scopeCache =
-                                    case maybeProjectData of
-                                        Just (ProjectData data) ->
-                                            Just data
-
-                                        Nothing ->
-                                            Nothing
-
-                                scopeResult :
-                                    { errors : List (Error {})
-                                    , rule : Rule
-                                    , cache : ProjectRuleCache ScopeProjectContext
-                                    , extract : Maybe Extract
-                                    }
-                                scopeResult =
-                                    runProjectVisitor
-                                        "DUMMY"
-                                        scopeRule
-                                        scopeCache
-                                        Exceptions.init
-                                        project
-                                        nodeContexts
-
-                                moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
-                                moduleNameLookupTables =
-                                    Maybe.map (\(Extract moduleNameLookupTables_) -> moduleNameLookupTables_) scopeResult.extract
-
-                                projectWithLookupTable : Project
-                                projectWithLookupTable =
-                                    let
-                                        (Project p) =
-                                            project
-                                    in
-                                    Project { p | moduleNameLookupTables = moduleNameLookupTables }
-                            in
-                            if not (List.isEmpty scopeResult.errors) then
-                                { errors = List.map errorToReviewError scopeResult.errors
-                                , rules = rules
-                                , projectData = Just (ProjectData scopeResult.cache)
-                                }
-
-                            else
-                                let
-                                    ( errors, newRules ) =
-                                        runRules rules projectWithLookupTable nodeContexts
-                                in
-                                { errors = List.map errorToReviewError errors
-                                , rules = newRules
-                                , projectData = Just (ProjectData scopeResult.cache)
-                                }
+            Ok ()
 
         modulesThatFailedToParse ->
-            { errors = List.map parsingError modulesThatFailedToParse
-            , rules = rules
-            , projectData = Nothing
+            Err (List.map parsingError modulesThatFailedToParse)
+
+
+checkForDuplicateModules : Project -> Result (List ReviewError) ()
+checkForDuplicateModules project =
+    case Review.Project.modules project |> duplicateModuleNames Dict.empty of
+        Just duplicate ->
+            Err [ duplicateModulesGlobalError duplicate ]
+
+        Nothing ->
+            Ok ()
+
+
+getModulesSortedByImport : Project -> Result (List Review.Error.ReviewError) (List (Graph.NodeContext ModuleName ()))
+getModulesSortedByImport project =
+    let
+        sortedModules : Result (Graph.Edge ()) (List (Graph.NodeContext ModuleName ()))
+        sortedModules =
+            project
+                |> Review.Project.Internal.moduleGraph
+                |> Graph.checkAcyclic
+                |> Result.map Graph.topologicalSort
+    in
+    Result.mapError
+        (\_ ->
+            [ Review.Error.ReviewError
+                { filePath = "GLOBAL ERROR"
+                , ruleName = "Incorrect project"
+                , message = "Import cycle discovered"
+                , details =
+                    [ "I detected an import cycle in your project. This prevents me from working correctly, and results in a error for the Elm compiler anyway. Please resolve it using the compiler's suggestions, then try running `elm-review` again."
+                    ]
+                , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
+                , fixes = Nothing
+                , target = Review.Error.Global
+                }
+            ]
+        )
+        sortedModules
+
+
+extractResultValue : Result a a -> a
+extractResultValue result =
+    case result of
+        Ok a ->
+            a
+
+        Err a ->
+            a
+
+
+runReview project rules maybeProjectData nodeContexts =
+    let
+        scopeCache : Maybe (ProjectRuleCache ScopeProjectContext)
+        scopeCache =
+            case maybeProjectData of
+                Just (ProjectData data) ->
+                    Just data
+
+                Nothing ->
+                    Nothing
+
+        scopeResult :
+            { errors : List (Error {})
+            , rule : Rule
+            , cache : ProjectRuleCache ScopeProjectContext
+            , extract : Maybe Extract
             }
+        scopeResult =
+            runProjectVisitor
+                "DUMMY"
+                scopeRule
+                scopeCache
+                Exceptions.init
+                project
+                nodeContexts
+
+        moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
+        moduleNameLookupTables =
+            Maybe.map (\(Extract moduleNameLookupTables_) -> moduleNameLookupTables_) scopeResult.extract
+
+        projectWithLookupTable : Project
+        projectWithLookupTable =
+            let
+                (Project p) =
+                    project
+            in
+            Project { p | moduleNameLookupTables = moduleNameLookupTables }
+    in
+    if not (List.isEmpty scopeResult.errors) then
+        { errors = List.map errorToReviewError scopeResult.errors
+        , rules = rules
+        , projectData = Just (ProjectData scopeResult.cache)
+        }
+
+    else
+        let
+            ( errors, newRules ) =
+                runRules rules projectWithLookupTable nodeContexts
+        in
+        { errors = List.map errorToReviewError errors
+        , rules = newRules
+        , projectData = Just (ProjectData scopeResult.cache)
+        }
 
 
 type ProjectData
