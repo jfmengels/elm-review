@@ -292,6 +292,7 @@ type Rule
     = Rule
         { name : String
         , exceptions : Exceptions
+        , requestedData : RequestedData
         , ruleImplementation : Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
         }
 
@@ -1034,6 +1035,13 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
     Rule
         { name = schema.name
         , exceptions = Exceptions.init
+        , requestedData =
+            case schema.moduleContextCreator of
+                Just (ContextCreator _ requestedData) ->
+                    requestedData
+
+                Nothing ->
+                    RequestedData { metadata = False, moduleNameLookupTable = False }
         , ruleImplementation =
             \exceptions project nodeContexts ->
                 let
@@ -1069,6 +1077,13 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
                 TraverseAllModulesInParallel Nothing
     , finalEvaluationFns = List.reverse schema.finalEvaluationFns
     , dataExtractor = schema.dataExtractor
+    , requestedData =
+        case schema.moduleContextCreator of
+            Just (ContextCreator _ requestedData) ->
+                requestedData
+
+            Nothing ->
+                RequestedData { metadata = False, moduleNameLookupTable = False }
     }
 
 
@@ -3131,6 +3146,7 @@ ignoreErrorsForDirectories directories (Rule rule) =
     Rule
         { name = rule.name
         , exceptions = Exceptions.addDirectories directories rule.exceptions
+        , requestedData = rule.requestedData
         , ruleImplementation = rule.ruleImplementation
         }
 
@@ -3197,6 +3213,7 @@ ignoreErrorsForFiles files (Rule rule) =
     Rule
         { name = rule.name
         , exceptions = Exceptions.addFiles files rule.exceptions
+        , requestedData = rule.requestedData
         , ruleImplementation = rule.ruleImplementation
         }
 
@@ -3215,6 +3232,7 @@ type alias RunnableProjectVisitor projectContext moduleContext =
     , traversalAndFolder : TraversalAndFolder projectContext moduleContext
     , finalEvaluationFns : List (projectContext -> List (Error {}))
     , dataExtractor : Maybe (projectContext -> Extract)
+    , requestedData : RequestedData
     }
 
 
@@ -3365,6 +3383,7 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
         Rule
             { name = name
             , exceptions = exceptions
+            , requestedData = projectVisitor.requestedData
             , ruleImplementation =
                 \newExceptions newProject newNodeContexts ->
                     let
