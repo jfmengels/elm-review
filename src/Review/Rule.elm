@@ -288,12 +288,7 @@ unwanted patterns.
 You can create [module rules](#creating-a-module-rule) or [project rules](#creating-a-project-rule).
 
 -}
-type
-    Rule
-    -- The next steps should be to:
-    --    - TODO Add support for creating rules with metadata (maybe first? maybe last?)
-    --    - TODO Add docs where needed to make the tests pass
-    --    - TODO Find where we introduced breaking changes and limit those
+type Rule
     = Rule
         { name : String
         , exceptions : Exceptions
@@ -4170,8 +4165,6 @@ withModuleNameLookupTable (ContextCreator fn (RequestedData requested)) =
                 , fromModuleToProject = Rule.initContextCreator fromModuleToProject |> Rule.withModuleKey
                 , foldProjectContexts = foldProjectContexts
                 }
-
-TODO Make this unavailable to module rules
 
 -}
 withModuleKey : ContextCreator ModuleKey (from -> to) -> ContextCreator from to
