@@ -6,6 +6,7 @@
     "version": "2.2.0",
     "exposed-modules": [
         "Review.Rule",
+        "Review.ModuleNameLookupTable",
         "Review.Project",
         "Review.Project.Dependency",
         "Review.Fix",

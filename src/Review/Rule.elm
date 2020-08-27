@@ -4100,10 +4100,11 @@ withMetadata (ContextCreator fn (RequestedData requested)) =
 
 {-| Requests the module name lookup table for the types and functions inside a module.
 
-When encountering a `Expression.FunctionOrValue ModuleName String`, the module name available represents the module name
-that is in the source code. But that module name can be an alias to a different import, or it can be empty, meaning that
-it refers to a local value or one that has been imported explicitly or implicitly. Resolving which module name the type
-or function can be a bit tricky sometimes, and I recommend against doing it yourself.
+When encountering a `Expression.FunctionOrValue ModuleName String` (among other nodes where we refer to a function or value),
+the module name available represents the module name that is in the source code. But that module name can be an alias to
+a different import, or it can be empty, meaning that it refers to a local value or one that has been imported explicitly
+or implicitly. Resolving which module name the type or function can be a bit tricky sometimes, and I recommend against
+doing it yourself.
 
 `elm-review` computes this for you already. Store this value inside your module context, then use
 [`ModuleNameLookupTable.moduleNameFor`](./Review-ModuleNameLookupTable#moduleNameFor) or
@@ -4148,7 +4149,7 @@ type or value comes from.
             _ ->
                 ( [], context )
 
-Note: If you have been using [`elm-review-scope`](https://github.com/jfmengels/elm-review-scope) before, you might want to use this instead.
+Note: If you have been using [`elm-review-scope`](https://github.com/jfmengels/elm-review-scope) before, you should use this instead.
 
 -}
 withModuleNameLookupTable : ContextCreator ModuleNameLookupTable (from -> to) -> ContextCreator from to
