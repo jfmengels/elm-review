@@ -562,6 +562,7 @@ extractResultValue result =
             a
 
 
+runReview : Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
 runReview project rules maybeProjectData nodeContexts =
     let
         scopeCache : Maybe (ProjectRuleCache ScopeProjectContext)
@@ -573,20 +574,27 @@ runReview project rules maybeProjectData nodeContexts =
                 Nothing ->
                     Nothing
 
-        scopeResult :
-            { errors : List (Error {})
-            , rule : Rule
-            , cache : ProjectRuleCache ScopeProjectContext
-            , extract : Maybe Extract
-            }
+        scopeResult : { projectData : Maybe ProjectData, extract : Maybe Extract }
         scopeResult =
-            runProjectVisitor
-                "DUMMY"
-                scopeRule
-                scopeCache
-                Exceptions.init
-                project
-                nodeContexts
+            if needsToComputeScope rules then
+                let
+                    { cache, extract } =
+                        runProjectVisitor
+                            "DUMMY"
+                            scopeRule
+                            scopeCache
+                            Exceptions.init
+                            project
+                            nodeContexts
+                in
+                { projectData = Just (ProjectData cache)
+                , extract = extract
+                }
+
+            else
+                { projectData = Nothing
+                , extract = Nothing
+                }
 
         moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
         moduleNameLookupTables =
@@ -600,25 +608,31 @@ runReview project rules maybeProjectData nodeContexts =
             in
             Project { p | moduleNameLookupTables = moduleNameLookupTables }
     in
-    if not (List.isEmpty scopeResult.errors) then
-        { errors = List.map errorToReviewError scopeResult.errors
-        , rules = rules
-        , projectData = Just (ProjectData scopeResult.cache)
-        }
-
-    else
-        let
-            ( errors, newRules ) =
-                runRules rules projectWithLookupTable nodeContexts
-        in
-        { errors = List.map errorToReviewError errors
-        , rules = newRules
-        , projectData = Just (ProjectData scopeResult.cache)
-        }
+    let
+        ( errors, newRules ) =
+            runRules rules projectWithLookupTable nodeContexts
+    in
+    { errors = List.map errorToReviewError errors
+    , rules = newRules
+    , projectData = scopeResult.projectData
+    }
 
 
 type ProjectData
     = ProjectData (ProjectRuleCache ScopeProjectContext)
+
+
+needsToComputeScope : List Rule -> Bool
+needsToComputeScope rules =
+    List.any
+        (\(Rule { requestedData }) ->
+            let
+                (RequestedData requestedData_) =
+                    requestedData
+            in
+            requestedData_.moduleNameLookupTable
+        )
+        rules
 
 
 duplicateModulesGlobalError : { moduleName : ModuleName, paths : List String } -> ReviewError
