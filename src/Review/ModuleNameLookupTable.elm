@@ -5,7 +5,7 @@ module Review.ModuleNameLookupTable exposing (ModuleNameLookupTable, moduleNameF
 When encountering a `Expression.FunctionOrValue ModuleName String` (among other nodes where we refer to a function or value),
 the module name available represents the module name that is in the source code. But that module name can be an alias to
 a different import, or it can be empty, meaning that it refers to a local value or one that has been imported explicitly
-or implicitly. Resolving which module name the type or function can be a bit tricky sometimes, and I recommend against
+or implicitly. Resolving which module the type or function comes from can be a bit tricky sometimes, and I recommend against
 doing it yourself.
 
 `elm-review` computes this for you already. Store this value inside your module context, then use
