@@ -15,7 +15,7 @@ module Review.Rule exposing
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
-    , review, reviewWithPrecollectionOfData, ruleName
+    , review, reviewV2, ruleName
     , Required, Forbidden
     )
 
@@ -243,7 +243,7 @@ reason or seemingly inappropriately.
 
 # Running rules
 
-@docs review, reviewWithPrecollectionOfData, ruleName
+@docs review, reviewV2, ruleName
 
 
 # Internals
@@ -336,7 +336,9 @@ type ModuleRuleSchema schemaState moduleContext
 -- REVIEWING
 
 
-{-| Review a project and gives back the errors raised by the given rules.
+{-| DEPRECATED: Use [`reviewV2`](#reviewV2) instead.
+
+Review a project and gives back the errors raised by the given rules.
 
 Note that you won't need to use this function when writing a rule. You should
 only need it if you try to make `elm-review` run in a new environment.
@@ -472,8 +474,10 @@ only need it if you try to make `elm-review` run in a new environment.
 
     doReview =
         let
-            ( errors, rulesWithCachedValues ) =
-                Rule.reviewWithPrecollectionOfData rules Nothing project
+            { errors, rules, projectData } =
+                -- Replace `config` by `rules` next time you call reviewV2
+                -- Replace `Nothing` by `projectData` next time you call reviewV2
+                Rule.reviewV2 config Nothing project
         in
         doSomethingWithTheseValues
 
@@ -488,8 +492,8 @@ exported/imported with `elm/browser`'s debugger, and may cause a crash if you tr
 to compare them or the model that holds them.
 
 -}
-reviewWithPrecollectionOfData : List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
-reviewWithPrecollectionOfData rules maybeProjectData project =
+reviewV2 : List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
+reviewV2 rules maybeProjectData project =
     checkForModulesThatFailedToParse project
         |> Result.andThen (\() -> checkForDuplicateModules project)
         |> Result.andThen (\() -> getModulesSortedByImport project)
