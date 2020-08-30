@@ -15,7 +15,7 @@ module Review.Rule exposing
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
-    , review, reviewV2, ruleName
+    , review, reviewV2, ProjectData, ruleName
     , Required, Forbidden
     )
 
@@ -243,7 +243,7 @@ reason or seemingly inappropriately.
 
 # Running rules
 
-@docs review, reviewV2, ruleName
+@docs review, reviewV2, ProjectData, ruleName
 
 
 # Internals
@@ -609,6 +609,8 @@ runReview ((Project p) as project) rules maybeProjectData nodeContexts =
     }
 
 
+{-| Internal cache about the project.
+-}
 type ProjectData
     = ProjectData (ProjectRuleCache ScopeProjectContext)
 
