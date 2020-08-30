@@ -563,17 +563,8 @@ extractResultValue result =
 
 
 runReview : Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
-runReview project rules maybeProjectData nodeContexts =
+runReview ((Project p) as project) rules maybeProjectData nodeContexts =
     let
-        scopeCache : Maybe (ProjectRuleCache ScopeProjectContext)
-        scopeCache =
-            case maybeProjectData of
-                Just (ProjectData data) ->
-                    Just data
-
-                Nothing ->
-                    Nothing
-
         scopeResult : { projectData : Maybe ProjectData, extract : Maybe Extract }
         scopeResult =
             if needsToComputeScope rules then
@@ -582,7 +573,7 @@ runReview project rules maybeProjectData nodeContexts =
                         runProjectVisitor
                             "DUMMY"
                             scopeRule
-                            scopeCache
+                            (Maybe.map extractProjectData maybeProjectData)
                             Exceptions.init
                             project
                             nodeContexts
@@ -600,17 +591,13 @@ runReview project rules maybeProjectData nodeContexts =
         moduleNameLookupTables =
             Maybe.map (\(Extract moduleNameLookupTables_) -> moduleNameLookupTables_) scopeResult.extract
 
-        projectWithLookupTable : Project
-        projectWithLookupTable =
-            let
-                (Project p) =
-                    project
-            in
+        projectWithLookupTables : Project
+        projectWithLookupTables =
             Project { p | moduleNameLookupTables = moduleNameLookupTables }
     in
     let
         ( errors, newRules ) =
-            runRules rules projectWithLookupTable nodeContexts
+            runRules rules projectWithLookupTables nodeContexts
     in
     { errors = List.map errorToReviewError errors
     , rules = newRules
@@ -620,6 +607,11 @@ runReview project rules maybeProjectData nodeContexts =
 
 type ProjectData
     = ProjectData (ProjectRuleCache ScopeProjectContext)
+
+
+extractProjectData : ProjectData -> ProjectRuleCache ScopeProjectContext
+extractProjectData (ProjectData data) =
+    data
 
 
 needsToComputeScope : List Rule -> Bool
