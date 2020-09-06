@@ -4218,7 +4218,6 @@ withModuleNameLookupTable (ContextCreator fn (RequestedData requested)) =
 
     rule =
         Rule.newProjectRuleSchema "NoMissingSubscriptionsCall" initialProjectContext
-            |> Scope.addProjectVisitors
             |> Rule.withModuleVisitor moduleVisitor
             |> Rule.withModuleContextUsingContextCreator
                 { fromProjectToModule = Rule.initContextCreator fromProjectToModule
