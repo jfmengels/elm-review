@@ -3418,7 +3418,7 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
         of
             Just dataExtractor ->
                 let
-                    -- TODO THis is already computed during the final project evaluation
+                    -- TODO This is already computed during the final project evaluation
                     -- Re-use the data instead of re-computing
                     contextToAnalyze : projectContext
                     contextToAnalyze =
@@ -5198,10 +5198,15 @@ scope_expressionEnterVisitor node context =
                             (\declaration ->
                                 case Node.value declaration of
                                     Expression.LetFunction function ->
-                                        -- TODO LOOKUP also take the ones from the destructuring
-                                        function.signature
+                                        (function.signature
                                             |> Maybe.map (Node.value >> .typeAnnotation >> collectModuleNamesFromTypeAnnotation newContext)
                                             |> Maybe.withDefault []
+                                        )
+                                            ++ (function.declaration
+                                                    |> Node.value
+                                                    |> .arguments
+                                                    |> List.concatMap (collectModuleNamesFromPattern newContext)
+                                               )
 
                                     Expression.LetDestructuring pattern _ ->
                                         collectModuleNamesFromPattern newContext pattern
