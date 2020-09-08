@@ -90,7 +90,7 @@ Before you start adding rules though, I suggest reading the rest of this documen
 ## Write your own rule
 
 You can write your own rule using this package's API and [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/).
-Check out the [`Review.Rule`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.2.0/Review-Rule) documentation for how to get started.
+Check out the [`Review.Rule`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.3.0/Review-Rule) documentation for how to get started.
 
 **NOTE**: If you want to create a package containing `elm-review` rules, I highly recommend using the [CLI's](https://github.com/jfmengels/node-elm-review/) `elm-review new-package` subcommand. If you want to add/create a rule, then `elm-review new-rule` will help you get set up.
 
@@ -195,7 +195,7 @@ When wondering whether to enable a rule, I suggest using this checklist:
 
 ## Is there a way to ignore an error or disable a rule only in some locations?
 
-You can prevent errors from being reported by either changing the implementation of your rules or by [configuring exceptions](https://package.elm-lang.org/packages/jfmengels/elm-review/2.2.0/Review-Rule#configuring-exceptions) for directories or for files.
+You can prevent errors from being reported by either changing the implementation of your rules or by [configuring exceptions](https://package.elm-lang.org/packages/jfmengels/elm-review/2.3.0/Review-Rule#configuring-exceptions) for directories or for files.
 
 It is however not possible to ignore errors on a case-by-case basis, for several reasons:
 
