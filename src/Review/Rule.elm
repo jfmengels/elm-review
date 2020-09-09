@@ -3384,11 +3384,10 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
         errors =
             case projectVisitor.traversalAndFolder of
                 TraverseAllModulesInParallel _ ->
-                    errorsFromCache newCache
+                    Exceptions.apply exceptions (accessInternalError >> .filePath) (errorsFromCache newCache)
 
                 TraverseImportedModulesFirst _ ->
-                    errorsFromCache newCache
-                        |> Exceptions.apply exceptions (accessInternalError >> .filePath)
+                    Exceptions.apply exceptions (accessInternalError >> .filePath) (errorsFromCache newCache)
     in
     { errors = List.map (setRuleName name) errors
     , rule =
@@ -3609,10 +3608,15 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
         moduleNameLookupTables =
             Review.Project.Internal.moduleNameLookupTables project
 
-        moduleToAnalyze : List ProjectModule
-        moduleToAnalyze =
+        modulesToAnalyze : List ProjectModule
+        modulesToAnalyze =
             case projectVisitor.traversalAndFolder of
-                TraverseAllModulesInParallel _ ->
+                TraverseAllModulesInParallel (Just _) ->
+                    Review.Project.modules project
+
+                TraverseAllModulesInParallel Nothing ->
+                    -- Performance: avoid visiting modules when they're ignored and they
+                    -- can't influence the rest of the review.
                     Exceptions.apply
                         exceptions
                         .path
@@ -3623,7 +3627,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
 
         projectModulePaths : Set String
         projectModulePaths =
-            moduleToAnalyze
+            modulesToAnalyze
                 |> List.map .path
                 |> Set.fromList
 
@@ -3637,12 +3641,11 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                         dict
                 )
                 Dict.empty
-                moduleToAnalyze
+                modulesToAnalyze
 
         newStartCache : Dict String (CacheEntry projectContext)
         newStartCache =
-            startCache
-                |> Dict.filter (\path _ -> Set.member path projectModulePaths)
+            Dict.filter (\path _ -> Set.member path projectModulePaths) startCache
 
         computeModule : Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> CacheEntry projectContext
         computeModule cache importedModules module_ =
