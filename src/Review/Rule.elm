@@ -1509,7 +1509,7 @@ you to request more information
         }
 
     fromModuleToProject : Rule.ModuleKey -> Metadata -> ModuleContext -> ProjectContext
-    fromModuleToProject moduleKey Metadata moduleContext =
+    fromModuleToProject moduleKey metadata moduleContext =
         { moduleKeys = Dict.singleton (Rule.moduleNameFromMetadata metadata) moduleKey
         }
 
