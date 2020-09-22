@@ -1,4 +1,4 @@
-module ModuleNameForTypeTest exposing (all)
+module ModuleNameLookupTableTest exposing (all)
 
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
