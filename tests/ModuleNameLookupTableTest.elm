@@ -2,6 +2,7 @@ module ModuleNameLookupTableTest exposing (all)
 
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
+import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
@@ -215,53 +216,27 @@ expressionVisitor : Node Expression -> ModuleContext -> ( List nothing, ModuleCo
 expressionVisitor node context =
     case Node.value node of
         Expression.FunctionOrValue moduleName name ->
-            let
-                nameInCode : String
-                nameInCode =
-                    case moduleName of
-                        [] ->
-                            "<nothing>." ++ name
-
-                        _ ->
-                            String.join "." moduleName ++ "." ++ name
-
-                realName : String
-                realName =
-                    case ModuleNameLookupTable.moduleNameFor context.lookupTable node of
-                        Just [] ->
-                            "<nothing>." ++ name
-
-                        Just moduleName_ ->
-                            String.join "." moduleName_ ++ "." ++ name
-
-                        Nothing ->
-                            "!!! UNKNOWN !!!"
-            in
-            ( [], { context | texts = context.texts ++ [ nameInCode ++ " -> " ++ realName ] } )
+            ( [], { context | texts = context.texts ++ [ getRealName context moduleName (Node.range node) name ] } )
 
         Expression.RecordUpdateExpression (Node range name) _ ->
-            let
-                realName : String
-                realName =
-                    case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
-                        Just [] ->
-                            "<nothing>." ++ name
-
-                        Just moduleName_ ->
-                            String.join "." moduleName_ ++ "." ++ name
-
-                        Nothing ->
-                            "!!! UNKNOWN !!!"
-            in
-            ( [], { context | texts = context.texts ++ [ "<nothing>." ++ name ++ " -> " ++ realName ] } )
+            ( [], { context | texts = context.texts ++ [ getRealName context [] range name ] } )
 
         _ ->
             ( [], context )
 
 
-getRealName : ModuleContext -> Range -> String -> String
-getRealName context range name =
+getRealName : ModuleContext -> ModuleName -> Range -> String -> String
+getRealName context moduleName range name =
     let
+        nameInCode : String
+        nameInCode =
+            case moduleName of
+                [] ->
+                    "<nothing>." ++ name
+
+                _ ->
+                    String.join "." moduleName ++ "." ++ name
+
         resultingName : String
         resultingName =
             case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
@@ -274,7 +249,7 @@ getRealName context range name =
                 Nothing ->
                     "!!! UNKNOWN !!!"
     in
-    "<nothing>." ++ name ++ " -> " ++ resultingName
+    nameInCode ++ " -> " ++ resultingName
 
 
 declarationVisitor : Node Declaration -> ModuleContext -> ( List nothing, ModuleContext )
