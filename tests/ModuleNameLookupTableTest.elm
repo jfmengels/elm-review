@@ -287,29 +287,7 @@ typeAnnotationNames moduleContext typeAnnotation =
             [ "<nothing>." ++ name ++ " -> <generic>" ]
 
         TypeAnnotation.Typed (Node typeRange ( moduleName, typeName )) typeParameters ->
-            let
-                nameInCode : String
-                nameInCode =
-                    case moduleName of
-                        [] ->
-                            "<nothing>." ++ typeName
-
-                        _ ->
-                            String.join "." moduleName ++ "." ++ typeName
-
-                realName : String
-                realName =
-                    case ModuleNameLookupTable.moduleNameAt moduleContext.lookupTable typeRange of
-                        Just [] ->
-                            "<nothing>." ++ typeName
-
-                        Just moduleName_ ->
-                            String.join "." moduleName_ ++ "." ++ typeName
-
-                        Nothing ->
-                            "!!! UNKNOWN !!!"
-            in
-            (nameInCode ++ " -> " ++ realName)
+            getRealName moduleContext moduleName typeRange typeName
                 :: List.concatMap (typeAnnotationNames moduleContext) typeParameters
 
         TypeAnnotation.Unit ->
