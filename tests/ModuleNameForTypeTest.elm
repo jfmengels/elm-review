@@ -16,6 +16,11 @@ all =
     Test.describe "Scope.moduleNameForType"
         [ test "should return the module that defined the type" <|
             \() ->
+                let
+                    rule : Rule
+                    rule =
+                        createRule (Rule.withDeclarationEnterVisitor declarationVisitor)
+                in
                 [ """module A exposing (..)
 import Bar as Baz exposing (baz)
 import ExposesSomeThings exposing (..)
@@ -47,7 +52,7 @@ b = 1
 type Foo = Bar
 type alias BAlias = {}
 """ ]
-                    |> Review.Test.runOnModulesWithProjectData project projectRule
+                    |> Review.Test.runOnModulesWithProjectData project rule
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
                           , [ Review.Test.error
@@ -86,10 +91,10 @@ project =
         |> Project.addDependency Dependencies.elmHtml
 
 
-projectRule : Rule
-projectRule =
+createRule : (Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext) -> Rule
+createRule visitor =
     Rule.newModuleRuleSchemaUsingContextCreator "TestRule" contextCreator
-        |> Rule.withDeclarationEnterVisitor declarationVisitor
+        |> visitor
         |> Rule.withFinalModuleEvaluation finalEvaluation
         |> Rule.fromModuleRuleSchema
 
