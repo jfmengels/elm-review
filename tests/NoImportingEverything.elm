@@ -50,7 +50,7 @@ you can configure a list of exceptions.
 You can try this rule out by running the following command:
 
 ```bash
-elm-review --template jfmengels/review-common/example --rules NoImportingEverything
+elm-review --template jfmengels/elm-review-common/example --rules NoImportingEverything
 ```
 
 -}

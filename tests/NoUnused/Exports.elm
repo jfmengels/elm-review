@@ -46,7 +46,7 @@ then nothing will be reported.
 You can try this rule out by running the following command:
 
 ```bash
-elm - review --template jfmengels/review-unused/example --rules NoUnused.Exports
+elm-review --template jfmengels/elm-review-unused/example --rules NoUnused.Exports
 ```
 
 -}
@@ -625,6 +625,18 @@ expressionVisitor node moduleContext =
     case Node.value node of
         Expression.FunctionOrValue _ name ->
             case ModuleNameLookupTable.moduleNameFor moduleContext.lookupTable node of
+                Just moduleName ->
+                    ( []
+                    , registerAsUsed
+                        ( moduleName, name )
+                        moduleContext
+                    )
+
+                Nothing ->
+                    ( [], moduleContext )
+
+        Expression.RecordUpdateExpression (Node range name) _ ->
+            case ModuleNameLookupTable.moduleNameAt moduleContext.lookupTable range of
                 Just moduleName ->
                     ( []
                     , registerAsUsed

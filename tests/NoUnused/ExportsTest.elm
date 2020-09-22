@@ -168,6 +168,34 @@ main = a
 """ ]
                     |> Review.Test.runOnModulesWithProjectData application rule
                     |> Review.Test.expectNoErrors
+        , test "should not report an exposed value when it is used in other modules (using record update syntax, importing explicitly)" <|
+            \() ->
+                [ """
+module A exposing (..)
+import B exposing (person)
+otherPerson =
+    { person | age = 30 }
+""", """
+module B exposing (person)
+person =
+    { age = 29 }
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report an exposed value when it is used in other modules (using record update syntax, importing all)" <|
+            \() ->
+                [ """
+module A exposing (..)
+import B exposing (..)
+otherPerson =
+    { person | age = 30 }
+""", """
+module B exposing (person)
+person =
+    { age = 29 }
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
         , test "should report an exposed function when it is not used in other modules, even if it is used in the module" <|
             \() ->
                 """

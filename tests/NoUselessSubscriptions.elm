@@ -47,7 +47,7 @@ that turn out to be unnecessary later.
 You can try this rule out by running the following command:
 
 ```bash
-elm-review --template jfmengels/review-tea/example --rules NoUselessSubscriptions
+elm-review --template jfmengels/elm-review-the-elm-architecture/example --rules NoUselessSubscriptions
 ```
 
 -}

@@ -39,7 +39,7 @@ and publishing the package. Otherwise the link for a given version could link to
 You can try this rule out by running the following command:
 
 ```bash
-elm-review --template jfmengels/review-documentation/example --rules NoUselessSubscriptions
+elm-review --template jfmengels/elm-review-documentation/example --rules NoUselessSubscriptions
 ```
 
 -}

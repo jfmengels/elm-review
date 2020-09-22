@@ -33,6 +33,9 @@ This rule will warn arguments that are always pattern matched using a wildcard (
 
 For package projects, custom types whose constructors are exposed as part of the package API are not reported.
 
+Note that this rule may report false positives if you compare custom types with the `==`/`/=` operators (and never destructure the custom type), like when you do `value == Just 0`.
+If you have a solution in mind to better handle these cases in a manageable way, please open an issue so we can talk about it.
+
 
 ## Fail
 
@@ -56,6 +59,8 @@ For package projects, custom types whose constructors are exposed as part of the
 
 If you like giving names to all arguments when pattern matching, then this rule will not found many problems.
 This rule will work well when enabled along with [`NoUnused.Patterns`](./NoUnused-Patterns).
+
+Also, if you like comparing custom types in the way described above, you might pass on this rule, or want to be very careful when enabling it.
 
 
 ## Try it out
@@ -323,8 +328,7 @@ expressionVisitor node context =
             let
                 usedArguments : List ( ( ModuleName, String ), Set Int )
                 usedArguments =
-                    cases
-                        |> List.concatMap (Tuple.first >> collectUsedCustomTypeArgs context.lookupTable)
+                    List.concatMap (Tuple.first >> collectUsedCustomTypeArgs context.lookupTable) cases
             in
             ( [], { context | usedArguments = registerUsedPatterns usedArguments context.usedArguments } )
 

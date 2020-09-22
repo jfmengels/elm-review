@@ -49,7 +49,7 @@ For that, enable [`NoMissingTypeAnnotationInLetIn`](./NoMissingTypeAnnotationInL
 You can try this rule out by running the following command:
 
 ```bash
-elm-review --template jfmengels/review-common/example --rules NoMissingTypeAnnotation
+elm-review --template jfmengels/elm-review-common/example --rules NoMissingTypeAnnotation
 ```
 
 -}

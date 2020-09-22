@@ -56,7 +56,7 @@ import Set exposing (Set)
 You can try this rule out by running the following command:
 
 ```bash
-elm-review --template jfmengels/review-unused/example --rules NoUnused.Variables
+elm-review --template jfmengels/elm-review-unused/example --rules NoUnused.Variables
 ```
 
 -}

@@ -360,6 +360,30 @@ something =
                             , under = "SomeData"
                             }
                         ]
+        , test "should not report args if they are used in a different module" <|
+            \() ->
+                [ """
+module Main exposing (Model, main)
+import Messages exposing (Msg(..))
+
+update : Msg -> Model -> Model
+update msg model =
+   case msg of
+       Content s ->
+           { model | content = "content " ++ s }
+
+       Search string ->
+           { model | content = "search " ++ string }
+"""
+                , """
+module Messages exposing (Msg(..))
+type Msg
+   = Content String
+   | Search String
+"""
+                ]
+                    |> Review.Test.runOnModules rule
+                    |> Review.Test.expectNoErrors
         ]
 
 

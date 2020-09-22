@@ -887,7 +887,7 @@ packageElmJson : String
 packageElmJson =
     """{
     "type": "package",
-    "name": "jfmengels/review-common-tests",
+    "name": "jfmengels/elm-review-common-tests",
     "summary": "A test package",
     "license": "MIT",
     "version": "1.0.0",

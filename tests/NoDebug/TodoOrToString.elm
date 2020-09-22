@@ -74,7 +74,7 @@ can configure the rule like this.
 You can try this rule out by running the following command:
 
 ```bash
-elm-review --template jfmengels/review-debug/example --rules NoDebug.TodoOrToString
+elm-review --template jfmengels/elm-review-debug/example --rules NoDebug.TodoOrToString
 ```
 
 [`Debug.log`]: https://package.elm-lang.org/packages/elm/core/latest/Debug#log
@@ -84,28 +84,22 @@ elm-review --template jfmengels/review-debug/example --rules NoDebug.TodoOrToStr
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchemaUsingContextCreator "NoDebug.TodoOrToString" contextCreator
+    Rule.newModuleRuleSchema "NoDebug.TodoOrToString" init
         |> Rule.withImportVisitor importVisitor
-        |> Rule.withExpressionEnterVisitor expressionVisitor
+        |> Rule.withExpressionVisitor expressionVisitor
         |> Rule.fromModuleRuleSchema
-
-
-contextCreator : Rule.ContextCreator () Context
-contextCreator =
-    Rule.initContextCreator
-        (\metadata () ->
-            { hasTodoBeenImported = False
-            , hasToStringBeenImported = False
-            , isInSourceDirectories = Rule.isInSourceDirectories metadata
-            }
-        )
-        |> Rule.withMetadata
 
 
 type alias Context =
     { hasTodoBeenImported : Bool
     , hasToStringBeenImported : Bool
-    , isInSourceDirectories : Bool
+    }
+
+
+init : Context
+init =
+    { hasTodoBeenImported = False
+    , hasToStringBeenImported = False
     }
 
 
@@ -133,13 +127,13 @@ importVisitor node context =
     if moduleName == [ "Debug" ] then
         case node |> Node.value |> .exposingList |> Maybe.map Node.value of
             Just (Exposing.All _) ->
-                ( [], { hasTodoBeenImported = True, hasToStringBeenImported = True, isInSourceDirectories = context.isInSourceDirectories } )
+                ( [], { hasTodoBeenImported = True, hasToStringBeenImported = True } )
 
             Just (Exposing.Explicit importedNames) ->
                 ( []
-                , { hasTodoBeenImported = List.any (is "todo") importedNames
-                  , hasToStringBeenImported = List.any (is "toString") importedNames
-                  , isInSourceDirectories = context.isInSourceDirectories
+                , { context
+                    | hasTodoBeenImported = List.any (is "todo") importedNames
+                    , hasToStringBeenImported = List.any (is "toString") importedNames
                   }
                 )
 
@@ -160,32 +154,28 @@ is name node =
             False
 
 
-expressionVisitor : Node Expression -> Context -> ( List (Error {}), Context )
-expressionVisitor node context =
-    if not context.isInSourceDirectories then
-        ( [], context )
+expressionVisitor : Node Expression -> Rule.Direction -> Context -> ( List (Error {}), Context )
+expressionVisitor node direction context =
+    case ( direction, Node.value node ) of
+        ( Rule.OnEnter, Expression.FunctionOrValue [ "Debug" ] name ) ->
+            if name == "todo" then
+                ( [ error node name ], context )
 
-    else
-        case Node.value node of
-            Expression.FunctionOrValue [ "Debug" ] name ->
-                if name == "todo" then
-                    ( [ error node name ], context )
+            else if name == "toString" then
+                ( [ error node name ], context )
 
-                else if name == "toString" then
-                    ( [ error node name ], context )
-
-                else
-                    ( [], context )
-
-            Expression.FunctionOrValue [] name ->
-                if name == "todo" && context.hasTodoBeenImported then
-                    ( [ error node name ], context )
-
-                else if name == "toString" && context.hasToStringBeenImported then
-                    ( [ error node name ], context )
-
-                else
-                    ( [], context )
-
-            _ ->
+            else
                 ( [], context )
+
+        ( Rule.OnEnter, Expression.FunctionOrValue [] name ) ->
+            if name == "todo" && context.hasTodoBeenImported then
+                ( [ error node name ], context )
+
+            else if name == "toString" && context.hasToStringBeenImported then
+                ( [ error node name ], context )
+
+            else
+                ( [], context )
+
+        _ ->
+            ( [], context )

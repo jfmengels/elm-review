@@ -51,6 +51,15 @@ To add the rule to your configuration:
         [ NoRecursiveUpdate.rule
         ]
 
+
+## Try it out
+
+You can try this rule out by running the following command:
+
+```bash
+elm-review --template jfmengels/elm-review-the-elm-architecture/example --rules NoRecursiveUpdate
+```
+
 -}
 rule : Rule
 rule =

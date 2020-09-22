@@ -57,7 +57,7 @@ do not ship to production.
 You can try this rule out by running the following command:
 
 ```bash
-elm-review --template jfmengels/review-debug/example --rules NoDebug.Log
+elm-review --template jfmengels/elm-review-debug/example --rules NoDebug.Log
 ```
 
 -}

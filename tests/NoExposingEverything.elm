@@ -46,7 +46,7 @@ in the following manner:
 You can try this rule out by running the following command:
 
 ```bash
-elm-review --template jfmengels/review-common/example --rules NoExposingEverything
+elm-review --template jfmengels/elm-review-common/example --rules NoExposingEverything
 ```
 
 -}

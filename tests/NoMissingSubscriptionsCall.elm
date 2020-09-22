@@ -58,7 +58,7 @@ This won't fail if `SomeModule` does not define a `subscriptions` function.
 You can try this rule out by running the following command:
 
 ```bash
-elm - review --template jfmengels/review-tea/example --rules NoMissingSubscriptionsCall
+elm-review --template jfmengels/elm-review-the-elm-architecture/example --rules NoMissingSubscriptionsCall
 ```
 
 -}
@@ -67,8 +67,8 @@ rule =
     Rule.newProjectRuleSchema "NoMissingSubscriptionsCall" initialProjectContext
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContextUsingContextCreator
-            { fromProjectToModule = Rule.initContextCreator fromProjectToModule |> Rule.withModuleNameLookupTable
-            , fromModuleToProject = Rule.initContextCreator fromModuleToProject |> Rule.withMetadata
+            { fromProjectToModule = fromProjectToModule
+            , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
             }
         |> Rule.withContextFromImportedModules
@@ -89,15 +89,12 @@ type alias ProjectContext =
 
 
 type alias ModuleContext =
-    { modulesThatExposeSubscriptionsAndUpdate : Set ModuleName
-
-    --, usesUpdate : Bool
-    --, usesSubscription : Bool
+    { lookupTable : ModuleNameLookupTable
+    , modulesThatExposeSubscriptionsAndUpdate : Set ModuleName
     , definesUpdate : Bool
     , definesSubscriptions : Bool
     , usesUpdateOfModule : Dict ModuleName Range
     , usesSubscriptionsOfModule : Set ModuleName
-    , lookupTable : ModuleNameLookupTable
     }
 
 
@@ -107,26 +104,34 @@ initialProjectContext =
     }
 
 
-fromProjectToModule : ModuleNameLookupTable -> ProjectContext -> ModuleContext
-fromProjectToModule lookupTable projectContext =
-    { modulesThatExposeSubscriptionsAndUpdate = projectContext.modulesThatExposeSubscriptionsAndUpdate
-    , definesUpdate = False
-    , definesSubscriptions = False
-    , usesUpdateOfModule = Dict.empty
-    , usesSubscriptionsOfModule = Set.empty
-    , lookupTable = lookupTable
-    }
+fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
+fromProjectToModule =
+    Rule.initContextCreator
+        (\lookupTable projectContext ->
+            { lookupTable = lookupTable
+            , modulesThatExposeSubscriptionsAndUpdate = projectContext.modulesThatExposeSubscriptionsAndUpdate
+            , definesUpdate = False
+            , definesSubscriptions = False
+            , usesUpdateOfModule = Dict.empty
+            , usesSubscriptionsOfModule = Set.empty
+            }
+        )
+        |> Rule.withModuleNameLookupTable
 
 
-fromModuleToProject : Rule.Metadata -> ModuleContext -> ProjectContext
-fromModuleToProject metadata moduleContext =
-    { modulesThatExposeSubscriptionsAndUpdate =
-        if moduleContext.definesSubscriptions && moduleContext.definesUpdate then
-            Set.singleton (Rule.moduleNameFromMetadata metadata)
+fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
+fromModuleToProject =
+    Rule.initContextCreator
+        (\metadata moduleContext ->
+            { modulesThatExposeSubscriptionsAndUpdate =
+                if moduleContext.definesSubscriptions && moduleContext.definesUpdate then
+                    Set.singleton (Rule.moduleNameFromMetadata metadata)
 
-        else
-            Set.empty
-    }
+                else
+                    Set.empty
+            }
+        )
+        |> Rule.withMetadata
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
@@ -166,9 +171,9 @@ expressionVisitor node moduleContext =
     case Node.value node of
         Expression.FunctionOrValue _ "update" ->
             case ModuleNameLookupTable.moduleNameFor moduleContext.lookupTable node of
-                Just realModuleName ->
-                    if Set.member realModuleName moduleContext.modulesThatExposeSubscriptionsAndUpdate then
-                        ( [], { moduleContext | usesUpdateOfModule = Dict.insert realModuleName (Node.range node) moduleContext.usesUpdateOfModule } )
+                Just moduleName ->
+                    if Set.member moduleName moduleContext.modulesThatExposeSubscriptionsAndUpdate then
+                        ( [], { moduleContext | usesUpdateOfModule = Dict.insert moduleName (Node.range node) moduleContext.usesUpdateOfModule } )
 
                     else
                         ( [], moduleContext )
@@ -178,9 +183,9 @@ expressionVisitor node moduleContext =
 
         Expression.FunctionOrValue _ "subscriptions" ->
             case ModuleNameLookupTable.moduleNameFor moduleContext.lookupTable node of
-                Just realModuleName ->
-                    if Set.member realModuleName moduleContext.modulesThatExposeSubscriptionsAndUpdate then
-                        ( [], { moduleContext | usesSubscriptionsOfModule = Set.insert realModuleName moduleContext.usesSubscriptionsOfModule } )
+                Just moduleName ->
+                    if Set.member moduleName moduleContext.modulesThatExposeSubscriptionsAndUpdate then
+                        ( [], { moduleContext | usesSubscriptionsOfModule = Set.insert moduleName moduleContext.usesSubscriptionsOfModule } )
 
                     else
                         ( [], moduleContext )
