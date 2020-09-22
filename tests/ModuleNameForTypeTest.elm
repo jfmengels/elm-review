@@ -14,7 +14,7 @@ import Test exposing (Test, test)
 
 all : Test
 all =
-    Test.describe "Scope.moduleNameForType"
+    Test.describe "ModuleNameLookupTable.moduleNameFor"
         [ test "should return the module that defined the value" <|
             \() ->
                 let
