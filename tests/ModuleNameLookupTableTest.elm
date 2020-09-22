@@ -3,6 +3,7 @@ module ModuleNameLookupTableTest exposing (all)
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node(..))
+import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Fixtures.Dependencies as Dependencies
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
@@ -256,6 +257,24 @@ expressionVisitor node context =
 
         _ ->
             ( [], context )
+
+
+getRealName : ModuleContext -> Range -> String -> String
+getRealName context range name =
+    let
+        resultingName : String
+        resultingName =
+            case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
+                Just [] ->
+                    "<nothing>." ++ name
+
+                Just moduleName_ ->
+                    String.join "." moduleName_ ++ "." ++ name
+
+                Nothing ->
+                    "!!! UNKNOWN !!!"
+    in
+    "<nothing>." ++ name ++ " -> " ++ resultingName
 
 
 declarationVisitor : Node Declaration -> ModuleContext -> ( List nothing, ModuleContext )
