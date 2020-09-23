@@ -23,7 +23,10 @@ all =
                 let
                     rule : Rule
                     rule =
-                        createRule (Rule.withExpressionEnterVisitor expressionVisitor)
+                        createRule
+                            (Rule.withExpressionEnterVisitor expressionVisitor
+                                >> Rule.withDeclarationEnterVisitor declarationVisitor
+                            )
                 in
                 [ """module A exposing (..)
 import Bar as Baz exposing (baz)
