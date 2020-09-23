@@ -4,6 +4,7 @@ import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
+import Elm.Syntax.Pattern as Pattern
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Fixtures.Dependencies as Dependencies
@@ -62,6 +63,9 @@ a = localValue
  always
  True
  Just
+b = case () of
+  VariantA -> ()
+  ExposesEverything.VariantA -> ()
 """, """module ExposesSomeThings exposing (SomeOtherTypeAlias, exposedElement)
 type NonExposedCustomType = Variant
 type alias SomeOtherTypeAlias = {}
@@ -109,6 +113,8 @@ Http.get -> Http.get
 <nothing>.always -> Basics.always
 <nothing>.True -> Basics.True
 <nothing>.Just -> Maybe.Just
+<nothing>.VariantA -> ExposesEverything.VariantA
+ExposesEverything.VariantA -> ExposesEverything.VariantA
 """
                                 , details = [ "details" ]
                                 , under = "module"
@@ -220,6 +226,23 @@ expressionVisitor node context =
 
         Expression.RecordUpdateExpression (Node range name) _ ->
             ( [], { context | texts = context.texts ++ [ getRealName context [] range name ] } )
+
+        Expression.CaseExpression { cases } ->
+            let
+                texts : List String
+                texts =
+                    List.concatMap
+                        (\( pattern, _ ) ->
+                            case Node.value pattern of
+                                Pattern.NamedPattern { moduleName, name } _ ->
+                                    [ getRealName context moduleName (Node.range pattern) name ]
+
+                                _ ->
+                                    Debug.todo "Other patterns in case expressions are not handled"
+                        )
+                        cases
+            in
+            ( [], { context | texts = context.texts ++ texts } )
 
         _ ->
             ( [], context )
