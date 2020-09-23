@@ -71,7 +71,7 @@ b = case () of
   (ExposesEverything.VariantA as foo) -> foo
 
 someFunction Something.B.Bar =
-    let SomeThing.B.Bar = ()
+    let Something.B.Bar = ()
     in ()
 """, """module ExposesSomeThings exposing (SomeOtherTypeAlias, exposedElement)
 type NonExposedCustomType = Variant
@@ -123,6 +123,7 @@ Http.get -> Http.get
 <nothing>.VariantA -> ExposesEverything.VariantA
 ExposesEverything.VariantA -> ExposesEverything.VariantA
 <nothing>.foo -> <nothing>.foo
+Something.B.Bar -> Something.B.Bar
 Something.B.Bar -> Something.B.Bar
 """
                                 , details = [ "details" ]
@@ -241,6 +242,40 @@ expressionVisitor node context =
                 texts : List String
                 texts =
                     List.concatMap (Tuple.first >> collectPatterns context) cases
+            in
+            ( [], { context | texts = context.texts ++ texts } )
+
+        Expression.LetExpression { declarations } ->
+            let
+                texts : List String
+                texts =
+                    List.concatMap
+                        (\declaration ->
+                            case Node.value declaration of
+                                Expression.LetFunction function ->
+                                    let
+                                        typeAnnotationTexts : List String
+                                        typeAnnotationTexts =
+                                            case function.signature |> Maybe.map (Node.value >> .typeAnnotation) of
+                                                Nothing ->
+                                                    []
+
+                                                Just typeAnnotation ->
+                                                    typeAnnotationNames context typeAnnotation
+
+                                        signatureTexts : List String
+                                        signatureTexts =
+                                            function.declaration
+                                                |> Node.value
+                                                |> .arguments
+                                                |> List.concatMap (collectPatterns context)
+                                    in
+                                    typeAnnotationTexts ++ signatureTexts
+
+                                Expression.LetDestructuring pattern _ ->
+                                    collectPatterns context pattern
+                        )
+                        declarations
             in
             ( [], { context | texts = context.texts ++ texts } )
 
