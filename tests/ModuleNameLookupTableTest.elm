@@ -69,6 +69,10 @@ a = localValue
 b = case () of
   VariantA -> ()
   (ExposesEverything.VariantA as foo) -> foo
+
+someFunction Something.B.Bar =
+    let SomeThing.B.Bar = ()
+    in ()
 """, """module ExposesSomeThings exposing (SomeOtherTypeAlias, exposedElement)
 type NonExposedCustomType = Variant
 type alias SomeOtherTypeAlias = {}
@@ -303,12 +307,17 @@ declarationVisitor node context =
             ( [], { context | texts = context.texts ++ typeAnnotationNames context typeAnnotation } )
 
         Declaration.FunctionDeclaration function ->
-            case function.signature |> Maybe.map (Node.value >> .typeAnnotation) of
-                Nothing ->
-                    ( [], context )
+            let
+                typeAnnotationTexts : List String
+                typeAnnotationTexts =
+                    case function.signature |> Maybe.map (Node.value >> .typeAnnotation) of
+                        Nothing ->
+                            []
 
-                Just typeAnnotation ->
-                    ( [], { context | texts = context.texts ++ typeAnnotationNames context typeAnnotation } )
+                        Just typeAnnotation ->
+                            typeAnnotationNames context typeAnnotation
+            in
+            ( [], { context | texts = context.texts ++ typeAnnotationTexts } )
 
         _ ->
             ( [], context )
