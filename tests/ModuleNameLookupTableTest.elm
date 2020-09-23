@@ -123,6 +123,7 @@ Http.get -> Http.get
 <nothing>.VariantA -> ExposesEverything.VariantA
 ExposesEverything.VariantA -> ExposesEverything.VariantA
 <nothing>.foo -> <nothing>.foo
+Something.B.Bar -> Something.B.Bar
 """
                                 , details = [ "details" ]
                                 , under = "module"
@@ -316,8 +317,15 @@ declarationVisitor node context =
 
                         Just typeAnnotation ->
                             typeAnnotationNames context typeAnnotation
+
+                signatureTexts : List String
+                signatureTexts =
+                    function.declaration
+                        |> Node.value
+                        |> .arguments
+                        |> List.concatMap (collectPatterns context)
             in
-            ( [], { context | texts = context.texts ++ typeAnnotationTexts } )
+            ( [], { context | texts = context.texts ++ typeAnnotationTexts ++ signatureTexts } )
 
         _ ->
             ( [], context )
