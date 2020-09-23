@@ -5118,7 +5118,7 @@ collectModuleNamesFromPattern context pattern =
             List.concatMap (collectModuleNamesFromPattern context) subPatterns
 
         Pattern.NamedPattern { moduleName, name } subPatterns ->
-            ( Node.range pattern, moduleNameForType context name moduleName ) :: List.concatMap (collectModuleNamesFromPattern context) subPatterns
+            ( Node.range pattern, moduleNameForValue context name moduleName ) :: List.concatMap (collectModuleNamesFromPattern context) subPatterns
 
         Pattern.AsPattern subPattern _ ->
             collectModuleNamesFromPattern context subPattern
