@@ -65,7 +65,7 @@ a = localValue
  Just
 b = case () of
   VariantA -> ()
-  ExposesEverything.VariantA -> ()
+  (ExposesEverything.VariantA as foo) -> foo
 """, """module ExposesSomeThings exposing (SomeOtherTypeAlias, exposedElement)
 type NonExposedCustomType = Variant
 type alias SomeOtherTypeAlias = {}
@@ -115,6 +115,7 @@ Http.get -> Http.get
 <nothing>.Just -> Maybe.Just
 <nothing>.VariantA -> ExposesEverything.VariantA
 ExposesEverything.VariantA -> ExposesEverything.VariantA
+<nothing>.foo -> <nothing>.foo
 """
                                 , details = [ "details" ]
                                 , under = "module"
@@ -231,21 +232,28 @@ expressionVisitor node context =
             let
                 texts : List String
                 texts =
-                    List.concatMap
-                        (\( pattern, _ ) ->
-                            case Node.value pattern of
-                                Pattern.NamedPattern { moduleName, name } _ ->
-                                    [ getRealName context moduleName (Node.range pattern) name ]
-
-                                _ ->
-                                    Debug.todo "Other patterns in case expressions are not handled"
-                        )
-                        cases
+                    List.concatMap (Tuple.first >> collectPatterns context) cases
             in
             ( [], { context | texts = context.texts ++ texts } )
 
         _ ->
             ( [], context )
+
+
+collectPatterns : ModuleContext -> Node Pattern.Pattern -> List String
+collectPatterns context node =
+    case Node.value node of
+        Pattern.NamedPattern { moduleName, name } _ ->
+            [ getRealName context moduleName (Node.range node) name ]
+
+        Pattern.ParenthesizedPattern subPattern ->
+            collectPatterns context subPattern
+
+        Pattern.AsPattern subPattern _ ->
+            collectPatterns context subPattern
+
+        _ ->
+            Debug.todo "Other patterns in case expressions are not handled"
 
 
 getRealName : ModuleContext -> ModuleName -> Range -> String -> String
