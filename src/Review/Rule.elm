@@ -4517,13 +4517,16 @@ elmCorePrelude =
         , moduleAlias = Nothing
         , exposingList =
             explicit
-                [ Exposing.TypeExpose { name = "Char", open = Nothing }
+                [ Exposing.TypeExpose { name = "String", open = Nothing }
                 ]
         }
     , createFakeImport
         { moduleName = [ "Char" ]
         , moduleAlias = Nothing
-        , exposingList = Nothing
+        , exposingList =
+            explicit
+                [ Exposing.TypeExpose { name = "Char", open = Nothing }
+                ]
         }
     , createFakeImport
         { moduleName = [ "Tuple" ]
