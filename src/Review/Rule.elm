@@ -5049,6 +5049,20 @@ scope_declarationEnterVisitor node context =
                         context.lookupTable
             }
 
+        Declaration.PortDeclaration signature ->
+            let
+                moduleNamesFromSignature : List ( Range, ModuleName )
+                moduleNamesFromSignature =
+                    collectModuleNamesFromTypeAnnotation context signature.typeAnnotation
+
+                lookupTable : ModuleNameLookupTable
+                lookupTable =
+                    ModuleNameLookupTableInternal.addMultiple
+                        moduleNamesFromSignature
+                        context.lookupTable
+            in
+            { context | lookupTable = lookupTable }
+
         _ ->
             context
 
