@@ -3486,14 +3486,11 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
             , moduleContexts = moduleVisitResult.cachedModuleContexts
             , finalEvaluationErrors = errorsFromFinalEvaluation
             }
-
-        errors : List (Error {})
-        errors =
-            -- TODO Needs to be moved to where we check whether there are fixes
-            -- in addition to here
-            Exceptions.apply exceptions (accessInternalError >> .filePath) (errorsFromCache newCache)
     in
-    { errors = List.map (setRuleName name) errors
+    { errors =
+        newCache
+            |> errorsFromCache exceptions
+            |> List.map (setRuleName name)
     , containsFixableErrors = moduleVisitResult.containsFixableErrors
     , rule =
         Rule
@@ -3549,21 +3546,26 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
     }
 
 
+applyExceptions : Exceptions -> List (Error scope) -> List (Error scope)
+applyExceptions exceptions errors =
+    Exceptions.apply exceptions (accessInternalError >> .filePath) errors
+
+
 setRuleName : String -> Error scope -> Error scope
 setRuleName ruleName_ error_ =
     mapInternalError (\err -> { err | ruleName = ruleName_ }) error_
 
 
-errorsFromCache : ProjectRuleCache projectContext -> List (Error {})
-errorsFromCache cache =
+errorsFromCache : Exceptions -> ProjectRuleCache projectContext -> List (Error {})
+errorsFromCache exceptions cache =
     List.concat
-        [ cache.elmJson.errors
-        , cache.readme.errors
-        , cache.dependencies.errors
+        [ applyExceptions exceptions cache.elmJson.errors
+        , applyExceptions exceptions cache.readme.errors
+        , applyExceptions exceptions cache.dependencies.errors
         , cache.moduleContexts
             |> Dict.values
             |> List.concatMap (\cacheEntry -> cacheEntry.errors)
-        , cache.finalEvaluationErrors
+        , applyExceptions exceptions cache.finalEvaluationErrors
         ]
 
 
