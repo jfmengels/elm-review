@@ -416,6 +416,7 @@ review rules project =
                             let
                                 scopeResult :
                                     { errors : List (Error {})
+                                    , containsFixableErrors : Bool
                                     , rule : Rule
                                     , cache : ProjectRuleCache ScopeProjectContext
                                     , extract : Maybe Extract
@@ -1126,7 +1127,13 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
         , ruleImplementation =
             \exceptions project nodeContexts ->
                 let
-                    result : { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
+                    result :
+                        { errors : List (Error {})
+                        , containsFixableErrors : Bool
+                        , rule : Rule
+                        , cache : ProjectRuleCache projectContext
+                        , extract : Maybe Extract
+                        }
                     result =
                         runProjectVisitor schema.name
                             (fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema)
@@ -1136,7 +1143,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                             nodeContexts
                 in
                 { ruleErrors = result.errors
-                , containsFixableErrors = checkIfContainsFixableErrors result.errors
+                , containsFixableErrors = result.containsFixableErrors
                 , ruleWithCache = result.rule
                 }
         }
@@ -3395,7 +3402,7 @@ runProjectVisitor :
     -> Exceptions
     -> Project
     -> List (Graph.NodeContext ModuleName ())
-    -> { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
+    -> { errors : List (Error {}), containsFixableErrors : Bool, rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
 runProjectVisitor name projectVisitor maybePreviousCache exceptions project nodeContexts =
     let
         cacheWithInitialContext : ProjectRuleCache projectContext
@@ -3479,6 +3486,7 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
                     Exceptions.apply exceptions (accessInternalError >> .filePath) (errorsFromCache newCache)
     in
     { errors = List.map (setRuleName name) errors
+    , containsFixableErrors = checkIfContainsFixableErrors errors
     , rule =
         Rule
             { name = name
@@ -3487,7 +3495,13 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
             , ruleImplementation =
                 \newExceptions newProject newNodeContexts ->
                     let
-                        result : { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
+                        result :
+                            { errors : List (Error {})
+                            , containsFixableErrors : Bool
+                            , rule : Rule
+                            , cache : ProjectRuleCache projectContext
+                            , extract : Maybe Extract
+                            }
                         result =
                             runProjectVisitor
                                 name
@@ -3498,7 +3512,7 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
                                 newNodeContexts
                     in
                     { ruleErrors = result.errors
-                    , containsFixableErrors = checkIfContainsFixableErrors result.errors
+                    , containsFixableErrors = result.containsFixableErrors
                     , ruleWithCache = result.rule
                     }
             }
