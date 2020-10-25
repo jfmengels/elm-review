@@ -293,7 +293,7 @@ type Rule
         { name : String
         , exceptions : Exceptions
         , requestedData : RequestedData
-        , ruleImplementation : Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> { ruleErrors : List (Error {}), containsFixableErrors : Bool, ruleWithCache : Rule }
+        , ruleImplementation : Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> Bool -> { ruleErrors : List (Error {}), containsFixableErrors : Bool, ruleWithCache : Rule }
         }
 
 
@@ -726,7 +726,7 @@ runRules inFixMode rules project nodeContexts ( errors, previousRules ) =
         (Rule { exceptions, ruleImplementation }) :: restOfRules ->
             let
                 { ruleErrors, containsFixableErrors, ruleWithCache } =
-                    ruleImplementation exceptions project nodeContexts
+                    ruleImplementation exceptions project nodeContexts inFixMode
             in
             if inFixMode && containsFixableErrors then
                 ( List.concat [ List.map removeErrorPhantomType ruleErrors, errors ]
@@ -1125,7 +1125,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                 Nothing ->
                     RequestedData { metadata = False, moduleNameLookupTable = False }
         , ruleImplementation =
-            \exceptions project nodeContexts ->
+            \exceptions project nodeContexts inFixMode ->
                 let
                     result :
                         { errors : List (Error {})
@@ -3498,7 +3498,7 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
             , exceptions = exceptions
             , requestedData = projectVisitor.requestedData
             , ruleImplementation =
-                \newExceptions newProject newNodeContexts ->
+                \newExceptions newProject newNodeContexts inFixMode ->
                     let
                         result :
                             { errors : List (Error {})
