@@ -293,7 +293,7 @@ type Rule
         { name : String
         , exceptions : Exceptions
         , requestedData : RequestedData
-        , ruleImplementation : Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> { ruleErrors : List (Error {}), ruleWithCache : Rule }
+        , ruleImplementation : Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> { ruleErrors : List (Error {}), containsFixableErrors : Bool, ruleWithCache : Rule }
         }
 
 
@@ -724,25 +724,10 @@ runRules inFixMode rules project nodeContexts ( errors, previousRules ) =
 
         (Rule { exceptions, ruleImplementation }) :: restOfRules ->
             let
-                { ruleErrors, ruleWithCache } =
+                { ruleErrors, containsFixableErrors, ruleWithCache } =
                     ruleImplementation exceptions project nodeContexts
-
-                areThereApplicableErrorFixes : Bool
-                areThereApplicableErrorFixes =
-                    List.any
-                        (accessInternalError
-                            >> (\error_ ->
-                                    case error_.fixes of
-                                        Just fixes ->
-                                            True
-
-                                        Nothing ->
-                                            False
-                               )
-                        )
-                        ruleErrors
             in
-            if inFixMode && areThereApplicableErrorFixes then
+            if inFixMode && containsFixableErrors then
                 ( List.concat [ List.map removeErrorPhantomType ruleErrors, errors ]
                 , ruleWithCache :: restOfRules ++ previousRules
                 )
@@ -1150,8 +1135,27 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                             project
                             nodeContexts
                 in
-                { ruleErrors = result.errors, ruleWithCache = result.rule }
+                { ruleErrors = result.errors
+                , containsFixableErrors = checkIfContainsFixableErrors result.errors
+                , ruleWithCache = result.rule
+                }
         }
+
+
+checkIfContainsFixableErrors : List (Error {}) -> Bool
+checkIfContainsFixableErrors errors =
+    List.any
+        (accessInternalError
+            >> (\error_ ->
+                    case error_.fixes of
+                        Just fixes ->
+                            True
+
+                        Nothing ->
+                            False
+               )
+        )
+        errors
 
 
 fromProjectRuleSchemaToRunnableProjectVisitor : ProjectRuleSchema schemaState projectContext moduleContext -> RunnableProjectVisitor projectContext moduleContext
@@ -3493,7 +3497,10 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
                                 newProject
                                 newNodeContexts
                     in
-                    { ruleErrors = result.errors, ruleWithCache = result.rule }
+                    { ruleErrors = result.errors
+                    , containsFixableErrors = checkIfContainsFixableErrors result.errors
+                    , ruleWithCache = result.rule
+                    }
             }
     , cache = newCache
     , extract =
