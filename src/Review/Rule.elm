@@ -662,19 +662,17 @@ runRules : List Rule -> Project -> List (Graph.NodeContext ModuleName ()) -> ( L
 runRules rules project nodeContexts ( errors, previousRules ) =
     case rules of
         [] ->
-            ( errors, List.reverse previousRules )
+            ( errors, previousRules )
 
         (Rule { exceptions, ruleImplementation }) :: restOfRules ->
             let
                 { ruleErrors, ruleWithCache } =
                     ruleImplementation exceptions project nodeContexts
             in
-            if True then
-                runRules
-                    restOfRules
-                    project
-                    nodeContexts
-                    ( List.concat [ List.map removeErrorPhantomType ruleErrors, errors ], ruleWithCache :: previousRules )
+            if not <| List.isEmpty ruleErrors then
+                ( List.concat [ List.map removeErrorPhantomType ruleErrors, errors ]
+                , ruleWithCache :: restOfRules ++ previousRules
+                )
 
             else
                 runRules
