@@ -3422,25 +3422,32 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
                 Nothing ->
                     Dict.empty
 
-        newCachedModuleContexts : Dict String (CacheEntry projectContext)
-        newCachedModuleContexts =
+        moduleVisitResult : { cachedModuleContexts : Dict String (CacheEntry projectContext), containsFixableErrors : Bool }
+        moduleVisitResult =
             case projectVisitor.moduleVisitor of
                 Nothing ->
-                    Dict.empty
+                    { cachedModuleContexts = Dict.empty
+                    , containsFixableErrors = False
+                    }
 
                 Just moduleVisitor ->
-                    computeModules
-                        projectVisitor
-                        moduleVisitor
-                        project
-                        exceptions
-                        initialContext
-                        nodeContexts
-                        previousModuleContexts
+                    { cachedModuleContexts =
+                        computeModules
+                            projectVisitor
+                            moduleVisitor
+                            project
+                            exceptions
+                            initialContext
+                            nodeContexts
+                            previousModuleContexts
+
+                    -- TODO Don't forget to shortcircuit only if that was requested!
+                    , containsFixableErrors = False
+                    }
 
         contextsAndErrorsPerModule : List ( List (Error {}), projectContext )
         contextsAndErrorsPerModule =
-            newCachedModuleContexts
+            moduleVisitResult.cachedModuleContexts
                 |> Dict.values
                 |> List.map (\cacheEntry -> ( cacheEntry.errors, cacheEntry.context ))
 
@@ -3456,23 +3463,27 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
 
         errorsFromFinalEvaluation : List (Error {})
         errorsFromFinalEvaluation =
-            case maybePreviousCache of
-                Just previousCache ->
-                    if initialContext == previousCache.dependencies.context && allModulesContext == previousAllModulesContext then
-                        previousCache.finalEvaluationErrors
+            if moduleVisitResult.containsFixableErrors then
+                []
 
-                    else
+            else
+                case maybePreviousCache of
+                    Just previousCache ->
+                        if initialContext == previousCache.dependencies.context && allModulesContext == previousAllModulesContext then
+                            previousCache.finalEvaluationErrors
+
+                        else
+                            errorsFromFinalEvaluationForProject projectVisitor initialContext allModulesContext
+
+                    Nothing ->
                         errorsFromFinalEvaluationForProject projectVisitor initialContext allModulesContext
-
-                Nothing ->
-                    errorsFromFinalEvaluationForProject projectVisitor initialContext allModulesContext
 
         newCache : ProjectRuleCache projectContext
         newCache =
             { elmJson = cacheWithInitialContext.elmJson
             , readme = cacheWithInitialContext.readme
             , dependencies = cacheWithInitialContext.dependencies
-            , moduleContexts = newCachedModuleContexts
+            , moduleContexts = moduleVisitResult.cachedModuleContexts
             , finalEvaluationErrors = errorsFromFinalEvaluation
             }
 
@@ -3486,7 +3497,7 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
                     Exceptions.apply exceptions (accessInternalError >> .filePath) (errorsFromCache newCache)
     in
     { errors = List.map (setRuleName name) errors
-    , containsFixableErrors = checkIfContainsFixableErrors errors
+    , containsFixableErrors = moduleVisitResult.containsFixableErrors
     , rule =
         Rule
             { name = name
