@@ -3442,6 +3442,7 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions inFixMode pr
                             moduleVisitor
                             project
                             exceptions
+                            inFixMode
                             initialContext
                             nodeContexts
                             previousModuleContexts
@@ -3716,11 +3717,12 @@ computeModules :
     -> ( RunnableModuleVisitor moduleContext, ContextCreator projectContext moduleContext )
     -> Project
     -> Exceptions
+    -> Bool
     -> projectContext
     -> List (Graph.NodeContext ModuleName ())
     -> Dict String (CacheEntry projectContext)
     -> Dict String (CacheEntry projectContext)
-computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions initialProjectContext nodeContexts startCache =
+computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions inFixMode initialProjectContext nodeContexts startCache =
     let
         graph : Graph ModuleName ()
         graph =
