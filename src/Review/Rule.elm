@@ -3489,12 +3489,9 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
 
         errors : List (Error {})
         errors =
-            case projectVisitor.traversalAndFolder of
-                TraverseAllModulesInParallel _ ->
-                    Exceptions.apply exceptions (accessInternalError >> .filePath) (errorsFromCache newCache)
-
-                TraverseImportedModulesFirst _ ->
-                    Exceptions.apply exceptions (accessInternalError >> .filePath) (errorsFromCache newCache)
+            -- TODO Needs to be moved to where we check whether there are fixes
+            -- in addition to here
+            Exceptions.apply exceptions (accessInternalError >> .filePath) (errorsFromCache newCache)
     in
     { errors = List.map (setRuleName name) errors
     , containsFixableErrors = moduleVisitResult.containsFixableErrors
