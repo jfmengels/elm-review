@@ -726,8 +726,23 @@ runRules inFixMode rules project nodeContexts ( errors, previousRules ) =
             let
                 { ruleErrors, ruleWithCache } =
                     ruleImplementation exceptions project nodeContexts
+
+                areThereApplicableErrorFixes : Bool
+                areThereApplicableErrorFixes =
+                    List.any
+                        (accessInternalError
+                            >> (\error_ ->
+                                    case error_.fixes of
+                                        Just fixes ->
+                                            True
+
+                                        Nothing ->
+                                            False
+                               )
+                        )
+                        ruleErrors
             in
-            if inFixMode && not (List.isEmpty ruleErrors) then
+            if inFixMode && areThereApplicableErrorFixes then
                 ( List.concat [ List.map removeErrorPhantomType ruleErrors, errors ]
                 , ruleWithCache :: restOfRules ++ previousRules
                 )
