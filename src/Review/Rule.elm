@@ -3723,6 +3723,7 @@ computeModules :
     -> Dict String (CacheEntry projectContext)
     -> Dict String (CacheEntry projectContext)
 computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions inFixMode initialProjectContext nodeContexts startCache =
+    -- TODO Use exceptions & inFixMode somewhere, and return whether someContain fixes to apply.
     let
         graph : Graph ModuleName ()
         graph =
