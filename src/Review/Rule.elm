@@ -669,11 +669,19 @@ runRules rules project nodeContexts ( errors, previousRules ) =
                 { ruleErrors, ruleWithCache } =
                     ruleImplementation exceptions project nodeContexts
             in
-            runRules
-                restOfRules
-                project
-                nodeContexts
-                ( List.concat [ List.map removeErrorPhantomType ruleErrors, errors ], ruleWithCache :: previousRules )
+            if True then
+                runRules
+                    restOfRules
+                    project
+                    nodeContexts
+                    ( List.concat [ List.map removeErrorPhantomType ruleErrors, errors ], ruleWithCache :: previousRules )
+
+            else
+                runRules
+                    restOfRules
+                    project
+                    nodeContexts
+                    ( List.concat [ List.map removeErrorPhantomType ruleErrors, errors ], ruleWithCache :: previousRules )
 
 
 duplicateModuleNames : Dict ModuleName String -> List ProjectModule -> Maybe { moduleName : ModuleName, paths : List String }
