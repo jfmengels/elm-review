@@ -3814,7 +3814,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                         initialProjectContext
             }
     in
-    computesModules projectVisitor.traversalAndFolder modules graph computeModule nodeContexts ( newStartCache, Set.empty )
+    computesModules projectVisitor.traversalAndFolder modules graph computeModule nodeContexts { cache = newStartCache, invalidatedModules = Set.empty }
         |> Tuple.first
 
 
@@ -3824,18 +3824,18 @@ computesModules :
     -> Graph ModuleName ()
     -> (Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> CacheEntry projectContext)
     -> List (Graph.NodeContext ModuleName ())
+    -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
     -> ( Dict String (CacheEntry projectContext), Set ModuleName )
-    -> ( Dict String (CacheEntry projectContext), Set ModuleName )
-computesModules traversalAndFolder modules graph computeModule nodeContexts ( cache, invalidatesModules ) =
+computesModules traversalAndFolder modules graph computeModule nodeContexts ({ cache, invalidatedModules } as input) =
     case nodeContexts of
         [] ->
-            ( cache, invalidatesModules )
+            ( cache, invalidatedModules )
 
         nodeContext :: restOfNodeContexts ->
             let
-                result : ( Dict String (CacheEntry projectContext), Set ModuleName )
+                result : { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
                 result =
-                    computeModuleAndCacheResult traversalAndFolder modules graph computeModule nodeContext ( cache, invalidatesModules )
+                    computeModuleAndCacheResult traversalAndFolder modules graph computeModule nodeContext input
             in
             computesModules traversalAndFolder
                 modules
@@ -3851,12 +3851,12 @@ computeModuleAndCacheResult :
     -> Graph ModuleName ()
     -> (Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> CacheEntry projectContext)
     -> Graph.NodeContext ModuleName ()
-    -> ( Dict String (CacheEntry projectContext), Set ModuleName )
-    -> ( Dict String (CacheEntry projectContext), Set ModuleName )
-computeModuleAndCacheResult traversalAndFolder modules graph computeModule { node, incoming } ( cache, invalidatedModules ) =
+    -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
+    -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
+computeModuleAndCacheResult traversalAndFolder modules graph computeModule { node, incoming } ({ cache, invalidatedModules } as input) =
     case Dict.get node.label modules of
         Nothing ->
-            ( cache, invalidatedModules )
+            input
 
         Just module_ ->
             let
@@ -3875,20 +3875,21 @@ computeModuleAndCacheResult traversalAndFolder modules graph computeModule { nod
                                             |> Maybe.andThen (\nodeContext -> Dict.get nodeContext.node.label modules)
                                     )
 
-                compute : Maybe (CacheEntry projectContext) -> ( Dict String (CacheEntry projectContext), Set ModuleName )
+                compute : Maybe (CacheEntry projectContext) -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
                 compute previousResult =
                     let
                         result : CacheEntry projectContext
                         result =
                             computeModule cache importedModules module_
                     in
-                    ( Dict.insert module_.path result cache
-                    , if Just result.context /= Maybe.map .context previousResult then
-                        Set.insert (getModuleName module_) invalidatedModules
+                    { cache = Dict.insert module_.path result cache
+                    , invalidatedModules =
+                        if Just result.context /= Maybe.map .context previousResult then
+                            Set.insert (getModuleName module_) invalidatedModules
 
-                      else
-                        invalidatedModules
-                    )
+                        else
+                            invalidatedModules
+                    }
             in
             case Dict.get module_.path cache of
                 Nothing ->
@@ -3897,7 +3898,7 @@ computeModuleAndCacheResult traversalAndFolder modules graph computeModule { nod
                 Just cacheEntry ->
                     if cacheEntry.source == module_.source && (traversesAllModulesInParallel traversalAndFolder || noImportedModulesHaveANewContext importedModules invalidatedModules) then
                         -- The module's source and the module's imported modules' context are unchanged, we will later return the cached errors and context
-                        ( cache, invalidatedModules )
+                        input
 
                     else
                         compute (Just cacheEntry)
