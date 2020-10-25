@@ -89,7 +89,8 @@ rule =
 type alias ProjectContext =
     { exposedModules : Set ModuleName
     , customTypeArgs :
-        Dict ModuleName
+        Dict
+            ModuleName
             { moduleKey : Rule.ModuleKey
             , args : Dict String (List Range)
             }

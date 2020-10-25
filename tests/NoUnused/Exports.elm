@@ -81,7 +81,8 @@ moduleVisitor schema =
 type alias ProjectContext =
     { projectType : ProjectType
     , modules :
-        Dict ModuleName
+        Dict
+            ModuleName
             { moduleKey : Rule.ModuleKey
             , exposed : Dict String ExposedElement
             }

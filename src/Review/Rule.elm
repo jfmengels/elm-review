@@ -445,7 +445,7 @@ review rules project =
                                 ( List.map errorToReviewError scopeResult.errors, rules )
 
                             else
-                                runRules rules projectWithLookupTable nodeContexts
+                                runRules rules projectWithLookupTable nodeContexts ( [], [] )
                                     |> Tuple.mapFirst (List.map errorToReviewError)
 
         modulesThatFailedToParse ->
@@ -601,7 +601,7 @@ runReview ((Project p) as project) rules maybeProjectData nodeContexts =
     in
     let
         ( errors, newRules ) =
-            runRules rules projectWithLookupTables nodeContexts
+            runRules rules projectWithLookupTables nodeContexts ( [], [] )
     in
     { errors = List.map errorToReviewError errors
     , rules = newRules
@@ -658,18 +658,22 @@ duplicateModulesGlobalError duplicate =
         }
 
 
-runRules : List Rule -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), List Rule )
-runRules rules project nodeContexts =
-    List.foldl
-        (\(Rule { exceptions, ruleImplementation }) ( errors, previousRules ) ->
+runRules : List Rule -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), List Rule ) -> ( List (Error {}), List Rule )
+runRules rules project nodeContexts ( errors, previousRules ) =
+    case rules of
+        [] ->
+            ( errors, List.reverse previousRules )
+
+        (Rule { exceptions, ruleImplementation }) :: restOfRules ->
             let
                 ( ruleErrors, ruleWithCache ) =
                     ruleImplementation exceptions project nodeContexts
             in
-            ( List.concat [ List.map removeErrorPhantomType ruleErrors, errors ], ruleWithCache :: previousRules )
-        )
-        ( [], [] )
-        rules
+            runRules
+                restOfRules
+                project
+                nodeContexts
+                ( List.concat [ List.map removeErrorPhantomType ruleErrors, errors ], ruleWithCache :: previousRules )
 
 
 duplicateModuleNames : Dict ModuleName String -> List ProjectModule -> Maybe { moduleName : ModuleName, paths : List String }
@@ -1361,7 +1365,8 @@ but are unused in the rest of the project.
           exposedModules : Set ModuleName
         , exposedFunctions :
             -- An entry for each module
-            Dict ModuleName
+            Dict
+                ModuleName
                 { -- To report errors in this module
                   moduleKey : Rule.ModuleKey
 
