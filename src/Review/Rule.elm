@@ -15,7 +15,7 @@ module Review.Rule exposing
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
-    , review, reviewV2, ProjectData, ruleName
+    , review, reviewV2, reviewV3, ProjectData, ruleName
     , Required, Forbidden
     )
 
@@ -243,7 +243,7 @@ reason or seemingly inappropriately.
 
 # Running rules
 
-@docs review, reviewV2, ProjectData, ruleName
+@docs review, reviewV2, reviewV3, ProjectData, ruleName
 
 
 # Internals
@@ -497,7 +497,65 @@ reviewV2 rules maybeProjectData project =
     checkForModulesThatFailedToParse project
         |> Result.andThen (\() -> checkForDuplicateModules project)
         |> Result.andThen (\() -> getModulesSortedByImport project)
-        |> Result.map (runReview True project rules maybeProjectData)
+        |> Result.map (runReview False project rules maybeProjectData)
+        |> Result.mapError
+            (\errors ->
+                { errors = errors
+                , rules = rules
+                , projectData = maybeProjectData
+                }
+            )
+        |> extractResultValue
+
+
+{-| Review a project and gives back the errors raised by the given rules.
+
+Note that you won't need to use this function when writing a rule. You should
+only need it if you try to make `elm-review` run in a new environment.
+
+    import Review.Project as Project exposing (Project, ProjectModule)
+    import Review.Rule as Rule exposing (Rule)
+
+    config : List Rule
+    config =
+        [ Some.Rule.rule
+        , Some.Other.Rule.rule
+        ]
+
+    project : Project
+    project =
+        Project.new
+            |> Project.addModule { path = "src/A.elm", source = "module A exposing (a)\na = 1" }
+            |> Project.addModule { path = "src/B.elm", source = "module B exposing (b)\nb = 1" }
+
+    doReview =
+        let
+            { errors, rules, projectData } =
+                -- Replace `config` by `rules` next time you call reviewV2
+                -- Replace `Nothing` by `projectData` next time you call reviewV2
+                Rule.reviewV3 { inFixMode = False } config Nothing project
+        in
+        doSomethingWithTheseValues
+
+The resulting `List Rule` is the same list of rules given as input, but with an
+updated internal cache to make it faster to re-run the rules on the same project.
+If you plan on re-reviewing with the same rules and project, for instance to
+review the project after a file has changed, you may want to store the rules in
+your `Model`.
+
+The rules are functions, so doing so will make your model unable to be
+exported/imported with `elm/browser`'s debugger, and may cause a crash if you try
+to compare them or the model that holds them.
+
+TODO Document inFixMode
+
+-}
+reviewV3 : { inFixMode : Bool } -> List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
+reviewV3 { inFixMode } rules maybeProjectData project =
+    checkForModulesThatFailedToParse project
+        |> Result.andThen (\() -> checkForDuplicateModules project)
+        |> Result.andThen (\() -> getModulesSortedByImport project)
+        |> Result.map (runReview inFixMode project rules maybeProjectData)
         |> Result.mapError
             (\errors ->
                 { errors = errors
