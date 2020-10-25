@@ -293,7 +293,7 @@ type Rule
         { name : String
         , exceptions : Exceptions
         , requestedData : RequestedData
-        , ruleImplementation : Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
+        , ruleImplementation : Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> { ruleErrors : List (Error {}), ruleWithCache : Rule }
         }
 
 
@@ -666,7 +666,7 @@ runRules rules project nodeContexts ( errors, previousRules ) =
 
         (Rule { exceptions, ruleImplementation }) :: restOfRules ->
             let
-                ( ruleErrors, ruleWithCache ) =
+                { ruleErrors, ruleWithCache } =
                     ruleImplementation exceptions project nodeContexts
             in
             runRules
@@ -1070,7 +1070,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                             project
                             nodeContexts
                 in
-                ( result.errors, result.rule )
+                { ruleErrors = result.errors, ruleWithCache = result.rule }
         }
 
 
@@ -3413,7 +3413,7 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
                                 newProject
                                 newNodeContexts
                     in
-                    ( result.errors, result.rule )
+                    { ruleErrors = result.errors, ruleWithCache = result.rule }
             }
     , cache = newCache
     , extract =
