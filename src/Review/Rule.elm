@@ -427,6 +427,7 @@ review rules project =
                                         scopeRule
                                         Nothing
                                         Exceptions.init
+                                        False
                                         project
                                         nodeContexts
 
@@ -638,6 +639,7 @@ runReview inFixMode ((Project p) as project) rules maybeProjectData nodeContexts
                             scopeRule
                             (Maybe.map extractProjectData maybeProjectData)
                             Exceptions.init
+                            False
                             project
                             nodeContexts
                 in
@@ -1135,10 +1137,12 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                         , extract : Maybe Extract
                         }
                     result =
-                        runProjectVisitor schema.name
+                        runProjectVisitor
+                            schema.name
                             (fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema)
                             Nothing
                             exceptions
+                            inFixMode
                             project
                             nodeContexts
                 in
@@ -3400,10 +3404,11 @@ runProjectVisitor :
     -> RunnableProjectVisitor projectContext moduleContext
     -> Maybe (ProjectRuleCache projectContext)
     -> Exceptions
+    -> Bool
     -> Project
     -> List (Graph.NodeContext ModuleName ())
     -> { errors : List (Error {}), containsFixableErrors : Bool, rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
-runProjectVisitor name projectVisitor maybePreviousCache exceptions project nodeContexts =
+runProjectVisitor name projectVisitor maybePreviousCache exceptions inFixMode project nodeContexts =
     let
         cacheWithInitialContext : ProjectRuleCache projectContext
         cacheWithInitialContext =
@@ -3498,7 +3503,7 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
             , exceptions = exceptions
             , requestedData = projectVisitor.requestedData
             , ruleImplementation =
-                \newExceptions newProject newNodeContexts inFixMode ->
+                \newExceptions newProject newNodeContexts inFixMode_ ->
                     let
                         result :
                             { errors : List (Error {})
@@ -3513,6 +3518,7 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
                                 projectVisitor
                                 (Just newCache)
                                 newExceptions
+                                inFixMode_
                                 newProject
                                 newNodeContexts
                     in
