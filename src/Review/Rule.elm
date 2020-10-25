@@ -445,7 +445,7 @@ review rules project =
                                 ( List.map errorToReviewError scopeResult.errors, rules )
 
                             else
-                                runRules rules projectWithLookupTable nodeContexts ( [], [] )
+                                runRules False rules projectWithLookupTable nodeContexts ( [], [] )
                                     |> Tuple.mapFirst (List.map errorToReviewError)
 
         modulesThatFailedToParse ->
@@ -497,7 +497,7 @@ reviewV2 rules maybeProjectData project =
     checkForModulesThatFailedToParse project
         |> Result.andThen (\() -> checkForDuplicateModules project)
         |> Result.andThen (\() -> getModulesSortedByImport project)
-        |> Result.map (runReview project rules maybeProjectData)
+        |> Result.map (runReview True project rules maybeProjectData)
         |> Result.mapError
             (\errors ->
                 { errors = errors
@@ -566,8 +566,8 @@ extractResultValue result =
             a
 
 
-runReview : Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
-runReview ((Project p) as project) rules maybeProjectData nodeContexts =
+runReview : Bool -> Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
+runReview inFixMode ((Project p) as project) rules maybeProjectData nodeContexts =
     let
         scopeResult : { projectData : Maybe ProjectData, extract : Maybe Extract }
         scopeResult =
@@ -601,7 +601,7 @@ runReview ((Project p) as project) rules maybeProjectData nodeContexts =
     in
     let
         ( errors, newRules ) =
-            runRules rules projectWithLookupTables nodeContexts ( [], [] )
+            runRules inFixMode rules projectWithLookupTables nodeContexts ( [], [] )
     in
     { errors = List.map errorToReviewError errors
     , rules = newRules
@@ -658,8 +658,8 @@ duplicateModulesGlobalError duplicate =
         }
 
 
-runRules : List Rule -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), List Rule ) -> ( List (Error {}), List Rule )
-runRules rules project nodeContexts ( errors, previousRules ) =
+runRules : Bool -> List Rule -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), List Rule ) -> ( List (Error {}), List Rule )
+runRules inFixMode rules project nodeContexts ( errors, previousRules ) =
     case rules of
         [] ->
             ( errors, previousRules )
@@ -669,13 +669,14 @@ runRules rules project nodeContexts ( errors, previousRules ) =
                 { ruleErrors, ruleWithCache } =
                     ruleImplementation exceptions project nodeContexts
             in
-            if not <| List.isEmpty ruleErrors then
+            if inFixMode && not (List.isEmpty ruleErrors) then
                 ( List.concat [ List.map removeErrorPhantomType ruleErrors, errors ]
                 , ruleWithCache :: restOfRules ++ previousRules
                 )
 
             else
                 runRules
+                    inFixMode
                     restOfRules
                     project
                     nodeContexts
