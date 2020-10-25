@@ -3832,12 +3832,17 @@ computesModules traversalAndFolder modules graph computeModule nodeContexts ( ca
             ( cache, invalidatesModules )
 
         nodeContext :: restOfNodeContexts ->
+            let
+                result : ( Dict String (CacheEntry projectContext), Set ModuleName )
+                result =
+                    computeModuleAndCacheResult traversalAndFolder modules graph computeModule nodeContext ( cache, invalidatesModules )
+            in
             computesModules traversalAndFolder
                 modules
                 graph
                 computeModule
                 restOfNodeContexts
-                (computeModuleAndCacheResult traversalAndFolder modules graph computeModule nodeContext ( cache, invalidatesModules ))
+                result
 
 
 computeModuleAndCacheResult :
