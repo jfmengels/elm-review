@@ -3814,11 +3814,30 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                         initialProjectContext
             }
     in
-    List.foldl
-        (computeModuleAndCacheResult projectVisitor.traversalAndFolder modules graph computeModule)
-        ( newStartCache, Set.empty )
-        nodeContexts
+    computesModules projectVisitor.traversalAndFolder modules graph computeModule nodeContexts ( newStartCache, Set.empty )
         |> Tuple.first
+
+
+computesModules :
+    TraversalAndFolder projectContext moduleContext
+    -> Dict ModuleName ProjectModule
+    -> Graph ModuleName ()
+    -> (Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> CacheEntry projectContext)
+    -> List (Graph.NodeContext ModuleName ())
+    -> ( Dict String (CacheEntry projectContext), Set ModuleName )
+    -> ( Dict String (CacheEntry projectContext), Set ModuleName )
+computesModules traversalAndFolder modules graph computeModule nodeContexts ( cache, invalidatesModules ) =
+    case nodeContexts of
+        [] ->
+            ( cache, invalidatesModules )
+
+        nodeContext :: restOfNodeContexts ->
+            computesModules traversalAndFolder
+                modules
+                graph
+                computeModule
+                restOfNodeContexts
+                (computeModuleAndCacheResult traversalAndFolder modules graph computeModule nodeContext ( cache, invalidatesModules ))
 
 
 computeModuleAndCacheResult :
