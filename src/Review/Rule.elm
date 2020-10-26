@@ -3893,7 +3893,7 @@ computesModules runParameters nodeContexts accumulator =
 
                 Just module_ ->
                     let
-                        result : { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
+                        result : { cache : Dict String (CacheEntry projectContext), containsFixableErrors : Bool, invalidatedModules : Set ModuleName }
                         result =
                             computeModuleAndCacheResult
                                 runParameters.moduleRunParameters
@@ -3901,7 +3901,11 @@ computesModules runParameters nodeContexts accumulator =
                                 module_
                                 accumulator
                     in
-                    computesModules runParameters restOfNodeContexts result
+                    if result.containsFixableErrors then
+                        result
+
+                    else
+                        computesModules runParameters restOfNodeContexts { cache = result.cache, invalidatedModules = result.invalidatedModules }
 
 
 computeModuleAndCacheResult :
@@ -3913,7 +3917,7 @@ computeModuleAndCacheResult :
     -> Graph.Adjacency ()
     -> ProjectModule
     -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
-    -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
+    -> { cache : Dict String (CacheEntry projectContext), containsFixableErrors : Bool, invalidatedModules : Set ModuleName }
 computeModuleAndCacheResult { traversalAndFolder, modules, graph, computeModule } incoming module_ ({ cache, invalidatedModules } as input) =
     let
         importedModules : List ProjectModule
@@ -3931,15 +3935,15 @@ computeModuleAndCacheResult { traversalAndFolder, modules, graph, computeModule 
                                     |> Maybe.andThen (\nodeContext -> Dict.get nodeContext.node.label modules)
                             )
 
-        compute : Maybe (CacheEntry projectContext) -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
+        compute : Maybe (CacheEntry projectContext) -> { cache : Dict String (CacheEntry projectContext), containsFixableErrors : Bool, invalidatedModules : Set ModuleName }
         compute previousResult =
             let
                 result : { cache : CacheEntry projectContext, containsFixableErrors : Bool }
                 result =
                     computeModule cache importedModules module_
             in
-            -- TODO Use containsFixableErrors
             { cache = Dict.insert module_.path result.cache cache
+            , containsFixableErrors = result.containsFixableErrors
             , invalidatedModules =
                 if Just result.cache.context /= Maybe.map .context previousResult then
                     Set.insert (getModuleName module_) invalidatedModules
@@ -3955,7 +3959,10 @@ computeModuleAndCacheResult { traversalAndFolder, modules, graph, computeModule 
         Just cacheEntry ->
             if cacheEntry.source == module_.source && (traversesAllModulesInParallel traversalAndFolder || noImportedModulesHaveANewContext importedModules invalidatedModules) then
                 -- The module's source and the module's imported modules' context are unchanged, we will later return the cached errors and context
-                input
+                { cache = input.cache
+                , containsFixableErrors = checkIfContainsFixableErrors cacheEntry.errors
+                , invalidatedModules = input.invalidatedModules
+                }
 
             else
                 compute (Just cacheEntry)
