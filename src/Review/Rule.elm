@@ -1160,6 +1160,7 @@ checkIfContainsFixableErrors errors =
             >> (\error_ ->
                     case error_.fixes of
                         Just fixes ->
+                            -- TODO Check if the fixes are really applicable
                             True
 
                         Nothing ->
