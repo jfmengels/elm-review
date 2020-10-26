@@ -3492,12 +3492,17 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions inFixMode pr
             , moduleContexts = moduleVisitResult.cachedModuleContexts
             , finalEvaluationErrors = errorsFromFinalEvaluation
             }
+
+        errors : List (Error {})
+        errors =
+            newCache
+                |> errorsFromCache exceptions
+                |> List.map (setRuleName name)
     in
-    { errors =
-        newCache
-            |> errorsFromCache exceptions
-            |> List.map (setRuleName name)
-    , containsFixableErrors = moduleVisitResult.containsFixableErrors
+    { errors = errors
+
+    -- TODO We already computed checkIfContainsFixableErrors for the modules, don't re-compute it again.
+    , containsFixableErrors = moduleVisitResult.containsFixableErrors || checkIfContainsFixableErrors errors
     , rule =
         Rule
             { name = name
