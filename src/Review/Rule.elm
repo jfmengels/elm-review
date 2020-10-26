@@ -3843,14 +3843,14 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
             , containsFixableErrors = checkIfContainsFixableErrors errors
             }
 
-        modulesComputationResult : { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
+        modulesComputationResult : { cache : Dict String (CacheEntry projectContext), containsFixableErrors : Bool, invalidatedModules : Set ModuleName }
         modulesComputationResult =
             computesModules projectVisitor.traversalAndFolder modules graph computeModule nodeContexts { cache = newStartCache, invalidatedModules = Set.empty }
     in
     { cachedModuleContexts = modulesComputationResult.cache
 
     -- TODO Don't forget to shortcircuit only if that was requested!
-    , containsFixableErrors = False
+    , containsFixableErrors = modulesComputationResult.containsFixableErrors
     }
 
 
@@ -3861,11 +3861,12 @@ computesModules :
     -> (Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> { cache : CacheEntry projectContext, containsFixableErrors : Bool })
     -> List (Graph.NodeContext ModuleName ())
     -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
-    -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
+    -> { cache : Dict String (CacheEntry projectContext), containsFixableErrors : Bool, invalidatedModules : Set ModuleName }
 computesModules traversalAndFolder modules graph computeModule nodeContexts ({ cache, invalidatedModules } as input) =
     case nodeContexts of
         [] ->
             { cache = cache
+            , containsFixableErrors = False
             , invalidatedModules = invalidatedModules
             }
 
