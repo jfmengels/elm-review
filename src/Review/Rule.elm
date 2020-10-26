@@ -3846,12 +3846,13 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
         modulesComputationResult : { cache : Dict String (CacheEntry projectContext), containsFixableErrors : Bool, invalidatedModules : Set ModuleName }
         modulesComputationResult =
             computesModules
-                projectVisitor.traversalAndFolder
-                modules
-                graph
-                exceptions
-                inFixMode
-                computeModule
+                { traversalAndFolder = projectVisitor.traversalAndFolder
+                , modules = modules
+                , graph = graph
+                , exceptions = exceptions
+                , inFixMode = inFixMode
+                , computeModule = computeModule
+                }
                 nodeContexts
                 { cache = newStartCache, invalidatedModules = Set.empty }
     in
@@ -3863,37 +3864,37 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
 
 
 computesModules :
-    TraversalAndFolder projectContext moduleContext
-    -> Dict ModuleName ProjectModule
-    -> Graph ModuleName ()
-    -> Exceptions
-    -> Bool
-    -> (Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> { cache : CacheEntry projectContext, containsFixableErrors : Bool })
+    { traversalAndFolder : TraversalAndFolder projectContext moduleContext
+    , modules : Dict ModuleName ProjectModule
+    , graph : Graph ModuleName ()
+    , exceptions : Exceptions
+    , inFixMode : Bool
+    , computeModule : Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> { cache : CacheEntry projectContext, containsFixableErrors : Bool }
+    }
     -> List (Graph.NodeContext ModuleName ())
     -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
     -> { cache : Dict String (CacheEntry projectContext), containsFixableErrors : Bool, invalidatedModules : Set ModuleName }
-computesModules traversalAndFolder modules graph exceptions inFixMode computeModule nodeContexts ({ cache, invalidatedModules } as input) =
+computesModules runParameters nodeContexts accumulator =
     case nodeContexts of
         [] ->
-            { cache = cache
+            { cache = accumulator.cache
             , containsFixableErrors = False
-            , invalidatedModules = invalidatedModules
+            , invalidatedModules = accumulator.invalidatedModules
             }
 
         nodeContext :: restOfNodeContexts ->
             let
                 result : { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
                 result =
-                    computeModuleAndCacheResult traversalAndFolder modules graph computeModule nodeContext input
+                    computeModuleAndCacheResult
+                        runParameters.traversalAndFolder
+                        runParameters.modules
+                        runParameters.graph
+                        runParameters.computeModule
+                        nodeContext
+                        accumulator
             in
-            computesModules traversalAndFolder
-                modules
-                graph
-                exceptions
-                inFixMode
-                computeModule
-                restOfNodeContexts
-                result
+            computesModules runParameters restOfNodeContexts result
 
 
 computeModuleAndCacheResult :
