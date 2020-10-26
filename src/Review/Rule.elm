@@ -3846,12 +3846,14 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
         modulesComputationResult : { cache : Dict String (CacheEntry projectContext), containsFixableErrors : Bool, invalidatedModules : Set ModuleName }
         modulesComputationResult =
             computesModules
-                { traversalAndFolder = projectVisitor.traversalAndFolder
-                , modules = modules
-                , graph = graph
+                { moduleRunParameters =
+                    { traversalAndFolder = projectVisitor.traversalAndFolder
+                    , modules = modules
+                    , graph = graph
+                    , computeModule = computeModule
+                    }
                 , exceptions = exceptions
                 , inFixMode = inFixMode
-                , computeModule = computeModule
                 }
                 nodeContexts
                 { cache = newStartCache, invalidatedModules = Set.empty }
@@ -3864,12 +3866,14 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
 
 
 computesModules :
-    { traversalAndFolder : TraversalAndFolder projectContext moduleContext
-    , modules : Dict ModuleName ProjectModule
-    , graph : Graph ModuleName ()
+    { moduleRunParameters :
+        { traversalAndFolder : TraversalAndFolder projectContext moduleContext
+        , modules : Dict ModuleName ProjectModule
+        , graph : Graph ModuleName ()
+        , computeModule : Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> { cache : CacheEntry projectContext, containsFixableErrors : Bool }
+        }
     , exceptions : Exceptions
     , inFixMode : Bool
-    , computeModule : Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> { cache : CacheEntry projectContext, containsFixableErrors : Bool }
     }
     -> List (Graph.NodeContext ModuleName ())
     -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
@@ -3887,10 +3891,7 @@ computesModules runParameters nodeContexts accumulator =
                 result : { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
                 result =
                     computeModuleAndCacheResult
-                        runParameters.traversalAndFolder
-                        runParameters.modules
-                        runParameters.graph
-                        runParameters.computeModule
+                        runParameters.moduleRunParameters
                         nodeContext
                         accumulator
             in
@@ -3898,14 +3899,15 @@ computesModules runParameters nodeContexts accumulator =
 
 
 computeModuleAndCacheResult :
-    TraversalAndFolder projectContext moduleContext
-    -> Dict ModuleName ProjectModule
-    -> Graph ModuleName ()
-    -> (Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> { cache : CacheEntry projectContext, containsFixableErrors : Bool })
+    { traversalAndFolder : TraversalAndFolder projectContext moduleContext
+    , modules : Dict ModuleName ProjectModule
+    , graph : Graph ModuleName ()
+    , computeModule : Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> { cache : CacheEntry projectContext, containsFixableErrors : Bool }
+    }
     -> Graph.NodeContext ModuleName ()
     -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
     -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
-computeModuleAndCacheResult traversalAndFolder modules graph computeModule { node, incoming } ({ cache, invalidatedModules } as input) =
+computeModuleAndCacheResult { traversalAndFolder, modules, graph, computeModule } { node, incoming } ({ cache, invalidatedModules } as input) =
     case Dict.get node.label modules of
         Nothing ->
             input
