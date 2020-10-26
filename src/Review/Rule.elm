@@ -3824,7 +3824,10 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
 
                 errors : List (Error {})
                 errors =
-                    List.map (setFilePathIfUnset module_) moduleErrors
+                    moduleErrors
+                        |> List.map (setFilePathIfUnset module_)
+                        -- NOTE: This assumes that nothing will ever be removed from exceptions!
+                        |> applyExceptions exceptions
 
                 computedCache : { source : String, errors : List (Error {}), context : projectContext }
                 computedCache =
@@ -3840,7 +3843,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                     }
             in
             { cache = computedCache
-            , containsFixableErrors = checkIfContainsFixableErrors errors
+            , containsFixableErrors = inFixMode && checkIfContainsFixableErrors errors
             }
 
         modulesComputationResult : { cache : Dict String (CacheEntry projectContext), containsFixableErrors : Bool, invalidatedModules : Set ModuleName }
