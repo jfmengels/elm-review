@@ -3436,20 +3436,15 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions inFixMode pr
                     }
 
                 Just moduleVisitor ->
-                    { cachedModuleContexts =
-                        computeModules
-                            projectVisitor
-                            moduleVisitor
-                            project
-                            exceptions
-                            inFixMode
-                            initialContext
-                            nodeContexts
-                            previousModuleContexts
-
-                    -- TODO Don't forget to shortcircuit only if that was requested!
-                    , containsFixableErrors = False
-                    }
+                    computeModules
+                        projectVisitor
+                        moduleVisitor
+                        project
+                        exceptions
+                        inFixMode
+                        initialContext
+                        nodeContexts
+                        previousModuleContexts
 
         contextsAndErrorsPerModule : List ( List (Error {}), projectContext )
         contextsAndErrorsPerModule =
@@ -3726,7 +3721,7 @@ computeModules :
     -> projectContext
     -> List (Graph.NodeContext ModuleName ())
     -> Dict String (CacheEntry projectContext)
-    -> Dict String (CacheEntry projectContext)
+    -> { cachedModuleContexts : Dict String (CacheEntry projectContext), containsFixableErrors : Bool }
 computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions inFixMode initialProjectContext nodeContexts startCache =
     -- TODO Use exceptions & inFixMode somewhere, and return whether someContain fixes to apply.
     let
@@ -3847,9 +3842,17 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
             { cache = computedCache
             , containsFixableErrors = checkIfContainsFixableErrors errors
             }
+
+        cachedModuleContexts : Dict String (CacheEntry projectContext)
+        cachedModuleContexts =
+            computesModules projectVisitor.traversalAndFolder modules graph computeModule nodeContexts { cache = newStartCache, invalidatedModules = Set.empty }
+                |> Tuple.first
     in
-    computesModules projectVisitor.traversalAndFolder modules graph computeModule nodeContexts { cache = newStartCache, invalidatedModules = Set.empty }
-        |> Tuple.first
+    { cachedModuleContexts = cachedModuleContexts
+
+    -- TODO Don't forget to shortcircuit only if that was requested!
+    , containsFixableErrors = False
+    }
 
 
 computesModules :
