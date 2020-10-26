@@ -3845,7 +3845,15 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
 
         modulesComputationResult : { cache : Dict String (CacheEntry projectContext), containsFixableErrors : Bool, invalidatedModules : Set ModuleName }
         modulesComputationResult =
-            computesModules projectVisitor.traversalAndFolder modules graph computeModule nodeContexts { cache = newStartCache, invalidatedModules = Set.empty }
+            computesModules
+                projectVisitor.traversalAndFolder
+                modules
+                graph
+                exceptions
+                inFixMode
+                computeModule
+                nodeContexts
+                { cache = newStartCache, invalidatedModules = Set.empty }
     in
     { cachedModuleContexts = modulesComputationResult.cache
 
@@ -3858,11 +3866,13 @@ computesModules :
     TraversalAndFolder projectContext moduleContext
     -> Dict ModuleName ProjectModule
     -> Graph ModuleName ()
+    -> Exceptions
+    -> Bool
     -> (Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> { cache : CacheEntry projectContext, containsFixableErrors : Bool })
     -> List (Graph.NodeContext ModuleName ())
     -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
     -> { cache : Dict String (CacheEntry projectContext), containsFixableErrors : Bool, invalidatedModules : Set ModuleName }
-computesModules traversalAndFolder modules graph computeModule nodeContexts ({ cache, invalidatedModules } as input) =
+computesModules traversalAndFolder modules graph exceptions inFixMode computeModule nodeContexts ({ cache, invalidatedModules } as input) =
     case nodeContexts of
         [] ->
             { cache = cache
@@ -3879,6 +3889,8 @@ computesModules traversalAndFolder modules graph computeModule nodeContexts ({ c
             computesModules traversalAndFolder
                 modules
                 graph
+                exceptions
+                inFixMode
                 computeModule
                 restOfNodeContexts
                 result
