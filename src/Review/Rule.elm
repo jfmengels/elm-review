@@ -3887,15 +3887,21 @@ computesModules runParameters nodeContexts accumulator =
             }
 
         nodeContext :: restOfNodeContexts ->
-            let
-                result : { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
-                result =
-                    computeModuleAndCacheResult
-                        runParameters.moduleRunParameters
-                        nodeContext
-                        accumulator
-            in
-            computesModules runParameters restOfNodeContexts result
+            case Dict.get nodeContext.node.label runParameters.moduleRunParameters.modules of
+                Nothing ->
+                    computesModules runParameters restOfNodeContexts accumulator
+
+                Just module_ ->
+                    let
+                        result : { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
+                        result =
+                            computeModuleAndCacheResult
+                                runParameters.moduleRunParameters
+                                nodeContext
+                                module_
+                                accumulator
+                    in
+                    computesModules runParameters restOfNodeContexts result
 
 
 computeModuleAndCacheResult :
@@ -3905,58 +3911,54 @@ computeModuleAndCacheResult :
     , computeModule : Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> { cache : CacheEntry projectContext, containsFixableErrors : Bool }
     }
     -> Graph.NodeContext ModuleName ()
+    -> ProjectModule
     -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
     -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
-computeModuleAndCacheResult { traversalAndFolder, modules, graph, computeModule } { node, incoming } ({ cache, invalidatedModules } as input) =
-    case Dict.get node.label modules of
-        Nothing ->
-            input
+computeModuleAndCacheResult { traversalAndFolder, modules, graph, computeModule } { node, incoming } module_ ({ cache, invalidatedModules } as input) =
+    let
+        importedModules : List ProjectModule
+        importedModules =
+            case traversalAndFolder of
+                TraverseAllModulesInParallel _ ->
+                    []
 
-        Just module_ ->
+                TraverseImportedModulesFirst _ ->
+                    incoming
+                        |> IntDict.keys
+                        |> List.filterMap
+                            (\key ->
+                                Graph.get key graph
+                                    |> Maybe.andThen (\nodeContext -> Dict.get nodeContext.node.label modules)
+                            )
+
+        compute : Maybe (CacheEntry projectContext) -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
+        compute previousResult =
             let
-                importedModules : List ProjectModule
-                importedModules =
-                    case traversalAndFolder of
-                        TraverseAllModulesInParallel _ ->
-                            []
-
-                        TraverseImportedModulesFirst _ ->
-                            incoming
-                                |> IntDict.keys
-                                |> List.filterMap
-                                    (\key ->
-                                        Graph.get key graph
-                                            |> Maybe.andThen (\nodeContext -> Dict.get nodeContext.node.label modules)
-                                    )
-
-                compute : Maybe (CacheEntry projectContext) -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
-                compute previousResult =
-                    let
-                        result : { cache : CacheEntry projectContext, containsFixableErrors : Bool }
-                        result =
-                            computeModule cache importedModules module_
-                    in
-                    -- TODO Use containsFixableErrors
-                    { cache = Dict.insert module_.path result.cache cache
-                    , invalidatedModules =
-                        if Just result.cache.context /= Maybe.map .context previousResult then
-                            Set.insert (getModuleName module_) invalidatedModules
-
-                        else
-                            invalidatedModules
-                    }
+                result : { cache : CacheEntry projectContext, containsFixableErrors : Bool }
+                result =
+                    computeModule cache importedModules module_
             in
-            case Dict.get module_.path cache of
-                Nothing ->
-                    compute Nothing
+            -- TODO Use containsFixableErrors
+            { cache = Dict.insert module_.path result.cache cache
+            , invalidatedModules =
+                if Just result.cache.context /= Maybe.map .context previousResult then
+                    Set.insert (getModuleName module_) invalidatedModules
 
-                Just cacheEntry ->
-                    if cacheEntry.source == module_.source && (traversesAllModulesInParallel traversalAndFolder || noImportedModulesHaveANewContext importedModules invalidatedModules) then
-                        -- The module's source and the module's imported modules' context are unchanged, we will later return the cached errors and context
-                        input
+                else
+                    invalidatedModules
+            }
+    in
+    case Dict.get module_.path cache of
+        Nothing ->
+            compute Nothing
 
-                    else
-                        compute (Just cacheEntry)
+        Just cacheEntry ->
+            if cacheEntry.source == module_.source && (traversesAllModulesInParallel traversalAndFolder || noImportedModulesHaveANewContext importedModules invalidatedModules) then
+                -- The module's source and the module's imported modules' context are unchanged, we will later return the cached errors and context
+                input
+
+            else
+                compute (Just cacheEntry)
 
 
 traversesAllModulesInParallel : TraversalAndFolder projectContext moduleContext -> Bool
