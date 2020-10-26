@@ -3897,7 +3897,7 @@ computesModules runParameters nodeContexts accumulator =
                         result =
                             computeModuleAndCacheResult
                                 runParameters.moduleRunParameters
-                                nodeContext
+                                nodeContext.incoming
                                 module_
                                 accumulator
                     in
@@ -3910,11 +3910,11 @@ computeModuleAndCacheResult :
     , graph : Graph ModuleName ()
     , computeModule : Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> { cache : CacheEntry projectContext, containsFixableErrors : Bool }
     }
-    -> Graph.NodeContext ModuleName ()
+    -> Graph.Adjacency ()
     -> ProjectModule
     -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
     -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
-computeModuleAndCacheResult { traversalAndFolder, modules, graph, computeModule } { node, incoming } module_ ({ cache, invalidatedModules } as input) =
+computeModuleAndCacheResult { traversalAndFolder, modules, graph, computeModule } incoming module_ ({ cache, invalidatedModules } as input) =
     let
         importedModules : List ProjectModule
         importedModules =
