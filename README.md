@@ -43,13 +43,13 @@ You can also **try it out without installing it or configuring it** if you have 
 All you need is to find a configuration on GitHub, and note that `elm-review` packages are encouraged to provide an example one. Once you found the configuration, run `elm-review` by specifying the name of the GitHub repository and the path to the configuration:
 
 ```bash
-npx elm-review --template jfmengels/review-unused/example
+npx elm-review --template jfmengels/elm-review-unused/example
 ```
 
 Do you want to find and remove all the dead code in your project? Then run the following command (this might take a while if your project has a lot of dead code though!), and think about whether you want this goodness in your project!
 
 ```bash
-npx elm-review --template jfmengels/review-unused/example --fix-all
+npx elm-review --template jfmengels/elm-review-unused/example --fix-all
 ```
 
 More information on that in [the CLI documentation](https://github.com/jfmengels/node-elm-review#try-it-out).
