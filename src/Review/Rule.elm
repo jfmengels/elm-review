@@ -3777,7 +3777,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
         newStartCache =
             Dict.filter (\path _ -> Set.member path projectModulePaths) startCache
 
-        computeModule : Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> CacheEntry projectContext
+        computeModule : Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> { cache : CacheEntry projectContext, containsFixableErrors : Bool }
         computeModule cache importedModules module_ =
             let
                 moduleKey : ModuleKey
@@ -3826,16 +3826,26 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                         moduleVisitor
                         initialModuleContext
                         module_
-            in
-            { source = module_.source
-            , errors = List.map (setFilePathIfUnset module_) moduleErrors
-            , context =
-                case getFolderFromTraversal projectVisitor.traversalAndFolder of
-                    Just { fromModuleToProject } ->
-                        applyContextCreator availableData fromModuleToProject context
 
-                    Nothing ->
-                        initialProjectContext
+                errors : List (Error {})
+                errors =
+                    List.map (setFilePathIfUnset module_) moduleErrors
+
+                computedCache : { source : String, errors : List (Error {}), context : projectContext }
+                computedCache =
+                    { source = module_.source
+                    , errors = errors
+                    , context =
+                        case getFolderFromTraversal projectVisitor.traversalAndFolder of
+                            Just { fromModuleToProject } ->
+                                applyContextCreator availableData fromModuleToProject context
+
+                            Nothing ->
+                                initialProjectContext
+                    }
+            in
+            { cache = computedCache
+            , containsFixableErrors = checkIfContainsFixableErrors errors
             }
     in
     computesModules projectVisitor.traversalAndFolder modules graph computeModule nodeContexts { cache = newStartCache, invalidatedModules = Set.empty }
@@ -3846,7 +3856,7 @@ computesModules :
     TraversalAndFolder projectContext moduleContext
     -> Dict ModuleName ProjectModule
     -> Graph ModuleName ()
-    -> (Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> CacheEntry projectContext)
+    -> (Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> { cache : CacheEntry projectContext, containsFixableErrors : Bool })
     -> List (Graph.NodeContext ModuleName ())
     -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
     -> ( Dict String (CacheEntry projectContext), Set ModuleName )
@@ -3873,7 +3883,7 @@ computeModuleAndCacheResult :
     TraversalAndFolder projectContext moduleContext
     -> Dict ModuleName ProjectModule
     -> Graph ModuleName ()
-    -> (Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> CacheEntry projectContext)
+    -> (Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> { cache : CacheEntry projectContext, containsFixableErrors : Bool })
     -> Graph.NodeContext ModuleName ()
     -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
     -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
@@ -3902,13 +3912,14 @@ computeModuleAndCacheResult traversalAndFolder modules graph computeModule { nod
                 compute : Maybe (CacheEntry projectContext) -> { cache : Dict String (CacheEntry projectContext), invalidatedModules : Set ModuleName }
                 compute previousResult =
                     let
-                        result : CacheEntry projectContext
+                        result : { cache : CacheEntry projectContext, containsFixableErrors : Bool }
                         result =
                             computeModule cache importedModules module_
                     in
-                    { cache = Dict.insert module_.path result cache
+                    -- TODO Use containsFixableErrors
+                    { cache = Dict.insert module_.path result.cache cache
                     , invalidatedModules =
-                        if Just result.context /= Maybe.map .context previousResult then
+                        if Just result.cache.context /= Maybe.map .context previousResult then
                             Set.insert (getModuleName module_) invalidatedModules
 
                         else
