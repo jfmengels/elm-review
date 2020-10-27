@@ -1065,6 +1065,11 @@ type TraversalType
     | ImportedModulesFirst
 
 
+type ImpactOnOtherFiles
+    = CanImpactOtherFileResult
+    | CannotImpactOtherFileResult
+
+
 {-| Creates a schema for a project rule. Will require adding project visitors and calling
 [`fromProjectRuleSchema`](#fromProjectRuleSchema) to create a usable [`Rule`](#Rule).
 
