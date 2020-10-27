@@ -1758,6 +1758,11 @@ withContextFromImportedModules (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | traversalType = ImportedModulesFirst CanImpactOtherFileResult }
 
 
+withContextFromImportedModulesButISwearICantImpactTheResultOfOtherModules : ProjectRuleSchema schemaState projectContext moduleContext -> ProjectRuleSchema schemaState projectContext moduleContext
+withContextFromImportedModulesButISwearICantImpactTheResultOfOtherModules (ProjectRuleSchema schema) =
+    ProjectRuleSchema { schema | traversalType = ImportedModulesFirst CannotImpactOtherFileResult }
+
+
 setFilePathIfUnset : ProjectModule -> Error scope -> Error scope
 setFilePathIfUnset module_ error_ =
     case error_ of
@@ -3958,7 +3963,7 @@ computeModuleAndCacheResult { traversalAndFolder, modules, graph, computeModule 
             compute Nothing
 
         Just cacheEntry ->
-            if cacheEntry.source == module_.source && (traversesAllModulesInParallel traversalAndFolder || noImportedModulesHaveANewContext importedModules invalidatedModules) then
+            if cacheEntry.source == module_.source && (canImportedFilesImpactResult traversalAndFolder || noImportedModulesHaveANewContext importedModules invalidatedModules) then
                 -- The module's source and the module's imported modules' context are unchanged, we will later return the cached errors and context
                 { cache = input.cache
                 , containsFixableErrors = checkIfContainsFixableErrors cacheEntry.errors
@@ -3969,13 +3974,16 @@ computeModuleAndCacheResult { traversalAndFolder, modules, graph, computeModule 
                 compute (Just cacheEntry)
 
 
-traversesAllModulesInParallel : TraversalAndFolder projectContext moduleContext -> Bool
-traversesAllModulesInParallel traversalAndFolder =
+canImportedFilesImpactResult : TraversalAndFolder projectContext moduleContext -> Bool
+canImportedFilesImpactResult traversalAndFolder =
     case traversalAndFolder of
         TraverseAllModulesInParallel _ ->
             True
 
-        TraverseImportedModulesFirst _ _ ->
+        TraverseImportedModulesFirst _ CanImpactOtherFileResult ->
+            True
+
+        TraverseImportedModulesFirst _ CannotImpactOtherFileResult ->
             False
 
 
@@ -4489,7 +4497,7 @@ isInSourceDirectories (Metadata metadata) =
 scopeRule : RunnableProjectVisitor ScopeProjectContext ScopeModuleContext
 scopeRule =
     newProjectRuleSchema "elm-review__SCOPE" scope_initialProjectContext
-        |> withContextFromImportedModules
+        |> withContextFromImportedModulesButISwearICantImpactTheResultOfOtherModules
         |> withDependenciesProjectVisitor (scope_internalDependenciesVisitor |> scope_pairWithNoErrors)
         |> withModuleVisitor scope_moduleVisitor
         |> withModuleContext
