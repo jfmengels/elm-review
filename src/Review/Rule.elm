@@ -3926,8 +3926,8 @@ computeModuleAndCacheResult :
     -> { cache : Dict String (CacheEntry projectContext), containsFixableErrors : Bool, invalidatedModules : Set ModuleName }
 computeModuleAndCacheResult { traversalAndFolder, modules, graph, computeModule } incoming module_ ({ cache, invalidatedModules } as input) =
     let
-        importedModules : List ProjectModule
-        importedModules =
+        importedModules : () -> List ProjectModule
+        importedModules () =
             case traversalAndFolder of
                 TraverseAllModulesInParallel _ ->
                     []
@@ -3946,7 +3946,7 @@ computeModuleAndCacheResult { traversalAndFolder, modules, graph, computeModule 
             let
                 result : { cache : CacheEntry projectContext, containsFixableErrors : Bool }
                 result =
-                    computeModule cache importedModules module_
+                    computeModule cache (importedModules ()) module_
             in
             { cache = Dict.insert module_.path result.cache cache
             , containsFixableErrors = result.containsFixableErrors
@@ -3963,7 +3963,7 @@ computeModuleAndCacheResult { traversalAndFolder, modules, graph, computeModule 
             compute Nothing
 
         Just cacheEntry ->
-            if cacheEntry.source == module_.source && (canImportedFilesImpactResult traversalAndFolder || noImportedModulesHaveANewContext importedModules invalidatedModules) then
+            if cacheEntry.source == module_.source && (canImportedFilesImpactResult traversalAndFolder || noImportedModulesHaveANewContext (importedModules ()) invalidatedModules) then
                 -- The module's source and the module's imported modules' context are unchanged, we will later return the cached errors and context
                 { cache = input.cache
                 , containsFixableErrors = checkIfContainsFixableErrors cacheEntry.errors
