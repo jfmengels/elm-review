@@ -1062,7 +1062,7 @@ type ProjectRuleSchema schemaState projectContext moduleContext
 type TraversalType
     = AllModulesInParallel
       -- TODO Add way to traverse in opposite order
-    | ImportedModulesFirst
+    | ImportedModulesFirst ImpactOnOtherFiles
 
 
 type ImpactOnOtherFiles
@@ -1187,10 +1187,10 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
             ( AllModulesInParallel, _ ) ->
                 TraverseAllModulesInParallel schema.folder
 
-            ( ImportedModulesFirst, Just folder ) ->
-                TraverseImportedModulesFirst folder
+            ( ImportedModulesFirst impactOnOtherFiles, Just folder ) ->
+                TraverseImportedModulesFirst folder impactOnOtherFiles
 
-            ( ImportedModulesFirst, Nothing ) ->
+            ( ImportedModulesFirst _, Nothing ) ->
                 TraverseAllModulesInParallel Nothing
     , finalEvaluationFns = List.reverse schema.finalEvaluationFns
     , dataExtractor = schema.dataExtractor
@@ -1755,7 +1755,7 @@ the results of other modules' analysis.
 -}
 withContextFromImportedModules : ProjectRuleSchema schemaState projectContext moduleContext -> ProjectRuleSchema schemaState projectContext moduleContext
 withContextFromImportedModules (ProjectRuleSchema schema) =
-    ProjectRuleSchema { schema | traversalType = ImportedModulesFirst }
+    ProjectRuleSchema { schema | traversalType = ImportedModulesFirst CanImpactOtherFileResult }
 
 
 setFilePathIfUnset : ProjectModule -> Error scope -> Error scope
@@ -3373,7 +3373,7 @@ type alias Visitor nodeType context =
 
 type TraversalAndFolder projectContext moduleContext
     = TraverseAllModulesInParallel (Maybe (Folder projectContext moduleContext))
-    | TraverseImportedModulesFirst (Folder projectContext moduleContext)
+    | TraverseImportedModulesFirst (Folder projectContext moduleContext) ImpactOnOtherFiles
 
 
 type alias Folder projectContext moduleContext =
@@ -3753,7 +3753,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                         .path
                         (Review.Project.modules project)
 
-                TraverseImportedModulesFirst _ ->
+                TraverseImportedModulesFirst _ _ ->
                     Review.Project.modules project
 
         projectModulePaths : Set String
@@ -3807,7 +3807,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                         TraverseAllModulesInParallel _ ->
                             applyContextCreator availableData moduleContextCreator initialProjectContext
 
-                        TraverseImportedModulesFirst { foldProjectContexts } ->
+                        TraverseImportedModulesFirst { foldProjectContexts } _ ->
                             let
                                 projectContext : projectContext
                                 projectContext =
@@ -3927,7 +3927,7 @@ computeModuleAndCacheResult { traversalAndFolder, modules, graph, computeModule 
                 TraverseAllModulesInParallel _ ->
                     []
 
-                TraverseImportedModulesFirst _ ->
+                TraverseImportedModulesFirst _ _ ->
                     incoming
                         |> IntDict.keys
                         |> List.filterMap
@@ -3975,7 +3975,7 @@ traversesAllModulesInParallel traversalAndFolder =
         TraverseAllModulesInParallel _ ->
             True
 
-        TraverseImportedModulesFirst _ ->
+        TraverseImportedModulesFirst _ _ ->
             False
 
 
@@ -3994,7 +3994,7 @@ getFolderFromTraversal traversalAndFolder =
         TraverseAllModulesInParallel maybeFolder ->
             maybeFolder
 
-        TraverseImportedModulesFirst folder ->
+        TraverseImportedModulesFirst folder _ ->
             Just folder
 
 
