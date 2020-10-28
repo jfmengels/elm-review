@@ -635,7 +635,7 @@ runReview inFixMode ((Project p) as project) rules maybeProjectData nodeContexts
                 let
                     { cache, extract } =
                         runProjectVisitor
-                            "DUMMY"
+                            "SCOPE_RULE"
                             scopeRule
                             (Maybe.map extractProjectData maybeProjectData)
                             Exceptions.init
