@@ -3577,14 +3577,15 @@ setRuleName ruleName_ error_ =
 errorsFromCache : Exceptions -> ProjectRuleCache projectContext -> List (Error {})
 errorsFromCache exceptions cache =
     List.concat
-        [ applyExceptions exceptions cache.elmJson.errors
-        , applyExceptions exceptions cache.readme.errors
-        , applyExceptions exceptions cache.dependencies.errors
+        [ cache.elmJson.errors
+        , cache.readme.errors
+        , cache.dependencies.errors
         , cache.moduleContexts
             |> Dict.values
             |> List.concatMap (\cacheEntry -> cacheEntry.errors)
-        , applyExceptions exceptions cache.finalEvaluationErrors
+        , cache.finalEvaluationErrors
         ]
+        |> applyExceptions exceptions
 
 
 
