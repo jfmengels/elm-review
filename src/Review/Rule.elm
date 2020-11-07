@@ -4506,14 +4506,14 @@ scopeRule =
             , fromModuleToProject = scope_fromModuleToProject
             , foldProjectContexts = scope_foldProjectContexts
             }
-        |> withDataExtractor (\projectContext -> Extract projectContext.lookupTables)
+        |> withDataExtractor (\projectContext -> Extract (Dict.fromList projectContext.lookupTables))
         |> fromProjectRuleSchemaToRunnableProjectVisitor
 
 
 type alias ScopeProjectContext =
     { dependenciesModules : Dict String Elm.Docs.Module
     , modules : Dict ModuleName Elm.Docs.Module
-    , lookupTables : Dict ModuleName ModuleNameLookupTable
+    , lookupTables : List ( ModuleName, ModuleNameLookupTable )
     }
 
 
@@ -4543,7 +4543,7 @@ scope_initialProjectContext : ScopeProjectContext
 scope_initialProjectContext =
     { dependenciesModules = Dict.empty
     , modules = Dict.empty
-    , lookupTables = Dict.empty
+    , lookupTables = []
     }
 
 
@@ -4590,7 +4590,7 @@ scope_fromModuleToProject _ moduleName moduleContext =
             , values = moduleContext.exposedValues
             , binops = moduleContext.exposedBinops
             }
-    , lookupTables = Dict.singleton (Node.value moduleName) moduleContext.lookupTable
+    , lookupTables = [ ( Node.value moduleName, moduleContext.lookupTable ) ]
     }
 
 
@@ -4598,7 +4598,7 @@ scope_foldProjectContexts : ScopeProjectContext -> ScopeProjectContext -> ScopeP
 scope_foldProjectContexts newContext previousContext =
     { dependenciesModules = previousContext.dependenciesModules
     , modules = Dict.union previousContext.modules newContext.modules
-    , lookupTables = Dict.union newContext.lookupTables previousContext.lookupTables
+    , lookupTables = newContext.lookupTables ++ previousContext.lookupTables
     }
 
 
