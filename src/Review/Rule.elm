@@ -3500,6 +3500,8 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions fixMode proj
         errorsFromFinalEvaluation : List (Error {})
         errorsFromFinalEvaluation =
             if moduleVisitResult.containsFixableErrors then
+                -- Optimisation: Don't compute final evaluation errors
+                -- if there are fixable errors that should be applied first.
                 []
 
             else
@@ -3571,7 +3573,7 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions fixMode proj
             Just dataExtractor ->
                 let
                     -- TODO This is already computed during the final project evaluation
-                    -- Re-use the data instead of re-computing
+                    -- Re-use the data instead of re-computing?
                     contextToAnalyze : projectContext
                     contextToAnalyze =
                         case getFolderFromTraversal projectVisitor.traversalAndFolder of
