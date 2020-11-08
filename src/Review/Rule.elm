@@ -293,7 +293,7 @@ type Rule
         { name : String
         , exceptions : Exceptions
         , requestedData : RequestedData
-        , ruleImplementation : Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> Bool -> { ruleErrors : List (Error {}), containsFixableErrors : Bool, ruleWithCache : Rule }
+        , ruleImplementation : Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> FixMode -> { ruleErrors : List (Error {}), containsFixableErrors : Bool, ruleWithCache : Rule }
         }
 
 
@@ -427,7 +427,7 @@ review rules project =
                                         scopeRule
                                         Nothing
                                         Exceptions.init
-                                        False
+                                        NotFixing
                                         project
                                         nodeContexts
 
@@ -447,7 +447,7 @@ review rules project =
                                 ( List.map errorToReviewError scopeResult.errors, rules )
 
                             else
-                                runRules False rules projectWithLookupTable nodeContexts ( [], [] )
+                                runRules NotFixing rules projectWithLookupTable nodeContexts ( [], [] )
                                     |> Tuple.mapFirst (List.map errorToReviewError)
 
         modulesThatFailedToParse ->
@@ -499,7 +499,7 @@ reviewV2 rules maybeProjectData project =
     checkForModulesThatFailedToParse project
         |> Result.andThen (\() -> checkForDuplicateModules project)
         |> Result.andThen (\() -> getModulesSortedByImport project)
-        |> Result.map (runReview False project rules maybeProjectData)
+        |> Result.map (runReview NotFixing project rules maybeProjectData)
         |> Result.mapError
             (\errors ->
                 { errors = errors
@@ -554,10 +554,19 @@ TODO Document inFixMode
 -}
 reviewV3 : { inFixMode : Bool } -> List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
 reviewV3 { inFixMode } rules maybeProjectData project =
+    let
+        fixMode : FixMode
+        fixMode =
+            if inFixMode then
+                Fixing
+
+            else
+                NotFixing
+    in
     checkForModulesThatFailedToParse project
         |> Result.andThen (\() -> checkForDuplicateModules project)
         |> Result.andThen (\() -> getModulesSortedByImport project)
-        |> Result.map (runReview inFixMode project rules maybeProjectData)
+        |> Result.map (runReview fixMode project rules maybeProjectData)
         |> Result.mapError
             (\errors ->
                 { errors = errors
@@ -566,6 +575,11 @@ reviewV3 { inFixMode } rules maybeProjectData project =
                 }
             )
         |> extractResultValue
+
+
+type FixMode
+    = Fixing
+    | NotFixing
 
 
 checkForModulesThatFailedToParse : Project -> Result (List ReviewError) ()
@@ -626,8 +640,8 @@ extractResultValue result =
             a
 
 
-runReview : Bool -> Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
-runReview inFixMode ((Project p) as project) rules maybeProjectData nodeContexts =
+runReview : FixMode -> Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
+runReview fixMode ((Project p) as project) rules maybeProjectData nodeContexts =
     let
         scopeResult : { projectData : Maybe ProjectData, extract : Maybe Extract }
         scopeResult =
@@ -639,7 +653,7 @@ runReview inFixMode ((Project p) as project) rules maybeProjectData nodeContexts
                             scopeRule
                             (Maybe.map extractProjectData maybeProjectData)
                             Exceptions.init
-                            False
+                            NotFixing
                             project
                             nodeContexts
                 in
@@ -662,7 +676,7 @@ runReview inFixMode ((Project p) as project) rules maybeProjectData nodeContexts
     in
     let
         ( errors, newRules ) =
-            runRules inFixMode rules projectWithLookupTables nodeContexts ( [], [] )
+            runRules fixMode rules projectWithLookupTables nodeContexts ( [], [] )
     in
     { errors = List.map errorToReviewError errors
     , rules = newRules
@@ -719,8 +733,8 @@ duplicateModulesGlobalError duplicate =
         }
 
 
-runRules : Bool -> List Rule -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), List Rule ) -> ( List (Error {}), List Rule )
-runRules inFixMode rules project nodeContexts ( errors, previousRules ) =
+runRules : FixMode -> List Rule -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), List Rule ) -> ( List (Error {}), List Rule )
+runRules fixMode rules project nodeContexts ( errors, previousRules ) =
     case rules of
         [] ->
             ( errors, previousRules )
@@ -728,20 +742,29 @@ runRules inFixMode rules project nodeContexts ( errors, previousRules ) =
         (Rule { exceptions, ruleImplementation }) :: restOfRules ->
             let
                 { ruleErrors, containsFixableErrors, ruleWithCache } =
-                    ruleImplementation exceptions project nodeContexts inFixMode
-            in
-            if inFixMode && containsFixableErrors then
-                ( List.concat [ List.map removeErrorPhantomType ruleErrors, errors ]
-                , ruleWithCache :: restOfRules ++ previousRules
-                )
+                    ruleImplementation exceptions project nodeContexts fixMode
 
-            else
-                runRules
-                    inFixMode
-                    restOfRules
-                    project
-                    nodeContexts
-                    ( List.concat [ List.map removeErrorPhantomType ruleErrors, errors ], ruleWithCache :: previousRules )
+                continue : () -> ( List (Error {}), List Rule )
+                continue () =
+                    runRules
+                        fixMode
+                        restOfRules
+                        project
+                        nodeContexts
+                        ( List.concat [ List.map removeErrorPhantomType ruleErrors, errors ], ruleWithCache :: previousRules )
+            in
+            case fixMode of
+                Fixing ->
+                    if containsFixableErrors then
+                        ( List.concat [ List.map removeErrorPhantomType ruleErrors, errors ]
+                        , ruleWithCache :: restOfRules ++ previousRules
+                        )
+
+                    else
+                        continue ()
+
+                NotFixing ->
+                    continue ()
 
 
 duplicateModuleNames : Dict ModuleName String -> List ProjectModule -> Maybe { moduleName : ModuleName, paths : List String }
@@ -1132,7 +1155,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                 Nothing ->
                     RequestedData { metadata = False, moduleNameLookupTable = False }
         , ruleImplementation =
-            \exceptions project nodeContexts inFixMode ->
+            \exceptions project nodeContexts fixMode ->
                 let
                     result :
                         { errors : List (Error {})
@@ -1147,7 +1170,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                             (fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema)
                             Nothing
                             exceptions
-                            inFixMode
+                            fixMode
                             project
                             nodeContexts
                 in
@@ -1165,7 +1188,8 @@ checkIfContainsFixableErrors errors =
             >> (\error_ ->
                     case error_.fixes of
                         Just fixes ->
-                            -- TODO Check if the fixes are really applicable
+                            -- TODO Check if the fixes are really applicable and whether they have not been
+                            -- ignored by the user
                             True
 
                         Nothing ->
@@ -3415,11 +3439,11 @@ runProjectVisitor :
     -> RunnableProjectVisitor projectContext moduleContext
     -> Maybe (ProjectRuleCache projectContext)
     -> Exceptions
-    -> Bool
+    -> FixMode
     -> Project
     -> List (Graph.NodeContext ModuleName ())
     -> { errors : List (Error {}), containsFixableErrors : Bool, rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
-runProjectVisitor name projectVisitor maybePreviousCache exceptions inFixMode project nodeContexts =
+runProjectVisitor name projectVisitor maybePreviousCache exceptions fixMode project nodeContexts =
     let
         cacheWithInitialContext : ProjectRuleCache projectContext
         cacheWithInitialContext =
@@ -3452,7 +3476,7 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions inFixMode pr
                         moduleVisitor
                         project
                         exceptions
-                        inFixMode
+                        fixMode
                         initialContext
                         nodeContexts
                         previousModuleContexts
@@ -3729,12 +3753,12 @@ computeModules :
     -> ( RunnableModuleVisitor moduleContext, ContextCreator projectContext moduleContext )
     -> Project
     -> Exceptions
-    -> Bool
+    -> FixMode
     -> projectContext
     -> List (Graph.NodeContext ModuleName ())
     -> Dict String (CacheEntry projectContext)
     -> { cachedModuleContexts : Dict String (CacheEntry projectContext), containsFixableErrors : Bool }
-computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions inFixMode initialProjectContext nodeContexts startCache =
+computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions fixMode initialProjectContext nodeContexts startCache =
     -- TODO Use exceptions & inFixMode somewhere, and return whether someContain fixes to apply.
     let
         graph : Graph ModuleName ()
@@ -3855,7 +3879,13 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                     }
             in
             { cache = computedCache
-            , containsFixableErrors = inFixMode && checkIfContainsFixableErrors errors
+            , containsFixableErrors =
+                case fixMode of
+                    Fixing ->
+                        checkIfContainsFixableErrors errors
+
+                    NotFixing ->
+                        False
             }
 
         modulesComputationResult : { cache : Dict String (CacheEntry projectContext), containsFixableErrors : Bool, invalidatedModules : Set ModuleName }
