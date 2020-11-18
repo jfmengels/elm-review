@@ -1361,7 +1361,8 @@ but are unused in the rest of the project.
           exposedModules : Set ModuleName
         , exposedFunctions :
             -- An entry for each module
-            Dict ModuleName
+            Dict
+                ModuleName
                 { -- To report errors in this module
                   moduleKey : Rule.ModuleKey
 
@@ -4467,7 +4468,14 @@ scope_internalDependenciesVisitor dependencies innerContext =
 
 registerPrelude : ScopeModuleContext -> ScopeModuleContext
 registerPrelude innerContext =
-    List.foldl registerImportExposed innerContext elmCorePrelude
+    List.foldl
+        (\import_ ctx ->
+            ctx
+                |> registerImportAlias import_
+                |> registerImportExposed import_
+        )
+        innerContext
+        elmCorePrelude
 
 
 elmCorePrelude : List Import
@@ -5384,8 +5392,8 @@ moduleNameForValue context valueName moduleName =
                 Dict.get valueName context.importedFunctions
                     |> Maybe.withDefault []
 
-        _ :: [] ->
-            case Dict.get (joinModuleName moduleName) context.importAliases of
+        moduleNameOrAlias :: [] ->
+            case Dict.get moduleNameOrAlias context.importAliases of
                 Just [ aliasedModuleName ] ->
                     aliasedModuleName
 

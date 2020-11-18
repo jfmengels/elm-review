@@ -66,6 +66,7 @@ a = localValue
  always
  True
  Just
+ Cmd.none
 b = case () of
   VariantA -> ()
   (ExposesEverything.VariantA as foo) -> foo
@@ -120,6 +121,7 @@ Http.get -> Http.get
 <nothing>.always -> Basics.always
 <nothing>.True -> Basics.True
 <nothing>.Just -> Maybe.Just
+Cmd.none -> Platform.Cmd.none
 <nothing>.VariantA -> ExposesEverything.VariantA
 ExposesEverything.VariantA -> ExposesEverything.VariantA
 <nothing>.foo -> <nothing>.foo
