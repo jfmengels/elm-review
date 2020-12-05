@@ -68,7 +68,7 @@ Also, if you like comparing custom types in the way described above, you might p
 You can try this rule out by running the following command:
 
 ```bash
-elm - review --template jfmengels/elm-review-unused/example --rules NoUnused.CustomTypeConstructorArgs
+elm-review --template jfmengels/elm-review-unused/example --rules NoUnused.CustomTypeConstructorArgs
 ```
 
 -}
@@ -89,7 +89,8 @@ rule =
 type alias ProjectContext =
     { exposedModules : Set ModuleName
     , customTypeArgs :
-        Dict ModuleName
+        Dict
+            ModuleName
             { moduleKey : Rule.ModuleKey
             , args : Dict String (List Range)
             }
@@ -328,7 +329,8 @@ expressionVisitor node context =
             let
                 usedArguments : List ( ( ModuleName, String ), Set Int )
                 usedArguments =
-                    List.concatMap (Tuple.first >> collectUsedCustomTypeArgs context.lookupTable) cases
+                    cases
+                        |> List.concatMap (Tuple.first >> collectUsedCustomTypeArgs context.lookupTable)
             in
             ( [], { context | usedArguments = registerUsedPatterns usedArguments context.usedArguments } )
 

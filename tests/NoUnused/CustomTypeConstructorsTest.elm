@@ -594,4 +594,46 @@ foo = [ (Foo, A), (Bar, B) ]
                 ]
                     |> Review.Test.runOnModulesWithProjectData project (rule [])
                     |> Review.Test.expectNoErrors
+        , test "should not report imported type constructors when they are shadowed by a local type alias that does not create a function (#5)" <|
+            \() ->
+                [ """module A exposing (x)
+
+import B exposing (Foo(..))
+
+type alias Foo = B.Foo -- this "shadowing" is causing the bug, removing the alias removes the false positive
+
+x = Foo 1 -- usage of the custom type constructor!
+"""
+                , """module B exposing (Foo(..))
+type Foo = Foo Int
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData project (rule [])
+                    |> Review.Test.expectNoErrors
+        , test "should report imported type constructors even when they are shadowed by a local type alias that creates a function (#5)" <|
+            \() ->
+                [ """module A exposing (x)
+
+import B exposing (Foo(..))
+
+type alias Foo = { n : Int }
+
+x = Foo 1 -- Not a usage of B.Foo in this case!
+"""
+                , """module B exposing (Foo(..))
+type Foo = Foo Int
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData project (rule [])
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "B"
+                          , [ Review.Test.error
+                                { message = "Type constructor `Foo` is not used."
+                                , details = details
+                                , under = "Foo"
+                                }
+                                |> Review.Test.atExactly { start = { row = 2, column = 12 }, end = { row = 2, column = 15 } }
+                            ]
+                          )
+                        ]
         ]
