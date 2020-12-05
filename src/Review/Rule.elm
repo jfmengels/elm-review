@@ -4583,11 +4583,11 @@ createFakeImport { moduleName, moduleAlias, exposingList } =
 
 scope_declarationListVisitor : List (Node Declaration) -> ScopeModuleContext -> ScopeModuleContext
 scope_declarationListVisitor declarations innerContext =
-    List.foldl registerDeclaration innerContext declarations
+    List.foldl scope_registerDeclaration innerContext declarations
 
 
-registerDeclaration : Node Declaration -> ScopeModuleContext -> ScopeModuleContext
-registerDeclaration declaration innerContext =
+scope_registerDeclaration : Node Declaration -> ScopeModuleContext -> ScopeModuleContext
+scope_registerDeclaration declaration innerContext =
     case Node.value declaration of
         Declaration.FunctionDeclaration function ->
             let
@@ -4606,10 +4606,18 @@ registerDeclaration declaration innerContext =
 
         Declaration.AliasDeclaration alias_ ->
             { innerContext | localTypes = Set.insert (Node.value alias_.name) innerContext.localTypes }
-                |> addToScope
-                    { variableType = TopLevelVariable
-                    , node = alias_.name
-                    }
+                |> (\ctx ->
+                        case Node.value alias_.typeAnnotation of
+                            TypeAnnotation.Record _ ->
+                                addToScope
+                                    { variableType = TopLevelVariable
+                                    , node = alias_.name
+                                    }
+                                    ctx
+
+                            _ ->
+                                ctx
+                   )
                 |> registerIfExposed registerExposedTypeAlias (Node.value alias_.name)
 
         Declaration.CustomTypeDeclaration { name, constructors } ->
