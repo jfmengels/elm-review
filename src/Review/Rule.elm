@@ -5287,7 +5287,7 @@ scope_expressionEnterVisitor node context =
                 | lookupTable =
                     ModuleNameLookupTableInternal.add
                         (Node.range node)
-                        (moduleNameForValue context name moduleName)
+                        (Debug.log ("in rule" ++ Debug.toString moduleName ++ "." ++ name) <| moduleNameForValue context name moduleName)
                         context.lookupTable
             }
 
@@ -5391,6 +5391,13 @@ If the element was defined in the current module, then the result will be `[]`.
 -}
 moduleNameForValue : ScopeModuleContext -> String -> List String -> List String
 moduleNameForValue context valueName moduleName =
+    let
+        _ =
+            Debug.log "\n\nvalue" ( moduleName, valueName )
+
+        _ =
+            Debug.log "aliases" context.importAliases
+    in
     case moduleName of
         [] ->
             if isInScope valueName context.scopes then
@@ -5401,11 +5408,15 @@ moduleNameForValue context valueName moduleName =
                     |> Maybe.withDefault []
 
         moduleNameOrAlias :: [] ->
-            case Dict.get moduleNameOrAlias context.importAliases of
+            case Debug.log ("Dict.get " ++ moduleNameOrAlias) <| Dict.get moduleNameOrAlias context.importAliases of
                 Just [ aliasedModuleName ] ->
                     aliasedModuleName
 
                 Just aliases ->
+                    let
+                        _ =
+                            Debug.log "aliases" aliases
+                    in
                     case
                         findInList
                             (\aliasedModuleName ->
