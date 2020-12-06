@@ -32,6 +32,7 @@ all =
 import Bar as Baz exposing (baz)
 import ExposesSomeThings exposing (..)
 import ExposesEverything exposing (..)
+import ExposesEverything as ExposesEverythingAlias
 import Foo.Bar
 import Html exposing (..)
 import Http exposing (get)
@@ -70,6 +71,7 @@ a = localValue
 b = case () of
   VariantA -> ()
   (ExposesEverything.VariantA as foo) -> foo
+  ExposesEverythingAlias.VariantA -> ()
 
 someFunction Something.B.Bar =
     let Something.B.Bar = ()
@@ -124,6 +126,7 @@ Http.get -> Http.get
 Cmd.none -> Platform.Cmd.none
 <nothing>.VariantA -> ExposesEverything.VariantA
 ExposesEverything.VariantA -> ExposesEverything.VariantA
+ExposesEverythingAlias.VariantA -> ExposesEverything.VariantA
 <nothing>.foo -> <nothing>.foo
 Something.B.Bar -> Something.B.Bar
 Something.B.Bar -> Something.B.Bar
