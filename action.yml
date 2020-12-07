@@ -1,0 +1,9 @@
+name: elm-review
+description: >
+  Scan your code
+branding:
+  icon: check
+  color: green
+runs:
+  using: docker
+  image: Dockerfile
