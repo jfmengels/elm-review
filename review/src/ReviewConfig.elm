@@ -31,26 +31,7 @@ import Review.Rule as Rule exposing (Rule)
 
 config : List Rule
 config =
-    [ Documentation.ReadmeLinksPointToCurrentVersion.rule
-    , NoDebug.Log.rule
-    , NoDebug.TodoOrToString.rule
-        |> Rule.ignoreErrorsForDirectories [ "tests/" ]
-    , NoExposingEverything.rule
-        |> Rule.ignoreErrorsForDirectories [ "tests/" ]
-    , NoImportingEverything.rule []
-    , NoMissingTypeAnnotation.rule
-    , NoMissingTypeAnnotationInLetIn.rule
-        |> Rule.ignoreErrorsForDirectories [ "tests/" ]
-
-    --, NoMissingTypeExpose.rule
-    --    |> Rule.ignoreErrorsForFiles [ "src/Review/Rule.elm" ]
-    , NoUnused.CustomTypeConstructors.rule []
-    , NoUnused.Dependencies.rule
-    , NoUnused.Exports.rule
-    , NoUnused.Modules.rule
-    , NoUnused.Parameters.rule
-    , NoUnused.Patterns.rule
-    , NoUnused.Variables.rule
+    [ NoUnused.Variables.rule
     ]
-        |> List.map (Rule.ignoreErrorsForDirectories [ "src/Vendor/", "tests/Vendor/" ])
+        |> List.map (Rule.ignoreErrorsForDirectories [ "src-gen", "src/Vendor/", "tests/Vendor/" ])
         |> List.map (Rule.ignoreErrorsForFiles [ "tests/NoUnused/Patterns/NameVisitor.elm" ])
