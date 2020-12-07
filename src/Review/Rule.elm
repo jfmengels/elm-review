@@ -4639,11 +4639,12 @@ scope_registerDeclaration declaration innerContext =
                 |> registerIfExposed (registerExposedCustomType constructors) (Node.value name)
 
         Declaration.PortDeclaration signature ->
-            addToScope
-                { variableType = Port
-                , node = signature.name
-                }
-                innerContext
+            innerContext
+                |> addToScope
+                    { variableType = Port
+                    , node = signature.name
+                    }
+                |> registerIfExposed (registerExposedValue { documentation = Nothing, signature = Just (Node (Node.range declaration) signature) }) (Node.value signature.name)
 
         Declaration.InfixDeclaration _ ->
             innerContext
@@ -4666,7 +4667,7 @@ addToScope variableData innerContext =
     { innerContext | scopes = newScopes }
 
 
-registerExposedValue : Expression.Function -> String -> ScopeModuleContext -> ScopeModuleContext
+registerExposedValue : { a | documentation : Maybe (Node String), signature : Maybe (Node Signature) } -> String -> ScopeModuleContext -> ScopeModuleContext
 registerExposedValue function name innerContext =
     { innerContext
         | exposedValues =
