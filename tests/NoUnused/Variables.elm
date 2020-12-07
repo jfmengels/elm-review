@@ -377,33 +377,54 @@ expressionEnterVisitor (Node range value) context =
 
                     else
                         HasMultipleDeclarations
-
-                newContext : Context
-                newContext =
-                    List.foldl
-                        (\declaration context_ ->
-                            case Node.value declaration of
-                                Expression.LetFunction function ->
-                                    let
-                                        namesUsedInArgumentPatterns : { types : List String, modules : List ( ModuleName, ModuleName ) }
-                                        namesUsedInArgumentPatterns =
-                                            function.declaration
-                                                |> Node.value
-                                                |> .arguments
-                                                |> List.map (getUsedVariablesFromPattern context.lookupTable)
-                                                |> foldUsedTypesAndModules
-                                    in
-                                    context_
-                                        |> registerFunction letBlockContext function
-                                        |> markUsedTypesAndModules namesUsedInArgumentPatterns
-
-                                Expression.LetDestructuring _ _ ->
-                                    context_
-                        )
-                        { context | scopes = NonemptyList.cons emptyScope context.scopes }
-                        declarations
             in
-            ( [], newContext )
+            List.foldl
+                (\declaration (( errors, foldContext ) as unchangedResult) ->
+                    case Node.value declaration of
+                        Expression.LetFunction function ->
+                            let
+                                namesUsedInArgumentPatterns : { types : List String, modules : List ( ModuleName, ModuleName ) }
+                                namesUsedInArgumentPatterns =
+                                    function.declaration
+                                        |> Node.value
+                                        |> .arguments
+                                        |> List.map (getUsedVariablesFromPattern context.lookupTable)
+                                        |> foldUsedTypesAndModules
+                            in
+                            ( errors
+                            , foldContext
+                                |> registerFunction letBlockContext function
+                                |> markUsedTypesAndModules namesUsedInArgumentPatterns
+                            )
+
+                        Expression.LetDestructuring pattern _ ->
+                            case isAllPattern pattern of
+                                Just wildCardRange ->
+                                    ( Rule.errorWithFix
+                                        { message = "Value assigned to `_` is unused"
+                                        , details =
+                                            [ "This value has been assigned to a wildcard, which makes the value unusable. You should remove it at the location I pointed at."
+                                            ]
+                                        }
+                                        wildCardRange
+                                        [ case letBlockContext of
+                                            HasMultipleDeclarations ->
+                                                Fix.removeRange (Node.range declaration)
+
+                                            HasNoOtherDeclarations letDeclarationsRange ->
+                                                -- If there are no other declarations in the let in block,
+                                                -- we also need to remove the `let in` keywords.
+                                                Fix.removeRange letDeclarationsRange
+                                        ]
+                                        :: errors
+                                    , foldContext
+                                    )
+
+                                Nothing ->
+                                    unchangedResult
+                )
+                ( [], { context | scopes = NonemptyList.cons emptyScope context.scopes } )
+                declarations
 
         Expression.LambdaExpression { args } ->
             let
@@ -417,6 +438,19 @@ expressionEnterVisitor (Node range value) context =
 
         _ ->
             ( [], context )
+
+
+isAllPattern : Node Pattern -> Maybe Range
+isAllPattern node =
+    case Node.value node of
+        Pattern.ParenthesizedPattern pattern ->
+            isAllPattern pattern
+
+        Pattern.AllPattern ->
+            Just (Node.range node)
+
+        _ ->
+            Nothing
 
 
 expressionExitVisitor : Node Expression -> Context -> ( List (Error {}), Context )

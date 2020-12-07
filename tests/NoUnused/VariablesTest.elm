@@ -383,6 +383,40 @@ a = let main = 1
                         |> Review.Test.whenFixed """module SomeModule exposing (a)
 a = 2"""
                     ]
+    , test "should report wildcard assignments" <|
+        \() ->
+            """module SomeModule exposing (a)
+a = let _ = 1
+    in 2"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Value assigned to `_` is unused"
+                        , details =
+                            [ "This value has been assigned to a wildcard, which makes the value unusable. You should remove it at the location I pointed at."
+                            ]
+                        , under = "_"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+a = 2"""
+                    ]
+    , test "should report parenthesized wildcard assignments" <|
+        \() ->
+            """module SomeModule exposing (a)
+a = let (_) = 1
+    in 2"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Value assigned to `_` is unused"
+                        , details =
+                            [ "This value has been assigned to a wildcard, which makes the value unusable. You should remove it at the location I pointed at."
+                            ]
+                        , under = "_"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+a = 2"""
+                    ]
     ]
 
 
