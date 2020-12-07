@@ -5414,7 +5414,12 @@ moduleNameForValue context valueName moduleName =
                                         isValueDeclaredInModule valueName module_
 
                                     Nothing ->
-                                        False
+                                        case Dict.get (joinModuleName aliasedModuleName) context.dependenciesModules of
+                                            Just module_ ->
+                                                isValueDeclaredInModule valueName module_
+
+                                            Nothing ->
+                                                False
                             )
                             aliases
                     of
@@ -5464,7 +5469,12 @@ moduleNameForType context typeName moduleName =
                                         isTypeDeclaredInModule typeName module_
 
                                     Nothing ->
-                                        False
+                                        case Dict.get (joinModuleName aliasedModuleName) context.dependenciesModules of
+                                            Just module_ ->
+                                                isTypeDeclaredInModule typeName module_
+
+                                            Nothing ->
+                                                False
                             )
                             aliases
                     of
