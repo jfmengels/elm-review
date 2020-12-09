@@ -134,7 +134,7 @@ in the context of your rule.
 import Array
 import Elm.Parser
 import Elm.Syntax.Range exposing (Range)
-import Review.Error as Error exposing (ReviewError(..))
+import Review.Error as Error
 import Vendor.ListExtra as ListExtra
 
 

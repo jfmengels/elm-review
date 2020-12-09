@@ -274,7 +274,7 @@ import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix exposing (Fix)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
-import Review.Project exposing (Project, ProjectModule)
+import Review.Project exposing (ProjectModule)
 import Review.Project.Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
 import Set exposing (Set)
