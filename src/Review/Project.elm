@@ -294,18 +294,28 @@ sourceDirectoriesForProject : Elm.Project.Project -> List String
 sourceDirectoriesForProject elmJson_ =
     case elmJson_ of
         Elm.Project.Application { dirs } ->
-            List.map
-                (\dir ->
-                    if String.endsWith "/" dir then
-                        dir
-
-                    else
-                        dir ++ "/"
-                )
-                dirs
+            List.map (removeDotSlashAtBeginning >> endWithSlash) dirs
 
         Elm.Project.Package _ ->
             [ "src/" ]
+
+
+removeDotSlashAtBeginning : String -> String
+removeDotSlashAtBeginning dir =
+    if String.startsWith "./" dir then
+        String.dropLeft 2 dir
+
+    else
+        dir
+
+
+endWithSlash : String -> String
+endWithSlash dir =
+    if String.endsWith "/" dir then
+        dir
+
+    else
+        dir ++ "/"
 
 
 {-| Get the contents of the `elm.json` file, if available.
