@@ -69,7 +69,7 @@ finalEvaluation context =
 
 all : Test
 all =
-    Test.describe "Visitor order"
+    Test.describe "Project visitor order"
         [ Test.describe "using withContextFromImportedModules"
             [ test "should visit every file in a project rule" <|
                 \() ->

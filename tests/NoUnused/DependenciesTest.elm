@@ -27,8 +27,8 @@ createElmJson rawElmJson =
             , project = elmJson
             }
 
-        Err _ ->
-            Debug.todo "Invalid elm.json supplied to test"
+        Err err ->
+            Debug.todo ("Invalid elm.json supplied to test: " ++ Debug.toString err)
 
 
 applicationElmJson : String

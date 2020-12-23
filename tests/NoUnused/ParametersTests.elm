@@ -12,7 +12,7 @@ details =
 
 all : Test
 all =
-    describe "NoUnused.Patterns"
+    describe "NoUnused.Parameters"
         [ describe "in Function arguments" functionArgumentTests
         , describe "in Lambda arguments" lambdaArgumentTests
         , describe "in Let Functions" letFunctionTests

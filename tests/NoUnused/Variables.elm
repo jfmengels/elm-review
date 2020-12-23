@@ -10,17 +10,21 @@ module NoUnused.Variables exposing (rule)
 -}
 
 import Dict exposing (Dict)
+import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
-import Elm.Syntax.Exposing as Exposing exposing (Exposing)
+import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Expression as Expression exposing (Expression, Function, FunctionImplementation)
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Module as Module exposing (Module)
+import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import NoUnused.NonemptyList as NonemptyList exposing (Nonempty)
 import Review.Fix as Fix exposing (Fix)
+import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
+import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
@@ -62,47 +66,112 @@ elm-review --template jfmengels/elm-review-unused/example --rules NoUnused.Varia
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoUnused.Variables" initialContext
+    Rule.newProjectRuleSchema "NoUnused.Variables" initialContext
+        |> Rule.withElmJsonProjectVisitor elmJsonVisitor
+        |> Rule.withDependenciesProjectVisitor dependenciesVisitor
+        |> Rule.withModuleVisitor moduleVisitor
+        |> Rule.withModuleContextUsingContextCreator
+            { fromProjectToModule = fromProjectToModule
+            , fromModuleToProject = fromModuleToProject
+            , foldProjectContexts = foldProjectContexts
+            }
+        |> Rule.withContextFromImportedModules
+        |> Rule.fromProjectRuleSchema
+
+
+moduleVisitor : Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
+moduleVisitor schema =
+    schema
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withImportVisitor importVisitor
+        |> Rule.withDeclarationListVisitor declarationListVisitor
         |> Rule.withDeclarationEnterVisitor declarationVisitor
         |> Rule.withExpressionEnterVisitor expressionEnterVisitor
         |> Rule.withExpressionExitVisitor expressionExitVisitor
         |> Rule.withFinalModuleEvaluation finalEvaluation
-        |> Rule.fromModuleRuleSchema
 
 
-type alias Context =
-    { scopes : Nonempty Scope
-    , inTheDeclarationOf : Maybe String
+type alias ProjectContext =
+    { isApplication : Bool
+    , customTypes : Dict ModuleName (Dict String (List String))
+    }
+
+
+type alias ModuleContext =
+    { lookupTable : ModuleNameLookupTable
+    , scopes : Nonempty Scope
+    , inTheDeclarationOf : List String
+    , declarations : Dict RangeAsString String
     , exposesEverything : Bool
+    , isApplication : Bool
     , constructorNameToTypeName : Dict String String
-    , declaredModules : Dict String VariableInfo
-    , usedModules : Set String
+    , declaredModules : List DeclaredModule
+    , exposingAllModules : List ModuleThatExposesEverything
+    , usedModules : Set ( ModuleName, ModuleName )
+    , unusedImportedCustomTypes : Dict String ImportedCustomType
+    , importedCustomTypeLookup : Dict String String
+    , localCustomTypes : Dict String CustomTypeData
+    , customTypes : Dict ModuleName (Dict String (List String))
     }
 
 
-type alias Scope =
-    { declared : Dict String VariableInfo
-    , used : Set String
-    }
-
-
-type alias VariableInfo =
-    { variableType : VariableType
+type alias DeclaredModule =
+    { moduleName : ModuleName
+    , alias : Maybe String
+    , typeName : String
+    , variableType : DeclaredModuleType
     , under : Range
     , rangeToRemove : Range
     }
 
 
-type VariableType
-    = TopLevelVariable
-    | LetVariable
-    | ImportedModule
-    | ImportedItem ImportType
+type alias CustomTypeData =
+    { under : Range
+    , rangeToRemove : Range
+    , variants : List String
+    }
+
+
+type alias ModuleThatExposesEverything =
+    { name : ModuleName
+    , alias : Maybe String
+    , moduleNameRange : Range
+    , exposingRange : Range
+    , importRange : Range
+    , wasUsedImplicitly : Bool
+    , wasUsedWithModuleName : Bool
+    }
+
+
+type alias RangeAsString =
+    String
+
+
+type DeclaredModuleType
+    = ImportedModule
     | ModuleAlias { originalNameOfTheImport : String, exposesSomething : Bool }
-    | Type
-    | Port
+
+
+type alias Scope =
+    { declared : Dict String VariableInfo
+    , used : Dict ModuleName (Set String)
+    }
+
+
+type alias VariableInfo =
+    { typeName : String
+    , under : Range
+    , rangeToRemove : Maybe Range
+    , warning : String
+    }
+
+
+type alias ImportedCustomType =
+    { typeName : String
+    , under : Range
+    , rangeToRemove : Range
+    , openRange : Range
+    }
 
 
 type LetBlockContext
@@ -110,132 +179,136 @@ type LetBlockContext
     | HasNoOtherDeclarations Range
 
 
-type ImportType
-    = ImportedVariable
-    | ImportedType
-    | ImportedOperator
-
-
-initialContext : Context
+initialContext : ProjectContext
 initialContext =
-    { scopes = NonemptyList.fromElement emptyScope
-    , inTheDeclarationOf = Nothing
-    , exposesEverything = False
-    , constructorNameToTypeName = Dict.empty
-    , declaredModules = Dict.empty
-    , usedModules = Set.empty
+    { isApplication = True
+    , customTypes = Dict.empty
+    }
+
+
+fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
+fromProjectToModule =
+    Rule.initContextCreator
+        (\lookupTable { isApplication, customTypes } ->
+            { lookupTable = lookupTable
+            , scopes = NonemptyList.fromElement emptyScope
+            , inTheDeclarationOf = []
+            , declarations = Dict.empty
+            , exposesEverything = False
+            , isApplication = isApplication
+            , constructorNameToTypeName = Dict.empty
+            , declaredModules = []
+            , exposingAllModules = []
+            , usedModules = Set.empty
+            , unusedImportedCustomTypes = Dict.empty
+            , importedCustomTypeLookup = Dict.empty
+            , localCustomTypes = Dict.empty
+            , customTypes = customTypes
+            }
+        )
+        |> Rule.withModuleNameLookupTable
+
+
+fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
+fromModuleToProject =
+    Rule.initContextCreator
+        (\metadata moduleContext ->
+            { customTypes =
+                moduleContext.localCustomTypes
+                    |> Dict.map (\_ customType -> customType.variants)
+                    |> Dict.singleton (Rule.moduleNameFromMetadata metadata)
+
+            -- Will be ignored in foldProjectContexts
+            , isApplication = True
+            }
+        )
+        |> Rule.withMetadata
+
+
+foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
+foldProjectContexts newProjectContext previousProjectContext =
+    { isApplication = previousProjectContext.isApplication
+    , customTypes = Dict.union newProjectContext.customTypes previousProjectContext.customTypes
     }
 
 
 emptyScope : Scope
 emptyScope =
     { declared = Dict.empty
-    , used = Set.empty
+    , used = Dict.empty
     }
 
 
-error : Dict String VariableInfo -> VariableInfo -> String -> Error {}
-error declaredModules variableInfo name =
+error : { typeName : String, under : Range, rangeToRemove : Maybe Range, warning : String } -> String -> Error {}
+error variableInfo name =
     Rule.errorWithFix
-        { message = variableTypeToString variableInfo.variableType ++ " `" ++ name ++ "` is not used" ++ variableTypeWarning variableInfo.variableType
-        , details = [ "You should either use this value somewhere, or remove it at the location I pointed at." ]
+        { message = variableInfo.typeName ++ " `" ++ name ++ "` is not used" ++ variableInfo.warning
+        , details = details
         }
         variableInfo.under
-        (fix declaredModules variableInfo)
+        (case variableInfo.rangeToRemove of
+            Just rangeToRemove ->
+                [ Fix.removeRange rangeToRemove ]
+
+            Nothing ->
+                []
+        )
 
 
-variableTypeToString : VariableType -> String
-variableTypeToString variableType =
-    case variableType of
-        TopLevelVariable ->
-            "Top-level variable"
-
-        LetVariable ->
-            "`let in` variable"
-
-        ImportedModule ->
-            "Imported module"
-
-        ImportedItem ImportedVariable ->
-            "Imported variable"
-
-        ImportedItem ImportedType ->
-            "Imported type"
-
-        ImportedItem ImportedOperator ->
-            "Imported operator"
-
-        ModuleAlias _ ->
-            "Module alias"
-
-        Type ->
-            "Type"
-
-        Port ->
-            "Port"
+details : List String
+details =
+    [ "You should either use this value somewhere, or remove it at the location I pointed at."
+    ]
 
 
-variableTypeWarning : VariableType -> String
-variableTypeWarning value =
-    case value of
-        TopLevelVariable ->
-            ""
 
-        LetVariable ->
-            ""
-
-        ImportedModule ->
-            ""
-
-        ImportedItem _ ->
-            ""
-
-        ModuleAlias _ ->
-            ""
-
-        Type ->
-            ""
-
-        Port ->
-            " (Warning: Removing this port may break your application if it is used in the JS code)"
+-- ELM.JSON VISITOR
 
 
-fix : Dict String VariableInfo -> VariableInfo -> List Fix
-fix declaredModules { variableType, rangeToRemove } =
+elmJsonVisitor : Maybe { a | project : Elm.Project.Project } -> ProjectContext -> ( List nothing, ProjectContext )
+elmJsonVisitor maybeElmJson projectContext =
+    case Maybe.map .project maybeElmJson of
+        Just (Elm.Project.Application _) ->
+            ( [], { projectContext | isApplication = True } )
+
+        Just (Elm.Project.Package _) ->
+            ( [], { projectContext | isApplication = False } )
+
+        Nothing ->
+            -- Sensible default, because now `main` won't be reported.
+            ( [], { projectContext | isApplication = True } )
+
+
+
+-- DEPENDENCIES VISITOR
+
+
+dependenciesVisitor : Dict String Dependency -> ProjectContext -> ( List (Error nothing), ProjectContext )
+dependenciesVisitor dependencies projectContext =
     let
-        shouldOfferFix : Bool
-        shouldOfferFix =
-            case variableType of
-                TopLevelVariable ->
-                    True
-
-                LetVariable ->
-                    True
-
-                ImportedModule ->
-                    True
-
-                ImportedItem _ ->
-                    True
-
-                ModuleAlias { originalNameOfTheImport, exposesSomething } ->
-                    not exposesSomething
-                        || not (Dict.member originalNameOfTheImport declaredModules)
-
-                Type ->
-                    True
-
-                Port ->
-                    False
+        customTypes : Dict ModuleName (Dict String (List String))
+        customTypes =
+            dependencies
+                |> Dict.values
+                |> List.concatMap Dependency.modules
+                |> List.map
+                    (\module_ ->
+                        ( String.split "." module_.name
+                        , module_.unions
+                            |> List.map (\{ name, tags } -> ( name, List.map Tuple.first tags ))
+                            |> Dict.fromList
+                        )
+                    )
+                |> Dict.fromList
     in
-    if shouldOfferFix then
-        [ Fix.removeRange rangeToRemove ]
-
-    else
-        []
+    ( [], { projectContext | customTypes = customTypes } )
 
 
-moduleDefinitionVisitor : Node Module -> Context -> ( List nothing, Context )
+
+-- MODULE DEFINITION VISITOR
+
+
+moduleDefinitionVisitor : Node Module -> ModuleContext -> ( List nothing, ModuleContext )
 moduleDefinitionVisitor (Node _ moduleNode) context =
     case Module.exposingList moduleNode of
         Exposing.All _ ->
@@ -245,29 +318,28 @@ moduleDefinitionVisitor (Node _ moduleNode) context =
             let
                 names : List String
                 names =
-                    List.filterMap
+                    List.map
                         (\(Node _ node) ->
                             case node of
                                 Exposing.FunctionExpose name ->
-                                    Just name
+                                    name
 
                                 Exposing.TypeOrAliasExpose name ->
-                                    Just name
+                                    name
 
                                 Exposing.TypeExpose { name } ->
-                                    Just name
+                                    name
 
                                 Exposing.InfixExpose name ->
-                                    -- Just name
-                                    Nothing
+                                    name
                         )
                         list
             in
             ( [], markAllAsUsed names context )
 
 
-importVisitor : Node Import -> Context -> ( List (Error {}), Context )
-importVisitor ((Node _ import_) as node) context =
+importVisitor : Node Import -> ModuleContext -> ( List (Error {}), ModuleContext )
+importVisitor ((Node importRange import_) as node) context =
     let
         errors : List (Error {})
         errors =
@@ -293,54 +365,200 @@ importVisitor ((Node _ import_) as node) context =
             ( errors, registerModuleNameOrAlias node context )
 
         Just declaredImports ->
+            let
+                customTypesFromModule : Dict String (List String)
+                customTypesFromModule =
+                    context.customTypes
+                        |> Dict.get (Node.value import_.moduleName)
+                        |> Maybe.withDefault Dict.empty
+
+                contextWithAlias : ModuleContext
+                contextWithAlias =
+                    case import_.moduleAlias of
+                        Just moduleAlias ->
+                            registerModuleAlias node moduleAlias context
+
+                        Nothing ->
+                            context
+            in
             ( errors
-            , List.foldl
-                (\( name, variableInfo ) context_ -> register variableInfo name context_)
-                (registerModuleAlias node context)
-                (collectFromExposing declaredImports)
+            , case Node.value declaredImports of
+                Exposing.All _ ->
+                    { contextWithAlias
+                        | exposingAllModules =
+                            { name = Node.value import_.moduleName
+                            , alias = Maybe.map (Node.value >> String.join ".") import_.moduleAlias
+                            , moduleNameRange = Node.range import_.moduleName
+                            , exposingRange = Node.range declaredImports
+                            , importRange = importRange
+                            , wasUsedImplicitly = False
+                            , wasUsedWithModuleName = False
+                            }
+                                :: context.exposingAllModules
+                    }
+
+                Exposing.Explicit list ->
+                    List.foldl
+                        (registerExposedElements customTypesFromModule)
+                        contextWithAlias
+                        (collectExplicitlyExposedElements (Node.range declaredImports) list)
             )
 
 
-registerModuleNameOrAlias : Node Import -> Context -> Context
+registerExposedElements : Dict String (List String) -> ExposedElement -> ModuleContext -> ModuleContext
+registerExposedElements customTypesFromModule importedElement context_ =
+    case importedElement of
+        CustomType name variableInfo ->
+            case Dict.get name customTypesFromModule of
+                Just constructorNames ->
+                    { context_
+                        | unusedImportedCustomTypes = Dict.insert name variableInfo context_.unusedImportedCustomTypes
+                        , importedCustomTypeLookup =
+                            Dict.union
+                                (constructorNames
+                                    |> List.map (\constructorName -> ( constructorName, name ))
+                                    |> Dict.fromList
+                                )
+                                context_.importedCustomTypeLookup
+                    }
+
+                Nothing ->
+                    context_
+
+        TypeOrValue name variableInfo ->
+            registerVariable variableInfo name context_
+
+
+collectExplicitlyExposedElements : Range -> List (Node Exposing.TopLevelExpose) -> List ExposedElement
+collectExplicitlyExposedElements exposingNodeRange list =
+    let
+        listWithPreviousRange : List (Maybe Range)
+        listWithPreviousRange =
+            Nothing
+                :: (list
+                        |> List.map (Node.range >> Just)
+                        |> List.take (List.length list - 1)
+                   )
+
+        listWithNextRange : List Range
+        listWithNextRange =
+            (list
+                |> List.map Node.range
+                |> List.drop 1
+            )
+                ++ [ { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } } ]
+    in
+    list
+        |> List.map3 (\prev next current -> ( prev, current, next )) listWithPreviousRange listWithNextRange
+        |> List.indexedMap
+            (\index ( maybePreviousRange, Node range value, nextRange ) ->
+                let
+                    rangeToRemove : Range
+                    rangeToRemove =
+                        if List.length list == 1 then
+                            exposingNodeRange
+
+                        else if index == 0 then
+                            { range | end = nextRange.start }
+
+                        else
+                            case maybePreviousRange of
+                                Nothing ->
+                                    range
+
+                                Just previousRange ->
+                                    { range | start = previousRange.end }
+                in
+                case value of
+                    Exposing.FunctionExpose name ->
+                        TypeOrValue
+                            name
+                            { typeName = "Imported variable"
+                            , under = untilEndOfVariable name range
+                            , rangeToRemove = Just rangeToRemove
+                            , warning = ""
+                            }
+                            |> Just
+
+                    Exposing.InfixExpose name ->
+                        TypeOrValue
+                            name
+                            { typeName = "Imported operator"
+                            , under = untilEndOfVariable name range
+                            , rangeToRemove = Just rangeToRemove
+                            , warning = ""
+                            }
+                            |> Just
+
+                    Exposing.TypeOrAliasExpose name ->
+                        TypeOrValue
+                            name
+                            { typeName = "Imported type"
+                            , under = untilEndOfVariable name range
+                            , rangeToRemove = Just rangeToRemove
+                            , warning = ""
+                            }
+                            |> Just
+
+                    Exposing.TypeExpose { name, open } ->
+                        case open of
+                            Just openRange ->
+                                CustomType
+                                    name
+                                    { typeName = "Imported type"
+                                    , under = range
+                                    , rangeToRemove = rangeToRemove
+                                    , openRange = openRange
+                                    }
+                                    |> Just
+
+                            Nothing ->
+                                -- Can't happen with `elm-syntax`. If open is Nothing, then this we'll have a
+                                -- `Exposing.TypeOrAliasExpose`, not a `Exposing.TypeExpose`.
+                                Nothing
+            )
+        |> List.filterMap identity
+
+
+registerModuleNameOrAlias : Node Import -> ModuleContext -> ModuleContext
 registerModuleNameOrAlias ((Node range { moduleAlias, moduleName }) as node) context =
     case moduleAlias of
-        Just _ ->
-            registerModuleAlias node context
+        Just moduleAlias_ ->
+            registerModuleAlias node moduleAlias_ context
 
         Nothing ->
-            register
-                { variableType = ImportedModule
+            registerModule
+                { moduleName = Node.value moduleName
+                , alias = Nothing
+                , typeName = "Imported module"
+                , variableType = ImportedModule
                 , under = Node.range moduleName
                 , rangeToRemove = untilStartOfNextLine range
                 }
-                (getModuleName <| Node.value moduleName)
                 context
 
 
-registerModuleAlias : Node Import -> Context -> Context
-registerModuleAlias ((Node range { exposingList, moduleAlias, moduleName }) as node) context =
-    case moduleAlias of
-        Just moduleAlias_ ->
-            register
-                { variableType =
-                    ModuleAlias
-                        { originalNameOfTheImport = getModuleName <| Node.value moduleName
-                        , exposesSomething = exposingList /= Nothing
-                        }
-                , under = Node.range moduleAlias_
-                , rangeToRemove =
-                    case exposingList of
-                        Nothing ->
-                            untilStartOfNextLine range
-
-                        Just _ ->
-                            moduleAliasRange node (Node.range moduleAlias_)
+registerModuleAlias : Node Import -> Node ModuleName -> ModuleContext -> ModuleContext
+registerModuleAlias ((Node range { exposingList, moduleName }) as node) moduleAlias context =
+    registerModule
+        { moduleName = Node.value moduleName
+        , alias = Just (getModuleName (Node.value moduleAlias))
+        , variableType =
+            ModuleAlias
+                { originalNameOfTheImport = getModuleName <| Node.value moduleName
+                , exposesSomething = exposingList /= Nothing
                 }
-                (getModuleName <| Node.value moduleAlias_)
-                context
+        , typeName = "Module alias"
+        , under = Node.range moduleAlias
+        , rangeToRemove =
+            case exposingList of
+                Nothing ->
+                    untilStartOfNextLine range
 
-        Nothing ->
-            context
+                Just _ ->
+                    moduleAliasRange node (Node.range moduleAlias)
+        }
+        context
 
 
 moduleAliasRange : Node Import -> Range -> Range
@@ -348,14 +566,53 @@ moduleAliasRange (Node _ { moduleName }) range =
     { range | start = (Node.range moduleName).end }
 
 
-expressionEnterVisitor : Node Expression -> Context -> ( List (Error {}), Context )
-expressionEnterVisitor (Node range value) context =
+expressionEnterVisitor : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
+expressionEnterVisitor node context =
+    let
+        newContext : ModuleContext
+        newContext =
+            case Dict.get (rangeAsString (Node.range node)) context.declarations of
+                Just functionName ->
+                    { context | inTheDeclarationOf = functionName :: context.inTheDeclarationOf }
+
+                Nothing ->
+                    context
+    in
+    expressionEnterVisitorHelp node newContext
+
+
+expressionEnterVisitorHelp : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
+expressionEnterVisitorHelp (Node range value) context =
     case value of
         Expression.FunctionOrValue [] name ->
-            ( [], markAsUsed name context )
+            case Dict.get name context.constructorNameToTypeName of
+                Just typeName ->
+                    ( [], markAsUsed typeName context )
 
-        Expression.FunctionOrValue moduleName name ->
-            ( [], markModuleAsUsed (getModuleName moduleName) context )
+                Nothing ->
+                    case Dict.get name context.importedCustomTypeLookup of
+                        Just customTypeName ->
+                            ( [], { context | unusedImportedCustomTypes = Dict.remove customTypeName context.unusedImportedCustomTypes } )
+
+                        Nothing ->
+                            case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
+                                Just realModuleName ->
+                                    ( []
+                                    , context
+                                        |> markAsUsed name
+                                        |> markModuleAsUsed ( realModuleName, [] )
+                                    )
+
+                                Nothing ->
+                                    ( [], markAsUsed name context )
+
+        Expression.FunctionOrValue moduleName _ ->
+            case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
+                Just realModuleName ->
+                    ( [], markModuleAsUsed ( realModuleName, moduleName ) context )
+
+                Nothing ->
+                    ( [], context )
 
         Expression.OperatorApplication name _ _ _ ->
             ( [], markAsUsed name context )
@@ -372,40 +629,71 @@ expressionEnterVisitor (Node range value) context =
 
                     else
                         HasMultipleDeclarations
-
-                newContext : Context
-                newContext =
-                    List.foldl
-                        (\declaration context_ ->
-                            case Node.value declaration of
-                                Expression.LetFunction function ->
-                                    let
-                                        namesUsedInArgumentPatterns : { types : List String, modules : List String }
-                                        namesUsedInArgumentPatterns =
-                                            function.declaration
-                                                |> Node.value
-                                                |> .arguments
-                                                |> List.map getUsedVariablesFromPattern
-                                                |> foldUsedTypesAndModules
-                                    in
-                                    context_
-                                        |> registerFunction letBlockContext function
-                                        |> markUsedTypesAndModules namesUsedInArgumentPatterns
-
-                                Expression.LetDestructuring _ _ ->
-                                    context_
-                        )
-                        { context | scopes = NonemptyList.cons emptyScope context.scopes }
-                        declarations
             in
-            ( [], newContext )
+            List.foldl
+                (\declaration (( errors, foldContext ) as unchangedResult) ->
+                    case Node.value declaration of
+                        Expression.LetFunction function ->
+                            let
+                                namesUsedInArgumentPatterns : { types : List String, modules : List ( ModuleName, ModuleName ) }
+                                namesUsedInArgumentPatterns =
+                                    function.declaration
+                                        |> Node.value
+                                        |> .arguments
+                                        |> List.map (getUsedVariablesFromPattern context)
+                                        |> foldUsedTypesAndModules
+
+                                markAsInTheDeclarationOf name ctx =
+                                    { ctx
+                                        | declarations =
+                                            Dict.insert
+                                                (function.declaration |> Node.value |> .expression |> Node.range |> rangeAsString)
+                                                name
+                                                ctx.declarations
+                                    }
+                            in
+                            ( errors
+                            , foldContext
+                                |> registerFunction letBlockContext function
+                                |> markUsedTypesAndModules namesUsedInArgumentPatterns
+                                |> markAsInTheDeclarationOf (function.declaration |> Node.value |> .name |> Node.value)
+                            )
+
+                        Expression.LetDestructuring pattern _ ->
+                            case isAllPattern pattern of
+                                Just wildCardRange ->
+                                    ( Rule.errorWithFix
+                                        { message = "Value assigned to `_` is unused"
+                                        , details =
+                                            [ "This value has been assigned to a wildcard, which makes the value unusable. You should remove it at the location I pointed at."
+                                            ]
+                                        }
+                                        wildCardRange
+                                        [ case letBlockContext of
+                                            HasMultipleDeclarations ->
+                                                Fix.removeRange (Node.range declaration)
+
+                                            HasNoOtherDeclarations letDeclarationsRange ->
+                                                -- If there are no other declarations in the let in block,
+                                                -- we also need to remove the `let in` keywords.
+                                                Fix.removeRange letDeclarationsRange
+                                        ]
+                                        :: errors
+                                    , foldContext
+                                    )
+
+                                Nothing ->
+                                    unchangedResult
+                )
+                ( [], { context | scopes = NonemptyList.cons emptyScope context.scopes } )
+                declarations
 
         Expression.LambdaExpression { args } ->
             let
-                namesUsedInArgumentPatterns : { types : List String, modules : List String }
+                namesUsedInArgumentPatterns : { types : List String, modules : List ( ModuleName, ModuleName ) }
                 namesUsedInArgumentPatterns =
                     args
-                        |> List.map getUsedVariablesFromPattern
+                        |> List.map (getUsedVariablesFromPattern context)
                         |> foldUsedTypesAndModules
             in
             ( [], markUsedTypesAndModules namesUsedInArgumentPatterns context )
@@ -414,20 +702,47 @@ expressionEnterVisitor (Node range value) context =
             ( [], context )
 
 
-expressionExitVisitor : Node Expression -> Context -> ( List (Error {}), Context )
+isAllPattern : Node Pattern -> Maybe Range
+isAllPattern node =
+    case Node.value node of
+        Pattern.ParenthesizedPattern pattern ->
+            isAllPattern pattern
+
+        Pattern.AllPattern ->
+            Just (Node.range node)
+
+        _ ->
+            Nothing
+
+
+expressionExitVisitor : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
 expressionExitVisitor node context =
+    let
+        newContext : ModuleContext
+        newContext =
+            if Dict.member (rangeAsString (Node.range node)) context.declarations then
+                { context | inTheDeclarationOf = List.drop 1 context.inTheDeclarationOf }
+
+            else
+                context
+    in
+    expressionExitVisitorHelp node newContext
+
+
+expressionExitVisitorHelp : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
+expressionExitVisitorHelp node context =
     case Node.value node of
         Expression.RecordUpdateExpression expr _ ->
             ( [], markAsUsed (Node.value expr) context )
 
         Expression.CaseExpression { cases } ->
             let
-                usedVariables : { types : List String, modules : List String }
+                usedVariables : { types : List String, modules : List ( ModuleName, ModuleName ) }
                 usedVariables =
                     cases
                         |> List.map
                             (\( patternNode, _ ) ->
-                                getUsedVariablesFromPattern patternNode
+                                getUsedVariablesFromPattern context patternNode
                             )
                         |> foldUsedTypesAndModules
             in
@@ -440,7 +755,7 @@ expressionExitVisitor node context =
                 ( errors, remainingUsed ) =
                     makeReport (NonemptyList.head context.scopes)
 
-                contextWithPoppedScope : Context
+                contextWithPoppedScope : ModuleContext
                 contextWithPoppedScope =
                     { context | scopes = NonemptyList.pop context.scopes }
             in
@@ -452,15 +767,15 @@ expressionExitVisitor node context =
             ( [], context )
 
 
-getUsedVariablesFromPattern : Node Pattern -> { types : List String, modules : List String }
-getUsedVariablesFromPattern patternNode =
-    { types = getUsedTypesFromPattern patternNode
-    , modules = getUsedModulesFromPattern patternNode
+getUsedVariablesFromPattern : ModuleContext -> Node Pattern -> { types : List String, modules : List ( ModuleName, ModuleName ) }
+getUsedVariablesFromPattern context patternNode =
+    { types = getUsedTypesFromPattern context.constructorNameToTypeName patternNode
+    , modules = getUsedModulesFromPattern context.lookupTable patternNode
     }
 
 
-getUsedTypesFromPattern : Node Pattern -> List String
-getUsedTypesFromPattern patternNode =
+getUsedTypesFromPattern : Dict String String -> Node Pattern -> List String
+getUsedTypesFromPattern constructorNameToTypeName patternNode =
     case Node.value patternNode of
         Pattern.AllPattern ->
             []
@@ -484,16 +799,16 @@ getUsedTypesFromPattern patternNode =
             []
 
         Pattern.TuplePattern patterns ->
-            List.concatMap getUsedTypesFromPattern patterns
+            List.concatMap (getUsedTypesFromPattern constructorNameToTypeName) patterns
 
         Pattern.RecordPattern _ ->
             []
 
         Pattern.UnConsPattern pattern1 pattern2 ->
-            List.concatMap getUsedTypesFromPattern [ pattern1, pattern2 ]
+            List.concatMap (getUsedTypesFromPattern constructorNameToTypeName) [ pattern1, pattern2 ]
 
         Pattern.ListPattern patterns ->
-            List.concatMap getUsedTypesFromPattern patterns
+            List.concatMap (getUsedTypesFromPattern constructorNameToTypeName) patterns
 
         Pattern.VarPattern _ ->
             []
@@ -501,20 +816,21 @@ getUsedTypesFromPattern patternNode =
         Pattern.NamedPattern qualifiedNameRef patterns ->
             case qualifiedNameRef.moduleName of
                 [] ->
-                    qualifiedNameRef.name :: List.concatMap getUsedTypesFromPattern patterns
+                    (Dict.get qualifiedNameRef.name constructorNameToTypeName |> Maybe.withDefault qualifiedNameRef.name)
+                        :: List.concatMap (getUsedTypesFromPattern constructorNameToTypeName) patterns
 
                 _ ->
-                    List.concatMap getUsedTypesFromPattern patterns
+                    List.concatMap (getUsedTypesFromPattern constructorNameToTypeName) patterns
 
         Pattern.AsPattern pattern _ ->
-            getUsedTypesFromPattern pattern
+            getUsedTypesFromPattern constructorNameToTypeName pattern
 
         Pattern.ParenthesizedPattern pattern ->
-            getUsedTypesFromPattern pattern
+            getUsedTypesFromPattern constructorNameToTypeName pattern
 
 
-getUsedModulesFromPattern : Node Pattern -> List String
-getUsedModulesFromPattern patternNode =
+getUsedModulesFromPattern : ModuleNameLookupTable -> Node Pattern -> List ( ModuleName, ModuleName )
+getUsedModulesFromPattern lookupTable patternNode =
     case Node.value patternNode of
         Pattern.AllPattern ->
             []
@@ -538,36 +854,99 @@ getUsedModulesFromPattern patternNode =
             []
 
         Pattern.TuplePattern patterns ->
-            List.concatMap getUsedModulesFromPattern patterns
+            List.concatMap (getUsedModulesFromPattern lookupTable) patterns
 
         Pattern.RecordPattern _ ->
             []
 
         Pattern.UnConsPattern pattern1 pattern2 ->
-            List.concatMap getUsedModulesFromPattern [ pattern1, pattern2 ]
+            List.concatMap (getUsedModulesFromPattern lookupTable) [ pattern1, pattern2 ]
 
         Pattern.ListPattern patterns ->
-            List.concatMap getUsedModulesFromPattern patterns
+            List.concatMap (getUsedModulesFromPattern lookupTable) patterns
 
         Pattern.VarPattern _ ->
             []
 
         Pattern.NamedPattern qualifiedNameRef patterns ->
-            case qualifiedNameRef.moduleName of
-                [] ->
-                    List.concatMap getUsedModulesFromPattern patterns
+            case ModuleNameLookupTable.moduleNameFor lookupTable patternNode of
+                Just realModuleName ->
+                    ( realModuleName, qualifiedNameRef.moduleName ) :: List.concatMap (getUsedModulesFromPattern lookupTable) patterns
 
-                moduleName ->
-                    getModuleName moduleName :: List.concatMap getUsedModulesFromPattern patterns
+                Nothing ->
+                    List.concatMap (getUsedModulesFromPattern lookupTable) patterns
 
         Pattern.AsPattern pattern _ ->
-            getUsedModulesFromPattern pattern
+            getUsedModulesFromPattern lookupTable pattern
 
         Pattern.ParenthesizedPattern pattern ->
-            getUsedModulesFromPattern pattern
+            getUsedModulesFromPattern lookupTable pattern
 
 
-declarationVisitor : Node Declaration -> Context -> ( List nothing, Context )
+
+-- DECLARATION LIST VISITOR
+
+
+declarationListVisitor : List (Node Declaration) -> ModuleContext -> ( List (Error {}), ModuleContext )
+declarationListVisitor nodes context =
+    List.foldl
+        (\node ( errors, ctx ) ->
+            case Node.value node of
+                Declaration.CustomTypeDeclaration { name, constructors, documentation } ->
+                    let
+                        typeName : String
+                        typeName =
+                            Node.value name
+
+                        constructorsForType : Dict String String
+                        constructorsForType =
+                            constructors
+                                |> List.map (Node.value >> .name >> Node.value)
+                                |> List.map (\constructorName -> ( constructorName, typeName ))
+                                |> Dict.fromList
+
+                        customType : CustomTypeData
+                        customType =
+                            { under = Node.range name
+                            , rangeToRemove = rangeToRemoveForNodeWithDocumentation node documentation
+                            , variants = List.map (Node.value >> .name >> Node.value) constructors
+                            }
+                    in
+                    ( errors
+                    , { ctx
+                        | localCustomTypes =
+                            Dict.insert
+                                (Node.value name)
+                                customType
+                                ctx.localCustomTypes
+                        , constructorNameToTypeName = Dict.union constructorsForType ctx.constructorNameToTypeName
+                      }
+                    )
+
+                Declaration.AliasDeclaration { name, documentation } ->
+                    ( []
+                    , registerVariable
+                        { typeName = "Type"
+                        , under = Node.range name
+                        , rangeToRemove = Just (rangeToRemoveForNodeWithDocumentation node documentation)
+                        , warning = ""
+                        }
+                        (Node.value name)
+                        { context | importedCustomTypeLookup = Dict.remove (Node.value name) context.importedCustomTypeLookup }
+                    )
+
+                _ ->
+                    ( errors, ctx )
+        )
+        ( [], context )
+        nodes
+
+
+
+-- DECLARATION VISITOR
+
+
+declarationVisitor : Node Declaration -> ModuleContext -> ( List nothing, ModuleContext )
 declarationVisitor node context =
     case Node.value node of
         Declaration.FunctionDeclaration function ->
@@ -576,112 +955,114 @@ declarationVisitor node context =
                 functionImplementation =
                     Node.value function.declaration
 
-                namesUsedInSignature : { types : List String, modules : List String }
+                namesUsedInSignature : { types : List String, modules : List ( ModuleName, ModuleName ) }
                 namesUsedInSignature =
                     function.signature
-                        |> Maybe.map (Node.value >> .typeAnnotation >> collectNamesFromTypeAnnotation)
+                        |> Maybe.map (Node.value >> .typeAnnotation >> collectNamesFromTypeAnnotation context.lookupTable)
                         |> Maybe.withDefault { types = [], modules = [] }
 
-                namesUsedInArgumentPatterns : { types : List String, modules : List String }
+                namesUsedInArgumentPatterns : { types : List String, modules : List ( ModuleName, ModuleName ) }
                 namesUsedInArgumentPatterns =
                     function.declaration
                         |> Node.value
                         |> .arguments
-                        |> List.map getUsedVariablesFromPattern
+                        |> List.map (getUsedVariablesFromPattern context)
                         |> foldUsedTypesAndModules
 
-                newContext : Context
-                newContext =
-                    { context | inTheDeclarationOf = Just <| Node.value functionImplementation.name }
-                        |> register
-                            { variableType = TopLevelVariable
+                newContextWhereFunctionIsRegistered : ModuleContext
+                newContextWhereFunctionIsRegistered =
+                    if
+                        context.exposesEverything
+                            -- The main function is "exposed" by default for applications
+                            || (context.isApplication && Node.value functionImplementation.name == "main")
+                    then
+                        context
+
+                    else
+                        registerVariable
+                            { typeName = "Top-level variable"
                             , under = Node.range functionImplementation.name
-                            , rangeToRemove = rangeToRemoveForNodeWithDocumentation node function.documentation
+                            , rangeToRemove = Just (rangeToRemoveForNodeWithDocumentation node function.documentation)
+                            , warning = ""
                             }
                             (Node.value functionImplementation.name)
+                            context
+
+                newContext : ModuleContext
+                newContext =
+                    { newContextWhereFunctionIsRegistered | inTheDeclarationOf = [ Node.value functionImplementation.name ], declarations = Dict.empty }
                         |> markUsedTypesAndModules namesUsedInSignature
                         |> markUsedTypesAndModules namesUsedInArgumentPatterns
             in
             ( [], newContext )
 
-        Declaration.CustomTypeDeclaration { name, documentation, constructors } ->
+        Declaration.CustomTypeDeclaration { name, constructors } ->
             let
-                variablesFromConstructorArguments : { types : List String, modules : List String }
-                variablesFromConstructorArguments =
+                { types, modules } =
                     constructors
                         |> List.concatMap (Node.value >> .arguments)
-                        |> List.map collectNamesFromTypeAnnotation
+                        |> List.map (collectNamesFromTypeAnnotation context.lookupTable)
                         |> foldUsedTypesAndModules
-
-                typeName : String
-                typeName =
-                    Node.value name
-
-                constructorsForType : Dict String String
-                constructorsForType =
-                    constructors
-                        |> List.map (Node.value >> .name >> Node.value)
-                        |> List.map (\constructorName -> ( constructorName, typeName ))
-                        |> Dict.fromList
             in
             ( []
-            , { context | constructorNameToTypeName = Dict.union constructorsForType context.constructorNameToTypeName }
-                |> register
-                    { variableType = Type
-                    , under = Node.range name
-                    , rangeToRemove = rangeToRemoveForNodeWithDocumentation node documentation
-                    }
-                    (Node.value name)
-                |> markUsedTypesAndModules variablesFromConstructorArguments
+            , markUsedTypesAndModules
+                { types = List.filter ((/=) (Node.value name)) types
+                , modules = modules
+                }
+                context
             )
 
-        Declaration.AliasDeclaration { name, typeAnnotation, documentation } ->
+        Declaration.AliasDeclaration { name, typeAnnotation } ->
             let
-                namesUsedInTypeAnnotation : { types : List String, modules : List String }
+                namesUsedInTypeAnnotation : { types : List String, modules : List ( ModuleName, ModuleName ) }
                 namesUsedInTypeAnnotation =
-                    collectNamesFromTypeAnnotation typeAnnotation
+                    collectNamesFromTypeAnnotation context.lookupTable typeAnnotation
             in
             ( []
-            , context
-                |> register
-                    { variableType = Type
-                    , under = Node.range name
-                    , rangeToRemove = rangeToRemoveForNodeWithDocumentation node documentation
-                    }
-                    (Node.value name)
-                |> markUsedTypesAndModules namesUsedInTypeAnnotation
+            , markUsedTypesAndModules namesUsedInTypeAnnotation context
             )
 
         Declaration.PortDeclaration { name, typeAnnotation } ->
             let
-                namesUsedInTypeAnnotation : { types : List String, modules : List String }
+                namesUsedInTypeAnnotation : { types : List String, modules : List ( ModuleName, ModuleName ) }
                 namesUsedInTypeAnnotation =
-                    collectNamesFromTypeAnnotation typeAnnotation
+                    collectNamesFromTypeAnnotation context.lookupTable typeAnnotation
             in
             ( []
             , context
                 |> markUsedTypesAndModules namesUsedInTypeAnnotation
-                |> register
-                    { variableType = Port
+                |> registerVariable
+                    { typeName = "Port"
                     , under = Node.range name
-                    , rangeToRemove = Node.range node
+                    , rangeToRemove = Nothing
+                    , warning = " (Warning: Removing this port may break your application if it is used in the JS code)"
                     }
                     (Node.value name)
             )
 
-        Declaration.InfixDeclaration _ ->
-            ( [], context )
+        Declaration.InfixDeclaration { operator, function } ->
+            ( []
+            , context
+                |> markAsUsed (Node.value function)
+                |> registerVariable
+                    { typeName = "Declared operator"
+                    , under = Node.range operator
+                    , rangeToRemove = Just (Node.range node)
+                    , warning = ""
+                    }
+                    (Node.value operator)
+            )
 
         Declaration.Destructuring _ _ ->
             ( [], context )
 
 
-foldUsedTypesAndModules : List { types : List String, modules : List String } -> { types : List String, modules : List String }
+foldUsedTypesAndModules : List { types : List String, modules : List ( ModuleName, ModuleName ) } -> { types : List String, modules : List ( ModuleName, ModuleName ) }
 foldUsedTypesAndModules =
     List.foldl (\a b -> { types = a.types ++ b.types, modules = a.modules ++ b.modules }) { types = [], modules = [] }
 
 
-markUsedTypesAndModules : { types : List String, modules : List String } -> Context -> Context
+markUsedTypesAndModules : { types : List String, modules : List ( ModuleName, ModuleName ) } -> ModuleContext -> ModuleContext
 markUsedTypesAndModules { types, modules } context =
     context
         |> markAllAsUsed types
@@ -701,55 +1082,193 @@ rangeToRemoveForNodeWithDocumentation (Node nodeRange _) documentation =
                 }
 
 
-finalEvaluation : Context -> List (Error {})
+finalEvaluation : ModuleContext -> List (Error {})
 finalEvaluation context =
-    if context.exposesEverything then
-        []
+    let
+        rootScope : Scope
+        rootScope =
+            NonemptyList.head context.scopes
 
-    else
-        let
-            rootScope : Scope
-            rootScope =
-                NonemptyList.head context.scopes
+        namesOfCustomTypesUsedByCallingAConstructor : Set String
+        namesOfCustomTypesUsedByCallingAConstructor =
+            context.constructorNameToTypeName
+                |> Dict.filter (\usedName _ -> Set.member usedName (Dict.get [] rootScope.used |> Maybe.withDefault Set.empty))
+                |> Dict.values
+                |> Set.fromList
 
-            namesOfCustomTypesUsedByCallingAConstructor : Set String
-            namesOfCustomTypesUsedByCallingAConstructor =
-                context.constructorNameToTypeName
-                    |> Dict.filter (\usedName _ -> Set.member usedName rootScope.used)
-                    |> Dict.values
-                    |> Set.fromList
+        newRootScope : Scope
+        newRootScope =
+            { rootScope
+                | used =
+                    Dict.update []
+                        (\set ->
+                            set
+                                |> Maybe.withDefault Set.empty
+                                |> Set.union namesOfCustomTypesUsedByCallingAConstructor
+                                |> Just
+                        )
+                        rootScope.used
+            }
 
-            newRootScope : Scope
-            newRootScope =
-                { rootScope | used = Set.union namesOfCustomTypesUsedByCallingAConstructor rootScope.used }
+        moduleNamesInUse : Set String
+        moduleNamesInUse =
+            context.declaredModules
+                |> List.map (\{ alias, moduleName } -> Maybe.withDefault (getModuleName moduleName) alias)
+                |> Set.fromList
 
-            moduleErrors : List (Error {})
-            moduleErrors =
-                context.declaredModules
-                    |> Dict.filter (\key _ -> not <| Set.member key context.usedModules)
-                    |> Dict.toList
-                    |> List.map (\( key, variableInfo ) -> error context.declaredModules variableInfo key)
-        in
-        List.concat
-            [ newRootScope
-                |> makeReport
-                |> Tuple.first
-            , moduleErrors
-            ]
+        usedLocally : Set String
+        usedLocally =
+            Dict.get [] rootScope.used |> Maybe.withDefault Set.empty
+
+        importedTypeErrors : List (Error {})
+        importedTypeErrors =
+            context.unusedImportedCustomTypes
+                |> Dict.toList
+                |> List.map
+                    (\( name, { under, rangeToRemove, openRange } ) ->
+                        if Set.member name usedLocally && not (Dict.member name context.localCustomTypes) then
+                            Rule.errorWithFix
+                                { message = "Imported constructors for `" ++ name ++ "` are not used"
+                                , details = details
+                                }
+                                under
+                                -- If the constructors are not used but the type itself is, then only remove the `(..)`
+                                [ Fix.removeRange openRange ]
+
+                        else
+                            Rule.errorWithFix
+                                { message = "Imported type `" ++ name ++ "` is not used"
+                                , details = details
+                                }
+                                under
+                                [ Fix.removeRange rangeToRemove ]
+                    )
+
+        moduleThatExposeEverythingErrors : List ( Maybe (Error {}), Maybe ( ModuleName, ModuleName ) )
+        moduleThatExposeEverythingErrors =
+            List.map
+                (\({ importRange, exposingRange } as module_) ->
+                    if not module_.wasUsedImplicitly then
+                        if module_.wasUsedWithModuleName then
+                            ( Just
+                                (Rule.errorWithFix
+                                    { message = "No imported elements from `" ++ String.join "." module_.name ++ "` are used"
+                                    , details = details
+                                    }
+                                    exposingRange
+                                    [ Fix.removeRange exposingRange ]
+                                )
+                            , Nothing
+                            )
+
+                        else
+                            ( Just
+                                (Rule.errorWithFix
+                                    { message = "Imported module `" ++ String.join "." module_.name ++ "` is not used"
+                                    , details = details
+                                    }
+                                    module_.moduleNameRange
+                                    [ Fix.removeRange { importRange | end = { row = importRange.end.row + 1, column = 1 } } ]
+                                )
+                            , Maybe.map (\alias -> ( module_.name, [ alias ] )) module_.alias
+                            )
+
+                    else
+                        ( Nothing, Nothing )
+                )
+                context.exposingAllModules
+
+        usedModules : Set ( ModuleName, ModuleName )
+        usedModules =
+            Set.union
+                (Set.fromList (List.filterMap Tuple.second moduleThatExposeEverythingErrors))
+                context.usedModules
+
+        moduleErrors : List (Error {})
+        moduleErrors =
+            context.declaredModules
+                |> List.filter
+                    (\variableInfo ->
+                        not
+                            (case variableInfo.alias of
+                                Just alias ->
+                                    Set.member ( variableInfo.moduleName, [ alias ] ) usedModules
+
+                                Nothing ->
+                                    Set.member ( variableInfo.moduleName, variableInfo.moduleName ) usedModules
+                            )
+                    )
+                |> List.map
+                    (\variableInfo ->
+                        let
+                            name : String
+                            name =
+                                case variableInfo.alias of
+                                    Just alias ->
+                                        alias
+
+                                    Nothing ->
+                                        getModuleName variableInfo.moduleName
+
+                            fix : List Fix
+                            fix =
+                                case variableInfo.variableType of
+                                    ImportedModule ->
+                                        [ Fix.removeRange variableInfo.rangeToRemove ]
+
+                                    ModuleAlias { originalNameOfTheImport, exposesSomething } ->
+                                        if not exposesSomething || not (Set.member originalNameOfTheImport moduleNamesInUse) then
+                                            [ Fix.removeRange variableInfo.rangeToRemove ]
+
+                                        else
+                                            []
+                        in
+                        Rule.errorWithFix
+                            { message = variableInfo.typeName ++ " `" ++ name ++ "` is not used"
+                            , details = details
+                            }
+                            variableInfo.under
+                            fix
+                    )
+
+        customTypeErrors : List (Error {})
+        customTypeErrors =
+            context.localCustomTypes
+                |> Dict.toList
+                |> List.filter (\( name, _ ) -> not <| Set.member name usedLocally)
+                |> List.map
+                    (\( name, customType ) ->
+                        Rule.errorWithFix
+                            { message = "Type `" ++ name ++ "` is not used"
+                            , details = details
+                            }
+                            customType.under
+                            [ Fix.removeRange customType.rangeToRemove ]
+                    )
+    in
+    List.concat
+        [ newRootScope
+            |> makeReport
+            |> Tuple.first
+        , importedTypeErrors
+        , moduleErrors
+        , List.filterMap Tuple.first moduleThatExposeEverythingErrors
+        , customTypeErrors
+        ]
 
 
-registerFunction : LetBlockContext -> Function -> Context -> Context
+registerFunction : LetBlockContext -> Function -> ModuleContext -> ModuleContext
 registerFunction letBlockContext function context =
     let
         declaration : FunctionImplementation
         declaration =
             Node.value function.declaration
 
-        namesUsedInSignature : { types : List String, modules : List String }
+        namesUsedInSignature : { types : List String, modules : List ( ModuleName, ModuleName ) }
         namesUsedInSignature =
             case Maybe.map Node.value function.signature of
                 Just signature ->
-                    collectNamesFromTypeAnnotation signature.typeAnnotation
+                    collectNamesFromTypeAnnotation context.lookupTable signature.typeAnnotation
 
                 Nothing ->
                     { types = [], modules = [] }
@@ -766,113 +1285,27 @@ registerFunction letBlockContext function context =
                     Node.range function.declaration
     in
     context
-        |> register
-            { variableType = LetVariable
+        |> registerVariable
+            { typeName = "`let in` variable"
             , under = Node.range declaration.name
             , rangeToRemove =
                 case letBlockContext of
                     HasMultipleDeclarations ->
-                        functionRange
+                        Just functionRange
 
                     HasNoOtherDeclarations letDeclarationsRange ->
                         -- If there are no other declarations in the let in block,
                         -- we also need to remove the `let in` keywords.
-                        letDeclarationsRange
+                        Just letDeclarationsRange
+            , warning = ""
             }
             (Node.value declaration.name)
         |> markUsedTypesAndModules namesUsedInSignature
 
 
-collectFromExposing : Node Exposing -> List ( String, VariableInfo )
-collectFromExposing exposingNode =
-    case Node.value exposingNode of
-        Exposing.All _ ->
-            []
-
-        Exposing.Explicit list ->
-            let
-                listWithPreviousRange : List (Maybe Range)
-                listWithPreviousRange =
-                    Nothing
-                        :: (list
-                                |> List.map (Node.range >> Just)
-                                |> List.take (List.length list - 1)
-                           )
-
-                listWithNextRange : List Range
-                listWithNextRange =
-                    (list
-                        |> List.map Node.range
-                        |> List.drop 1
-                    )
-                        ++ [ { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } } ]
-            in
-            list
-                |> List.map3 (\prev next current -> ( prev, current, next )) listWithPreviousRange listWithNextRange
-                |> List.indexedMap
-                    (\index ( maybePreviousRange, Node range value, nextRange ) ->
-                        let
-                            rangeToRemove : Range
-                            rangeToRemove =
-                                if List.length list == 1 then
-                                    Node.range exposingNode
-
-                                else if index == 0 then
-                                    { range | end = nextRange.start }
-
-                                else
-                                    case maybePreviousRange of
-                                        Nothing ->
-                                            range
-
-                                        Just previousRange ->
-                                            { range | start = previousRange.end }
-                        in
-                        case value of
-                            Exposing.FunctionExpose name ->
-                                Just
-                                    ( name
-                                    , { variableType = ImportedItem ImportedVariable
-                                      , under = untilEndOfVariable name range
-                                      , rangeToRemove = rangeToRemove
-                                      }
-                                    )
-
-                            Exposing.InfixExpose name ->
-                                Just
-                                    ( name
-                                    , { variableType = ImportedItem ImportedOperator
-                                      , under = untilEndOfVariable name range
-                                      , rangeToRemove = rangeToRemove
-                                      }
-                                    )
-
-                            Exposing.TypeOrAliasExpose name ->
-                                -- TODO Detect whether it is a custom type or type alias
-                                Just
-                                    ( name
-                                    , { variableType = ImportedItem ImportedType
-                                      , under = untilEndOfVariable name range
-                                      , rangeToRemove = rangeToRemove
-                                      }
-                                    )
-
-                            Exposing.TypeExpose { name, open } ->
-                                case open of
-                                    Just _ ->
-                                        -- TODO Change this behavior once we know the contents of the open range, using dependencies or the interfaces of the other modules
-                                        Nothing
-
-                                    Nothing ->
-                                        Just
-                                            ( name
-                                            , { variableType = ImportedItem ImportedType
-                                              , under = range
-                                              , rangeToRemove = rangeToRemove
-                                              }
-                                            )
-                    )
-                |> List.filterMap identity
+type ExposedElement
+    = CustomType String ImportedCustomType
+    | TypeOrValue String VariableInfo
 
 
 untilEndOfVariable : String -> Range -> Range
@@ -884,10 +1317,10 @@ untilEndOfVariable name range =
         { range | end = { row = range.start.row, column = range.start.column + String.length name } }
 
 
-collectNamesFromTypeAnnotation : Node TypeAnnotation -> { types : List String, modules : List String }
-collectNamesFromTypeAnnotation node =
+collectNamesFromTypeAnnotation : ModuleNameLookupTable -> Node TypeAnnotation -> { types : List String, modules : List ( ModuleName, ModuleName ) }
+collectNamesFromTypeAnnotation lookupTable node =
     { types = collectTypesFromTypeAnnotation node
-    , modules = collectModuleNamesFromTypeAnnotation node
+    , modules = collectModuleNamesFromTypeAnnotation lookupTable node
     }
 
 
@@ -915,7 +1348,7 @@ collectTypesFromTypeAnnotation node =
                 |> List.map (Node.value >> Tuple.second)
                 |> List.concatMap collectTypesFromTypeAnnotation
 
-        TypeAnnotation.GenericRecord name list ->
+        TypeAnnotation.GenericRecord _ list ->
             list
                 |> Node.value
                 |> List.map (Node.value >> Tuple.second)
@@ -931,38 +1364,33 @@ collectTypesFromTypeAnnotation node =
             []
 
 
-collectModuleNamesFromTypeAnnotation : Node TypeAnnotation -> List String
-collectModuleNamesFromTypeAnnotation node =
+collectModuleNamesFromTypeAnnotation : ModuleNameLookupTable -> Node TypeAnnotation -> List ( ModuleName, ModuleName )
+collectModuleNamesFromTypeAnnotation lookupTable node =
     case Node.value node of
         TypeAnnotation.FunctionTypeAnnotation a b ->
-            collectModuleNamesFromTypeAnnotation a ++ collectModuleNamesFromTypeAnnotation b
+            collectModuleNamesFromTypeAnnotation lookupTable a ++ collectModuleNamesFromTypeAnnotation lookupTable b
 
         TypeAnnotation.Typed nameNode params ->
-            let
-                name : List String
-                name =
-                    case Node.value nameNode of
-                        ( [], _ ) ->
-                            []
+            case ModuleNameLookupTable.moduleNameFor lookupTable nameNode of
+                Just realModuleName ->
+                    ( realModuleName, Tuple.first (Node.value nameNode) ) :: List.concatMap (collectModuleNamesFromTypeAnnotation lookupTable) params
 
-                        ( moduleName, _ ) ->
-                            [ getModuleName moduleName ]
-            in
-            name ++ List.concatMap collectModuleNamesFromTypeAnnotation params
+                Nothing ->
+                    List.concatMap (collectModuleNamesFromTypeAnnotation lookupTable) params
 
         TypeAnnotation.Record list ->
             list
                 |> List.map (Node.value >> Tuple.second)
-                |> List.concatMap collectModuleNamesFromTypeAnnotation
+                |> List.concatMap (collectModuleNamesFromTypeAnnotation lookupTable)
 
-        TypeAnnotation.GenericRecord name list ->
+        TypeAnnotation.GenericRecord _ list ->
             list
                 |> Node.value
                 |> List.map (Node.value >> Tuple.second)
-                |> List.concatMap collectModuleNamesFromTypeAnnotation
+                |> List.concatMap (collectModuleNamesFromTypeAnnotation lookupTable)
 
         TypeAnnotation.Tupled list ->
-            List.concatMap collectModuleNamesFromTypeAnnotation list
+            List.concatMap (collectModuleNamesFromTypeAnnotation lookupTable) list
 
         TypeAnnotation.GenericType _ ->
             []
@@ -971,42 +1399,12 @@ collectModuleNamesFromTypeAnnotation node =
             []
 
 
-register : VariableInfo -> String -> Context -> Context
-register variableInfo name context =
-    case variableInfo.variableType of
-        TopLevelVariable ->
-            -- The main function is "exposed" by default
-            if name == "main" then
-                context
-
-            else
-                registerVariable variableInfo name context
-
-        LetVariable ->
-            registerVariable variableInfo name context
-
-        ImportedModule ->
-            registerModule variableInfo name context
-
-        ImportedItem _ ->
-            registerVariable variableInfo name context
-
-        ModuleAlias _ ->
-            registerModule variableInfo name context
-
-        Type ->
-            registerVariable variableInfo name context
-
-        Port ->
-            registerVariable variableInfo name context
+registerModule : DeclaredModule -> ModuleContext -> ModuleContext
+registerModule declaredModule context =
+    { context | declaredModules = declaredModule :: context.declaredModules }
 
 
-registerModule : VariableInfo -> String -> Context -> Context
-registerModule variableInfo name context =
-    { context | declaredModules = Dict.insert name variableInfo context.declaredModules }
-
-
-registerVariable : VariableInfo -> String -> Context -> Context
+registerVariable : VariableInfo -> String -> ModuleContext -> ModuleContext
 registerVariable variableInfo name context =
     let
         scopes : Nonempty Scope
@@ -1020,37 +1418,71 @@ registerVariable variableInfo name context =
     { context | scopes = scopes }
 
 
-markAllAsUsed : List String -> Context -> Context
+markAllAsUsed : List String -> ModuleContext -> ModuleContext
 markAllAsUsed names context =
     List.foldl markAsUsed context names
 
 
-markAsUsed : String -> Context -> Context
+markAsUsed : String -> ModuleContext -> ModuleContext
 markAsUsed name context =
-    if context.inTheDeclarationOf == Just name then
-        context
+    case ( Dict.get name <| context.importedCustomTypeLookup, Dict.get name context.constructorNameToTypeName ) of
+        ( Just customTypeName, Nothing ) ->
+            { context | unusedImportedCustomTypes = Dict.remove customTypeName context.unusedImportedCustomTypes }
 
-    else
-        let
-            scopes : Nonempty Scope
-            scopes =
-                NonemptyList.mapHead
-                    (\scope ->
-                        { scope | used = Set.insert name scope.used }
-                    )
-                    context.scopes
-        in
-        { context | scopes = scopes }
+        _ ->
+            if List.member name context.inTheDeclarationOf then
+                context
+
+            else
+                let
+                    scopes : Nonempty Scope
+                    scopes =
+                        NonemptyList.mapHead
+                            (\scope ->
+                                { scope
+                                    | used =
+                                        Dict.update []
+                                            (\set ->
+                                                set
+                                                    |> Maybe.withDefault Set.empty
+                                                    |> Set.insert name
+                                                    |> Just
+                                            )
+                                            scope.used
+                                }
+                            )
+                            context.scopes
+                in
+                { context | scopes = scopes }
 
 
-markAllModulesAsUsed : List String -> Context -> Context
+markAllModulesAsUsed : List ( ModuleName, ModuleName ) -> ModuleContext -> ModuleContext
 markAllModulesAsUsed names context =
-    { context | usedModules = Set.union (Set.fromList names) context.usedModules }
+    List.foldl markModuleAsUsed context names
 
 
-markModuleAsUsed : String -> Context -> Context
-markModuleAsUsed name context =
-    { context | usedModules = Set.insert name context.usedModules }
+markModuleAsUsed : ( ModuleName, ModuleName ) -> ModuleContext -> ModuleContext
+markModuleAsUsed (( realModuleName, aliasName ) as realAndAliasModuleNames) context =
+    { context
+        | usedModules = Set.insert realAndAliasModuleNames context.usedModules
+        , exposingAllModules =
+            List.map
+                (\module_ ->
+                    if module_.name == realModuleName then
+                        if module_.name == aliasName || Just (String.join "." aliasName) == module_.alias then
+                            { module_ | wasUsedWithModuleName = True }
+
+                        else if aliasName == [] then
+                            { module_ | wasUsedImplicitly = True }
+
+                        else
+                            module_
+
+                    else
+                        module_
+                )
+                context.exposingAllModules
+    }
 
 
 getModuleName : List String -> String
@@ -1061,16 +1493,22 @@ getModuleName name =
 makeReport : Scope -> ( List (Error {}), List String )
 makeReport { declared, used } =
     let
+        usedLocally : Set String
+        usedLocally =
+            Dict.get [] used |> Maybe.withDefault Set.empty
+
         nonUsedVars : List String
         nonUsedVars =
-            Set.diff used (Set.fromList <| Dict.keys declared)
+            Dict.keys declared
+                |> Set.fromList
+                |> Set.diff usedLocally
                 |> Set.toList
 
         errors : List (Error {})
         errors =
-            Dict.filter (\key _ -> not <| Set.member key used) declared
+            Dict.filter (\key _ -> not <| Set.member key usedLocally) declared
                 |> Dict.toList
-                |> List.map (\( key, variableInfo ) -> error Dict.empty variableInfo key)
+                |> List.map (\( key, variableInfo ) -> error variableInfo key)
     in
     ( errors, nonUsedVars )
 
@@ -1177,3 +1615,14 @@ comparePosition a b =
 
         _ ->
             order
+
+
+rangeAsString : Range -> RangeAsString
+rangeAsString range =
+    [ range.start.row
+    , range.start.column
+    , range.end.row
+    , range.end.column
+    ]
+        |> List.map String.fromInt
+        |> String.join "_"

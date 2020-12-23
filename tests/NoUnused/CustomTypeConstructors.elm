@@ -17,7 +17,10 @@ import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
-import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.Node as Node exposing (Node(..))
+import Elm.Syntax.Pattern as Pattern exposing (Pattern)
+import Elm.Syntax.Range exposing (Range)
+import Elm.Syntax.Type as Type
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
@@ -139,6 +142,7 @@ moduleVisitor schema =
         |> Rule.withDeclarationListVisitor declarationListVisitor
         |> Rule.withDeclarationEnterVisitor declarationVisitor
         |> Rule.withExpressionEnterVisitor expressionVisitor
+        |> Rule.withExpressionExitVisitor expressionExitVisitor
 
 
 
@@ -169,6 +173,8 @@ type alias ProjectContext =
     , exposedConstructors : Dict ModuleNameAsString ExposedConstructors
     , usedConstructors : Dict ModuleNameAsString (Set ConstructorName)
     , phantomVariables : Dict ModuleName (List ( CustomTypeName, Int ))
+    , wasUsedInLocationThatNeedsItself : Set ( ModuleNameAsString, ConstructorName )
+    , wasUsedInComparisons : Set ( ModuleNameAsString, ConstructorName )
     }
 
 
@@ -181,7 +187,16 @@ type alias ModuleContext =
     , declaredTypesWithConstructors : Dict CustomTypeName (Dict ConstructorName (Node ConstructorName))
     , usedFunctionsOrValues : Dict ModuleNameAsString (Set ConstructorName)
     , phantomVariables : Dict ModuleName (List ( CustomTypeName, Int ))
+    , ignoreBlocks : List (Dict RangeAsString (Set ( ModuleName, String )))
+    , constructorsToIgnore : List (Set ( ModuleName, String ))
+    , wasUsedInLocationThatNeedsItself : Set ( ModuleNameAsString, ConstructorName )
+    , wasUsedInComparisons : Set ( ModuleNameAsString, ConstructorName )
+    , ignoredComparisonRanges : List Range
     }
+
+
+type alias RangeAsString =
+    String
 
 
 initialProjectContext : List { moduleName : String, typeName : String, index : Int } -> ProjectContext
@@ -198,6 +213,8 @@ initialProjectContext phantomTypes =
             )
             Dict.empty
             phantomTypes
+    , wasUsedInLocationThatNeedsItself = Set.empty
+    , wasUsedInComparisons = Set.empty
     }
 
 
@@ -211,6 +228,11 @@ fromProjectToModule lookupTable metadata projectContext =
     , declaredTypesWithConstructors = Dict.empty
     , usedFunctionsOrValues = Dict.empty
     , phantomVariables = projectContext.phantomVariables
+    , ignoreBlocks = []
+    , constructorsToIgnore = []
+    , wasUsedInLocationThatNeedsItself = Set.empty
+    , wasUsedInComparisons = Set.empty
+    , ignoredComparisonRanges = []
     }
 
 
@@ -240,7 +262,19 @@ fromModuleToProject moduleKey metadata moduleContext =
     { exposedModules = Set.empty
     , exposedConstructors =
         if moduleContext.isExposed then
-            Dict.empty
+            if moduleContext.exposesEverything then
+                Dict.empty
+
+            else
+                Dict.singleton
+                    moduleNameAsString
+                    (ExposedConstructors
+                        { moduleKey = moduleKey
+                        , customTypes =
+                            moduleContext.declaredTypesWithConstructors
+                                |> Dict.filter (\typeName _ -> not <| Set.member typeName moduleContext.exposedCustomTypesWithConstructors)
+                        }
+                    )
 
         else
             Dict.singleton
@@ -255,6 +289,26 @@ fromModuleToProject moduleKey metadata moduleContext =
             |> Dict.remove ""
             |> Dict.insert moduleNameAsString localUsed
     , phantomVariables = Dict.singleton moduleName localPhantomTypes
+    , wasUsedInLocationThatNeedsItself =
+        Set.map
+            (\(( moduleName_, constructorName ) as untouched) ->
+                if moduleName_ == "" then
+                    ( moduleNameAsString, constructorName )
+
+                else
+                    untouched
+            )
+            moduleContext.wasUsedInLocationThatNeedsItself
+    , wasUsedInComparisons =
+        Set.map
+            (\(( moduleName_, constructorName ) as untouched) ->
+                if moduleName_ == "" then
+                    ( moduleNameAsString, constructorName )
+
+                else
+                    untouched
+            )
+            moduleContext.wasUsedInComparisons
     }
 
 
@@ -271,6 +325,8 @@ foldProjectContexts newContext previousContext =
             previousContext.usedConstructors
             Dict.empty
     , phantomVariables = Dict.union newContext.phantomVariables previousContext.phantomVariables
+    , wasUsedInLocationThatNeedsItself = Set.union newContext.wasUsedInLocationThatNeedsItself previousContext.wasUsedInLocationThatNeedsItself
+    , wasUsedInComparisons = Set.union newContext.wasUsedInComparisons previousContext.wasUsedInComparisons
     }
 
 
@@ -397,36 +453,44 @@ declarationVisitor : Node Declaration -> ModuleContext -> ( List nothing, Module
 declarationVisitor node context =
     case Node.value node of
         Declaration.CustomTypeDeclaration { name, constructors } ->
-            let
-                constructorsForCustomType : Dict String (Node String)
-                constructorsForCustomType =
-                    List.foldl
-                        (\constructor dict ->
-                            let
-                                nameNode : Node String
-                                nameNode =
-                                    (Node.value constructor).name
-                            in
-                            Dict.insert
-                                (Node.value nameNode)
-                                nameNode
-                                dict
-                        )
-                        Dict.empty
-                        constructors
-            in
-            ( []
-            , { context
-                | declaredTypesWithConstructors =
-                    Dict.insert
-                        (Node.value name)
-                        constructorsForCustomType
-                        context.declaredTypesWithConstructors
-              }
-            )
+            if isPhantomCustomType name constructors then
+                ( [], context )
+
+            else
+                let
+                    constructorsForCustomType : Dict String (Node String)
+                    constructorsForCustomType =
+                        List.foldl
+                            (\constructor dict ->
+                                let
+                                    nameNode : Node String
+                                    nameNode =
+                                        (Node.value constructor).name
+                                in
+                                Dict.insert
+                                    (Node.value nameNode)
+                                    nameNode
+                                    dict
+                            )
+                            Dict.empty
+                            constructors
+                in
+                ( []
+                , { context
+                    | declaredTypesWithConstructors =
+                        Dict.insert
+                            (Node.value name)
+                            constructorsForCustomType
+                            context.declaredTypesWithConstructors
+                  }
+                )
 
         Declaration.FunctionDeclaration function ->
-            ( [], markPhantomTypesFromTypeAnnotationAsUsed (Maybe.map (Node.value >> .typeAnnotation) function.signature) context )
+            ( []
+            , markPhantomTypesFromTypeAnnotationAsUsed
+                (Maybe.map (Node.value >> .typeAnnotation) function.signature)
+                { context | ignoredComparisonRanges = [] }
+            )
 
         Declaration.AliasDeclaration { typeAnnotation } ->
             ( [], markPhantomTypesFromTypeAnnotationAsUsed (Just typeAnnotation) context )
@@ -435,20 +499,100 @@ declarationVisitor node context =
             ( [], context )
 
 
+isPhantomCustomType : Node String -> List (Node Type.ValueConstructor) -> Bool
+isPhantomCustomType name constructors =
+    case constructors of
+        (Node _ constructor) :: [] ->
+            if Node.value name == Node.value constructor.name then
+                case constructor.arguments of
+                    (Node _ (TypeAnnotation.Typed (Node _ ( [], "Never" )) [])) :: [] ->
+                        True
+
+                    (Node _ (TypeAnnotation.Typed (Node _ ( [ "Basics" ], "Never" )) [])) :: [] ->
+                        True
+
+                    _ ->
+                        False
+
+            else
+                False
+
+        _ ->
+            False
+
+
 
 -- EXPRESSION VISITOR
 
 
 expressionVisitor : Node Expression -> ModuleContext -> ( List nothing, ModuleContext )
 expressionVisitor node moduleContext =
+    let
+        newModuleContext : ModuleContext
+        newModuleContext =
+            case List.head moduleContext.ignoreBlocks of
+                Just expressionsWhereToIgnoreCases ->
+                    case Dict.get (rangeAsString (Node.range node)) expressionsWhereToIgnoreCases of
+                        Just constructorsToIgnore ->
+                            { moduleContext | constructorsToIgnore = constructorsToIgnore :: moduleContext.constructorsToIgnore }
+
+                        Nothing ->
+                            moduleContext
+
+                Nothing ->
+                    moduleContext
+    in
+    expressionVisitorHelp node newModuleContext
+
+
+expressionExitVisitor : Node Expression -> ModuleContext -> ( List nothing, ModuleContext )
+expressionExitVisitor node moduleContext =
+    let
+        newModuleContext : ModuleContext
+        newModuleContext =
+            case Node.value node of
+                Expression.CaseExpression _ ->
+                    { moduleContext | ignoreBlocks = List.drop 1 moduleContext.ignoreBlocks }
+
+                _ ->
+                    moduleContext
+    in
+    case List.head newModuleContext.ignoreBlocks of
+        Just rangesWhereToIgnoreConstructors ->
+            if Dict.member (rangeAsString (Node.range node)) rangesWhereToIgnoreConstructors then
+                ( []
+                , { newModuleContext | constructorsToIgnore = List.drop 1 newModuleContext.constructorsToIgnore }
+                )
+
+            else
+                ( [], newModuleContext )
+
+        Nothing ->
+            ( [], newModuleContext )
+
+
+expressionVisitorHelp : Node Expression -> ModuleContext -> ( List nothing, ModuleContext )
+expressionVisitorHelp node moduleContext =
     case Node.value node of
         Expression.FunctionOrValue _ name ->
             case ModuleNameLookupTable.moduleNameFor moduleContext.lookupTable node of
                 Just moduleName ->
-                    ( [], registerUsedFunctionOrValue moduleName name moduleContext )
+                    ( [], registerUsedFunctionOrValue (Node.range node) moduleName name moduleContext )
 
                 Nothing ->
                     ( [], moduleContext )
+
+        Expression.OperatorApplication operator _ left right ->
+            if operator == "==" || operator == "/=" then
+                let
+                    ranges : List Range
+                    ranges =
+                        List.concatMap staticRanges [ left, right ]
+                in
+                ( [], { moduleContext | ignoredComparisonRanges = ranges ++ moduleContext.ignoredComparisonRanges } )
+
+            else
+                ( [], moduleContext )
 
         Expression.LetExpression { declarations } ->
             ( []
@@ -465,14 +609,121 @@ expressionVisitor node moduleContext =
                 |> List.foldl markPhantomTypesFromTypeAnnotationAsUsed moduleContext
             )
 
+        Expression.CaseExpression { cases } ->
+            let
+                newCases : Dict RangeAsString (Set ( ModuleName, String ))
+                newCases =
+                    cases
+                        |> List.map (\( pattern, body ) -> ( rangeAsString (Node.range body), constructorsInPattern moduleContext.lookupTable pattern ))
+                        |> Dict.fromList
+            in
+            ( []
+            , { moduleContext | ignoreBlocks = newCases :: moduleContext.ignoreBlocks }
+            )
+
         _ ->
             ( [], moduleContext )
 
 
-registerUsedFunctionOrValue : List String -> ConstructorName -> ModuleContext -> ModuleContext
-registerUsedFunctionOrValue moduleName name moduleContext =
+staticRanges : Node Expression -> List Range
+staticRanges node =
+    case Node.value node of
+        Expression.FunctionOrValue _ _ ->
+            [ Node.range node ]
+
+        Expression.Application ((Node _ (Expression.FunctionOrValue _ name)) :: restOfArgs) ->
+            if isCapitalized name then
+                Node.range node :: List.concatMap staticRanges restOfArgs
+
+            else
+                []
+
+        Expression.OperatorApplication operator _ left right ->
+            if List.member operator [ "+", "-", "==", "/=" ] then
+                List.concatMap staticRanges [ left, right ]
+
+            else
+                []
+
+        Expression.ListExpr nodes ->
+            List.concatMap staticRanges nodes
+
+        Expression.TupledExpression nodes ->
+            List.concatMap staticRanges nodes
+
+        Expression.ParenthesizedExpression expr ->
+            staticRanges expr
+
+        Expression.RecordExpr fields ->
+            List.concatMap (Node.value >> Tuple.second >> staticRanges) fields
+
+        Expression.RecordUpdateExpression _ fields ->
+            List.concatMap (Node.value >> Tuple.second >> staticRanges) fields
+
+        Expression.RecordAccess expr _ ->
+            staticRanges expr
+
+        _ ->
+            []
+
+
+constructorsInPattern : ModuleNameLookupTable -> Node Pattern -> Set ( ModuleName, String )
+constructorsInPattern lookupTable node =
+    case Node.value node of
+        Pattern.NamedPattern qualifiedNameRef patterns ->
+            let
+                initialSet : Set ( ModuleName, String )
+                initialSet =
+                    case ModuleNameLookupTable.moduleNameFor lookupTable node of
+                        Just realModuleName ->
+                            Set.fromList [ ( realModuleName, qualifiedNameRef.name ) ]
+
+                        Nothing ->
+                            Set.empty
+            in
+            List.foldl (\pattern acc -> Set.union (constructorsInPattern lookupTable pattern) acc) initialSet patterns
+
+        Pattern.TuplePattern patterns ->
+            List.foldl (\pattern acc -> Set.union (constructorsInPattern lookupTable pattern) acc) Set.empty patterns
+
+        Pattern.UnConsPattern left right ->
+            Set.union
+                (constructorsInPattern lookupTable left)
+                (constructorsInPattern lookupTable right)
+
+        Pattern.ListPattern patterns ->
+            List.foldl (\pattern acc -> Set.union (constructorsInPattern lookupTable pattern) acc) Set.empty patterns
+
+        Pattern.AsPattern pattern _ ->
+            constructorsInPattern lookupTable pattern
+
+        Pattern.ParenthesizedPattern pattern ->
+            constructorsInPattern lookupTable pattern
+
+        _ ->
+            Set.empty
+
+
+registerUsedFunctionOrValue : Range -> ModuleName -> ConstructorName -> ModuleContext -> ModuleContext
+registerUsedFunctionOrValue range moduleName name moduleContext =
     if not (isCapitalized name) then
         moduleContext
+
+    else if List.member range moduleContext.ignoredComparisonRanges then
+        { moduleContext
+            | wasUsedInComparisons =
+                Set.insert
+                    ( String.join "." moduleName, name )
+                    moduleContext.wasUsedInComparisons
+        }
+
+    else if List.any (Set.member ( moduleName, name )) moduleContext.constructorsToIgnore then
+        { moduleContext
+            | wasUsedInLocationThatNeedsItself =
+                Set.insert
+                    ( String.join "." moduleName, name )
+                    moduleContext.wasUsedInLocationThatNeedsItself
+        }
 
     else
         { moduleContext
@@ -516,7 +767,15 @@ finalProjectEvaluation projectContext =
                             constructors
                                 |> Dict.filter (\constructorName _ -> not <| Set.member constructorName usedConstructors)
                                 |> Dict.values
-                                |> List.map (errorForModule moduleKey)
+                                |> List.map
+                                    (\constructorName ->
+                                        errorForModule
+                                            moduleKey
+                                            { wasUsedInLocationThatNeedsItself = Set.member ( moduleName, Node.value constructorName ) projectContext.wasUsedInLocationThatNeedsItself
+                                            , wasUsedInComparisons = Set.member ( moduleName, Node.value constructorName ) projectContext.wasUsedInComparisons
+                                            }
+                                            constructorName
+                                    )
                         )
             )
 
@@ -525,18 +784,29 @@ finalProjectEvaluation projectContext =
 -- ERROR
 
 
-errorInformation : String -> { message : String, details : List String }
-errorInformation name =
+errorInformation : { wasUsedInLocationThatNeedsItself : Bool, wasUsedInComparisons : Bool } -> String -> { message : String, details : List String }
+errorInformation { wasUsedInLocationThatNeedsItself, wasUsedInComparisons } name =
     { message = "Type constructor `" ++ name ++ "` is not used."
-    , details = [ "This type constructor is never used. It might be handled everywhere it might appear, but there is no location where this value actually gets created." ]
+    , details =
+        [ ( defaultDetails, True )
+        , ( "I found it used in comparisons, but since it is never created anywhere, all of those can be evaluated to False (for (==), True for (/=)).", wasUsedInComparisons )
+        , ( "The only locations where I found it being created require already having one.", wasUsedInLocationThatNeedsItself )
+        ]
+            |> List.filter Tuple.second
+            |> List.map Tuple.first
     }
 
 
-errorForModule : Rule.ModuleKey -> Node String -> Error scope
-errorForModule moduleKey node =
+defaultDetails : String
+defaultDetails =
+    "This type constructor is never used. It might be handled everywhere it might appear, but there is no location where this value actually gets created."
+
+
+errorForModule : Rule.ModuleKey -> { wasUsedInLocationThatNeedsItself : Bool, wasUsedInComparisons : Bool } -> Node String -> Error scope
+errorForModule moduleKey conditions node =
     Rule.errorForModule
         moduleKey
-        (errorInformation (Node.value node))
+        (errorInformation conditions (Node.value node))
         (Node.range node)
 
 
@@ -675,3 +945,14 @@ listAtIndex index list =
 
         ( n, _ :: rest ) ->
             listAtIndex (n - 1) rest
+
+
+rangeAsString : Range -> RangeAsString
+rangeAsString range =
+    [ range.start.row
+    , range.start.column
+    , range.end.row
+    , range.end.column
+    ]
+        |> List.map String.fromInt
+        |> String.join "_"

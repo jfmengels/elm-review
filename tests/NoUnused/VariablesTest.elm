@@ -1,6 +1,12 @@
 module NoUnused.VariablesTest exposing (all)
 
+import Elm.Docs
+import Elm.Project
+import Elm.Type
+import Json.Decode as Decode
 import NoUnused.Variables exposing (rule)
+import Review.Project as Project exposing (Project)
+import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Test
 import Test exposing (Test, describe, test)
 
@@ -26,6 +32,7 @@ all =
         , describe "Opaque Types" opaqueTypeTests
         , describe "Operators" operatorTests
         , describe "Ports" portTests
+        , describe "Operator declarations" operatorDeclarationTests
         ]
 
 
@@ -60,6 +67,22 @@ fib n = fib (n - 1) + fib (n - 2)"""
 fib n = fib (n - 1) + fib (n - 2)"""
                 |> Review.Test.run rule
                 |> Review.Test.expectNoErrors
+    , test "should report recursive functions declared in a let block that are not used elsewhere" <|
+        \() ->
+            """module SomeModule exposing (a)
+a = let fib n = fib (n - 1) + fib (n - 2)
+    in 1"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "`let in` variable `fib` is not used"
+                        , details = details
+                        , under = "fib"
+                        }
+                        |> Review.Test.atExactly { start = { row = 2, column = 9 }, end = { row = 2, column = 12 } }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+a = 1"""
+                    ]
     ]
 
 
@@ -245,7 +268,7 @@ a = Html.Styled.Attributes.href"""
                         |> Review.Test.whenFixed """module SomeModule exposing (a)
 a = Html.Styled.Attributes.href"""
                     ]
-    , test "should not report 'main' as unused, even if it's not exposed" <|
+    , test "should not report 'main' as unused for applications, even if it's not exposed" <|
         \() ->
             """module SomeModule exposing (a)
 main = Html.text "hello, world"
@@ -253,6 +276,21 @@ a = ()
             """
                 |> Review.Test.run rule
                 |> Review.Test.expectNoErrors
+    , test "should report unused 'main' as unused for packages" <|
+        \() ->
+            """module SomeModule exposing (a)
+main = Html.text "hello, world"
+a = ()"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Top-level variable `main` is not used"
+                        , details = details
+                        , under = "main"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+a = ()"""
+                    ]
     , test "should not remove too much" <|
         \() ->
             """module A exposing
@@ -378,6 +416,40 @@ a = let main = 1
                         { message = "`let in` variable `main` is not used"
                         , details = details
                         , under = "main"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+a = 2"""
+                    ]
+    , test "should report wildcard assignments" <|
+        \() ->
+            """module SomeModule exposing (a)
+a = let _ = 1
+    in 2"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Value assigned to `_` is unused"
+                        , details =
+                            [ "This value has been assigned to a wildcard, which makes the value unusable. You should remove it at the location I pointed at."
+                            ]
+                        , under = "_"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+a = 2"""
+                    ]
+    , test "should report parenthesized wildcard assignments" <|
+        \() ->
+            """module SomeModule exposing (a)
+a = let (_) = 1
+    in 2"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Value assigned to `_` is unused"
+                        , details =
+                            [ "This value has been assigned to a wildcard, which makes the value unusable. You should remove it at the location I pointed at."
+                            ]
+                        , under = "_"
                         }
                         |> Review.Test.whenFixed """module SomeModule exposing (a)
 a = 2"""
@@ -666,12 +738,6 @@ import Html.Styled.Attributes"""
                         }
                         |> Review.Test.whenFixed "module SomeModule exposing (a)\n"
                     ]
-    , test "should not report import if it exposes all (should be improved by detecting if any exposed value is used)" <|
-        \() ->
-            """module SomeModule exposing (a)
-import Html.Styled.Attributes exposing (..)"""
-                |> Review.Test.run rule
-                |> Review.Test.expectNoErrors
     , test "should not report used import (function access)" <|
         \() ->
             """module SomeModule exposing (a)
@@ -790,7 +856,7 @@ a = Html.div"""
 import Html
 a = Html.div"""
                     ]
-    , test "should not report import that exposes a used exposed type" <|
+    , test "should not report open type import when we don't know what the constructors are" <|
         \() ->
             """module SomeModule exposing (a)
 import B exposing (C(..))
@@ -798,6 +864,218 @@ a : C
 a = 1"""
                 |> Review.Test.run rule
                 |> Review.Test.expectNoErrors
+    , test "should not report open type import when at least one of the exposed constructors are used as a value (imported local module)" <|
+        \() ->
+            [ """module A exposing (a)
+import B exposing (C(..))
+a = C_Value"""
+            , """module B exposing (C(..))
+type C = C_Value
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectNoErrors
+    , test "should report open type import when the exposed constructor is shadowed by a local type alias" <|
+        \() ->
+            [ """module A exposing (a)
+import B exposing (C(..))
+type alias C_Value = {}
+a = C_Value"""
+            , """module B exposing (C(..))
+type C = C_Value
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectErrorsForModules
+                    [ ( "A"
+                      , [ Review.Test.error
+                            { message = "Imported type `C` is not used"
+                            , details = details
+                            , under = "C(..)"
+                            }
+                            |> Review.Test.whenFixed ("""module A exposing (a)
+import B$
+type alias C_Value = {}
+a = C_Value""" |> String.replace "$" " ")
+                        ]
+                      )
+                    ]
+    , test "should report open type import when none of its constructors is used (imported dependency)" <|
+        \() ->
+            """module A exposing (a)
+import Dependency exposing (C(..))
+a = 1"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Imported type `C` is not used"
+                        , details = details
+                        , under = "C(..)"
+                        }
+                        |> Review.Test.whenFixed ("""module A exposing (a)
+import Dependency$
+a = 1""" |> String.replace "$" " ")
+                    ]
+    , test "should not report open type import when at least one of the exposed constructors are used as a value (imported dependency)" <|
+        \() ->
+            """module A exposing (a)
+import Dependency exposing (C(..))
+a = C_Value"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectNoErrors
+    , test "should not report open type import when the dependency it comes from is unknown" <|
+        \() ->
+            """module A exposing (a)
+import UnknownDependency exposing (C(..))
+a = 1"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectNoErrors
+    , test "should not report open type import when at least one of the exposed constructors are used in a pattern" <|
+        \() ->
+            [ """module A exposing (a)
+import B exposing (C(..))
+a = case thing of
+      C_Value -> 1
+"""
+            , """module B exposing (C(..))
+type C = C_Value
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectNoErrors
+    , test "should not report open type import when at least one of the exposed constructors are used in a let expression" <|
+        \() ->
+            [ """module A exposing (a)
+import B exposing (C(..))
+a = let foo = C_Value
+    in foo
+"""
+            , """module B exposing (C(..))
+type C = C_Value
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectNoErrors
+    , test "should report open type import when none of the exposed constructors are used" <|
+        \() ->
+            [ """module A exposing (a)
+import B exposing (C(..))
+a = 1
+"""
+            , """module B exposing (C(..))
+type C = C_Value
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectErrorsForModules
+                    [ ( "A"
+                      , [ Review.Test.error
+                            { message = "Imported type `C` is not used"
+                            , details = details
+                            , under = "C(..)"
+                            }
+                            |> Review.Test.whenFixed ("""module A exposing (a)
+import B$
+a = 1
+""" |> String.replace "$" " ")
+                        ]
+                      )
+                    ]
+    , test "should report open type import when none of the exposed constructors are used, because they have been shadowed" <|
+        \() ->
+            [ """module A exposing (a)
+import B exposing (C(..), something)
+type Something = C_Value
+a = C_Value + something
+"""
+            , """module B exposing (C(..))
+type C = C_Value
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectErrorsForModules
+                    [ ( "A"
+                      , [ Review.Test.error
+                            { message = "Imported type `C` is not used"
+                            , details = details
+                            , under = "C(..)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (a)
+import B exposing (something)
+type Something = C_Value
+a = C_Value + something
+"""
+                        ]
+                      )
+                    ]
+    , test "should report open type import when none of the exposed constructors are used and the type itself has been shadowed" <|
+        \() ->
+            [ """module A exposing (a)
+import B exposing (C(..), something)
+type C = Local_Value
+a = Local_Value + something
+"""
+            , """module B exposing (C(..))
+type C = C_Value
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectErrorsForModules
+                    [ ( "A"
+                      , [ Review.Test.error
+                            { message = "Imported type `C` is not used"
+                            , details = details
+                            , under = "C(..)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (a)
+import B exposing (something)
+type C = Local_Value
+a = Local_Value + something
+"""
+                        ]
+                      )
+                    ]
+    , test "should not report open type import when at least of the exposed constructors even when the type itself has been shadowed" <|
+        \() ->
+            [ """module A exposing (a)
+import B exposing (C(..), something)
+type C = Local_Value
+a = C_Value + Local_Value + something
+"""
+            , """module B exposing (C(..))
+type C = C_Value
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectNoErrors
+    , test "should report open type import when none of the exposed constructors are used, but only remove the (..) when type is used" <|
+        \() ->
+            [ """module A exposing (a)
+import B exposing (C(..), something)
+a : C
+a = B.something + something
+"""
+            , """module B exposing (C(..), something)
+type C = C_Value
+something = C_Value
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectErrorsForModules
+                    [ ( "A"
+                      , [ Review.Test.error
+                            { message = "Imported constructors for `C` are not used"
+                            , details = details
+                            , under = "C(..)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (a)
+import B exposing (C, something)
+a : C
+a = B.something + something
+"""
+                        ]
+                      )
+                    ]
     , test "should not report import that exposes an unused exposed type (but whose subtype is potentially used)" <|
         \() ->
             """module SomeModule exposing (a)
@@ -808,38 +1086,65 @@ a = 1"""
                 |> Review.Test.expectNoErrors
     , test "should report unused import alias but not remove it if another import is aliased as the real name of the reported import and it exposes something" <|
         \() ->
-            """module SomeModule exposing (a)
-import Html as RootHtml exposing (something)
-import Html.Styled as Html
-a : Html.Html msg
-a = something 1"""
-                |> Review.Test.run rule
-                |> Review.Test.expectErrors
-                    [ Review.Test.error
-                        { message = "Module alias `RootHtml` is not used"
-                        , details = details
-                        , under = "RootHtml"
-                        }
+            [ """module A exposing (a)
+import B as Unused exposing (b)
+import C as B
+a = b + B.c"""
+            , """module B exposing (b)
+b = C.c"""
+            , """module C exposing (c)
+c = Value"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectErrorsForModules
+                    [ ( "A"
+                      , [ Review.Test.error
+                            { message = "Module alias `Unused` is not used"
+                            , details = details
+                            , under = "Unused"
+                            }
+                        ]
+                      )
                     ]
     , test "should report unused import alias and remove it if another import is aliased as the real name of the reported import but it doesn't expose anything" <|
         \() ->
-            """module SomeModule exposing (a)
-import Html as RootHtml
-import Html.Styled as Html
-a : Html.Html msg
-a = something 1"""
-                |> Review.Test.run rule
-                |> Review.Test.expectErrors
-                    [ Review.Test.error
-                        { message = "Module alias `RootHtml` is not used"
-                        , details = details
-                        , under = "RootHtml"
-                        }
-                        |> Review.Test.whenFixed """module SomeModule exposing (a)
-import Html.Styled as Html
-a : Html.Html msg
-a = something 1"""
+            [ """module A exposing (a)
+import B as Unused
+import C as B
+a = B.b"""
+            , """module B exposing (b)
+b = 1"""
+            , """module C exposing (c)
+c = 1"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectErrorsForModules
+                    [ ( "A"
+                      , [ Review.Test.error
+                            { message = "Module alias `Unused` is not used"
+                            , details = details
+                            , under = "Unused"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (a)
+import C as B
+a = B.b"""
+                        ]
+                      )
                     ]
+    , test "should not mark module as unused when using a qualified type from it" <|
+        \() ->
+            [ """module A exposing (foo)
+import B as C
+foo : C.Thing Account
+foo user = 1
+"""
+            , """module B exposing (Thing)
+type alias Thing a = {}"""
+            , """module C exposing (c)
+c = 1"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectNoErrors
     , test "should report unused import even if a let in variable is named the same way" <|
         \() ->
             """module SomeModule exposing (a)
@@ -859,6 +1164,218 @@ import Html exposing (div)
 a = let button = 1
     in button + div"""
                     ]
+    , test "should report unused import alias when two modules share the same alias" <|
+        \() ->
+            [ """module A exposing (a)
+import B
+import C as B
+a = B.b"""
+            , """module B exposing (b)
+b = 1"""
+            , """module C exposing (c)
+c = 1"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectErrorsForModules
+                    [ ( "A"
+                      , [ Review.Test.error
+                            { message = "Module alias `B` is not used"
+                            , details = details
+                            , under = "B"
+                            }
+                            |> Review.Test.atExactly { start = { row = 3, column = 13 }, end = { row = 3, column = 14 } }
+                            |> Review.Test.whenFixed """module A exposing (a)
+import B
+a = B.b"""
+                        ]
+                      )
+                    ]
+    , test "should report unused imports even if everything is exposed" <|
+        \() ->
+            """module SomeModule exposing (..)
+import Unused
+a = 1"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Imported module `Unused` is not used"
+                        , details = details
+                        , under = "Unused"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (..)
+a = 1"""
+                    ]
+    , test "should report unused import from local module that exposes everything" <|
+        \() ->
+            [ """module A exposing (a)
+import Unused exposing (..)
+a = 1"""
+            , """module Unused exposing (b)
+b = 1
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectErrorsForModules
+                    [ ( "A"
+                      , [ Review.Test.error
+                            { message = "Imported module `Unused` is not used"
+                            , details = details
+                            , under = "Unused"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (a)
+a = 1"""
+                        ]
+                      )
+                    ]
+    , test "should report unused import from dependency that exposes everything" <|
+        \() ->
+            """module SomeModule exposing (..)
+import Dependency exposing (..)
+a = 1"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Imported module `Dependency` is not used"
+                        , details = details
+                        , under = "Dependency"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (..)
+a = 1"""
+                    ]
+    , test "should report unused aliased import from dependency that exposes everything" <|
+        \() ->
+            """module SomeModule exposing (..)
+import Dependency as D exposing (..)
+a = 1"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Imported module `Dependency` is not used"
+                        , details = details
+                        , under = "Dependency"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (..)
+a = 1"""
+                    ]
+    , test "should report unused exposing from dependency that exposes everything when it is used with qualified imports" <|
+        \() ->
+            """module SomeModule exposing (a)
+import Dependency exposing (..)
+a = Dependency.C_Value"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "No imported elements from `Dependency` are used"
+                        , details = details
+                        , under = "exposing (..)"
+                        }
+                        |> Review.Test.whenFixed ("""module SomeModule exposing (a)
+import Dependency$
+a = Dependency.C_Value""" |> String.replace "$" " ")
+                    ]
+    , test "should report unused exposing from aliased dependency that exposes everything when it is used with qualified imports" <|
+        \() ->
+            """module SomeModule exposing (a)
+import Dependency as D exposing (..)
+a = D.C_Value"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "No imported elements from `Dependency` are used"
+                        , details = details
+                        , under = "exposing (..)"
+                        }
+                        |> Review.Test.whenFixed ("""module SomeModule exposing (a)
+import Dependency as D$
+a = D.C_Value""" |> String.replace "$" " ")
+                    ]
+    , test "should not report used exposing from dependency module that exposes everything" <|
+        \() ->
+            """module SomeModule exposing (..)
+import Dependency exposing (..)
+a = C_Value"""
+                |> Review.Test.runWithProjectData packageProject rule
+                |> Review.Test.expectNoErrors
+    , test "should not report used exposing from local module that exposes everything (using function)" <|
+        \() ->
+            [ """module A exposing (a)
+import Used exposing (..)
+a = b"""
+            , """module Used exposing (b)
+b = 1
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectNoErrors
+    , test "should not report used exposing from local module that exposes everything (using type)" <|
+        \() ->
+            [ """module A exposing (a)
+import Used exposing (..)
+a : C
+a = 1"""
+            , """module Used exposing (C)
+type alias C = Int
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectNoErrors
+    , test "should not report used exposing from local module that exposes everything (using case of pattern)" <|
+        \() ->
+            [ """module A exposing (a)
+import Used exposing (..)
+a = case () of
+    C_Value -> 1"""
+            , """module Used exposing (C(..))
+type C = C_Value
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectNoErrors
+    , test "should not report used exposing from local module that exposes everything (using destructuring pattern)" <|
+        \() ->
+            [ """module A exposing (a)
+import Used exposing (..)
+a C_Value = 1"""
+            , """module Used exposing (C(..))
+type C = C_Value
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectNoErrors
+    , test "should report unused module alias from module exposing everything and where something is used implicitly" <|
+        \() ->
+            [ """module A exposing (a)
+import Used as UnusedAlias exposing (..)
+a = b"""
+            , """module Used exposing (b)
+b = 1
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectErrorsForModules
+                    [ ( "A"
+                      , [ Review.Test.error
+                            { message = "Module alias `UnusedAlias` is not used"
+                            , details = details
+                            , under = "UnusedAlias"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (a)
+import Used exposing (..)
+a = b"""
+                        ]
+                      )
+                    ]
+    , test "should not report used exposing from local module that exposes everything that is aliased and alias is also used" <|
+        \() ->
+            [ """module A exposing (a)
+import Used as U exposing (..)
+a = U.b + b"""
+            , """module Used exposing (b)
+b = 1
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectNoErrors
     ]
 
 
@@ -968,6 +1485,40 @@ a = 1"""
                         |> Review.Test.whenFixed """module SomeModule exposing (a)
 a = 1"""
                     ]
+    , test "should report unused custom type declaration even when it references itself" <|
+        \() ->
+            """module SomeModule exposing (a)
+type Node = Node Int (List (Node))
+a = 1"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Type `Node` is not used"
+                        , details = details
+                        , under = "Node"
+                        }
+                        |> Review.Test.atExactly { start = { row = 2, column = 6 }, end = { row = 2, column = 10 } }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+a = 1"""
+                    ]
+    , test "should report unused custom type declaration even if another constructor with the same name is used" <|
+        \() ->
+            """module SomeModule exposing (a)
+type A = B | C
+type Something = A
+a = A"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Type `A` is not used"
+                        , details = details
+                        , under = "A"
+                        }
+                        |> Review.Test.atExactly { start = { row = 2, column = 6 }, end = { row = 2, column = 7 } }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+type Something = A
+a = A"""
+                    ]
     , test "should not report unused custom type constructors" <|
         -- This is handled by the `NoUnused.CustomTypeConstructors` rule
         \() ->
@@ -1013,6 +1564,17 @@ a = 1"""
 type alias A = { a : B }
 a : A
 a = {a = 1}"""
+                |> Review.Test.run rule
+                |> Review.Test.expectNoErrors
+    , test "should not report type alias used in a let constant's signature" <|
+        \() ->
+            """module SomeModule exposing (a)
+type alias A = { a : B }
+a =
+  let
+    b : A
+    b = {a = 1}
+  in b"""
                 |> Review.Test.run rule
                 |> Review.Test.expectNoErrors
     , test "should not report type alias used in a signature with multiple arguments" <|
@@ -1239,16 +1801,7 @@ a str = {c = str}"""
         \() ->
             """module SomeModule exposing (a)
 type Baz = Baz String
-
 a (Baz range) =
-    []"""
-                |> Review.Test.run rule
-                |> Review.Test.expectNoErrors
-    , test "should not report type alias when it is deconstructed in a function call" <|
-        \() ->
-            """module SomeModule exposing (a)
-type alias Baz = { a : String}
-a (Baz value) =
     []"""
                 |> Review.Test.run rule
                 |> Review.Test.expectNoErrors
@@ -1266,14 +1819,13 @@ outer arg =
     """
                 |> Review.Test.run rule
                 |> Review.Test.expectNoErrors
-    , test "should not report unused type alias when it is function call in a let" <|
+    , test "should not report unused type alias when it is used in a function call in a let expression" <|
         \() ->
             """module SomeModule exposing (outer)
 type alias Baz = { a: String }
 outer arg =
     let
-        inner (Baz range) =
-            []
+        inner = Baz range
     in
     inner arg
     """
@@ -1411,3 +1963,131 @@ port output : String -> Cmd msg"""
                         }
                     ]
     ]
+
+
+operatorDeclarationTests : List Test
+operatorDeclarationTests =
+    [ test "should not report operator that is exposed" <|
+        \() ->
+            """module SomeModule exposing ((<|))
+infix right 0 (<|) = apL
+apL : (a -> b) -> a -> b
+apL f x =
+  f x"""
+                |> Review.Test.run rule
+                |> Review.Test.expectNoErrors
+    , test "should not report used operator" <|
+        \() ->
+            """module SomeModule exposing (value)
+value = apl <| 1
+infix right 0 (<|) = apL
+apL : (a -> b) -> a -> b
+apL f x =
+  f x"""
+                |> Review.Test.run rule
+                |> Review.Test.expectNoErrors
+    , test "should report unused operator" <|
+        \() ->
+            """module SomeModule exposing (apL)
+infix right 0 (<|) = apL
+apL : (a -> b) -> a -> b
+apL f x =
+  f x"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Declared operator `<|` is not used"
+                        , details = details
+                        , under = "(<|)"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (apL)
+
+apL : (a -> b) -> a -> b
+apL f x =
+  f x"""
+                    ]
+    ]
+
+
+packageProject : Project
+packageProject =
+    Project.new
+        |> Project.addElmJson (createElmJson rawPackageElmJson)
+        |> Project.addDependency packageWithFoo
+
+
+createElmJson : String -> { path : String, raw : String, project : Elm.Project.Project }
+createElmJson rawElmJson =
+    case Decode.decodeString Elm.Project.decoder rawElmJson of
+        Ok elmJson ->
+            { path = "elm.json"
+            , raw = rawPackageElmJson
+            , project = elmJson
+            }
+
+        Err err ->
+            Debug.todo ("Invalid elm.json supplied to test: " ++ Debug.toString err)
+
+
+rawPackageElmJson : String
+rawPackageElmJson =
+    """{
+    "type": "package",
+    "name": "author/package",
+    "summary": "Summary",
+    "license": "BSD-3-Clause",
+    "version": "1.0.0",
+    "exposed-modules": [
+        "Exposed"
+    ],
+    "elm-version": "0.19.0 <= v < 0.20.0",
+    "dependencies": {
+        "package/author": "1.0.0 <= v < 2.0.0"
+    },
+    "test-dependencies": {}
+}"""
+
+
+packageWithFoo : Dependency
+packageWithFoo =
+    let
+        modules : List Elm.Docs.Module
+        modules =
+            [ { name = "Dependency"
+              , comment = ""
+              , unions =
+                    [ { name = "C"
+                      , comment = ""
+                      , args = []
+                      , tags = [ ( "C_Value", [ Elm.Type.Var "a" ] ) ]
+                      }
+                    ]
+              , aliases = []
+              , values = []
+              , binops = []
+              }
+            ]
+
+        elmJson : Elm.Project.Project
+        elmJson =
+            .project <| createElmJson """
+  {
+      "type": "package",
+      "name": "author/package-with-foo",
+      "summary": "Summary",
+      "license": "BSD-3-Clause",
+      "version": "1.0.0",
+      "exposed-modules": [
+          "Dependency"
+      ],
+      "elm-version": "0.19.0 <= v < 0.20.0",
+      "dependencies": {
+          "elm/core": "1.0.0 <= v < 2.0.0"
+      },
+      "test-dependencies": {}
+  }"""
+    in
+    Dependency.create
+        "author/package-with-foo"
+        elmJson
+        modules
