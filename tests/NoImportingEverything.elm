@@ -72,7 +72,6 @@ rule exceptions =
 type alias Context =
     { lookupTable : ModuleNameLookupTable
     , imports : Dict ModuleName ImportData
-    , usedUnqualifiedImports : Dict ModuleName (Set String)
     }
 
 
@@ -88,7 +87,6 @@ initialContext =
         (\lookupTable () ->
             { lookupTable = lookupTable
             , imports = Dict.empty
-            , usedUnqualifiedImports = Dict.empty
             }
         )
         |> Rule.withModuleNameLookupTable
