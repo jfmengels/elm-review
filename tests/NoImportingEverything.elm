@@ -11,6 +11,7 @@ import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
+import Review.Fix as Fix
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
@@ -121,7 +122,7 @@ finalEvaluation context =
                     { start = { row = range.start.row, column = range.start.column - 1 }
                     , end = { row = range.end.row, column = range.end.column + 1 }
                     }
-                    []
+                    [ Fix.replaceRangeBy range "a" ]
             )
 
 
