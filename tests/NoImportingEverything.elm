@@ -128,7 +128,12 @@ finalEvaluation context =
 
 fixForModule : Range -> List Fix.Fix
 fixForModule range =
-    [ Fix.replaceRangeBy range "a" ]
+    case Dict.get [] Dict.empty of
+        Just thing ->
+            [ Fix.replaceRangeBy range "a" ]
+
+        Nothing ->
+            []
 
 
 moduleName : Node Import -> List String
