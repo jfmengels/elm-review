@@ -136,8 +136,8 @@ importVisitor exceptions node context =
 nameVisitor : Node ( ModuleName, String ) -> Context -> ( List nothing, Context )
 nameVisitor node context =
     case ModuleNameLookupTable.moduleNameFor context.lookupTable node of
-        Just _ ->
-            ( [], context )
+        Just moduleName ->
+            ( [], { context | imports = context.imports } )
 
         Nothing ->
             ( [], context )
