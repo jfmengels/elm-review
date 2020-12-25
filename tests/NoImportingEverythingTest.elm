@@ -88,7 +88,7 @@ b = a
                             ]
                           )
                         ]
-        , test "should remove unused exposing (..) if nothing was exposed" <|
+        , test "should not touch fix unused exposing (..) if nothing was used" <|
             \_ ->
                 [ """module A exposing (thing)
 import OtherModule exposing (..)
@@ -104,10 +104,6 @@ a = 1
                                 , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
                                 , under = "(..)"
                                 }
-                                |> Review.Test.whenFixed """module A exposing (thing)
-import OtherModule
-b = a
-"""
                             ]
                           )
                         ]

@@ -123,7 +123,16 @@ importVisitor exceptions node context =
                 |> Maybe.map Node.value
         of
             Just (Exposing.All range) ->
-                ( [], { context | imports = Dict.insert moduleName { dotdot = range, used = Set.empty } context.imports } )
+                ( []
+                , { context
+                    | imports =
+                        Dict.insert moduleName
+                            { dotdot = range
+                            , used = Set.empty
+                            }
+                            context.imports
+                  }
+                )
 
             _ ->
                 ( [], context )
@@ -180,4 +189,8 @@ finalEvaluation context =
 
 fixForModule : ImportData -> List Fix
 fixForModule importData =
-    [ Fix.replaceRangeBy importData.dotdot (importData.used |> Set.toList |> String.join ", ") ]
+    if Set.isEmpty importData.used then
+        []
+
+    else
+        [ Fix.replaceRangeBy importData.dotdot (importData.used |> Set.toList |> String.join ", ") ]
