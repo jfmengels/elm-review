@@ -144,23 +144,28 @@ importVisitor exceptions node context =
 
 nameVisitor : Node ( ModuleName, String ) -> Context -> ( List nothing, Context )
 nameVisitor (Node range ( moduleName, name )) context =
-    case ( moduleName, ModuleNameLookupTable.moduleNameAt context.lookupTable range ) of
-        ( [], Just realModuleName ) ->
-            ( []
-            , { context
-                | imports =
-                    Dict.update realModuleName
-                        (\value ->
-                            case value of
-                                Just v ->
-                                    Just { v | used = Set.insert name v.used }
+    case moduleName of
+        [] ->
+            case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
+                Just realModuleName ->
+                    ( []
+                    , { context
+                        | imports =
+                            Dict.update realModuleName
+                                (\value ->
+                                    case value of
+                                        Just v ->
+                                            Just { v | used = Set.insert name v.used }
 
-                                Nothing ->
-                                    Nothing
-                        )
-                        context.imports
-              }
-            )
+                                        Nothing ->
+                                            Nothing
+                                )
+                                context.imports
+                      }
+                    )
+
+                Nothing ->
+                    ( [], context )
 
         _ ->
             ( [], context )
