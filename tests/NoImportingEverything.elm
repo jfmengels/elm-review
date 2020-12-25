@@ -74,6 +74,7 @@ rule exceptions =
 type alias Context =
     { lookupTable : ModuleNameLookupTable
     , imports : Dict ModuleName ImportData
+    , knownModules : Dict ModuleName Module
     }
 
 
@@ -90,6 +91,21 @@ initialContext =
         (\lookupTable () ->
             { lookupTable = lookupTable
             , imports = Dict.empty
+            , knownModules =
+                Dict.singleton [ "OtherModule" ]
+                    { name = ""
+                    , comment = ""
+                    , unions =
+                        [ { name = "Custom"
+                          , comment = ""
+                          , args = []
+                          , tags = [ ( "Variant", [] ) ]
+                          }
+                        ]
+                    , aliases = []
+                    , values = []
+                    , binops = []
+                    }
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -153,7 +169,7 @@ valueVisitor (Node range ( moduleName, name )) context =
             case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
                 Just realModuleName ->
                     ( []
-                    , { context | imports = Dict.update realModuleName (Maybe.map (registerUseOfValue realModuleName name)) context.imports }
+                    , { context | imports = Dict.update realModuleName (Maybe.map (registerUseOfValue context.knownModules realModuleName name)) context.imports }
                     )
 
                 Nothing ->
@@ -163,26 +179,8 @@ valueVisitor (Node range ( moduleName, name )) context =
             ( [], context )
 
 
-registerUseOfValue : ModuleName -> String -> ImportData -> ImportData
-registerUseOfValue moduleName name v =
-    let
-        knownModules : Dict ModuleName Module
-        knownModules =
-            Dict.singleton moduleName
-                { name = ""
-                , comment = ""
-                , unions =
-                    [ { name = "Custom"
-                      , comment = ""
-                      , args = []
-                      , tags = [ ( "Variant", [] ) ]
-                      }
-                    ]
-                , aliases = []
-                , values = []
-                , binops = []
-                }
-    in
+registerUseOfValue : Dict ModuleName Module -> ModuleName -> String -> ImportData -> ImportData
+registerUseOfValue knownModules moduleName name v =
     case Dict.get moduleName knownModules of
         Just { unions } ->
             case find (\union -> List.any (\( constructor, _ ) -> constructor == name) union.tags) unions of
