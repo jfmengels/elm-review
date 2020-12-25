@@ -56,13 +56,18 @@ elm-review --template jfmengels/elm-review-common/example --rules NoImportingEve
 -}
 rule : List String -> Rule
 rule exceptions =
-    Rule.newModuleRuleSchema "NoImportingEverything" ()
+    Rule.newModuleRuleSchema "NoImportingEverything" initialContext
         |> Rule.withSimpleImportVisitor (importVisitor <| exceptionsToSet exceptions)
         |> Rule.withFinalModuleEvaluation finalEvaluation
         |> Rule.fromModuleRuleSchema
 
 
 type alias Context =
+    ()
+
+
+initialContext : Context
+initialContext =
     ()
 
 
