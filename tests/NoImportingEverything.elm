@@ -78,7 +78,7 @@ type alias Context =
 type alias ImportData =
     { dotdot : Range
     , used : Set String
-    , usedCustomTypeConstructors : Set String
+    , importedCustomTypes : Set String
     }
 
 
@@ -130,7 +130,7 @@ importVisitor exceptions node context =
                         Dict.insert moduleName
                             { dotdot = range
                             , used = Set.empty
-                            , usedCustomTypeConstructors = Set.empty
+                            , importedCustomTypes = Set.empty
                             }
                             context.imports
                   }
@@ -159,7 +159,12 @@ valueVisitor (Node range ( moduleName, name )) context =
                                         Just v ->
                                             case Dict.get realModuleName (Dict.singleton realModuleName { unions = [] }) of
                                                 Just { unions } ->
-                                                    Just { v | used = Set.insert name v.used }
+                                                    case find (\union -> List.any (\( constructor, _ ) -> constructor == name) union.tags) unions of
+                                                        Just union ->
+                                                            Just { v | importedCustomTypes = Set.insert union.name v.importedCustomTypes }
+
+                                                        Nothing ->
+                                                            Just { v | used = Set.insert name v.used }
 
                                                 Nothing ->
                                                     Just { v | used = Set.insert name v.used }
@@ -176,6 +181,20 @@ valueVisitor (Node range ( moduleName, name )) context =
 
         _ ->
             ( [], context )
+
+
+find : (a -> Bool) -> List a -> Maybe a
+find predicate list =
+    case list of
+        [] ->
+            Nothing
+
+        head :: rest ->
+            if predicate head then
+                Just head
+
+            else
+                find predicate rest
 
 
 typeVisitor : Node ( ModuleName, String ) -> Context -> ( List nothing, Context )
