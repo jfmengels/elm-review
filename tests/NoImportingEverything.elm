@@ -71,8 +71,14 @@ rule exceptions =
 
 type alias Context =
     { lookupTable : ModuleNameLookupTable
-    , imports : Dict ModuleName { dotdot : Range }
+    , imports : Dict ModuleName ImportData
     , usedUnqualifiedImports : Dict ModuleName (Set String)
+    }
+
+
+type alias ImportData =
+    { dotdot : Range
+    , used : Set String
     }
 
 
@@ -119,7 +125,7 @@ importVisitor exceptions node context =
                 |> Maybe.map Node.value
         of
             Just (Exposing.All range) ->
-                ( [], { context | imports = Dict.insert moduleName { dotdot = range } context.imports } )
+                ( [], { context | imports = Dict.insert moduleName { dotdot = range, used = Set.empty } context.imports } )
 
             _ ->
                 ( [], context )
@@ -148,23 +154,18 @@ finalEvaluation context =
     context.imports
         |> Dict.toList
         |> List.map
-            (\( moduleName, { dotdot } ) ->
+            (\( moduleName, importData ) ->
                 Rule.errorWithFix
                     { message = "Prefer listing what you wish to import and/or using qualified imports"
                     , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
                     }
-                    { start = { row = dotdot.start.row, column = dotdot.start.column - 1 }
-                    , end = { row = dotdot.end.row, column = dotdot.end.column + 1 }
+                    { start = { row = importData.dotdot.start.row, column = importData.dotdot.start.column - 1 }
+                    , end = { row = importData.dotdot.end.row, column = importData.dotdot.end.column + 1 }
                     }
-                    (fixForModule context moduleName dotdot)
+                    (fixForModule moduleName importData)
             )
 
 
-fixForModule : Context -> ModuleName -> Range -> List Fix.Fix
-fixForModule context moduleName dotdot =
-    case Dict.get moduleName context.usedUnqualifiedImports of
-        Just things ->
-            [ Fix.replaceRangeBy dotdot (things |> Set.toList |> String.join ", ") ]
-
-        Nothing ->
-            []
+fixForModule : ModuleName -> ImportData -> List Fix.Fix
+fixForModule moduleName importData =
+    [ Fix.replaceRangeBy importData.dotdot (importData.used |> Set.toList |> String.join ", ") ]
