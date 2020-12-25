@@ -83,7 +83,7 @@ exceptionsToSet exceptions =
 -- IMPORT VISITOR
 
 
-importVisitor : Set (List String) -> Node Import -> Context -> ( List (Error {}), Context )
+importVisitor : Set (List String) -> Node Import -> Context -> ( List nothing, Context )
 importVisitor exceptions node context =
     if Set.member (moduleName node) exceptions then
         ( [], context )
@@ -95,17 +95,7 @@ importVisitor exceptions node context =
                 |> Maybe.map Node.value
         of
             Just (Exposing.All range) ->
-                ( [ Rule.errorWithFix
-                        { message = "Prefer listing what you wish to import and/or using qualified imports"
-                        , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
-                        }
-                        { start = { row = range.start.row, column = range.start.column - 1 }
-                        , end = { row = range.end.row, column = range.end.column + 1 }
-                        }
-                        []
-                  ]
-                , context
-                )
+                ( [], range :: context )
 
             _ ->
                 ( [], context )
