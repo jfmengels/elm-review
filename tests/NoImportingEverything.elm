@@ -128,9 +128,9 @@ finalEvaluation context =
 
 fixForModule : Range -> List Fix.Fix
 fixForModule range =
-    case Dict.get [] Dict.empty of
+    case Dict.get [ "OtherModule" ] (Dict.singleton [ "OtherModule" ] "a") of
         Just thing ->
-            [ Fix.replaceRangeBy range "a" ]
+            [ Fix.replaceRangeBy range thing ]
 
         Nothing ->
             []
