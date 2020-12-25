@@ -58,7 +58,12 @@ rule : List String -> Rule
 rule exceptions =
     Rule.newModuleRuleSchema "NoImportingEverything" ()
         |> Rule.withSimpleImportVisitor (importVisitor <| exceptionsToSet exceptions)
+        |> Rule.withFinalModuleEvaluation finalEvaluation
         |> Rule.fromModuleRuleSchema
+
+
+type alias Context =
+    ()
 
 
 exceptionsToSet : List String -> Set (List String)
@@ -66,6 +71,10 @@ exceptionsToSet exceptions =
     exceptions
         |> List.map (String.split ".")
         |> Set.fromList
+
+
+
+-- IMPORT VISITOR
 
 
 importVisitor : Set (List String) -> Node Import -> List (Error {})
@@ -92,6 +101,15 @@ importVisitor exceptions node =
 
             _ ->
                 []
+
+
+
+-- FINAL EVALUATION
+
+
+finalEvaluation : Context -> List (Error {})
+finalEvaluation context =
+    []
 
 
 moduleName : Node Import -> List String
