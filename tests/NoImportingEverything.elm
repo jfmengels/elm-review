@@ -133,13 +133,13 @@ finalEvaluation context =
                     { start = { row = range.start.row, column = range.start.column - 1 }
                     , end = { row = range.end.row, column = range.end.column + 1 }
                     }
-                    (fixForModule moduleName range)
+                    (fixForModule context moduleName range)
             )
 
 
-fixForModule : ModuleName -> Range -> List Fix.Fix
-fixForModule moduleName range =
-    case Dict.get moduleName (Dict.singleton [ "OtherModule" ] (Set.singleton "a")) of
+fixForModule : Context -> ModuleName -> Range -> List Fix.Fix
+fixForModule context moduleName range =
+    case Dict.get moduleName context.usedUnqualifiedImports of
         Just things ->
             [ Fix.replaceRangeBy range (things |> Set.toList |> String.join ", ") ]
 
