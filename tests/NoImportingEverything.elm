@@ -144,7 +144,7 @@ nameVisitor node context =
                         (\value ->
                             case value of
                                 Just v ->
-                                    Just { v | used = v.used }
+                                    Just { v | used = Set.insert (Node.value node |> Tuple.second) v.used }
 
                                 Nothing ->
                                     Nothing
