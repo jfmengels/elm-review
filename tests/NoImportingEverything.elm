@@ -82,7 +82,7 @@ initialContext =
         (\lookupTable () ->
             { lookupTable = lookupTable
             , imports = Dict.empty
-            , usedUnqualifiedImports = Dict.singleton [ "OtherModule" ] (Set.singleton "a")
+            , usedUnqualifiedImports = Dict.empty
             }
         )
         |> Rule.withModuleNameLookupTable
