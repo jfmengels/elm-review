@@ -7,11 +7,13 @@ module NoImportingEverything exposing (rule)
 -}
 
 import Dict exposing (Dict)
+import Elm.Docs exposing (Module)
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
+import Elm.Type
 import NoUnused.Patterns.NameVisitor as NameVisitor
 import Review.Fix as Fix exposing (Fix)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
@@ -163,7 +165,25 @@ valueVisitor (Node range ( moduleName, name )) context =
 
 registerUseOfValue : ModuleName -> String -> ImportData -> ImportData
 registerUseOfValue moduleName name v =
-    case Dict.get moduleName (Dict.singleton moduleName { unions = [ { name = "Custom", tags = [ ( "Variant", () ) ] } ] }) of
+    let
+        knownModules : Dict ModuleName Module
+        knownModules =
+            Dict.singleton moduleName
+                { name = ""
+                , comment = ""
+                , unions =
+                    [ { name = "Custom"
+                      , comment = ""
+                      , args = []
+                      , tags = [ ( "Variant", [] ) ]
+                      }
+                    ]
+                , aliases = []
+                , values = []
+                , binops = []
+                }
+    in
+    case Dict.get moduleName knownModules of
         Just { unions } ->
             case find (\union -> List.any (\( constructor, _ ) -> constructor == name) union.tags) unions of
                 Just union ->
