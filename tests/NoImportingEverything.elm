@@ -78,6 +78,7 @@ type alias Context =
 type alias ImportData =
     { dotdot : Range
     , used : Set String
+    , usedCustomTypeConstructors : Set String
     }
 
 
@@ -129,6 +130,7 @@ importVisitor exceptions node context =
                         Dict.insert moduleName
                             { dotdot = range
                             , used = Set.empty
+                            , usedCustomTypeConstructors = Set.empty
                             }
                             context.imports
                   }
