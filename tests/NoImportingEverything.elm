@@ -58,7 +58,7 @@ elm-review --template jfmengels/elm-review-common/example --rules NoImportingEve
 rule : List String -> Rule
 rule exceptions =
     Rule.newModuleRuleSchema "NoImportingEverything" initialContext
-        |> Rule.withSimpleImportVisitor (importVisitor <| exceptionsToSet exceptions)
+        |> Rule.withImportVisitor (importVisitor <| exceptionsToSet exceptions)
         |> Rule.withFinalModuleEvaluation finalEvaluation
         |> Rule.fromModuleRuleSchema
 
@@ -83,10 +83,10 @@ exceptionsToSet exceptions =
 -- IMPORT VISITOR
 
 
-importVisitor : Set (List String) -> Node Import -> List (Error {})
-importVisitor exceptions node =
+importVisitor : Set (List String) -> Node Import -> Context -> ( List (Error {}), Context )
+importVisitor exceptions node context =
     if Set.member (moduleName node) exceptions then
-        []
+        ( [], context )
 
     else
         case
@@ -95,18 +95,20 @@ importVisitor exceptions node =
                 |> Maybe.map Node.value
         of
             Just (Exposing.All range) ->
-                [ Rule.errorWithFix
-                    { message = "Prefer listing what you wish to import and/or using qualified imports"
-                    , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
-                    }
-                    { start = { row = range.start.row, column = range.start.column - 1 }
-                    , end = { row = range.end.row, column = range.end.column + 1 }
-                    }
-                    []
-                ]
+                ( [ Rule.errorWithFix
+                        { message = "Prefer listing what you wish to import and/or using qualified imports"
+                        , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
+                        }
+                        { start = { row = range.start.row, column = range.start.column - 1 }
+                        , end = { row = range.end.row, column = range.end.column + 1 }
+                        }
+                        []
+                  ]
+                , context
+                )
 
             _ ->
-                []
+                ( [], context )
 
 
 
