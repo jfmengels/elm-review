@@ -14,7 +14,7 @@ import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import NoUnused.Patterns.NameVisitor as NameVisitor
 import Review.Fix as Fix
-import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
+import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
@@ -129,9 +129,14 @@ importVisitor exceptions node context =
 -- NAME VISITOR
 
 
-nameVisitor : Node ( ModuleName, String ) -> context -> ( List nothing, context )
+nameVisitor : Node ( ModuleName, String ) -> Context -> ( List nothing, Context )
 nameVisitor node context =
-    ( [], context )
+    case ModuleNameLookupTable.moduleNameFor context.lookupTable node of
+        Just _ ->
+            ( [], context )
+
+        Nothing ->
+            ( [], context )
 
 
 
