@@ -8,6 +8,13 @@ import Test exposing (Test, describe, test)
 all : Test
 all =
     describe "NoImportingEverything"
+        [ withoutModuleInformationTests
+        ]
+
+
+withoutModuleInformationTests : Test
+withoutModuleInformationTests =
+    describe "Without module information"
         [ test "should not report imports without exposing clause" <|
             \_ ->
                 """module A exposing (thing)
