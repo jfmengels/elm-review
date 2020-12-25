@@ -9,6 +9,7 @@ all : Test
 all =
     describe "NoImportingEverything"
         [ withoutModuleInformationTests
+        , withModuleInformationTests
         ]
 
 
@@ -59,3 +60,9 @@ import Thing.Foo as Foo exposing (..)
                     |> Review.Test.run (rule [ "Html", "Thing.Foo" ])
                     |> Review.Test.expectNoErrors
         ]
+
+
+withModuleInformationTests : Test
+withModuleInformationTests =
+    describe "With module information"
+        []
