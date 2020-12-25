@@ -13,7 +13,7 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import NoUnused.Patterns.NameVisitor as NameVisitor
-import Review.Fix as Fix
+import Review.Fix as Fix exposing (Fix)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
@@ -178,6 +178,6 @@ finalEvaluation context =
             )
 
 
-fixForModule : ImportData -> List Fix.Fix
+fixForModule : ImportData -> List Fix
 fixForModule importData =
     [ Fix.replaceRangeBy importData.dotdot (importData.used |> Set.toList |> String.join ", ") ]
