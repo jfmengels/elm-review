@@ -9,6 +9,7 @@ module NoImportingEverything exposing (rule)
 import Dict
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Import exposing (Import)
+import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Review.Fix as Fix
@@ -114,7 +115,7 @@ finalEvaluation context =
         |> Dict.fromList
         |> Dict.toList
         |> List.map
-            (\( _, range ) ->
+            (\( moduleName, range ) ->
                 Rule.errorWithFix
                     { message = "Prefer listing what you wish to import and/or using qualified imports"
                     , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
@@ -122,13 +123,13 @@ finalEvaluation context =
                     { start = { row = range.start.row, column = range.start.column - 1 }
                     , end = { row = range.end.row, column = range.end.column + 1 }
                     }
-                    (fixForModule range)
+                    (fixForModule moduleName range)
             )
 
 
-fixForModule : Range -> List Fix.Fix
-fixForModule range =
-    case Dict.get [ "OtherModule" ] (Dict.singleton [ "OtherModule" ] "a") of
+fixForModule : ModuleName -> Range -> List Fix.Fix
+fixForModule moduleName range =
+    case Dict.get moduleName (Dict.singleton [ "OtherModule" ] "a") of
         Just thing ->
             [ Fix.replaceRangeBy range thing ]
 
