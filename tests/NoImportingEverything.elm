@@ -122,8 +122,13 @@ finalEvaluation context =
                     { start = { row = range.start.row, column = range.start.column - 1 }
                     , end = { row = range.end.row, column = range.end.column + 1 }
                     }
-                    [ Fix.replaceRangeBy range "a" ]
+                    (fixForModule range)
             )
+
+
+fixForModule : Range -> List Fix.Fix
+fixForModule range =
+    [ Fix.replaceRangeBy range "a" ]
 
 
 moduleName : Node Import -> List String
