@@ -88,6 +88,30 @@ b = a
                             ]
                           )
                         ]
+        , test "should only replace by imports used in an unqualified manner" <|
+            \_ ->
+                [ """module A exposing (thing)
+import OtherModule exposing (..)
+b = OtherModule.c a
+""", """module OtherModule exposing (..)
+a = 1
+c = 2
+""" ]
+                    |> Review.Test.runOnModules (rule [])
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "A"
+                          , [ Review.Test.error
+                                { message = "Prefer listing what you wish to import and/or using qualified imports"
+                                , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
+                                , under = "(..)"
+                                }
+                                |> Review.Test.whenFixed """module A exposing (thing)
+import OtherModule exposing (a)
+b = OtherModule.c a
+"""
+                            ]
+                          )
+                        ]
         , test "should not touch fix unused exposing (..) if nothing was used" <|
             \_ ->
                 [ """module A exposing (thing)

@@ -144,8 +144,8 @@ importVisitor exceptions node context =
 
 nameVisitor : Node ( ModuleName, String ) -> Context -> ( List nothing, Context )
 nameVisitor (Node range ( moduleName, name )) context =
-    case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
-        Just realModuleName ->
+    case ( moduleName, ModuleNameLookupTable.moduleNameAt context.lookupTable range ) of
+        ( [], Just realModuleName ) ->
             ( []
             , { context
                 | imports =
@@ -162,7 +162,7 @@ nameVisitor (Node range ( moduleName, name )) context =
               }
             )
 
-        Nothing ->
+        _ ->
             ( [], context )
 
 
