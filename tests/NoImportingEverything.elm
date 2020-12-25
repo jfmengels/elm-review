@@ -71,6 +71,14 @@ rule exceptions =
         |> Rule.fromModuleRuleSchema
 
 
+moduleVisitor : List String -> Rule.ModuleRuleSchema schemaState Context -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } Context
+moduleVisitor exceptions schema =
+    schema
+        |> Rule.withImportVisitor (importVisitor <| exceptionsToSet exceptions)
+        |> NameVisitor.withValueAndTypeVisitors { valueVisitor = valueVisitor, typeVisitor = typeVisitor }
+        |> Rule.withFinalModuleEvaluation finalEvaluation
+
+
 type alias Context =
     { lookupTable : ModuleNameLookupTable
     , imports : Dict ModuleName ImportData
