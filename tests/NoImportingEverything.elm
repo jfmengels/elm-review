@@ -13,6 +13,7 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Review.Fix as Fix
+import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
@@ -67,7 +68,8 @@ rule exceptions =
 
 
 type alias Context =
-    { imports : Dict ModuleName Range
+    { lookupTable : ModuleNameLookupTable
+    , imports : Dict ModuleName Range
     , usedUnqualifiedImports : Dict ModuleName (Set String)
     }
 
@@ -75,11 +77,13 @@ type alias Context =
 initialContext : Rule.ContextCreator () Context
 initialContext =
     Rule.initContextCreator
-        (\() ->
-            { imports = Dict.empty
+        (\lookupTable () ->
+            { lookupTable = lookupTable
+            , imports = Dict.empty
             , usedUnqualifiedImports = Dict.singleton [ "OtherModule" ] (Set.singleton "a")
             }
         )
+        |> Rule.withModuleNameLookupTable
 
 
 exceptionsToSet : List String -> Set (List String)
