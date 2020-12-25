@@ -68,12 +68,14 @@ rule exceptions =
 
 type alias Context =
     { imports : Dict ModuleName Range
+    , usedUnqualifiedImports : Dict ModuleName (Set String)
     }
 
 
 initialContext : Context
 initialContext =
     { imports = Dict.empty
+    , usedUnqualifiedImports = Dict.singleton [ "OtherModule" ] (Set.singleton "a")
     }
 
 
