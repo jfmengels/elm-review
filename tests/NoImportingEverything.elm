@@ -133,13 +133,6 @@ type alias ImportData =
     }
 
 
-exceptionsToSet : List String -> Set (List String)
-exceptionsToSet exceptions =
-    exceptions
-        |> List.map (String.split ".")
-        |> Set.fromList
-
-
 
 -- DEPENDENCIES VISITOR
 
@@ -151,6 +144,13 @@ dependenciesVisitor dict projectContext =
 
 
 -- IMPORT VISITOR
+
+
+exceptionsToSet : List String -> Set (List String)
+exceptionsToSet exceptions =
+    exceptions
+        |> List.map (String.split ".")
+        |> Set.fromList
 
 
 importVisitor : Set (List String) -> Node Import -> ModuleContext -> ( List nothing, ModuleContext )
