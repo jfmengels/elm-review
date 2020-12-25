@@ -65,7 +65,7 @@ elm-review --template jfmengels/elm-review-common/example --rules NoImportingEve
 -}
 rule : List String -> Rule
 rule exceptions =
-    Rule.newProjectRuleSchema "NoImportingEverything" ()
+    Rule.newProjectRuleSchema "NoImportingEverything" Dict.empty
         |> Rule.withDependenciesProjectVisitor dependenciesVisitor
         |> Rule.withModuleVisitor (moduleVisitor exceptions)
         |> Rule.withModuleContextUsingContextCreator
@@ -77,7 +77,7 @@ rule exceptions =
 
 
 type alias ProjectContext =
-    ()
+    Dict ModuleName Module
 
 
 type alias ModuleContext =
@@ -90,24 +90,10 @@ type alias ModuleContext =
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable () ->
+        (\lookupTable knownModules ->
             { lookupTable = lookupTable
             , imports = Dict.empty
-            , knownModules =
-                Dict.singleton [ "OtherModule" ]
-                    { name = ""
-                    , comment = ""
-                    , unions =
-                        [ { name = "Custom"
-                          , comment = ""
-                          , args = []
-                          , tags = [ ( "Variant", [] ) ]
-                          }
-                        ]
-                    , aliases = []
-                    , values = []
-                    , binops = []
-                    }
+            , knownModules = knownModules
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -115,7 +101,7 @@ fromProjectToModule =
 
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
-    Rule.initContextCreator (\_ -> ())
+    Rule.initContextCreator (\_ -> Dict.empty)
 
 
 moduleVisitor : List String -> Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
@@ -139,6 +125,15 @@ type alias ImportData =
 
 dependenciesVisitor : Dict String Review.Project.Dependency.Dependency -> ProjectContext -> ( List nothing, ProjectContext )
 dependenciesVisitor dict projectContext =
+    let
+        dependencyModules : Dict ModuleName Module
+        dependencyModules =
+            dict
+                |> Dict.values
+                |> List.concatMap Review.Project.Dependency.modules
+                |> List.map (\module_ -> ( String.split "." module_.name, module_ ))
+                |> Dict.fromList
+    in
     ( [], projectContext )
 
 
