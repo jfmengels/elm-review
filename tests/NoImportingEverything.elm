@@ -157,7 +157,12 @@ valueVisitor (Node range ( moduleName, name )) context =
                                 (\value ->
                                     case value of
                                         Just v ->
-                                            Just { v | used = Set.insert name v.used }
+                                            case Dict.get realModuleName (Dict.singleton realModuleName { unions = [] }) of
+                                                Just { unions } ->
+                                                    Just { v | used = Set.insert name v.used }
+
+                                                Nothing ->
+                                                    Just { v | used = Set.insert name v.used }
 
                                         Nothing ->
                                             Nothing
