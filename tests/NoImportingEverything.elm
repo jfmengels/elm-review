@@ -137,7 +137,21 @@ nameVisitor : Node ( ModuleName, String ) -> Context -> ( List nothing, Context 
 nameVisitor node context =
     case ModuleNameLookupTable.moduleNameFor context.lookupTable node of
         Just moduleName ->
-            ( [], { context | imports = Dict.update moduleName (\value -> value) context.imports } )
+            ( []
+            , { context
+                | imports =
+                    Dict.update moduleName
+                        (\value ->
+                            case value of
+                                Just v ->
+                                    Just v
+
+                                Nothing ->
+                                    Nothing
+                        )
+                        context.imports
+              }
+            )
 
         Nothing ->
             ( [], context )
