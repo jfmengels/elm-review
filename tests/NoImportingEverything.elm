@@ -107,18 +107,18 @@ importVisitor exceptions node context =
 
 finalEvaluation : Context -> List (Error {})
 finalEvaluation context =
-    List.map
-        (\range ->
-            Rule.errorWithFix
-                { message = "Prefer listing what you wish to import and/or using qualified imports"
-                , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
-                }
-                { start = { row = range.start.row, column = range.start.column - 1 }
-                , end = { row = range.end.row, column = range.end.column + 1 }
-                }
-                []
-        )
-        context
+    context
+        |> List.map
+            (\range ->
+                Rule.errorWithFix
+                    { message = "Prefer listing what you wish to import and/or using qualified imports"
+                    , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
+                    }
+                    { start = { row = range.start.row, column = range.start.column - 1 }
+                    , end = { row = range.end.row, column = range.end.column + 1 }
+                    }
+                    []
+            )
 
 
 moduleName : Node Import -> List String
