@@ -80,7 +80,14 @@ type alias ProjectContext =
     ()
 
 
-fromProjectToModule : Rule.ContextCreator ProjectContext Context
+type alias ModuleContext =
+    { lookupTable : ModuleNameLookupTable
+    , imports : Dict ModuleName ImportData
+    , knownModules : Dict ModuleName Module
+    }
+
+
+fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
         (\lookupTable () ->
@@ -106,24 +113,17 @@ fromProjectToModule =
         |> Rule.withModuleNameLookupTable
 
 
-fromModuleToProject : Rule.ContextCreator Context ProjectContext
+fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
     Rule.initContextCreator (\_ -> ())
 
 
-moduleVisitor : List String -> Rule.ModuleRuleSchema schemaState Context -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } Context
+moduleVisitor : List String -> Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor exceptions schema =
     schema
         |> Rule.withImportVisitor (importVisitor <| exceptionsToSet exceptions)
         |> NameVisitor.withValueAndTypeVisitors { valueVisitor = valueVisitor, typeVisitor = typeVisitor }
         |> Rule.withFinalModuleEvaluation finalEvaluation
-
-
-type alias Context =
-    { lookupTable : ModuleNameLookupTable
-    , imports : Dict ModuleName ImportData
-    , knownModules : Dict ModuleName Module
-    }
 
 
 type alias ImportData =
@@ -153,7 +153,7 @@ dependenciesVisitor dict projectContext =
 -- IMPORT VISITOR
 
 
-importVisitor : Set (List String) -> Node Import -> Context -> ( List nothing, Context )
+importVisitor : Set (List String) -> Node Import -> ModuleContext -> ( List nothing, ModuleContext )
 importVisitor exceptions node context =
     let
         moduleName : ModuleName
@@ -193,7 +193,7 @@ importVisitor exceptions node context =
 -- NAME VISITOR
 
 
-valueVisitor : Node ( ModuleName, String ) -> Context -> ( List nothing, Context )
+valueVisitor : Node ( ModuleName, String ) -> ModuleContext -> ( List nothing, ModuleContext )
 valueVisitor (Node range ( moduleName, name )) context =
     case moduleName of
         [] ->
@@ -239,7 +239,7 @@ find predicate list =
                 find predicate rest
 
 
-typeVisitor : Node ( ModuleName, String ) -> Context -> ( List nothing, Context )
+typeVisitor : Node ( ModuleName, String ) -> ModuleContext -> ( List nothing, ModuleContext )
 typeVisitor (Node range ( moduleName, name )) context =
     case moduleName of
         [] ->
@@ -272,7 +272,7 @@ typeVisitor (Node range ( moduleName, name )) context =
 -- FINAL EVALUATION
 
 
-finalEvaluation : Context -> List (Error {})
+finalEvaluation : ModuleContext -> List (Error {})
 finalEvaluation context =
     context.imports
         |> Dict.values
