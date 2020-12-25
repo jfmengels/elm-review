@@ -64,37 +64,22 @@ elm-review --template jfmengels/elm-review-common/example --rules NoImportingEve
 -}
 rule : List String -> Rule
 rule exceptions =
-    Rule.newModuleRuleSchemaUsingContextCreator "NoImportingEverything" initialContext
-        |> Rule.withImportVisitor (importVisitor <| exceptionsToSet exceptions)
-        |> NameVisitor.withValueAndTypeVisitors { valueVisitor = valueVisitor, typeVisitor = typeVisitor }
-        |> Rule.withFinalModuleEvaluation finalEvaluation
-        |> Rule.fromModuleRuleSchema
+    Rule.newProjectRuleSchema "NoImportingEverything" ()
+        |> Rule.withModuleVisitor (moduleVisitor exceptions)
+        |> Rule.withModuleContextUsingContextCreator
+            { fromProjectToModule = fromProjectToModule
+            , fromModuleToProject = fromModuleToProject
+            , foldProjectContexts = \_ previousContext -> previousContext
+            }
+        |> Rule.fromProjectRuleSchema
 
 
-moduleVisitor : List String -> Rule.ModuleRuleSchema schemaState Context -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } Context
-moduleVisitor exceptions schema =
-    schema
-        |> Rule.withImportVisitor (importVisitor <| exceptionsToSet exceptions)
-        |> NameVisitor.withValueAndTypeVisitors { valueVisitor = valueVisitor, typeVisitor = typeVisitor }
-        |> Rule.withFinalModuleEvaluation finalEvaluation
+type alias ProjectContext =
+    ()
 
 
-type alias Context =
-    { lookupTable : ModuleNameLookupTable
-    , imports : Dict ModuleName ImportData
-    , knownModules : Dict ModuleName Module
-    }
-
-
-type alias ImportData =
-    { dotdot : Range
-    , used : Set String
-    , importedCustomTypes : Set String
-    }
-
-
-initialContext : Rule.ContextCreator () Context
-initialContext =
+fromProjectToModule : Rule.ContextCreator ProjectContext Context
+fromProjectToModule =
     Rule.initContextCreator
         (\lookupTable () ->
             { lookupTable = lookupTable
@@ -117,6 +102,33 @@ initialContext =
             }
         )
         |> Rule.withModuleNameLookupTable
+
+
+fromModuleToProject : Rule.ContextCreator Context ProjectContext
+fromModuleToProject =
+    Rule.initContextCreator (\_ -> ())
+
+
+moduleVisitor : List String -> Rule.ModuleRuleSchema schemaState Context -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } Context
+moduleVisitor exceptions schema =
+    schema
+        |> Rule.withImportVisitor (importVisitor <| exceptionsToSet exceptions)
+        |> NameVisitor.withValueAndTypeVisitors { valueVisitor = valueVisitor, typeVisitor = typeVisitor }
+        |> Rule.withFinalModuleEvaluation finalEvaluation
+
+
+type alias Context =
+    { lookupTable : ModuleNameLookupTable
+    , imports : Dict ModuleName ImportData
+    , knownModules : Dict ModuleName Module
+    }
+
+
+type alias ImportData =
+    { dotdot : Range
+    , used : Set String
+    , importedCustomTypes : Set String
+    }
 
 
 exceptionsToSet : List String -> Set (List String)
