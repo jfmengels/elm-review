@@ -67,12 +67,14 @@ rule exceptions =
 
 
 type alias Context =
-    List Range
+    { imports : List Range
+    }
 
 
 initialContext : Context
 initialContext =
-    []
+    { imports = []
+    }
 
 
 exceptionsToSet : List String -> Set (List String)
@@ -98,7 +100,7 @@ importVisitor exceptions node context =
                 |> Maybe.map Node.value
         of
             Just (Exposing.All range) ->
-                ( [], range :: context )
+                ( [], { context | imports = range :: context.imports } )
 
             _ ->
                 ( [], context )
@@ -110,7 +112,7 @@ importVisitor exceptions node context =
 
 finalEvaluation : Context -> List (Error {})
 finalEvaluation context =
-    context
+    context.imports
         |> List.map (Tuple.pair [ "OtherModule" ])
         |> Dict.fromList
         |> Dict.toList
