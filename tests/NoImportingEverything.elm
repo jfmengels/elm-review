@@ -87,7 +87,7 @@ exceptionsToSet exceptions =
 
 importVisitor : Set (List String) -> Node Import -> Context -> ( List nothing, Context )
 importVisitor exceptions node context =
-    if Set.member (moduleName node) exceptions then
+    if Set.member (node |> Node.value |> .moduleName |> Node.value) exceptions then
         ( [], context )
 
     else
@@ -134,11 +134,3 @@ fixForModule range =
 
         Nothing ->
             []
-
-
-moduleName : Node Import -> List String
-moduleName node =
-    node
-        |> Node.value
-        |> .moduleName
-        |> Node.value
