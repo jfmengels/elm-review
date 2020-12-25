@@ -1,6 +1,8 @@
 module NoImportingEverythingTest exposing (all)
 
+import Dependencies.ElmCore
 import NoImportingEverything exposing (rule)
+import Review.Project as Project
 import Review.Test
 import Test exposing (Test, describe, test)
 
@@ -97,6 +99,24 @@ thing = a
 """
                             ]
                           )
+                        ]
+        , test "should fix imports that from dependency module" <|
+            \_ ->
+                """module A exposing (thing)
+import Tuple exposing (..)
+thing = pair
+"""
+                    |> Review.Test.runWithProjectData (Project.new |> Project.addDependency Dependencies.ElmCore.dependency) (rule [])
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = message
+                            , details = details
+                            , under = "(..)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (thing)
+import Tuple exposing (pair)
+thing = pair
+"""
                         ]
         , test "should only replace by imports used in an unqualified manner" <|
             \_ ->
