@@ -6,6 +6,7 @@ module NoImportingEverything exposing (rule)
 
 -}
 
+import Dict
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Node as Node exposing (Node)
@@ -108,8 +109,11 @@ importVisitor exceptions node context =
 finalEvaluation : Context -> List (Error {})
 finalEvaluation context =
     context
+        |> List.map (Tuple.pair [ "OtherModule" ])
+        |> Dict.fromList
+        |> Dict.toList
         |> List.map
-            (\range ->
+            (\( _, range ) ->
                 Rule.errorWithFix
                     { message = "Prefer listing what you wish to import and/or using qualified imports"
                     , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
