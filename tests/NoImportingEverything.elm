@@ -12,6 +12,7 @@ import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
+import NoUnused.Patterns.NameVisitor as NameVisitor
 import Review.Fix as Fix
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
@@ -63,6 +64,7 @@ rule : List String -> Rule
 rule exceptions =
     Rule.newModuleRuleSchemaUsingContextCreator "NoImportingEverything" initialContext
         |> Rule.withImportVisitor (importVisitor <| exceptionsToSet exceptions)
+        |> NameVisitor.withValueVisitor nameVisitor
         |> Rule.withFinalModuleEvaluation finalEvaluation
         |> Rule.fromModuleRuleSchema
 
@@ -121,6 +123,15 @@ importVisitor exceptions node context =
 
             _ ->
                 ( [], context )
+
+
+
+-- NAME VISITOR
+
+
+nameVisitor : Node ( ModuleName, String ) -> context -> ( List nothing, context )
+nameVisitor node context =
+    ( [], context )
 
 
 
