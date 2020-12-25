@@ -64,7 +64,7 @@ rule : List String -> Rule
 rule exceptions =
     Rule.newModuleRuleSchemaUsingContextCreator "NoImportingEverything" initialContext
         |> Rule.withImportVisitor (importVisitor <| exceptionsToSet exceptions)
-        |> NameVisitor.withValueVisitor nameVisitor
+        |> NameVisitor.withValueAndTypeVisitors { valueVisitor = valueVisitor, typeVisitor = typeVisitor }
         |> Rule.withFinalModuleEvaluation finalEvaluation
         |> Rule.fromModuleRuleSchema
 
@@ -144,8 +144,37 @@ importVisitor exceptions node context =
 -- NAME VISITOR
 
 
-nameVisitor : Node ( ModuleName, String ) -> Context -> ( List nothing, Context )
-nameVisitor (Node range ( moduleName, name )) context =
+valueVisitor : Node ( ModuleName, String ) -> Context -> ( List nothing, Context )
+valueVisitor (Node range ( moduleName, name )) context =
+    case moduleName of
+        [] ->
+            case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
+                Just realModuleName ->
+                    ( []
+                    , { context
+                        | imports =
+                            Dict.update realModuleName
+                                (\value ->
+                                    case value of
+                                        Just v ->
+                                            Just { v | used = Set.insert name v.used }
+
+                                        Nothing ->
+                                            Nothing
+                                )
+                                context.imports
+                      }
+                    )
+
+                Nothing ->
+                    ( [], context )
+
+        _ ->
+            ( [], context )
+
+
+typeVisitor : Node ( ModuleName, String ) -> Context -> ( List nothing, Context )
+typeVisitor (Node range ( moduleName, name )) context =
     case moduleName of
         [] ->
             case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
