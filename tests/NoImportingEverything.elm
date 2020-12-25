@@ -253,11 +253,11 @@ fixForModule importData =
         []
 
     else
-        [ Fix.replaceRangeBy importData.dotdot (expose importData.used) ]
+        [ Fix.replaceRangeBy importData.dotdot (expose importData.importedCustomTypes importData.used) ]
 
 
-expose : Set String -> String
-expose used =
+expose : Set String -> Set String -> String
+expose importedCustomTypes used =
     used
         |> Set.toList
         |> String.join ", "
