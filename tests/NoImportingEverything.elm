@@ -150,9 +150,9 @@ nameVisitor node context =
 finalEvaluation : Context -> List (Error {})
 finalEvaluation context =
     context.imports
-        |> Dict.toList
+        |> Dict.values
         |> List.map
-            (\( moduleName, importData ) ->
+            (\importData ->
                 Rule.errorWithFix
                     { message = "Prefer listing what you wish to import and/or using qualified imports"
                     , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
@@ -160,10 +160,10 @@ finalEvaluation context =
                     { start = { row = importData.dotdot.start.row, column = importData.dotdot.start.column - 1 }
                     , end = { row = importData.dotdot.end.row, column = importData.dotdot.end.column + 1 }
                     }
-                    (fixForModule moduleName importData)
+                    (fixForModule importData)
             )
 
 
-fixForModule : ModuleName -> ImportData -> List Fix.Fix
-fixForModule moduleName importData =
+fixForModule : ImportData -> List Fix.Fix
+fixForModule importData =
     [ Fix.replaceRangeBy importData.dotdot (importData.used |> Set.toList |> String.join ", ") ]
