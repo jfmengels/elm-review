@@ -10,7 +10,7 @@ import Dict exposing (Dict)
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.ModuleName exposing (ModuleName)
-import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import NoUnused.Patterns.NameVisitor as NameVisitor
 import Review.Fix as Fix exposing (Fix)
@@ -143,17 +143,17 @@ importVisitor exceptions node context =
 
 
 nameVisitor : Node ( ModuleName, String ) -> Context -> ( List nothing, Context )
-nameVisitor node context =
-    case ModuleNameLookupTable.moduleNameFor context.lookupTable node of
-        Just moduleName ->
+nameVisitor (Node range ( moduleName, name )) context =
+    case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
+        Just realModuleName ->
             ( []
             , { context
                 | imports =
-                    Dict.update moduleName
+                    Dict.update realModuleName
                         (\value ->
                             case value of
                                 Just v ->
-                                    Just { v | used = Set.insert (Node.value node |> Tuple.second) v.used }
+                                    Just { v | used = Set.insert name v.used }
 
                                 Nothing ->
                                     Nothing
