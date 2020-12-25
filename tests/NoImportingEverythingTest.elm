@@ -5,6 +5,16 @@ import Review.Test
 import Test exposing (Test, describe, test)
 
 
+message : String
+message =
+    "Prefer listing what you wish to import and/or using qualified imports"
+
+
+details : List String
+details =
+    [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
+
+
 all : Test
 all =
     describe "NoImportingEverything"
@@ -46,8 +56,8 @@ import Html exposing (..)
                     |> Review.Test.run (rule [])
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Prefer listing what you wish to import and/or using qualified imports"
-                            , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
+                            { message = message
+                            , details = details
                             , under = "(..)"
                             }
                         ]
@@ -77,8 +87,8 @@ a = 1
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
                           , [ Review.Test.error
-                                { message = "Prefer listing what you wish to import and/or using qualified imports"
-                                , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
+                                { message = message
+                                , details = details
                                 , under = "(..)"
                                 }
                                 |> Review.Test.whenFixed """module A exposing (thing)
@@ -101,8 +111,8 @@ c = 2
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
                           , [ Review.Test.error
-                                { message = "Prefer listing what you wish to import and/or using qualified imports"
-                                , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
+                                { message = message
+                                , details = details
                                 , under = "(..)"
                                 }
                                 |> Review.Test.whenFixed """module A exposing (thing)
@@ -124,8 +134,8 @@ type Custom = Variant
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
                           , [ Review.Test.error
-                                { message = "Prefer listing what you wish to import and/or using qualified imports"
-                                , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
+                                { message = message
+                                , details = details
                                 , under = "(..)"
                                 }
                                 |> Review.Test.whenFixed """module A exposing (thing)
@@ -148,8 +158,8 @@ type Custom = Variant
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
                           , [ Review.Test.error
-                                { message = "Prefer listing what you wish to import and/or using qualified imports"
-                                , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
+                                { message = message
+                                , details = details
                                 , under = "(..)"
                                 }
                                 |> Review.Test.whenFixed """module A exposing (thing)
@@ -176,8 +186,8 @@ c = 2
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
                           , [ Review.Test.error
-                                { message = "Prefer listing what you wish to import and/or using qualified imports"
-                                , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
+                                { message = message
+                                , details = details
                                 , under = "(..)"
                                 }
                                 |> Review.Test.whenFixed """module A exposing (thing)
@@ -199,8 +209,8 @@ a = 1
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
                           , [ Review.Test.error
-                                { message = "Prefer listing what you wish to import and/or using qualified imports"
-                                , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
+                                { message = message
+                                , details = details
                                 , under = "(..)"
                                 }
                             ]
