@@ -9,6 +9,7 @@ module NoImportingEverything exposing (rule)
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.Range exposing (Range)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
@@ -63,12 +64,12 @@ rule exceptions =
 
 
 type alias Context =
-    ()
+    List Range
 
 
 initialContext : Context
 initialContext =
-    ()
+    []
 
 
 exceptionsToSet : List String -> Set (List String)
