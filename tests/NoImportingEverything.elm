@@ -60,7 +60,7 @@ elm-review --template jfmengels/elm-review-common/example --rules NoImportingEve
 -}
 rule : List String -> Rule
 rule exceptions =
-    Rule.newModuleRuleSchema "NoImportingEverything" initialContext
+    Rule.newModuleRuleSchemaUsingContextCreator "NoImportingEverything" initialContext
         |> Rule.withImportVisitor (importVisitor <| exceptionsToSet exceptions)
         |> Rule.withFinalModuleEvaluation finalEvaluation
         |> Rule.fromModuleRuleSchema
@@ -72,11 +72,14 @@ type alias Context =
     }
 
 
-initialContext : Context
+initialContext : Rule.ContextCreator () Context
 initialContext =
-    { imports = Dict.empty
-    , usedUnqualifiedImports = Dict.singleton [ "OtherModule" ] (Set.singleton "a")
-    }
+    Rule.initContextCreator
+        (\() ->
+            { imports = Dict.empty
+            , usedUnqualifiedImports = Dict.singleton [ "OtherModule" ] (Set.singleton "a")
+            }
+        )
 
 
 exceptionsToSet : List String -> Set (List String)
