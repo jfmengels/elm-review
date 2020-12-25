@@ -6,7 +6,7 @@ module NoImportingEverything exposing (rule)
 
 -}
 
-import Dict
+import Dict exposing (Dict)
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.ModuleName exposing (ModuleName)
@@ -67,13 +67,13 @@ rule exceptions =
 
 
 type alias Context =
-    { imports : List Range
+    { imports : Dict ModuleName Range
     }
 
 
 initialContext : Context
 initialContext =
-    { imports = []
+    { imports = Dict.empty
     }
 
 
@@ -90,7 +90,15 @@ exceptionsToSet exceptions =
 
 importVisitor : Set (List String) -> Node Import -> Context -> ( List nothing, Context )
 importVisitor exceptions node context =
-    if Set.member (node |> Node.value |> .moduleName |> Node.value) exceptions then
+    let
+        moduleName : ModuleName
+        moduleName =
+            node
+                |> Node.value
+                |> .moduleName
+                |> Node.value
+    in
+    if Set.member moduleName exceptions then
         ( [], context )
 
     else
@@ -100,7 +108,7 @@ importVisitor exceptions node context =
                 |> Maybe.map Node.value
         of
             Just (Exposing.All range) ->
-                ( [], { context | imports = range :: context.imports } )
+                ( [], { context | imports = Dict.insert moduleName range context.imports } )
 
             _ ->
                 ( [], context )
@@ -113,8 +121,6 @@ importVisitor exceptions node context =
 finalEvaluation : Context -> List (Error {})
 finalEvaluation context =
     context.imports
-        |> List.map (Tuple.pair [ "OtherModule" ])
-        |> Dict.fromList
         |> Dict.toList
         |> List.map
             (\( moduleName, range ) ->
