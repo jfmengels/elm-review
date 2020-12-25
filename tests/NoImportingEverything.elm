@@ -17,6 +17,7 @@ import Elm.Type
 import NoUnused.Patterns.NameVisitor as NameVisitor
 import Review.Fix as Fix exposing (Fix)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
+import Review.Project.Dependency
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
@@ -65,6 +66,7 @@ elm-review --template jfmengels/elm-review-common/example --rules NoImportingEve
 rule : List String -> Rule
 rule exceptions =
     Rule.newProjectRuleSchema "NoImportingEverything" ()
+        |> Rule.withDependenciesProjectVisitor dependenciesVisitor
         |> Rule.withModuleVisitor (moduleVisitor exceptions)
         |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModule
@@ -136,6 +138,15 @@ exceptionsToSet exceptions =
     exceptions
         |> List.map (String.split ".")
         |> Set.fromList
+
+
+
+-- DEPENDENCIES VISITOR
+
+
+dependenciesVisitor : Dict String Review.Project.Dependency.Dependency -> ProjectContext -> ( List nothing, ProjectContext )
+dependenciesVisitor dict projectContext =
+    ( [], projectContext )
 
 
 
