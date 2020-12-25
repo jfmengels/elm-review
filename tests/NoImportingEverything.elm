@@ -157,7 +157,7 @@ valueVisitor (Node range ( moduleName, name )) context =
                                 (\value ->
                                     case value of
                                         Just v ->
-                                            case Dict.get realModuleName (Dict.singleton realModuleName { unions = [] }) of
+                                            case Dict.get realModuleName (Dict.singleton realModuleName { unions = [ { name = "Custom", tags = [ ( "Variant", () ) ] } ] }) of
                                                 Just { unions } ->
                                                     case find (\union -> List.any (\( constructor, _ ) -> constructor == name) union.tags) unions of
                                                         Just union ->
@@ -249,7 +249,7 @@ finalEvaluation context =
 
 fixForModule : ImportData -> List Fix
 fixForModule importData =
-    if Set.isEmpty importData.used then
+    if Set.isEmpty importData.used && Set.isEmpty importData.importedCustomTypes then
         []
 
     else
@@ -258,6 +258,8 @@ fixForModule importData =
 
 expose : Set String -> Set String -> String
 expose importedCustomTypes used =
-    used
+    Set.union
+        (Set.map (\typeName -> typeName ++ "(..)") importedCustomTypes)
+        used
         |> Set.toList
         |> String.join ", "
