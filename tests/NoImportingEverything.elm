@@ -144,7 +144,7 @@ nameVisitor node context =
                         (\value ->
                             case value of
                                 Just v ->
-                                    Just v
+                                    Just { v | used = v.used }
 
                                 Nothing ->
                                     Nothing
