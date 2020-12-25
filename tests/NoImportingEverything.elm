@@ -151,29 +151,7 @@ valueVisitor (Node range ( moduleName, name )) context =
             case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
                 Just realModuleName ->
                     ( []
-                    , { context
-                        | imports =
-                            Dict.update realModuleName
-                                (\value ->
-                                    case value of
-                                        Just v ->
-                                            case Dict.get realModuleName (Dict.singleton realModuleName { unions = [ { name = "Custom", tags = [ ( "Variant", () ) ] } ] }) of
-                                                Just { unions } ->
-                                                    case find (\union -> List.any (\( constructor, _ ) -> constructor == name) union.tags) unions of
-                                                        Just union ->
-                                                            Just { v | importedCustomTypes = Set.insert union.name v.importedCustomTypes }
-
-                                                        Nothing ->
-                                                            Just { v | used = Set.insert name v.used }
-
-                                                Nothing ->
-                                                    Just { v | used = Set.insert name v.used }
-
-                                        Nothing ->
-                                            Nothing
-                                )
-                                context.imports
-                      }
+                    , { context | imports = Dict.update realModuleName (Maybe.map (registerUseOfValue realModuleName name)) context.imports }
                     )
 
                 Nothing ->
@@ -181,6 +159,21 @@ valueVisitor (Node range ( moduleName, name )) context =
 
         _ ->
             ( [], context )
+
+
+registerUseOfValue : ModuleName -> String -> ImportData -> ImportData
+registerUseOfValue moduleName name v =
+    case Dict.get moduleName (Dict.singleton moduleName { unions = [ { name = "Custom", tags = [ ( "Variant", () ) ] } ] }) of
+        Just { unions } ->
+            case find (\union -> List.any (\( constructor, _ ) -> constructor == name) union.tags) unions of
+                Just union ->
+                    { v | importedCustomTypes = Set.insert union.name v.importedCustomTypes }
+
+                Nothing ->
+                    { v | used = Set.insert name v.used }
+
+        Nothing ->
+            { v | used = Set.insert name v.used }
 
 
 find : (a -> Bool) -> List a -> Maybe a
