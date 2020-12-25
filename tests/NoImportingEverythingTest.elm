@@ -69,7 +69,7 @@ withModuleInformationTests =
             \_ ->
                 [ """module A exposing (thing)
 import OtherModule exposing (..)
-b = a
+thing = a
 """, """module OtherModule exposing (..)
 a = 1
 """ ]
@@ -83,7 +83,7 @@ a = 1
                                 }
                                 |> Review.Test.whenFixed """module A exposing (thing)
 import OtherModule exposing (a)
-b = a
+thing = a
 """
                             ]
                           )
@@ -92,7 +92,7 @@ b = a
             \_ ->
                 [ """module A exposing (thing)
 import OtherModule exposing (..)
-b = OtherModule.c a
+thing = OtherModule.c a
 """, """module OtherModule exposing (..)
 a = 1
 c = 2
@@ -107,7 +107,34 @@ c = 2
                                 }
                                 |> Review.Test.whenFixed """module A exposing (thing)
 import OtherModule exposing (a)
-b = OtherModule.c a
+thing = OtherModule.c a
+"""
+                            ]
+                          )
+                        ]
+        , test "should have the replacements sorted in alphabetical order" <|
+            \_ ->
+                [ """module A exposing (thing)
+import OtherModule exposing (..)
+thing = c foo Thing a C
+""", """module OtherModule exposing (..)
+type alias C = {}
+type alias Thing = {}
+foo = {}
+a = 1
+c = 2
+""" ]
+                    |> Review.Test.runOnModules (rule [])
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "A"
+                          , [ Review.Test.error
+                                { message = "Prefer listing what you wish to import and/or using qualified imports"
+                                , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
+                                , under = "(..)"
+                                }
+                                |> Review.Test.whenFixed """module A exposing (thing)
+import OtherModule exposing (C, Thing, a, c, foo)
+thing = c foo Thing a C
 """
                             ]
                           )
@@ -116,7 +143,7 @@ b = OtherModule.c a
             \_ ->
                 [ """module A exposing (thing)
 import OtherModule exposing (..)
-b = c
+thing = c
 """, """module OtherModule exposing (..)
 a = 1
 """ ]

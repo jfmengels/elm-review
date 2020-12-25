@@ -198,4 +198,11 @@ fixForModule importData =
         []
 
     else
-        [ Fix.replaceRangeBy importData.dotdot (importData.used |> Set.toList |> String.join ", ") ]
+        [ Fix.replaceRangeBy importData.dotdot (expose importData.used) ]
+
+
+expose : Set String -> String
+expose used =
+    used
+        |> Set.toList
+        |> String.join ", "
