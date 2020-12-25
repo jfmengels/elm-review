@@ -112,6 +112,54 @@ thing = OtherModule.c a
                             ]
                           )
                         ]
+        , test "should import a custom type's constructors when using one of the constructors" <|
+            \_ ->
+                [ """module A exposing (thing)
+import OtherModule exposing (..)
+thing = Variant
+""", """module OtherModule exposing (..)
+type Custom = Variant
+""" ]
+                    |> Review.Test.runOnModules (rule [])
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "A"
+                          , [ Review.Test.error
+                                { message = "Prefer listing what you wish to import and/or using qualified imports"
+                                , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
+                                , under = "(..)"
+                                }
+                                |> Review.Test.whenFixed """module A exposing (thing)
+import OtherModule exposing (Custom(..))
+thing = Variant
+"""
+                            ]
+                          )
+                        ]
+        , test "should only import type name when using a custom type but not its constructors" <|
+            \_ ->
+                [ """module A exposing (thing)
+import OtherModule exposing (..)
+thing : Custom
+thing = 1
+""", """module OtherModule exposing (..)
+type Custom = Variant
+""" ]
+                    |> Review.Test.runOnModules (rule [])
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "A"
+                          , [ Review.Test.error
+                                { message = "Prefer listing what you wish to import and/or using qualified imports"
+                                , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
+                                , under = "(..)"
+                                }
+                                |> Review.Test.whenFixed """module A exposing (thing)
+import OtherModule exposing (Custom)
+thing : Custom
+thing = 1
+"""
+                            ]
+                          )
+                        ]
         , test "should have the replacements sorted in alphabetical order" <|
             \_ ->
                 [ """module A exposing (thing)
