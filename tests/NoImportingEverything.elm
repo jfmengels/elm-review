@@ -71,7 +71,7 @@ rule exceptions =
 
 type alias Context =
     { lookupTable : ModuleNameLookupTable
-    , imports : Dict ModuleName Range
+    , imports : Dict ModuleName { dotdot : Range }
     , usedUnqualifiedImports : Dict ModuleName (Set String)
     }
 
@@ -119,7 +119,7 @@ importVisitor exceptions node context =
                 |> Maybe.map Node.value
         of
             Just (Exposing.All range) ->
-                ( [], { context | imports = Dict.insert moduleName range context.imports } )
+                ( [], { context | imports = Dict.insert moduleName { dotdot = range } context.imports } )
 
             _ ->
                 ( [], context )
@@ -148,23 +148,23 @@ finalEvaluation context =
     context.imports
         |> Dict.toList
         |> List.map
-            (\( moduleName, range ) ->
+            (\( moduleName, { dotdot } ) ->
                 Rule.errorWithFix
                     { message = "Prefer listing what you wish to import and/or using qualified imports"
                     , details = [ "When you import everything from a module it becomes harder to know where a function or a type comes from." ]
                     }
-                    { start = { row = range.start.row, column = range.start.column - 1 }
-                    , end = { row = range.end.row, column = range.end.column + 1 }
+                    { start = { row = dotdot.start.row, column = dotdot.start.column - 1 }
+                    , end = { row = dotdot.end.row, column = dotdot.end.column + 1 }
                     }
-                    (fixForModule context moduleName range)
+                    (fixForModule context moduleName dotdot)
             )
 
 
 fixForModule : Context -> ModuleName -> Range -> List Fix.Fix
-fixForModule context moduleName range =
+fixForModule context moduleName dotdot =
     case Dict.get moduleName context.usedUnqualifiedImports of
         Just things ->
-            [ Fix.replaceRangeBy range (things |> Set.toList |> String.join ", ") ]
+            [ Fix.replaceRangeBy dotdot (things |> Set.toList |> String.join ", ") ]
 
         Nothing ->
             []
