@@ -434,6 +434,10 @@ review rules project =
                                 moduleNameLookupTables =
                                     Maybe.map (\(Extract { lookupTables }) -> lookupTables) scopeResult.extract
 
+                                moduleAPIs : Maybe (Dict ModuleName Elm.Docs.Module)
+                                moduleAPIs =
+                                    Maybe.map (\(Extract { modules }) -> modules) scopeResult.extract
+
                                 projectWithLookupTable : Project
                                 projectWithLookupTable =
                                     let
