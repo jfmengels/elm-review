@@ -4747,8 +4747,9 @@ registerExposedValue function name innerContext =
 registerExposedCustomType : List (Node Elm.Syntax.Type.ValueConstructor) -> String -> ScopeModuleContext -> ScopeModuleContext
 registerExposedCustomType constructors name innerContext =
     if innerContext.exposesEverything || Dict.member name innerContext.exposedNames then
-        { innerContext
-            | exposedUnions =
+        let
+            customType : Elm.Docs.Union
+            customType =
                 { name = name
                 , comment = ""
 
@@ -4773,8 +4774,8 @@ registerExposedCustomType constructors name innerContext =
                     else
                         []
                 }
-                    :: innerContext.exposedUnions
-        }
+        in
+        { innerContext | exposedUnions = customType :: innerContext.exposedUnions }
 
     else
         innerContext
