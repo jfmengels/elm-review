@@ -3691,6 +3691,11 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                         , isInSourceDirectories = module_.isInSourceDirectories
                         }
 
+                importedModuleNames : Set ModuleName
+                importedModuleNames =
+                    Review.Project.Internal.importedModuleNames module_
+                        |> Set.fromList
+
                 availableData : AvailableData
                 availableData =
                     { metadata = metadata
@@ -3698,7 +3703,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                     , moduleNameLookupTable =
                         Dict.get (Review.Project.Internal.getModuleName module_) moduleNameLookupTables
                             |> Maybe.withDefault ModuleNameLookupTableInternal.empty
-                    , importedModulesAPI = moduleAPIs
+                    , importedModulesAPI = Dict.filter (\moduleName _ -> Set.member moduleName importedModuleNames) moduleAPIs
                     }
 
                 initialModuleContext : moduleContext

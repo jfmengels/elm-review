@@ -3,6 +3,7 @@ module Review.Project.Internal exposing
     , ProjectModule
     , buildModuleGraph
     , getModuleName
+    , importedModuleNames
     , moduleAPIs
     , moduleGraph
     , moduleNameLookupTables
@@ -136,7 +137,7 @@ nodesAndEdges getModuleId module_ moduleId =
             getModuleName module_
     in
     ( Graph.Node moduleId moduleName
-    , importedModules module_
+    , importedModuleNames module_
         |> List.filterMap getModuleId
         |> List.map
             (\importedModuleId ->
@@ -145,8 +146,8 @@ nodesAndEdges getModuleId module_ moduleId =
     )
 
 
-importedModules : ProjectModule -> List ModuleName
-importedModules module_ =
+importedModuleNames : ProjectModule -> List ModuleName
+importedModuleNames module_ =
     module_.ast.imports
         |> List.map (Node.value >> .moduleName >> Node.value)
 
