@@ -13,11 +13,9 @@ import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
-import Elm.Type
 import NoUnused.Patterns.NameVisitor as NameVisitor
 import Review.Fix as Fix exposing (Fix)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
-import Review.Project.Dependency
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
@@ -65,30 +63,22 @@ elm-review --template jfmengels/elm-review-common/example --rules NoImportingEve
 -}
 rule : List String -> Rule
 rule exceptions =
-    Rule.newProjectRuleSchema "NoImportingEverything" ()
-        |> Rule.withDependenciesProjectVisitor dependenciesVisitor
-        |> Rule.withModuleVisitor (moduleVisitor exceptions)
-        |> Rule.withModuleContextUsingContextCreator
-            { fromProjectToModule = fromProjectToModule
-            , fromModuleToProject = fromModuleToProject
-            , foldProjectContexts = \_ previousContext -> previousContext
-            }
-        |> Rule.fromProjectRuleSchema
+    Rule.newModuleRuleSchemaUsingContextCreator "NoImportingEverything" initialContext
+        |> Rule.withImportVisitor (importVisitor <| exceptionsToSet exceptions)
+        |> NameVisitor.withValueAndTypeVisitors { valueVisitor = valueVisitor, typeVisitor = typeVisitor }
+        |> Rule.withFinalModuleEvaluation finalEvaluation
+        |> Rule.fromModuleRuleSchema
 
 
-type alias ProjectContext =
-    ()
-
-
-type alias ModuleContext =
+type alias Context =
     { lookupTable : ModuleNameLookupTable
     , imports : Dict ModuleName ImportData
     , importedModulesAPI : Dict ModuleName Module
     }
 
 
-fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
-fromProjectToModule =
+initialContext : Rule.ContextCreator () Context
+initialContext =
     Rule.initContextCreator
         (\lookupTable importedModulesAPI () ->
             { lookupTable = lookupTable
@@ -100,42 +90,11 @@ fromProjectToModule =
         |> Rule.withImportedModulesAPI
 
 
-fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
-fromModuleToProject =
-    Rule.initContextCreator (always ())
-
-
-moduleVisitor : List String -> Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
-moduleVisitor exceptions schema =
-    schema
-        |> Rule.withImportVisitor (importVisitor <| exceptionsToSet exceptions)
-        |> NameVisitor.withValueAndTypeVisitors { valueVisitor = valueVisitor, typeVisitor = typeVisitor }
-        |> Rule.withFinalModuleEvaluation finalEvaluation
-
-
 type alias ImportData =
     { dotdot : Range
     , used : Set String
     , importedCustomTypes : Set String
     }
-
-
-
--- DEPENDENCIES VISITOR
-
-
-dependenciesVisitor : Dict String Review.Project.Dependency.Dependency -> ProjectContext -> ( List nothing, ProjectContext )
-dependenciesVisitor dict projectContext =
-    let
-        dependencyModules : Dict ModuleName Module
-        dependencyModules =
-            dict
-                |> Dict.values
-                |> List.concatMap Review.Project.Dependency.modules
-                |> List.map (\module_ -> ( String.split "." module_.name, module_ ))
-                |> Dict.fromList
-    in
-    ( [], projectContext )
 
 
 
@@ -149,7 +108,7 @@ exceptionsToSet exceptions =
         |> Set.fromList
 
 
-importVisitor : Set (List String) -> Node Import -> ModuleContext -> ( List nothing, ModuleContext )
+importVisitor : Set (List String) -> Node Import -> Context -> ( List nothing, Context )
 importVisitor exceptions node context =
     let
         moduleName : ModuleName
@@ -189,7 +148,7 @@ importVisitor exceptions node context =
 -- NAME VISITOR
 
 
-valueVisitor : Node ( ModuleName, String ) -> ModuleContext -> ( List nothing, ModuleContext )
+valueVisitor : Node ( ModuleName, String ) -> Context -> ( List nothing, Context )
 valueVisitor (Node range ( moduleName, name )) context =
     case moduleName of
         [] ->
@@ -235,7 +194,7 @@ find predicate list =
                 find predicate rest
 
 
-typeVisitor : Node ( ModuleName, String ) -> ModuleContext -> ( List nothing, ModuleContext )
+typeVisitor : Node ( ModuleName, String ) -> Context -> ( List nothing, Context )
 typeVisitor (Node range ( moduleName, name )) context =
     case moduleName of
         [] ->
@@ -268,7 +227,7 @@ typeVisitor (Node range ( moduleName, name )) context =
 -- FINAL EVALUATION
 
 
-finalEvaluation : ModuleContext -> List (Error {})
+finalEvaluation : Context -> List (Error {})
 finalEvaluation context =
     context.imports
         |> Dict.values
