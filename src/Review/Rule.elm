@@ -1054,7 +1054,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     requestedData
 
                 Nothing ->
-                    RequestedData { metadata = False, moduleNameLookupTable = False }
+                    RequestedData { metadata = False, moduleNameLookupTable = False, importedModulesAPI = False }
         , ruleImplementation =
             \exceptions project nodeContexts ->
                 let
@@ -1096,7 +1096,7 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
                 requestedData
 
             Nothing ->
-                RequestedData { metadata = False, moduleNameLookupTable = False }
+                RequestedData { metadata = False, moduleNameLookupTable = False, importedModulesAPI = False }
     }
 
 
@@ -4101,6 +4101,7 @@ type RequestedData
     = RequestedData
         { metadata : Bool
         , moduleNameLookupTable : Bool
+        , importedModulesAPI : Bool
         }
 
 
@@ -4126,6 +4127,7 @@ initContextCreator fromProjectToModule =
         (RequestedData
             { metadata = False
             , moduleNameLookupTable = False
+            , importedModulesAPI = False
             }
         )
 
@@ -4225,7 +4227,7 @@ withImportedModulesAPI : ContextCreator (Dict k v) (from -> to) -> ContextCreato
 withImportedModulesAPI (ContextCreator fn (RequestedData requested)) =
     ContextCreator
         (\data -> fn data Dict.empty)
-        (RequestedData { requested | moduleNameLookupTable = True })
+        (RequestedData { requested | importedModulesAPI = True })
 
 
 {-| Request the [module key](ModuleKey) for this module.
