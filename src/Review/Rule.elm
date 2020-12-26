@@ -3634,6 +3634,10 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
         moduleNameLookupTables =
             Review.Project.Internal.moduleNameLookupTables project
 
+        moduleAPIs : Dict ModuleName Elm.Docs.Module
+        moduleAPIs =
+            Review.Project.Internal.moduleAPIs project
+
         modulesToAnalyze : List ProjectModule
         modulesToAnalyze =
             case projectVisitor.traversalAndFolder of
