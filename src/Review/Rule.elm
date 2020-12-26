@@ -629,7 +629,7 @@ needsToComputeScope rules =
                 (RequestedData requestedData_) =
                     requestedData
             in
-            requestedData_.moduleNameLookupTable
+            requestedData_.moduleNameLookupTable || requestedData_.importedModulesAPI
         )
         rules
 
