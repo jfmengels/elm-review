@@ -113,7 +113,7 @@ Tuple
 import A
 a = 1
 """
-                , """module A exposing (b, increment)
+                , """module A exposing (b, increment, noType)
 
 b : Int
 b = 1
@@ -123,6 +123,8 @@ hidden = 1
 {-| Some comment -}
 increment : List Int -> Int
 increment int = int + 1
+
+noType = 1
 """
                 ]
                     |> Review.Test.runOnModulesWithProjectData project
@@ -137,6 +139,7 @@ increment int = int + 1
                         [ ( "Target"
                           , [ Review.Test.error
                                 { message = String.trim """
+{ comment = "", name = "noType", tipe = Tuple [] }
 { comment = "{-| Some comment -}", name = "increment", tipe = Lambda (Type "List.List" [Type "Basics.Int" []]) (Type "Basics.Int" []) }
 { comment = "", name = "b", tipe = Type "Basics.Int" [] }
 """
