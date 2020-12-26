@@ -78,6 +78,7 @@ new =
         , moduleGraph = Nothing
         , sourceDirectories = [ "src/" ]
         , moduleNameLookupTables = Nothing
+        , moduleAPIs = Nothing
         }
 
 

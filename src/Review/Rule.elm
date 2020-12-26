@@ -444,7 +444,11 @@ review rules project =
                                         (Project p) =
                                             project
                                     in
-                                    Project { p | moduleNameLookupTables = moduleNameLookupTables }
+                                    Project
+                                        { p
+                                            | moduleNameLookupTables = moduleNameLookupTables
+                                            , moduleAPIs = moduleAPIs
+                                        }
                             in
                             if not (List.isEmpty scopeResult.errors) then
                                 ( List.map errorToReviewError scopeResult.errors, rules )
