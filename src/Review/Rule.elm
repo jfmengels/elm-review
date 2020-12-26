@@ -3698,9 +3698,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                     , moduleNameLookupTable =
                         Dict.get (Review.Project.Internal.getModuleName module_) moduleNameLookupTables
                             |> Maybe.withDefault ModuleNameLookupTableInternal.empty
-
-                    -- TODO
-                    , importedModulesAPI = Dict.empty
+                    , importedModulesAPI = moduleAPIs
                     }
 
                 initialModuleContext : moduleContext
