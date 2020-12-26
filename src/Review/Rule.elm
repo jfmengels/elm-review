@@ -4791,7 +4791,7 @@ convertTypeSignatureToDocsType innerContext maybeSignature =
             syntaxTypeAnnotationToDocsType innerContext typeAnnotation
 
         Nothing ->
-            Elm.Type.Tuple []
+            Elm.Type.Var "unknown"
 
 
 syntaxTypeAnnotationToDocsType : ScopeModuleContext -> Node TypeAnnotation -> Elm.Type.Type
