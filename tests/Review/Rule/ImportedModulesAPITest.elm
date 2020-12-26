@@ -170,7 +170,7 @@ type Complex a
                         [ ( "Target"
                           , [ Review.Test.error
                                 { message = String.trim """
-{ args = [], comment = "", name = "Complex", tags = [("A",[]),("B",[])] }
+{ args = [], comment = "", name = "Complex", tags = [("A",[Type "Basics.Int" [],Type "List.List" [Type "Basics.Int" []]]),("B",[Var "a"])] }
 { args = [], comment = "", name = "Exposed", tags = [("ExposedConstructor",[])] }
 { args = [], comment = "", name = "Opaque", tags = [("Opaque",[])] }
 """
