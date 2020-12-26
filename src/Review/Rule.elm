@@ -1607,7 +1607,10 @@ withFinalProjectEvaluation visitor (ProjectRuleSchema schema) =
 
 
 type Extract
-    = Extract { lookupTables : Dict ModuleName ModuleNameLookupTable }
+    = Extract
+        { lookupTables : Dict ModuleName ModuleNameLookupTable
+        , modules : Dict ModuleName Elm.Docs.Module
+        }
 
 
 withDataExtractor :
@@ -4319,7 +4322,13 @@ scopeRule =
             , fromModuleToProject = scope_fromModuleToProject
             , foldProjectContexts = scope_foldProjectContexts
             }
-        |> withDataExtractor (\projectContext -> Extract { lookupTables = projectContext.lookupTables })
+        |> withDataExtractor
+            (\projectContext ->
+                Extract
+                    { lookupTables = projectContext.lookupTables
+                    , modules = Dict.union projectContext.dependenciesModules projectContext.modules
+                    }
+            )
         |> fromProjectRuleSchemaToRunnableProjectVisitor
 
 
