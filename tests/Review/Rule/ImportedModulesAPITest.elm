@@ -139,7 +139,7 @@ noType = 1
                         [ ( "Target"
                           , [ Review.Test.error
                                 { message = String.trim """
-{ comment = "", name = "noType", tipe = Tuple [] }
+{ comment = "", name = "noType", tipe = Var "unknown" }
 { comment = "{-| Some comment -}", name = "increment", tipe = Lambda (Type "List.List" [Type "Basics.Int" []]) (Type "Basics.Int" []) }
 { comment = "", name = "b", tipe = Type "Basics.Int" [] }
 """
