@@ -140,6 +140,46 @@ noType = 1
                             ]
                           )
                         ]
+        , test "should be able to list all the custom types from a module" <|
+            \() ->
+                [ targetModule
+                , """module A exposing (Opaque, Exposed(..), Complex(..))
+type Opaque = Opaque
+
+type Hidden = Hidden
+type alias TypeAlias = {}
+
+{-| Some comment -}
+type Exposed
+    = ExposedConstructor
+
+type Complex a
+    = A Int (List Int)
+    | B a
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData project
+                        (rule
+                            (\dict ->
+                                Dict.get [ "A" ] dict
+                                    |> Maybe.map (.unions >> List.map Debug.toString >> String.join "\n")
+                                    |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
+                            )
+                        )
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Target"
+                          , [ Review.Test.error
+                                { message = String.trim """
+{ args = [], comment = "", name = "Complex", tags = [("A",[]),("B",[])] }
+{ args = [], comment = "", name = "Exposed", tags = [("ExposedConstructor",[])] }
+{ args = [], comment = "", name = "Opaque", tags = [("Opaque",[])] }
+"""
+                                , details = [ "details" ]
+                                , under = "module"
+                                }
+                            ]
+                          )
+                        ]
         ]
 
 
