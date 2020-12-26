@@ -77,8 +77,8 @@ new =
         , dependencies = Dict.empty
         , moduleGraph = Nothing
         , sourceDirectories = [ "src/" ]
-        , moduleNameLookupTables = Nothing
-        , moduleAPIs = Nothing
+        , moduleNameLookupTables = Dict.empty
+        , moduleAPIs = Dict.empty
         }
 
 
