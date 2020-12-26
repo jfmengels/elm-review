@@ -17,6 +17,7 @@ module Review.Rule exposing
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review, reviewV2, ProjectData, ruleName
     , Required, Forbidden
+    , withImportedModulesAPI
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -4215,6 +4216,16 @@ withModuleNameLookupTable : ContextCreator ModuleNameLookupTable (from -> to) ->
 withModuleNameLookupTable (ContextCreator fn (RequestedData requested)) =
     ContextCreator
         (\data -> fn data data.moduleNameLookupTable)
+        (RequestedData { requested | moduleNameLookupTable = True })
+
+
+{-| TODO
+-}
+withImportedModulesAPI : ContextCreator {} (from -> to) -> ContextCreator from to
+withImportedModulesAPI (ContextCreator fn (RequestedData requested)) =
+    ContextCreator
+        (\data -> fn data {})
+        --data.thing)
         (RequestedData { requested | moduleNameLookupTable = True })
 
 
