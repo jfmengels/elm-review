@@ -3693,8 +3693,14 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
 
                 importedModuleNames : Set ModuleName
                 importedModuleNames =
-                    Review.Project.Internal.importedModuleNames module_
-                        |> Set.fromList
+                    Set.union
+                        (Review.Project.Internal.importedModuleNames module_
+                            |> Set.fromList
+                        )
+                        (elmCorePrelude
+                            |> List.map (.moduleName >> Node.value)
+                            |> Set.fromList
+                        )
 
                 availableData : AvailableData
                 availableData =
