@@ -3,6 +3,7 @@ module Review.Project.Internal exposing
     , ProjectModule
     , buildModuleGraph
     , getModuleName
+    , moduleAPIs
     , moduleGraph
     , moduleNameLookupTables
     , sourceDirectories
@@ -72,6 +73,11 @@ moduleGraph (Project project) =
 moduleNameLookupTables : Project -> Dict ModuleName ModuleNameLookupTable
 moduleNameLookupTables (Project project) =
     project.moduleNameLookupTables
+
+
+moduleAPIs : Project -> Dict ModuleName Elm.Docs.Module
+moduleAPIs (Project project) =
+    project.moduleAPIs
 
 
 sourceDirectories : Project -> List String
