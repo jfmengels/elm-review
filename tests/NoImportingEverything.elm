@@ -65,7 +65,7 @@ elm-review --template jfmengels/elm-review-common/example --rules NoImportingEve
 -}
 rule : List String -> Rule
 rule exceptions =
-    Rule.newProjectRuleSchema "NoImportingEverything" Dict.empty
+    Rule.newProjectRuleSchema "NoImportingEverything" ()
         |> Rule.withDependenciesProjectVisitor dependenciesVisitor
         |> Rule.withModuleVisitor (moduleVisitor exceptions)
         |> Rule.withModuleContextUsingContextCreator
@@ -77,7 +77,7 @@ rule exceptions =
 
 
 type alias ProjectContext =
-    Dict ModuleName Module
+    ()
 
 
 type alias ModuleContext =
@@ -90,7 +90,7 @@ type alias ModuleContext =
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable importedModulesAPI _ ->
+        (\lookupTable importedModulesAPI () ->
             { lookupTable = lookupTable
             , imports = Dict.empty
             , importedModulesAPI = importedModulesAPI
@@ -102,7 +102,7 @@ fromProjectToModule =
 
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
-    Rule.initContextCreator (\_ -> Dict.empty)
+    Rule.initContextCreator (always ())
 
 
 moduleVisitor : List String -> Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
