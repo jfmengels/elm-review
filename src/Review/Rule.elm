@@ -4748,6 +4748,26 @@ registerExposedCustomType : List (Node Elm.Syntax.Type.ValueConstructor) -> Stri
 registerExposedCustomType constructors name innerContext =
     if innerContext.exposesEverything || Dict.member name innerContext.exposedNames then
         let
+            tags : List ( String, List Elm.Type.Type )
+            tags =
+                let
+                    exposesConstructors =
+                        True
+                in
+                if exposesConstructors then
+                    List.map
+                        (Node.value
+                            >> (\constructor ->
+                                    ( Node.value constructor.name
+                                    , List.map (syntaxTypeAnnotationToDocsType innerContext) constructor.arguments
+                                    )
+                               )
+                        )
+                        constructors
+
+                else
+                    []
+
             customType : Elm.Docs.Union
             customType =
                 { name = name
@@ -4755,24 +4775,7 @@ registerExposedCustomType constructors name innerContext =
 
                 -- TODO
                 , args = []
-                , tags =
-                    let
-                        exposesConstructors =
-                            True
-                    in
-                    if exposesConstructors then
-                        List.map
-                            (Node.value
-                                >> (\constructor ->
-                                        ( Node.value constructor.name
-                                        , List.map (syntaxTypeAnnotationToDocsType innerContext) constructor.arguments
-                                        )
-                                   )
-                            )
-                            constructors
-
-                    else
-                        []
+                , tags = tags
                 }
         in
         { innerContext | exposedUnions = customType :: innerContext.exposedUnions }
