@@ -1124,6 +1124,7 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
                             }
                     , moduleKey = ModuleKey "dummy"
                     , moduleNameLookupTable = ModuleNameLookupTableInternal.empty
+                    , importedModulesAPI = Dict.empty
                     }
 
                 initialModuleContext : moduleContext
@@ -3670,6 +3671,9 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                     , moduleNameLookupTable =
                         Dict.get (Review.Project.Internal.getModuleName module_) moduleNameLookupTables
                             |> Maybe.withDefault ModuleNameLookupTableInternal.empty
+
+                    -- TODO
+                    , importedModulesAPI = Dict.empty
                     }
 
                 initialModuleContext : moduleContext
@@ -4223,10 +4227,10 @@ withModuleNameLookupTable (ContextCreator fn (RequestedData requested)) =
 
 {-| TODO
 -}
-withImportedModulesAPI : ContextCreator (Dict k v) (from -> to) -> ContextCreator from to
+withImportedModulesAPI : ContextCreator (Dict ModuleName Elm.Docs.Module) (from -> to) -> ContextCreator from to
 withImportedModulesAPI (ContextCreator fn (RequestedData requested)) =
     ContextCreator
-        (\data -> fn data Dict.empty)
+        (\data -> fn data data.importedModulesAPI)
         (RequestedData { requested | importedModulesAPI = True })
 
 
@@ -4253,6 +4257,7 @@ type alias AvailableData =
     { metadata : Metadata
     , moduleKey : ModuleKey
     , moduleNameLookupTable : ModuleNameLookupTable
+    , importedModulesAPI : Dict ModuleName Elm.Docs.Module
     }
 
 
@@ -4319,7 +4324,7 @@ scopeRule =
 
 
 type alias ScopeProjectContext =
-    { dependenciesModules : Dict String Elm.Docs.Module
+    { dependenciesModules : Dict ModuleName Elm.Docs.Module
     , modules : Dict ModuleName Elm.Docs.Module
     , lookupTables : Dict ModuleName ModuleNameLookupTable
     }
@@ -4331,7 +4336,7 @@ type alias ScopeModuleContext =
     , importAliases : Dict String (List ModuleName)
     , importedFunctions : Dict String (List String)
     , importedTypes : Dict String (List String)
-    , dependenciesModules : Dict String Elm.Docs.Module
+    , dependenciesModules : Dict ModuleName Elm.Docs.Module
     , modules : Dict ModuleName Elm.Docs.Module
     , exposesEverything : Bool
     , exposedNames : Dict String Range
@@ -4464,15 +4469,15 @@ scope_pairWithNoErrors fn visited context =
 -- DEPENDENCIES
 
 
-scope_internalDependenciesVisitor : Dict String Dependency -> { context | dependenciesModules : Dict String Elm.Docs.Module } -> { context | dependenciesModules : Dict String Elm.Docs.Module }
+scope_internalDependenciesVisitor : Dict String Dependency -> ScopeProjectContext -> ScopeProjectContext
 scope_internalDependenciesVisitor dependencies innerContext =
     let
-        dependenciesModules : Dict String Elm.Docs.Module
+        dependenciesModules : Dict ModuleName Elm.Docs.Module
         dependenciesModules =
             dependencies
                 |> Dict.values
                 |> List.concatMap Review.Project.Dependency.modules
-                |> List.map (\dependencyModule -> ( dependencyModule.name, dependencyModule ))
+                |> List.map (\dependencyModule -> ( String.split "." dependencyModule.name, dependencyModule ))
                 |> Dict.fromList
     in
     { innerContext | dependenciesModules = dependenciesModules }
@@ -4894,7 +4899,7 @@ registerImportExposed import_ innerContext =
 
                 module_ : Elm.Docs.Module
                 module_ =
-                    (case Dict.get (joinModuleName moduleName) innerContext.dependenciesModules of
+                    (case Dict.get moduleName innerContext.dependenciesModules of
                         Just m ->
                             Just m
 
@@ -5427,7 +5432,7 @@ moduleNameForValue context valueName moduleName =
                                         isValueDeclaredInModule valueName module_
 
                                     Nothing ->
-                                        case Dict.get (joinModuleName aliasedModuleName) context.dependenciesModules of
+                                        case Dict.get aliasedModuleName context.dependenciesModules of
                                             Just module_ ->
                                                 isValueDeclaredInModule valueName module_
 
@@ -5482,7 +5487,7 @@ moduleNameForType context typeName moduleName =
                                         isTypeDeclaredInModule typeName module_
 
                                     Nothing ->
-                                        case Dict.get (joinModuleName aliasedModuleName) context.dependenciesModules of
+                                        case Dict.get aliasedModuleName context.dependenciesModules of
                                             Just module_ ->
                                                 isTypeDeclaredInModule typeName module_
 
