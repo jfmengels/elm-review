@@ -4221,11 +4221,10 @@ withModuleNameLookupTable (ContextCreator fn (RequestedData requested)) =
 
 {-| TODO
 -}
-withImportedModulesAPI : ContextCreator {} (from -> to) -> ContextCreator from to
+withImportedModulesAPI : ContextCreator (Dict k v) (from -> to) -> ContextCreator from to
 withImportedModulesAPI (ContextCreator fn (RequestedData requested)) =
     ContextCreator
-        (\data -> fn data {})
-        --data.thing)
+        (\data -> fn data Dict.empty)
         (RequestedData { requested | moduleNameLookupTable = True })
 
 
