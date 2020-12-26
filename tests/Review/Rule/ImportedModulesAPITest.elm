@@ -12,22 +12,17 @@ import Review.Test
 import Test exposing (Test, test)
 
 
-rule : Rule
-rule =
+rule : (Dict ModuleName Elm.Docs.Module -> String) -> Rule
+rule whatToPrint =
     Rule.newModuleRuleSchemaUsingContextCreator "ImportedModulesAPITest" initialContext
-        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
+        |> Rule.withModuleDefinitionVisitor (moduleDefinitionVisitor whatToPrint)
         |> Rule.fromModuleRuleSchema
 
 
-moduleDefinitionVisitor : Node Module -> Context -> ( List (Error {}), Context )
-moduleDefinitionVisitor node context =
+moduleDefinitionVisitor : (Dict ModuleName Elm.Docs.Module -> String) -> Node Module -> Context -> ( List (Error {}), Context )
+moduleDefinitionVisitor whatToPrint node context =
     if Elm.Syntax.Module.moduleName (Node.value node) == [ "Target" ] then
-        let
-            message : String
-            message =
-                Dict.keys context |> List.map (String.join ".") |> String.join "\n"
-        in
-        ( [ Rule.error { message = message, details = [ "details" ] }
+        ( [ Rule.error { message = whatToPrint context, details = [ "details" ] }
                 { start = { row = 1, column = 1 }
                 , end = { row = 1, column = 7 }
                 }
@@ -65,7 +60,7 @@ a = 1
 b = 1
 """
                 ]
-                    |> Review.Test.runOnModules rule
+                    |> Review.Test.runOnModules (rule (\dict -> Dict.keys dict |> List.map (String.join ".") |> String.join "\n"))
                     |> Review.Test.expectErrorsForModules
                         [ ( "Target"
                           , [ Review.Test.error
@@ -88,7 +83,7 @@ a = 1
 b = 1
 """
                 ]
-                    |> Review.Test.runOnModulesWithProjectData project rule
+                    |> Review.Test.runOnModulesWithProjectData project (rule (\dict -> Dict.keys dict |> List.map (String.join ".") |> String.join "\n"))
                     |> Review.Test.expectErrorsForModules
                         [ ( "Target"
                           , [ Review.Test.error
