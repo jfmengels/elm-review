@@ -430,13 +430,15 @@ review rules project =
                                         project
                                         nodeContexts
 
-                                moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
+                                moduleNameLookupTables : Dict ModuleName ModuleNameLookupTable
                                 moduleNameLookupTables =
                                     Maybe.map (\(Extract { lookupTables }) -> lookupTables) scopeResult.extract
+                                        |> Maybe.withDefault Dict.empty
 
-                                moduleAPIs : Maybe (Dict ModuleName Elm.Docs.Module)
+                                moduleAPIs : Dict ModuleName Elm.Docs.Module
                                 moduleAPIs =
                                     Maybe.map (\(Extract { modules }) -> modules) scopeResult.extract
+                                        |> Maybe.withDefault Dict.empty
 
                                 projectWithLookupTable : Project
                                 projectWithLookupTable =
@@ -600,13 +602,23 @@ runReview ((Project p) as project) rules maybeProjectData nodeContexts =
                 , extract = Nothing
                 }
 
-        moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
+        moduleNameLookupTables : Dict ModuleName ModuleNameLookupTable
         moduleNameLookupTables =
             Maybe.map (\(Extract { lookupTables }) -> lookupTables) scopeResult.extract
+                |> Maybe.withDefault Dict.empty
+
+        moduleAPIs : Dict ModuleName Elm.Docs.Module
+        moduleAPIs =
+            Maybe.map (\(Extract { modules }) -> modules) scopeResult.extract
+                |> Maybe.withDefault Dict.empty
 
         projectWithLookupTables : Project
         projectWithLookupTables =
-            Project { p | moduleNameLookupTables = moduleNameLookupTables }
+            Project
+                { p
+                    | moduleNameLookupTables = moduleNameLookupTables
+                    , moduleAPIs = moduleAPIs
+                }
     in
     let
         ( errors, newRules ) =

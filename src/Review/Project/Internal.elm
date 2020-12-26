@@ -33,8 +33,8 @@ type Project
         , dependencies : Dict String Dependency
         , moduleGraph : Maybe (Graph ModuleName ())
         , sourceDirectories : List String
-        , moduleAPIs : Maybe (Dict ModuleName Elm.Docs.Module)
-        , moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
+        , moduleAPIs : Dict ModuleName Elm.Docs.Module
+        , moduleNameLookupTables : Dict ModuleName ModuleNameLookupTable
         }
 
 
@@ -71,7 +71,7 @@ moduleGraph (Project project) =
 
 moduleNameLookupTables : Project -> Dict ModuleName ModuleNameLookupTable
 moduleNameLookupTables (Project project) =
-    Maybe.withDefault Dict.empty project.moduleNameLookupTables
+    project.moduleNameLookupTables
 
 
 sourceDirectories : Project -> List String
