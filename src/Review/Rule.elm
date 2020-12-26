@@ -4756,7 +4756,7 @@ registerExposedCustomType constructors name innerContext =
             , tags =
                 constructors
                     -- TODO Constructor args?
-                    |> List.map (\constructor -> ( Node.value (Node.value constructor).name, [] ))
+                    |> List.map (Node.value >> (\constructor -> ( Node.value constructor.name, [] )))
             }
                 :: innerContext.exposedUnions
     }
