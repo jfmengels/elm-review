@@ -4786,7 +4786,7 @@ registerIfExposed registerFn name innerContext =
 
 convertTypeSignatureToDocsType : ScopeModuleContext -> Maybe (Node Signature) -> Elm.Type.Type
 convertTypeSignatureToDocsType innerContext maybeSignature =
-    case maybeSignature |> Maybe.map (Node.value >> .typeAnnotation) of
+    case Maybe.map (Node.value >> .typeAnnotation) maybeSignature of
         Just typeAnnotation ->
             syntaxTypeAnnotationToDocsType innerContext typeAnnotation
 
