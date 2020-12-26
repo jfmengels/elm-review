@@ -52,10 +52,7 @@ all =
     Test.describe "Imported modules API"
         [ test "should import the list of imported modules API we have, excluding those from the dependencies if we don't have them" <|
             \() ->
-                [ """module Target exposing (..)
-import A
-a = 1
-"""
+                [ targetModule
                 , """module A exposing (..)
 b = 1
 """
@@ -75,10 +72,7 @@ A
                         ]
         , test "should import the list of imported modules API we have, including those from the prelude" <|
             \() ->
-                [ """module Target exposing (..)
-import A
-a = 1
-"""
+                [ targetModule
                 , """module A exposing (..)
 b = 1
 """
@@ -109,10 +103,7 @@ Tuple
                         ]
         , test "should be able to list all the exposed functions from a module" <|
             \() ->
-                [ """module Target exposing (..)
-import A
-a = 1
-"""
+                [ targetModule
                 , """module A exposing (b, increment, noType)
 
 b : Int
@@ -150,6 +141,14 @@ noType = 1
                           )
                         ]
         ]
+
+
+targetModule : String
+targetModule =
+    """module Target exposing (..)
+import A
+a = 1
+"""
 
 
 project : Project
