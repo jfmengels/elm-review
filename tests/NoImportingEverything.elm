@@ -83,20 +83,21 @@ type alias ProjectContext =
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
     , imports : Dict ModuleName ImportData
-    , knownModules : Dict ModuleName Module
+    , importedModulesAPI : Dict ModuleName Module
     }
 
 
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable knownModules ->
+        (\lookupTable importedModulesAPI _ ->
             { lookupTable = lookupTable
             , imports = Dict.empty
-            , knownModules = knownModules
+            , importedModulesAPI = importedModulesAPI
             }
         )
         |> Rule.withModuleNameLookupTable
+        |> Rule.withImportedModulesAPI
 
 
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
@@ -195,7 +196,7 @@ valueVisitor (Node range ( moduleName, name )) context =
             case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
                 Just realModuleName ->
                     ( []
-                    , { context | imports = Dict.update realModuleName (Maybe.map (registerUseOfValue context.knownModules realModuleName name)) context.imports }
+                    , { context | imports = Dict.update realModuleName (Maybe.map (registerUseOfValue context.importedModulesAPI realModuleName name)) context.imports }
                     )
 
                 Nothing ->
@@ -206,8 +207,8 @@ valueVisitor (Node range ( moduleName, name )) context =
 
 
 registerUseOfValue : Dict ModuleName Module -> ModuleName -> String -> ImportData -> ImportData
-registerUseOfValue knownModules moduleName name v =
-    case Dict.get moduleName knownModules of
+registerUseOfValue importedModulesAPI moduleName name v =
+    case Dict.get moduleName importedModulesAPI of
         Just { unions } ->
             case find (\union -> List.any (\( constructor, _ ) -> constructor == name) union.tags) unions of
                 Just union ->
