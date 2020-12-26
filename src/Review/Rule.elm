@@ -4695,7 +4695,7 @@ scope_registerDeclaration declaration innerContext =
                 )
                 { innerContext | localTypes = Set.insert (Node.value name) innerContext.localTypes }
                 constructors
-                |> registerCustomTypeIfExposed (registerExposedCustomType constructors) (Node.value name)
+                |> registerExposedCustomType constructors (Node.value name)
 
         Declaration.PortDeclaration signature ->
             innerContext
@@ -4744,32 +4744,40 @@ registerExposedValue function name innerContext =
     }
 
 
-registerExposedCustomType : List (Node Elm.Syntax.Type.ValueConstructor) -> Bool -> String -> ScopeModuleContext -> ScopeModuleContext
-registerExposedCustomType constructors exposesConstructors name innerContext =
-    { innerContext
-        | exposedUnions =
-            { name = name
-            , comment = ""
+registerExposedCustomType : List (Node Elm.Syntax.Type.ValueConstructor) -> String -> ScopeModuleContext -> ScopeModuleContext
+registerExposedCustomType constructors name innerContext =
+    if innerContext.exposesEverything || Dict.member name innerContext.exposedNames then
+        { innerContext
+            | exposedUnions =
+                { name = name
+                , comment = ""
 
-            -- TODO
-            , args = []
-            , tags =
-                if exposesConstructors then
-                    List.map
-                        (Node.value
-                            >> (\constructor ->
-                                    ( Node.value constructor.name
-                                    , List.map (syntaxTypeAnnotationToDocsType innerContext) constructor.arguments
-                                    )
-                               )
-                        )
-                        constructors
+                -- TODO
+                , args = []
+                , tags =
+                    let
+                        exposesConstructors =
+                            True
+                    in
+                    if exposesConstructors then
+                        List.map
+                            (Node.value
+                                >> (\constructor ->
+                                        ( Node.value constructor.name
+                                        , List.map (syntaxTypeAnnotationToDocsType innerContext) constructor.arguments
+                                        )
+                                   )
+                            )
+                            constructors
 
-                else
-                    []
-            }
-                :: innerContext.exposedUnions
-    }
+                    else
+                        []
+                }
+                    :: innerContext.exposedUnions
+        }
+
+    else
+        innerContext
 
 
 registerExposedTypeAlias : String -> ScopeModuleContext -> ScopeModuleContext
@@ -4789,15 +4797,6 @@ registerIfExposed : (String -> ScopeModuleContext -> ScopeModuleContext) -> Stri
 registerIfExposed registerFn name innerContext =
     if innerContext.exposesEverything || Dict.member name innerContext.exposedNames then
         registerFn name innerContext
-
-    else
-        innerContext
-
-
-registerCustomTypeIfExposed : (Bool -> String -> ScopeModuleContext -> ScopeModuleContext) -> String -> ScopeModuleContext -> ScopeModuleContext
-registerCustomTypeIfExposed registerFn name innerContext =
-    if innerContext.exposesEverything || Dict.member name innerContext.exposedNames then
-        registerFn True name innerContext
 
     else
         innerContext
