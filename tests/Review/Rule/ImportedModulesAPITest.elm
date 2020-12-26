@@ -107,6 +107,45 @@ Tuple
                             ]
                           )
                         ]
+        , test "should be able to list all the exposed functions from a module" <|
+            \() ->
+                [ """module Target exposing (..)
+import A
+a = 1
+"""
+                , """module A exposing (b, increment)
+
+b : Int
+b = 1
+
+hidden = 1
+
+{-| Some comment -}
+increment : List Int -> Int
+increment int = int + 1
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData project
+                        (rule
+                            (\dict ->
+                                Dict.get [ "A" ] dict
+                                    |> Maybe.map (.values >> List.map Debug.toString >> String.join "\n")
+                                    |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
+                            )
+                        )
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Target"
+                          , [ Review.Test.error
+                                { message = String.trim """
+{ comment = "{-| Some comment -}", name = "increment", tipe = Lambda (Type "List.List" [Type "Basics.Int" []]) (Type "Basics.Int" []) }
+{ comment = "", name = "b", tipe = Type "Basics.Int" [] }
+"""
+                                , details = [ "details" ]
+                                , under = "module"
+                                }
+                            ]
+                          )
+                        ]
         ]
 
 
