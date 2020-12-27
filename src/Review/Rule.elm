@@ -4646,11 +4646,84 @@ createFakeImport { moduleName, moduleAlias, exposingList } =
 
 scope_declarationListVisitor : List (Node Declaration) -> ScopeModuleContext -> ScopeModuleContext
 scope_declarationListVisitor declarations innerContext =
-    List.foldl scope_registerDeclaration innerContext declarations
+    let
+        newContext : ScopeModuleContext
+        newContext =
+            List.foldl scope_registerDeclarationForScope innerContext declarations
+    in
+    List.foldl scope_registerExposedDeclaration newContext declarations
 
 
-scope_registerDeclaration : Node Declaration -> ScopeModuleContext -> ScopeModuleContext
-scope_registerDeclaration declaration innerContext =
+scope_registerDeclarationForScope : Node Declaration -> ScopeModuleContext -> ScopeModuleContext
+scope_registerDeclarationForScope declaration innerContext =
+    case Node.value declaration of
+        Declaration.FunctionDeclaration function ->
+            let
+                nameNode : Node String
+                nameNode =
+                    function.declaration
+                        |> Node.value
+                        |> .name
+            in
+            innerContext
+                |> addToScope
+                    { variableType = TopLevelVariable
+                    , node = nameNode
+                    }
+                |> registerIfExposed (registerExposedValue function) (Node.value nameNode)
+
+        Declaration.AliasDeclaration alias_ ->
+            { innerContext | localTypes = Set.insert (Node.value alias_.name) innerContext.localTypes }
+                |> (\ctx ->
+                        case Node.value alias_.typeAnnotation of
+                            TypeAnnotation.Record _ ->
+                                addToScope
+                                    { variableType = TopLevelVariable
+                                    , node = alias_.name
+                                    }
+                                    ctx
+
+                            _ ->
+                                ctx
+                   )
+                |> registerIfExposed (registerExposedTypeAlias alias_) (Node.value alias_.name)
+
+        Declaration.CustomTypeDeclaration customType ->
+            List.foldl
+                (\constructor innerContext_ ->
+                    let
+                        constructorName : Node String
+                        constructorName =
+                            constructor |> Node.value |> .name
+                    in
+                    addToScope
+                        { variableType = CustomTypeConstructor
+                        , node = constructorName
+                        }
+                        innerContext_
+                )
+                { innerContext | localTypes = Set.insert (Node.value customType.name) innerContext.localTypes }
+                customType.constructors
+                |> registerCustomTypeIfExposed (registerExposedCustomType customType) (Node.value customType.name)
+
+        Declaration.PortDeclaration signature ->
+            innerContext
+                |> addToScope
+                    { variableType = Port
+                    , node = signature.name
+                    }
+                |> registerIfExposed (registerExposedValue { documentation = Nothing, signature = Just (Node (Node.range declaration) signature) }) (Node.value signature.name)
+
+        Declaration.InfixDeclaration _ ->
+            innerContext
+
+        Declaration.Destructuring _ _ ->
+            -- Not possible in 0.19 code
+            innerContext
+
+
+scope_registerExposedDeclaration : Node Declaration -> ScopeModuleContext -> ScopeModuleContext
+scope_registerExposedDeclaration declaration innerContext =
     case Node.value declaration of
         Declaration.FunctionDeclaration function ->
             let
