@@ -219,8 +219,8 @@ type Internal = Internal
 { args = [], comment = "", name = "AliasToUnknown", tipe = Type "A.Unknown" [] }
 { args = [], comment = " Some comment ", name = "AliasToInternal", tipe = Type "B.Internal" [] }
 { args = [], comment = "", name = "Int", tipe = Type "A.Int" [] }
-{ args = ["thing"], comment = "", name = "ExtensibleRecord", tipe = Record [("a",Type "Basics.Int" [])] (Just "thing") }
-{ args = [], comment = "", name = "Record", tipe = Record [("a",Type "Basics.Int" [])] Nothing }
+{ args = ["thing"], comment = "", name = "ExtensibleRecord", tipe = Record [("a",Type "A.Int" [])] (Just "thing") }
+{ args = [], comment = "", name = "Record", tipe = Record [("a",Type "A.Int" [])] Nothing }
 """
                                 , details = [ "details" ]
                                 , under = "module"
