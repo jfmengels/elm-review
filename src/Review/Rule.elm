@@ -4658,35 +4658,28 @@ scope_registerDeclarationForScope : Node Declaration -> ScopeModuleContext -> Sc
 scope_registerDeclarationForScope declaration innerContext =
     case Node.value declaration of
         Declaration.FunctionDeclaration function ->
-            let
-                nameNode : Node String
-                nameNode =
-                    function.declaration
-                        |> Node.value
-                        |> .name
-            in
-            innerContext
-                |> addToScope
-                    { variableType = TopLevelVariable
-                    , node = nameNode
-                    }
-                |> registerIfExposed (registerExposedValue function) (Node.value nameNode)
+            addToScope
+                { variableType = TopLevelVariable
+                , node = function.declaration |> Node.value |> .name
+                }
+                innerContext
 
         Declaration.AliasDeclaration alias_ ->
-            { innerContext | localTypes = Set.insert (Node.value alias_.name) innerContext.localTypes }
-                |> (\ctx ->
-                        case Node.value alias_.typeAnnotation of
-                            TypeAnnotation.Record _ ->
-                                addToScope
-                                    { variableType = TopLevelVariable
-                                    , node = alias_.name
-                                    }
-                                    ctx
+            let
+                contextWithLocalType : ScopeModuleContext
+                contextWithLocalType =
+                    { innerContext | localTypes = Set.insert (Node.value alias_.name) innerContext.localTypes }
+            in
+            case Node.value alias_.typeAnnotation of
+                TypeAnnotation.Record _ ->
+                    addToScope
+                        { variableType = TopLevelVariable
+                        , node = alias_.name
+                        }
+                        contextWithLocalType
 
-                            _ ->
-                                ctx
-                   )
-                |> registerIfExposed (registerExposedTypeAlias alias_) (Node.value alias_.name)
+                _ ->
+                    contextWithLocalType
 
         Declaration.CustomTypeDeclaration customType ->
             List.foldl
@@ -4704,7 +4697,6 @@ scope_registerDeclarationForScope declaration innerContext =
                 )
                 { innerContext | localTypes = Set.insert (Node.value customType.name) innerContext.localTypes }
                 customType.constructors
-                |> registerCustomTypeIfExposed (registerExposedCustomType customType) (Node.value customType.name)
 
         Declaration.PortDeclaration signature ->
             innerContext
@@ -4712,7 +4704,6 @@ scope_registerDeclarationForScope declaration innerContext =
                     { variableType = Port
                     , node = signature.name
                     }
-                |> registerIfExposed (registerExposedValue { documentation = Nothing, signature = Just (Node (Node.range declaration) signature) }) (Node.value signature.name)
 
         Declaration.InfixDeclaration _ ->
             innerContext
@@ -4733,54 +4724,19 @@ scope_registerExposedDeclaration declaration innerContext =
                         |> Node.value
                         |> .name
             in
-            innerContext
-                |> addToScope
-                    { variableType = TopLevelVariable
-                    , node = nameNode
-                    }
-                |> registerIfExposed (registerExposedValue function) (Node.value nameNode)
+            registerIfExposed (registerExposedValue function) (Node.value nameNode) innerContext
 
         Declaration.AliasDeclaration alias ->
-            { innerContext | localTypes = Set.insert (Node.value alias.name) innerContext.localTypes }
-                |> (\ctx ->
-                        case Node.value alias.typeAnnotation of
-                            TypeAnnotation.Record _ ->
-                                addToScope
-                                    { variableType = TopLevelVariable
-                                    , node = alias.name
-                                    }
-                                    ctx
-
-                            _ ->
-                                ctx
-                   )
-                |> registerIfExposed (registerExposedTypeAlias alias) (Node.value alias.name)
+            registerIfExposed (registerExposedTypeAlias alias) (Node.value alias.name) innerContext
 
         Declaration.CustomTypeDeclaration customType ->
-            List.foldl
-                (\constructor innerContext_ ->
-                    let
-                        constructorName : Node String
-                        constructorName =
-                            constructor |> Node.value |> .name
-                    in
-                    addToScope
-                        { variableType = CustomTypeConstructor
-                        , node = constructorName
-                        }
-                        innerContext_
-                )
-                { innerContext | localTypes = Set.insert (Node.value customType.name) innerContext.localTypes }
-                customType.constructors
-                |> registerCustomTypeIfExposed (registerExposedCustomType customType) (Node.value customType.name)
+            registerCustomTypeIfExposed (registerExposedCustomType customType) (Node.value customType.name) innerContext
 
         Declaration.PortDeclaration signature ->
-            innerContext
-                |> addToScope
-                    { variableType = Port
-                    , node = signature.name
-                    }
-                |> registerIfExposed (registerExposedValue { documentation = Nothing, signature = Just (Node (Node.range declaration) signature) }) (Node.value signature.name)
+            registerIfExposed
+                (registerExposedValue { documentation = Nothing, signature = Just (Node (Node.range declaration) signature) })
+                (Node.value signature.name)
+                innerContext
 
         Declaration.InfixDeclaration _ ->
             innerContext
