@@ -4807,7 +4807,7 @@ registerExposedCustomType declaredType constructors generics exposesConstructors
         customType =
             { name = name
             , comment = ""
-            , args = List.map Node.value generics
+            , args = List.map Node.value declaredType.generics
             , tags = tags
             }
     in
