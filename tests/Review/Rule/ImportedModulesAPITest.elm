@@ -180,6 +180,50 @@ type Complex a other
                             ]
                           )
                         ]
+        , test "should be able to list all the type aliases from a module" <|
+            \() ->
+                [ targetModule
+                , """module A exposing (AliasToInternal, AliasToUnknown, Int, Record)
+import B
+type alias Record = { a : Int }
+
+type alias Int = Int
+
+type alias Hidden = Int
+type CustomType = CustomType
+
+{-| Some comment -}
+type alias AliasToInternal = B.Internal
+
+type alias AliasToUnknown = Unknown
+"""
+                , """module B exposing (Internal)
+type Internal = Internal
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData project
+                        (rule
+                            (\dict ->
+                                Dict.get [ "A" ] dict
+                                    |> Maybe.map (.aliases >> List.map Debug.toString >> String.join "\n")
+                                    |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
+                            )
+                        )
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Target"
+                          , [ Review.Test.error
+                                { message = String.trim """
+{ args = [], comment = "", name = "AliasToUnknown", tipe = Tuple [] }
+{ args = [], comment = "", name = "AliasToInternal", tipe = Tuple [] }
+{ args = [], comment = "", name = "Int", tipe = Tuple [] }
+{ args = [], comment = "", name = "Record", tipe = Tuple [] }
+"""
+                                , details = [ "details" ]
+                                , under = "module"
+                                }
+                            ]
+                          )
+                        ]
         ]
 
 
