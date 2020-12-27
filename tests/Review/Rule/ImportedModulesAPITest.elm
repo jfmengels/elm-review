@@ -214,11 +214,11 @@ type Internal = Internal
                         [ ( "Target"
                           , [ Review.Test.error
                                 { message = String.trim """
-{ args = [], comment = "", name = "AliasToUnknown", tipe = Tuple [] }
-{ args = [], comment = " Some comment ", name = "AliasToInternal", tipe = Tuple [] }
-{ args = [], comment = "", name = "Int", tipe = Tuple [] }
-{ args = ["thing"], comment = "", name = "ExtensibleRecord", tipe = Tuple [] }
-{ args = [], comment = "", name = "Record", tipe = Tuple [] }
+{ args = [], comment = "", name = "AliasToUnknown", tipe = Type ".Unknown" [] }
+{ args = [], comment = " Some comment ", name = "AliasToInternal", tipe = Type "B.Internal" [] }
+{ args = [], comment = "", name = "Int", tipe = Type ".Int" [] }
+{ args = ["thing"], comment = "", name = "ExtensibleRecord", tipe = Record [("a",Type "Basics.Int" [])] (Just "thing") }
+{ args = [], comment = "", name = "Record", tipe = Record [("a",Type "Basics.Int" [])] Nothing }
 """
                                 , details = [ "details" ]
                                 , under = "module"

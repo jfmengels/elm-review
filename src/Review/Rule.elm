@@ -4791,7 +4791,7 @@ registerExposedTypeAlias typeAlias name innerContext =
             { name = name
             , comment = getDocumentation typeAlias.documentation
             , args = List.map Node.value typeAlias.generics
-            , tipe = Elm.Type.Tuple []
+            , tipe = syntaxTypeAnnotationToDocsType innerContext typeAlias.typeAnnotation
             }
                 :: innerContext.exposedAliases
     }
