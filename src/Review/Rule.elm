@@ -4790,7 +4790,7 @@ registerExposedTypeAlias typeAlias name innerContext =
         | exposedAliases =
             { name = name
             , comment = getDocumentation typeAlias.documentation
-            , args = []
+            , args = List.map Node.value typeAlias.generics
             , tipe = Elm.Type.Tuple []
             }
                 :: innerContext.exposedAliases
