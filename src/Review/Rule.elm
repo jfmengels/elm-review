@@ -4381,7 +4381,7 @@ type alias ScopeModuleContext =
     , dependenciesModules : Dict ModuleName Elm.Docs.Module
     , modules : Dict ModuleName Elm.Docs.Module
     , exposesEverything : Bool
-    , exposedNames : Dict String Range
+    , exposedNames : Dict String Bool
     , exposedUnions : List Elm.Docs.Union
     , exposedAliases : List Elm.Docs.Alias
     , exposedValues : List Elm.Docs.Value
@@ -4885,20 +4885,20 @@ scope_moduleDefinitionVisitor node innerContext =
             { innerContext | exposedNames = exposedElements list }
 
 
-exposedElements : List (Node Exposing.TopLevelExpose) -> Dict String Range
+exposedElements : List (Node Exposing.TopLevelExpose) -> Dict String Bool
 exposedElements nodes =
     nodes
         |> List.filterMap
             (\node ->
                 case Node.value node of
                     Exposing.FunctionExpose name ->
-                        Just ( name, Node.range node )
+                        Just ( name, False )
 
                     Exposing.TypeOrAliasExpose name ->
-                        Just ( name, Node.range node )
+                        Just ( name, False )
 
-                    Exposing.TypeExpose { name } ->
-                        Just ( name, Node.range node )
+                    Exposing.TypeExpose { name, open } ->
+                        Just ( name, open /= Nothing )
 
                     Exposing.InfixExpose name ->
                         Nothing
