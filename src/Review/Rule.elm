@@ -4763,10 +4763,23 @@ registerExposedCustomType declaredType exposesConstructors innerContext =
             else
                 []
 
+        comment : String
+        comment =
+            case Maybe.map Node.value declaredType.documentation of
+                Just documentation ->
+                    documentation
+                        -- Remove the leading {-|
+                        |> String.dropLeft 3
+                        -- Remove the trailing -}
+                        |> String.dropRight 2
+
+                Nothing ->
+                    ""
+
         customType : Elm.Docs.Union
         customType =
             { name = Node.value declaredType.name
-            , comment = ""
+            , comment = comment
             , args = List.map Node.value declaredType.generics
             , tags = tags
             }
