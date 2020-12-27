@@ -214,7 +214,7 @@ type Internal = Internal
                           , [ Review.Test.error
                                 { message = String.trim """
 { args = [], comment = "", name = "AliasToUnknown", tipe = Tuple [] }
-{ args = [], comment = "", name = "AliasToInternal", tipe = Tuple [] }
+{ args = [], comment = " Some comment ", name = "AliasToInternal", tipe = Tuple [] }
 { args = [], comment = "", name = "Int", tipe = Tuple [] }
 { args = [], comment = "", name = "Record", tipe = Tuple [] }
 """

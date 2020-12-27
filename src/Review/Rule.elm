@@ -269,6 +269,7 @@ import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
 import Elm.Syntax.Signature exposing (Signature)
 import Elm.Syntax.Type
+import Elm.Syntax.TypeAlias exposing (TypeAlias)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
 import Review.Error exposing (InternalError)
@@ -4678,7 +4679,7 @@ scope_registerDeclaration declaration innerContext =
                             _ ->
                                 ctx
                    )
-                |> registerIfExposed registerExposedTypeAlias (Node.value alias_.name)
+                |> registerIfExposed (registerExposedTypeAlias alias_) (Node.value alias_.name)
 
         Declaration.CustomTypeDeclaration customType ->
             List.foldl
@@ -4783,12 +4784,12 @@ getDocumentation node =
             ""
 
 
-registerExposedTypeAlias : String -> ScopeModuleContext -> ScopeModuleContext
-registerExposedTypeAlias name innerContext =
+registerExposedTypeAlias : TypeAlias -> String -> ScopeModuleContext -> ScopeModuleContext
+registerExposedTypeAlias typeAlias name innerContext =
     { innerContext
         | exposedAliases =
             { name = name
-            , comment = ""
+            , comment = getDocumentation typeAlias.documentation
             , args = []
             , tipe = Elm.Type.Tuple []
             }
