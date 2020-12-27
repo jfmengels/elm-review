@@ -15,6 +15,7 @@ import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import NoUnused.Patterns.NameVisitor as NameVisitor
 import Review.Fix as Fix exposing (Fix)
+import Review.ModuleInformation as ModuleInformation exposing (ModuleInformation)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
@@ -73,7 +74,7 @@ rule exceptions =
 type alias Context =
     { lookupTable : ModuleNameLookupTable
     , imports : Dict ModuleName ImportData
-    , importedModulesAPI : Dict ModuleName Module
+    , importedModulesAPI : Dict ModuleName ModuleInformation
     }
 
 
@@ -165,11 +166,11 @@ valueVisitor (Node range ( moduleName, name )) context =
             ( [], context )
 
 
-registerUseOfValue : Dict ModuleName Module -> ModuleName -> String -> ImportData -> ImportData
+registerUseOfValue : Dict ModuleName ModuleInformation -> ModuleName -> String -> ImportData -> ImportData
 registerUseOfValue importedModulesAPI moduleName name v =
     case Dict.get moduleName importedModulesAPI of
-        Just { unions } ->
-            case find (\union -> List.any (\( constructor, _ ) -> constructor == name) union.tags) unions of
+        Just api ->
+            case find (\union -> List.any (\( constructor, _ ) -> constructor == name) union.tags) (ModuleInformation.unions api) of
                 Just union ->
                     { v | importedCustomTypes = Set.insert union.name v.importedCustomTypes }
 

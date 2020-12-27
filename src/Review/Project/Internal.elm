@@ -21,6 +21,7 @@ import Elm.Syntax.File
 import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
+import Review.ModuleInformation exposing (ModuleInformation)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Project.Dependency exposing (Dependency)
 import Vendor.Graph as Graph exposing (Graph)
@@ -35,7 +36,7 @@ type Project
         , dependencies : Dict String Dependency
         , moduleGraph : Maybe (Graph ModuleName ())
         , sourceDirectories : List String
-        , moduleAPIs : Dict ModuleName Elm.Docs.Module
+        , moduleAPIs : Dict ModuleName ModuleInformation
         , moduleNameLookupTables : Dict ModuleName ModuleNameLookupTable
         }
 
@@ -76,7 +77,7 @@ moduleNameLookupTables (Project project) =
     project.moduleNameLookupTables
 
 
-moduleAPIs : Project -> Dict ModuleName Elm.Docs.Module
+moduleAPIs : Project -> Dict ModuleName ModuleInformation
 moduleAPIs (Project project) =
     project.moduleAPIs
 

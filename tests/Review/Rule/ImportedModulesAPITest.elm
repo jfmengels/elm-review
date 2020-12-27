@@ -7,6 +7,7 @@ import Elm.Syntax.Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Expect exposing (Expectation)
+import Review.ModuleInformation as ModuleInformation
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
@@ -43,7 +44,7 @@ initialContext : Rule.ContextCreator () Context
 initialContext =
     Rule.initContextCreator
         (\importedModules () ->
-            importedModules
+            ModuleInformation.toElmDocsModuleDict importedModules
         )
         |> Rule.withImportedModulesAPI
 
