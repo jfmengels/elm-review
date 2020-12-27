@@ -6,6 +6,7 @@ import Elm.Docs
 import Elm.Syntax.Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
+import Expect exposing (Expectation)
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
@@ -58,18 +59,9 @@ b = 1
 """
                 ]
                     |> Review.Test.runOnModules (rule (\dict -> Dict.keys dict |> List.map (String.join ".") |> String.join "\n"))
-                    |> Review.Test.expectErrorsForModules
-                        [ ( "Target"
-                          , [ Review.Test.error
-                                { message = String.trim """
+                    |> expectToFind """
 A
 """
-                                , details = [ "details" ]
-                                , under = "module"
-                                }
-                            ]
-                          )
-                        ]
         , test "should import the list of imported modules API we have, including those from the prelude" <|
             \() ->
                 [ targetModule
@@ -78,10 +70,7 @@ b = 1
 """
                 ]
                     |> Review.Test.runOnModulesWithProjectData project (rule (\dict -> Dict.keys dict |> List.map (String.join ".") |> String.join "\n"))
-                    |> Review.Test.expectErrorsForModules
-                        [ ( "Target"
-                          , [ Review.Test.error
-                                { message = String.trim """
+                    |> expectToFind """
 A
 Basics
 Char
@@ -95,12 +84,6 @@ Result
 String
 Tuple
 """
-                                , details = [ "details" ]
-                                , under = "module"
-                                }
-                            ]
-                          )
-                        ]
         , test "should be able to list all the exposed functions from a module" <|
             \() ->
                 [ targetModule
@@ -128,20 +111,11 @@ noType = 1
                                     |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
                             )
                         )
-                    |> Review.Test.expectErrorsForModules
-                        [ ( "Target"
-                          , [ Review.Test.error
-                                { message = String.trim """
+                    |> expectToFind """
 { comment = "", name = "noType", tipe = Var "unknown" }
 { comment = " Some comment ", name = "increment", tipe = Lambda (Type "List.List" [Type "Basics.Int" []]) (Type "A.Local" []) }
 { comment = "", name = "b", tipe = Type "Basics.Int" [] }
 """
-                                , details = [ "details" ]
-                                , under = "module"
-                                }
-                            ]
-                          )
-                        ]
         , test "should be able to list all the custom types from a module" <|
             \() ->
                 [ targetModule
@@ -168,20 +142,11 @@ type Complex a other
                                     |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
                             )
                         )
-                    |> Review.Test.expectErrorsForModules
-                        [ ( "Target"
-                          , [ Review.Test.error
-                                { message = String.trim """
+                    |> expectToFind """
 { args = ["a","other"], comment = "", name = "Complex", tags = [("A",[Type "Basics.Int" [],Type "List.List" [Type "Basics.Int" []]]),("B",[Var "a"])] }
 { args = [], comment = " Some comment ", name = "Exposed", tags = [("ExposedConstructor",[Type "A.Opaque" []])] }
 { args = [], comment = "", name = "Opaque", tags = [] }
 """
-                                , details = [ "details" ]
-                                , under = "module"
-                                }
-                            ]
-                          )
-                        ]
         , test "should be able to list all the type aliases from a module" <|
             \() ->
                 [ targetModule
@@ -212,22 +177,27 @@ type Internal = Internal
                                     |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
                             )
                         )
-                    |> Review.Test.expectErrorsForModules
-                        [ ( "Target"
-                          , [ Review.Test.error
-                                { message = String.trim """
+                    |> expectToFind """
 { args = [], comment = "", name = "AliasToUnknown", tipe = Type "A.Unknown" [] }
 { args = [], comment = " Some comment ", name = "AliasToInternal", tipe = Type "B.Internal" [] }
 { args = [], comment = "", name = "Int", tipe = Type "A.Int" [] }
 { args = ["thing"], comment = "", name = "ExtensibleRecord", tipe = Record [("a",Type "A.Int" [])] (Just "thing") }
 { args = [], comment = "", name = "Record", tipe = Record [("a",Type "A.Int" [])] Nothing }
 """
-                                , details = [ "details" ]
-                                , under = "module"
-                                }
-                            ]
-                          )
-                        ]
+        ]
+
+
+expectToFind : String -> Review.Test.ReviewResult -> Expectation
+expectToFind message =
+    Review.Test.expectErrorsForModules
+        [ ( "Target"
+          , [ Review.Test.error
+                { message = String.trim message
+                , details = [ "details" ]
+                , under = "module"
+                }
+            ]
+          )
         ]
 
 
