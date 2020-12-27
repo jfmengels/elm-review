@@ -11,13 +11,12 @@ module Review.Rule exposing
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
-    , ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleNameLookupTable, withModuleKey
+    , ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleNameLookupTable, withImportedModulesAPI, withModuleKey
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review, reviewV2, ProjectData, ruleName
     , Required, Forbidden
-    , withImportedModulesAPI
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -213,7 +212,7 @@ first, as they are in practice a simpler version of project rules.
 
 ## Requesting more information
 
-@docs ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleNameLookupTable, withModuleKey
+@docs ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleNameLookupTable, withImportedModulesAPI, withModuleKey
 
 
 ## Errors
