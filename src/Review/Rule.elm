@@ -4695,7 +4695,7 @@ scope_registerDeclaration declaration innerContext =
                 )
                 { innerContext | localTypes = Set.insert (Node.value name) innerContext.localTypes }
                 constructors
-                |> registerExposedCustomType constructors (Node.value name)
+                |> registerCustomTypeIfExposed (registerExposedCustomType constructors) (Node.value name)
 
         Declaration.PortDeclaration signature ->
             innerContext
@@ -4744,8 +4744,8 @@ registerExposedValue function name innerContext =
     }
 
 
-registerExposedCustomType : List (Node Elm.Syntax.Type.ValueConstructor) -> String -> ScopeModuleContext -> ScopeModuleContext
-registerExposedCustomType constructors name innerContext =
+checkIfUnionNeedsToBeExposed : List (Node Elm.Syntax.Type.ValueConstructor) -> String -> ScopeModuleContext -> ScopeModuleContext
+checkIfUnionNeedsToBeExposed constructors name innerContext =
     if innerContext.exposesEverything || Dict.member name innerContext.exposedNames then
         let
             tags : List ( String, List Elm.Type.Type )
@@ -4784,6 +4784,38 @@ registerExposedCustomType constructors name innerContext =
         innerContext
 
 
+registerExposedCustomType : List (Node Elm.Syntax.Type.ValueConstructor) -> Bool -> String -> ScopeModuleContext -> ScopeModuleContext
+registerExposedCustomType constructors exposesConstructors name innerContext =
+    let
+        tags : List ( String, List Elm.Type.Type )
+        tags =
+            if exposesConstructors then
+                List.map
+                    (Node.value
+                        >> (\constructor ->
+                                ( Node.value constructor.name
+                                , List.map (syntaxTypeAnnotationToDocsType innerContext) constructor.arguments
+                                )
+                           )
+                    )
+                    constructors
+
+            else
+                []
+
+        customType : Elm.Docs.Union
+        customType =
+            { name = name
+            , comment = ""
+
+            -- TODO
+            , args = []
+            , tags = tags
+            }
+    in
+    { innerContext | exposedUnions = customType :: innerContext.exposedUnions }
+
+
 registerExposedTypeAlias : String -> ScopeModuleContext -> ScopeModuleContext
 registerExposedTypeAlias name innerContext =
     { innerContext
@@ -4804,6 +4836,20 @@ registerIfExposed registerFn name innerContext =
 
     else
         innerContext
+
+
+registerCustomTypeIfExposed : (Bool -> String -> ScopeModuleContext -> ScopeModuleContext) -> String -> ScopeModuleContext -> ScopeModuleContext
+registerCustomTypeIfExposed registerFn name innerContext =
+    if innerContext.exposesEverything then
+        registerFn True name innerContext
+
+    else
+        case Dict.get name innerContext.exposedNames of
+            Just open ->
+                registerFn open name innerContext
+
+            Nothing ->
+                innerContext
 
 
 convertTypeSignatureToDocsType : ScopeModuleContext -> Maybe (Node Signature) -> Elm.Type.Type
