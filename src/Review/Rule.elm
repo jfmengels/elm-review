@@ -257,6 +257,7 @@ import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
+import Elm.Syntax.Documentation exposing (Documentation)
 import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
 import Elm.Syntax.Expression as Expression exposing (Expression, Function)
 import Elm.Syntax.Import exposing (Import)
@@ -4763,28 +4764,29 @@ registerExposedCustomType declaredType exposesConstructors innerContext =
             else
                 []
 
-        comment : String
-        comment =
-            case Maybe.map Node.value declaredType.documentation of
-                Just documentation ->
-                    documentation
-                        -- Remove the leading {-|
-                        |> String.dropLeft 3
-                        -- Remove the trailing -}
-                        |> String.dropRight 2
-
-                Nothing ->
-                    ""
-
         customType : Elm.Docs.Union
         customType =
             { name = Node.value declaredType.name
-            , comment = comment
+            , comment = getDocumentation declaredType.documentation
             , args = List.map Node.value declaredType.generics
             , tags = tags
             }
     in
     { innerContext | exposedUnions = customType :: innerContext.exposedUnions }
+
+
+getDocumentation : Maybe (Node Documentation) -> String
+getDocumentation node =
+    case Maybe.map Node.value node of
+        Just documentation ->
+            documentation
+                -- Remove the leading {-|
+                |> String.dropLeft 3
+                -- Remove the trailing -}
+                |> String.dropRight 2
+
+        Nothing ->
+            ""
 
 
 registerExposedTypeAlias : String -> ScopeModuleContext -> ScopeModuleContext
