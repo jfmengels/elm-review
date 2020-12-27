@@ -274,6 +274,7 @@ import Elm.Type
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix exposing (Fix)
+import Review.ModuleInformation exposing (ModuleInformation)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Project exposing (ProjectModule)
@@ -436,7 +437,7 @@ review rules project =
                                     Maybe.map (\(Extract { lookupTables }) -> lookupTables) scopeResult.extract
                                         |> Maybe.withDefault Dict.empty
 
-                                moduleAPIs : Dict ModuleName Elm.Docs.Module
+                                moduleAPIs : Dict ModuleName ModuleInformation
                                 moduleAPIs =
                                     Maybe.map (\(Extract { modules }) -> modules) scopeResult.extract
                                         |> Maybe.withDefault Dict.empty
@@ -608,7 +609,7 @@ runReview ((Project p) as project) rules maybeProjectData nodeContexts =
             Maybe.map (\(Extract { lookupTables }) -> lookupTables) scopeResult.extract
                 |> Maybe.withDefault Dict.empty
 
-        moduleAPIs : Dict ModuleName Elm.Docs.Module
+        moduleAPIs : Dict ModuleName ModuleInformation
         moduleAPIs =
             Maybe.map (\(Extract { modules }) -> modules) scopeResult.extract
                 |> Maybe.withDefault Dict.empty
@@ -1630,7 +1631,7 @@ withFinalProjectEvaluation visitor (ProjectRuleSchema schema) =
 type Extract
     = Extract
         { lookupTables : Dict ModuleName ModuleNameLookupTable
-        , modules : Dict ModuleName Elm.Docs.Module
+        , modules : Dict ModuleName ModuleInformation
         }
 
 
@@ -3635,7 +3636,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
         moduleNameLookupTables =
             Review.Project.Internal.moduleNameLookupTables project
 
-        moduleAPIs : Dict ModuleName Elm.Docs.Module
+        moduleAPIs : Dict ModuleName ModuleInformation
         moduleAPIs =
             Review.Project.Internal.moduleAPIs project
 
@@ -4264,7 +4265,7 @@ withModuleNameLookupTable (ContextCreator fn (RequestedData requested)) =
 
 {-| TODO
 -}
-withImportedModulesAPI : ContextCreator (Dict ModuleName Elm.Docs.Module) (from -> to) -> ContextCreator from to
+withImportedModulesAPI : ContextCreator (Dict ModuleName ModuleInformation) (from -> to) -> ContextCreator from to
 withImportedModulesAPI (ContextCreator fn (RequestedData requested)) =
     ContextCreator
         (\data -> fn data data.importedModulesAPI)
@@ -4294,7 +4295,7 @@ type alias AvailableData =
     { metadata : Metadata
     , moduleKey : ModuleKey
     , moduleNameLookupTable : ModuleNameLookupTable
-    , importedModulesAPI : Dict ModuleName Elm.Docs.Module
+    , importedModulesAPI : Dict ModuleName ModuleInformation
     }
 
 
@@ -4368,7 +4369,7 @@ scopeRule =
 
 type alias ScopeProjectContext =
     { dependenciesModules : Dict ModuleName Elm.Docs.Module
-    , modules : Dict ModuleName Elm.Docs.Module
+    , modules : Dict ModuleName ModuleInformation
     , lookupTables : Dict ModuleName ModuleNameLookupTable
     }
 
@@ -4380,7 +4381,7 @@ type alias ScopeModuleContext =
     , importedFunctions : Dict String (List String)
     , importedTypes : Dict String (List String)
     , dependenciesModules : Dict ModuleName Elm.Docs.Module
-    , modules : Dict ModuleName Elm.Docs.Module
+    , modules : Dict ModuleName ModuleInformation
     , exposesEverything : Bool
     , exposedNames : Dict String Bool
     , exposedUnions : List Elm.Docs.Union
@@ -4517,7 +4518,7 @@ scope_pairWithNoErrors fn visited context =
 scope_internalDependenciesVisitor : Dict String Dependency -> ScopeProjectContext -> ScopeProjectContext
 scope_internalDependenciesVisitor dependencies innerContext =
     let
-        dependenciesModules : Dict ModuleName Elm.Docs.Module
+        dependenciesModules : Dict ModuleName ModuleInformation
         dependenciesModules =
             dependencies
                 |> Dict.values
