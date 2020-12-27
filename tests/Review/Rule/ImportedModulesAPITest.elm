@@ -131,7 +131,7 @@ noType = 1
                           , [ Review.Test.error
                                 { message = String.trim """
 { comment = "", name = "noType", tipe = Var "unknown" }
-{ comment = "{-| Some comment -}", name = "increment", tipe = Lambda (Type "List.List" [Type "Basics.Int" []]) (Type "Basics.Int" []) }
+{ comment = " Some comment ", name = "increment", tipe = Lambda (Type "List.List" [Type "Basics.Int" []]) (Type "Basics.Int" []) }
 { comment = "", name = "b", tipe = Type "Basics.Int" [] }
 """
                                 , details = [ "details" ]

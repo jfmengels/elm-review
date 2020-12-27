@@ -4732,13 +4732,7 @@ registerExposedValue function name innerContext =
     { innerContext
         | exposedValues =
             { name = name
-            , comment =
-                case Maybe.map Node.value function.documentation of
-                    Just str ->
-                        str
-
-                    Nothing ->
-                        ""
+            , comment = getDocumentation function.documentation
             , tipe = convertTypeSignatureToDocsType innerContext function.signature
             }
                 :: innerContext.exposedValues
