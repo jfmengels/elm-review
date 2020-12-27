@@ -4679,7 +4679,7 @@ scope_registerDeclaration declaration innerContext =
                    )
                 |> registerIfExposed registerExposedTypeAlias (Node.value alias_.name)
 
-        Declaration.CustomTypeDeclaration { name, constructors, generics } ->
+        Declaration.CustomTypeDeclaration ({ name, constructors, generics } as customType) ->
             List.foldl
                 (\constructor innerContext_ ->
                     let
@@ -4695,7 +4695,7 @@ scope_registerDeclaration declaration innerContext =
                 )
                 { innerContext | localTypes = Set.insert (Node.value name) innerContext.localTypes }
                 constructors
-                |> registerCustomTypeIfExposed (registerExposedCustomType constructors generics) (Node.value name)
+                |> registerCustomTypeIfExposed (registerExposedCustomType customType constructors generics) (Node.value name)
 
         Declaration.PortDeclaration signature ->
             innerContext
@@ -4784,8 +4784,8 @@ checkIfUnionNeedsToBeExposed constructors name innerContext =
         innerContext
 
 
-registerExposedCustomType : List (Node Elm.Syntax.Type.ValueConstructor) -> List (Node String) -> Bool -> String -> ScopeModuleContext -> ScopeModuleContext
-registerExposedCustomType constructors generics exposesConstructors name innerContext =
+registerExposedCustomType : Elm.Syntax.Type.Type -> List (Node Elm.Syntax.Type.ValueConstructor) -> List (Node String) -> Bool -> String -> ScopeModuleContext -> ScopeModuleContext
+registerExposedCustomType declaredType constructors generics exposesConstructors name innerContext =
     let
         tags : List ( String, List Elm.Type.Type )
         tags =
