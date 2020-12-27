@@ -4798,7 +4798,7 @@ registerExposedCustomType declaredType constructors generics exposesConstructors
                                 )
                            )
                     )
-                    constructors
+                    declaredType.constructors
 
             else
                 []
