@@ -4805,7 +4805,7 @@ registerExposedCustomType declaredType constructors generics exposesConstructors
 
         customType : Elm.Docs.Union
         customType =
-            { name = name
+            { name = Node.value declaredType.name
             , comment = ""
             , args = List.map Node.value declaredType.generics
             , tags = tags
