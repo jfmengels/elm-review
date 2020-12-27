@@ -112,8 +112,10 @@ b = 1
 hidden = 1
 
 {-| Some comment -}
-increment : List Int -> Int
-increment int = int + 1
+increment : List Int -> Local
+increment int = Local
+
+type Local = Local
 
 noType = 1
 """
@@ -131,7 +133,7 @@ noType = 1
                           , [ Review.Test.error
                                 { message = String.trim """
 { comment = "", name = "noType", tipe = Var "unknown" }
-{ comment = " Some comment ", name = "increment", tipe = Lambda (Type "List.List" [Type "Basics.Int" []]) (Type "Basics.Int" []) }
+{ comment = " Some comment ", name = "increment", tipe = Lambda (Type "List.List" [Type "Basics.Int" []]) (Type "A.Local" []) }
 { comment = "", name = "b", tipe = Type "Basics.Int" [] }
 """
                                 , details = [ "details" ]
@@ -151,7 +153,7 @@ type alias TypeAlias = {}
 
 {-| Some comment -}
 type Exposed
-    = ExposedConstructor
+    = ExposedConstructor Opaque
 
 type Complex a other
     = A Int (List Int)
@@ -171,7 +173,7 @@ type Complex a other
                           , [ Review.Test.error
                                 { message = String.trim """
 { args = ["a","other"], comment = "", name = "Complex", tags = [("A",[Type "Basics.Int" [],Type "List.List" [Type "Basics.Int" []]]),("B",[Var "a"])] }
-{ args = [], comment = " Some comment ", name = "Exposed", tags = [("ExposedConstructor",[])] }
+{ args = [], comment = " Some comment ", name = "Exposed", tags = [("ExposedConstructor",[Type "A.Opaque" []])] }
 { args = [], comment = "", name = "Opaque", tags = [] }
 """
                                 , details = [ "details" ]
@@ -214,9 +216,9 @@ type Internal = Internal
                         [ ( "Target"
                           , [ Review.Test.error
                                 { message = String.trim """
-{ args = [], comment = "", name = "AliasToUnknown", tipe = Type ".Unknown" [] }
+{ args = [], comment = "", name = "AliasToUnknown", tipe = Type "A.Unknown" [] }
 { args = [], comment = " Some comment ", name = "AliasToInternal", tipe = Type "B.Internal" [] }
-{ args = [], comment = "", name = "Int", tipe = Type ".Int" [] }
+{ args = [], comment = "", name = "Int", tipe = Type "A.Int" [] }
 { args = ["thing"], comment = "", name = "ExtensibleRecord", tipe = Record [("a",Type "Basics.Int" [])] (Just "thing") }
 { args = [], comment = "", name = "Record", tipe = Record [("a",Type "Basics.Int" [])] Nothing }
 """

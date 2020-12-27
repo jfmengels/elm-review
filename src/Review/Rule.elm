@@ -4388,6 +4388,7 @@ type alias ScopeModuleContext =
     , exposedAliases : List Elm.Docs.Alias
     , exposedValues : List Elm.Docs.Value
     , exposedBinops : List Elm.Docs.Binop
+    , currentModuleName : ModuleName
     , lookupTable : ModuleNameLookupTable
     }
 
@@ -4415,8 +4416,8 @@ scope_initialProjectContext =
         }
 
 -}
-scope_fromProjectToModule : a -> b -> ScopeProjectContext -> ScopeModuleContext
-scope_fromProjectToModule _ _ projectContext =
+scope_fromProjectToModule : a -> Node ModuleName -> ScopeProjectContext -> ScopeModuleContext
+scope_fromProjectToModule _ moduleName projectContext =
     { scopes = nonemptyList_fromElement emptyScope
     , localTypes = Set.empty
     , importAliases = Dict.empty
@@ -4430,6 +4431,7 @@ scope_fromProjectToModule _ _ projectContext =
     , exposedAliases = []
     , exposedValues = []
     , exposedBinops = []
+    , currentModuleName = Node.value moduleName
     , lookupTable = ModuleNameLookupTableInternal.empty
     }
         |> registerPrelude
@@ -4840,7 +4842,12 @@ syntaxTypeAnnotationToDocsType innerContext (Node _ typeAnnotation) =
             let
                 realModuleName : List String
                 realModuleName =
-                    moduleNameForType innerContext typeName moduleName
+                    case moduleNameForType innerContext typeName moduleName of
+                        [] ->
+                            innerContext.currentModuleName
+
+                        realModuleName_ ->
+                            realModuleName_
             in
             Elm.Type.Type (String.join "." realModuleName ++ "." ++ typeName) (List.map (syntaxTypeAnnotationToDocsType innerContext) typeParameters)
 
