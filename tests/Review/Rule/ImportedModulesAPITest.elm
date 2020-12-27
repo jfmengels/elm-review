@@ -183,9 +183,10 @@ type Complex a other
         , test "should be able to list all the type aliases from a module" <|
             \() ->
                 [ targetModule
-                , """module A exposing (AliasToInternal, AliasToUnknown, Int, Record)
+                , """module A exposing (AliasToInternal, AliasToUnknown, ExtensibleRecord, Int, Record)
 import B
 type alias Record = { a : Int }
+type alias ExtensibleRecord thing = { thing | a : Int }
 
 type alias Int = Int
 
@@ -216,6 +217,7 @@ type Internal = Internal
 { args = [], comment = "", name = "AliasToUnknown", tipe = Tuple [] }
 { args = [], comment = " Some comment ", name = "AliasToInternal", tipe = Tuple [] }
 { args = [], comment = "", name = "Int", tipe = Tuple [] }
+{ args = ["thing"], comment = "", name = "ExtensibleRecord", tipe = Tuple [] }
 { args = [], comment = "", name = "Record", tipe = Tuple [] }
 """
                                 , details = [ "details" ]
