@@ -274,7 +274,7 @@ import Elm.Type
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix exposing (Fix)
-import Review.ModuleInformation exposing (ModuleInformation)
+import Review.ModuleInformation as ModuleInformation exposing (ModuleInformation)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Project exposing (ProjectModule)
@@ -4361,14 +4361,17 @@ scopeRule =
             (\projectContext ->
                 Extract
                     { lookupTables = projectContext.lookupTables
-                    , modules = Dict.union projectContext.dependenciesModules projectContext.modules
+                    , modules =
+                        Dict.union
+                            projectContext.dependenciesModules
+                            projectContext.modules
                     }
             )
         |> fromProjectRuleSchemaToRunnableProjectVisitor
 
 
 type alias ScopeProjectContext =
-    { dependenciesModules : Dict ModuleName Elm.Docs.Module
+    { dependenciesModules : Dict ModuleName ModuleInformation
     , modules : Dict ModuleName ModuleInformation
     , lookupTables : Dict ModuleName ModuleNameLookupTable
     }
@@ -4380,7 +4383,7 @@ type alias ScopeModuleContext =
     , importAliases : Dict String (List ModuleName)
     , importedFunctions : Dict String (List String)
     , importedTypes : Dict String (List String)
-    , dependenciesModules : Dict ModuleName Elm.Docs.Module
+    , dependenciesModules : Dict ModuleName ModuleInformation
     , modules : Dict ModuleName ModuleInformation
     , exposesEverything : Bool
     , exposedNames : Dict String Bool
@@ -4442,13 +4445,15 @@ scope_fromModuleToProject _ moduleName moduleContext =
     { dependenciesModules = Dict.empty
     , modules =
         Dict.singleton (Node.value moduleName)
-            { name = String.join "." (Node.value moduleName)
-            , comment = ""
-            , unions = moduleContext.exposedUnions
-            , aliases = moduleContext.exposedAliases
-            , values = moduleContext.exposedValues
-            , binops = moduleContext.exposedBinops
-            }
+            (ModuleInformation.fromElmDocsModule
+                { name = String.join "." (Node.value moduleName)
+                , comment = ""
+                , unions = moduleContext.exposedUnions
+                , aliases = moduleContext.exposedAliases
+                , values = moduleContext.exposedValues
+                , binops = moduleContext.exposedBinops
+                }
+            )
     , lookupTables = Dict.singleton (Node.value moduleName) moduleContext.lookupTable
     }
 
@@ -4517,16 +4522,7 @@ scope_pairWithNoErrors fn visited context =
 
 scope_internalDependenciesVisitor : Dict String Dependency -> ScopeProjectContext -> ScopeProjectContext
 scope_internalDependenciesVisitor dependencies innerContext =
-    let
-        dependenciesModules : Dict ModuleName ModuleInformation
-        dependenciesModules =
-            dependencies
-                |> Dict.values
-                |> List.concatMap Review.Project.Dependency.modules
-                |> List.map (\dependencyModule -> ( String.split "." dependencyModule.name, dependencyModule ))
-                |> Dict.fromList
-    in
-    { innerContext | dependenciesModules = dependenciesModules }
+    { innerContext | dependenciesModules = ModuleInformation.fromDependencies dependencies }
 
 
 registerPrelude : ScopeModuleContext -> ScopeModuleContext
@@ -5011,7 +5007,7 @@ registerImportExposed import_ innerContext =
                 moduleName =
                     Node.value import_.moduleName
 
-                module_ : Elm.Docs.Module
+                module_ : ModuleInformation
                 module_ =
                     (case Dict.get moduleName innerContext.dependenciesModules of
                         Just m ->
@@ -5021,13 +5017,15 @@ registerImportExposed import_ innerContext =
                             Dict.get moduleName innerContext.modules
                     )
                         |> Maybe.withDefault
-                            { name = joinModuleName moduleName
-                            , comment = ""
-                            , unions = []
-                            , values = []
-                            , aliases = []
-                            , binops = []
-                            }
+                            (ModuleInformation.fromElmDocsModule
+                                { name = joinModuleName moduleName
+                                , comment = ""
+                                , unions = []
+                                , values = []
+                                , aliases = []
+                                , binops = []
+                                }
+                            )
             in
             case exposing_ of
                 Exposing.All _ ->
@@ -5043,18 +5041,18 @@ registerImportExposed import_ innerContext =
                                     (\union ->
                                         List.map (\( name, _ ) -> ( name, moduleName )) union.tags
                                     )
-                                    module_.unions
-                                , List.map nameWithModuleName module_.values
-                                , List.map nameWithModuleName module_.aliases
-                                , List.map nameWithModuleName module_.binops
+                                    (ModuleInformation.unions module_)
+                                , List.map nameWithModuleName (ModuleInformation.values module_)
+                                , List.map nameWithModuleName (ModuleInformation.aliases module_)
+                                , List.map nameWithModuleName (ModuleInformation.binops module_)
                                 ]
                                 |> Dict.fromList
 
                         exposedTypes : Dict String (List String)
                         exposedTypes =
                             List.concat
-                                [ List.map nameWithModuleName module_.unions
-                                , List.map nameWithModuleName module_.aliases
+                                [ List.map nameWithModuleName (ModuleInformation.unions module_)
+                                , List.map nameWithModuleName (ModuleInformation.aliases module_)
                                 ]
                                 |> Dict.fromList
                     in
@@ -5085,7 +5083,7 @@ registerImportExposed import_ innerContext =
                     }
 
 
-valuesFromExposingList : Elm.Docs.Module -> Node TopLevelExpose -> List String
+valuesFromExposingList : ModuleInformation -> Node TopLevelExpose -> List String
 valuesFromExposingList module_ topLevelExpose =
     case Node.value topLevelExpose of
         Exposing.InfixExpose operator ->
@@ -5095,7 +5093,7 @@ valuesFromExposingList module_ topLevelExpose =
             [ function ]
 
         Exposing.TypeOrAliasExpose name ->
-            if List.any (\alias -> alias.name == name) module_.aliases then
+            if List.any (\alias -> alias.name == name) (ModuleInformation.aliases module_) then
                 [ name ]
 
             else
@@ -5105,7 +5103,7 @@ valuesFromExposingList module_ topLevelExpose =
         Exposing.TypeExpose { name, open } ->
             case open of
                 Just _ ->
-                    module_.unions
+                    ModuleInformation.unions module_
                         |> List.filter (\union -> union.name == name)
                         |> List.concatMap .tags
                         |> List.map Tuple.first
@@ -5624,19 +5622,19 @@ moduleNameForType context typeName moduleName =
             moduleName
 
 
-isValueDeclaredInModule : String -> Elm.Docs.Module -> Bool
+isValueDeclaredInModule : String -> ModuleInformation -> Bool
 isValueDeclaredInModule valueName module_ =
-    List.any (.name >> (==) valueName) module_.values
-        || List.any (.name >> (==) valueName) module_.aliases
+    List.any (.name >> (==) valueName) (ModuleInformation.values module_)
+        || List.any (.name >> (==) valueName) (ModuleInformation.aliases module_)
         || List.any
             (\union -> List.any (Tuple.first >> (==) valueName) union.tags)
-            module_.unions
+            (ModuleInformation.unions module_)
 
 
-isTypeDeclaredInModule : String -> Elm.Docs.Module -> Bool
+isTypeDeclaredInModule : String -> ModuleInformation -> Bool
 isTypeDeclaredInModule typeName module_ =
-    List.any (.name >> (==) typeName) module_.aliases
-        || List.any (.name >> (==) typeName) module_.unions
+    List.any (.name >> (==) typeName) (ModuleInformation.aliases module_)
+        || List.any (.name >> (==) typeName) (ModuleInformation.values module_)
 
 
 isInScope : String -> Nonempty Scope -> Bool
