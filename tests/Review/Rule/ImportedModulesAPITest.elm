@@ -153,7 +153,7 @@ type alias TypeAlias = {}
 type Exposed
     = ExposedConstructor
 
-type Complex a
+type Complex a other
     = A Int (List Int)
     | B a
 """
@@ -170,7 +170,7 @@ type Complex a
                         [ ( "Target"
                           , [ Review.Test.error
                                 { message = String.trim """
-{ args = [], comment = "", name = "Complex", tags = [("A",[Type "Basics.Int" [],Type "List.List" [Type "Basics.Int" []]]),("B",[Var "a"])] }
+{ args = ["a","other"], comment = "", name = "Complex", tags = [("A",[Type "Basics.Int" [],Type "List.List" [Type "Basics.Int" []]]),("B",[Var "a"])] }
 { args = [], comment = "", name = "Exposed", tags = [("ExposedConstructor",[])] }
 { args = [], comment = "", name = "Opaque", tags = [] }
 """
