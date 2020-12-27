@@ -4679,7 +4679,7 @@ scope_registerDeclaration declaration innerContext =
                    )
                 |> registerIfExposed registerExposedTypeAlias (Node.value alias_.name)
 
-        Declaration.CustomTypeDeclaration ({ name, constructors, generics } as customType) ->
+        Declaration.CustomTypeDeclaration customType ->
             List.foldl
                 (\constructor innerContext_ ->
                     let
@@ -4693,9 +4693,9 @@ scope_registerDeclaration declaration innerContext =
                         }
                         innerContext_
                 )
-                { innerContext | localTypes = Set.insert (Node.value name) innerContext.localTypes }
-                constructors
-                |> registerCustomTypeIfExposed (registerExposedCustomType customType constructors generics) (Node.value name)
+                { innerContext | localTypes = Set.insert (Node.value customType.name) innerContext.localTypes }
+                customType.constructors
+                |> registerCustomTypeIfExposed (registerExposedCustomType customType) (Node.value customType.name)
 
         Declaration.PortDeclaration signature ->
             innerContext
@@ -4744,48 +4744,8 @@ registerExposedValue function name innerContext =
     }
 
 
-checkIfUnionNeedsToBeExposed : List (Node Elm.Syntax.Type.ValueConstructor) -> String -> ScopeModuleContext -> ScopeModuleContext
-checkIfUnionNeedsToBeExposed constructors name innerContext =
-    if innerContext.exposesEverything || Dict.member name innerContext.exposedNames then
-        let
-            tags : List ( String, List Elm.Type.Type )
-            tags =
-                let
-                    exposesConstructors =
-                        True
-                in
-                if exposesConstructors then
-                    List.map
-                        (Node.value
-                            >> (\constructor ->
-                                    ( Node.value constructor.name
-                                    , List.map (syntaxTypeAnnotationToDocsType innerContext) constructor.arguments
-                                    )
-                               )
-                        )
-                        constructors
-
-                else
-                    []
-
-            customType : Elm.Docs.Union
-            customType =
-                { name = name
-                , comment = ""
-
-                -- TODO
-                , args = []
-                , tags = tags
-                }
-        in
-        { innerContext | exposedUnions = customType :: innerContext.exposedUnions }
-
-    else
-        innerContext
-
-
-registerExposedCustomType : Elm.Syntax.Type.Type -> List (Node Elm.Syntax.Type.ValueConstructor) -> List (Node String) -> Bool -> String -> ScopeModuleContext -> ScopeModuleContext
-registerExposedCustomType declaredType constructors generics exposesConstructors name innerContext =
+registerExposedCustomType : Elm.Syntax.Type.Type -> Bool -> ScopeModuleContext -> ScopeModuleContext
+registerExposedCustomType declaredType exposesConstructors innerContext =
     let
         tags : List ( String, List Elm.Type.Type )
         tags =
@@ -4836,15 +4796,15 @@ registerIfExposed registerFn name innerContext =
         innerContext
 
 
-registerCustomTypeIfExposed : (Bool -> String -> ScopeModuleContext -> ScopeModuleContext) -> String -> ScopeModuleContext -> ScopeModuleContext
+registerCustomTypeIfExposed : (Bool -> ScopeModuleContext -> ScopeModuleContext) -> String -> ScopeModuleContext -> ScopeModuleContext
 registerCustomTypeIfExposed registerFn name innerContext =
     if innerContext.exposesEverything then
-        registerFn True name innerContext
+        registerFn True innerContext
 
     else
         case Dict.get name innerContext.exposedNames of
             Just open ->
-                registerFn open name innerContext
+                registerFn open innerContext
 
             Nothing ->
                 innerContext
