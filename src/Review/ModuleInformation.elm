@@ -6,10 +6,12 @@ module Review.ModuleInformation exposing
     , fromDependencies
     , fromElmDocsModule
     , fromElmDocsModuleDict
+    , getValueByName
     , toElmDocsModule
     , toElmDocsModuleDict
     , unions
     , values
+    , valuesAsDict
     )
 
 import Dict exposing (Dict)
@@ -87,13 +89,13 @@ toElmDocsModuleDict dict =
     Dict.map (always toElmDocsModule) dict
 
 
-empty : List String -> ModuleInformation
+empty : ModuleName -> ModuleInformation
 empty moduleName =
     ModuleInformation
-        { name = String.join "." moduleName
+        { name = moduleName
         , comment = ""
         , unions = []
-        , values = []
+        , values = Dict.empty
         , aliases = []
         , binops = []
         }
@@ -115,7 +117,17 @@ aliases (ModuleInformation m) =
 
 values : ModuleInformation -> List Value
 values (ModuleInformation m) =
+    Dict.values m.values
+
+
+valuesAsDict : ModuleInformation -> Dict String Value
+valuesAsDict (ModuleInformation m) =
     m.values
+
+
+getValueByName : String -> ModuleInformation -> Maybe Value
+getValueByName name (ModuleInformation m) =
+    Dict.get name m.values
 
 
 binops : ModuleInformation -> List Elm.Docs.Binop
