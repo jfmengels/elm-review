@@ -8,6 +8,7 @@ module Review.TypeInference.Value exposing
     , name
     , relateToModule
     , tipe
+    , toMetadataValue
     )
 
 import Elm.Docs
@@ -41,6 +42,32 @@ fromMetadataValue value =
         , documentation = value.comment
         , tipe = Type.fromMetadataType value.tipe
         }
+
+
+toMetadataValue : Value -> Maybe Elm.Docs.Value
+toMetadataValue (Value value) =
+    if wasDeclaredAsAFunction value.name then
+        Type.toMetadataType value.tipe
+            |> Maybe.map
+                (\tipe_ ->
+                    { name = value.name
+                    , comment = value.documentation
+                    , tipe = tipe_
+                    }
+                )
+
+    else
+        Nothing
+
+
+wasDeclaredAsAFunction : String -> Bool
+wasDeclaredAsAFunction name_ =
+    case String.uncons name_ of
+        Just ( firstChar, _ ) ->
+            Char.isLower firstChar
+
+        Nothing ->
+            False
 
 
 fromMetadataUnion : ModuleName -> Elm.Docs.Union -> List Value
