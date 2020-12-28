@@ -108,14 +108,14 @@ noType = 1
                         (rule
                             (\dict ->
                                 Dict.get [ "A" ] dict
-                                    |> Maybe.map (.values >> List.map Debug.toString >> String.join "\n")
+                                    |> Maybe.map (.values >> List.sortBy .name >> List.map Debug.toString >> String.join "\n")
                                     |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
                             )
                         )
                     |> expectToFind """
-{ comment = "", name = "noType", tipe = Var "unknown" }
-{ comment = " Some comment ", name = "increment", tipe = Lambda (Type "List.List" [Type "Basics.Int" []]) (Type "A.Local" []) }
 { comment = "", name = "b", tipe = Type "Basics.Int" [] }
+{ comment = " Some comment ", name = "increment", tipe = Lambda (Type "List.List" [Type "Basics.Int" []]) (Type "A.Local" []) }
+{ comment = "", name = "noType", tipe = Var "unknown" }
 """
         , test "should be able to list all the custom types from a module" <|
             \() ->
@@ -139,7 +139,7 @@ type Complex a other
                         (rule
                             (\dict ->
                                 Dict.get [ "A" ] dict
-                                    |> Maybe.map (.unions >> List.map Debug.toString >> String.join "\n")
+                                    |> Maybe.map (.unions >> List.sortBy .name >> List.map Debug.toString >> String.join "\n")
                                     |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
                             )
                         )
@@ -174,15 +174,15 @@ type Internal = Internal
                         (rule
                             (\dict ->
                                 Dict.get [ "A" ] dict
-                                    |> Maybe.map (.aliases >> List.map Debug.toString >> String.join "\n")
+                                    |> Maybe.map (.aliases >> List.sortBy .name >> List.map Debug.toString >> String.join "\n")
                                     |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
                             )
                         )
                     |> expectToFind """
-{ args = [], comment = "", name = "AliasToUnknown", tipe = Type "A.Unknown" [] }
 { args = [], comment = " Some comment ", name = "AliasToInternal", tipe = Type "B.Internal" [] }
-{ args = [], comment = "", name = "Int", tipe = Type "A.Int" [] }
+{ args = [], comment = "", name = "AliasToUnknown", tipe = Type "A.Unknown" [] }
 { args = ["thing"], comment = "", name = "ExtensibleRecord", tipe = Record [("a",Type "A.Int" [])] (Just "thing") }
+{ args = [], comment = "", name = "Int", tipe = Type "A.Int" [] }
 { args = [], comment = "", name = "Record", tipe = Record [("a",Type "A.Int" [])] Nothing }
 """
         ]
