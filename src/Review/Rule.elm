@@ -280,6 +280,7 @@ import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Project exposing (ProjectModule)
 import Review.Project.Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
+import Review.TypeInference.Value as Value
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
@@ -5036,16 +5037,9 @@ registerImportExposed import_ innerContext =
 
                         exposedValues : Dict String (List String)
                         exposedValues =
-                            List.concat
-                                [ List.concatMap
-                                    (\union ->
-                                        List.map (\( name, _ ) -> ( name, moduleName )) union.tags
-                                    )
-                                    (ModuleInformation.unions module_)
-                                , List.map nameWithModuleName (ModuleInformation.values module_)
-                                , List.map nameWithModuleName (ModuleInformation.aliases module_)
-                                , List.map nameWithModuleName (ModuleInformation.binops module_)
-                                ]
+                            ModuleInformation.valuesAsDict module_
+                                |> Dict.values
+                                |> List.map (\value -> ( Value.name value, moduleName ))
                                 |> Dict.fromList
 
                         exposedTypes : Dict String (List String)
@@ -5624,17 +5618,13 @@ moduleNameForType context typeName moduleName =
 
 isValueDeclaredInModule : String -> ModuleInformation -> Bool
 isValueDeclaredInModule valueName module_ =
-    List.any (.name >> (==) valueName) (ModuleInformation.values module_)
-        || List.any (.name >> (==) valueName) (ModuleInformation.aliases module_)
-        || List.any
-            (\union -> List.any (Tuple.first >> (==) valueName) union.tags)
-            (ModuleInformation.unions module_)
+    ModuleInformation.getValueByName valueName module_ /= Nothing
 
 
 isTypeDeclaredInModule : String -> ModuleInformation -> Bool
 isTypeDeclaredInModule typeName module_ =
     List.any (.name >> (==) typeName) (ModuleInformation.aliases module_)
-        || List.any (.name >> (==) typeName) (ModuleInformation.values module_)
+        || List.any (.name >> (==) typeName) (ModuleInformation.unions module_)
 
 
 isInScope : String -> Nonempty Scope -> Bool
