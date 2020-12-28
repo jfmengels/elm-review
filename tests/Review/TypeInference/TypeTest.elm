@@ -2,6 +2,7 @@ module Review.TypeInference.TypeTest exposing (suite)
 
 import Elm.Type
 import Expect
+import Fuzz exposing (Fuzzer)
 import Review.TypeInference.Type as Type
 import Test exposing (Test)
 
@@ -11,6 +12,7 @@ suite =
     Test.describe "Review.TypeInference.Type"
         [ fromMetadataTypeTest
         , toMetadataTypeTest
+        , fromAndToMetadataTypeTest
         ]
 
 
@@ -212,4 +214,51 @@ toMetadataTypeTest =
                     }
                     |> Type.toMetadataType
                     |> Expect.equal Nothing
+        ]
+
+
+typeFuzzer : Fuzzer Elm.Type.Type
+typeFuzzer =
+    Fuzz.oneOf [ varFuzzer, typeReferenceFuzzer, recordFuzzer, lambdaFuzzer ]
+
+
+varFuzzer : Fuzzer Elm.Type.Type
+varFuzzer =
+    Fuzz.map Elm.Type.Var Fuzz.string
+
+
+typeReferenceFuzzer : Fuzzer Elm.Type.Type
+typeReferenceFuzzer =
+    -- TODO Use typeFuzzer for list
+    Fuzz.map
+        (\name -> Elm.Type.Type name [])
+        Fuzz.string
+
+
+recordFuzzer : Fuzzer Elm.Type.Type
+recordFuzzer =
+    Fuzz.map2
+        Elm.Type.Record
+        -- TODO Use typeFuzzer for subType
+        (Fuzz.list <| Fuzz.map2 (\name subType -> ( name, subType )) Fuzz.string varFuzzer)
+        (Fuzz.maybe Fuzz.string)
+
+
+lambdaFuzzer : Fuzzer Elm.Type.Type
+lambdaFuzzer =
+    Fuzz.map2 Elm.Type.Lambda
+        -- TODO Replace by typeFuzzer
+        (Fuzz.oneOf [ varFuzzer, typeReferenceFuzzer ])
+        (Fuzz.oneOf [ varFuzzer, typeReferenceFuzzer ])
+
+
+fromAndToMetadataTypeTest : Test
+fromAndToMetadataTypeTest =
+    Test.describe "From and to metadatatype"
+        [ Test.fuzz typeFuzzer "should remain the same after being converted and back" <|
+            \type_ ->
+                type_
+                    |> Type.fromMetadataType
+                    |> Type.toMetadataType
+                    |> Expect.equal (Just type_)
         ]
