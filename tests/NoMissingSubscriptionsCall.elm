@@ -7,11 +7,11 @@ module NoMissingSubscriptionsCall exposing (rule)
 -}
 
 import Dict exposing (Dict)
-import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
+import Review.ModuleInformation as ModuleInformation exposing (ModuleInformation)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
@@ -64,143 +64,65 @@ elm-review --template jfmengels/elm-review-the-elm-architecture/example --rules 
 -}
 rule : Rule
 rule =
-    Rule.newProjectRuleSchema "NoMissingSubscriptionsCall" initialProjectContext
-        |> Rule.withModuleVisitor moduleVisitor
-        |> Rule.withModuleContextUsingContextCreator
-            { fromProjectToModule = fromProjectToModule
-            , fromModuleToProject = fromModuleToProject
-            , foldProjectContexts = foldProjectContexts
-            }
-        |> Rule.withContextFromImportedModules
-        |> Rule.fromProjectRuleSchema
-
-
-moduleVisitor : Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
-moduleVisitor schema =
-    schema
-        |> Rule.withDeclarationEnterVisitor declarationVisitor
+    Rule.newModuleRuleSchemaUsingContextCreator "NoMissingSubscriptionsCall" initialContext
         |> Rule.withExpressionEnterVisitor expressionVisitor
         |> Rule.withFinalModuleEvaluation finalEvaluation
+        |> Rule.fromModuleRuleSchema
 
 
-type alias ProjectContext =
-    { modulesThatExposeSubscriptionsAndUpdate : Set ModuleName
-    }
-
-
-type alias ModuleContext =
+type alias Context =
     { lookupTable : ModuleNameLookupTable
-    , modulesThatExposeSubscriptionsAndUpdate : Set ModuleName
-    , definesUpdate : Bool
-    , definesSubscriptions : Bool
+    , importedModulesAPI : Dict ModuleName ModuleInformation
     , usesUpdateOfModule : Dict ModuleName Range
     , usesSubscriptionsOfModule : Set ModuleName
     }
 
 
-initialProjectContext : ProjectContext
-initialProjectContext =
-    { modulesThatExposeSubscriptionsAndUpdate = Set.empty
-    }
-
-
-fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
-fromProjectToModule =
+initialContext : Rule.ContextCreator () Context
+initialContext =
     Rule.initContextCreator
-        (\lookupTable projectContext ->
+        (\lookupTable importedModulesAPI () ->
             { lookupTable = lookupTable
-            , modulesThatExposeSubscriptionsAndUpdate = projectContext.modulesThatExposeSubscriptionsAndUpdate
-            , definesUpdate = False
-            , definesSubscriptions = False
+            , importedModulesAPI = importedModulesAPI
             , usesUpdateOfModule = Dict.empty
             , usesSubscriptionsOfModule = Set.empty
             }
         )
         |> Rule.withModuleNameLookupTable
+        |> Rule.withImportedModulesAPI
 
 
-fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
-fromModuleToProject =
-    Rule.initContextCreator
-        (\metadata moduleContext ->
-            { modulesThatExposeSubscriptionsAndUpdate =
-                if moduleContext.definesSubscriptions && moduleContext.definesUpdate then
-                    Set.singleton (Rule.moduleNameFromMetadata metadata)
-
-                else
-                    Set.empty
-            }
-        )
-        |> Rule.withMetadata
-
-
-foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
-foldProjectContexts newContext previousContext =
-    { modulesThatExposeSubscriptionsAndUpdate =
-        Set.union
-            newContext.modulesThatExposeSubscriptionsAndUpdate
-            previousContext.modulesThatExposeSubscriptionsAndUpdate
-    }
-
-
-declarationVisitor : Node Declaration -> ModuleContext -> ( List (Error nothing), ModuleContext )
-declarationVisitor node moduleContext =
-    case Node.value node of
-        Declaration.FunctionDeclaration function ->
-            case
-                function.declaration
-                    |> Node.value
-                    |> .name
-                    |> Node.value
-            of
-                "update" ->
-                    ( [], { moduleContext | definesUpdate = True } )
-
-                "subscriptions" ->
-                    ( [], { moduleContext | definesSubscriptions = True } )
-
-                _ ->
-                    ( [], moduleContext )
-
-        _ ->
-            ( [], moduleContext )
-
-
-expressionVisitor : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
-expressionVisitor node moduleContext =
+expressionVisitor : Node Expression -> Context -> ( List (Error {}), Context )
+expressionVisitor node context =
     case Node.value node of
         Expression.FunctionOrValue _ "update" ->
-            case ModuleNameLookupTable.moduleNameFor moduleContext.lookupTable node of
+            case ModuleNameLookupTable.moduleNameFor context.lookupTable node of
                 Just moduleName ->
-                    if Set.member moduleName moduleContext.modulesThatExposeSubscriptionsAndUpdate then
-                        ( [], { moduleContext | usesUpdateOfModule = Dict.insert moduleName (Node.range node) moduleContext.usesUpdateOfModule } )
-
-                    else
-                        ( [], moduleContext )
+                    ( [], { context | usesUpdateOfModule = Dict.insert moduleName (Node.range node) context.usesUpdateOfModule } )
 
                 Nothing ->
-                    ( [], moduleContext )
+                    ( [], context )
 
         Expression.FunctionOrValue _ "subscriptions" ->
-            case ModuleNameLookupTable.moduleNameFor moduleContext.lookupTable node of
+            case ModuleNameLookupTable.moduleNameFor context.lookupTable node of
                 Just moduleName ->
-                    if Set.member moduleName moduleContext.modulesThatExposeSubscriptionsAndUpdate then
-                        ( [], { moduleContext | usesSubscriptionsOfModule = Set.insert moduleName moduleContext.usesSubscriptionsOfModule } )
-
-                    else
-                        ( [], moduleContext )
+                    ( [], { context | usesSubscriptionsOfModule = Set.insert moduleName context.usesSubscriptionsOfModule } )
 
                 Nothing ->
-                    ( [], moduleContext )
+                    ( [], context )
 
         _ ->
-            ( [], moduleContext )
+            ( [], context )
 
 
-finalEvaluation : ModuleContext -> List (Error {})
-finalEvaluation moduleContext =
-    moduleContext.usesUpdateOfModule
-        |> Dict.filter (\moduleName _ -> not <| Set.member moduleName moduleContext.usesSubscriptionsOfModule)
+finalEvaluation : Context -> List (Error {})
+finalEvaluation context =
+    context.usesUpdateOfModule
+        |> Dict.filter
+            (\moduleName _ ->
+                not (Set.member moduleName context.usesSubscriptionsOfModule)
+                    && definesUpdateFunction moduleName context.importedModulesAPI
+            )
         |> Dict.toList
         |> List.map
             (\( moduleName, range ) ->
@@ -212,3 +134,13 @@ finalEvaluation moduleContext =
                     }
                     range
             )
+
+
+definesUpdateFunction : ModuleName -> Dict ModuleName ModuleInformation -> Bool
+definesUpdateFunction moduleName dict =
+    case Dict.get moduleName dict of
+        Just api ->
+            List.any (\value -> value.name == "subscriptions") (ModuleInformation.values api)
+
+        Nothing ->
+            False
