@@ -14,6 +14,7 @@ import Elm.Syntax.Range exposing (Range)
 import Review.ModuleInformation as ModuleInformation exposing (ModuleInformation)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
+import Review.TypeInference.Value as Value
 import Set exposing (Set)
 
 
@@ -140,7 +141,7 @@ definesUpdateFunction : ModuleName -> Dict ModuleName ModuleInformation -> Bool
 definesUpdateFunction moduleName dict =
     case Dict.get moduleName dict of
         Just api ->
-            List.any (\value -> value.name == "subscriptions") (ModuleInformation.values api)
+            List.any (\value -> Value.name value == "subscriptions") (ModuleInformation.values api)
 
         Nothing ->
             False
