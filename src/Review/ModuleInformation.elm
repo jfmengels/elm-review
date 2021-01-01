@@ -5,7 +5,6 @@ module Review.ModuleInformation exposing
     , empty
     , fromDependencies
     , fromElmDocsModule
-    , fromElmDocsModuleDict
     , getValueByName
     , toElmDocsModule
     , toElmDocsModuleDict
@@ -54,11 +53,6 @@ fromElmDocsModule elmDocsModule =
                 |> Dict.fromList
         , binops = elmDocsModule.binops
         }
-
-
-fromElmDocsModuleDict : Dict ModuleName Elm.Docs.Module -> Dict ModuleName ModuleInformation
-fromElmDocsModuleDict dict =
-    Dict.map (always fromElmDocsModule) dict
 
 
 fromDependencies : Dict String Review.Project.Dependency.Dependency -> Dict ModuleName ModuleInformation
