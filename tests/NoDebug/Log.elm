@@ -6,10 +6,11 @@ module NoDebug.Log exposing (rule)
 
 -}
 
-import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Expression as Expression exposing (Expression)
-import Elm.Syntax.Import exposing (Import)
-import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.Node as Node exposing (Node(..))
+import Elm.Syntax.Range exposing (Range)
+import Review.Fix
+import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
 
 
@@ -63,75 +64,166 @@ elm-review --template jfmengels/elm-review-debug/example --rules NoDebug.Log
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoDebug.Log" { hasLogBeenImported = False }
-        |> Rule.withImportVisitor importVisitor
-        |> Rule.withExpressionVisitor expressionVisitor
+    Rule.newModuleRuleSchemaUsingContextCreator "NoDebug.Log" initContext
+        |> Rule.withExpressionEnterVisitor expressionVisitor
         |> Rule.fromModuleRuleSchema
 
 
 type alias Context =
-    { hasLogBeenImported : Bool
+    { lookupTable : ModuleNameLookupTable
+    , rangesToIgnore : List Range
     }
 
 
-error : Node a -> Error {}
-error node =
-    Rule.error
+initContext : Rule.ContextCreator () Context
+initContext =
+    Rule.initContextCreator
+        (\lookupTable () ->
+            { lookupTable = lookupTable
+            , rangesToIgnore = []
+            }
+        )
+        |> Rule.withModuleNameLookupTable
+
+
+error : Node a -> Maybe Range -> Error {}
+error node rangeToRemove =
+    Rule.errorWithFix
         { message = "Remove the use of `Debug.log` before shipping to production"
         , details =
             [ "`Debug.log` is useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing its use before committing and attempting to push to production."
             ]
         }
         (Node.range node)
-
-
-importVisitor : Node Import -> Context -> ( List nothing, Context )
-importVisitor node context =
-    let
-        moduleName : List String
-        moduleName =
-            node
-                |> Node.value
-                |> .moduleName
-                |> Node.value
-    in
-    if moduleName == [ "Debug" ] then
-        case node |> Node.value |> .exposingList |> Maybe.map Node.value of
-            Just (Exposing.All _) ->
-                ( [], { hasLogBeenImported = True } )
-
-            Just (Exposing.Explicit importedNames) ->
-                ( [], { hasLogBeenImported = List.any isLog importedNames } )
+        (case rangeToRemove of
+            Just range ->
+                [ Review.Fix.removeRange range ]
 
             Nothing ->
-                ( [], context )
-
-    else
-        ( [], context )
+                []
+        )
 
 
-isLog : Node Exposing.TopLevelExpose -> Bool
-isLog node =
+handleWhenSingleArg : Range -> Context -> Node Expression -> ( List (Error {}), Context )
+handleWhenSingleArg rangeToPotentiallyRemove context node =
     case Node.value node of
-        Exposing.FunctionExpose "log" ->
-            True
+        Expression.Application (((Node logFunctionRange (Expression.FunctionOrValue _ "log")) as logFunctionNode) :: logArguments) ->
+            case ModuleNameLookupTable.moduleNameAt context.lookupTable logFunctionRange of
+                Just [ "Debug" ] ->
+                    let
+                        rangeToRemove : Maybe Range
+                        rangeToRemove =
+                            case logArguments of
+                                [ _ ] ->
+                                    Just rangeToPotentiallyRemove
 
-        _ ->
-            False
+                                _ ->
+                                    Nothing
+                    in
+                    ( [ error logFunctionNode rangeToRemove ]
+                    , { context | rangesToIgnore = Node.range node :: logFunctionRange :: context.rangesToIgnore }
+                    )
 
-
-expressionVisitor : Node Expression -> Rule.Direction -> Context -> ( List (Error {}), Context )
-expressionVisitor node direction context =
-    case ( direction, Node.value node ) of
-        ( Rule.OnEnter, Expression.FunctionOrValue [ "Debug" ] "log" ) ->
-            ( [ error node ], context )
-
-        ( Rule.OnEnter, Expression.FunctionOrValue [] "log" ) ->
-            if context.hasLogBeenImported then
-                ( [ error node ], context )
-
-            else
-                ( [], context )
+                _ ->
+                    ( [], context )
 
         _ ->
             ( [], context )
+
+
+expressionVisitor : Node Expression -> Context -> ( List (Error {}), Context )
+expressionVisitor node context =
+    case Node.value node of
+        Expression.OperatorApplication "|>" _ left right ->
+            handleWhenSingleArg
+                { start = (Node.range left).end
+                , end = (Node.range right).end
+                }
+                context
+                right
+
+        Expression.OperatorApplication "<|" _ left right ->
+            handleWhenSingleArg
+                { start = (Node.range left).start
+                , end = (Node.range right).start
+                }
+                context
+                left
+
+        Expression.OperatorApplication "<<" _ left right ->
+            let
+                ( errorsLeft, contextAfterLeft ) =
+                    handleWhenSingleArg
+                        { start = (Node.range left).start
+                        , end = (Node.range right).start
+                        }
+                        context
+                        left
+
+                ( errorsRight, contextAfterRight ) =
+                    handleWhenSingleArg
+                        { start = (Node.range left).end
+                        , end = (Node.range right).end
+                        }
+                        contextAfterLeft
+                        right
+            in
+            ( errorsLeft ++ errorsRight, contextAfterRight )
+
+        Expression.OperatorApplication ">>" _ left right ->
+            let
+                ( errorsLeft, contextAfterLeft ) =
+                    handleWhenSingleArg
+                        { start = (Node.range left).start
+                        , end = (Node.range right).start
+                        }
+                        context
+                        left
+
+                ( errorsRight, contextAfterRight ) =
+                    handleWhenSingleArg
+                        { start = (Node.range left).end
+                        , end = (Node.range right).end
+                        }
+                        contextAfterLeft
+                        right
+            in
+            ( errorsLeft ++ errorsRight, contextAfterRight )
+
+        Expression.Application (((Node logFunctionRange (Expression.FunctionOrValue _ "log")) as logFunctionNode) :: logArguments) ->
+            let
+                rangeToRemove : Maybe Range
+                rangeToRemove =
+                    case logArguments of
+                        [ _, valueToLog ] ->
+                            Just
+                                { start = logFunctionRange.start
+                                , end = (Node.range valueToLog).start
+                                }
+
+                        _ ->
+                            Nothing
+            in
+            reportIfDebugLog logFunctionNode context rangeToRemove
+
+        Expression.FunctionOrValue _ "log" ->
+            reportIfDebugLog node context Nothing
+
+        _ ->
+            ( [], context )
+
+
+reportIfDebugLog : Node Expression -> Context -> Maybe Range -> ( List (Error {}), Context )
+reportIfDebugLog node context rangeToRemove =
+    if List.member (Node.range node) context.rangesToIgnore then
+        ( [], context )
+
+    else
+        case ModuleNameLookupTable.moduleNameFor context.lookupTable node of
+            Just [ "Debug" ] ->
+                ( [ error node rangeToRemove ]
+                , { context | rangesToIgnore = Node.range node :: context.rangesToIgnore }
+                )
+
+            _ ->
+                ( [], context )

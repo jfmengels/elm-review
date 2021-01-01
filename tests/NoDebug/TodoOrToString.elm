@@ -6,10 +6,9 @@ module NoDebug.TodoOrToString exposing (rule)
 
 -}
 
-import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Expression as Expression exposing (Expression)
-import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Node as Node exposing (Node)
+import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
 
 
@@ -84,95 +83,41 @@ elm-review --template jfmengels/elm-review-debug/example --rules NoDebug.TodoOrT
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoDebug.TodoOrToString" init
-        |> Rule.withImportVisitor importVisitor
-        |> Rule.withExpressionVisitor expressionVisitor
+    Rule.newModuleRuleSchemaUsingContextCreator "NoDebug.TodoOrToString" init
+        |> Rule.withExpressionEnterVisitor expressionVisitor
         |> Rule.fromModuleRuleSchema
 
 
 type alias Context =
-    { hasTodoBeenImported : Bool
-    , hasToStringBeenImported : Bool
-    }
+    ModuleNameLookupTable
 
 
-init : Context
+init : Rule.ContextCreator () Context
 init =
-    { hasTodoBeenImported = False
-    , hasToStringBeenImported = False
-    }
+    Rule.initContextCreator (\lookupTable () -> lookupTable)
+        |> Rule.withModuleNameLookupTable
 
 
-error : Node a -> String -> Error {}
-error node name =
-    Rule.error
-        { message = "Remove the use of `Debug." ++ name ++ "` before shipping to production"
-        , details =
-            [ "`Debug." ++ name ++ "` can be useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing its use before committing and attempting to push to production."
-            ]
-        }
-        (Node.range node)
-
-
-importVisitor : Node Import -> Context -> ( List nothing, Context )
-importVisitor node context =
-    let
-        moduleName : List String
-        moduleName =
-            node
-                |> Node.value
-                |> .moduleName
-                |> Node.value
-    in
-    if moduleName == [ "Debug" ] then
-        case node |> Node.value |> .exposingList |> Maybe.map Node.value of
-            Just (Exposing.All _) ->
-                ( [], { hasTodoBeenImported = True, hasToStringBeenImported = True } )
-
-            Just (Exposing.Explicit importedNames) ->
-                ( []
-                , { context
-                    | hasTodoBeenImported = List.any (is "todo") importedNames
-                    , hasToStringBeenImported = List.any (is "toString") importedNames
-                  }
-                )
-
-            Nothing ->
-                ( [], context )
-
-    else
-        ( [], context )
-
-
-is : String -> Node Exposing.TopLevelExpose -> Bool
-is name node =
+expressionVisitor : Node Expression -> Context -> ( List (Error {}), Context )
+expressionVisitor node context =
     case Node.value node of
-        Exposing.FunctionExpose functionName ->
-            name == functionName
+        Expression.FunctionOrValue _ name ->
+            if name == "todo" || name == "toString" then
+                case ModuleNameLookupTable.moduleNameFor context node of
+                    Just [ "Debug" ] ->
+                        ( [ Rule.error
+                                { message = "Remove the use of `Debug." ++ name ++ "` before shipping to production"
+                                , details =
+                                    [ "`Debug." ++ name ++ "` can be useful when developing, but is not meant to be shipped to production or published in a package. I suggest removing its use before committing and attempting to push to production."
+                                    ]
+                                }
+                                (Node.range node)
+                          ]
+                        , context
+                        )
 
-        _ ->
-            False
-
-
-expressionVisitor : Node Expression -> Rule.Direction -> Context -> ( List (Error {}), Context )
-expressionVisitor node direction context =
-    case ( direction, Node.value node ) of
-        ( Rule.OnEnter, Expression.FunctionOrValue [ "Debug" ] name ) ->
-            if name == "todo" then
-                ( [ error node name ], context )
-
-            else if name == "toString" then
-                ( [ error node name ], context )
-
-            else
-                ( [], context )
-
-        ( Rule.OnEnter, Expression.FunctionOrValue [] name ) ->
-            if name == "todo" && context.hasTodoBeenImported then
-                ( [ error node name ], context )
-
-            else if name == "toString" && context.hasToStringBeenImported then
-                ( [ error node name ], context )
+                    _ ->
+                        ( [], context )
 
             else
                 ( [], context )
