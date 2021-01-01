@@ -1,4 +1,4 @@
-module NoUnused.Patterns.NameVisitor exposing (withValueVisitor, withValueAndTypeVisitors)
+module NoUnused.Patterns.NameVisitor exposing (withValueVisitor)
 
 {-| Visit each name in the module.
 

@@ -22,6 +22,7 @@ import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import NoUnused.NonemptyList as NonemptyList exposing (Nonempty)
+import NoUnused.RangeDict as RangeDict exposing (RangeDict)
 import Review.Fix as Fix exposing (Fix)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Project.Dependency as Dependency exposing (Dependency)
@@ -101,7 +102,7 @@ type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
     , scopes : Nonempty Scope
     , inTheDeclarationOf : List String
-    , declarations : Dict RangeAsString String
+    , declarations : RangeDict String
     , exposesEverything : Bool
     , isApplication : Bool
     , constructorNameToTypeName : Dict String String
@@ -141,10 +142,6 @@ type alias ModuleThatExposesEverything =
     , wasUsedImplicitly : Bool
     , wasUsedWithModuleName : Bool
     }
-
-
-type alias RangeAsString =
-    String
 
 
 type DeclaredModuleType
@@ -571,7 +568,7 @@ expressionEnterVisitor node context =
     let
         newContext : ModuleContext
         newContext =
-            case Dict.get (rangeAsString (Node.range node)) context.declarations of
+            case RangeDict.get (Node.range node) context.declarations of
                 Just functionName ->
                     { context | inTheDeclarationOf = functionName :: context.inTheDeclarationOf }
 
@@ -643,11 +640,12 @@ expressionEnterVisitorHelp (Node range value) context =
                                         |> List.map (getUsedVariablesFromPattern context)
                                         |> foldUsedTypesAndModules
 
+                                markAsInTheDeclarationOf : a -> { b | declarations : RangeDict a } -> { b | declarations : RangeDict a }
                                 markAsInTheDeclarationOf name ctx =
                                     { ctx
                                         | declarations =
-                                            Dict.insert
-                                                (function.declaration |> Node.value |> .expression |> Node.range |> rangeAsString)
+                                            RangeDict.insert
+                                                (function.declaration |> Node.value |> .expression |> Node.range)
                                                 name
                                                 ctx.declarations
                                     }
@@ -720,7 +718,7 @@ expressionExitVisitor node context =
     let
         newContext : ModuleContext
         newContext =
-            if Dict.member (rangeAsString (Node.range node)) context.declarations then
+            if RangeDict.member (Node.range node) context.declarations then
                 { context | inTheDeclarationOf = List.drop 1 context.inTheDeclarationOf }
 
             else
@@ -1615,14 +1613,3 @@ comparePosition a b =
 
         _ ->
             order
-
-
-rangeAsString : Range -> RangeAsString
-rangeAsString range =
-    [ range.start.row
-    , range.start.column
-    , range.end.row
-    , range.end.column
-    ]
-        |> List.map String.fromInt
-        |> String.join "_"
