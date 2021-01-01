@@ -139,9 +139,9 @@ finalEvaluation context =
 
 definesUpdateFunction : ModuleName -> Dict ModuleName ModuleInformation -> Bool
 definesUpdateFunction moduleName dict =
-    case Dict.get moduleName dict of
-        Just api ->
-            List.any (\value -> Value.name value == "subscriptions") (ModuleInformation.values api)
+    case Dict.get moduleName dict |> Maybe.andThen (ModuleInformation.getValueByName "subscriptions") of
+        Just _ ->
+            True
 
         Nothing ->
             False
