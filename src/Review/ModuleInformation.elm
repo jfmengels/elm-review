@@ -6,6 +6,7 @@ module Review.ModuleInformation exposing
     , fromDependencies
     , fromElmDocsModule
     , getValueByName
+    , new
     , toElmDocsModule
     , toElmDocsModuleDict
     , unions
@@ -54,6 +55,33 @@ fromElmDocsModule elmDocsModule =
                 |> List.map (\element -> ( Value.name element, element ))
                 |> Dict.fromList
         , binops = elmDocsModule.binops
+        }
+
+
+new :
+    { name : ModuleName
+    , comment : String
+    , unions : List Elm.Docs.Union
+    , aliases : List Elm.Docs.Alias
+    , values : List Value
+    , binops : List Elm.Docs.Binop
+    }
+    -> ModuleInformation
+new params =
+    ModuleInformation
+        { name = params.name
+        , comment = params.comment
+        , unions = params.unions
+        , aliases = params.aliases
+        , values =
+            List.concat
+                [ params.values
+                , List.concatMap (Value.fromMetadataUnion params.name) params.unions
+                , List.filterMap (Value.fromMetadataAlias params.name) params.aliases
+                ]
+                |> List.map (\element -> ( Value.name element, element ))
+                |> Dict.fromList
+        , binops = params.binops
         }
 
 

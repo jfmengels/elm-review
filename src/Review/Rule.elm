@@ -280,7 +280,8 @@ import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Project exposing (ProjectModule)
 import Review.Project.Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
-import Review.TypeInference.Value as Value
+import Review.TypeInference.Type
+import Review.TypeInference.Value as Value exposing (Value)
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
@@ -4390,7 +4391,7 @@ type alias ScopeModuleContext =
     , exposedNames : Dict String Bool
     , exposedUnions : List Elm.Docs.Union
     , exposedAliases : List Elm.Docs.Alias
-    , exposedValues : List Elm.Docs.Value
+    , exposedValues : List Value
     , exposedBinops : List Elm.Docs.Binop
     , currentModuleName : ModuleName
     , lookupTable : ModuleNameLookupTable
@@ -4446,8 +4447,8 @@ scope_fromModuleToProject _ moduleName moduleContext =
     { dependenciesModules = Dict.empty
     , modules =
         Dict.singleton (Node.value moduleName)
-            (ModuleInformation.fromElmDocsModule
-                { name = String.join "." (Node.value moduleName)
+            (ModuleInformation.new
+                { name = Node.value moduleName
                 , comment = ""
                 , unions = moduleContext.exposedUnions
                 , aliases = moduleContext.exposedAliases
@@ -4760,10 +4761,11 @@ registerExposedValue : { a | documentation : Maybe (Node String), signature : Ma
 registerExposedValue function name innerContext =
     { innerContext
         | exposedValues =
-            { name = name
-            , comment = getDocumentation function.documentation
-            , tipe = convertTypeSignatureToDocsType innerContext function.signature
-            }
+            Value.create
+                { name = name
+                , documentation = getDocumentation function.documentation
+                , tipe = convertTypeSignatureToInferenceType innerContext function.signature
+                }
                 :: innerContext.exposedValues
     }
 
@@ -4848,14 +4850,14 @@ registerCustomTypeIfExposed registerFn name innerContext =
                 innerContext
 
 
-convertTypeSignatureToDocsType : ScopeModuleContext -> Maybe (Node Signature) -> Elm.Type.Type
-convertTypeSignatureToDocsType innerContext maybeSignature =
+convertTypeSignatureToInferenceType : ScopeModuleContext -> Maybe (Node Signature) -> Review.TypeInference.Type.Type
+convertTypeSignatureToInferenceType innerContext maybeSignature =
     case Maybe.map (Node.value >> .typeAnnotation) maybeSignature of
         Just typeAnnotation ->
-            syntaxTypeAnnotationToDocsType innerContext typeAnnotation
+            syntaxTypeAnnotationToInferenceType innerContext typeAnnotation
 
         Nothing ->
-            Elm.Type.Var "unknown"
+            Review.TypeInference.Type.Unknown
 
 
 syntaxTypeAnnotationToDocsType : ScopeModuleContext -> Node TypeAnnotation -> Elm.Type.Type
@@ -4901,6 +4903,65 @@ recordUpdateToDocsType innerContext updates =
         (\(Node _ ( name, typeAnnotation )) ->
             ( Node.value name
             , syntaxTypeAnnotationToDocsType innerContext typeAnnotation
+            )
+        )
+        updates
+
+
+syntaxTypeAnnotationToInferenceType : ScopeModuleContext -> Node TypeAnnotation -> Review.TypeInference.Type.Type
+syntaxTypeAnnotationToInferenceType innerContext (Node _ typeAnnotation) =
+    case typeAnnotation of
+        TypeAnnotation.GenericType name ->
+            Review.TypeInference.Type.Generic name
+
+        TypeAnnotation.Typed (Node _ ( moduleName, typeName )) typeParameters ->
+            let
+                realModuleName : List String
+                realModuleName =
+                    case moduleNameForType innerContext typeName moduleName of
+                        [] ->
+                            innerContext.currentModuleName
+
+                        realModuleName_ ->
+                            realModuleName_
+            in
+            Review.TypeInference.Type.Type
+                realModuleName
+                typeName
+                (List.map (syntaxTypeAnnotationToInferenceType innerContext) typeParameters)
+
+        TypeAnnotation.Unit ->
+            Review.TypeInference.Type.Tuple []
+
+        TypeAnnotation.Tupled list ->
+            Review.TypeInference.Type.Tuple (List.map (syntaxTypeAnnotationToInferenceType innerContext) list)
+
+        TypeAnnotation.Record updates ->
+            Review.TypeInference.Type.Record
+                { fields = recordUpdateToInferenceType innerContext updates
+                , generic = Nothing
+                , mayHaveMoreFields = False
+                }
+
+        TypeAnnotation.GenericRecord (Node _ generic) (Node _ updates) ->
+            Review.TypeInference.Type.Record
+                { fields = recordUpdateToInferenceType innerContext updates
+                , generic = Just generic
+                , mayHaveMoreFields = False
+                }
+
+        TypeAnnotation.FunctionTypeAnnotation left right ->
+            Review.TypeInference.Type.Function
+                (syntaxTypeAnnotationToInferenceType innerContext left)
+                (syntaxTypeAnnotationToInferenceType innerContext right)
+
+
+recordUpdateToInferenceType : ScopeModuleContext -> List (Node TypeAnnotation.RecordField) -> List ( String, Review.TypeInference.Type.Type )
+recordUpdateToInferenceType innerContext updates =
+    List.map
+        (\(Node _ ( name, typeAnnotation )) ->
+            ( Node.value name
+            , syntaxTypeAnnotationToInferenceType innerContext typeAnnotation
             )
         )
         updates

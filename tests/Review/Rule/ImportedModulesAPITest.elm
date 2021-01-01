@@ -7,21 +7,22 @@ import Elm.Syntax.Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Expect exposing (Expectation)
-import Review.ModuleInformation as ModuleInformation
+import Review.ModuleInformation as ModuleInformation exposing (ModuleInformation)
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
+import Review.TypeInference.Value as Value
 import Test exposing (Test, test)
 
 
-rule : (Dict ModuleName Elm.Docs.Module -> String) -> Rule
+rule : (Dict ModuleName ModuleInformation -> String) -> Rule
 rule whatToPrint =
     Rule.newModuleRuleSchemaUsingContextCreator "ImportedModulesAPITest" initialContext
         |> Rule.withModuleDefinitionVisitor (moduleDefinitionVisitor whatToPrint)
         |> Rule.fromModuleRuleSchema
 
 
-moduleDefinitionVisitor : (Dict ModuleName Elm.Docs.Module -> String) -> Node Module -> Context -> ( List (Error {}), Context )
+moduleDefinitionVisitor : (Dict ModuleName ModuleInformation -> String) -> Node Module -> Context -> ( List (Error {}), Context )
 moduleDefinitionVisitor whatToPrint node context =
     if Elm.Syntax.Module.moduleName (Node.value node) == [ "Target" ] then
         ( [ Rule.error { message = whatToPrint context, details = [ "details" ] }
@@ -37,15 +38,13 @@ moduleDefinitionVisitor whatToPrint node context =
 
 
 type alias Context =
-    Dict ModuleName Elm.Docs.Module
+    Dict ModuleName ModuleInformation
 
 
 initialContext : Rule.ContextCreator () Context
 initialContext =
     Rule.initContextCreator
-        (\importedModules () ->
-            ModuleInformation.toElmDocsModuleDict importedModules
-        )
+        (\importedModules () -> importedModules)
         |> Rule.withImportedModulesAPI
 
 
@@ -96,8 +95,8 @@ b = 1
 hidden = 1
 
 {-| Some comment -}
-increment : List Int -> Local
-increment int = Local
+increment : List Int -> Foo -> Local
+increment int _ = Local
 
 type Local = Local
 
@@ -108,14 +107,14 @@ noType = 1
                         (rule
                             (\dict ->
                                 Dict.get [ "A" ] dict
-                                    |> Maybe.map (.values >> List.sortBy .name >> List.map Debug.toString >> String.join "\n")
+                                    |> Maybe.map (ModuleInformation.values >> List.sortBy Value.name >> List.map Debug.toString >> String.join "\n")
                                     |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
                             )
                         )
                     |> expectToFind """
-{ comment = "", name = "b", tipe = Type "Basics.Int" [] }
-{ comment = " Some comment ", name = "increment", tipe = Lambda (Type "List.List" [Type "Basics.Int" []]) (Type "A.Local" []) }
-{ comment = "", name = "noType", tipe = Var "unknown" }
+Value { documentation = "", name = "b", tipe = Type ["Basics"] "Int" [] }
+Value { documentation = " Some comment ", name = "increment", tipe = Function (Type ["List"] "List" [Type ["Basics"] "Int" []]) (Function (Type ["A"] "Foo" []) (Type ["A"] "Local" [])) }
+Value { documentation = "", name = "noType", tipe = Unknown }
 """
         , test "should be able to list all the custom types from a module" <|
             \() ->
@@ -139,7 +138,7 @@ type Complex a other
                         (rule
                             (\dict ->
                                 Dict.get [ "A" ] dict
-                                    |> Maybe.map (.unions >> List.sortBy .name >> List.map Debug.toString >> String.join "\n")
+                                    |> Maybe.map (ModuleInformation.unions >> List.sortBy .name >> List.map Debug.toString >> String.join "\n")
                                     |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
                             )
                         )
@@ -174,7 +173,7 @@ type Internal = Internal
                         (rule
                             (\dict ->
                                 Dict.get [ "A" ] dict
-                                    |> Maybe.map (.aliases >> List.sortBy .name >> List.map Debug.toString >> String.join "\n")
+                                    |> Maybe.map (ModuleInformation.aliases >> List.sortBy .name >> List.map Debug.toString >> String.join "\n")
                                     |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
                             )
                         )
