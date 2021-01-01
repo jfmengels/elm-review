@@ -13,6 +13,8 @@ module Review.ModuleInformation exposing
     , valuesAsDict
     )
 
+-- TODO Expose module, but hide implementation and type inside an "Internal" module
+
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
