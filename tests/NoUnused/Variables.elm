@@ -24,8 +24,8 @@ import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import NoUnused.NonemptyList as NonemptyList exposing (Nonempty)
 import NoUnused.RangeDict as RangeDict exposing (RangeDict)
 import Review.Fix as Fix exposing (Fix)
+import Review.ModuleInformation as ModuleInformation
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
-import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
@@ -69,14 +69,12 @@ rule : Rule
 rule =
     Rule.newProjectRuleSchema "NoUnused.Variables" initialContext
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
-        |> Rule.withDependenciesProjectVisitor dependenciesVisitor
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModule
             , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
             }
-        |> Rule.withContextFromImportedModules
         |> Rule.fromProjectRuleSchema
 
 
@@ -93,9 +91,7 @@ moduleVisitor schema =
 
 
 type alias ProjectContext =
-    { isApplication : Bool
-    , customTypes : Dict ModuleName (Dict String (List String))
-    }
+    Bool
 
 
 type alias ModuleContext =
@@ -178,15 +174,13 @@ type LetBlockContext
 
 initialContext : ProjectContext
 initialContext =
-    { isApplication = True
-    , customTypes = Dict.empty
-    }
+    True
 
 
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable { isApplication, customTypes } ->
+        (\lookupTable importedModulesAPI isApplication ->
             { lookupTable = lookupTable
             , scopes = NonemptyList.fromElement emptyScope
             , inTheDeclarationOf = []
@@ -200,33 +194,29 @@ fromProjectToModule =
             , unusedImportedCustomTypes = Dict.empty
             , importedCustomTypeLookup = Dict.empty
             , localCustomTypes = Dict.empty
-            , customTypes = customTypes
+            , customTypes = Dict.map (\_ moduleAPI -> getCustomTypesFromModule moduleAPI) importedModulesAPI
             }
         )
         |> Rule.withModuleNameLookupTable
+        |> Rule.withImportedModulesAPI
+
+
+getCustomTypesFromModule : ModuleInformation.ModuleInformation -> Dict String (List String)
+getCustomTypesFromModule moduleAPI =
+    ModuleInformation.unions moduleAPI
+        |> List.map (\{ name, tags } -> ( name, List.map Tuple.first tags ))
+        |> Dict.fromList
 
 
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
-    Rule.initContextCreator
-        (\metadata moduleContext ->
-            { customTypes =
-                moduleContext.localCustomTypes
-                    |> Dict.map (\_ customType -> customType.variants)
-                    |> Dict.singleton (Rule.moduleNameFromMetadata metadata)
-
-            -- Will be ignored in foldProjectContexts
-            , isApplication = True
-            }
-        )
-        |> Rule.withMetadata
+    -- Will be ignored in foldProjectContexts
+    Rule.initContextCreator (always True)
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
-foldProjectContexts newProjectContext previousProjectContext =
-    { isApplication = previousProjectContext.isApplication
-    , customTypes = Dict.union newProjectContext.customTypes previousProjectContext.customTypes
-    }
+foldProjectContexts _ previousProjectContext =
+    previousProjectContext
 
 
 emptyScope : Scope
@@ -263,42 +253,17 @@ details =
 
 
 elmJsonVisitor : Maybe { a | project : Elm.Project.Project } -> ProjectContext -> ( List nothing, ProjectContext )
-elmJsonVisitor maybeElmJson projectContext =
+elmJsonVisitor maybeElmJson _ =
     case Maybe.map .project maybeElmJson of
         Just (Elm.Project.Application _) ->
-            ( [], { projectContext | isApplication = True } )
+            ( [], True )
 
         Just (Elm.Project.Package _) ->
-            ( [], { projectContext | isApplication = False } )
+            ( [], False )
 
         Nothing ->
             -- Sensible default, because now `main` won't be reported.
-            ( [], { projectContext | isApplication = True } )
-
-
-
--- DEPENDENCIES VISITOR
-
-
-dependenciesVisitor : Dict String Dependency -> ProjectContext -> ( List (Error nothing), ProjectContext )
-dependenciesVisitor dependencies projectContext =
-    let
-        customTypes : Dict ModuleName (Dict String (List String))
-        customTypes =
-            dependencies
-                |> Dict.values
-                |> List.concatMap Dependency.modules
-                |> List.map
-                    (\module_ ->
-                        ( String.split "." module_.name
-                        , module_.unions
-                            |> List.map (\{ name, tags } -> ( name, List.map Tuple.first tags ))
-                            |> Dict.fromList
-                        )
-                    )
-                |> Dict.fromList
-    in
-    ( [], { projectContext | customTypes = customTypes } )
+            ( [], True )
 
 
 
