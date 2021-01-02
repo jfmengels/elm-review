@@ -5,6 +5,7 @@ module Review.TypeInference.Value exposing
     , fromMetadataAlias
     , fromMetadataUnion
     , fromMetadataValue
+    , fromUnion
     , name
     , relateToModule
     , tipe
@@ -17,6 +18,7 @@ import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Type
 import Review.TypeInference.Type as Type
+import Review.TypeInference.Union as Union exposing (Union)
 
 
 type Value
@@ -87,6 +89,28 @@ fromMetadataUnion moduleName customType =
                 }
         )
         customType.tags
+
+
+fromUnion : ModuleName -> Union -> List Value
+fromUnion moduleName union =
+    let
+        documentation_ : String
+        documentation_ =
+            Union.documentation union
+    in
+    List.map
+        (\( constructorName, types ) ->
+            Value
+                { name = constructorName
+                , documentation = documentation_
+                , tipe =
+                    List.foldl
+                        (\input output -> Type.Function input output)
+                        (Type.Type moduleName (Union.name union) (List.map Type.Generic (Union.args union)))
+                        types
+                }
+        )
+        (Union.constructors union)
 
 
 fromMetadataAlias : ModuleName -> Elm.Docs.Alias -> Maybe Value
