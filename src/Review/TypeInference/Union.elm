@@ -18,7 +18,7 @@ import Elm.Type
 type Union
     = Union
         { name : String
-        , comment : String
+        , documentation : String
         , args : List String
         , tags : List ( String, List Elm.Type.Type )
         }
@@ -26,23 +26,37 @@ type Union
 
 create :
     { name : String
-    , comment : String
+    , documentation : String
     , args : List String
     , tags : List ( String, List Elm.Type.Type )
     }
     -> Union
-create =
+create params =
     Union
+        { name = params.name
+        , documentation = params.documentation
+        , args = params.args
+        , tags = params.tags
+        }
 
 
 fromMetadataUnion : Elm.Docs.Union -> Union
 fromMetadataUnion union =
-    Union union
+    Union
+        { name = union.name
+        , documentation = union.comment
+        , args = union.args
+        , tags = union.tags
+        }
 
 
 toMetadataUnion : Union -> Elm.Docs.Union
 toMetadataUnion (Union union) =
-    union
+    { name = union.name
+    , comment = union.documentation
+    , args = union.args
+    , tags = union.tags
+    }
 
 
 name : Union -> String
@@ -62,4 +76,4 @@ args (Union union) =
 
 documentation : Union -> String
 documentation (Union union) =
-    union.comment
+    union.documentation
