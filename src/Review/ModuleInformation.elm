@@ -1,10 +1,12 @@
 module Review.ModuleInformation exposing
     ( ModuleInformation
     , aliases
+    , aliasesAsDict
     , binops
     , empty
     , fromDependencies
     , fromElmDocsModule
+    , getAliasByName
     , getUnionByName
     , getValueByName
     , new
@@ -172,6 +174,16 @@ unionsAsDict (ModuleInformation m) =
 aliases : ModuleInformation -> List Alias
 aliases (ModuleInformation m) =
     Dict.values m.aliases
+
+
+aliasesAsDict : ModuleInformation -> Dict String Alias
+aliasesAsDict (ModuleInformation m) =
+    m.aliases
+
+
+getAliasByName : String -> ModuleInformation -> Maybe Alias
+getAliasByName name (ModuleInformation m) =
+    Dict.get name m.aliases
 
 
 values : ModuleInformation -> List Value

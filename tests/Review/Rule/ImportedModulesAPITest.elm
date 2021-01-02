@@ -11,6 +11,7 @@ import Review.ModuleInformation as ModuleInformation exposing (ModuleInformation
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
+import Review.TypeInference.Alias as Alias
 import Review.TypeInference.Union as Union
 import Review.TypeInference.Value as Value
 import Test exposing (Test, test)
@@ -174,16 +175,16 @@ type Internal = Internal
                         (rule
                             (\dict ->
                                 Dict.get [ "A" ] dict
-                                    |> Maybe.map (ModuleInformation.aliases >> List.sortBy .name >> List.map Debug.toString >> String.join "\n")
+                                    |> Maybe.map (ModuleInformation.aliases >> List.sortBy Alias.name >> List.map Debug.toString >> String.join "\n")
                                     |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
                             )
                         )
                     |> expectToFind """
-{ args = [], comment = " Some comment ", name = "AliasToInternal", tipe = Type "B.Internal" [] }
-{ args = [], comment = "", name = "AliasToUnknown", tipe = Type "A.Unknown" [] }
-{ args = ["thing"], comment = "", name = "ExtensibleRecord", tipe = Record [("a",Type "A.Int" [])] (Just "thing") }
-{ args = [], comment = "", name = "Int", tipe = Type "A.Int" [] }
-{ args = [], comment = "", name = "Record", tipe = Record [("a",Type "A.Int" [])] Nothing }
+Alias { args = [], documentation = " Some comment ", name = "AliasToInternal", tipe = Type ["B"] "Internal" [] }
+Alias { args = [], documentation = "", name = "AliasToUnknown", tipe = Type ["A"] "Unknown" [] }
+Alias { args = ["thing"], documentation = "", name = "ExtensibleRecord", tipe = Record { fields = [("a",Type ["A"] "Int" [])], generic = Just "thing", mayHaveMoreFields = False } }
+Alias { args = [], documentation = "", name = "Int", tipe = Type ["A"] "Int" [] }
+Alias { args = [], documentation = "", name = "Record", tipe = Record { fields = [("a",Type ["A"] "Int" [])], generic = Nothing, mayHaveMoreFields = False } }
 """
         ]
 
