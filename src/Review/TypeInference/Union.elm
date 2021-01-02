@@ -1,11 +1,11 @@
 module Review.TypeInference.Union exposing
     ( Union
     , args
+    , constructors
     , create
     , documentation
     , fromMetadataUnion
     , name
-    , tags
     , toMetadataUnion
     )
 
@@ -20,7 +20,7 @@ type Union
         { name : String
         , documentation : String
         , args : List String
-        , tags : List ( String, List Elm.Type.Type )
+        , constructors : List ( String, List Elm.Type.Type )
         }
 
 
@@ -36,7 +36,7 @@ create params =
         { name = params.name
         , documentation = params.documentation
         , args = params.args
-        , tags = params.tags
+        , constructors = params.tags
         }
 
 
@@ -46,7 +46,7 @@ fromMetadataUnion union =
         { name = union.name
         , documentation = union.comment
         , args = union.args
-        , tags = union.tags
+        , constructors = union.tags
         }
 
 
@@ -55,7 +55,7 @@ toMetadataUnion (Union union) =
     { name = union.name
     , comment = union.documentation
     , args = union.args
-    , tags = union.tags
+    , tags = union.constructors
     }
 
 
@@ -64,9 +64,9 @@ name (Union union) =
     union.name
 
 
-tags : Union -> List ( String, List Elm.Type.Type )
-tags (Union union) =
-    union.tags
+constructors : Union -> List ( String, List Elm.Type.Type )
+constructors (Union union) =
+    union.constructors
 
 
 args : Union -> List String
