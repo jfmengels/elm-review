@@ -22,6 +22,7 @@ import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Review.Project.Dependency
+import Review.TypeInference.Alias as Alias
 import Review.TypeInference.Binop as Binop exposing (Binop)
 import Review.TypeInference.Union as Union exposing (Union)
 import Review.TypeInference.Value as Value exposing (Value)
@@ -32,7 +33,7 @@ type ModuleInformation
         { name : ModuleName
         , comment : String
         , unions : Dict String Union
-        , aliases : List Elm.Docs.Alias
+        , aliases : Dict String Elm.Docs.Alias
         , values : Dict String Value
         , binops : List Binop
         }
@@ -52,7 +53,11 @@ fromElmDocsModule elmDocsModule =
             elmDocsModule.unions
                 |> List.map (\element -> ( element.name, Union.fromMetadataUnion element ))
                 |> Dict.fromList
-        , aliases = elmDocsModule.aliases
+        , aliases =
+            elmDocsModule.aliases
+                --|> List.map (\element -> ( element.name, Alias.fromElmDocs element ))
+                |> List.map (\element -> ( element.name, element ))
+                |> Dict.fromList
         , values =
             List.concat
                 [ List.map Value.fromMetadataValue elmDocsModule.values
@@ -87,7 +92,10 @@ new params =
             unions_
                 |> List.map (\element -> ( Union.name element, element ))
                 |> Dict.fromList
-        , aliases = params.aliases
+        , aliases =
+            params.aliases
+                |> List.map (\element -> ( element.name, element ))
+                |> Dict.fromList
         , values =
             List.concat
                 [ List.map (Value.relateToModule params.name) params.values
@@ -116,7 +124,7 @@ toElmDocsModule (ModuleInformation moduleInfo) =
     , unions =
         Dict.values moduleInfo.unions
             |> List.map Union.toMetadataUnion
-    , aliases = moduleInfo.aliases
+    , aliases = Dict.values moduleInfo.aliases
     , values =
         moduleInfo.values
             |> Dict.values
@@ -137,7 +145,7 @@ empty moduleName =
         , comment = ""
         , unions = Dict.empty
         , values = Dict.empty
-        , aliases = []
+        , aliases = Dict.empty
         , binops = []
         }
 
@@ -158,7 +166,7 @@ unionsAsDict (ModuleInformation m) =
 
 aliases : ModuleInformation -> List Elm.Docs.Alias
 aliases (ModuleInformation m) =
-    m.aliases
+    Dict.values m.aliases
 
 
 values : ModuleInformation -> List Value
