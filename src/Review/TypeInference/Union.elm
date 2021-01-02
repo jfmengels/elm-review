@@ -7,6 +7,7 @@ module Review.TypeInference.Union exposing
     , documentation
     , fromMetadataUnion
     , name
+    , relateToModule
     , toMetadataUnion
     )
 
