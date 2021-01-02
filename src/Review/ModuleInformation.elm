@@ -74,18 +74,23 @@ new :
     }
     -> ModuleInformation
 new params =
+    let
+        unions_ : List Union
+        unions_ =
+            List.map (Union.relateToModule params.name) params.unions
+    in
     ModuleInformation
         { name = params.name
         , comment = params.comment
         , unions =
-            params.unions
+            unions_
                 |> List.map (\element -> ( Union.name element, element ))
                 |> Dict.fromList
         , aliases = params.aliases
         , values =
             List.concat
                 [ List.map (Value.relateToModule params.name) params.values
-                , List.concatMap (Value.fromMetadataUnion params.name) (List.map Union.toMetadataUnion params.unions)
+                , List.concatMap (Value.fromMetadataUnion params.name) (List.map Union.toMetadataUnion unions_)
                 , List.filterMap (Value.fromMetadataAlias params.name) params.aliases
                 ]
                 |> List.map (\element -> ( Value.name element, element ))
