@@ -22,6 +22,7 @@ import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Review.Project.Dependency
+import Review.TypeInference.Binop as Binop exposing (Binop)
 import Review.TypeInference.Union as Union exposing (Union)
 import Review.TypeInference.Value as Value exposing (Value)
 
@@ -33,7 +34,7 @@ type ModuleInformation
         , unions : Dict String Union
         , aliases : List Elm.Docs.Alias
         , values : Dict String Value
-        , binops : List Elm.Docs.Binop
+        , binops : List Binop
         }
 
 
@@ -60,7 +61,7 @@ fromElmDocsModule elmDocsModule =
                 ]
                 |> List.map (\element -> ( Value.name element, element ))
                 |> Dict.fromList
-        , binops = elmDocsModule.binops
+        , binops = List.map Binop.fromMetadata elmDocsModule.binops
         }
 
 
@@ -70,7 +71,7 @@ new :
     , unions : List Union
     , aliases : List Elm.Docs.Alias
     , values : List Value
-    , binops : List Elm.Docs.Binop
+    , binops : List Binop
     }
     -> ModuleInformation
 new params =
@@ -120,7 +121,7 @@ toElmDocsModule (ModuleInformation moduleInfo) =
         moduleInfo.values
             |> Dict.values
             |> List.filterMap Value.toMetadataValue
-    , binops = moduleInfo.binops
+    , binops = List.map Binop.toMetadata moduleInfo.binops
     }
 
 
@@ -175,7 +176,7 @@ getValueByName name (ModuleInformation m) =
     Dict.get name m.values
 
 
-binops : ModuleInformation -> List Elm.Docs.Binop
+binops : ModuleInformation -> List Binop
 binops (ModuleInformation m) =
     m.binops
 
