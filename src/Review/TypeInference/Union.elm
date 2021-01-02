@@ -29,16 +29,16 @@ type Union
 create :
     { name : String
     , documentation : String
-    , constructors : List String
-    , tags : List ( String, List Elm.Type.Type )
+    , args : List String
+    , constructors : List ( String, List Elm.Type.Type )
     }
     -> Union
 create params =
     Union
         { name = params.name
         , documentation = params.documentation
-        , args = params.constructors
-        , constructors = Dict.fromList params.tags
+        , args = params.args
+        , constructors = Dict.fromList params.constructors
         }
 
 
