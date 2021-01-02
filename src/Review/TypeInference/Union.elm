@@ -1,5 +1,7 @@
 module Review.TypeInference.Union exposing
     ( Union
+    , args
+    , comment
     , create
     , fromMetadataUnion
     , name
@@ -46,3 +48,13 @@ name (Union union) =
 tags : Union -> List ( String, List Elm.Type.Type )
 tags (Union union) =
     union.tags
+
+
+args : Union -> List String
+args (Union union) =
+    union.args
+
+
+comment : Union -> String
+comment (Union union) =
+    union.comment
