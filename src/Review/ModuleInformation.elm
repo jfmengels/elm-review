@@ -22,7 +22,7 @@ import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Review.Project.Dependency
-import Review.TypeInference.Alias as Alias
+import Review.TypeInference.Alias as Alias exposing (Alias)
 import Review.TypeInference.Binop as Binop exposing (Binop)
 import Review.TypeInference.Union as Union exposing (Union)
 import Review.TypeInference.Value as Value exposing (Value)
@@ -33,7 +33,7 @@ type ModuleInformation
         { name : ModuleName
         , comment : String
         , unions : Dict String Union
-        , aliases : Dict String Elm.Docs.Alias
+        , aliases : Dict String Alias
         , values : Dict String Value
         , binops : List Binop
         }
@@ -55,8 +55,7 @@ fromElmDocsModule elmDocsModule =
                 |> Dict.fromList
         , aliases =
             elmDocsModule.aliases
-                --|> List.map (\element -> ( element.name, Alias.fromElmDocs element ))
-                |> List.map (\element -> ( element.name, element ))
+                |> List.map (\element -> ( element.name, Alias.fromElmDocs element ))
                 |> Dict.fromList
         , values =
             List.concat
@@ -74,7 +73,7 @@ new :
     { name : ModuleName
     , comment : String
     , unions : List Union
-    , aliases : List Elm.Docs.Alias
+    , aliases : List Alias
     , values : List Value
     , binops : List Binop
     }
@@ -84,6 +83,10 @@ new params =
         unions_ : List Union
         unions_ =
             List.map (Union.relateToModule params.name) params.unions
+
+        aliases_ : List Alias
+        aliases_ =
+            List.map (Alias.relateToModule params.name) params.aliases
     in
     ModuleInformation
         { name = params.name
@@ -94,13 +97,13 @@ new params =
                 |> Dict.fromList
         , aliases =
             params.aliases
-                |> List.map (\element -> ( element.name, element ))
+                |> List.map (\element -> ( Alias.name element, element ))
                 |> Dict.fromList
         , values =
             List.concat
                 [ List.map (Value.relateToModule params.name) params.values
                 , List.concatMap (Value.fromUnion params.name) unions_
-                , List.filterMap (Value.fromMetadataAlias params.name) params.aliases
+                , List.filterMap (Value.fromAlias params.name) aliases_
                 ]
                 |> List.map (\element -> ( Value.name element, element ))
                 |> Dict.fromList
@@ -124,7 +127,9 @@ toElmDocsModule (ModuleInformation moduleInfo) =
     , unions =
         Dict.values moduleInfo.unions
             |> List.map Union.toMetadataUnion
-    , aliases = Dict.values moduleInfo.aliases
+    , aliases =
+        Dict.values moduleInfo.aliases
+            |> List.map Alias.toElmDocs
     , values =
         moduleInfo.values
             |> Dict.values
@@ -164,7 +169,7 @@ unionsAsDict (ModuleInformation m) =
     m.unions
 
 
-aliases : ModuleInformation -> List Elm.Docs.Alias
+aliases : ModuleInformation -> List Alias
 aliases (ModuleInformation m) =
     Dict.values m.aliases
 
