@@ -171,7 +171,7 @@ registerUseOfValue : Dict ModuleName ModuleInformation -> ModuleName -> String -
 registerUseOfValue importedModulesAPI moduleName name v =
     case Dict.get moduleName importedModulesAPI of
         Just api ->
-            case find (\union -> List.any (\( constructor, _ ) -> constructor == name) (Union.tags union)) (ModuleInformation.unions api) of
+            case find (\union -> List.any (\( constructor, _ ) -> constructor == name) (Union.constructors union)) (ModuleInformation.unions api) of
                 Just union ->
                     { v | importedCustomTypes = Set.insert (Union.name union) v.importedCustomTypes }
 

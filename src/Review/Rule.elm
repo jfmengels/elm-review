@@ -5161,7 +5161,7 @@ valuesFromExposingList module_ topLevelExpose =
                 Just _ ->
                     ModuleInformation.unions module_
                         |> List.filter (\union -> Union.name union == name)
-                        |> List.concatMap Union.tags
+                        |> List.concatMap Union.constructors
                         |> List.map Tuple.first
 
                 Nothing ->

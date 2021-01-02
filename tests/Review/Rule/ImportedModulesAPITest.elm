@@ -144,9 +144,9 @@ type Complex a other
                             )
                         )
                     |> expectToFind """
-Union { args = ["a","other"], documentation = "", name = "Complex", tags = [("A",[Type "Basics.Int" [],Type "List.List" [Type "Basics.Int" []]]),("B",[Var "a"])] }
-Union { args = [], documentation = " Some comment ", name = "Exposed", tags = [("ExposedConstructor",[Type "A.Opaque" []])] }
-Union { args = [], documentation = "", name = "Opaque", tags = [] }
+Union { args = ["a","other"], constructors = [("A",[Type "Basics.Int" [],Type "List.List" [Type "Basics.Int" []]]),("B",[Var "a"])], documentation = "", name = "Complex" }
+Union { args = [], constructors = [("ExposedConstructor",[Type "A.Opaque" []])], documentation = " Some comment ", name = "Exposed" }
+Union { args = [], constructors = [], documentation = "", name = "Opaque" }
 """
         , test "should be able to list all the type aliases from a module" <|
             \() ->
