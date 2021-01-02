@@ -11,6 +11,7 @@ module Review.ModuleInformation exposing
     , toElmDocsModule
     , toElmDocsModuleDict
     , unions
+    , unionsAsDict
     , values
     , valuesAsDict
     )
@@ -29,7 +30,7 @@ type ModuleInformation
     = ModuleInformation
         { name : ModuleName
         , comment : String
-        , unions : List Union
+        , unions : Dict String Union
         , aliases : List Elm.Docs.Alias
         , values : Dict String Value
         , binops : List Elm.Docs.Binop
@@ -46,7 +47,10 @@ fromElmDocsModule elmDocsModule =
     ModuleInformation
         { name = moduleName
         , comment = elmDocsModule.comment
-        , unions = List.map Union.fromMetadataUnion elmDocsModule.unions
+        , unions =
+            elmDocsModule.unions
+                |> List.map (\element -> ( element.name, Union.fromMetadataUnion element ))
+                |> Dict.fromList
         , aliases = elmDocsModule.aliases
         , values =
             List.concat
@@ -73,7 +77,11 @@ new params =
     ModuleInformation
         { name = params.name
         , comment = params.comment
-        , unions = List.map Union.fromMetadataUnion params.unions
+        , unions =
+            params.unions
+                |> List.map Union.fromMetadataUnion
+                |> List.map (\element -> ( Union.name element, element ))
+                |> Dict.fromList
         , aliases = params.aliases
         , values =
             List.concat
@@ -100,7 +108,9 @@ toElmDocsModule : ModuleInformation -> Elm.Docs.Module
 toElmDocsModule (ModuleInformation moduleInfo) =
     { name = String.join "." moduleInfo.name
     , comment = moduleInfo.comment
-    , unions = List.map Union.toMetadataUnion moduleInfo.unions
+    , unions =
+        Dict.values moduleInfo.unions
+            |> List.map Union.toMetadataUnion
     , aliases = moduleInfo.aliases
     , values =
         moduleInfo.values
@@ -120,7 +130,7 @@ empty moduleName =
     ModuleInformation
         { name = moduleName
         , comment = ""
-        , unions = []
+        , unions = Dict.empty
         , values = Dict.empty
         , aliases = []
         , binops = []
@@ -133,6 +143,11 @@ empty moduleName =
 
 unions : ModuleInformation -> List Union
 unions (ModuleInformation m) =
+    Dict.values m.unions
+
+
+unionsAsDict : ModuleInformation -> Dict String Union
+unionsAsDict (ModuleInformation m) =
     m.unions
 
 
@@ -163,7 +178,4 @@ binops (ModuleInformation m) =
 
 getUnionByName : String -> ModuleInformation -> Maybe Union
 getUnionByName name (ModuleInformation m) =
-    m.unions
-        |> List.map (\union -> ( Union.name union, union ))
-        |> Dict.fromList
-        |> Dict.get name
+    Dict.get name m.unions
