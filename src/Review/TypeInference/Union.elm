@@ -2,6 +2,7 @@ module Review.TypeInference.Union exposing
     ( Union
     , args
     , constructors
+    , constructorsAsDict
     , create
     , documentation
     , fromMetadataUnion
@@ -11,6 +12,7 @@ module Review.TypeInference.Union exposing
 
 -- TODO Expose module, but hide implementation and type inside an "Internal" module
 
+import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Type
 
@@ -20,14 +22,14 @@ type Union
         { name : String
         , documentation : String
         , args : List String
-        , constructors : List ( String, List Elm.Type.Type )
+        , constructors : Dict String (List Elm.Type.Type)
         }
 
 
 create :
     { name : String
     , documentation : String
-    , args : List String
+    , constructors : List String
     , tags : List ( String, List Elm.Type.Type )
     }
     -> Union
@@ -35,8 +37,8 @@ create params =
     Union
         { name = params.name
         , documentation = params.documentation
-        , args = params.args
-        , constructors = params.tags
+        , args = params.constructors
+        , constructors = Dict.fromList params.tags
         }
 
 
@@ -46,7 +48,7 @@ fromMetadataUnion union =
         { name = union.name
         , documentation = union.comment
         , args = union.args
-        , constructors = union.tags
+        , constructors = Dict.fromList union.tags
         }
 
 
@@ -55,7 +57,7 @@ toMetadataUnion (Union union) =
     { name = union.name
     , comment = union.documentation
     , args = union.args
-    , tags = union.constructors
+    , tags = Dict.toList union.constructors
     }
 
 
@@ -66,6 +68,11 @@ name (Union union) =
 
 constructors : Union -> List ( String, List Elm.Type.Type )
 constructors (Union union) =
+    Dict.toList union.constructors
+
+
+constructorsAsDict : Union -> Dict String (List Elm.Type.Type)
+constructorsAsDict (Union union) =
     union.constructors
 
 
