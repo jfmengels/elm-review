@@ -32,7 +32,7 @@ create :
     { name : String
     , documentation : String
     , args : List String
-    , constructors : List ( String, List Elm.Type.Type )
+    , constructors : List ( String, List Type )
     }
     -> Union
 create params =
@@ -40,10 +40,7 @@ create params =
         { name = params.name
         , documentation = params.documentation
         , args = params.args
-        , constructors =
-            params.constructors
-                |> List.map (\( name_, types ) -> ( name_, List.map Type.fromMetadataType types ))
-                |> Dict.fromList
+        , constructors = Dict.fromList params.constructors
         }
 
 
