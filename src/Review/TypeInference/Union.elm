@@ -16,7 +16,12 @@ import Elm.Type
 
 
 type Union
-    = Union Elm.Docs.Union
+    = Union
+        { name : String
+        , comment : String
+        , args : List String
+        , tags : List ( String, List Elm.Type.Type )
+        }
 
 
 create :
