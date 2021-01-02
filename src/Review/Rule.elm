@@ -281,6 +281,7 @@ import Review.Project exposing (ProjectModule)
 import Review.Project.Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
 import Review.TypeInference.Type
+import Review.TypeInference.Union as Union
 import Review.TypeInference.Value as Value exposing (Value)
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
@@ -5106,7 +5107,7 @@ registerImportExposed import_ innerContext =
                         exposedTypes : Dict String (List String)
                         exposedTypes =
                             List.concat
-                                [ List.map nameWithModuleName (ModuleInformation.unions module_)
+                                [ List.map (\value -> ( Union.name value, moduleName )) (ModuleInformation.unions module_)
                                 , List.map nameWithModuleName (ModuleInformation.aliases module_)
                                 ]
                                 |> Dict.fromList
@@ -5159,8 +5160,8 @@ valuesFromExposingList module_ topLevelExpose =
             case open of
                 Just _ ->
                     ModuleInformation.unions module_
-                        |> List.filter (\union -> union.name == name)
-                        |> List.concatMap .tags
+                        |> List.filter (\union -> Union.name union == name)
+                        |> List.concatMap Union.tags
                         |> List.map Tuple.first
 
                 Nothing ->
@@ -5685,7 +5686,7 @@ isValueDeclaredInModule valueName module_ =
 isTypeDeclaredInModule : String -> ModuleInformation -> Bool
 isTypeDeclaredInModule typeName module_ =
     List.any (.name >> (==) typeName) (ModuleInformation.aliases module_)
-        || List.any (.name >> (==) typeName) (ModuleInformation.unions module_)
+        || (ModuleInformation.getUnionByName typeName module_ /= Nothing)
 
 
 isInScope : String -> Nonempty Scope -> Bool

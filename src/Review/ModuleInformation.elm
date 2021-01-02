@@ -5,6 +5,7 @@ module Review.ModuleInformation exposing
     , empty
     , fromDependencies
     , fromElmDocsModule
+    , getUnionByName
     , getValueByName
     , new
     , toElmDocsModule
@@ -20,6 +21,7 @@ import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Review.Project.Dependency
+import Review.TypeInference.Union as Union exposing (Union)
 import Review.TypeInference.Value as Value exposing (Value)
 
 
@@ -27,7 +29,7 @@ type ModuleInformation
     = ModuleInformation
         { name : ModuleName
         , comment : String
-        , unions : List Elm.Docs.Union
+        , unions : List Union
         , aliases : List Elm.Docs.Alias
         , values : Dict String Value
         , binops : List Elm.Docs.Binop
@@ -44,7 +46,7 @@ fromElmDocsModule elmDocsModule =
     ModuleInformation
         { name = moduleName
         , comment = elmDocsModule.comment
-        , unions = elmDocsModule.unions
+        , unions = List.map Union.fromMetadataUnion elmDocsModule.unions
         , aliases = elmDocsModule.aliases
         , values =
             List.concat
@@ -71,7 +73,7 @@ new params =
     ModuleInformation
         { name = params.name
         , comment = params.comment
-        , unions = params.unions
+        , unions = List.map Union.fromMetadataUnion params.unions
         , aliases = params.aliases
         , values =
             List.concat
@@ -98,7 +100,7 @@ toElmDocsModule : ModuleInformation -> Elm.Docs.Module
 toElmDocsModule (ModuleInformation moduleInfo) =
     { name = String.join "." moduleInfo.name
     , comment = moduleInfo.comment
-    , unions = moduleInfo.unions
+    , unions = List.map Union.toMetadataUnion moduleInfo.unions
     , aliases = moduleInfo.aliases
     , values =
         moduleInfo.values
@@ -129,7 +131,7 @@ empty moduleName =
 -- MODULE DATA ACCESS
 
 
-unions : ModuleInformation -> List Elm.Docs.Union
+unions : ModuleInformation -> List Union
 unions (ModuleInformation m) =
     m.unions
 
@@ -157,3 +159,11 @@ getValueByName name (ModuleInformation m) =
 binops : ModuleInformation -> List Elm.Docs.Binop
 binops (ModuleInformation m) =
     m.binops
+
+
+getUnionByName : String -> ModuleInformation -> Maybe Union
+getUnionByName name (ModuleInformation m) =
+    m.unions
+        |> List.map (\union -> ( Union.name union, union ))
+        |> Dict.fromList
+        |> Dict.get name

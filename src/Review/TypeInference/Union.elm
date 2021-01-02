@@ -1,6 +1,10 @@
 module Review.TypeInference.Union exposing
     ( Union
     , create
+    , fromMetadataUnion
+    , name
+    , tags
+    , toMetadataUnion
     )
 
 -- TODO Expose module, but hide implementation and type inside an "Internal" module
@@ -22,3 +26,23 @@ create :
     -> Union
 create =
     Union
+
+
+fromMetadataUnion : Elm.Docs.Union -> Union
+fromMetadataUnion union =
+    Union union
+
+
+toMetadataUnion : Union -> Elm.Docs.Union
+toMetadataUnion (Union union) =
+    union
+
+
+name : Union -> String
+name (Union union) =
+    union.name
+
+
+tags : Union -> List ( String, List Elm.Type.Type )
+tags (Union union) =
+    union.tags
