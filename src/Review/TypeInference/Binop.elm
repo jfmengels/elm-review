@@ -6,9 +6,11 @@ module Review.TypeInference.Binop exposing
     , name
     , precedence
     , tipe
+    , toMetadata
     )
 
 import Elm.Docs
+import Elm.Type
 import Review.TypeInference.Type as Type
 
 
@@ -31,6 +33,16 @@ fromMetadata binop =
         , associativity = binop.associativity
         , precedence = binop.precedence
         }
+
+
+toMetadata : Binop -> Elm.Docs.Binop
+toMetadata (Binop binop) =
+    { name = binop.name
+    , comment = binop.documentation
+    , tipe = Type.toMetadataType binop.tipe |> Maybe.withDefault (Elm.Type.Var "unknown")
+    , associativity = binop.associativity
+    , precedence = binop.precedence
+    }
 
 
 name : Binop -> String

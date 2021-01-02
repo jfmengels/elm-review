@@ -280,6 +280,7 @@ import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Project exposing (ProjectModule)
 import Review.Project.Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
+import Review.TypeInference.Binop exposing (Binop)
 import Review.TypeInference.Type
 import Review.TypeInference.Union as Union exposing (Union)
 import Review.TypeInference.Value as Value exposing (Value)
@@ -4393,7 +4394,7 @@ type alias ScopeModuleContext =
     , exposedUnions : List Union
     , exposedAliases : List Elm.Docs.Alias
     , exposedValues : List Value
-    , exposedBinops : List Elm.Docs.Binop
+    , exposedBinops : List Binop
     , currentModuleName : ModuleName
     , lookupTable : ModuleNameLookupTable
     }
