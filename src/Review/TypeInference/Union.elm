@@ -1,8 +1,8 @@
 module Review.TypeInference.Union exposing
     ( Union
     , args
-    , comment
     , create
+    , documentation
     , fromMetadataUnion
     , name
     , tags
@@ -55,6 +55,6 @@ args (Union union) =
     union.args
 
 
-comment : Union -> String
-comment (Union union) =
+documentation : Union -> String
+documentation (Union union) =
     union.comment

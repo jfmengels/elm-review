@@ -1,7 +1,7 @@
 module Review.TypeInference.Value exposing
     ( Value
-    , comment
     , create
+    , documentation
     , fromMetadataAlias
     , fromMetadataUnion
     , fromMetadataValue
@@ -115,8 +115,8 @@ name (Value value) =
     value.name
 
 
-comment : Value -> String
-comment (Value value) =
+documentation : Value -> String
+documentation (Value value) =
     value.documentation
 
 
