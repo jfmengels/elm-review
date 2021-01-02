@@ -4774,14 +4774,14 @@ registerExposedValue function name innerContext =
 registerExposedCustomType : Elm.Syntax.Type.Type -> Bool -> ScopeModuleContext -> ScopeModuleContext
 registerExposedCustomType declaredType exposesConstructors innerContext =
     let
-        constructors : List ( String, List Elm.Type.Type )
+        constructors : List ( String, List Review.TypeInference.Type.Type )
         constructors =
             if exposesConstructors then
                 List.map
                     (Node.value
                         >> (\constructor ->
                                 ( Node.value constructor.name
-                                , List.map (syntaxTypeAnnotationToDocsType innerContext) constructor.arguments
+                                , List.map (syntaxTypeAnnotationToInferenceType innerContext) constructor.arguments
                                 )
                            )
                     )
