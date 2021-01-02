@@ -84,7 +84,7 @@ new params =
         , aliases = params.aliases
         , values =
             List.concat
-                [ params.values
+                [ List.map (Value.relateToModule params.name) params.values
                 , List.concatMap (Value.fromMetadataUnion params.name) (List.map Union.toMetadataUnion params.unions)
                 , List.filterMap (Value.fromMetadataAlias params.name) params.aliases
                 ]
