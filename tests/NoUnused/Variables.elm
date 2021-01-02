@@ -205,7 +205,7 @@ fromProjectToModule =
 getCustomTypesFromModule : ModuleInformation.ModuleInformation -> Dict String (List String)
 getCustomTypesFromModule moduleAPI =
     ModuleInformation.unions moduleAPI
-        |> List.map (\union -> ( Union.name union, List.map Tuple.first (Union.constructors union) ))
+        |> List.map (\union -> ( Union.name union, Dict.keys (Union.constructorsAsDict union) ))
         |> Dict.fromList
 
 
