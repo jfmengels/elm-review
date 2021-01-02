@@ -90,7 +90,7 @@ new params =
         , values =
             List.concat
                 [ List.map (Value.relateToModule params.name) params.values
-                , List.concatMap (Value.fromMetadataUnion params.name) (List.map Union.toMetadataUnion unions_)
+                , List.concatMap (Value.fromUnion params.name) unions_
                 , List.filterMap (Value.fromMetadataAlias params.name) params.aliases
                 ]
                 |> List.map (\element -> ( Value.name element, element ))
