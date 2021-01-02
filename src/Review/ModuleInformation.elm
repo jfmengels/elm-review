@@ -67,7 +67,7 @@ fromElmDocsModule elmDocsModule =
 new :
     { name : ModuleName
     , comment : String
-    , unions : List Elm.Docs.Union
+    , unions : List Union
     , aliases : List Elm.Docs.Alias
     , values : List Value
     , binops : List Elm.Docs.Binop
@@ -79,14 +79,13 @@ new params =
         , comment = params.comment
         , unions =
             params.unions
-                |> List.map Union.fromMetadataUnion
                 |> List.map (\element -> ( Union.name element, element ))
                 |> Dict.fromList
         , aliases = params.aliases
         , values =
             List.concat
                 [ params.values
-                , List.concatMap (Value.fromMetadataUnion params.name) params.unions
+                , List.concatMap (Value.fromMetadataUnion params.name) (List.map Union.toMetadataUnion params.unions)
                 , List.filterMap (Value.fromMetadataAlias params.name) params.aliases
                 ]
                 |> List.map (\element -> ( Value.name element, element ))

@@ -281,7 +281,7 @@ import Review.Project exposing (ProjectModule)
 import Review.Project.Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
 import Review.TypeInference.Type
-import Review.TypeInference.Union as Union
+import Review.TypeInference.Union as Union exposing (Union)
 import Review.TypeInference.Value as Value exposing (Value)
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
@@ -4390,7 +4390,7 @@ type alias ScopeModuleContext =
     , modules : Dict ModuleName ModuleInformation
     , exposesEverything : Bool
     , exposedNames : Dict String Bool
-    , exposedUnions : List Elm.Docs.Union
+    , exposedUnions : List Union
     , exposedAliases : List Elm.Docs.Alias
     , exposedValues : List Value
     , exposedBinops : List Elm.Docs.Binop
@@ -4774,8 +4774,8 @@ registerExposedValue function name innerContext =
 registerExposedCustomType : Elm.Syntax.Type.Type -> Bool -> ScopeModuleContext -> ScopeModuleContext
 registerExposedCustomType declaredType exposesConstructors innerContext =
     let
-        tags : List ( String, List Elm.Type.Type )
-        tags =
+        constructors : List ( String, List Elm.Type.Type )
+        constructors =
             if exposesConstructors then
                 List.map
                     (Node.value
@@ -4790,13 +4790,14 @@ registerExposedCustomType declaredType exposesConstructors innerContext =
             else
                 []
 
-        customType : Elm.Docs.Union
+        customType : Union
         customType =
-            { name = Node.value declaredType.name
-            , comment = getDocumentation declaredType.documentation
-            , args = List.map Node.value declaredType.generics
-            , tags = tags
-            }
+            Union.create
+                { name = Node.value declaredType.name
+                , documentation = getDocumentation declaredType.documentation
+                , args = List.map Node.value declaredType.generics
+                , constructors = constructors
+                }
     in
     { innerContext | exposedUnions = customType :: innerContext.exposedUnions }
 
