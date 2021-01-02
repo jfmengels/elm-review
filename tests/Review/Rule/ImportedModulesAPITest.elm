@@ -11,6 +11,7 @@ import Review.ModuleInformation as ModuleInformation exposing (ModuleInformation
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
+import Review.TypeInference.Union as Union
 import Review.TypeInference.Value as Value
 import Test exposing (Test, test)
 
@@ -138,14 +139,14 @@ type Complex a other
                         (rule
                             (\dict ->
                                 Dict.get [ "A" ] dict
-                                    |> Maybe.map (ModuleInformation.unions >> List.sortBy .name >> List.map Debug.toString >> String.join "\n")
+                                    |> Maybe.map (ModuleInformation.unions >> List.sortBy Union.name >> List.map Debug.toString >> String.join "\n")
                                     |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
                             )
                         )
                     |> expectToFind """
-{ args = ["a","other"], comment = "", name = "Complex", tags = [("A",[Type "Basics.Int" [],Type "List.List" [Type "Basics.Int" []]]),("B",[Var "a"])] }
-{ args = [], comment = " Some comment ", name = "Exposed", tags = [("ExposedConstructor",[Type "A.Opaque" []])] }
-{ args = [], comment = "", name = "Opaque", tags = [] }
+Union { args = ["a","other"], comment = "", name = "Complex", tags = [("A",[Type "Basics.Int" [],Type "List.List" [Type "Basics.Int" []]]),("B",[Var "a"])] }
+Union { args = [], comment = " Some comment ", name = "Exposed", tags = [("ExposedConstructor",[Type "A.Opaque" []])] }
+Union { args = [], comment = "", name = "Opaque", tags = [] }
 """
         , test "should be able to list all the type aliases from a module" <|
             \() ->

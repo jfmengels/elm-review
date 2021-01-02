@@ -27,6 +27,7 @@ import Review.Fix as Fix exposing (Fix)
 import Review.ModuleInformation as ModuleInformation
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
+import Review.TypeInference.Union as Union
 import Set exposing (Set)
 
 
@@ -204,7 +205,7 @@ fromProjectToModule =
 getCustomTypesFromModule : ModuleInformation.ModuleInformation -> Dict String (List String)
 getCustomTypesFromModule moduleAPI =
     ModuleInformation.unions moduleAPI
-        |> List.map (\{ name, tags } -> ( name, List.map Tuple.first tags ))
+        |> List.map (\union -> ( Union.name union, List.map Tuple.first (Union.tags union) ))
         |> Dict.fromList
 
 

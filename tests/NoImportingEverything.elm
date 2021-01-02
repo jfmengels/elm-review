@@ -17,6 +17,7 @@ import Review.Fix as Fix exposing (Fix)
 import Review.ModuleInformation as ModuleInformation exposing (ModuleInformation)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
+import Review.TypeInference.Union as Union
 import Set exposing (Set)
 import Vendor.NameVisitor as NameVisitor
 
@@ -170,9 +171,9 @@ registerUseOfValue : Dict ModuleName ModuleInformation -> ModuleName -> String -
 registerUseOfValue importedModulesAPI moduleName name v =
     case Dict.get moduleName importedModulesAPI of
         Just api ->
-            case find (\union -> List.any (\( constructor, _ ) -> constructor == name) union.tags) (ModuleInformation.unions api) of
+            case find (\union -> List.any (\( constructor, _ ) -> constructor == name) (Union.tags union)) (ModuleInformation.unions api) of
                 Just union ->
-                    { v | importedCustomTypes = Set.insert union.name v.importedCustomTypes }
+                    { v | importedCustomTypes = Set.insert (Union.name union) v.importedCustomTypes }
 
                 Nothing ->
                     { v | used = Set.insert name v.used }
