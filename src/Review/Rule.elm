@@ -280,6 +280,7 @@ import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Project exposing (ProjectModule)
 import Review.Project.Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
+import Review.TypeInference.Alias as Alias exposing (Alias)
 import Review.TypeInference.Binop exposing (Binop)
 import Review.TypeInference.Type
 import Review.TypeInference.Union as Union exposing (Union)
@@ -4392,7 +4393,7 @@ type alias ScopeModuleContext =
     , exposesEverything : Bool
     , exposedNames : Dict String Bool
     , exposedUnions : List Union
-    , exposedAliases : List Elm.Docs.Alias
+    , exposedAliases : List Alias
     , exposedValues : List Value
     , exposedBinops : List Binop
     , currentModuleName : ModuleName
@@ -4821,11 +4822,12 @@ registerExposedTypeAlias : TypeAlias -> String -> ScopeModuleContext -> ScopeMod
 registerExposedTypeAlias typeAlias name innerContext =
     { innerContext
         | exposedAliases =
-            { name = name
-            , comment = getDocumentation typeAlias.documentation
-            , args = List.map Node.value typeAlias.generics
-            , tipe = syntaxTypeAnnotationToDocsType innerContext typeAlias.typeAnnotation
-            }
+            Alias.create
+                { name = name
+                , documentation = getDocumentation typeAlias.documentation
+                , args = List.map Node.value typeAlias.generics
+                , tipe = syntaxTypeAnnotationToInferenceType innerContext typeAlias.typeAnnotation
+                }
                 :: innerContext.exposedAliases
     }
 
@@ -5110,7 +5112,7 @@ registerImportExposed import_ innerContext =
                         exposedTypes =
                             List.concat
                                 [ List.map (\value -> ( Union.name value, moduleName )) (ModuleInformation.unions module_)
-                                , List.map nameWithModuleName (ModuleInformation.aliases module_)
+                                , List.map (\value -> ( Alias.name value, moduleName )) (ModuleInformation.aliases module_)
                                 ]
                                 |> Dict.fromList
                     in
@@ -5151,12 +5153,13 @@ valuesFromExposingList module_ topLevelExpose =
             [ function ]
 
         Exposing.TypeOrAliasExpose name ->
-            if List.any (\alias -> alias.name == name) (ModuleInformation.aliases module_) then
-                [ name ]
+            case ModuleInformation.getAliasByName name module_ of
+                Just _ ->
+                    [ name ]
 
-            else
-                -- Type is a custom type
-                []
+                Nothing ->
+                    -- Type is a custom type
+                    []
 
         Exposing.TypeExpose { name, open } ->
             case open of
@@ -5686,7 +5689,7 @@ isValueDeclaredInModule valueName module_ =
 
 isTypeDeclaredInModule : String -> ModuleInformation -> Bool
 isTypeDeclaredInModule typeName module_ =
-    List.any (.name >> (==) typeName) (ModuleInformation.aliases module_)
+    (ModuleInformation.getAliasByName typeName module_ /= Nothing)
         || (ModuleInformation.getUnionByName typeName module_ /= Nothing)
 
 
