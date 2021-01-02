@@ -2,6 +2,7 @@ module Review.TypeInference.Value exposing
     ( Value
     , create
     , documentation
+    , fromAlias
     , fromMetadataAlias
     , fromMetadataUnion
     , fromMetadataValue
@@ -17,7 +18,8 @@ module Review.TypeInference.Value exposing
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Type
-import Review.TypeInference.Type as Type
+import Review.TypeInference.Alias as Alias exposing (Alias)
+import Review.TypeInference.Type as Type exposing (Type(..))
 import Review.TypeInference.Union as Union exposing (Union)
 
 
@@ -118,17 +120,46 @@ fromMetadataAlias moduleName alias_ =
     -- TODO Need to create a test for this
     case alias_.tipe of
         Elm.Type.Record fields _ ->
-            Just
-                (Value
-                    { name = alias_.name
-                    , documentation = alias_.comment
-                    , tipe =
-                        List.foldl
-                            (\( _, input ) output -> Type.Function (Type.fromMetadataType input) output)
-                            (Type.Type moduleName alias_.name (List.map Type.Generic alias_.args))
-                            fields
-                    }
-                )
+            if List.isEmpty alias_.args then
+                Just
+                    (Value
+                        { name = alias_.name
+                        , documentation = alias_.comment
+                        , tipe =
+                            List.foldl
+                                (\( _, input ) output -> Type.Function (Type.fromMetadataType input) output)
+                                (Type.Type moduleName alias_.name (List.map Type.Generic alias_.args))
+                                fields
+                        }
+                    )
+
+            else
+                Nothing
+
+        _ ->
+            Nothing
+
+
+fromAlias : ModuleName -> Alias -> Maybe Value
+fromAlias moduleName alias =
+    -- TODO Need to create a test for this
+    case Alias.tipe alias of
+        Record { fields } ->
+            if List.isEmpty (Alias.args alias) then
+                Just
+                    (Value
+                        { name = Alias.name alias
+                        , documentation = Alias.documentation alias
+                        , tipe =
+                            List.foldl
+                                (\( _, input ) output -> Type.Function input output)
+                                (Type.Type moduleName (Alias.name alias) (List.map Type.Generic (Alias.args alias)))
+                                fields
+                        }
+                    )
+
+            else
+                Nothing
 
         _ ->
             Nothing
