@@ -51,6 +51,10 @@ fromElmDocsModule elmDocsModule =
         unions_ : List Union
         unions_ =
             List.map Union.fromElmDocs elmDocsModule.unions
+
+        aliases_ : List Alias
+        aliases_ =
+            List.map Alias.fromElmDocs elmDocsModule.aliases
     in
     ModuleInformation
         { name = moduleName
@@ -60,14 +64,14 @@ fromElmDocsModule elmDocsModule =
                 |> List.map (\union -> ( Union.name union, union ))
                 |> Dict.fromList
         , aliases =
-            elmDocsModule.aliases
-                |> List.map (\element -> ( element.name, Alias.fromElmDocs element ))
+            aliases_
+                |> List.map (\alias -> ( Alias.name alias, alias ))
                 |> Dict.fromList
         , values =
             List.concat
                 [ List.map Value.fromElmDocs elmDocsModule.values
                 , List.concatMap (Value.fromUnion moduleName) unions_
-                , List.filterMap (Value.fromMetadataAlias moduleName) elmDocsModule.aliases
+                , List.filterMap (Value.fromAlias moduleName) aliases_
                 ]
                 |> List.map (\element -> ( Value.name element, element ))
                 |> Dict.fromList
