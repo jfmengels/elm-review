@@ -1,4 +1,4 @@
-module Review.TypeInference.Union exposing
+module Review.Type.Union exposing
     ( Union
     , args
     , constructors

@@ -14,7 +14,7 @@ import Elm.Syntax.Range exposing (Range)
 import Review.ModuleInformation as ModuleInformation exposing (ModuleInformation)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
-import Review.TypeInference.Value as Value
+import Review.Type.Value as Value
 import Set exposing (Set)
 
 

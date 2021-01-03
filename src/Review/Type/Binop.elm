@@ -1,4 +1,4 @@
-module Review.TypeInference.Binop exposing
+module Review.Type.Binop exposing
     ( Binop
     , associativity
     , comment

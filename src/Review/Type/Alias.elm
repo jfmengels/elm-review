@@ -1,4 +1,4 @@
-module Review.TypeInference.Alias exposing
+module Review.Type.Alias exposing
     ( Alias
     , args
     , create
