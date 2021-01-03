@@ -5,7 +5,6 @@ module Review.Type.Value exposing
     , fromAlias
     , fromElmDocs
     , fromMetadataAlias
-    , fromMetadataUnion
     , fromUnion
     , name
     , relateToModule
@@ -74,23 +73,6 @@ wasDeclaredAsAFunction name_ =
 
         Nothing ->
             False
-
-
-fromMetadataUnion : ModuleName -> Elm.Docs.Union -> List Value
-fromMetadataUnion moduleName customType =
-    List.map
-        (\( name_, types ) ->
-            Value
-                { name = name_
-                , documentation = customType.comment
-                , tipe =
-                    List.foldl
-                        (\input output -> Type.Function (Type.fromElmDocs input) output)
-                        (Type.Type moduleName customType.name (List.map Type.Generic customType.args))
-                        types
-                }
-        )
-        customType.tags
 
 
 fromUnion : ModuleName -> Union -> List Value
