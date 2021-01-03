@@ -2,11 +2,11 @@ module Review.Type.Binop exposing
     ( Binop
     , associativity
     , comment
-    , fromMetadata
+    , fromElmDocs
     , name
     , precedence
     , tipe
-    , toMetadata
+    , toElmDocs
     )
 
 import Elm.Docs
@@ -24,8 +24,8 @@ type Binop
         }
 
 
-fromMetadata : Elm.Docs.Binop -> Binop
-fromMetadata binop =
+fromElmDocs : Elm.Docs.Binop -> Binop
+fromElmDocs binop =
     Binop
         { name = binop.name
         , documentation = binop.comment
@@ -35,8 +35,8 @@ fromMetadata binop =
         }
 
 
-toMetadata : Binop -> Elm.Docs.Binop
-toMetadata (Binop binop) =
+toElmDocs : Binop -> Elm.Docs.Binop
+toElmDocs (Binop binop) =
     { name = binop.name
     , comment = binop.documentation
     , tipe = Type.toElmDocs binop.tipe |> Maybe.withDefault (Elm.Type.Var "unknown")

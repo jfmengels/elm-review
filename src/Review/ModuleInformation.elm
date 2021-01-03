@@ -67,7 +67,7 @@ fromElmDocsModule elmDocsModule =
                 ]
                 |> List.map (\element -> ( Value.name element, element ))
                 |> Dict.fromList
-        , binops = List.map Binop.fromMetadata elmDocsModule.binops
+        , binops = List.map Binop.fromElmDocs elmDocsModule.binops
         }
 
 
@@ -136,7 +136,7 @@ toElmDocsModule (ModuleInformation moduleInfo) =
         moduleInfo.values
             |> Dict.values
             |> List.filterMap Value.toElmDocs
-    , binops = List.map Binop.toMetadata moduleInfo.binops
+    , binops = List.map Binop.toElmDocs moduleInfo.binops
     }
 
 
