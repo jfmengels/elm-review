@@ -46,14 +46,14 @@ fromMetadataValue value =
     Value
         { name = value.name
         , documentation = value.comment
-        , tipe = Type.fromMetadataType value.tipe
+        , tipe = Type.fromElmDocs value.tipe
         }
 
 
 toMetadataValue : Value -> Maybe Elm.Docs.Value
 toMetadataValue (Value value) =
     if wasDeclaredAsAFunction value.name then
-        Type.toMetadataType value.tipe
+        Type.toElmDocs value.tipe
             |> Maybe.map
                 (\tipe_ ->
                     { name = value.name
@@ -85,7 +85,7 @@ fromMetadataUnion moduleName customType =
                 , documentation = customType.comment
                 , tipe =
                     List.foldl
-                        (\input output -> Type.Function (Type.fromMetadataType input) output)
+                        (\input output -> Type.Function (Type.fromElmDocs input) output)
                         (Type.Type moduleName customType.name (List.map Type.Generic customType.args))
                         types
                 }
@@ -127,7 +127,7 @@ fromMetadataAlias moduleName alias_ =
                         , documentation = alias_.comment
                         , tipe =
                             List.foldl
-                                (\( _, input ) output -> Type.Function (Type.fromMetadataType input) output)
+                                (\( _, input ) output -> Type.Function (Type.fromElmDocs input) output)
                                 (Type.Type moduleName alias_.name (List.map Type.Generic alias_.args))
                                 fields
                         }
