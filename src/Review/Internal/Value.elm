@@ -11,8 +11,6 @@ module Review.Internal.Value exposing
     , toElmDocs
     )
 
--- TODO Expose module, but hide implementation and type inside an "Internal" module
-
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Review.Type as Type exposing (Type(..))
