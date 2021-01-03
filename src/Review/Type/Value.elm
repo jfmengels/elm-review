@@ -4,7 +4,6 @@ module Review.Type.Value exposing
     , documentation
     , fromAlias
     , fromElmDocs
-    , fromMetadataAlias
     , fromUnion
     , name
     , relateToModule
@@ -95,31 +94,6 @@ fromUnion moduleName union =
                 }
         )
         (Union.constructors union)
-
-
-fromMetadataAlias : ModuleName -> Elm.Docs.Alias -> Maybe Value
-fromMetadataAlias moduleName alias_ =
-    -- TODO Need to create a test for this
-    case alias_.tipe of
-        Elm.Type.Record fields _ ->
-            if List.isEmpty alias_.args then
-                Just
-                    (Value
-                        { name = alias_.name
-                        , documentation = alias_.comment
-                        , tipe =
-                            List.foldl
-                                (\( _, input ) output -> Type.Function (Type.fromElmDocs input) output)
-                                (Type.Type moduleName alias_.name (List.map Type.Generic alias_.args))
-                                fields
-                        }
-                    )
-
-            else
-                Nothing
-
-        _ ->
-            Nothing
 
 
 fromAlias : ModuleName -> Alias -> Maybe Value
