@@ -1,4 +1,4 @@
-module Review.TypeInference.Type exposing (Type(..), fromMetadataType, relateToModule, toMetadataType)
+module Review.Type exposing (Type(..), fromMetadataType, relateToModule, toMetadataType)
 
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Type
