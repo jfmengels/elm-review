@@ -1,4 +1,4 @@
-module Review.TypeInference.Value exposing
+module Review.Type.Value exposing
     ( Value
     , create
     , documentation
@@ -19,8 +19,8 @@ import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Type
 import Review.Type as Type exposing (Type(..))
-import Review.TypeInference.Alias as Alias exposing (Alias)
-import Review.TypeInference.Union as Union exposing (Union)
+import Review.Type.Alias as Alias exposing (Alias)
+import Review.Type.Union as Union exposing (Union)
 
 
 type Value

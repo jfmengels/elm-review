@@ -24,10 +24,10 @@ import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Review.Project.Dependency
-import Review.TypeInference.Alias as Alias exposing (Alias)
-import Review.TypeInference.Binop as Binop exposing (Binop)
-import Review.TypeInference.Union as Union exposing (Union)
-import Review.TypeInference.Value as Value exposing (Value)
+import Review.Type.Alias as Alias exposing (Alias)
+import Review.Type.Binop as Binop exposing (Binop)
+import Review.Type.Union as Union exposing (Union)
+import Review.Type.Value as Value exposing (Value)
 
 
 type ModuleInformation

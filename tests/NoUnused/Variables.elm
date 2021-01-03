@@ -27,7 +27,7 @@ import Review.Fix as Fix exposing (Fix)
 import Review.ModuleInformation as ModuleInformation
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
-import Review.TypeInference.Union as Union
+import Review.Type.Union as Union
 import Set exposing (Set)
 
 

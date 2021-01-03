@@ -11,9 +11,9 @@ import Review.ModuleInformation as ModuleInformation exposing (ModuleInformation
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
-import Review.TypeInference.Alias as Alias
-import Review.TypeInference.Union as Union
-import Review.TypeInference.Value as Value
+import Review.Type.Alias as Alias
+import Review.Type.Union as Union
+import Review.Type.Value as Value
 import Test exposing (Test, test)
 
 
