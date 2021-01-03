@@ -29,7 +29,7 @@ fromMetadata binop =
     Binop
         { name = binop.name
         , documentation = binop.comment
-        , tipe = Type.fromMetadataType binop.tipe
+        , tipe = Type.fromElmDocs binop.tipe
         , associativity = binop.associativity
         , precedence = binop.precedence
         }
@@ -39,7 +39,7 @@ toMetadata : Binop -> Elm.Docs.Binop
 toMetadata (Binop binop) =
     { name = binop.name
     , comment = binop.documentation
-    , tipe = Type.toMetadataType binop.tipe |> Maybe.withDefault (Elm.Type.Var "unknown")
+    , tipe = Type.toElmDocs binop.tipe |> Maybe.withDefault (Elm.Type.Var "unknown")
     , associativity = binop.associativity
     , precedence = binop.precedence
     }

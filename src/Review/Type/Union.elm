@@ -58,7 +58,7 @@ fromMetadataUnion union =
         , args = union.args
         , constructors =
             union.tags
-                |> List.map (\( name_, type_ ) -> ( name_, List.map Type.fromMetadataType type_ ))
+                |> List.map (\( name_, type_ ) -> ( name_, List.map Type.fromElmDocs type_ ))
                 |> Dict.fromList
         }
 
@@ -71,7 +71,7 @@ toMetadataUnion (Union union) =
     , tags =
         union.constructors
             |> Dict.toList
-            |> List.map (\( name_, type_ ) -> ( name_, List.map (Type.toMetadataType >> Maybe.withDefault (Elm.Type.Var "unknown")) type_ ))
+            |> List.map (\( name_, type_ ) -> ( name_, List.map (Type.toElmDocs >> Maybe.withDefault (Elm.Type.Var "unknown")) type_ ))
     }
 
 

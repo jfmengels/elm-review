@@ -45,7 +45,7 @@ fromElmDocs alias =
         { name = alias.name
         , documentation = alias.comment
         , args = alias.args
-        , tipe = Type.fromMetadataType alias.tipe
+        , tipe = Type.fromElmDocs alias.tipe
         }
 
 
@@ -55,7 +55,7 @@ toElmDocs (Alias alias) =
     , comment = alias.documentation
     , args = alias.args
     , tipe =
-        Type.toMetadataType alias.tipe
+        Type.toElmDocs alias.tipe
             |> Maybe.withDefault (Elm.Type.Var "unknown")
     }
 

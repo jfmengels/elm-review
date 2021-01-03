@@ -1,4 +1,4 @@
-module Review.Type exposing (Type(..), fromMetadataType, relateToModule, toMetadataType)
+module Review.Type exposing (Type(..), fromElmDocs, relateToModule, toElmDocs)
 
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Type
@@ -17,23 +17,23 @@ type Type
         }
 
 
-fromMetadataType : Elm.Type.Type -> Type
-fromMetadataType type_ =
+fromElmDocs : Elm.Type.Type -> Type
+fromElmDocs type_ =
     case type_ of
         Elm.Type.Var string ->
             Generic string
 
         Elm.Type.Lambda input output ->
-            Function (fromMetadataType input) (fromMetadataType output)
+            Function (fromElmDocs input) (fromElmDocs output)
 
         Elm.Type.Tuple types ->
-            Tuple (List.map fromMetadataType types)
+            Tuple (List.map fromElmDocs types)
 
         Elm.Type.Type name originalTypes ->
             let
                 types : List Type
                 types =
-                    List.map fromMetadataType originalTypes
+                    List.map fromElmDocs originalTypes
             in
             case String.split "." name |> List.reverse of
                 [] ->
@@ -44,14 +44,14 @@ fromMetadataType type_ =
 
         Elm.Type.Record originalFields generic ->
             Record
-                { fields = List.map (Tuple.mapSecond fromMetadataType) originalFields
+                { fields = List.map (Tuple.mapSecond fromElmDocs) originalFields
                 , generic = generic
                 , mayHaveMoreFields = False
                 }
 
 
-toMetadataType : Type -> Maybe Elm.Type.Type
-toMetadataType type_ =
+toElmDocs : Type -> Maybe Elm.Type.Type
+toElmDocs type_ =
     case type_ of
         Unknown ->
             Nothing
@@ -64,9 +64,9 @@ toMetadataType type_ =
                 |> Maybe.map Elm.Type.Tuple
 
         Function input output ->
-            case toMetadataType input of
+            case toElmDocs input of
                 Just inputType ->
-                    case toMetadataType output of
+                    case toElmDocs output of
                         Just outputType ->
                             Just (Elm.Type.Lambda inputType outputType)
 
@@ -92,7 +92,7 @@ toMetadataType type_ =
                 let
                     fieldsFoo : ( String, Type ) -> Maybe ( String, Elm.Type.Type )
                     fieldsFoo ( name, field ) =
-                        case toMetadataType field of
+                        case toElmDocs field of
                             Just fieldType ->
                                 Just ( name, fieldType )
 
@@ -148,7 +148,7 @@ listOfMaybeToMaybeList types =
     let
         elements : List Elm.Type.Type
         elements =
-            List.filterMap toMetadataType types
+            List.filterMap toElmDocs types
     in
     if List.length elements == List.length types then
         Just elements
