@@ -47,13 +47,17 @@ fromElmDocsModule elmDocsModule =
         moduleName : List String
         moduleName =
             String.split "." elmDocsModule.name
+
+        unions_ : List Union
+        unions_ =
+            List.map Union.fromElmDocs elmDocsModule.unions
     in
     ModuleInformation
         { name = moduleName
         , comment = elmDocsModule.comment
         , unions =
-            elmDocsModule.unions
-                |> List.map (\element -> ( element.name, Union.fromElmDocs element ))
+            unions_
+                |> List.map (\union -> ( Union.name union, union ))
                 |> Dict.fromList
         , aliases =
             elmDocsModule.aliases
@@ -62,7 +66,7 @@ fromElmDocsModule elmDocsModule =
         , values =
             List.concat
                 [ List.map Value.fromElmDocs elmDocsModule.values
-                , List.concatMap (Value.fromMetadataUnion moduleName) elmDocsModule.unions
+                , List.concatMap (Value.fromUnion moduleName) unions_
                 , List.filterMap (Value.fromMetadataAlias moduleName) elmDocsModule.aliases
                 ]
                 |> List.map (\element -> ( Value.name element, element ))
