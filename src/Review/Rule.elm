@@ -4796,7 +4796,7 @@ registerExposedCustomType declaredType exposesConstructors innerContext =
         customType =
             Union.create
                 { name = Node.value declaredType.name
-                , documentation = getDocumentation declaredType.documentation
+                , documentation = Maybe.withDefault "" <| getDocumentation declaredType.documentation
                 , args = List.map Node.value declaredType.generics
                 , constructors = constructors
                 }
@@ -4804,18 +4804,17 @@ registerExposedCustomType declaredType exposesConstructors innerContext =
     { innerContext | exposedUnions = customType :: innerContext.exposedUnions }
 
 
-getDocumentation : Maybe (Node Documentation) -> String
+getDocumentation : Maybe (Node Documentation) -> Maybe String
 getDocumentation node =
-    case Maybe.map Node.value node of
-        Just documentation ->
-            documentation
+    Maybe.map
+        (\documentation ->
+            Node.value documentation
                 -- Remove the leading {-|
                 |> String.dropLeft 3
                 -- Remove the trailing -}
                 |> String.dropRight 2
-
-        Nothing ->
-            ""
+        )
+        node
 
 
 registerExposedTypeAlias : TypeAlias -> String -> ScopeModuleContext -> ScopeModuleContext
@@ -4824,7 +4823,7 @@ registerExposedTypeAlias typeAlias name innerContext =
         | exposedAliases =
             Alias.create
                 { name = name
-                , documentation = getDocumentation typeAlias.documentation
+                , documentation = Maybe.withDefault "" <| getDocumentation typeAlias.documentation
                 , args = List.map Node.value typeAlias.generics
                 , tipe = syntaxTypeAnnotationToInferenceType innerContext typeAlias.typeAnnotation
                 }

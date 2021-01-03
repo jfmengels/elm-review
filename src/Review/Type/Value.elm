@@ -53,7 +53,7 @@ type alias Value =
 
 {-| Create a new value.
 -}
-create : { name : String, documentation : String, tipe : Type } -> Value
+create : { name : String, documentation : Maybe String, tipe : Type } -> Value
 create =
     Review.Internal.Value.create
 
@@ -93,7 +93,9 @@ tipe =
 
 The leading `{-|` and trailing `-}` are stripped off, but the rest of the string remains as is. In the example above, the documentation would be `documentation\n`.
 
+The documentation will be `Nothing` if it is was missing, or if the value corresponds to a custom type constructor.
+
 -}
-documentation : Value -> String
+documentation : Value -> Maybe String
 documentation =
     Review.Internal.Value.documentation
