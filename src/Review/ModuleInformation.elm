@@ -23,11 +23,11 @@ module Review.ModuleInformation exposing
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
+import Review.Internal.Value as Value exposing (Value)
 import Review.Project.Dependency
 import Review.Type.Alias as Alias exposing (Alias)
 import Review.Type.Binop as Binop exposing (Binop)
 import Review.Type.Union as Union exposing (Union)
-import Review.Type.Value as Value exposing (Value)
 
 
 type ModuleInformation
