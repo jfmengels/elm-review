@@ -1,15 +1,15 @@
-module Review.TypeInference.TypeTest exposing (suite)
+module Review.TypeTest exposing (suite)
 
 import Elm.Type
 import Expect
 import Fuzz exposing (Fuzzer)
-import Review.TypeInference.Type as Type
+import Review.Type as Type
 import Test exposing (Test)
 
 
 suite : Test
 suite =
-    Test.describe "Review.TypeInference.Type"
+    Test.describe "Review.Type"
         [ fromMetadataTypeTest
         , toMetadataTypeTest
         , fromAndToMetadataTypeTest
