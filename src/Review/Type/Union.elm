@@ -5,10 +5,10 @@ module Review.Type.Union exposing
     , constructorsAsDict
     , create
     , documentation
-    , fromMetadataUnion
+    , fromElmDocs
     , name
     , relateToModule
-    , toMetadataUnion
+    , toElmDocs
     )
 
 -- TODO Expose module, but hide implementation and type inside an "Internal" module
@@ -50,8 +50,8 @@ relateToModule moduleName (Union union) =
     Union { union | constructors = Dict.map (\_ types -> List.map (Type.relateToModule moduleName) types) union.constructors }
 
 
-fromMetadataUnion : Elm.Docs.Union -> Union
-fromMetadataUnion union =
+fromElmDocs : Elm.Docs.Union -> Union
+fromElmDocs union =
     Union
         { name = union.name
         , documentation = union.comment
@@ -63,8 +63,8 @@ fromMetadataUnion union =
         }
 
 
-toMetadataUnion : Union -> Elm.Docs.Union
-toMetadataUnion (Union union) =
+toElmDocs : Union -> Elm.Docs.Union
+toElmDocs (Union union) =
     { name = union.name
     , comment = union.documentation
     , args = union.args

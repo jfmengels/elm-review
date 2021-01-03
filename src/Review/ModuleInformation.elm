@@ -53,7 +53,7 @@ fromElmDocsModule elmDocsModule =
         , comment = elmDocsModule.comment
         , unions =
             elmDocsModule.unions
-                |> List.map (\element -> ( element.name, Union.fromMetadataUnion element ))
+                |> List.map (\element -> ( element.name, Union.fromElmDocs element ))
                 |> Dict.fromList
         , aliases =
             elmDocsModule.aliases
@@ -128,7 +128,7 @@ toElmDocsModule (ModuleInformation moduleInfo) =
     , comment = moduleInfo.comment
     , unions =
         Dict.values moduleInfo.unions
-            |> List.map Union.toMetadataUnion
+            |> List.map Union.toElmDocs
     , aliases =
         Dict.values moduleInfo.aliases
             |> List.map Alias.toElmDocs
