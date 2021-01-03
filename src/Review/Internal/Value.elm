@@ -24,11 +24,11 @@ type Value
     = Value
         { name : String
         , documentation : String
-        , tipe : Type.Type
+        , tipe : Type
         }
 
 
-create : { name : String, documentation : String, tipe : Type.Type } -> Value
+create : { name : String, documentation : String, tipe : Type } -> Value
 create =
     Value
 
@@ -88,7 +88,7 @@ fromUnion moduleName union =
                 , tipe =
                     List.foldl
                         (\input output -> Type.Function input output)
-                        (Type.Type moduleName (Union.name union) (List.map Type.Generic (Union.args union)))
+                        (Type moduleName (Union.name union) (List.map Type.Generic (Union.args union)))
                         types
                 }
         )
@@ -108,7 +108,7 @@ fromAlias moduleName alias =
                         , tipe =
                             List.foldl
                                 (\( _, input ) output -> Type.Function input output)
-                                (Type.Type moduleName (Alias.name alias) (List.map Type.Generic (Alias.args alias)))
+                                (Type moduleName (Alias.name alias) (List.map Type.Generic (Alias.args alias)))
                                 fields
                         }
                     )
@@ -130,6 +130,6 @@ documentation (Value value) =
     value.documentation
 
 
-tipe : Value -> Type.Type
+tipe : Value -> Type
 tipe (Value value) =
     value.tipe
