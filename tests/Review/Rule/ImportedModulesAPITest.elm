@@ -114,9 +114,9 @@ noType = 1
                             )
                         )
                     |> expectToFind """
-Value { documentation = "", name = "b", tipe = Type ["Basics"] "Int" [] }
-Value { documentation = " Some comment ", name = "increment", tipe = Function (Type ["List"] "List" [Type ["Basics"] "Int" []]) (Function (Type ["A"] "Foo" []) (Type ["A"] "Local" [])) }
-Value { documentation = "", name = "noType", tipe = Unknown }
+Value { documentation = Nothing, name = "b", tipe = Type ["Basics"] "Int" [] }
+Value { documentation = Just " Some comment ", name = "increment", tipe = Function (Type ["List"] "List" [Type ["Basics"] "Int" []]) (Function (Type ["A"] "Foo" []) (Type ["A"] "Local" [])) }
+Value { documentation = Nothing, name = "noType", tipe = Unknown }
 """
         , test "should be able to list all the custom types from a module" <|
             \() ->

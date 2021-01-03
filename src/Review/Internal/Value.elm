@@ -21,12 +21,12 @@ import Review.Type.Union as Union exposing (Union)
 type Value
     = Value
         { name : String
-        , documentation : String
+        , documentation : Maybe String
         , tipe : Type
         }
 
 
-create : { name : String, documentation : String, tipe : Type } -> Value
+create : { name : String, documentation : Maybe String, tipe : Type } -> Value
 create =
     Value
 
@@ -40,7 +40,7 @@ fromElmDocs : Elm.Docs.Value -> Value
 fromElmDocs value =
     Value
         { name = value.name
-        , documentation = value.comment
+        , documentation = Just value.comment
         , tipe = Type.fromElmDocs value.tipe
         }
 
@@ -52,7 +52,7 @@ toElmDocs (Value value) =
             |> Maybe.map
                 (\tipe_ ->
                     { name = value.name
-                    , comment = value.documentation
+                    , comment = Maybe.withDefault "" value.documentation
                     , tipe = tipe_
                     }
                 )
@@ -73,16 +73,11 @@ wasDeclaredAsAFunction name_ =
 
 fromUnion : ModuleName -> Union -> List Value
 fromUnion moduleName union =
-    let
-        documentation_ : String
-        documentation_ =
-            Union.documentation union
-    in
     List.map
         (\( constructorName, types ) ->
             Value
                 { name = constructorName
-                , documentation = documentation_
+                , documentation = Nothing
                 , tipe =
                     List.foldl
                         (\input output -> Type.Function input output)
@@ -102,7 +97,7 @@ fromAlias moduleName alias =
                 Just
                     (Value
                         { name = Alias.name alias
-                        , documentation = Alias.documentation alias
+                        , documentation = Just (Alias.documentation alias)
                         , tipe =
                             List.foldl
                                 (\( _, input ) output -> Type.Function input output)
@@ -123,7 +118,7 @@ name (Value value) =
     value.name
 
 
-documentation : Value -> String
+documentation : Value -> Maybe String
 documentation (Value value) =
     value.documentation
 
