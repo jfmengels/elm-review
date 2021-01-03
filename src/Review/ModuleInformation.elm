@@ -61,7 +61,7 @@ fromElmDocsModule elmDocsModule =
                 |> Dict.fromList
         , values =
             List.concat
-                [ List.map Value.fromMetadataValue elmDocsModule.values
+                [ List.map Value.fromElmDocs elmDocsModule.values
                 , List.concatMap (Value.fromMetadataUnion moduleName) elmDocsModule.unions
                 , List.filterMap (Value.fromMetadataAlias moduleName) elmDocsModule.aliases
                 ]
@@ -135,7 +135,7 @@ toElmDocsModule (ModuleInformation moduleInfo) =
     , values =
         moduleInfo.values
             |> Dict.values
-            |> List.filterMap Value.toMetadataValue
+            |> List.filterMap Value.toElmDocs
     , binops = List.map Binop.toMetadata moduleInfo.binops
     }
 

@@ -3,14 +3,14 @@ module Review.Type.Value exposing
     , create
     , documentation
     , fromAlias
+    , fromElmDocs
     , fromMetadataAlias
     , fromMetadataUnion
-    , fromMetadataValue
     , fromUnion
     , name
     , relateToModule
     , tipe
-    , toMetadataValue
+    , toElmDocs
     )
 
 -- TODO Expose module, but hide implementation and type inside an "Internal" module
@@ -41,8 +41,8 @@ relateToModule moduleName (Value value) =
     Value { value | tipe = Type.relateToModule moduleName value.tipe }
 
 
-fromMetadataValue : Elm.Docs.Value -> Value
-fromMetadataValue value =
+fromElmDocs : Elm.Docs.Value -> Value
+fromElmDocs value =
     Value
         { name = value.name
         , documentation = value.comment
@@ -50,8 +50,8 @@ fromMetadataValue value =
         }
 
 
-toMetadataValue : Value -> Maybe Elm.Docs.Value
-toMetadataValue (Value value) =
+toElmDocs : Value -> Maybe Elm.Docs.Value
+toElmDocs (Value value) =
     if wasDeclaredAsAFunction value.name then
         Type.toElmDocs value.tipe
             |> Maybe.map
