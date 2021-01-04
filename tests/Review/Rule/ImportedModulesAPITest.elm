@@ -2,7 +2,6 @@ module Review.Rule.ImportedModulesAPITest exposing (all)
 
 import Dependencies.ElmCore
 import Dict exposing (Dict)
-import Elm.Docs
 import Elm.Syntax.Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)

@@ -7,7 +7,6 @@ module NoImportingEverything exposing (rule)
 -}
 
 import Dict exposing (Dict)
-import Elm.Docs exposing (Module)
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.ModuleName exposing (ModuleName)
