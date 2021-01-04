@@ -253,7 +253,6 @@ reason or seemingly inappropriately.
 -}
 
 import Dict exposing (Dict)
-import Elm.Docs
 import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Documentation exposing (Documentation)
@@ -5096,10 +5095,6 @@ registerImportExposed import_ innerContext =
             case exposing_ of
                 Exposing.All _ ->
                     let
-                        nameWithModuleName : { r | name : String } -> ( String, List String )
-                        nameWithModuleName { name } =
-                            ( name, moduleName )
-
                         exposedValues : Dict String (List String)
                         exposedValues =
                             ModuleInformation.valuesAsDict module_

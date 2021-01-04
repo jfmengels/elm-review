@@ -15,7 +15,6 @@ the `elm.json` file, the project modules and the project dependencies.
 -}
 
 import Dict exposing (Dict)
-import Elm.Docs
 import Elm.Project
 import Elm.Syntax.File
 import Elm.Syntax.Module

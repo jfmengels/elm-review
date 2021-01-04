@@ -12,7 +12,6 @@ module Review.Type.Alias exposing
 
 -- TODO Expose module, but hide implementation and type inside an "Internal" module
 
-import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Type
