@@ -1,6 +1,7 @@
 module Review.Type.Binop exposing
     ( Binop
     , associativity
+    , create
     , documentation
     , fromElmDocs
     , name
@@ -25,6 +26,18 @@ type Binop
         , associativity : Elm.Docs.Associativity
         , precedence : Int
         }
+
+
+create :
+    { name : String
+    , documentation : Maybe String
+    , tipe : Maybe Type.Type
+    , associativity : Elm.Docs.Associativity
+    , precedence : Int
+    }
+    -> Binop
+create =
+    Binop
 
 
 fromElmDocs : Elm.Docs.Binop -> Binop
