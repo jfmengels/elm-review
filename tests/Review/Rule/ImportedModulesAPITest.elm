@@ -11,6 +11,7 @@ import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
 import Review.Type.Alias as Alias
+import Review.Type.Binop as Binop
 import Review.Type.Union as Union
 import Review.Type.Value as Value
 import Test exposing (Test, test)
@@ -185,6 +186,37 @@ Alias { args = ["thing"], documentation = "", name = "ExtensibleRecord", tipe = 
 Alias { args = [], documentation = "", name = "Int", tipe = Type ["A"] "Int" [] }
 Alias { args = [], documentation = "", name = "Record", tipe = Record { fields = [("a",Type ["A"] "Int" [])], generic = Nothing, mayHaveMoreFields = False } }
 """
+        , Test.only <|
+            test "should be able to list all the binary operations from a module" <|
+                \() ->
+                    [ targetModule
+                    , """module A exposing ((+++), (---), (<=>))
+{-| Do things with matrices
+-}
+thing1 : Matrix -> Matrix -> Matrix
+thing1 a b = b
+
+infix right 0 (+++) = thing1
+infix left  99 (---) = thing2
+infix right 2 (<=>) = thing3
+
+thing2 a b = b
+
+{-| Some comment
+-}
+thing3 : Int -> Int -> Int
+thing3 a b = a + b
+"""
+                    ]
+                        |> Review.Test.runOnModulesWithProjectData project
+                            (rule
+                                (\dict ->
+                                    Dict.get [ "A" ] dict
+                                        |> Maybe.map (ModuleInformation.binops >> List.sortBy Binop.name >> List.map Debug.toString >> String.join "\n")
+                                        |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
+                                )
+                            )
+                        |> expectToFind ""
         ]
 
 
