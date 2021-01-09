@@ -1,5 +1,6 @@
 module Review.Type.Binop exposing
     ( Binop
+    , associatedFunction
     , associativity
     , create
     , documentation
@@ -78,6 +79,11 @@ toElmDocs (Binop binop) =
 name : Binop -> String
 name (Binop binop) =
     binop.name
+
+
+associatedFunction : Binop -> String
+associatedFunction (Binop binop) =
+    binop.associatedFunction
 
 
 documentation : Binop -> Maybe String
