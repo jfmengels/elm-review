@@ -3,13 +3,13 @@ module Review.ModuleInformation exposing
     , aliases
     , aliasesAsDict
     , binops
+    , create
     , empty
     , fromDependencies
     , fromElmDocsModule
     , getAliasByName
     , getUnionByName
     , getValueByName
-    , new
     , toElmDocsModule
     , toElmDocsModuleDict
     , unions
@@ -79,7 +79,7 @@ fromElmDocsModule elmDocsModule =
         }
 
 
-new :
+create :
     { name : ModuleName
     , comment : String
     , unions : List Union
@@ -88,7 +88,7 @@ new :
     , binops : List Binop
     }
     -> ModuleInformation
-new params =
+create params =
     let
         unions_ : List Union
         unions_ =

@@ -4449,7 +4449,7 @@ scope_fromModuleToProject _ moduleName moduleContext =
     { dependenciesModules = Dict.empty
     , modules =
         Dict.singleton (Node.value moduleName)
-            (ModuleInformation.new
+            (ModuleInformation.create
                 { name = Node.value moduleName
                 , comment = ""
                 , unions = moduleContext.exposedUnions
