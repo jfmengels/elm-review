@@ -5029,20 +5029,20 @@ scope_moduleDefinitionVisitor node innerContext =
 exposedElements : List (Node Exposing.TopLevelExpose) -> Dict String Bool
 exposedElements nodes =
     nodes
-        |> List.filterMap
+        |> List.map
             (\node ->
                 case Node.value node of
                     Exposing.FunctionExpose name ->
-                        Just ( name, False )
+                        ( name, False )
 
                     Exposing.TypeOrAliasExpose name ->
-                        Just ( name, False )
+                        ( name, False )
 
                     Exposing.TypeExpose { name, open } ->
-                        Just ( name, open /= Nothing )
+                        ( name, open /= Nothing )
 
-                    Exposing.InfixExpose _ ->
-                        Nothing
+                    Exposing.InfixExpose name ->
+                        ( name, False )
             )
         |> Dict.fromList
 
