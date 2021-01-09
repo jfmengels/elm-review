@@ -144,7 +144,7 @@ toElmDocsModule (ModuleInformation moduleInfo) =
         moduleInfo.values
             |> Dict.values
             |> List.filterMap Value.toElmDocs
-    , binops = List.map Binop.toElmDocs moduleInfo.binops
+    , binops = List.filterMap Binop.toElmDocs moduleInfo.binops
     }
 
 
