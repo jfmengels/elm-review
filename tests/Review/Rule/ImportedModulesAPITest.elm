@@ -216,9 +216,9 @@ thing3 a b = a + b
                             )
                         )
                     |> expectToFind """
-Binop { associativity = Right, documentation = Nothing, name = "+++", precedence = 0, tipe = Nothing }
-Binop { associativity = Left, documentation = Nothing, name = "---", precedence = 99, tipe = Nothing }
-Binop { associativity = None, documentation = Nothing, name = "<=>", precedence = 2, tipe = Nothing }
+Binop { associatedFunction = "thing1", associativity = Right, documentation = Nothing, name = "+++", precedence = 0, tipe = Nothing }
+Binop { associatedFunction = "thing2", associativity = Left, documentation = Nothing, name = "---", precedence = 99, tipe = Nothing }
+Binop { associatedFunction = "thing3", associativity = None, documentation = Nothing, name = "<=>", precedence = 2, tipe = Nothing }
 """
         ]
 
