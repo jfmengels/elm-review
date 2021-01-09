@@ -253,13 +253,14 @@ reason or seemingly inappropriately.
 -}
 
 import Dict exposing (Dict)
+import Elm.Docs
 import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Documentation exposing (Documentation)
 import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
 import Elm.Syntax.Expression as Expression exposing (Expression, Function)
 import Elm.Syntax.Import exposing (Import)
-import Elm.Syntax.Infix as Infix
+import Elm.Syntax.Infix as Infix exposing (Infix)
 import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
@@ -281,7 +282,7 @@ import Review.Project.Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
 import Review.Type
 import Review.Type.Alias as Alias exposing (Alias)
-import Review.Type.Binop exposing (Binop)
+import Review.Type.Binop as Binop exposing (Binop)
 import Review.Type.Union as Union exposing (Union)
 import Review.Type.Value as Value exposing (Value)
 import Set exposing (Set)
@@ -4738,8 +4739,8 @@ scope_registerExposedDeclaration declaration innerContext =
                 (Node.value signature.name)
                 innerContext
 
-        Declaration.InfixDeclaration _ ->
-            innerContext
+        Declaration.InfixDeclaration binop ->
+            registerIfExposed (registerBinop binop) (Node.value binop.operator) innerContext
 
         Declaration.Destructuring _ _ ->
             -- Not possible in 0.19 code
@@ -4801,6 +4802,35 @@ registerExposedCustomType declaredType exposesConstructors innerContext =
                 }
     in
     { innerContext | exposedUnions = customType :: innerContext.exposedUnions }
+
+
+registerBinop : Infix -> String -> ScopeModuleContext -> ScopeModuleContext
+registerBinop infix_ name innerContext =
+    let
+        binop : Binop
+        binop =
+            Binop.create
+                { name = name
+
+                -- TODO
+                , documentation = Nothing
+
+                -- TODO
+                , tipe = Nothing
+                , associativity =
+                    case Node.value infix_.direction of
+                        Infix.Left ->
+                            Elm.Docs.Left
+
+                        Infix.Right ->
+                            Elm.Docs.Right
+
+                        Infix.Non ->
+                            Elm.Docs.None
+                , precedence = Node.value infix_.precedence
+                }
+    in
+    { innerContext | exposedBinops = binop :: innerContext.exposedBinops }
 
 
 getDocumentation : Maybe (Node Documentation) -> Maybe String
