@@ -24,7 +24,7 @@ import Review.Internal.Value
 import Review.Type exposing (Type(..))
 
 
-{-| Representation of a function or constant.
+{-| Representation of a top-level function or constant.
 
     -- constant is a value
     constant =
