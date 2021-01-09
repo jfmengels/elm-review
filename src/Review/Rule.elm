@@ -4846,6 +4846,7 @@ registerBinop infix_ name innerContext =
         binop =
             Binop.create
                 { name = name
+                , associatedFunction = Node.value infix_.function
 
                 -- TODO
                 , documentation = Nothing

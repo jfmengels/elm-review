@@ -22,6 +22,7 @@ import Review.Type as Type
 type Binop
     = Binop
         { name : String
+        , associatedFunction : String
         , documentation : Maybe String
         , tipe : Maybe Type.Type
         , associativity : Elm.Docs.Associativity
@@ -31,6 +32,7 @@ type Binop
 
 create :
     { name : String
+    , associatedFunction : String
     , documentation : Maybe String
     , tipe : Maybe Type.Type
     , associativity : Elm.Docs.Associativity
@@ -50,6 +52,7 @@ fromElmDocs : Elm.Docs.Binop -> Binop
 fromElmDocs binop =
     Binop
         { name = binop.name
+        , associatedFunction = ""
         , documentation = Just binop.comment
         , tipe = Just (Type.fromElmDocs binop.tipe)
         , associativity = binop.associativity
