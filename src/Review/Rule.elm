@@ -4648,22 +4648,49 @@ createFakeImport { moduleName, moduleAlias, exposingList } =
 scope_declarationListVisitor : List (Node Declaration) -> ScopeModuleContext -> ScopeModuleContext
 scope_declarationListVisitor declarations innerContext =
     let
-        newContext : ScopeModuleContext
-        newContext =
+        contextWithScope : ScopeModuleContext
+        contextWithScope =
             List.foldl scope_registerDeclarationForScope innerContext declarations
+
+        contextWithExposedDeclaration : ScopeModuleContext
+        contextWithExposedDeclaration =
+            List.foldl scope_registerExposedDeclaration contextWithScope declarations
     in
-    List.foldl scope_registerExposedDeclaration newContext declarations
+    if List.isEmpty contextWithExposedDeclaration.exposedBinops then
+        contextWithExposedDeclaration
+
+    else
+        List.foldl
+            (scope_getDocsAndTipesForInfix
+                (contextWithExposedDeclaration.exposedBinops
+                    |> List.map (\binop -> ( Binop.name binop, binop ))
+                    |> Dict.fromList
+                )
+            )
+            contextWithExposedDeclaration
+            declarations
+
+
+scope_getDocsAndTipesForInfix : Dict String Binop -> Node Declaration -> ScopeModuleContext -> ScopeModuleContext
+scope_getDocsAndTipesForInfix dict node innerContext =
+    innerContext
+
+
+collectFunctionDocumentation : Expression.Function -> ScopeModuleContext -> ScopeModuleContext
+collectFunctionDocumentation function innerContext =
+    innerContext
 
 
 scope_registerDeclarationForScope : Node Declaration -> ScopeModuleContext -> ScopeModuleContext
 scope_registerDeclarationForScope declaration innerContext =
     case Node.value declaration of
         Declaration.FunctionDeclaration function ->
-            addToScope
-                { variableType = TopLevelVariable
-                , node = function.declaration |> Node.value |> .name
-                }
-                innerContext
+            innerContext
+                |> addToScope
+                    { variableType = TopLevelVariable
+                    , node = function.declaration |> Node.value |> .name
+                    }
+                |> collectFunctionDocumentation function
 
         Declaration.AliasDeclaration alias_ ->
             let
