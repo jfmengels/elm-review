@@ -6,6 +6,7 @@ module Review.Type.Binop exposing
     , fromElmDocs
     , name
     , precedence
+    , setDocumentationAndType
     , tipe
     , toElmDocs
     )
@@ -38,6 +39,11 @@ create :
     -> Binop
 create =
     Binop
+
+
+setDocumentationAndType : { documentation : Maybe String, tipe : Maybe Type.Type } -> Binop -> Binop
+setDocumentationAndType params (Binop binop) =
+    Binop { binop | documentation = params.documentation, tipe = params.tipe }
 
 
 fromElmDocs : Elm.Docs.Binop -> Binop
