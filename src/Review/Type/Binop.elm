@@ -14,6 +14,10 @@ import Elm.Type
 import Review.Type as Type
 
 
+
+-- TODO Expose module, but hide implementation and type inside an "Internal" module
+
+
 type Binop
     = Binop
         { name : String
