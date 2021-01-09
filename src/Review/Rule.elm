@@ -4673,7 +4673,12 @@ scope_declarationListVisitor declarations innerContext =
 
 scope_getDocsAndTipesForInfix : Dict String Binop -> Node Declaration -> ScopeModuleContext -> ScopeModuleContext
 scope_getDocsAndTipesForInfix dict node innerContext =
-    innerContext
+    case Node.value node of
+        Declaration.InfixDeclaration infix_ ->
+            innerContext
+
+        _ ->
+            innerContext
 
 
 collectFunctionDocumentation : Expression.Function -> ScopeModuleContext -> ScopeModuleContext
