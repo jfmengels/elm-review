@@ -186,11 +186,10 @@ Alias { args = ["thing"], documentation = "", name = "ExtensibleRecord", tipe = 
 Alias { args = [], documentation = "", name = "Int", tipe = Type ["A"] "Int" [] }
 Alias { args = [], documentation = "", name = "Record", tipe = Record { fields = [("a",Type ["A"] "Int" [])], generic = Nothing, mayHaveMoreFields = False } }
 """
-        , Test.only <|
-            test "should be able to list all the binary operations from a module" <|
-                \() ->
-                    [ targetModule
-                    , """module A exposing ((+++), (---), (<=>))
+        , test "should be able to list all the binary operations from a module" <|
+            \() ->
+                [ targetModule
+                , """module A exposing ((+++), (---), (<=>))
 {-| Do things with matrices
 -}
 thing1 : Matrix -> Matrix -> Matrix
@@ -198,7 +197,7 @@ thing1 a b = b
 
 infix right 0 (+++) = thing1
 infix left  99 (---) = thing2
-infix right 2 (<=>) = thing3
+infix non 2 (<=>) = thing3
 
 thing2 a b = b
 
@@ -207,16 +206,20 @@ thing2 a b = b
 thing3 : Int -> Int -> Int
 thing3 a b = a + b
 """
-                    ]
-                        |> Review.Test.runOnModulesWithProjectData project
-                            (rule
-                                (\dict ->
-                                    Dict.get [ "A" ] dict
-                                        |> Maybe.map (ModuleInformation.binops >> List.sortBy Binop.name >> List.map Debug.toString >> String.join "\n")
-                                        |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
-                                )
+                ]
+                    |> Review.Test.runOnModulesWithProjectData project
+                        (rule
+                            (\dict ->
+                                Dict.get [ "A" ] dict
+                                    |> Maybe.map (ModuleInformation.binops >> List.sortBy Binop.name >> List.map Debug.toString >> String.join "\n")
+                                    |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
                             )
-                        |> expectToFind ""
+                        )
+                    |> expectToFind """
+Binop { associativity = Right, documentation = Nothing, name = "+++", precedence = 0, tipe = Nothing }
+Binop { associativity = Left, documentation = Nothing, name = "---", precedence = 99, tipe = Nothing }
+Binop { associativity = None, documentation = Nothing, name = "<=>", precedence = 2, tipe = Nothing }
+"""
         ]
 
 
