@@ -1,7 +1,7 @@
 module Review.Type.Binop exposing
     ( Binop
     , associativity
-    , comment
+    , documentation
     , fromElmDocs
     , name
     , precedence
@@ -10,7 +10,6 @@ module Review.Type.Binop exposing
     )
 
 import Elm.Docs
-import Elm.Type
 import Review.Type as Type
 
 
@@ -21,8 +20,8 @@ import Review.Type as Type
 type Binop
     = Binop
         { name : String
-        , documentation : String
-        , tipe : Type.Type
+        , documentation : Maybe String
+        , tipe : Maybe Type.Type
         , associativity : Elm.Docs.Associativity
         , precedence : Int
         }
@@ -32,21 +31,26 @@ fromElmDocs : Elm.Docs.Binop -> Binop
 fromElmDocs binop =
     Binop
         { name = binop.name
-        , documentation = binop.comment
-        , tipe = Type.fromElmDocs binop.tipe
+        , documentation = Just binop.comment
+        , tipe = Just (Type.fromElmDocs binop.tipe)
         , associativity = binop.associativity
         , precedence = binop.precedence
         }
 
 
-toElmDocs : Binop -> Elm.Docs.Binop
+toElmDocs : Binop -> Maybe Elm.Docs.Binop
 toElmDocs (Binop binop) =
-    { name = binop.name
-    , comment = binop.documentation
-    , tipe = Type.toElmDocs binop.tipe |> Maybe.withDefault (Elm.Type.Var "unknown")
-    , associativity = binop.associativity
-    , precedence = binop.precedence
-    }
+    Maybe.map2
+        (\documentation_ tipe_ ->
+            { name = binop.name
+            , comment = documentation_
+            , tipe = tipe_
+            , associativity = binop.associativity
+            , precedence = binop.precedence
+            }
+        )
+        binop.documentation
+        (Maybe.andThen Type.toElmDocs binop.tipe)
 
 
 name : Binop -> String
@@ -54,12 +58,12 @@ name (Binop binop) =
     binop.name
 
 
-comment : Binop -> String
-comment (Binop binop) =
+documentation : Binop -> Maybe String
+documentation (Binop binop) =
     binop.documentation
 
 
-tipe : Binop -> Type.Type
+tipe : Binop -> Maybe Type.Type
 tipe (Binop binop) =
     binop.tipe
 
