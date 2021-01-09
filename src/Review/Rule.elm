@@ -4660,25 +4660,28 @@ scope_declarationListVisitor declarations innerContext =
         contextWithExposedDeclaration
 
     else
-        List.foldl
-            (scope_getDocsAndTipesForInfix
-                (contextWithExposedDeclaration.exposedBinops
-                    |> List.map (\binop -> ( Binop.name binop, binop ))
-                    |> Dict.fromList
-                )
-            )
-            contextWithExposedDeclaration
-            declarations
+        let
+            binops : Dict String Binop
+            binops =
+                List.foldl
+                    scope_getDocsAndTipesForInfix
+                    (contextWithExposedDeclaration.exposedBinops
+                        |> List.map (\binop -> ( Binop.name binop, binop ))
+                        |> Dict.fromList
+                    )
+                    declarations
+        in
+        { contextWithExposedDeclaration | exposedBinops = Dict.values binops }
 
 
-scope_getDocsAndTipesForInfix : Dict String Binop -> Node Declaration -> ScopeModuleContext -> ScopeModuleContext
-scope_getDocsAndTipesForInfix dict node innerContext =
+scope_getDocsAndTipesForInfix : Node Declaration -> Dict String Binop -> Dict String Binop
+scope_getDocsAndTipesForInfix node binops =
     case Node.value node of
         Declaration.InfixDeclaration infix_ ->
-            innerContext
+            binops
 
         _ ->
-            innerContext
+            binops
 
 
 collectFunctionDocumentation : Expression.Function -> ScopeModuleContext -> ScopeModuleContext
