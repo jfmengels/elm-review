@@ -4664,9 +4664,9 @@ scope_declarationListVisitor declarations innerContext =
             binops : Dict String Binop
             binops =
                 List.foldl
-                    scope_getDocsAndTipesForInfix
+                    (scope_getDocsAndTypesForInfix innerContext)
                     (contextWithExposedDeclaration.exposedBinops
-                        |> List.map (\binop -> ( Binop.name binop, binop ))
+                        |> List.map (\binop -> ( Binop.associatedFunction binop, binop ))
                         |> Dict.fromList
                     )
                     declarations
@@ -4674,19 +4674,28 @@ scope_declarationListVisitor declarations innerContext =
         { contextWithExposedDeclaration | exposedBinops = Dict.values binops }
 
 
-scope_getDocsAndTipesForInfix : Node Declaration -> Dict String Binop -> Dict String Binop
-scope_getDocsAndTipesForInfix node binops =
+scope_getDocsAndTypesForInfix : ScopeModuleContext -> Node Declaration -> Dict String Binop -> Dict String Binop
+scope_getDocsAndTypesForInfix innerContext node binops =
     case Node.value node of
-        Declaration.InfixDeclaration infix_ ->
-            binops
+        Declaration.FunctionDeclaration function ->
+            Dict.update
+                (function.declaration |> Node.value |> .name |> Node.value)
+                (Maybe.map
+                    (\binop ->
+                        Binop.setDocumentationAndType
+                            { documentation = Maybe.map Node.value function.documentation
+                            , tipe =
+                                function.signature
+                                    |> Maybe.map (Node.value >> .typeAnnotation)
+                                    |> Maybe.map (syntaxTypeAnnotationToInferenceType innerContext)
+                            }
+                            binop
+                    )
+                )
+                binops
 
         _ ->
             binops
-
-
-collectFunctionDocumentation : Expression.Function -> ScopeModuleContext -> ScopeModuleContext
-collectFunctionDocumentation function innerContext =
-    innerContext
 
 
 scope_registerDeclarationForScope : Node Declaration -> ScopeModuleContext -> ScopeModuleContext
@@ -4698,7 +4707,6 @@ scope_registerDeclarationForScope declaration innerContext =
                     { variableType = TopLevelVariable
                     , node = function.declaration |> Node.value |> .name
                     }
-                |> collectFunctionDocumentation function
 
         Declaration.AliasDeclaration alias_ ->
             let

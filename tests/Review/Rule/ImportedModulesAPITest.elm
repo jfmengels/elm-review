@@ -190,8 +190,7 @@ Alias { args = [], documentation = "", name = "Record", tipe = Record { fields =
             \() ->
                 [ targetModule
                 , """module A exposing ((+++), (---), (<=>))
-{-| Do things with matrices
--}
+{-| Do things with matrices -}
 thing1 : Matrix -> Matrix -> Matrix
 thing1 a b = b
 
@@ -201,8 +200,7 @@ infix non 2 (<=>) = thing3
 
 thing2 a b = b
 
-{-| Some comment
--}
+{-| Some comment -}
 thing3 : Int -> Int -> Int
 thing3 a b = a + b
 """
@@ -216,9 +214,9 @@ thing3 a b = a + b
                             )
                         )
                     |> expectToFind """
-Binop { associatedFunction = "thing1", associativity = Right, documentation = Nothing, name = "+++", precedence = 0, tipe = Nothing }
+Binop { associatedFunction = "thing1", associativity = Right, documentation = Just "{-| Do things with matrices -}", name = "+++", precedence = 0, tipe = Just (Function (Type ["A"] "Matrix" []) (Function (Type ["A"] "Matrix" []) (Type ["A"] "Matrix" []))) }
 Binop { associatedFunction = "thing2", associativity = Left, documentation = Nothing, name = "---", precedence = 99, tipe = Nothing }
-Binop { associatedFunction = "thing3", associativity = None, documentation = Nothing, name = "<=>", precedence = 2, tipe = Nothing }
+Binop { associatedFunction = "thing3", associativity = None, documentation = Just "{-| Some comment -}", name = "<=>", precedence = 2, tipe = Just (Function (Type ["Basics"] "Int" []) (Function (Type ["Basics"] "Int" []) (Type ["Basics"] "Int" []))) }
 """
         ]
 
