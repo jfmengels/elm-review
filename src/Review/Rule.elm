@@ -4250,7 +4250,7 @@ type alias AvailableData =
 
 {-| Metadata for the module being visited.
 
-Do not store the metadata directly in your context. Prefer storing the indiviaual pieces of informa
+Do not store the metadata directly in your context. Prefer storing the individual pieces of information.
 
 -}
 type Metadata
