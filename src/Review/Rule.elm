@@ -4819,7 +4819,7 @@ exposedElements nodes =
                     Exposing.TypeExpose { name } ->
                         Just ( name, Node.range node )
 
-                    Exposing.InfixExpose name ->
+                    Exposing.InfixExpose _ ->
                         Nothing
             )
         |> Dict.fromList
