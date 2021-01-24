@@ -641,16 +641,12 @@ import Foo
                         , under = "a"
                         }
                         |> Review.Test.whenFixed
-                            ("""module SomeModule exposing (d)
+                            """module SomeModule exposing (d)
 import Foo
     exposing
         ( C
-"""
-                                ++ "        "
-                                ++ """
         , b
         )"""
-                            )
                     , Review.Test.error
                         { message = "Imported variable `b` is not used"
                         , details = details
