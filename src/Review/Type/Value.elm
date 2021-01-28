@@ -36,10 +36,10 @@ import Review.Type exposing (Type(..))
 
     type CustomType
         = A -- A is a value, as it is also a constant
-        | B Int -- B is a value, as it is also a function
+        | B Int -- B is a value, as it is also a function (of `Int -> CustomType`)
 
     type alias Alias =
-        -- Alias is a value, as it is also a function
+        -- Alias is a value, as it is also a function (of `Int -> Alias`)
         { field : Int }
 
 -}
