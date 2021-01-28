@@ -274,6 +274,7 @@ import Elm.Type
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix exposing (Fix)
+import Review.Internal.Binop
 import Review.ModuleInformation as ModuleInformation exposing (ModuleInformation)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
@@ -4682,7 +4683,7 @@ scope_getDocsAndTypesForInfix innerContext node binops =
                 (function.declaration |> Node.value |> .name |> Node.value)
                 (Maybe.map
                     (\binop ->
-                        Binop.setDocumentationAndType
+                        Review.Internal.Binop.setDocumentationAndType
                             { documentation = Maybe.map Node.value function.documentation
                             , tipe =
                                 function.signature

@@ -1,4 +1,4 @@
-module Review.Type.Binop exposing
+module Review.Internal.Binop exposing
     ( Binop
     , associatedFunction
     , associativity
