@@ -1,8 +1,8 @@
 module Review.Type.Binop exposing
     ( Binop
-    , name, tipe, documentation, associativity, precedence
+    , name, tipe, documentation, associativity, precedence, associatedFunction
     , create
-    , associatedFunction, fromElmDocs, toElmDocs
+    , fromElmDocs, toElmDocs
     )
 
 {-| Represents binary operations defined in modules.
@@ -12,7 +12,7 @@ module Review.Type.Binop exposing
 
 # Access
 
-@docs name, tipe, documentation, associativity, precedence
+@docs name, tipe, documentation, associativity, precedence, associatedFunction
 
 
 # Creation
