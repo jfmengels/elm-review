@@ -1,16 +1,25 @@
 module Review.Type.Binop exposing
     ( Binop
-    , associatedFunction
-    , associativity
+    , name, tipe, documentation, associativity, precedence
     , create
-    , documentation
-    , fromElmDocs
-    , name
-    , precedence
-    , setDocumentationAndType
-    , tipe
-    , toElmDocs
+    , associatedFunction, fromElmDocs, setDocumentationAndType, toElmDocs
     )
+
+{-| Represents binary operations defined in modules.
+
+@docs Binop
+
+
+# Access
+
+@docs name, tipe, documentation, associativity, precedence
+
+
+# Creation
+
+@docs create
+
+-}
 
 import Elm.Docs
 import Review.Type as Type
