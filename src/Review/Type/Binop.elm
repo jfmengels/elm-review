@@ -48,13 +48,23 @@ create =
     Review.Internal.Binop.create
 
 
-{-| Get the name of a binary operation. For the `+` operator, that would be `+`.
+{-| Get the name of a binary operation.
+
+    infix left  6 (+)  = add
+    -> "+"
+
 -}
 name : Binop -> String
 name =
     Review.Internal.Binop.name
 
 
+{-| Get the name of a binary operation. For the `+` operator, that would be `+`.
+
+    infix left  6 (+)  = add
+    -> "add"
+
+-}
 associatedFunction : Binop -> Maybe String
 associatedFunction =
     Review.Internal.Binop.associatedFunction
