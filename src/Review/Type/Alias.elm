@@ -4,7 +4,7 @@ module Review.Type.Alias exposing
     , create
     )
 
-{-| Represents values found in modules.
+{-| Represents type aliases found in modules.
 
 @docs Alias
 
@@ -24,23 +24,15 @@ import Review.Internal.Alias
 import Review.Type exposing (Type(..))
 
 
-{-| Representation of a top-level function or constant.
+{-| Representation of a type alias.
 
-    -- constant is a value
-    constant =
-        1
+    type alias Age =
+        Int
 
-    -- func is a value
-    func n =
-        n + 1
-
-    type CustomType
-        = A -- A is a value, as it is also a constant
-        | B Int -- B is a value, as it is also a function
-
-    type alias Alias =
-        -- Alias is a value, as it is also a function
-        { field : Int }
+    type alias User =
+        { name : String
+        , age : Age
+        }
 
 -}
 type alias Alias =
