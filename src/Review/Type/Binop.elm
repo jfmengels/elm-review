@@ -33,6 +33,8 @@ type alias Binop =
     Review.Internal.Binop.Binop
 
 
+{-| Create a new type binary operation.
+-}
 create :
     { name : String
     , associatedFunction : Maybe String
