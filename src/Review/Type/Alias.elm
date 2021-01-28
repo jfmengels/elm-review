@@ -109,16 +109,16 @@ args =
     Review.Internal.Alias.args
 
 
-{-| Get the documentation of a value.
+{-| Get the documentation of a type alias.
 
     {-| documentation
     -}
-    value =
-        1
+    type alias Age =
+        Int
 
 The leading `{-|` and trailing `-}` are stripped off, but the rest of the string remains as is. In the example above, the documentation would be `documentation\n`.
 
-The documentation will be `Nothing` if it is was missing, or if the value corresponds to a custom type constructor.
+The documentation will be `Nothing` if it is was missing.
 
 -}
 documentation : Alias -> Maybe String
