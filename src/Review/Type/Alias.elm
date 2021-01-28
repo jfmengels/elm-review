@@ -54,10 +54,7 @@ create =
 -- ACCESS
 
 
-{-| Get the name of a value.
-
-If the name starts with an uppercase character, then it comes from a type alias or a custom type constructor. Otherwise it comes from a function or constant.
-
+{-| Get the name of a type alias.
 -}
 name : Alias -> String
 name =
