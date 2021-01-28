@@ -1,3 +1,11 @@
+# WARNING: elm-syntax branch
+
+This branch is used to play with `stil4m/elm-syntax`.
+
+To do so, clone this project in a folder, and clone `stil4m/elm-syntax` next to it.
+You can then write `elm-review` rules in `tests/`.
+
+
 # elm-review
 
 ![](https://travis-ci.com/jfmengels/elm-review.svg?branch=master)
