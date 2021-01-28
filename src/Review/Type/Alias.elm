@@ -1,84 +1,113 @@
 module Review.Type.Alias exposing
     ( Alias
-    , args
+    , name, tipe, args, documentation
     , create
-    , documentation
-    , fromElmDocs
-    , name
-    , relateToModule
-    , tipe
-    , toElmDocs
     )
 
--- TODO Expose module, but hide implementation and type inside an "Internal" module
+{-| Represents values found in modules.
 
-import Elm.Docs
-import Elm.Syntax.ModuleName exposing (ModuleName)
-import Elm.Type
-import Review.Type as Type exposing (Type)
+@docs Alias
 
 
-type Alias
-    = Alias
-        { name : String
-        , documentation : Maybe String
-        , args : List String
-        , tipe : Type
-        }
+# Access
+
+@docs name, tipe, args, documentation
 
 
-create :
-    { name : String
-    , documentation : Maybe String
-    , args : List String
-    , tipe : Type
-    }
-    -> Alias
+# Creation
+
+@docs create
+
+-}
+
+import Review.Internal.Alias
+import Review.Type exposing (Type(..))
+
+
+{-| Representation of a top-level function or constant.
+
+    -- constant is a value
+    constant =
+        1
+
+    -- func is a value
+    func n =
+        n + 1
+
+    type CustomType
+        = A -- A is a value, as it is also a constant
+        | B Int -- B is a value, as it is also a function
+
+    type alias Alias =
+        -- Alias is a value, as it is also a function
+        { field : Int }
+
+-}
+type alias Alias =
+    Review.Internal.Alias.Alias
+
+
+
+-- CREATION
+
+
+{-| Create a new type alias.
+-}
+create : { name : String, documentation : Maybe String, args : List String, tipe : Type } -> Review.Internal.Alias.Alias
 create =
-    Alias
+    Review.Internal.Alias.create
 
 
-fromElmDocs : Elm.Docs.Alias -> Alias
-fromElmDocs alias =
-    Alias
-        { name = alias.name
-        , documentation = Just alias.comment
-        , args = alias.args
-        , tipe = Type.fromElmDocs alias.tipe
-        }
+
+-- ACCESS
 
 
-toElmDocs : Alias -> Elm.Docs.Alias
-toElmDocs (Alias alias) =
-    { name = alias.name
-    , comment = Maybe.withDefault "" alias.documentation
-    , args = alias.args
-    , tipe =
-        Type.toElmDocs alias.tipe
-            |> Maybe.withDefault (Elm.Type.Var "unknown")
-    }
+{-| Get the name of a value.
 
+If the name starts with an uppercase character, then it comes from a type alias or a custom type constructor. Otherwise it comes from a function or constant.
 
-relateToModule : ModuleName -> Alias -> Alias
-relateToModule moduleName (Alias alias) =
-    Alias { alias | tipe = Type.relateToModule moduleName alias.tipe }
-
-
+-}
 name : Alias -> String
-name (Alias a) =
-    a.name
+name =
+    Review.Internal.Alias.name
 
 
-documentation : Alias -> Maybe String
-documentation (Alias a) =
-    a.documentation
+{-| Get the type of a value, as declared by its type annotation
 
+If the value is a function or constant and the type annotation is missing, the type will be `Unknown`. In the future, `elm-review` may attempt to infer the type of the value.
 
-args : Alias -> List String
-args (Alias a) =
-    a.args
+The odd name choice comes from `type` being a reserved word, and was inspired by the [`tipe` field in `Elm.Docs.Alias`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.1/Elm-Docs#Alias).
 
-
+-}
 tipe : Alias -> Type
-tipe (Alias a) =
-    a.tipe
+tipe =
+    Review.Internal.Alias.tipe
+
+
+{-| Get the type of a value, as declared by its type annotation
+
+If the value is a function or constant and the type annotation is missing, the type will be `Unknown`. In the future, `elm-review` may attempt to infer the type of the value.
+
+The odd name choice comes from `type` being a reserved word, and was inspired by the [`tipe` field in `Elm.Docs.Alias`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.1/Elm-Docs#Alias).
+
+-}
+args : Alias -> List String
+args =
+    Review.Internal.Alias.args
+
+
+{-| Get the documentation of a value.
+
+    {-| documentation
+    -}
+    value =
+        1
+
+The leading `{-|` and trailing `-}` are stripped off, but the rest of the string remains as is. In the example above, the documentation would be `documentation\n`.
+
+The documentation will be `Nothing` if it is was missing, or if the value corresponds to a custom type constructor.
+
+-}
+documentation : Alias -> Maybe String
+documentation =
+    Review.Internal.Alias.documentation
