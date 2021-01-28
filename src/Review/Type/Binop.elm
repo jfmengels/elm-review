@@ -25,10 +25,11 @@ import Review.Internal.Binop
 import Review.Type as Type
 
 
+{-| Representation of a binary operator, such as `+`, `-` and `|>`.
 
--- TODO Expose module, but hide implementation and type inside an "Internal" module
+Definitions of these can only by found in projects under the `elm` organization.
 
-
+-}
 type alias Binop =
     Review.Internal.Binop.Binop
 
