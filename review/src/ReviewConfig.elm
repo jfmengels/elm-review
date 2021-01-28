@@ -45,7 +45,9 @@ config =
     --, NoMissingTypeExpose.rule
     --    |> Rule.ignoreErrorsForFiles [ "src/Review/Rule.elm" ]
     , NoUnused.CustomTypeConstructors.rule []
-    , NoUnused.Dependencies.rule
+
+    -- Disabled for elm-syntax
+    -- , NoUnused.Dependencies.rule
     , NoUnused.Exports.rule
     , NoUnused.Modules.rule
     , NoUnused.Parameters.rule
@@ -53,4 +55,11 @@ config =
     , NoUnused.Variables.rule
     ]
         |> List.map (Rule.ignoreErrorsForDirectories [ "src/Vendor/", "tests/Vendor/" ])
+        |> List.map ignoreElmSyntaxCode
         |> List.map (Rule.ignoreErrorsForFiles [ "tests/NoUnused/Patterns/NameVisitor.elm" ])
+
+
+ignoreElmSyntaxCode : Rule -> Rule
+ignoreElmSyntaxCode =
+    Rule.ignoreErrorsForDirectories [ "src/Combine/", "src/Elm/" ]
+        >> Rule.ignoreErrorsForFiles [ "src/Lazy.elm", "src/Elm.elm", "src/Combine.elm" ]
