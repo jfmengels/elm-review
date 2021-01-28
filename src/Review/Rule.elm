@@ -4896,7 +4896,7 @@ registerExposedTypeAlias typeAlias name innerContext =
         | exposedAliases =
             Alias.create
                 { name = name
-                , documentation = Maybe.withDefault "" <| getDocumentation typeAlias.documentation
+                , documentation = getDocumentation typeAlias.documentation
                 , args = List.map Node.value typeAlias.generics
                 , tipe = syntaxTypeAnnotationToInferenceType innerContext typeAlias.typeAnnotation
                 }

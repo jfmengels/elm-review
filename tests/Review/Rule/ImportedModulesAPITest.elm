@@ -180,11 +180,11 @@ type Internal = Internal
                             )
                         )
                     |> expectToFind """
-Alias { args = [], documentation = " Some comment ", name = "AliasToInternal", tipe = Type ["B"] "Internal" [] }
-Alias { args = [], documentation = "", name = "AliasToUnknown", tipe = Type ["A"] "Unknown" [] }
-Alias { args = ["thing"], documentation = "", name = "ExtensibleRecord", tipe = Record { fields = [("a",Type ["A"] "Int" [])], generic = Just "thing", mayHaveMoreFields = False } }
-Alias { args = [], documentation = "", name = "Int", tipe = Type ["A"] "Int" [] }
-Alias { args = [], documentation = "", name = "Record", tipe = Record { fields = [("a",Type ["A"] "Int" [])], generic = Nothing, mayHaveMoreFields = False } }
+Alias { args = [], documentation = Just " Some comment ", name = "AliasToInternal", tipe = Type ["B"] "Internal" [] }
+Alias { args = [], documentation = Nothing, name = "AliasToUnknown", tipe = Type ["A"] "Unknown" [] }
+Alias { args = ["thing"], documentation = Nothing, name = "ExtensibleRecord", tipe = Record { fields = [("a",Type ["A"] "Int" [])], generic = Just "thing", mayHaveMoreFields = False } }
+Alias { args = [], documentation = Nothing, name = "Int", tipe = Type ["A"] "Int" [] }
+Alias { args = [], documentation = Nothing, name = "Record", tipe = Record { fields = [("a",Type ["A"] "Int" [])], generic = Nothing, mayHaveMoreFields = False } }
 """
         , test "should be able to list all the binary operations from a module" <|
             \() ->

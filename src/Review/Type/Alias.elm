@@ -21,7 +21,7 @@ import Review.Type as Type exposing (Type)
 type Alias
     = Alias
         { name : String
-        , documentation : String
+        , documentation : Maybe String
         , args : List String
         , tipe : Type
         }
@@ -29,7 +29,7 @@ type Alias
 
 create :
     { name : String
-    , documentation : String
+    , documentation : Maybe String
     , args : List String
     , tipe : Type
     }
@@ -42,7 +42,7 @@ fromElmDocs : Elm.Docs.Alias -> Alias
 fromElmDocs alias =
     Alias
         { name = alias.name
-        , documentation = alias.comment
+        , documentation = Just alias.comment
         , args = alias.args
         , tipe = Type.fromElmDocs alias.tipe
         }
@@ -51,7 +51,7 @@ fromElmDocs alias =
 toElmDocs : Alias -> Elm.Docs.Alias
 toElmDocs (Alias alias) =
     { name = alias.name
-    , comment = alias.documentation
+    , comment = Maybe.withDefault "" alias.documentation
     , args = alias.args
     , tipe =
         Type.toElmDocs alias.tipe
@@ -69,7 +69,7 @@ name (Alias a) =
     a.name
 
 
-documentation : Alias -> String
+documentation : Alias -> Maybe String
 documentation (Alias a) =
     a.documentation
 

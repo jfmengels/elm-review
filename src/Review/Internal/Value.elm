@@ -97,7 +97,7 @@ fromAlias moduleName alias =
                 Just
                     (Value
                         { name = Alias.name alias
-                        , documentation = Just (Alias.documentation alias)
+                        , documentation = Alias.documentation alias
                         , tipe =
                             List.foldl
                                 (\( _, input ) output -> Type.Function input output)
