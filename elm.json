@@ -11,7 +11,9 @@
         "Review.Project.Dependency",
         "Review.Fix",
         "Review.Test",
-        "Review.Type.Value"
+        "Review.Type.Value",
+        "Review.Type.Alias",
+        "Review.Type.Binop"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
