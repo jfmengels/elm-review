@@ -48,16 +48,6 @@ create =
     Review.Internal.Binop.create
 
 
-fromElmDocs : Elm.Docs.Binop -> Binop
-fromElmDocs =
-    Review.Internal.Binop.fromElmDocs
-
-
-toElmDocs : Binop -> Maybe Elm.Docs.Binop
-toElmDocs =
-    Review.Internal.Binop.toElmDocs
-
-
 name : Binop -> String
 name =
     Review.Internal.Binop.name
