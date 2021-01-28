@@ -98,11 +98,10 @@ tipe =
     Review.Internal.Alias.tipe
 
 
-{-| Get the type of a value, as declared by its type annotation
+{-| Get the list of type variables for a type alias.
 
-If the value is a function or constant and the type annotation is missing, the type will be `Unknown`. In the future, `elm-review` may attempt to infer the type of the value.
-
-The odd name choice comes from `type` being a reserved word, and was inspired by the [`tipe` field in `Elm.Docs.Alias`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.1/Elm-Docs#Alias).
+    type alias Thing a b c = ...
+    --> [ a, b, c ]
 
 -}
 args : Alias -> List String
