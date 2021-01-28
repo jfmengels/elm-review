@@ -48,6 +48,8 @@ create =
     Review.Internal.Binop.create
 
 
+{-| Get the name of a binary operation. For the `+` operator, that would be `+`.
+-}
 name : Binop -> String
 name =
     Review.Internal.Binop.name
