@@ -5,6 +5,16 @@ This branch is used to play with `stil4m/elm-syntax`.
 To do so, clone this project in a folder, and clone `stil4m/elm-syntax` next to it.
 You can then write `elm-review` rules in `tests/`.
 
+Since packages don't support multiple source-directories, the source code from `elm-syntax` is integrated using symlinks.
+
+Specifically, these files/folders have been symlinked:
+- src/Combine
+- src/Combine.elm
+- src/Elm
+- src/Lazy.elm
+- src/ParseTest.elm
+
+
 
 # elm-review
 
