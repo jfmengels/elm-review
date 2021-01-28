@@ -23,6 +23,7 @@ module Review.ModuleInformation exposing
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
+import Review.Internal.Alias
 import Review.Internal.Value as Value exposing (Value)
 import Review.Project.Dependency
 import Review.Type.Alias as Alias exposing (Alias)
@@ -54,7 +55,7 @@ fromElmDocsModule elmDocsModule =
 
         aliases_ : List Alias
         aliases_ =
-            List.map Alias.fromElmDocs elmDocsModule.aliases
+            List.map Review.Internal.Alias.fromElmDocs elmDocsModule.aliases
     in
     ModuleInformation
         { name = moduleName
@@ -96,7 +97,7 @@ create params =
 
         aliases_ : List Alias
         aliases_ =
-            List.map (Alias.relateToModule params.name) params.aliases
+            List.map (Review.Internal.Alias.relateToModule params.name) params.aliases
     in
     ModuleInformation
         { name = params.name
@@ -139,7 +140,7 @@ toElmDocsModule (ModuleInformation moduleInfo) =
             |> List.map Union.toElmDocs
     , aliases =
         Dict.values moduleInfo.aliases
-            |> List.map Alias.toElmDocs
+            |> List.map Review.Internal.Alias.toElmDocs
     , values =
         moduleInfo.values
             |> Dict.values
