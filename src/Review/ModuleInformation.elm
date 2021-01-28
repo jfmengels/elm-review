@@ -24,6 +24,7 @@ import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Review.Internal.Alias
+import Review.Internal.Binop
 import Review.Internal.Value as Value exposing (Value)
 import Review.Project.Dependency
 import Review.Type.Alias as Alias exposing (Alias)
@@ -76,7 +77,7 @@ fromElmDocsModule elmDocsModule =
                 ]
                 |> List.map (\element -> ( Value.name element, element ))
                 |> Dict.fromList
-        , binops = List.map Binop.fromElmDocs elmDocsModule.binops
+        , binops = List.map Review.Internal.Binop.fromElmDocs elmDocsModule.binops
         }
 
 
@@ -145,7 +146,7 @@ toElmDocsModule (ModuleInformation moduleInfo) =
         moduleInfo.values
             |> Dict.values
             |> List.filterMap Value.toElmDocs
-    , binops = List.filterMap Binop.toElmDocs moduleInfo.binops
+    , binops = List.filterMap Review.Internal.Binop.toElmDocs moduleInfo.binops
     }
 
 

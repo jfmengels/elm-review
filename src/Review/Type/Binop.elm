@@ -2,7 +2,6 @@ module Review.Type.Binop exposing
     ( Binop
     , name, tipe, documentation, associativity, precedence, associatedFunction
     , create
-    , fromElmDocs, toElmDocs
     )
 
 {-| Represents binary operations defined in modules.
