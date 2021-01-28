@@ -126,12 +126,24 @@ tipe =
 
     --> Elm.Docs.Left
 
+Read more about it at [`elm/project-metadata-utils`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.1/Elm-Docs#associativity).
+
 -}
 associativity : Binop -> Elm.Docs.Associativity
 associativity =
     Review.Internal.Binop.associativity
 
 
+{-| Get the precedence of a binary operator.
+
+
+    infix left  6 (+) = add
+
+    --> 6
+
+Read more about it at [`elm/project-metadata-utils`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.1/Elm-Docs#precedence).
+
+-}
 precedence : Binop -> Int
 precedence =
     Review.Internal.Binop.precedence
