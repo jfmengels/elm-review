@@ -326,6 +326,8 @@ isInScope name scopes =
     )
 
 
+
+
 isInScope : String -> Nonempty Scope -> Bool
 isInScope name scopes =
     NonemptyList.any (.names >> Dict.member name) scopes
