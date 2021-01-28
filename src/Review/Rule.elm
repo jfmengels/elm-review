@@ -4839,7 +4839,7 @@ registerExposedCustomType declaredType exposesConstructors innerContext =
         customType =
             Union.create
                 { name = Node.value declaredType.name
-                , documentation = Maybe.withDefault "" <| getDocumentation declaredType.documentation
+                , documentation = getDocumentation declaredType.documentation
                 , args = List.map Node.value declaredType.generics
                 , constructors = constructors
                 }

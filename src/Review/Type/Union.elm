@@ -23,7 +23,7 @@ import Review.Type as Type exposing (Type)
 type Union
     = Union
         { name : String
-        , documentation : String
+        , documentation : Maybe String
         , args : List String
         , constructors : Dict String (List Type)
         }
@@ -31,7 +31,7 @@ type Union
 
 create :
     { name : String
-    , documentation : String
+    , documentation : Maybe String
     , args : List String
     , constructors : List ( String, List Type )
     }
@@ -54,7 +54,7 @@ fromElmDocs : Elm.Docs.Union -> Union
 fromElmDocs union =
     Union
         { name = union.name
-        , documentation = union.comment
+        , documentation = Just union.comment
         , args = union.args
         , constructors =
             union.tags
@@ -66,7 +66,7 @@ fromElmDocs union =
 toElmDocs : Union -> Elm.Docs.Union
 toElmDocs (Union union) =
     { name = union.name
-    , comment = union.documentation
+    , comment = Maybe.withDefault "" union.documentation
     , args = union.args
     , tags =
         union.constructors
@@ -95,6 +95,6 @@ args (Union union) =
     union.args
 
 
-documentation : Union -> String
+documentation : Union -> Maybe String
 documentation (Union union) =
     union.documentation
