@@ -97,6 +97,23 @@ documentation =
     Review.Internal.Binop.documentation
 
 
+{-| Get the type of a binary operator.
+
+    import Review.Type as Type
+
+    add : number -> number -> number
+    add =
+        Elm.Kernel.Basics.add
+
+    infix left  6 (+) = add
+
+    --> Type.Function
+    -->     (Type.Generic number)
+    -->     (Type.Function (Type.Generic number) (Type.Generic number))
+
+The odd name choice comes from `type` being a reserved word, and was inspired by the [`tipe` field in `Elm.Docs.Alias`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.1/Elm-Docs#Alias).
+
+-}
 tipe : Binop -> Maybe Type.Type
 tipe =
     Review.Internal.Binop.tipe
