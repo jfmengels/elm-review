@@ -214,9 +214,9 @@ thing3 a b = a + b
                             )
                         )
                     |> expectToFind """
-Binop { associatedFunction = "thing1", associativity = Right, documentation = Just "{-| Do things with matrices -}", name = "+++", precedence = 0, tipe = Just (Function (Type ["A"] "Matrix" []) (Function (Type ["A"] "Matrix" []) (Type ["A"] "Matrix" []))) }
-Binop { associatedFunction = "thing2", associativity = Left, documentation = Nothing, name = "---", precedence = 99, tipe = Nothing }
-Binop { associatedFunction = "thing3", associativity = None, documentation = Just "{-| Some comment -}", name = "<=>", precedence = 2, tipe = Just (Function (Type ["Basics"] "Int" []) (Function (Type ["Basics"] "Int" []) (Type ["Basics"] "Int" []))) }
+Binop { associatedFunction = Just "thing1", associativity = Right, documentation = Just "{-| Do things with matrices -}", name = "+++", precedence = 0, tipe = Just (Function (Type ["A"] "Matrix" []) (Function (Type ["A"] "Matrix" []) (Type ["A"] "Matrix" []))) }
+Binop { associatedFunction = Just "thing2", associativity = Left, documentation = Nothing, name = "---", precedence = 99, tipe = Nothing }
+Binop { associatedFunction = Just "thing3", associativity = None, documentation = Just "{-| Some comment -}", name = "<=>", precedence = 2, tipe = Just (Function (Type ["Basics"] "Int" []) (Function (Type ["Basics"] "Int" []) (Type ["Basics"] "Int" []))) }
 """
         ]
 

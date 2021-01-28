@@ -4667,7 +4667,7 @@ scope_declarationListVisitor declarations innerContext =
                 List.foldl
                     (scope_getDocsAndTypesForInfix innerContext)
                     (contextWithExposedDeclaration.exposedBinops
-                        |> List.map (\binop -> ( Binop.associatedFunction binop, binop ))
+                        |> List.map (\binop -> ( Maybe.withDefault "" (Binop.associatedFunction binop), binop ))
                         |> Dict.fromList
                     )
                     declarations
@@ -4855,7 +4855,7 @@ registerBinop infix_ name innerContext =
         binop =
             Binop.create
                 { name = name
-                , associatedFunction = Node.value infix_.function
+                , associatedFunction = Just (Node.value infix_.function)
 
                 -- TODO
                 , documentation = Nothing

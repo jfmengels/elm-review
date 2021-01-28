@@ -36,7 +36,7 @@ type alias Binop =
 
 create :
     { name : String
-    , associatedFunction : String
+    , associatedFunction : Maybe String
     , documentation : Maybe String
     , tipe : Maybe Type.Type
     , associativity : Elm.Docs.Associativity
@@ -62,7 +62,7 @@ name =
     Review.Internal.Binop.name
 
 
-associatedFunction : Binop -> String
+associatedFunction : Binop -> Maybe String
 associatedFunction =
     Review.Internal.Binop.associatedFunction
 
