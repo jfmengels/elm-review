@@ -119,6 +119,14 @@ tipe =
     Review.Internal.Binop.tipe
 
 
+{-| Get the associativity of a binary operator.
+
+
+    infix left  6 (+) = add
+
+    --> Elm.Docs.Left
+
+-}
 associativity : Binop -> Elm.Docs.Associativity
 associativity =
     Review.Internal.Binop.associativity
