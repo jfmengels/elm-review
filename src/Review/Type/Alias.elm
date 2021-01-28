@@ -61,9 +61,34 @@ name =
     Review.Internal.Alias.name
 
 
-{-| Get the type of a value, as declared by its type annotation
+{-| Get the type of a type alias.
 
-If the value is a function or constant and the type annotation is missing, the type will be `Unknown`. In the future, `elm-review` may attempt to infer the type of the value.
+    import Review.Type as Type
+
+    type alias Age =
+        --> Type.Type [ "Basics" ] "Int" []
+        Int
+
+    fields =
+        [ ( "name", Type.Type [ "Basics" ] "String" [] )
+        , ( "age", Type.Type [] "Age" [] )
+        , ( "value", Type.Generic "a" )
+        ]
+
+    type alias User a =
+        --> Type.Record
+        -->   { fields :
+        -->       [ ( "name", Type.Type [ "Basics" ] "String" [] )
+        -->       , ( "age", Type.Type [] "Age" [] )
+        -->       , ( "value", Type.Generic "a" )
+        -->       ]
+        -->   , generic : Just "a"
+        -->   , mayHaveMoreFields : False
+        -->   }
+        { name : String
+        , age : Age
+        , value : a
+        }
 
 The odd name choice comes from `type` being a reserved word, and was inspired by the [`tipe` field in `Elm.Docs.Alias`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.1/Elm-Docs#Alias).
 
