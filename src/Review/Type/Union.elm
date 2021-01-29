@@ -36,6 +36,8 @@ import Review.Type exposing (Type)
     type Value
         = Value String
 
+It is called "Union" to be consistent with [`elm/project-metadata-utils`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.1/Elm-Docs#Union) naming convention.
+
 -}
 type alias Union =
     Review.Internal.Union.Union
@@ -54,6 +56,8 @@ create =
     Review.Internal.Union.create
 
 
+{-| Get the name of a custom type.
+-}
 name : Union -> String
 name =
     Review.Internal.Union.name
