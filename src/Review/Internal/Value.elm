@@ -11,6 +11,7 @@ module Review.Internal.Value exposing
     , toElmDocs
     )
 
+import Dict
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Review.Type as Type exposing (Type(..))
@@ -73,7 +74,8 @@ wasDeclaredAsAFunction name_ =
 
 fromUnion : ModuleName -> Union -> List Value
 fromUnion moduleName union =
-    Union.constructors union
+    Union.constructorsAsDict union
+        |> Dict.toList
         |> List.map
             (\( constructorName, types ) ->
                 Value
