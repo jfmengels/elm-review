@@ -20,7 +20,7 @@ import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Review.Internal.Alias
 import Review.Internal.Binop
-import Review.Internal.ModuleInformation exposing (ModuleInformation(..))
+import Review.Internal.ModuleInformation
 import Review.Internal.Union
 import Review.Internal.Value as Value exposing (Value)
 import Review.Project.Dependency
@@ -48,7 +48,7 @@ fromElmDocsModule elmDocsModule =
         aliases_ =
             List.map Review.Internal.Alias.fromElmDocs elmDocsModule.aliases
     in
-    ModuleInformation
+    Review.Internal.ModuleInformation.ModuleInformation
         { name = moduleName
         , comment = elmDocsModule.comment
         , unions =
@@ -90,7 +90,7 @@ create params =
         aliases_ =
             List.map (Review.Internal.Alias.relateToModule params.name) params.aliases
     in
-    ModuleInformation
+    Review.Internal.ModuleInformation.ModuleInformation
         { name = params.name
         , comment = params.comment
         , unions =
@@ -124,7 +124,7 @@ fromDependencies dependencies =
 
 empty : ModuleName -> ModuleInformation
 empty moduleName =
-    ModuleInformation
+    Review.Internal.ModuleInformation.ModuleInformation
         { name = moduleName
         , comment = ""
         , unions = Dict.empty
@@ -139,50 +139,50 @@ empty moduleName =
 
 
 unions : ModuleInformation -> List Union
-unions (ModuleInformation m) =
+unions (Review.Internal.ModuleInformation.ModuleInformation m) =
     Dict.values m.unions
 
 
 unionsAsDict : ModuleInformation -> Dict String Union
-unionsAsDict (ModuleInformation m) =
+unionsAsDict (Review.Internal.ModuleInformation.ModuleInformation m) =
     m.unions
 
 
 aliases : ModuleInformation -> List Alias
-aliases (ModuleInformation m) =
+aliases (Review.Internal.ModuleInformation.ModuleInformation m) =
     Dict.values m.aliases
 
 
 aliasesAsDict : ModuleInformation -> Dict String Alias
-aliasesAsDict (ModuleInformation m) =
+aliasesAsDict (Review.Internal.ModuleInformation.ModuleInformation m) =
     m.aliases
 
 
 getAliasByName : String -> ModuleInformation -> Maybe Alias
-getAliasByName name (ModuleInformation m) =
+getAliasByName name (Review.Internal.ModuleInformation.ModuleInformation m) =
     Dict.get name m.aliases
 
 
 values : ModuleInformation -> List Value
-values (ModuleInformation m) =
+values (Review.Internal.ModuleInformation.ModuleInformation m) =
     Dict.values m.values
 
 
 valuesAsDict : ModuleInformation -> Dict String Value
-valuesAsDict (ModuleInformation m) =
+valuesAsDict (Review.Internal.ModuleInformation.ModuleInformation m) =
     m.values
 
 
 getValueByName : String -> ModuleInformation -> Maybe Value
-getValueByName name (ModuleInformation m) =
+getValueByName name (Review.Internal.ModuleInformation.ModuleInformation m) =
     Dict.get name m.values
 
 
 binops : ModuleInformation -> List Binop
-binops (ModuleInformation m) =
+binops (Review.Internal.ModuleInformation.ModuleInformation m) =
     m.binops
 
 
 getUnionByName : String -> ModuleInformation -> Maybe Union
-getUnionByName name (ModuleInformation m) =
+getUnionByName name (Review.Internal.ModuleInformation.ModuleInformation m) =
     Dict.get name m.unions
