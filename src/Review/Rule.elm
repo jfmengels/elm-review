@@ -4452,7 +4452,7 @@ scope_fromModuleToProject _ moduleName moduleContext =
     { dependenciesModules = Dict.empty
     , modules =
         Dict.singleton (Node.value moduleName)
-            (ModuleInformation.create
+            (Review.Internal.ModuleInformation.create
                 { name = Node.value moduleName
                 , comment = ""
                 , unions = moduleContext.exposedUnions
