@@ -4,7 +4,7 @@ module Review.Type.Union exposing
     , create
     )
 
-{-| Represents custom type definitions found in modules.
+{-| Represents union type definitions found in modules.
 
 @docs Union
 
@@ -25,7 +25,7 @@ import Review.Internal.Union
 import Review.Type exposing (Type)
 
 
-{-| Representation of a custom type.
+{-| Representation of a union type, or a "custom type" as what it is most often referred to in Elm.
 
     type Maybe a
         = Just a
@@ -41,7 +41,7 @@ type alias Union =
     Review.Internal.Union.Union
 
 
-{-| Create a new custom type.
+{-| Create a new union type.
 -}
 create :
     { name : String
@@ -54,7 +54,7 @@ create =
     Review.Internal.Union.create
 
 
-{-| Get the name of a custom type.
+{-| Get the name of a union type.
 -}
 name : Union -> String
 name =
@@ -66,7 +66,7 @@ constructors =
     Review.Internal.Union.constructors
 
 
-{-| Get the list of type variables for a custom type.
+{-| Get the list of type variables for a union type.
 
     type Union a = ...
     --> [ a ]
@@ -77,7 +77,7 @@ args =
     Review.Internal.Union.args
 
 
-{-| Get the documentation of a custom type.
+{-| Get the documentation of a union type.
 
     {-| documentation
     -}
