@@ -1,12 +1,26 @@
 module Review.Type.Union exposing
     ( Union
-    , args
-    , constructors
-    , constructorsAsDict
+    , name, args, documentation
+    , constructors, constructorsAsDict
     , create
-    , documentation
-    , name
     )
+
+{-| Represents custom type definitions found in modules.
+
+@docs Union
+
+
+# Access
+
+@docs name, args, documentation
+@docs constructors, constructorsAsDict
+
+
+# Creation
+
+@docs create
+
+-}
 
 import Dict exposing (Dict)
 import Review.Internal.Union
