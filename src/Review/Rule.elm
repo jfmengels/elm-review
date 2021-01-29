@@ -277,6 +277,7 @@ import Review.Fix exposing (Fix)
 import Review.Internal.Alias
 import Review.Internal.Binop
 import Review.Internal.ModuleInformation
+import Review.Internal.Union
 import Review.ModuleInformation as ModuleInformation exposing (ModuleInformation)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
@@ -4840,7 +4841,7 @@ registerExposedCustomType declaredType exposesConstructors innerContext =
 
         customType : Union
         customType =
-            Union.create
+            Review.Internal.Union.create
                 { name = Node.value declaredType.name
                 , documentation = getDocumentation declaredType.documentation
                 , args = List.map Node.value declaredType.generics

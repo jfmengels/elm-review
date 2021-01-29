@@ -1,22 +1,12 @@
 module Review.Type.Union exposing
     ( Union
     , name, constructors, args, documentation
-    , create
     )
 
 {-| Represents union type definitions found in modules.
 
 @docs Union
-
-
-# Access
-
 @docs name, constructors, args, documentation
-
-
-# Creation
-
-@docs create
 
 -}
 
@@ -39,19 +29,6 @@ It is called "Union" to be consistent with [`elm/project-metadata-utils`](https:
 -}
 type alias Union =
     Review.Internal.Union.Union
-
-
-{-| Create a new union type.
--}
-create :
-    { name : String
-    , documentation : Maybe String
-    , args : List String
-    , constructors : Dict String (List Type)
-    }
-    -> Union
-create =
-    Review.Internal.Union.create
 
 
 {-| Get the name of a union type.
