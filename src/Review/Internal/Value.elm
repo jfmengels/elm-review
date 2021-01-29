@@ -8,7 +8,6 @@ module Review.Internal.Value exposing
     , name
     , relateToModule
     , tipe
-    , toElmDocs
     )
 
 import Dict
@@ -44,32 +43,6 @@ fromElmDocs value =
         , documentation = Just value.comment
         , tipe = Type.fromElmDocs value.tipe
         }
-
-
-toElmDocs : Value -> Maybe Elm.Docs.Value
-toElmDocs (Value value) =
-    if wasDeclaredAsAFunction value.name then
-        Type.toElmDocs value.tipe
-            |> Maybe.map
-                (\tipe_ ->
-                    { name = value.name
-                    , comment = Maybe.withDefault "" value.documentation
-                    , tipe = tipe_
-                    }
-                )
-
-    else
-        Nothing
-
-
-wasDeclaredAsAFunction : String -> Bool
-wasDeclaredAsAFunction name_ =
-    case String.uncons name_ of
-        Just ( firstChar, _ ) ->
-            Char.isLower firstChar
-
-        Nothing ->
-            False
 
 
 fromUnion : ModuleName -> Union -> List Value

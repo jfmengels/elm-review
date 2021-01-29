@@ -7,12 +7,10 @@ module Review.Internal.Alias exposing
     , name
     , relateToModule
     , tipe
-    , toElmDocs
     )
 
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
-import Elm.Type
 import Review.Type as Type exposing (Type)
 
 
@@ -44,17 +42,6 @@ fromElmDocs alias =
         , args = alias.args
         , tipe = Type.fromElmDocs alias.tipe
         }
-
-
-toElmDocs : Alias -> Elm.Docs.Alias
-toElmDocs (Alias alias) =
-    { name = alias.name
-    , comment = Maybe.withDefault "" alias.documentation
-    , args = alias.args
-    , tipe =
-        Type.toElmDocs alias.tipe
-            |> Maybe.withDefault (Elm.Type.Var "unknown")
-    }
 
 
 relateToModule : ModuleName -> Alias -> Alias

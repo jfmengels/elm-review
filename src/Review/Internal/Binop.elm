@@ -9,7 +9,6 @@ module Review.Internal.Binop exposing
     , precedence
     , setDocumentationAndType
     , tipe
-    , toElmDocs
     )
 
 import Elm.Docs
@@ -55,21 +54,6 @@ fromElmDocs binop =
         , associativity = binop.associativity
         , precedence = binop.precedence
         }
-
-
-toElmDocs : Binop -> Maybe Elm.Docs.Binop
-toElmDocs (Binop binop) =
-    Maybe.map2
-        (\documentation_ tipe_ ->
-            { name = binop.name
-            , comment = documentation_
-            , tipe = tipe_
-            , associativity = binop.associativity
-            , precedence = binop.precedence
-            }
-        )
-        binop.documentation
-        (Maybe.andThen Type.toElmDocs binop.tipe)
 
 
 name : Binop -> String

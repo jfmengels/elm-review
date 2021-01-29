@@ -7,7 +7,6 @@ module Review.Internal.Union exposing
     , fromElmDocs
     , name
     , relateToModule
-    , toElmDocs
     )
 
 -- TODO Expose module, but hide implementation and type inside an "Internal" module
@@ -15,7 +14,6 @@ module Review.Internal.Union exposing
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
-import Elm.Type
 import Review.Type as Type exposing (Type)
 
 
@@ -55,18 +53,6 @@ fromElmDocs union =
                 |> List.map (\( name_, type_ ) -> ( name_, List.map Type.fromElmDocs type_ ))
                 |> Dict.fromList
         }
-
-
-toElmDocs : Union -> Elm.Docs.Union
-toElmDocs (Union union) =
-    { name = union.name
-    , comment = Maybe.withDefault "" union.documentation
-    , args = union.args
-    , tags =
-        union.constructors
-            |> Dict.toList
-            |> List.map (\( name_, type_ ) -> ( name_, List.map (Type.toElmDocs >> Maybe.withDefault (Elm.Type.Var "unknown")) type_ ))
-    }
 
 
 name : Union -> String

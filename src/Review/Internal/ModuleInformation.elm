@@ -1,7 +1,6 @@
 module Review.Internal.ModuleInformation exposing
     ( ModuleInformation(..)
     , fromElmDocsModule
-    , toElmDocsModule
     )
 
 import Dict exposing (Dict)
@@ -63,21 +62,3 @@ fromElmDocsModule elmDocsModule =
                 |> Dict.fromList
         , binops = List.map Review.Internal.Binop.fromElmDocs elmDocsModule.binops
         }
-
-
-toElmDocsModule : ModuleInformation -> Elm.Docs.Module
-toElmDocsModule (ModuleInformation moduleInfo) =
-    { name = String.join "." moduleInfo.name
-    , comment = moduleInfo.comment
-    , unions =
-        Dict.values moduleInfo.unions
-            |> List.map Review.Internal.Union.toElmDocs
-    , aliases =
-        Dict.values moduleInfo.aliases
-            |> List.map Review.Internal.Alias.toElmDocs
-    , values =
-        moduleInfo.values
-            |> Dict.values
-            |> List.filterMap Value.toElmDocs
-    , binops = List.filterMap Review.Internal.Binop.toElmDocs moduleInfo.binops
-    }

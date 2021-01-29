@@ -122,29 +122,6 @@ fromDependencies dependencies =
         |> Dict.fromList
 
 
-toElmDocsModule : ModuleInformation -> Elm.Docs.Module
-toElmDocsModule (ModuleInformation moduleInfo) =
-    { name = String.join "." moduleInfo.name
-    , comment = moduleInfo.comment
-    , unions =
-        Dict.values moduleInfo.unions
-            |> List.map Review.Internal.Union.toElmDocs
-    , aliases =
-        Dict.values moduleInfo.aliases
-            |> List.map Review.Internal.Alias.toElmDocs
-    , values =
-        moduleInfo.values
-            |> Dict.values
-            |> List.filterMap Value.toElmDocs
-    , binops = List.filterMap Review.Internal.Binop.toElmDocs moduleInfo.binops
-    }
-
-
-toElmDocsModuleDict : Dict ModuleName ModuleInformation -> Dict ModuleName Elm.Docs.Module
-toElmDocsModuleDict dict =
-    Dict.map (always toElmDocsModule) dict
-
-
 empty : ModuleName -> ModuleInformation
 empty moduleName =
     ModuleInformation
