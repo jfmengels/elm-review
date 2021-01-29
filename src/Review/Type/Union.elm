@@ -66,11 +66,29 @@ constructors =
     Review.Internal.Union.constructors
 
 
+{-| Get the list of type variables for a custom type.
+
+    type Union a = ...
+    --> [ a ]
+
+-}
 args : Union -> List String
 args =
     Review.Internal.Union.args
 
 
+{-| Get the documentation of a custom type.
+
+    {-| documentation
+    -}
+    type A
+        = B
+
+The leading `{-|` and trailing `-}` are stripped off, but the rest of the string remains as is. In the example above, the documentation would be `documentation\n`.
+
+The documentation will be `Nothing` if it is was missing.
+
+-}
 documentation : Union -> Maybe String
 documentation =
     Review.Internal.Union.documentation
