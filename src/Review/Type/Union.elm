@@ -27,6 +27,16 @@ import Review.Internal.Union
 import Review.Type exposing (Type)
 
 
+{-| Representation of a custom type.
+
+    type Maybe a
+        = Just a
+        | Nothing
+
+    type Value
+        = Value String
+
+-}
 type alias Union =
     Review.Internal.Union.Union
 
