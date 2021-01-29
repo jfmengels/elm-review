@@ -1,7 +1,7 @@
 module Review.Type.Union exposing
     ( Union
     , name, args, documentation
-    , constructors, constructorsAsDict
+    , constructorsAsDict
     , create
     )
 
@@ -61,11 +61,6 @@ create =
 name : Union -> String
 name =
     Review.Internal.Union.name
-
-
-constructors : Union -> List ( String, List Type )
-constructors =
-    Review.Internal.Union.constructorsAsDict >> Dict.toList
 
 
 constructorsAsDict : Union -> Dict String (List Type)
