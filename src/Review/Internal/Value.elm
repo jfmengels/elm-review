@@ -73,19 +73,19 @@ wasDeclaredAsAFunction name_ =
 
 fromUnion : ModuleName -> Union -> List Value
 fromUnion moduleName union =
-    List.map
-        (\( constructorName, types ) ->
-            Value
-                { name = constructorName
-                , documentation = Nothing
-                , tipe =
-                    List.foldl
-                        (\input output -> Type.Function input output)
-                        (Type moduleName (Union.name union) (List.map Type.Generic (Union.args union)))
-                        types
-                }
-        )
-        (Union.constructors union)
+    Union.constructors union
+        |> List.map
+            (\( constructorName, types ) ->
+                Value
+                    { name = constructorName
+                    , documentation = Nothing
+                    , tipe =
+                        List.foldl
+                            (\input output -> Type.Function input output)
+                            (Type moduleName (Union.name union) (List.map Type.Generic (Union.args union)))
+                            types
+                    }
+            )
 
 
 fromAlias : ModuleName -> Alias -> Maybe Value
