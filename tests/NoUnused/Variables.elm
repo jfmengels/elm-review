@@ -205,7 +205,7 @@ fromProjectToModule =
 getCustomTypesFromModule : ModuleInformation.ModuleInformation -> Dict String (List String)
 getCustomTypesFromModule moduleAPI =
     ModuleInformation.unionsAsDict moduleAPI
-        |> Dict.map (\_ union -> Dict.keys (Union.constructorsAsDict union))
+        |> Dict.map (\_ union -> Dict.keys (Union.constructors union))
 
 
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext

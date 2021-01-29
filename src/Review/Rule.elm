@@ -5235,7 +5235,7 @@ valuesFromExposingList module_ topLevelExpose =
                 Just _ ->
                     ModuleInformation.unions module_
                         |> List.filter (\union -> Union.name union == name)
-                        |> List.concatMap (Union.constructorsAsDict >> Dict.keys)
+                        |> List.concatMap (Union.constructors >> Dict.keys)
 
                 Nothing ->
                     []

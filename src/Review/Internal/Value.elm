@@ -74,7 +74,7 @@ wasDeclaredAsAFunction name_ =
 
 fromUnion : ModuleName -> Union -> List Value
 fromUnion moduleName union =
-    Union.constructorsAsDict union
+    Union.constructors union
         |> Dict.toList
         |> List.map
             (\( constructorName, types ) ->
