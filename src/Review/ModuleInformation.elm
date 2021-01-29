@@ -4,7 +4,6 @@ module Review.ModuleInformation exposing
     , aliasesAsDict
     , binops
     , create
-    , empty
     , fromDependencies
     , getAliasByName
     , getUnionByName
@@ -120,18 +119,6 @@ fromDependencies dependencies =
         |> List.concatMap Review.Project.Dependency.modules
         |> List.map (\dependencyModule -> ( String.split "." dependencyModule.name, fromElmDocs dependencyModule ))
         |> Dict.fromList
-
-
-empty : ModuleName -> ModuleInformation
-empty moduleName =
-    Review.Internal.ModuleInformation.ModuleInformation
-        { name = moduleName
-        , comment = ""
-        , unions = Dict.empty
-        , values = Dict.empty
-        , aliases = Dict.empty
-        , binops = []
-        }
 
 
 
