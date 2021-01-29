@@ -108,9 +108,11 @@ documentation =
 
     infix left  6 (+) = add
 
-    --> Type.Function
+    --> Just (
+    -->   Type.Function
     -->     (Type.Generic number)
     -->     (Type.Function (Type.Generic number) (Type.Generic number))
+    --> )
 
 The odd name choice comes from `type` being a reserved word, and was inspired by the [`tipe` field in `Elm.Docs.Alias`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.1/Elm-Docs#Alias).
 
