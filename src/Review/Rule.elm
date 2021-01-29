@@ -4842,7 +4842,7 @@ registerExposedCustomType declaredType exposesConstructors innerContext =
                 { name = Node.value declaredType.name
                 , documentation = getDocumentation declaredType.documentation
                 , args = List.map Node.value declaredType.generics
-                , constructors = constructors
+                , constructors = Dict.fromList constructors
                 }
     in
     { innerContext | exposedUnions = customType :: innerContext.exposedUnions }

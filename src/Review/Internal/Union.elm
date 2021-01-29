@@ -32,16 +32,11 @@ create :
     { name : String
     , documentation : Maybe String
     , args : List String
-    , constructors : List ( String, List Type )
+    , constructors : Dict String (List Type)
     }
     -> Union
-create params =
+create =
     Union
-        { name = params.name
-        , documentation = params.documentation
-        , args = params.args
-        , constructors = Dict.fromList params.constructors
-        }
 
 
 relateToModule : ModuleName -> Union -> Union

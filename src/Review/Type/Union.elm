@@ -41,11 +41,13 @@ type alias Union =
     Review.Internal.Union.Union
 
 
+{-| Create a new custom type.
+-}
 create :
     { name : String
     , documentation : Maybe String
     , args : List String
-    , constructors : List ( String, List Type )
+    , constructors : Dict String (List Type)
     }
     -> Union
 create =
