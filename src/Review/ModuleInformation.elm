@@ -33,8 +33,8 @@ type alias ModuleInformation =
     Review.Internal.ModuleInformation.ModuleInformation
 
 
-fromElmDocsModule : Elm.Docs.Module -> ModuleInformation
-fromElmDocsModule elmDocsModule =
+fromElmDocs : Elm.Docs.Module -> ModuleInformation
+fromElmDocs elmDocsModule =
     let
         moduleName : List String
         moduleName =
@@ -118,7 +118,7 @@ fromDependencies dependencies =
     dependencies
         |> Dict.values
         |> List.concatMap Review.Project.Dependency.modules
-        |> List.map (\dependencyModule -> ( String.split "." dependencyModule.name, fromElmDocsModule dependencyModule ))
+        |> List.map (\dependencyModule -> ( String.split "." dependencyModule.name, fromElmDocs dependencyModule ))
         |> Dict.fromList
 
 
