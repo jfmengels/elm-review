@@ -29,7 +29,7 @@ import Review.Internal.Union
 import Review.Internal.Value as Value exposing (Value)
 import Review.Project.Dependency
 import Review.Type.Alias as Alias exposing (Alias)
-import Review.Type.Binop as Binop exposing (Binop)
+import Review.Type.Binop exposing (Binop)
 import Review.Type.Union as Union exposing (Union)
 
 
