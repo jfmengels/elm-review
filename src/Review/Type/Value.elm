@@ -1,22 +1,12 @@
 module Review.Type.Value exposing
     ( Value
     , name, tipe, documentation
-    , create
     )
 
 {-| Represents values found in modules.
 
 @docs Value
-
-
-# Access
-
 @docs name, tipe, documentation
-
-
-# Creation
-
-@docs create
 
 -}
 
@@ -45,17 +35,6 @@ import Review.Type exposing (Type(..))
 -}
 type alias Value =
     Review.Internal.Value.Value
-
-
-
--- CREATION
-
-
-{-| Create a new value.
--}
-create : { name : String, documentation : Maybe String, tipe : Type } -> Value
-create =
-    Review.Internal.Value.create
 
 
 

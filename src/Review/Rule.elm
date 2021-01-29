@@ -278,6 +278,7 @@ import Review.Internal.Alias
 import Review.Internal.Binop
 import Review.Internal.ModuleInformation
 import Review.Internal.Union
+import Review.Internal.Value
 import Review.ModuleInformation as ModuleInformation exposing (ModuleInformation)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
@@ -4811,7 +4812,7 @@ registerExposedValue : { a | documentation : Maybe (Node String), signature : Ma
 registerExposedValue function name innerContext =
     { innerContext
         | exposedValues =
-            Value.create
+            Review.Internal.Value.create
                 { name = name
                 , documentation = getDocumentation function.documentation
                 , tipe = convertTypeSignatureToInferenceType innerContext function.signature
