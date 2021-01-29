@@ -1,7 +1,6 @@
 module Review.Type.Union exposing
     ( Union
-    , name, args, documentation
-    , constructors
+    , name, args, documentation, constructors
     , create
     )
 
@@ -12,8 +11,7 @@ module Review.Type.Union exposing
 
 # Access
 
-@docs name, args, documentation
-@docs constructors, constructorsAsDict
+@docs name, args, documentation, constructors
 
 
 # Creation
