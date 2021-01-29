@@ -6,12 +6,9 @@ module Review.ModuleInformation exposing
     , create
     , empty
     , fromDependencies
-    , fromElmDocsModule
     , getAliasByName
     , getUnionByName
     , getValueByName
-    , toElmDocsModule
-    , toElmDocsModuleDict
     , unions
     , unionsAsDict
     , values

@@ -275,6 +275,7 @@ import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix exposing (Fix)
 import Review.Internal.Binop
+import Review.Internal.ModuleInformation
 import Review.ModuleInformation as ModuleInformation exposing (ModuleInformation)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
@@ -5157,7 +5158,7 @@ registerImportExposed import_ innerContext =
                             Dict.get moduleName innerContext.modules
                     )
                         |> Maybe.withDefault
-                            (ModuleInformation.fromElmDocsModule
+                            (Review.Internal.ModuleInformation.fromElmDocsModule
                                 { name = joinModuleName moduleName
                                 , comment = ""
                                 , unions = []
