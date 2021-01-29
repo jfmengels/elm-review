@@ -72,6 +72,12 @@ name =
     Review.Internal.Value.name
 
 
+
+-- TODO Decide whether to rename all `tipe` function to `declaredType`, which could be a `Maybe Type`.
+-- (though having `Just Unknown` would be weird)
+-- Later we could then have a `inferredType` which would be a `Type`.
+
+
 {-| Get the type of a value, as declared by its type annotation
 
 If the value is a function or constant and the type annotation is missing, the type will be `Unknown`. In the future, `elm-review` may attempt to infer the type of the value.
