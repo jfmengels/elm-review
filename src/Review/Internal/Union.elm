@@ -1,7 +1,6 @@
 module Review.Internal.Union exposing
     ( Union
     , args
-    , constructors
     , constructorsAsDict
     , create
     , documentation
@@ -78,11 +77,6 @@ toElmDocs (Union union) =
 name : Union -> String
 name (Union union) =
     union.name
-
-
-constructors : Union -> List ( String, List Type )
-constructors (Union union) =
-    Dict.toList union.constructors
 
 
 constructorsAsDict : Union -> Dict String (List Type)

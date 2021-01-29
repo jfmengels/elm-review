@@ -25,6 +25,7 @@ import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Review.Internal.Alias
 import Review.Internal.Binop
+import Review.Internal.Union
 import Review.Internal.Value as Value exposing (Value)
 import Review.Project.Dependency
 import Review.Type.Alias as Alias exposing (Alias)
@@ -52,7 +53,7 @@ fromElmDocsModule elmDocsModule =
 
         unions_ : List Union
         unions_ =
-            List.map Union.fromElmDocs elmDocsModule.unions
+            List.map Review.Internal.Union.fromElmDocs elmDocsModule.unions
 
         aliases_ : List Alias
         aliases_ =
@@ -94,7 +95,7 @@ create params =
     let
         unions_ : List Union
         unions_ =
-            List.map (Union.relateToModule params.name) params.unions
+            List.map (Review.Internal.Union.relateToModule params.name) params.unions
 
         aliases_ : List Alias
         aliases_ =
@@ -138,7 +139,7 @@ toElmDocsModule (ModuleInformation moduleInfo) =
     , comment = moduleInfo.comment
     , unions =
         Dict.values moduleInfo.unions
-            |> List.map Union.toElmDocs
+            |> List.map Review.Internal.Union.toElmDocs
     , aliases =
         Dict.values moduleInfo.aliases
             |> List.map Review.Internal.Alias.toElmDocs
