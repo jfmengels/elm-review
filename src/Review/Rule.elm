@@ -4855,7 +4855,7 @@ registerBinop infix_ name innerContext =
     let
         binop : Binop
         binop =
-            Binop.create
+            Review.Internal.Binop.create
                 { name = name
                 , associatedFunction = Just (Node.value infix_.function)
 

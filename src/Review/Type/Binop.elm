@@ -1,22 +1,12 @@
 module Review.Type.Binop exposing
     ( Binop
     , name, tipe, documentation, associativity, precedence, associatedFunction
-    , create
     )
 
 {-| Represents binary operations defined in modules.
 
 @docs Binop
-
-
-# Access
-
 @docs name, tipe, documentation, associativity, precedence, associatedFunction
-
-
-# Creation
-
-@docs create
 
 -}
 
@@ -32,21 +22,6 @@ Definitions of these can only by found in projects under the `elm` organization.
 -}
 type alias Binop =
     Review.Internal.Binop.Binop
-
-
-{-| Create a new type binary operation.
--}
-create :
-    { name : String
-    , associatedFunction : Maybe String
-    , documentation : Maybe String
-    , tipe : Maybe Type.Type
-    , associativity : Elm.Docs.Associativity
-    , precedence : Int
-    }
-    -> Binop
-create =
-    Review.Internal.Binop.create
 
 
 {-| Get the name of a binary operation.
