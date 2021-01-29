@@ -61,6 +61,27 @@ name =
     Review.Internal.Union.name
 
 
+{-| Get the constructors for a union type.
+
+    import Review.Type as Type
+
+    type
+        Maybe a
+        --> Dict.fromList
+        -->   [ ( "Just", [ Type.Generic "a" ] )
+        -->   , ( "Nothing", [] )
+        -->   ]
+        = Just a
+        | Nothing
+
+    type
+        Value
+        --> Dict.fromList
+        -->   [ ( "Value", [ Type.Type [ "Basics" ] "String" [] ] )
+        -->   ]
+        = Value String
+
+-}
 constructors : Union -> Dict String (List Type)
 constructors =
     Review.Internal.Union.constructors
