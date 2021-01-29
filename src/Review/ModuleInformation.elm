@@ -18,13 +18,12 @@ module Review.ModuleInformation exposing
     , valuesAsDict
     )
 
--- TODO Expose module, but hide implementation and type inside an "Internal" module
-
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Review.Internal.Alias
 import Review.Internal.Binop
+import Review.Internal.ModuleInformation exposing (ModuleInformation(..))
 import Review.Internal.Union
 import Review.Internal.Value as Value exposing (Value)
 import Review.Project.Dependency
@@ -33,15 +32,8 @@ import Review.Type.Binop exposing (Binop)
 import Review.Type.Union as Union exposing (Union)
 
 
-type ModuleInformation
-    = ModuleInformation
-        { name : ModuleName
-        , comment : String
-        , unions : Dict String Union
-        , aliases : Dict String Alias
-        , values : Dict String Value
-        , binops : List Binop
-        }
+type alias ModuleInformation =
+    Review.Internal.ModuleInformation.ModuleInformation
 
 
 fromElmDocsModule : Elm.Docs.Module -> ModuleInformation
