@@ -274,6 +274,7 @@ import Elm.Type
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix exposing (Fix)
+import Review.Internal.Alias
 import Review.Internal.Binop
 import Review.Internal.ModuleInformation
 import Review.ModuleInformation as ModuleInformation exposing (ModuleInformation)
@@ -4896,7 +4897,7 @@ registerExposedTypeAlias : TypeAlias -> String -> ScopeModuleContext -> ScopeMod
 registerExposedTypeAlias typeAlias name innerContext =
     { innerContext
         | exposedAliases =
-            Alias.create
+            Review.Internal.Alias.create
                 { name = name
                 , documentation = getDocumentation typeAlias.documentation
                 , args = List.map Node.value typeAlias.generics

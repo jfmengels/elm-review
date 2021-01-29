@@ -1,22 +1,12 @@
 module Review.Type.Alias exposing
     ( Alias
     , name, tipe, args, documentation
-    , create
     )
 
 {-| Represents type aliases found in modules.
 
 @docs Alias
-
-
-# Access
-
 @docs name, tipe, args, documentation
-
-
-# Creation
-
-@docs create
 
 -}
 
@@ -37,17 +27,6 @@ import Review.Type exposing (Type(..))
 -}
 type alias Alias =
     Review.Internal.Alias.Alias
-
-
-
--- CREATION
-
-
-{-| Create a new type alias.
--}
-create : { name : String, documentation : Maybe String, args : List String, tipe : Type } -> Review.Internal.Alias.Alias
-create =
-    Review.Internal.Alias.create
 
 
 
