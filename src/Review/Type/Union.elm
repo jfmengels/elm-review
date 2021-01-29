@@ -65,7 +65,7 @@ name =
 
 constructors : Union -> Dict String (List Type)
 constructors =
-    Review.Internal.Union.constructorsAsDict
+    Review.Internal.Union.constructors
 
 
 args : Union -> List String
