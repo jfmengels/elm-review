@@ -7,7 +7,6 @@ module Review.Api.Module exposing
     , getUnionByName
     , getValueByName
     , unions
-    , unionsAsDict
     , values
     , valuesAsDict
     )
@@ -81,13 +80,8 @@ fromDependencies dependencies =
 -- MODULE DATA ACCESS
 
 
-unions : ModuleApi -> List Union
+unions : ModuleApi -> Dict String Union
 unions (Review.Internal.ModuleInformation.ModuleInformation m) =
-    Dict.values m.unions
-
-
-unionsAsDict : ModuleApi -> Dict String Union
-unionsAsDict (Review.Internal.ModuleInformation.ModuleInformation m) =
     m.unions
 
 

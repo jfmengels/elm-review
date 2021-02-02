@@ -140,7 +140,7 @@ type Complex a other
                         (rule
                             (\dict ->
                                 Dict.get [ "A" ] dict
-                                    |> Maybe.map (ModuleApi.unionsAsDict >> Dict.values >> List.sortBy Union.name >> List.map Debug.toString >> String.join "\n")
+                                    |> Maybe.map (ModuleApi.unions >> Dict.values >> List.sortBy Union.name >> List.map Debug.toString >> String.join "\n")
                                     |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
                             )
                         )

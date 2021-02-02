@@ -5184,7 +5184,7 @@ registerImportExposed import_ innerContext =
                         exposedTypes : Dict String (List String)
                         exposedTypes =
                             List.concat
-                                [ List.map (\value -> ( Union.name value, moduleName )) (Dict.values (ModuleApi.unionsAsDict module_))
+                                [ List.map (\value -> ( Union.name value, moduleName )) (Dict.values (ModuleApi.unions module_))
                                 , List.map (\value -> ( Alias.name value, moduleName )) (Dict.values (ModuleApi.aliases module_))
                                 ]
                                 |> Dict.fromList
@@ -5237,7 +5237,7 @@ valuesFromExposingList module_ topLevelExpose =
         Exposing.TypeExpose { name, open } ->
             case open of
                 Just _ ->
-                    ModuleApi.unionsAsDict module_
+                    ModuleApi.unions module_
                         |> Dict.values
                         |> List.filter (\union -> Union.name union == name)
                         |> List.concatMap (Union.constructors >> Dict.keys)

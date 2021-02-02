@@ -204,7 +204,7 @@ fromProjectToModule =
 
 getCustomTypesFromModule : ModuleApi -> Dict String (List String)
 getCustomTypesFromModule moduleApi =
-    ModuleApi.unionsAsDict moduleApi
+    ModuleApi.unions moduleApi
         |> Dict.map (\_ union -> Dict.keys (Union.constructors union))
 
 
