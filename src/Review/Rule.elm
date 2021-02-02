@@ -271,6 +271,7 @@ import Elm.Syntax.Type
 import Elm.Syntax.TypeAlias exposing (TypeAlias)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
+import Review.Api.Module as ModuleApi exposing (ModuleApi)
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix exposing (Fix)
@@ -279,7 +280,6 @@ import Review.Internal.Binop
 import Review.Internal.ModuleInformation
 import Review.Internal.Union
 import Review.Internal.Value
-import Review.ModuleApi as ModuleApi exposing (ModuleApi)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Project exposing (ProjectModule)

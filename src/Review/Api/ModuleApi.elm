@@ -1,4 +1,4 @@
-module Review.ModuleApi exposing
+module Review.Api.Module exposing
     ( ModuleApi
     , aliases
     , aliasesAsDict
