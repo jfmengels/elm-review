@@ -3,8 +3,6 @@ module Review.Api.Module exposing
     , aliases
     , binops
     , fromDependencies
-    , getAliasByName
-    , getUnionByName
     , getValueByName
     , unions
     , values
@@ -90,11 +88,6 @@ aliases (Review.Internal.ModuleInformation.ModuleInformation m) =
     m.aliases
 
 
-getAliasByName : String -> ModuleApi -> Maybe Alias
-getAliasByName name (Review.Internal.ModuleInformation.ModuleInformation m) =
-    Dict.get name m.aliases
-
-
 values : ModuleApi -> List Value
 values (Review.Internal.ModuleInformation.ModuleInformation m) =
     Dict.values m.values
@@ -113,8 +106,3 @@ getValueByName name (Review.Internal.ModuleInformation.ModuleInformation m) =
 binops : ModuleApi -> List Binop
 binops (Review.Internal.ModuleInformation.ModuleInformation m) =
     m.binops
-
-
-getUnionByName : String -> ModuleApi -> Maybe Union
-getUnionByName name (Review.Internal.ModuleInformation.ModuleInformation m) =
-    Dict.get name m.unions

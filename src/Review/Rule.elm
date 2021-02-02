@@ -5226,7 +5226,7 @@ valuesFromExposingList module_ topLevelExpose =
             [ function ]
 
         Exposing.TypeOrAliasExpose name ->
-            case ModuleApi.getAliasByName name module_ of
+            case Dict.get name (ModuleApi.aliases module_) of
                 Just _ ->
                     [ name ]
 
@@ -5763,8 +5763,8 @@ isValueDeclaredInModule valueName module_ =
 
 isTypeDeclaredInModule : String -> ModuleApi -> Bool
 isTypeDeclaredInModule typeName module_ =
-    (ModuleApi.getAliasByName typeName module_ /= Nothing)
-        || (ModuleApi.getUnionByName typeName module_ /= Nothing)
+    Dict.member typeName (ModuleApi.aliases module_)
+        || Dict.member typeName (ModuleApi.unions module_)
 
 
 isInScope : String -> Nonempty Scope -> Bool
