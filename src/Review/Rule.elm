@@ -282,7 +282,7 @@ import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix exposing (Fix)
 import Review.Internal.Alias
 import Review.Internal.Binop
-import Review.Internal.ModuleInformation
+import Review.Internal.Module
 import Review.Internal.Union
 import Review.Internal.Value
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
@@ -4455,7 +4455,7 @@ scope_fromModuleToProject _ moduleName moduleContext =
     { dependenciesModules = Dict.empty
     , modules =
         Dict.singleton (Node.value moduleName)
-            (Review.Internal.ModuleInformation.create
+            (Review.Internal.Module.create
                 { name = Node.value moduleName
                 , comment = ""
                 , unions = moduleContext.exposedUnions
@@ -5161,7 +5161,7 @@ registerImportExposed import_ innerContext =
                             Dict.get moduleName innerContext.modules
                     )
                         |> Maybe.withDefault
-                            (Review.Internal.ModuleInformation.fromElmDocsModule
+                            (Review.Internal.Module.fromElmDocsModule
                                 { name = joinModuleName moduleName
                                 , comment = ""
                                 , unions = []

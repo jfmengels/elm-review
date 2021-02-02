@@ -1,5 +1,5 @@
-module Review.Internal.ModuleInformation exposing
-    ( ModuleInformation(..)
+module Review.Internal.Module exposing
+    ( Module(..)
     , create
     , fromElmDocsModule
     )
@@ -16,8 +16,8 @@ import Review.Internal.Union
 import Review.Internal.Value as Value exposing (Value)
 
 
-type ModuleInformation
-    = ModuleInformation
+type Module
+    = Module
         { name : ModuleName
         , comment : String
         , unions : Dict String Union
@@ -35,7 +35,7 @@ create :
     , values : List Value
     , binops : List Binop
     }
-    -> ModuleInformation
+    -> Module
 create params =
     let
         unions_ : List Union
@@ -46,7 +46,7 @@ create params =
         aliases_ =
             List.map (Review.Internal.Alias.relateToModule params.name) params.aliases
     in
-    ModuleInformation
+    Module
         { name = params.name
         , comment = params.comment
         , unions =
@@ -69,7 +69,7 @@ create params =
         }
 
 
-fromElmDocsModule : Elm.Docs.Module -> ModuleInformation
+fromElmDocsModule : Elm.Docs.Module -> Module
 fromElmDocsModule elmDocsModule =
     let
         moduleName : List String
@@ -84,7 +84,7 @@ fromElmDocsModule elmDocsModule =
         aliases_ =
             List.map Review.Internal.Alias.fromElmDocs elmDocsModule.aliases
     in
-    ModuleInformation
+    Module
         { name = moduleName
         , comment = elmDocsModule.comment
         , unions =

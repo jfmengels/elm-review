@@ -17,14 +17,14 @@ import Review.Api.Binop exposing (Binop)
 import Review.Api.Union as Union exposing (Union)
 import Review.Internal.Alias
 import Review.Internal.Binop
-import Review.Internal.ModuleInformation
+import Review.Internal.Module
 import Review.Internal.Union
 import Review.Internal.Value as Value exposing (Value)
 import Review.Project.Dependency
 
 
 type alias ModuleApi =
-    Review.Internal.ModuleInformation.ModuleInformation
+    Review.Internal.Module.Module
 
 
 fromElmDocs : Elm.Docs.Module -> ModuleApi
@@ -42,7 +42,7 @@ fromElmDocs elmDocsModule =
         aliases_ =
             List.map Review.Internal.Alias.fromElmDocs elmDocsModule.aliases
     in
-    Review.Internal.ModuleInformation.ModuleInformation
+    Review.Internal.Module.Module
         { name = moduleName
         , comment = elmDocsModule.comment
         , unions =
@@ -79,30 +79,30 @@ fromDependencies dependencies =
 
 
 unions : ModuleApi -> Dict String Union
-unions (Review.Internal.ModuleInformation.ModuleInformation m) =
+unions (Review.Internal.Module.Module m) =
     m.unions
 
 
 aliases : ModuleApi -> Dict String Alias
-aliases (Review.Internal.ModuleInformation.ModuleInformation m) =
+aliases (Review.Internal.Module.Module m) =
     m.aliases
 
 
 values : ModuleApi -> List Value
-values (Review.Internal.ModuleInformation.ModuleInformation m) =
+values (Review.Internal.Module.Module m) =
     Dict.values m.values
 
 
 valuesAsDict : ModuleApi -> Dict String Value
-valuesAsDict (Review.Internal.ModuleInformation.ModuleInformation m) =
+valuesAsDict (Review.Internal.Module.Module m) =
     m.values
 
 
 getValueByName : String -> ModuleApi -> Maybe Value
-getValueByName name (Review.Internal.ModuleInformation.ModuleInformation m) =
+getValueByName name (Review.Internal.Module.Module m) =
     Dict.get name m.values
 
 
 binops : ModuleApi -> List Binop
-binops (Review.Internal.ModuleInformation.ModuleInformation m) =
+binops (Review.Internal.Module.Module m) =
     m.binops
