@@ -5176,7 +5176,7 @@ registerImportExposed import_ innerContext =
                     let
                         exposedValues : Dict String (List String)
                         exposedValues =
-                            ModuleApi.valuesAsDict module_
+                            ModuleApi.values module_
                                 |> Dict.values
                                 |> List.map (\value -> ( Value.name value, moduleName ))
                                 |> Dict.fromList

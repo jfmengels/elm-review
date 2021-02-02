@@ -6,7 +6,6 @@ module Review.Api.Module exposing
     , getValueByName
     , unions
     , values
-    , valuesAsDict
     )
 
 import Dict exposing (Dict)
@@ -88,13 +87,8 @@ aliases (Review.Internal.Module.Module m) =
     m.aliases
 
 
-values : ModuleApi -> List Value
+values : ModuleApi -> Dict String Value
 values (Review.Internal.Module.Module m) =
-    Dict.values m.values
-
-
-valuesAsDict : ModuleApi -> Dict String Value
-valuesAsDict (Review.Internal.Module.Module m) =
     m.values
 
 

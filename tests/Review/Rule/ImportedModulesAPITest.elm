@@ -109,7 +109,7 @@ noType = 1
                         (rule
                             (\dict ->
                                 Dict.get [ "A" ] dict
-                                    |> Maybe.map (ModuleApi.values >> List.sortBy Value.name >> List.map Debug.toString >> String.join "\n")
+                                    |> Maybe.map (ModuleApi.values >> Dict.values >> List.sortBy Value.name >> List.map Debug.toString >> String.join "\n")
                                     |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
                             )
                         )
