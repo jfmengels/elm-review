@@ -4532,7 +4532,7 @@ scope_pairWithNoErrors fn visited context =
 
 scope_internalDependenciesVisitor : Dict String Dependency -> ScopeProjectContext -> ScopeProjectContext
 scope_internalDependenciesVisitor dependencies innerContext =
-    { innerContext | dependenciesModules = ModuleApi.fromDependencies dependencies }
+    { innerContext | dependenciesModules = Review.Internal.Module.fromDependencies dependencies }
 
 
 registerPrelude : ScopeModuleContext -> ScopeModuleContext
