@@ -24,7 +24,7 @@ import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import NoUnused.NonemptyList as NonemptyList exposing (Nonempty)
 import NoUnused.RangeDict as RangeDict exposing (RangeDict)
 import Review.Fix as Fix exposing (Fix)
-import Review.ModuleApi as ModuleInformation exposing (ModuleApi)
+import Review.ModuleApi as ModuleApi exposing (ModuleApi)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Type.Union as Union
@@ -204,7 +204,7 @@ fromProjectToModule =
 
 getCustomTypesFromModule : ModuleApi -> Dict String (List String)
 getCustomTypesFromModule moduleAPI =
-    ModuleInformation.unionsAsDict moduleAPI
+    ModuleApi.unionsAsDict moduleAPI
         |> Dict.map (\_ union -> Dict.keys (Union.constructors union))
 
 

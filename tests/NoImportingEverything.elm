@@ -13,7 +13,7 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import Review.Fix as Fix exposing (Fix)
-import Review.ModuleApi as ModuleInformation exposing (ModuleApi)
+import Review.ModuleApi as ModuleApi exposing (ModuleApi)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Type.Union as Union
@@ -170,7 +170,7 @@ registerUseOfValue : Dict ModuleName ModuleApi -> ModuleName -> String -> Import
 registerUseOfValue importedModulesAPI moduleName name v =
     case Dict.get moduleName importedModulesAPI of
         Just api ->
-            case find (\union -> Dict.member name (Union.constructors union)) (ModuleInformation.unions api) of
+            case find (\union -> Dict.member name (Union.constructors union)) (ModuleApi.unions api) of
                 Just union ->
                     { v | importedCustomTypes = Set.insert (Union.name union) v.importedCustomTypes }
 

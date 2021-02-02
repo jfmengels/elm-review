@@ -6,7 +6,7 @@ import Elm.Syntax.Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Expect exposing (Expectation)
-import Review.ModuleApi as ModuleInformation exposing (ModuleApi)
+import Review.ModuleApi as ModuleApi exposing (ModuleApi)
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
@@ -109,7 +109,7 @@ noType = 1
                         (rule
                             (\dict ->
                                 Dict.get [ "A" ] dict
-                                    |> Maybe.map (ModuleInformation.values >> List.sortBy Value.name >> List.map Debug.toString >> String.join "\n")
+                                    |> Maybe.map (ModuleApi.values >> List.sortBy Value.name >> List.map Debug.toString >> String.join "\n")
                                     |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
                             )
                         )
@@ -140,7 +140,7 @@ type Complex a other
                         (rule
                             (\dict ->
                                 Dict.get [ "A" ] dict
-                                    |> Maybe.map (ModuleInformation.unions >> List.sortBy Union.name >> List.map Debug.toString >> String.join "\n")
+                                    |> Maybe.map (ModuleApi.unions >> List.sortBy Union.name >> List.map Debug.toString >> String.join "\n")
                                     |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
                             )
                         )
@@ -175,7 +175,7 @@ type Internal = Internal
                         (rule
                             (\dict ->
                                 Dict.get [ "A" ] dict
-                                    |> Maybe.map (ModuleInformation.aliases >> List.sortBy Alias.name >> List.map Debug.toString >> String.join "\n")
+                                    |> Maybe.map (ModuleApi.aliases >> List.sortBy Alias.name >> List.map Debug.toString >> String.join "\n")
                                     |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
                             )
                         )
@@ -209,7 +209,7 @@ thing3 a b = a + b
                         (rule
                             (\dict ->
                                 Dict.get [ "A" ] dict
-                                    |> Maybe.map (ModuleInformation.binops >> List.sortBy Binop.name >> List.map Debug.toString >> String.join "\n")
+                                    |> Maybe.map (ModuleApi.binops >> List.sortBy Binop.name >> List.map Debug.toString >> String.join "\n")
                                     |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
                             )
                         )

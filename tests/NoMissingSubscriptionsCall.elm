@@ -11,7 +11,7 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
-import Review.ModuleApi as ModuleInformation exposing (ModuleApi)
+import Review.ModuleApi as ModuleApi exposing (ModuleApi)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
@@ -138,7 +138,7 @@ finalEvaluation context =
 
 definesUpdateFunction : ModuleName -> Dict ModuleName ModuleApi -> Bool
 definesUpdateFunction moduleName dict =
-    case Dict.get moduleName dict |> Maybe.andThen (ModuleInformation.getValueByName "subscriptions") of
+    case Dict.get moduleName dict |> Maybe.andThen (ModuleApi.getValueByName "subscriptions") of
         Just _ ->
             True
 

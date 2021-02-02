@@ -279,7 +279,7 @@ import Review.Internal.Binop
 import Review.Internal.ModuleInformation
 import Review.Internal.Union
 import Review.Internal.Value
-import Review.ModuleApi as ModuleInformation exposing (ModuleApi)
+import Review.ModuleApi as ModuleApi exposing (ModuleApi)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Project exposing (ProjectModule)
@@ -4532,7 +4532,7 @@ scope_pairWithNoErrors fn visited context =
 
 scope_internalDependenciesVisitor : Dict String Dependency -> ScopeProjectContext -> ScopeProjectContext
 scope_internalDependenciesVisitor dependencies innerContext =
-    { innerContext | dependenciesModules = ModuleInformation.fromDependencies dependencies }
+    { innerContext | dependenciesModules = ModuleApi.fromDependencies dependencies }
 
 
 registerPrelude : ScopeModuleContext -> ScopeModuleContext
@@ -5176,7 +5176,7 @@ registerImportExposed import_ innerContext =
                     let
                         exposedValues : Dict String (List String)
                         exposedValues =
-                            ModuleInformation.valuesAsDict module_
+                            ModuleApi.valuesAsDict module_
                                 |> Dict.values
                                 |> List.map (\value -> ( Value.name value, moduleName ))
                                 |> Dict.fromList
@@ -5184,8 +5184,8 @@ registerImportExposed import_ innerContext =
                         exposedTypes : Dict String (List String)
                         exposedTypes =
                             List.concat
-                                [ List.map (\value -> ( Union.name value, moduleName )) (ModuleInformation.unions module_)
-                                , List.map (\value -> ( Alias.name value, moduleName )) (ModuleInformation.aliases module_)
+                                [ List.map (\value -> ( Union.name value, moduleName )) (ModuleApi.unions module_)
+                                , List.map (\value -> ( Alias.name value, moduleName )) (ModuleApi.aliases module_)
                                 ]
                                 |> Dict.fromList
                     in
@@ -5226,7 +5226,7 @@ valuesFromExposingList module_ topLevelExpose =
             [ function ]
 
         Exposing.TypeOrAliasExpose name ->
-            case ModuleInformation.getAliasByName name module_ of
+            case ModuleApi.getAliasByName name module_ of
                 Just _ ->
                     [ name ]
 
@@ -5237,7 +5237,7 @@ valuesFromExposingList module_ topLevelExpose =
         Exposing.TypeExpose { name, open } ->
             case open of
                 Just _ ->
-                    ModuleInformation.unions module_
+                    ModuleApi.unions module_
                         |> List.filter (\union -> Union.name union == name)
                         |> List.concatMap (Union.constructors >> Dict.keys)
 
@@ -5757,13 +5757,13 @@ moduleNameForType context typeName moduleName =
 
 isValueDeclaredInModule : String -> ModuleApi -> Bool
 isValueDeclaredInModule valueName module_ =
-    ModuleInformation.getValueByName valueName module_ /= Nothing
+    ModuleApi.getValueByName valueName module_ /= Nothing
 
 
 isTypeDeclaredInModule : String -> ModuleApi -> Bool
 isTypeDeclaredInModule typeName module_ =
-    (ModuleInformation.getAliasByName typeName module_ /= Nothing)
-        || (ModuleInformation.getUnionByName typeName module_ /= Nothing)
+    (ModuleApi.getAliasByName typeName module_ /= Nothing)
+        || (ModuleApi.getUnionByName typeName module_ /= Nothing)
 
 
 isInScope : String -> Nonempty Scope -> Bool
