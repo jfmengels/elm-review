@@ -118,6 +118,25 @@ Value { documentation = Nothing, name = "b", tipe = Type ["Basics"] "Int" [] }
 Value { documentation = Just " Some comment ", name = "increment", tipe = Function (Type ["List"] "List" [Type ["Basics"] "Int" []]) (Function (Type ["A"] "Foo" []) (Type ["A"] "Local" [])) }
 Value { documentation = Nothing, name = "noType", tipe = Unknown }
 """
+        , test "should be able to list all the exposed ports from a module" <|
+            \() ->
+                [ targetModule
+                , """port module A exposing (b, increment, noType)
+
+port a : Int -> Cmd msg
+port b : (Int -> msg) -> Sub msg
+"""
+                ]
+                    |> Review.Test.runOnModulesWithProjectData project
+                        (rule
+                            (\dict ->
+                                Dict.get [ "A" ] dict
+                                    |> Maybe.map (ModuleApi.values >> Dict.values >> List.sortBy Value.name >> List.map Debug.toString >> String.join "\n")
+                                    |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
+                            )
+                        )
+                    |> expectToFind """
+"""
         , test "should be able to list all the custom types from a module" <|
             \() ->
                 [ targetModule
