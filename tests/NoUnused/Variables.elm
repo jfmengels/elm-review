@@ -195,7 +195,7 @@ fromProjectToModule =
             , unusedImportedCustomTypes = Dict.empty
             , importedCustomTypeLookup = Dict.empty
             , localCustomTypes = Dict.empty
-            , customTypes = Dict.map (\_ moduleAPI -> getCustomTypesFromModule moduleAPI) importedModulesAPI
+            , customTypes = Dict.map (\_ moduleApi -> getCustomTypesFromModule moduleApi) importedModulesAPI
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -203,8 +203,8 @@ fromProjectToModule =
 
 
 getCustomTypesFromModule : ModuleApi -> Dict String (List String)
-getCustomTypesFromModule moduleAPI =
-    ModuleApi.unionsAsDict moduleAPI
+getCustomTypesFromModule moduleApi =
+    ModuleApi.unionsAsDict moduleApi
         |> Dict.map (\_ union -> Dict.keys (Union.constructors union))
 
 

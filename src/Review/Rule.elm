@@ -447,8 +447,8 @@ review rules project =
                                     Maybe.map (\(Extract { lookupTables }) -> lookupTables) scopeResult.extract
                                         |> Maybe.withDefault Dict.empty
 
-                                moduleAPIs : Dict ModuleName ModuleApi
-                                moduleAPIs =
+                                moduleApis : Dict ModuleName ModuleApi
+                                moduleApis =
                                     Maybe.map (\(Extract { modules }) -> modules) scopeResult.extract
                                         |> Maybe.withDefault Dict.empty
 
@@ -461,7 +461,7 @@ review rules project =
                                     Project
                                         { p
                                             | moduleNameLookupTables = moduleNameLookupTables
-                                            , moduleAPIs = moduleAPIs
+                                            , moduleApis = moduleApis
                                         }
                             in
                             if not (List.isEmpty scopeResult.errors) then
@@ -619,8 +619,8 @@ runReview ((Project p) as project) rules maybeProjectData nodeContexts =
             Maybe.map (\(Extract { lookupTables }) -> lookupTables) scopeResult.extract
                 |> Maybe.withDefault Dict.empty
 
-        moduleAPIs : Dict ModuleName ModuleApi
-        moduleAPIs =
+        moduleApis : Dict ModuleName ModuleApi
+        moduleApis =
             Maybe.map (\(Extract { modules }) -> modules) scopeResult.extract
                 |> Maybe.withDefault Dict.empty
 
@@ -629,7 +629,7 @@ runReview ((Project p) as project) rules maybeProjectData nodeContexts =
             Project
                 { p
                     | moduleNameLookupTables = moduleNameLookupTables
-                    , moduleAPIs = moduleAPIs
+                    , moduleApis = moduleApis
                 }
     in
     let
@@ -3646,9 +3646,9 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
         moduleNameLookupTables =
             Review.Project.Internal.moduleNameLookupTables project
 
-        moduleAPIs : Dict ModuleName ModuleApi
-        moduleAPIs =
-            Review.Project.Internal.moduleAPIs project
+        moduleApis : Dict ModuleName ModuleApi
+        moduleApis =
+            Review.Project.Internal.moduleApis project
 
         modulesToAnalyze : List ProjectModule
         modulesToAnalyze =
@@ -3721,7 +3721,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                     , moduleNameLookupTable =
                         Dict.get (Review.Project.Internal.getModuleName module_) moduleNameLookupTables
                             |> Maybe.withDefault ModuleNameLookupTableInternal.empty
-                    , importedModulesAPI = Dict.filter (\moduleName _ -> Set.member moduleName importedModuleNames) moduleAPIs
+                    , importedModulesAPI = Dict.filter (\moduleName _ -> Set.member moduleName importedModuleNames) moduleApis
                     }
 
                 initialModuleContext : moduleContext

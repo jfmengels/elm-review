@@ -4,7 +4,7 @@ module Review.Project.Internal exposing
     , buildModuleGraph
     , getModuleName
     , importedModuleNames
-    , moduleAPIs
+    , moduleApis
     , moduleGraph
     , moduleNameLookupTables
     , sourceDirectories
@@ -35,7 +35,7 @@ type Project
         , dependencies : Dict String Dependency
         , moduleGraph : Maybe (Graph ModuleName ())
         , sourceDirectories : List String
-        , moduleAPIs : Dict ModuleName ModuleApi
+        , moduleApis : Dict ModuleName ModuleApi
         , moduleNameLookupTables : Dict ModuleName ModuleNameLookupTable
         }
 
@@ -76,9 +76,9 @@ moduleNameLookupTables (Project project) =
     project.moduleNameLookupTables
 
 
-moduleAPIs : Project -> Dict ModuleName ModuleApi
-moduleAPIs (Project project) =
-    project.moduleAPIs
+moduleApis : Project -> Dict ModuleName ModuleApi
+moduleApis (Project project) =
+    project.moduleApis
 
 
 sourceDirectories : Project -> List String
