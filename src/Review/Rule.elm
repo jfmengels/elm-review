@@ -5758,7 +5758,7 @@ moduleNameForType context typeName moduleName =
 
 isValueDeclaredInModule : String -> ModuleApi -> Bool
 isValueDeclaredInModule valueName module_ =
-    ModuleApi.getValueByName valueName module_ /= Nothing
+    Dict.member valueName (ModuleApi.values module_)
 
 
 isTypeDeclaredInModule : String -> ModuleApi -> Bool
