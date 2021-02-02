@@ -11,7 +11,7 @@ module Review.Rule exposing
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
-    , ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleNameLookupTable, withImportedModulesAPI, withModuleKey
+    , ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleNameLookupTable, withImportedModulesApi, withModuleKey
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
@@ -212,7 +212,7 @@ first, as they are in practice a simpler version of project rules.
 
 ## Requesting more information
 
-@docs ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleNameLookupTable, withImportedModulesAPI, withModuleKey
+@docs ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleNameLookupTable, withImportedModulesApi, withModuleKey
 
 
 ## Errors
@@ -4275,8 +4275,8 @@ withModuleNameLookupTable (ContextCreator fn (RequestedData requested)) =
 
 {-| TODO
 -}
-withImportedModulesAPI : ContextCreator (Dict ModuleName ModuleInformation) (from -> to) -> ContextCreator from to
-withImportedModulesAPI (ContextCreator fn (RequestedData requested)) =
+withImportedModulesApi : ContextCreator (Dict ModuleName ModuleInformation) (from -> to) -> ContextCreator from to
+withImportedModulesApi (ContextCreator fn (RequestedData requested)) =
     ContextCreator
         (\data -> fn data data.importedModulesAPI)
         (RequestedData { requested | importedModulesAPI = True })

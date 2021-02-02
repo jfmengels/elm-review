@@ -88,7 +88,7 @@ initialContext =
             }
         )
         |> Rule.withModuleNameLookupTable
-        |> Rule.withImportedModulesAPI
+        |> Rule.withImportedModulesApi
 
 
 type alias ImportData =

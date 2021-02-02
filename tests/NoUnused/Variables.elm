@@ -199,7 +199,7 @@ fromProjectToModule =
             }
         )
         |> Rule.withModuleNameLookupTable
-        |> Rule.withImportedModulesAPI
+        |> Rule.withImportedModulesApi
 
 
 getCustomTypesFromModule : ModuleInformation -> Dict String (List String)

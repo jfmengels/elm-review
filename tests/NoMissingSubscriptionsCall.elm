@@ -89,7 +89,7 @@ initialContext =
             }
         )
         |> Rule.withModuleNameLookupTable
-        |> Rule.withImportedModulesAPI
+        |> Rule.withImportedModulesApi
 
 
 expressionVisitor : Node Expression -> Context -> ( List (Error {}), Context )

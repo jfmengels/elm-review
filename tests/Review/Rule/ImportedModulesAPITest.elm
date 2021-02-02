@@ -47,7 +47,7 @@ initialContext : Rule.ContextCreator () Context
 initialContext =
     Rule.initContextCreator
         (\importedModules () -> importedModules)
-        |> Rule.withImportedModulesAPI
+        |> Rule.withImportedModulesApi
 
 
 all : Test
