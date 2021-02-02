@@ -10,8 +10,8 @@ module Review.Api.Value exposing
 
 -}
 
+import Review.Api.Type exposing (Type(..))
 import Review.Internal.Value
-import Review.Type exposing (Type(..))
 
 
 {-| Representation of a top-level function or constant.

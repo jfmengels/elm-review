@@ -1,4 +1,4 @@
-module Review.Type exposing (Type(..), fromElmDocs, relateToModule, toElmDocs)
+module Review.Api.Type exposing (Type(..), fromElmDocs, relateToModule, toElmDocs)
 
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Type

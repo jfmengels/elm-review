@@ -11,8 +11,8 @@ module Review.Api.Union exposing
 -}
 
 import Dict exposing (Dict)
+import Review.Api.Type exposing (Type)
 import Review.Internal.Union
-import Review.Type exposing (Type)
 
 
 {-| Representation of a union type, or a "custom type" as what it is most often referred to in Elm.
@@ -40,7 +40,7 @@ name =
 
 {-| Get the constructors for a union type.
 
-    import Review.Type as Type
+    import Review.Api.Type as Type
 
     type
         Maybe a

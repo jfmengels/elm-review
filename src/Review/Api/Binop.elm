@@ -11,8 +11,8 @@ module Review.Api.Binop exposing
 -}
 
 import Elm.Docs
+import Review.Api.Type as Type
 import Review.Internal.Binop
-import Review.Type as Type
 
 
 {-| Representation of a binary operator, such as `+`, `-` and `|>`.
@@ -75,7 +75,7 @@ documentation =
 
 {-| Get the type of a binary operator.
 
-    import Review.Type as Type
+    import Review.Api.Type as Type
 
     add : number -> number -> number
     add =

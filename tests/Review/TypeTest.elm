@@ -3,7 +3,7 @@ module Review.TypeTest exposing (suite)
 import Elm.Type
 import Expect
 import Fuzz exposing (Fuzzer)
-import Review.Type as Type
+import Review.Api.Type as Type
 import Test exposing (Test)
 
 

@@ -10,8 +10,8 @@ module Review.Api.Alias exposing
 
 -}
 
+import Review.Api.Type exposing (Type(..))
 import Review.Internal.Alias
-import Review.Type exposing (Type(..))
 
 
 {-| Representation of a type alias.
@@ -42,7 +42,7 @@ name =
 
 {-| Get the type of a type alias.
 
-    import Review.Type as Type
+    import Review.Api.Type as Type
 
     type alias Age =
         --> Type.Type [ "Basics" ] "Int" []

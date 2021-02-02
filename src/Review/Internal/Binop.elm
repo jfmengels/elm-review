@@ -12,7 +12,7 @@ module Review.Internal.Binop exposing
     )
 
 import Elm.Docs
-import Review.Type as Type
+import Review.Api.Type as Type
 
 
 type Binop

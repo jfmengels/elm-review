@@ -14,7 +14,7 @@ module Review.Internal.Union exposing
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
-import Review.Type as Type exposing (Type)
+import Review.Api.Type as Type exposing (Type)
 
 
 type Union
