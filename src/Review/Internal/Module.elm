@@ -10,6 +10,7 @@ import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Review.Api.Alias as Alias exposing (Alias)
 import Review.Api.Binop exposing (Binop)
+import Review.Api.Port exposing (Port)
 import Review.Api.Union as Union exposing (Union)
 import Review.Internal.Alias
 import Review.Internal.Binop
@@ -25,6 +26,7 @@ type Module
         , unions : Dict String Union
         , aliases : Dict String Alias
         , values : Dict String Value
+        , ports : Dict String Port
         , binops : List Binop
         }
 
@@ -67,6 +69,9 @@ create params =
                 ]
                 |> List.map (\element -> ( Value.name element, element ))
                 |> Dict.fromList
+
+        -- TODO Collect ports
+        , ports = Dict.empty
         , binops = params.binops
         }
 
@@ -114,6 +119,7 @@ fromElmDocs elmDocsModule =
                 ]
                 |> List.map (\element -> ( Value.name element, element ))
                 |> Dict.fromList
+        , ports = Dict.empty
         , binops = List.map Review.Internal.Binop.fromElmDocs elmDocsModule.binops
         }
 
@@ -152,5 +158,6 @@ fromElmDocsModule elmDocsModule =
                 ]
                 |> List.map (\element -> ( Value.name element, element ))
                 |> Dict.fromList
+        , ports = Dict.empty
         , binops = List.map Review.Internal.Binop.fromElmDocs elmDocsModule.binops
         }

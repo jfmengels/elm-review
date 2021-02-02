@@ -2,6 +2,7 @@ module Review.Api.Module exposing
     ( ModuleApi
     , aliases
     , binops
+    , ports
     , unions
     , values
     )
@@ -9,6 +10,7 @@ module Review.Api.Module exposing
 import Dict exposing (Dict)
 import Review.Api.Alias exposing (Alias)
 import Review.Api.Binop exposing (Binop)
+import Review.Api.Port exposing (Port)
 import Review.Api.Union exposing (Union)
 import Review.Internal.Module
 import Review.Internal.Value exposing (Value)
@@ -35,6 +37,11 @@ aliases (Review.Internal.Module.Module m) =
 values : ModuleApi -> Dict String Value
 values (Review.Internal.Module.Module m) =
     m.values
+
+
+ports : ModuleApi -> Dict String Port
+ports (Review.Internal.Module.Module m) =
+    m.ports
 
 
 binops : ModuleApi -> List Binop

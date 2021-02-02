@@ -9,6 +9,7 @@ import Expect exposing (Expectation)
 import Review.Api.Alias as Alias
 import Review.Api.Binop as Binop
 import Review.Api.Module as ModuleApi exposing (ModuleApi)
+import Review.Api.Port as Port
 import Review.Api.Union as Union
 import Review.Api.Value as Value
 import Review.Project as Project exposing (Project)
@@ -131,7 +132,7 @@ port b : (Int -> msg) -> Sub msg
                         (rule
                             (\dict ->
                                 Dict.get [ "A" ] dict
-                                    |> Maybe.map (ModuleApi.values >> Dict.values >> List.sortBy Value.name >> List.map Debug.toString >> String.join "\n")
+                                    |> Maybe.map (ModuleApi.ports >> Dict.values >> List.sortBy Port.name >> List.map Debug.toString >> String.join "\n")
                                     |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
                             )
                         )
