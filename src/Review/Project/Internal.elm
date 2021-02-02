@@ -20,7 +20,7 @@ import Elm.Syntax.File
 import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
-import Review.ModuleInformation exposing (ModuleApi)
+import Review.ModuleApi exposing (ModuleApi)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Project.Dependency exposing (Dependency)
 import Vendor.Graph as Graph exposing (Graph)

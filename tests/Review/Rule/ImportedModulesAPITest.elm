@@ -6,7 +6,7 @@ import Elm.Syntax.Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Expect exposing (Expectation)
-import Review.ModuleInformation as ModuleInformation exposing (ModuleApi)
+import Review.ModuleApi as ModuleInformation exposing (ModuleApi)
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test

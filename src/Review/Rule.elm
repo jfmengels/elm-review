@@ -279,7 +279,7 @@ import Review.Internal.Binop
 import Review.Internal.ModuleInformation
 import Review.Internal.Union
 import Review.Internal.Value
-import Review.ModuleInformation as ModuleInformation exposing (ModuleApi)
+import Review.ModuleApi as ModuleInformation exposing (ModuleApi)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Project exposing (ProjectModule)

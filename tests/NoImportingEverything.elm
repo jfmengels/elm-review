@@ -13,7 +13,7 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import Review.Fix as Fix exposing (Fix)
-import Review.ModuleInformation as ModuleInformation exposing (ModuleApi)
+import Review.ModuleApi as ModuleInformation exposing (ModuleApi)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Type.Union as Union
