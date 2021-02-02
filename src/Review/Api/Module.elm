@@ -1,6 +1,6 @@
 module Review.Api.Module exposing
     ( ModuleApi
-    , aliasesAsDict
+    , aliases
     , binops
     , fromDependencies
     , getAliasByName
@@ -91,13 +91,8 @@ unionsAsDict (Review.Internal.ModuleInformation.ModuleInformation m) =
     m.unions
 
 
-aliases : ModuleApi -> List Alias
+aliases : ModuleApi -> Dict String Alias
 aliases (Review.Internal.ModuleInformation.ModuleInformation m) =
-    Dict.values m.aliases
-
-
-aliasesAsDict : ModuleApi -> Dict String Alias
-aliasesAsDict (Review.Internal.ModuleInformation.ModuleInformation m) =
     m.aliases
 
 
