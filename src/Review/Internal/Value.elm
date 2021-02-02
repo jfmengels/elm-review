@@ -13,9 +13,9 @@ module Review.Internal.Value exposing
 import Dict
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
+import Review.Api.Alias as Alias exposing (Alias)
+import Review.Api.Union as Union exposing (Union)
 import Review.Type as Type exposing (Type(..))
-import Review.Type.Alias as Alias exposing (Alias)
-import Review.Type.Union as Union exposing (Union)
 
 
 type Value

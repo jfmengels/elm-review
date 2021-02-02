@@ -1,4 +1,4 @@
-module Review.Type.Alias exposing
+module Review.Api.Alias exposing
     ( Alias
     , name, tipe, args, documentation
     )

@@ -16,15 +16,15 @@ module Review.Api.Module exposing
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
+import Review.Api.Alias as Alias exposing (Alias)
+import Review.Api.Binop exposing (Binop)
+import Review.Api.Union as Union exposing (Union)
 import Review.Internal.Alias
 import Review.Internal.Binop
 import Review.Internal.ModuleInformation
 import Review.Internal.Union
 import Review.Internal.Value as Value exposing (Value)
 import Review.Project.Dependency
-import Review.Type.Alias as Alias exposing (Alias)
-import Review.Type.Binop exposing (Binop)
-import Review.Type.Union as Union exposing (Union)
 
 
 type alias ModuleApi =

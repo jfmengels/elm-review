@@ -6,14 +6,14 @@ import Elm.Syntax.Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Expect exposing (Expectation)
+import Review.Api.Alias as Alias
+import Review.Api.Binop as Binop
 import Review.Api.Module as ModuleApi exposing (ModuleApi)
+import Review.Api.Union as Union
+import Review.Api.Value as Value
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
-import Review.Type.Alias as Alias
-import Review.Type.Binop as Binop
-import Review.Type.Union as Union
-import Review.Type.Value as Value
 import Test exposing (Test, test)
 
 

@@ -271,7 +271,11 @@ import Elm.Syntax.Type
 import Elm.Syntax.TypeAlias exposing (TypeAlias)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
+import Review.Api.Alias as Alias exposing (Alias)
+import Review.Api.Binop as Binop exposing (Binop)
 import Review.Api.Module as ModuleApi exposing (ModuleApi)
+import Review.Api.Union as Union exposing (Union)
+import Review.Api.Value as Value exposing (Value)
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix exposing (Fix)
@@ -286,10 +290,6 @@ import Review.Project exposing (ProjectModule)
 import Review.Project.Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
 import Review.Type
-import Review.Type.Alias as Alias exposing (Alias)
-import Review.Type.Binop as Binop exposing (Binop)
-import Review.Type.Union as Union exposing (Union)
-import Review.Type.Value as Value exposing (Value)
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
@@ -4824,7 +4824,7 @@ registerExposedValue function name innerContext =
 registerExposedCustomType : Elm.Syntax.Type.Type -> Bool -> ScopeModuleContext -> ScopeModuleContext
 registerExposedCustomType declaredType exposesConstructors innerContext =
     let
-        constructors : List ( String, List Review.Type.Type )
+        constructors : List ( String, List Review.Api.Type )
         constructors =
             if exposesConstructors then
                 List.map
@@ -4932,14 +4932,14 @@ registerCustomTypeIfExposed registerFn name innerContext =
                 innerContext
 
 
-convertTypeSignatureToInferenceType : ScopeModuleContext -> Maybe (Node Signature) -> Review.Type.Type
+convertTypeSignatureToInferenceType : ScopeModuleContext -> Maybe (Node Signature) -> Review.Api.Type
 convertTypeSignatureToInferenceType innerContext maybeSignature =
     case Maybe.map (Node.value >> .typeAnnotation) maybeSignature of
         Just typeAnnotation ->
             syntaxTypeAnnotationToInferenceType innerContext typeAnnotation
 
         Nothing ->
-            Review.Type.Unknown
+            Review.Api.Unknown
 
 
 syntaxTypeAnnotationToDocsType : ScopeModuleContext -> Node TypeAnnotation -> Elm.Type.Type
@@ -4990,11 +4990,11 @@ recordUpdateToDocsType innerContext updates =
         updates
 
 
-syntaxTypeAnnotationToInferenceType : ScopeModuleContext -> Node TypeAnnotation -> Review.Type.Type
+syntaxTypeAnnotationToInferenceType : ScopeModuleContext -> Node TypeAnnotation -> Review.Api.Type
 syntaxTypeAnnotationToInferenceType innerContext (Node _ typeAnnotation) =
     case typeAnnotation of
         TypeAnnotation.GenericType name ->
-            Review.Type.Generic name
+            Review.Api.Generic name
 
         TypeAnnotation.Typed (Node _ ( moduleName, typeName )) typeParameters ->
             let
@@ -5007,38 +5007,38 @@ syntaxTypeAnnotationToInferenceType innerContext (Node _ typeAnnotation) =
                         realModuleName_ ->
                             realModuleName_
             in
-            Review.Type.Type
+            Review.Api.Type
                 realModuleName
                 typeName
                 (List.map (syntaxTypeAnnotationToInferenceType innerContext) typeParameters)
 
         TypeAnnotation.Unit ->
-            Review.Type.Tuple []
+            Review.Api.Tuple []
 
         TypeAnnotation.Tupled list ->
-            Review.Type.Tuple (List.map (syntaxTypeAnnotationToInferenceType innerContext) list)
+            Review.Api.Tuple (List.map (syntaxTypeAnnotationToInferenceType innerContext) list)
 
         TypeAnnotation.Record updates ->
-            Review.Type.Record
+            Review.Api.Record
                 { fields = recordUpdateToInferenceType innerContext updates
                 , generic = Nothing
                 , mayHaveMoreFields = False
                 }
 
         TypeAnnotation.GenericRecord (Node _ generic) (Node _ updates) ->
-            Review.Type.Record
+            Review.Api.Record
                 { fields = recordUpdateToInferenceType innerContext updates
                 , generic = Just generic
                 , mayHaveMoreFields = False
                 }
 
         TypeAnnotation.FunctionTypeAnnotation left right ->
-            Review.Type.Function
+            Review.Api.Function
                 (syntaxTypeAnnotationToInferenceType innerContext left)
                 (syntaxTypeAnnotationToInferenceType innerContext right)
 
 
-recordUpdateToInferenceType : ScopeModuleContext -> List (Node TypeAnnotation.RecordField) -> List ( String, Review.Type.Type )
+recordUpdateToInferenceType : ScopeModuleContext -> List (Node TypeAnnotation.RecordField) -> List ( String, Review.Api.Type )
 recordUpdateToInferenceType innerContext updates =
     List.map
         (\(Node _ ( name, typeAnnotation )) ->

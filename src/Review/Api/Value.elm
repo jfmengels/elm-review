@@ -1,4 +1,4 @@
-module Review.Type.Value exposing
+module Review.Api.Value exposing
     ( Value
     , name, tipe, documentation
     )

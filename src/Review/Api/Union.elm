@@ -1,4 +1,4 @@
-module Review.Type.Union exposing
+module Review.Api.Union exposing
     ( Union
     , name, constructors, args, documentation
     )

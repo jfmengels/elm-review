@@ -24,10 +24,10 @@ import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import NoUnused.NonemptyList as NonemptyList exposing (Nonempty)
 import NoUnused.RangeDict as RangeDict exposing (RangeDict)
 import Review.Api.Module as ModuleApi exposing (ModuleApi)
+import Review.Api.Union as Union
 import Review.Fix as Fix exposing (Fix)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
-import Review.Type.Union as Union
 import Set exposing (Set)
 
 

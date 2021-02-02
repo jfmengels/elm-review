@@ -1,4 +1,4 @@
-module Review.Type.Binop exposing
+module Review.Api.Binop exposing
     ( Binop
     , name, tipe, documentation, associativity, precedence, associatedFunction
     )
