@@ -279,7 +279,7 @@ import Review.Internal.Binop
 import Review.Internal.ModuleInformation
 import Review.Internal.Union
 import Review.Internal.Value
-import Review.ModuleInformation as ModuleInformation exposing (ModuleInformation)
+import Review.ModuleInformation as ModuleInformation exposing (ModuleApi)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Project exposing (ProjectModule)
@@ -447,7 +447,7 @@ review rules project =
                                     Maybe.map (\(Extract { lookupTables }) -> lookupTables) scopeResult.extract
                                         |> Maybe.withDefault Dict.empty
 
-                                moduleAPIs : Dict ModuleName ModuleInformation
+                                moduleAPIs : Dict ModuleName ModuleApi
                                 moduleAPIs =
                                     Maybe.map (\(Extract { modules }) -> modules) scopeResult.extract
                                         |> Maybe.withDefault Dict.empty
@@ -619,7 +619,7 @@ runReview ((Project p) as project) rules maybeProjectData nodeContexts =
             Maybe.map (\(Extract { lookupTables }) -> lookupTables) scopeResult.extract
                 |> Maybe.withDefault Dict.empty
 
-        moduleAPIs : Dict ModuleName ModuleInformation
+        moduleAPIs : Dict ModuleName ModuleApi
         moduleAPIs =
             Maybe.map (\(Extract { modules }) -> modules) scopeResult.extract
                 |> Maybe.withDefault Dict.empty
@@ -1641,7 +1641,7 @@ withFinalProjectEvaluation visitor (ProjectRuleSchema schema) =
 type Extract
     = Extract
         { lookupTables : Dict ModuleName ModuleNameLookupTable
-        , modules : Dict ModuleName ModuleInformation
+        , modules : Dict ModuleName ModuleApi
         }
 
 
@@ -3646,7 +3646,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
         moduleNameLookupTables =
             Review.Project.Internal.moduleNameLookupTables project
 
-        moduleAPIs : Dict ModuleName ModuleInformation
+        moduleAPIs : Dict ModuleName ModuleApi
         moduleAPIs =
             Review.Project.Internal.moduleAPIs project
 
@@ -4275,7 +4275,7 @@ withModuleNameLookupTable (ContextCreator fn (RequestedData requested)) =
 
 {-| TODO
 -}
-withImportedModulesApi : ContextCreator (Dict ModuleName ModuleInformation) (from -> to) -> ContextCreator from to
+withImportedModulesApi : ContextCreator (Dict ModuleName ModuleApi) (from -> to) -> ContextCreator from to
 withImportedModulesApi (ContextCreator fn (RequestedData requested)) =
     ContextCreator
         (\data -> fn data data.importedModulesAPI)
@@ -4305,7 +4305,7 @@ type alias AvailableData =
     { metadata : Metadata
     , moduleKey : ModuleKey
     , moduleNameLookupTable : ModuleNameLookupTable
-    , importedModulesAPI : Dict ModuleName ModuleInformation
+    , importedModulesAPI : Dict ModuleName ModuleApi
     }
 
 
@@ -4381,8 +4381,8 @@ scopeRule =
 
 
 type alias ScopeProjectContext =
-    { dependenciesModules : Dict ModuleName ModuleInformation
-    , modules : Dict ModuleName ModuleInformation
+    { dependenciesModules : Dict ModuleName ModuleApi
+    , modules : Dict ModuleName ModuleApi
     , lookupTables : Dict ModuleName ModuleNameLookupTable
     }
 
@@ -4393,8 +4393,8 @@ type alias ScopeModuleContext =
     , importAliases : Dict String (List ModuleName)
     , importedFunctions : Dict String (List String)
     , importedTypes : Dict String (List String)
-    , dependenciesModules : Dict ModuleName ModuleInformation
-    , modules : Dict ModuleName ModuleInformation
+    , dependenciesModules : Dict ModuleName ModuleApi
+    , modules : Dict ModuleName ModuleApi
     , exposesEverything : Bool
     , exposedNames : Dict String Bool
     , exposedUnions : List Union
@@ -5151,7 +5151,7 @@ registerImportExposed import_ innerContext =
                 moduleName =
                     Node.value import_.moduleName
 
-                module_ : ModuleInformation
+                module_ : ModuleApi
                 module_ =
                     (case Dict.get moduleName innerContext.dependenciesModules of
                         Just m ->
@@ -5216,7 +5216,7 @@ registerImportExposed import_ innerContext =
                     }
 
 
-valuesFromExposingList : ModuleInformation -> Node TopLevelExpose -> List String
+valuesFromExposingList : ModuleApi -> Node TopLevelExpose -> List String
 valuesFromExposingList module_ topLevelExpose =
     case Node.value topLevelExpose of
         Exposing.InfixExpose operator ->
@@ -5755,12 +5755,12 @@ moduleNameForType context typeName moduleName =
             moduleName
 
 
-isValueDeclaredInModule : String -> ModuleInformation -> Bool
+isValueDeclaredInModule : String -> ModuleApi -> Bool
 isValueDeclaredInModule valueName module_ =
     ModuleInformation.getValueByName valueName module_ /= Nothing
 
 
-isTypeDeclaredInModule : String -> ModuleInformation -> Bool
+isTypeDeclaredInModule : String -> ModuleApi -> Bool
 isTypeDeclaredInModule typeName module_ =
     (ModuleInformation.getAliasByName typeName module_ /= Nothing)
         || (ModuleInformation.getUnionByName typeName module_ /= Nothing)

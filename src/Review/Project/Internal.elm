@@ -20,7 +20,7 @@ import Elm.Syntax.File
 import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
-import Review.ModuleInformation exposing (ModuleInformation)
+import Review.ModuleInformation exposing (ModuleApi)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Project.Dependency exposing (Dependency)
 import Vendor.Graph as Graph exposing (Graph)
@@ -35,7 +35,7 @@ type Project
         , dependencies : Dict String Dependency
         , moduleGraph : Maybe (Graph ModuleName ())
         , sourceDirectories : List String
-        , moduleAPIs : Dict ModuleName ModuleInformation
+        , moduleAPIs : Dict ModuleName ModuleApi
         , moduleNameLookupTables : Dict ModuleName ModuleNameLookupTable
         }
 
@@ -76,7 +76,7 @@ moduleNameLookupTables (Project project) =
     project.moduleNameLookupTables
 
 
-moduleAPIs : Project -> Dict ModuleName ModuleInformation
+moduleAPIs : Project -> Dict ModuleName ModuleApi
 moduleAPIs (Project project) =
     project.moduleAPIs
 

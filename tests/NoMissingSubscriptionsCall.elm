@@ -11,7 +11,7 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
-import Review.ModuleInformation as ModuleInformation exposing (ModuleInformation)
+import Review.ModuleInformation as ModuleInformation exposing (ModuleApi)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
@@ -72,7 +72,7 @@ rule =
 
 type alias Context =
     { lookupTable : ModuleNameLookupTable
-    , importedModulesAPI : Dict ModuleName ModuleInformation
+    , importedModulesAPI : Dict ModuleName ModuleApi
     , usesUpdateOfModule : Dict ModuleName Range
     , usesSubscriptionsOfModule : Set ModuleName
     }
@@ -136,7 +136,7 @@ finalEvaluation context =
             )
 
 
-definesUpdateFunction : ModuleName -> Dict ModuleName ModuleInformation -> Bool
+definesUpdateFunction : ModuleName -> Dict ModuleName ModuleApi -> Bool
 definesUpdateFunction moduleName dict =
     case Dict.get moduleName dict |> Maybe.andThen (ModuleInformation.getValueByName "subscriptions") of
         Just _ ->

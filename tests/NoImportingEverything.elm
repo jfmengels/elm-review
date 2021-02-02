@@ -13,7 +13,7 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import Review.Fix as Fix exposing (Fix)
-import Review.ModuleInformation as ModuleInformation exposing (ModuleInformation)
+import Review.ModuleInformation as ModuleInformation exposing (ModuleApi)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Type.Union as Union
@@ -74,7 +74,7 @@ rule exceptions =
 type alias Context =
     { lookupTable : ModuleNameLookupTable
     , imports : Dict ModuleName ImportData
-    , importedModulesAPI : Dict ModuleName ModuleInformation
+    , importedModulesAPI : Dict ModuleName ModuleApi
     }
 
 
@@ -166,7 +166,7 @@ valueVisitor (Node range ( moduleName, name )) context =
             ( [], context )
 
 
-registerUseOfValue : Dict ModuleName ModuleInformation -> ModuleName -> String -> ImportData -> ImportData
+registerUseOfValue : Dict ModuleName ModuleApi -> ModuleName -> String -> ImportData -> ImportData
 registerUseOfValue importedModulesAPI moduleName name v =
     case Dict.get moduleName importedModulesAPI of
         Just api ->

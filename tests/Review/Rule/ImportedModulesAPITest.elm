@@ -6,7 +6,7 @@ import Elm.Syntax.Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Expect exposing (Expectation)
-import Review.ModuleInformation as ModuleInformation exposing (ModuleInformation)
+import Review.ModuleInformation as ModuleInformation exposing (ModuleApi)
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
@@ -17,14 +17,14 @@ import Review.Type.Value as Value
 import Test exposing (Test, test)
 
 
-rule : (Dict ModuleName ModuleInformation -> String) -> Rule
+rule : (Dict ModuleName ModuleApi -> String) -> Rule
 rule whatToPrint =
     Rule.newModuleRuleSchemaUsingContextCreator "ImportedModulesAPITest" initialContext
         |> Rule.withModuleDefinitionVisitor (moduleDefinitionVisitor whatToPrint)
         |> Rule.fromModuleRuleSchema
 
 
-moduleDefinitionVisitor : (Dict ModuleName ModuleInformation -> String) -> Node Module -> Context -> ( List (Error {}), Context )
+moduleDefinitionVisitor : (Dict ModuleName ModuleApi -> String) -> Node Module -> Context -> ( List (Error {}), Context )
 moduleDefinitionVisitor whatToPrint node context =
     if Elm.Syntax.Module.moduleName (Node.value node) == [ "Target" ] then
         ( [ Rule.error { message = whatToPrint context, details = [ "details" ] }
@@ -40,7 +40,7 @@ moduleDefinitionVisitor whatToPrint node context =
 
 
 type alias Context =
-    Dict ModuleName ModuleInformation
+    Dict ModuleName ModuleApi
 
 
 initialContext : Rule.ContextCreator () Context

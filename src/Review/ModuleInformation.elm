@@ -1,5 +1,5 @@
 module Review.ModuleInformation exposing
-    ( ModuleInformation
+    ( ModuleApi
     , aliases
     , aliasesAsDict
     , binops
@@ -27,11 +27,11 @@ import Review.Type.Binop exposing (Binop)
 import Review.Type.Union as Union exposing (Union)
 
 
-type alias ModuleInformation =
+type alias ModuleApi =
     Review.Internal.ModuleInformation.ModuleInformation
 
 
-fromElmDocs : Elm.Docs.Module -> ModuleInformation
+fromElmDocs : Elm.Docs.Module -> ModuleApi
 fromElmDocs elmDocsModule =
     let
         moduleName : List String
@@ -69,7 +69,7 @@ fromElmDocs elmDocsModule =
         }
 
 
-fromDependencies : Dict String Review.Project.Dependency.Dependency -> Dict ModuleName ModuleInformation
+fromDependencies : Dict String Review.Project.Dependency.Dependency -> Dict ModuleName ModuleApi
 fromDependencies dependencies =
     dependencies
         |> Dict.values
@@ -82,51 +82,51 @@ fromDependencies dependencies =
 -- MODULE DATA ACCESS
 
 
-unions : ModuleInformation -> List Union
+unions : ModuleApi -> List Union
 unions (Review.Internal.ModuleInformation.ModuleInformation m) =
     Dict.values m.unions
 
 
-unionsAsDict : ModuleInformation -> Dict String Union
+unionsAsDict : ModuleApi -> Dict String Union
 unionsAsDict (Review.Internal.ModuleInformation.ModuleInformation m) =
     m.unions
 
 
-aliases : ModuleInformation -> List Alias
+aliases : ModuleApi -> List Alias
 aliases (Review.Internal.ModuleInformation.ModuleInformation m) =
     Dict.values m.aliases
 
 
-aliasesAsDict : ModuleInformation -> Dict String Alias
+aliasesAsDict : ModuleApi -> Dict String Alias
 aliasesAsDict (Review.Internal.ModuleInformation.ModuleInformation m) =
     m.aliases
 
 
-getAliasByName : String -> ModuleInformation -> Maybe Alias
+getAliasByName : String -> ModuleApi -> Maybe Alias
 getAliasByName name (Review.Internal.ModuleInformation.ModuleInformation m) =
     Dict.get name m.aliases
 
 
-values : ModuleInformation -> List Value
+values : ModuleApi -> List Value
 values (Review.Internal.ModuleInformation.ModuleInformation m) =
     Dict.values m.values
 
 
-valuesAsDict : ModuleInformation -> Dict String Value
+valuesAsDict : ModuleApi -> Dict String Value
 valuesAsDict (Review.Internal.ModuleInformation.ModuleInformation m) =
     m.values
 
 
-getValueByName : String -> ModuleInformation -> Maybe Value
+getValueByName : String -> ModuleApi -> Maybe Value
 getValueByName name (Review.Internal.ModuleInformation.ModuleInformation m) =
     Dict.get name m.values
 
 
-binops : ModuleInformation -> List Binop
+binops : ModuleApi -> List Binop
 binops (Review.Internal.ModuleInformation.ModuleInformation m) =
     m.binops
 
 
-getUnionByName : String -> ModuleInformation -> Maybe Union
+getUnionByName : String -> ModuleApi -> Maybe Union
 getUnionByName name (Review.Internal.ModuleInformation.ModuleInformation m) =
     Dict.get name m.unions
