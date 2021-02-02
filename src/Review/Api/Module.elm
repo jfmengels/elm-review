@@ -1,6 +1,5 @@
 module Review.Api.Module exposing
     ( ModuleApi
-    , aliases
     , aliasesAsDict
     , binops
     , fromDependencies

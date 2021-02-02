@@ -5184,8 +5184,8 @@ registerImportExposed import_ innerContext =
                         exposedTypes : Dict String (List String)
                         exposedTypes =
                             List.concat
-                                [ List.map (\value -> ( Union.name value, moduleName )) (ModuleApi.unions module_)
-                                , List.map (\value -> ( Alias.name value, moduleName )) (ModuleApi.aliases module_)
+                                [ List.map (\value -> ( Union.name value, moduleName )) (Dict.values (ModuleApi.unionsAsDict module_))
+                                , List.map (\value -> ( Alias.name value, moduleName )) (Dict.values (ModuleApi.aliasesAsDict module_))
                                 ]
                                 |> Dict.fromList
                     in

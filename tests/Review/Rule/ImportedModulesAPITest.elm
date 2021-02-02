@@ -175,7 +175,7 @@ type Internal = Internal
                         (rule
                             (\dict ->
                                 Dict.get [ "A" ] dict
-                                    |> Maybe.map (ModuleApi.aliases >> List.sortBy Alias.name >> List.map Debug.toString >> String.join "\n")
+                                    |> Maybe.map (ModuleApi.aliasesAsDict >> Dict.values >> List.sortBy Alias.name >> List.map Debug.toString >> String.join "\n")
                                     |> Maybe.withDefault "ERROR: MODULE WAS WAS FOUND"
                             )
                         )
