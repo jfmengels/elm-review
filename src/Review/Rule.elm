@@ -5237,7 +5237,8 @@ valuesFromExposingList module_ topLevelExpose =
         Exposing.TypeExpose { name, open } ->
             case open of
                 Just _ ->
-                    ModuleApi.unions module_
+                    ModuleApi.unionsAsDict module_
+                        |> Dict.values
                         |> List.filter (\union -> Union.name union == name)
                         |> List.concatMap (Union.constructors >> Dict.keys)
 
