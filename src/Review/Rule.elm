@@ -274,6 +274,7 @@ import Elm.Type
 import Review.Api.Alias as Alias exposing (Alias)
 import Review.Api.Binop as Binop exposing (Binop)
 import Review.Api.Module as ModuleApi exposing (ModuleApi)
+import Review.Api.Port exposing (Port)
 import Review.Api.Type
 import Review.Api.Union as Union exposing (Union)
 import Review.Api.Value as Value exposing (Value)
@@ -4400,6 +4401,7 @@ type alias ScopeModuleContext =
     , exposedUnions : List Union
     , exposedAliases : List Alias
     , exposedValues : List Value
+    , exposedPorts : List Port
     , exposedBinops : List Binop
     , currentModuleName : ModuleName
     , lookupTable : ModuleNameLookupTable
@@ -4443,6 +4445,7 @@ scope_fromProjectToModule _ moduleName projectContext =
     , exposedUnions = []
     , exposedAliases = []
     , exposedValues = []
+    , exposedPorts = []
     , exposedBinops = []
     , currentModuleName = Node.value moduleName
     , lookupTable = ModuleNameLookupTableInternal.empty
@@ -4461,6 +4464,7 @@ scope_fromModuleToProject _ moduleName moduleContext =
                 , unions = moduleContext.exposedUnions
                 , aliases = moduleContext.exposedAliases
                 , values = moduleContext.exposedValues
+                , ports = moduleContext.exposedPorts
                 , binops = moduleContext.exposedBinops
                 }
             )
