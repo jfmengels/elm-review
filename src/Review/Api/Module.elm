@@ -29,7 +29,7 @@ type alias ModuleApi =
 -- MODULE DATA ACCESS
 
 
-{-| Get all the values (functions and constants) exposed from a module, including values created by type definitions.
+{-| Get all the values (functions and constants) exposed from a module, including ports and values created by type definitions.
 -}
 values : ModuleApi -> Dict String Value
 values (Review.Internal.Module.Module m) =
