@@ -1,5 +1,14 @@
 module Review.Api.Type exposing (Type(..), fromElmDocs, relateToModule, toElmDocs)
 
+-- TODO Expose, consider what to expose
+{- TODO Add a function to "expand", with knowledge of type alias?
+
+   type alias A = { a : Int }
+   someType : A
+   -- type of someType: Type [] A []
+   -- Expanded someType: Record { fields = [ ( "a", Type [ "Basics" ] "Int" [] ) ], generic = Nothing, mayHaveMoreFields = False }
+-}
+
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Type
 
@@ -13,6 +22,8 @@ type Type
     | Record
         { fields : List ( String, Type )
         , generic : Maybe String
+
+        -- TODO Decide whether this is something that we want to expose or not
         , mayHaveMoreFields : Bool
         }
 
