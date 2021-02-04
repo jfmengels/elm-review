@@ -19,6 +19,8 @@ import Review.Api.Value exposing (Value)
 import Review.Internal.Module
 
 
+{-| Contains the full API of an Elm module.
+-}
 type alias ModuleApi =
     Review.Internal.Module.Module
 
@@ -27,28 +29,39 @@ type alias ModuleApi =
 -- MODULE DATA ACCESS
 
 
-{-| Get all the values from a module. These include
+{-| Get all the values (functions and constants) exposed from a module, including values created by type definitions.
 -}
 values : ModuleApi -> Dict String Value
 values (Review.Internal.Module.Module m) =
     m.values
 
 
+{-| Get all the ports exposed from a module.
+-}
 ports : ModuleApi -> Dict String Port
 ports (Review.Internal.Module.Module m) =
     m.ports
 
 
+{-| Get all the type aliases exposed from a module.
+-}
 aliases : ModuleApi -> Dict String Alias
 aliases (Review.Internal.Module.Module m) =
     m.aliases
 
 
+{-| Get all the unions (custom types) exposed from a module.
+-}
 unions : ModuleApi -> Dict String Union
 unions (Review.Internal.Module.Module m) =
     m.unions
 
 
+{-| Get all the binary operators exposed from a module.
+
+You will likely only find these in packages under the `elm/` organization.
+
+-}
 binops : ModuleApi -> List Binop
 binops (Review.Internal.Module.Module m) =
     m.binops
