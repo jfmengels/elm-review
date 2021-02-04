@@ -1,4 +1,4 @@
-module Review.Internal.Port exposing (Port, name, tipe)
+module Review.Internal.Port exposing (Port, create, name, tipe)
 
 {-| Fill
 -}
@@ -11,6 +11,11 @@ type Port
         { name : String
         , tipe : Type
         }
+
+
+create : { name : String, tipe : Type } -> Port
+create =
+    Port
 
 
 name : Port -> String

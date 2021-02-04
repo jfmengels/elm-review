@@ -284,6 +284,7 @@ import Review.Fix exposing (Fix)
 import Review.Internal.Alias
 import Review.Internal.Binop
 import Review.Internal.Module
+import Review.Internal.Port
 import Review.Internal.Union
 import Review.Internal.Value
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
@@ -4787,7 +4788,7 @@ scope_registerExposedDeclaration declaration innerContext =
 
         Declaration.PortDeclaration signature ->
             registerIfExposed
-                (registerExposedValue { documentation = Nothing, signature = Just (Node (Node.range declaration) signature) })
+                (registerExposedPort signature)
                 (Node.value signature.name)
                 innerContext
 
@@ -4819,9 +4820,24 @@ registerExposedValue function name innerContext =
             Review.Internal.Value.create
                 { name = name
                 , documentation = getDocumentation function.documentation
-                , tipe = convertTypeSignatureToInferenceType innerContext function.signature
+                , tipe = convertTypeSignatureToInferenceType innerContext (Maybe.map Node.value function.signature)
                 }
                 :: innerContext.exposedValues
+    }
+
+
+registerExposedPort : Signature -> String -> ScopeModuleContext -> ScopeModuleContext
+registerExposedPort signature name innerContext =
+    { innerContext
+        | exposedPorts =
+            Review.Internal.Port.create
+                { name = name
+                , tipe = convertTypeSignatureToInferenceType innerContext (Just signature)
+
+                -- TODO Change this for elm-syntax v8
+                --, documentation = Nothing
+                }
+                :: innerContext.exposedPorts
     }
 
 
@@ -4936,9 +4952,9 @@ registerCustomTypeIfExposed registerFn name innerContext =
                 innerContext
 
 
-convertTypeSignatureToInferenceType : ScopeModuleContext -> Maybe (Node Signature) -> Review.Api.Type.Type
+convertTypeSignatureToInferenceType : ScopeModuleContext -> Maybe Signature -> Review.Api.Type.Type
 convertTypeSignatureToInferenceType innerContext maybeSignature =
-    case Maybe.map (Node.value >> .typeAnnotation) maybeSignature of
+    case Maybe.map .typeAnnotation maybeSignature of
         Just typeAnnotation ->
             syntaxTypeAnnotationToInferenceType innerContext typeAnnotation
 

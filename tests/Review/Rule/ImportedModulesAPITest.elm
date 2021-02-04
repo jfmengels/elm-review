@@ -122,9 +122,10 @@ Value { documentation = Nothing, name = "noType", tipe = Unknown }
         , test "should be able to list all the exposed ports from a module" <|
             \() ->
                 [ targetModule
-                , """port module A exposing (b, increment, noType)
+                , """port module A exposing (b, a)
 
-port a : Int -> Cmd msg
+port notExposed : Int -> Cmd msg
+port a : String -> Cmd msg
 port b : (Int -> msg) -> Sub msg
 """
                 ]
@@ -137,6 +138,8 @@ port b : (Int -> msg) -> Sub msg
                             )
                         )
                     |> expectToFind """
+Port { name = "a", tipe = Function (Type ["String"] "String" []) (Type ["Platform","Cmd"] "Cmd" [Generic "msg"]) }
+Port { name = "b", tipe = Function (Function (Type ["Basics"] "Int" []) (Generic "msg")) (Type ["Platform","Sub"] "Sub" [Generic "msg"]) }
 """
         , test "should be able to list all the custom types from a module" <|
             \() ->
