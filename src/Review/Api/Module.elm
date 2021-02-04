@@ -52,4 +52,9 @@ binops (Review.Internal.Module.Module m) =
 
 -- TODO Check if ports are present in values
 -- TODO Make it easy to only get function/constant declarations, without having to check for string casing
+{- TODO Find a nice API to query
+   - Only top-level declared functions and constants (including ports?)
+   - All values serving as functions (including from types)
+   - ...?
+-}
 -- TODO get real type and declared type
