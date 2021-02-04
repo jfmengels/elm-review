@@ -1,11 +1,14 @@
 module Review.Api.Module exposing
     ( ModuleApi
-    , aliases
-    , binops
-    , ports
-    , unions
-    , values
+    , values, ports, aliases, unions, binops
     )
+
+{-| Represents the exposed API of an Elm module.
+
+@docs ModuleApi
+@docs values, ports, aliases, unions, binops
+
+-}
 
 import Dict exposing (Dict)
 import Review.Api.Alias exposing (Alias)
