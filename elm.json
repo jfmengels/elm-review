@@ -14,6 +14,7 @@
         "Review.Api.Alias",
         "Review.Api.Binop",
         "Review.Api.Union",
+        "Review.Api.Module",
         "Review.Api.Value"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
