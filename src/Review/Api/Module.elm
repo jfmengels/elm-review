@@ -50,7 +50,6 @@ binops (Review.Internal.Module.Module m) =
 
 
 
--- TODO Also list ports
 -- TODO Check if ports are present in values
 -- TODO Make it easy to only get function/constant declarations, without having to check for string casing
 -- TODO get real type and declared type
