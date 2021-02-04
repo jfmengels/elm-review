@@ -9,8 +9,6 @@ module Review.Internal.Union exposing
     , relateToModule
     )
 
--- TODO Expose module, but hide implementation and type inside an "Internal" module
-
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Syntax.ModuleName exposing (ModuleName)
