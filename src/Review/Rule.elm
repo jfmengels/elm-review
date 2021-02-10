@@ -4604,21 +4604,21 @@ scope_registerDeclaration declaration innerContext =
                     }
                 |> registerIfExposed (registerExposedValue function) (Node.value nameNode)
 
-        Declaration.AliasDeclaration alias_ ->
-            { innerContext | localTypes = Set.insert (Node.value alias_.name) innerContext.localTypes }
+        Declaration.AliasDeclaration alias ->
+            { innerContext | localTypes = Set.insert (Node.value alias.name) innerContext.localTypes }
                 |> (\ctx ->
-                        case Node.value alias_.typeAnnotation of
+                        case Node.value alias.typeAnnotation of
                             TypeAnnotation.Record _ ->
                                 addToScope
                                     { variableType = TopLevelVariable
-                                    , node = alias_.name
+                                    , node = alias.name
                                     }
                                     ctx
 
                             _ ->
                                 ctx
                    )
-                |> registerIfExposed registerExposedTypeAlias (Node.value alias_.name)
+                |> registerIfExposed registerExposedTypeAlias (Node.value alias.name)
 
         Declaration.CustomTypeDeclaration { name, constructors } ->
             List.foldl
@@ -4858,11 +4858,11 @@ registerImportAlias import_ innerContext =
                 _ ->
                     innerContext
 
-        Just alias_ ->
+        Just alias ->
             { innerContext
                 | importAliases =
                     Dict.update
-                        (Node.value alias_ |> joinModuleName)
+                        (Node.value alias |> joinModuleName)
                         (\previousValue -> Just <| Node.value import_.moduleName :: Maybe.withDefault [] previousValue)
                         innerContext.importAliases
             }
@@ -4964,7 +4964,7 @@ valuesFromExposingList module_ topLevelExpose =
             [ function ]
 
         Exposing.TypeOrAliasExpose name ->
-            if List.any (\alias_ -> alias_.name == name) module_.aliases then
+            if List.any (\alias -> alias.name == name) module_.aliases then
                 [ name ]
 
             else
@@ -5129,8 +5129,8 @@ collectNamesFromPattern pattern =
         Pattern.NamedPattern _ subPatterns ->
             List.concatMap collectNamesFromPattern subPatterns
 
-        Pattern.AsPattern subPattern alias_ ->
-            alias_ :: collectNamesFromPattern subPattern
+        Pattern.AsPattern subPattern alias ->
+            alias :: collectNamesFromPattern subPattern
 
         Pattern.ParenthesizedPattern subPattern ->
             collectNamesFromPattern subPattern

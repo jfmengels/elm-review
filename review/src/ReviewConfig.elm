@@ -19,6 +19,8 @@ import NoImportingEverything
 import NoMissingTypeAnnotation
 import NoMissingTypeAnnotationInLetIn
 import NoMissingTypeExpose
+import NoSimpleLetBody
+import NoUnnecessaryTrailingUnderscore
 import NoUnused.CustomTypeConstructors
 import NoUnused.Dependencies
 import NoUnused.Exports
@@ -50,6 +52,8 @@ config =
     , NoUnused.Modules.rule
     , NoUnused.Parameters.rule
     , NoUnused.Patterns.rule
+    , NoSimpleLetBody.rule
+    , NoUnnecessaryTrailingUnderscore.rule
     , NoUnused.Variables.rule
     ]
         |> List.map (Rule.ignoreErrorsForDirectories [ "src/Vendor/", "tests/Vendor/" ])

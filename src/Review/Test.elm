@@ -370,7 +370,7 @@ runOnModulesWithProjectData project rule sources =
                                     |> Rule.reviewV2 [ rule ] Nothing
                                     |> .errors
                         in
-                        case ListExtra.find (\err_ -> Rule.errorFilePath err_ == "GLOBAL ERROR") errors of
+                        case ListExtra.find (\err -> Rule.errorFilePath err == "GLOBAL ERROR") errors of
                             Just globalError ->
                                 FailedRun <| FailureMessage.globalErrorInTest globalError
 
@@ -685,7 +685,7 @@ expectErrorsForModules expectedErrorsList reviewResult =
                                     expectedErrors : List ExpectedError
                                     expectedErrors =
                                         expectedErrorsList
-                                            |> ListExtra.find (\( moduleName_, _ ) -> moduleName_ == runResult.moduleName)
+                                            |> ListExtra.find (\( moduleName, _ ) -> moduleName == runResult.moduleName)
                                             |> Maybe.map Tuple.second
                                             |> Maybe.withDefault []
                                 in

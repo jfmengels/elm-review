@@ -504,8 +504,8 @@ declarationName declaration =
         Declaration.CustomTypeDeclaration type_ ->
             Just <| Node.value type_.name
 
-        Declaration.AliasDeclaration alias_ ->
-            Just <| Node.value alias_.name
+        Declaration.AliasDeclaration alias ->
+            Just <| Node.value alias.name
 
         Declaration.PortDeclaration port_ ->
             Just <| Node.value port_.name
@@ -569,8 +569,8 @@ typesUsedInDeclaration moduleContext declaration =
                         False
             )
 
-        Declaration.AliasDeclaration alias_ ->
-            ( collectTypesFromTypeAnnotation moduleContext alias_.typeAnnotation, False )
+        Declaration.AliasDeclaration alias ->
+            ( collectTypesFromTypeAnnotation moduleContext alias.typeAnnotation, False )
 
         Declaration.PortDeclaration _ ->
             ( [], False )

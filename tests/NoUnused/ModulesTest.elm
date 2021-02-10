@@ -47,8 +47,8 @@ applicationElmJson =
     }
 
 
-package_ : Project
-package_ =
+package : Project
+package =
     Project.new
         |> Project.addElmJson (createPackageElmJson ())
 
@@ -203,7 +203,7 @@ config = []
 module Exposed exposing (..)
 a = 1
 """
-                |> Review.Test.runWithProjectData package_ rule
+                |> Review.Test.runWithProjectData package rule
                 |> Review.Test.expectNoErrors
     , test "should report non-exposed and non-used modules from a package" <|
         \() ->
@@ -211,7 +211,7 @@ a = 1
 module NotExposed exposing (..)
 a = 1
 """
-                |> Review.Test.runWithProjectData package_ rule
+                |> Review.Test.runWithProjectData package rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
                         { message = "Module `NotExposed` is never used."
@@ -225,7 +225,7 @@ a = 1
 module Reported exposing (main)
 main = text ""
 """
-                |> Review.Test.runWithProjectData package_ rule
+                |> Review.Test.runWithProjectData package rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
                         { message = "Module `Reported` is never used."
@@ -240,7 +240,7 @@ module Reported exposing (a)
 main = text ""
 a = 1
 """
-                |> Review.Test.runWithProjectData package_ rule
+                |> Review.Test.runWithProjectData package rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
                         { message = "Module `Reported` is never used."
