@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "elm-review": "^2.3.0",
-    "elm-test": "^0.19.1-revision4",
+    "elm-test": "^0.19.1-revision6",
     "elm-tooling": "^1.1.0"
   }
 }
