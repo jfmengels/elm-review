@@ -8,7 +8,7 @@
     "postinstall": "elm-tooling install"
   },
   "dependencies": {
-    "elm-review": "^2.3.0",
+    "elm-review": "^2.4.2",
     "elm-test": "^0.19.1-revision6",
     "elm-tooling": "^1.1.0"
   }
