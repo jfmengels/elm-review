@@ -343,7 +343,7 @@ Review a project and gives back the errors raised by the given rules.
 Note that you won't need to use this function when writing a rule. You should
 only need it if you try to make `elm-review` run in a new environment.
 
-    import Review.Project as Project exposing (Project, ProjectModule)
+    import Review.Project as Project exposing (Project)
     import Review.Rule as Rule exposing (Rule)
 
     config : List Rule
@@ -457,7 +457,7 @@ review rules project =
 Note that you won't need to use this function when writing a rule. You should
 only need it if you try to make `elm-review` run in a new environment.
 
-    import Review.Project as Project exposing (Project, ProjectModule)
+    import Review.Project as Project exposing (Project)
     import Review.Rule as Rule exposing (Rule)
 
     config : List Rule
