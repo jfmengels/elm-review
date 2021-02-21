@@ -10,6 +10,7 @@
         "Review.Project",
         "Review.Project.Dependency",
         "Review.Fix",
+        "Review.Target",
         "Review.Test"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
