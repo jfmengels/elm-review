@@ -277,6 +277,7 @@ import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Project exposing (ProjectModule)
 import Review.Project.Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
+import Review.Target as Target exposing (Target)
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
@@ -406,7 +407,7 @@ review rules project =
                                         ]
                                     , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
                                     , fixes = Nothing
-                                    , target = Review.Error.Global
+                                    , target = Target.Global
                                     }
                               ]
                             , rules
@@ -549,7 +550,7 @@ getModulesSortedByImport project =
                     ]
                 , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
                 , fixes = Nothing
-                , target = Review.Error.Global
+                , target = Target.Global
                 }
             ]
         )
@@ -654,7 +655,7 @@ duplicateModulesGlobalError duplicate =
             ]
         , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
         , fixes = Nothing
-        , target = Review.Error.Global
+        , target = Target.Global
         }
 
 
@@ -2769,7 +2770,7 @@ error { message, details } range =
         , details = details
         , range = range
         , fixes = Nothing
-        , target = Review.Error.Module
+        , target = Target.Module
         }
 
 
@@ -2831,7 +2832,7 @@ errorForModule (ModuleKey path) { message, details } range =
         , range = range
         , filePath = path
         , fixes = Nothing
-        , target = Review.Error.Module
+        , target = Target.Module
         }
 
 
@@ -2893,7 +2894,7 @@ errorForElmJson (ElmJsonKey { path, raw }) getErrorInfo =
         , range = errorInfo.range
         , filePath = path
         , fixes = Nothing
-        , target = Review.Error.ElmJson
+        , target = Target.ElmJson
         }
 
 
@@ -2926,7 +2927,7 @@ errorForReadme (ReadmeKey { path }) { message, details } range =
         , details = details
         , range = range
         , fixes = Nothing
-        , target = Review.Error.Readme
+        , target = Target.Readme
         }
 
 
@@ -2962,7 +2963,7 @@ parsingError rawFile =
             ]
         , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
         , fixes = Nothing
-        , target = Review.Error.Module
+        , target = Target.Module
         }
 
 
@@ -3001,16 +3002,16 @@ withFixes fixes error_ =
 
             else
                 case err.target of
-                    Review.Error.Module ->
+                    Target.Module ->
                         { err | fixes = Just fixes }
 
-                    Review.Error.Readme ->
+                    Target.Readme ->
                         { err | fixes = Just fixes }
 
-                    Review.Error.ElmJson ->
+                    Target.ElmJson ->
                         err
 
-                    Review.Error.Global ->
+                    Target.Global ->
                         err
         )
         error_
@@ -3065,9 +3066,9 @@ errorFilePath (Review.Error.ReviewError err) =
     err.filePath
 
 
-{-| Get the file path of an [`Error`](#Error).
+{-| Get the target of an [`Error`](#Error).
 -}
-errorTarget : Review.Error.ReviewError -> Review.Error.Target
+errorTarget : Review.Error.ReviewError -> Target
 errorTarget (Review.Error.ReviewError err) =
     err.target
 

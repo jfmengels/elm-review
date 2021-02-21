@@ -1,17 +1,11 @@
-module Review.Error exposing (Fix(..), InternalError, ReviewError(..), Target(..), error, withFixes)
+module Review.Error exposing (Fix(..), InternalError, ReviewError(..), error, withFixes)
 
 import Elm.Syntax.Range exposing (Range)
+import Review.Target as Target exposing (Target)
 
 
 type ReviewError
     = ReviewError InternalError
-
-
-type Target
-    = Module
-    | ElmJson
-    | Readme
-    | Global
 
 
 type alias InternalError =
@@ -43,7 +37,7 @@ error { message, details } range =
         , details = details
         , range = range
         , fixes = Nothing
-        , target = Module
+        , target = Target.Module
         }
 
 

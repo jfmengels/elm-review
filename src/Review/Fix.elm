@@ -135,6 +135,7 @@ import Array
 import Elm.Parser
 import Elm.Syntax.Range exposing (Range)
 import Review.Error as Error
+import Review.Target as Target exposing (Target)
 import Vendor.ListExtra as ListExtra
 
 
@@ -196,10 +197,10 @@ type Problem
 
 {-| Apply the changes on the source code.
 -}
-fix : Error.Target -> List Fix -> String -> FixResult
+fix : Target -> List Fix -> String -> FixResult
 fix target fixes sourceCode =
     case target of
-        Error.Module ->
+        Target.Module ->
             if containRangeCollisions fixes then
                 Errored HasCollisionsInFixRanges
 
@@ -223,7 +224,7 @@ fix target fixes sourceCode =
                         Ok _ ->
                             Successful resultAfterFix
 
-        Error.Readme ->
+        Target.Readme ->
             if containRangeCollisions fixes then
                 Errored HasCollisionsInFixRanges
 
@@ -242,10 +243,10 @@ fix target fixes sourceCode =
                 else
                     Successful resultAfterFix
 
-        Error.ElmJson ->
+        Target.ElmJson ->
             Errored Unchanged
 
-        Error.Global ->
+        Target.Global ->
             Errored Unchanged
 
 
