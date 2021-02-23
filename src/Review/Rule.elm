@@ -252,6 +252,7 @@ reason or seemingly inappropriately.
 
 -}
 
+import Ansi
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Project
@@ -531,21 +532,32 @@ checkForDuplicateModules project =
 getModulesSortedByImport : Project -> Result (List Review.Error.ReviewError) (List (Graph.NodeContext ModuleName ()))
 getModulesSortedByImport project =
     let
-        sortedModules : Result (Graph.Edge ()) (List (Graph.NodeContext ModuleName ()))
-        sortedModules =
+        moduleGraph : Graph (List String) ()
+        moduleGraph =
             project
                 |> Review.Project.Internal.moduleGraph
+
+        sortedModules : Result (Graph.Edge ()) (List (Graph.NodeContext ModuleName ()))
+        sortedModules =
+            moduleGraph
                 |> Graph.checkAcyclic
                 |> Result.map Graph.topologicalSort
     in
     Result.mapError
-        (\_ ->
+        (\edge ->
+            let
+                cycle : List ModuleName
+                cycle =
+                    findCycle moduleGraph edge
+                        |> List.reverse
+            in
             [ Review.Error.ReviewError
                 { filePath = "GLOBAL ERROR"
                 , ruleName = "Incorrect project"
                 , message = "Import cycle discovered"
                 , details =
                     [ "I detected an import cycle in your project. This prevents me from working correctly, and results in a error for the Elm compiler anyway. Please resolve it using the compiler's suggestions, then try running `elm-review` again."
+                    , printCycle cycle
                     ]
                 , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
                 , fixes = Nothing
@@ -554,6 +566,52 @@ getModulesSortedByImport project =
             ]
         )
         sortedModules
+
+
+findCycle : Graph n e -> Graph.Edge e -> List n
+findCycle graph edge =
+    let
+        startingNode : Graph.NodeId
+        startingNode =
+            edge.from
+
+        targetNode : Graph.NodeId
+        targetNode =
+            edge.to
+
+        reachedTarget : List { a | node : { b | id : Graph.NodeId } } -> Bool
+        reachedTarget path =
+            Maybe.map (.node >> .id) (List.head path) == Just targetNode
+
+        visitorDiscoverCycle : List { a | node : { id : Graph.NodeId, label : n } } -> b -> List n -> List n
+        visitorDiscoverCycle path _ acc =
+            if List.isEmpty acc then
+                -- we haven't found the cycle yet
+                if reachedTarget path then
+                    List.map (.node >> .label) path
+
+                else
+                    []
+
+            else
+                -- we already found the cycle
+                acc
+    in
+    Graph.guidedBfs Graph.alongIncomingEdges visitorDiscoverCycle [ startingNode ] [] graph
+        |> Tuple.first
+
+
+printCycle : List ModuleName -> String
+printCycle moduleNames =
+    moduleNames
+        |> List.map (String.join "." >> Ansi.yellow)
+        |> String.join "\n    │     ↓\n    │    "
+        |> wrapInCycle
+
+
+wrapInCycle : String -> String
+wrapInCycle string =
+    "    ┌─────┐\n    │    " ++ string ++ "\n    └─────┘"
 
 
 extractResultValue : Result a a -> a
