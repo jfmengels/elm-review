@@ -3123,7 +3123,7 @@ errorFilePath (Review.Error.ReviewError err) =
     err.filePath
 
 
-{-| Get the file path of an [`Error`](#Error).
+{-| Get the target of an [`Error`](#Error).
 -}
 errorTarget : Review.Error.ReviewError -> Review.Error.Target
 errorTarget (Review.Error.ReviewError err) =
