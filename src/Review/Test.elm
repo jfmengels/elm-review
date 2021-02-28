@@ -1222,6 +1222,7 @@ checkFixesAreCorrect codeInspector ((Error.ReviewError err) as error_) ((Expecte
 removeShitespace : String -> String
 removeShitespace =
     String.replace " " ""
+        >> String.replace "\n" ""
 
 
 extractExpectedErrorData : ExpectedError -> FailureMessage.ExpectedErrorData

@@ -411,12 +411,9 @@ highlightDifferencesInSourceCodes : SourceCode -> SourceCode -> ( String, String
 highlightDifferencesInSourceCodes a b =
     let
         ( resA, resB ) =
-            List.map2 highlightWhiteSpaceDifferences
-                (String.lines a)
-                (String.lines b)
-                |> List.unzip
+            highlightWhiteSpaceDifferences a b
     in
-    ( formatSourceCodeWithFormatter replaceWhitespace resA, formatSourceCodeWithFormatter replaceWhitespace resB )
+    ( formatSourceCodeWithFormatter replaceWhitespace (String.lines resA), formatSourceCodeWithFormatter replaceWhitespace (String.lines resB) )
 
 
 highlightWhiteSpaceDifferences : String -> String -> ( String, String )
@@ -428,8 +425,14 @@ highlightWhiteSpaceDifferences aString bString =
                     Diff.NoChange str ->
                         ( a ++ String.fromChar str, b ++ String.fromChar str )
 
+                    Diff.Added '\n' ->
+                        ( a ++ Ansi.backgroundRed "↵" ++ "\n", b )
+
                     Diff.Added str ->
                         ( a ++ Ansi.backgroundRed (String.fromChar str), b )
+
+                    Diff.Removed '\n' ->
+                        ( a, b ++ Ansi.backgroundRed "↵" ++ "\n" )
 
                     Diff.Removed str ->
                         ( a, b ++ Ansi.backgroundRed (String.fromChar str) )
@@ -441,7 +444,7 @@ replaceWhitespace : List String -> List String
 replaceWhitespace lines =
     lines
         |> List.map (String.replace " " (Ansi.cyan "·"))
-        |> String.join (Ansi.cyan "↵\n")
+        |> String.join (Ansi.cyan "\n")
         |> String.split "\n"
 
 
