@@ -1,6 +1,7 @@
 module Review.Test exposing
     ( ReviewResult, run, runWithProjectData, runOnModules, runOnModulesWithProjectData
     , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme
+    , expectGlobalErrors
     )
 
 {-| Module that helps you test your rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/).
@@ -668,7 +669,7 @@ expectErrorsForModules expectedErrorsList reviewResult =
                 maybeUnknownModule =
                     Set.diff
                         (expectedErrorsList |> List.map Tuple.first |> Set.fromList)
-                        (runResults |> List.map .moduleName |> Set.fromList)
+                        (Set.fromList ("GLOBAL ERROR" :: List.map .moduleName runResults))
                         |> Set.toList
                         |> List.head
             in
@@ -729,6 +730,11 @@ location is incorrect.
 expectErrorsForElmJson : List ExpectedError -> ReviewResult -> Expectation
 expectErrorsForElmJson expectedErrors reviewResult =
     expectErrorsForModules [ ( "elm.json", expectedErrors ) ] reviewResult
+
+
+expectGlobalErrors : List ExpectedError -> ReviewResult -> Expectation
+expectGlobalErrors expectedErrors reviewResult =
+    expectErrorsForModules [ ( "GLOBAL ERROR", expectedErrors ) ] reviewResult
 
 
 {-| Assert that the rule reported some errors for the `README.md` file, by specifying which ones.

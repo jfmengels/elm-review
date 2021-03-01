@@ -165,7 +165,7 @@ import SomeModule.Regex
 a = SomeModule.Regex.fromLiteralFunc "^abc$"
 """
                     |> Review.Test.runWithProjectData project (rule configuration)
-                    |> Review.Test.expectErrorsForElmJson
+                    |> Review.Test.expectGlobalErrors
                         [ Review.Test.error
                             { message = "Could not find SomeModule.Regex"
                             , details =
