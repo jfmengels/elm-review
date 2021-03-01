@@ -401,24 +401,7 @@ review rules project =
                     in
                     case sortedModules of
                         Err edge ->
-                            let
-                                cycle : List ModuleName
-                                cycle =
-                                    findCycle moduleGraph edge
-                                        |> List.reverse
-                            in
-                            ( [ globalError
-                                    { message = "Your module imports form a cycle:"
-                                    , details =
-                                        [ "Learn more about why this is disallowed and how to break cycles here:<https://elm-lang.org/0.19.1/import-cycles>"
-                                        , printCycle cycle
-                                        ]
-                                    }
-                                    |> setRuleName "Incorrect project"
-                                    |> errorToReviewError
-                              ]
-                            , rules
-                            )
+                            ( importCycleError moduleGraph edge, rules )
 
                         Ok nodeContexts ->
                             let
@@ -543,33 +526,31 @@ getModulesSortedByImport project =
         moduleGraph =
             project
                 |> Review.Project.Internal.moduleGraph
-
-        sortedModules : Result (Graph.Edge ()) (List (Graph.NodeContext ModuleName ()))
-        sortedModules =
-            moduleGraph
-                |> Graph.checkAcyclic
-                |> Result.map Graph.topologicalSort
     in
-    Result.mapError
-        (\edge ->
-            let
-                cycle : List ModuleName
-                cycle =
-                    findCycle moduleGraph edge
-                        |> List.reverse
-            in
-            [ globalError
-                { message = "Your module imports form a cycle:"
-                , details =
-                    [ "Learn more about why this is disallowed and how to break cycles here:<https://elm-lang.org/0.19.1/import-cycles>"
-                    , printCycle cycle
-                    ]
-                }
-                |> setRuleName "Incorrect project"
-                |> errorToReviewError
+    moduleGraph
+        |> Graph.checkAcyclic
+        |> Result.map Graph.topologicalSort
+        |> Result.mapError (importCycleError moduleGraph)
+
+
+importCycleError : Graph ModuleName e -> Graph.Edge e -> List ReviewError
+importCycleError moduleGraph edge =
+    let
+        cycle : List ModuleName
+        cycle =
+            findCycle moduleGraph edge
+                |> List.reverse
+    in
+    [ globalError
+        { message = "Your module imports form a cycle:"
+        , details =
+            [ "Learn more about why this is disallowed and how to break cycles here:<https://elm-lang.org/0.19.1/import-cycles>"
+            , printCycle cycle
             ]
-        )
-        sortedModules
+        }
+        |> setRuleName "Incorrect project"
+        |> errorToReviewError
+    ]
 
 
 findCycle : Graph n e -> Graph.Edge e -> List n
