@@ -546,7 +546,7 @@ importCycleError moduleGraph edge =
             findCycle moduleGraph edge
                 |> List.reverse
     in
-    [ globalError
+    [ elmReviewGlobalError
         { message = "Your module imports form a cycle"
         , details =
             [ printCycle cycle
@@ -730,7 +730,7 @@ duplicateModulesGlobalError duplicate =
                 |> List.map (\s -> "\n  - " ++ s)
                 |> String.join ""
     in
-    globalError
+    elmReviewGlobalError
         { message = "Found several modules named `" ++ String.join "." duplicate.moduleName ++ "`"
         , details =
             [ "I found several modules with the name `" ++ String.join "." duplicate.moduleName ++ "`. Depending on how I choose to resolve this, I might give you different reports. Since this is a compiler error anyway, I require this problem to be solved. Please fix this then try running `elm-review` again."
@@ -3030,6 +3030,19 @@ errorForReadmeWithFix : ReadmeKey -> { message : String, details : List String }
 errorForReadmeWithFix readmeKey info range fixes =
     errorForReadme readmeKey info range
         |> withFixes fixes
+
+
+elmReviewGlobalError : { message : String, details : List String } -> Error scope
+elmReviewGlobalError { message, details } =
+    SpecifiedError
+        { filePath = "GLOBAL ERROR"
+        , ruleName = ""
+        , message = message
+        , details = details
+        , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
+        , fixes = Nothing
+        , target = Review.Error.Global
+        }
 
 
 globalError : { message : String, details : List String } -> Error scope
