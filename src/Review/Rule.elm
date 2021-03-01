@@ -12,12 +12,11 @@ module Review.Rule exposing
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
     , ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleNameLookupTable, withModuleKey
-    , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
+    , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, globalError, errorForReadme, errorForReadmeWithFix
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review, reviewV2, ProjectData, ruleName
     , Required, Forbidden
-    , globalError
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -218,7 +217,7 @@ first, as they are in practice a simpler version of project rules.
 
 ## Errors
 
-@docs Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
+@docs Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, globalError, errorForReadme, errorForReadmeWithFix
 @docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
 
 
