@@ -84,7 +84,6 @@ rule config =
             buildTarget config
     in
     Rule.newProjectRuleSchema "NoUnsafeRegexFromLiteral" initialProjectContext
-        |> Rule.withElmJsonProjectVisitor elmJsonVisitor
         |> Rule.withModuleVisitor (moduleVisitor target)
         |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModule
@@ -149,8 +148,7 @@ type alias Target =
 
 
 type alias ProjectContext =
-    { elmJsonKey : Maybe Rule.ElmJsonKey
-    , foundTargetFunction : Bool
+    { foundTargetFunction : Bool
     }
 
 
@@ -163,8 +161,7 @@ type alias ModuleContext =
 
 initialProjectContext : ProjectContext
 initialProjectContext =
-    { elmJsonKey = Nothing
-    , foundTargetFunction = False
+    { foundTargetFunction = False
     }
 
 
@@ -184,8 +181,7 @@ fromModuleToProject : Target -> Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject target =
     Rule.initContextCreator
         (\metadata moduleContext ->
-            { elmJsonKey = Nothing
-            , foundTargetFunction = moduleContext.foundTargetFunction && (Rule.moduleNameFromMetadata metadata == target.moduleName)
+            { foundTargetFunction = moduleContext.foundTargetFunction && (Rule.moduleNameFromMetadata metadata == target.moduleName)
             }
         )
         |> Rule.withMetadata
@@ -193,14 +189,8 @@ fromModuleToProject target =
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts newContext previousContext =
-    { elmJsonKey = previousContext.elmJsonKey
-    , foundTargetFunction = previousContext.foundTargetFunction || newContext.foundTargetFunction
+    { foundTargetFunction = previousContext.foundTargetFunction || newContext.foundTargetFunction
     }
-
-
-elmJsonVisitor : Maybe { a | elmJsonKey : Rule.ElmJsonKey } -> ProjectContext -> ( List nothing, ProjectContext )
-elmJsonVisitor elmJson projectContext =
-    ( [], { projectContext | elmJsonKey = Maybe.map .elmJsonKey elmJson } )
 
 
 finalProjectEvaluation : Target -> ProjectContext -> List (Error scope)
