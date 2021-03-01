@@ -104,11 +104,14 @@ buildTarget { unsafeFunction, moduleAlias } =
 
         moduleName : List String
         moduleName =
+            -- TODO Report an error if module names are invalid
             List.reverse (List.drop 1 unsafeFunctionAsList)
 
         name : String
         name =
-            List.head unsafeFunctionAsList |> Maybe.withDefault "INVALID CONFIGURATION"
+            List.head unsafeFunctionAsList
+                -- TODO Report an error instead
+                |> Maybe.withDefault "INVALID CONFIGURATION"
     in
     { moduleName = moduleName
     , name = name
