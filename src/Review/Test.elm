@@ -370,7 +370,7 @@ runOnModulesWithProjectData project rule sources =
                                     |> Rule.reviewV2 [ rule ] Nothing
                                     |> .errors
                         in
-                        case ListExtra.find (\err -> Rule.errorFilePath err == "GLOBAL ERROR") errors of
+                        case ListExtra.find (\err -> Rule.errorTarget err == Error.Global) errors of
                             Just globalError ->
                                 FailedRun <| FailureMessage.globalErrorInTest globalError
 
