@@ -17,6 +17,7 @@ module Review.Rule exposing
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review, reviewV2, ProjectData, ruleName
     , Required, Forbidden
+    , globalError
     )
 
 {-| This module contains functions that are used for writing rules.
