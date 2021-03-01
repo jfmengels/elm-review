@@ -401,9 +401,9 @@ review rules project =
                             ( [ Review.Error.ReviewError
                                     { filePath = "GLOBAL ERROR"
                                     , ruleName = "Incorrect project"
-                                    , message = "Import cycle discovered"
+                                    , message = "our module imports form a cycle:"
                                     , details =
-                                        [ "I detected an import cycle in your project. This prevents me from working correctly, and results in a error for the Elm compiler anyway. Please resolve it using the compiler's suggestions, then try running `elm-review` again."
+                                        [ "Learn more about why this is disallowed and how to break cycles here:<https://elm-lang.org/0.19.1/import-cycles>"
                                         ]
                                     , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
                                     , fixes = Nothing
