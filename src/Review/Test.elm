@@ -680,16 +680,12 @@ expectErrorsForModules expectedErrorsList reviewResult =
                 Nothing ->
                     runResults
                         |> List.map
-                            (\runResult ->
-                                let
-                                    expectedErrors : List ExpectedError
-                                    expectedErrors =
-                                        expectedErrorsList
-                                            |> ListExtra.find (\( moduleName, _ ) -> moduleName == runResult.moduleName)
-                                            |> Maybe.map Tuple.second
-                                            |> Maybe.withDefault []
-                                in
-                                \() -> checkAllErrorsMatch runResult expectedErrors
+                            (\runResult () ->
+                                expectedErrorsList
+                                    |> ListExtra.find (\( moduleName, _ ) -> moduleName == runResult.moduleName)
+                                    |> Maybe.map Tuple.second
+                                    |> Maybe.withDefault []
+                                    |> checkAllErrorsMatch runResult
                             )
                         |> (\expectations -> Expect.all expectations ())
 
