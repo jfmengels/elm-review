@@ -389,26 +389,33 @@ review rules project =
 
                 Nothing ->
                     let
+                        moduleGraph : Graph (List String) ()
+                        moduleGraph =
+                            Review.Project.Internal.moduleGraph project
+
                         sortedModules : Result (Graph.Edge ()) (List (Graph.NodeContext ModuleName ()))
                         sortedModules =
-                            project
-                                |> Review.Project.Internal.moduleGraph
+                            moduleGraph
                                 |> Graph.checkAcyclic
                                 |> Result.map Graph.topologicalSort
                     in
                     case sortedModules of
-                        Err _ ->
-                            ( [ Review.Error.ReviewError
-                                    { filePath = "GLOBAL ERROR"
-                                    , ruleName = "Incorrect project"
-                                    , message = "our module imports form a cycle:"
+                        Err edge ->
+                            let
+                                cycle : List ModuleName
+                                cycle =
+                                    findCycle moduleGraph edge
+                                        |> List.reverse
+                            in
+                            ( [ globalError
+                                    { message = "Your module imports form a cycle:"
                                     , details =
                                         [ "Learn more about why this is disallowed and how to break cycles here:<https://elm-lang.org/0.19.1/import-cycles>"
+                                        , printCycle cycle
                                         ]
-                                    , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
-                                    , fixes = Nothing
-                                    , target = Review.Error.Global
                                     }
+                                    |> setRuleName "Incorrect project"
+                                    |> errorToReviewError
                               ]
                             , rules
                             )
@@ -3005,6 +3012,19 @@ errorForReadmeWithFix : ReadmeKey -> { message : String, details : List String }
 errorForReadmeWithFix readmeKey info range fixes =
     errorForReadme readmeKey info range
         |> withFixes fixes
+
+
+globalError : { message : String, details : List String } -> Error scope
+globalError { message, details } =
+    SpecifiedError
+        { filePath = "GLOBAL ERROR"
+        , ruleName = ""
+        , message = message
+        , details = details
+        , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
+        , fixes = Nothing
+        , target = Review.Error.Global
+        }
 
 
 parsingError : { path : String, source : String } -> ReviewError
