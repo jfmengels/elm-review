@@ -248,6 +248,9 @@ fix target fixes sourceCode =
         Error.Global ->
             Errored Unchanged
 
+        Error.UserGlobal ->
+            Errored Unchanged
+
 
 containRangeCollisions : List Fix -> Bool
 containRangeCollisions fixes =

@@ -12,6 +12,7 @@ type Target
     | ElmJson
     | Readme
     | Global
+    | UserGlobal
 
 
 type alias InternalError =

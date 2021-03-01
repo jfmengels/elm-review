@@ -3103,6 +3103,9 @@ withFixes fixes error_ =
 
                     Review.Error.Global ->
                         err
+
+                    Review.Error.UserGlobal ->
+                        err
         )
         error_
 
