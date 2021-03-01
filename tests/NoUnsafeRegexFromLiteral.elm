@@ -209,26 +209,14 @@ finalProjectEvaluation target projectContext =
         []
 
     else
-        case projectContext.elmJsonKey of
-            Just elmJsonKey ->
-                [ Rule.errorForElmJson
-                    elmJsonKey
-                    (\_ ->
-                        { message = "Could not find " ++ String.join "." target.moduleName
-                        , details =
-                            [ "I want to provide guarantees on the use of this function, but I can't find it. It is likely that it was renamed, which prevents me from giving you these guarantees."
-                            , "You should rename it back or update this rule to the new name. If you do not use the function anymore, remove the rule."
-                            ]
-                        , range =
-                            { start = { row = 1, column = 1 }
-                            , end = { row = 1, column = 2 }
-                            }
-                        }
-                    )
+        [ Rule.globalError
+            { message = "Could not find " ++ String.join "." target.moduleName
+            , details =
+                [ "I want to provide guarantees on the use of this function, but I can't find it. It is likely that it was renamed, which prevents me from giving you these guarantees."
+                , "You should rename it back or update this rule to the new name. If you do not use the function anymore, remove the rule."
                 ]
-
-            Nothing ->
-                []
+            }
+        ]
 
 
 declarationListVisitor : Target -> List (Node Declaration) -> ModuleContext -> ( List nothing, ModuleContext )
