@@ -372,8 +372,8 @@ runOnModulesWithProjectData project rule sources =
                                     |> .errors
                         in
                         case ListExtra.find (\err -> Rule.errorTarget err == Error.Global) errors of
-                            Just globalError ->
-                                FailedRun <| FailureMessage.globalErrorInTest globalError
+                            Just globalError_ ->
+                                FailedRun <| FailureMessage.globalErrorInTest globalError_
 
                             Nothing ->
                                 List.concat
