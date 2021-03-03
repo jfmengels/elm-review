@@ -1,7 +1,7 @@
 module Review.Test exposing
     ( ReviewResult, run, runWithProjectData, runOnModules, runOnModulesWithProjectData
     , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme
-    , expectGlobalErrors
+    , expectGlobalErrors, globalError
     )
 
 {-| Module that helps you test your rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/).
@@ -106,7 +106,7 @@ for this module.
 import Array exposing (Array)
 import Elm.Syntax.Module as Module
 import Elm.Syntax.Node as Node
-import Elm.Syntax.Range exposing (Range)
+import Elm.Syntax.Range as Range exposing (Range)
 import Expect exposing (Expectation)
 import Review.Error as Error
 import Review.Fix as Fix
@@ -814,6 +814,16 @@ error input =
         { message = input.message
         , details = input.details
         , under = Under input.under
+        , fixedSource = Nothing
+        }
+
+
+globalError : { message : String, details : List String } -> ExpectedError
+globalError input =
+    ExpectedError
+        { message = input.message
+        , details = input.details
+        , under = UnderExactly "" Range.emptyRange
         , fixedSource = Nothing
         }
 
