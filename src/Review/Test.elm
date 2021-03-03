@@ -1147,7 +1147,6 @@ checkErrorsMatch runResult expectedErrors expectedNumberOfErrors errors =
 
 checkErrorMatch : CodeInspector -> ExpectedError -> ReviewError -> (() -> Expectation)
 checkErrorMatch codeInspector ((ExpectedError expectedError_) as expectedError) error_ =
-    -- TODO Look here for comparison
     Expect.all
         [ \() ->
             (expectedError_.message == Rule.errorMessage error_)
