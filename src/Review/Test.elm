@@ -402,21 +402,16 @@ moduleToRunResult errors projectModule =
 
 globalErrorsRunResult : List ReviewError -> List SuccessfulRunResult
 globalErrorsRunResult errors =
-    case List.filter (\error_ -> Rule.errorTarget error_ == Error.UserGlobal) errors of
-        [] ->
-            []
-
-        globalErrors_ ->
-            [ { moduleName = "GLOBAL ERROR"
-              , inspector =
-                    { isModule = False
-                    , source = ""
-                    , getCodeAtLocation = always Nothing
-                    , checkIfLocationIsAmbiguous = \_ _ -> Expect.pass
-                    }
-              , errors = globalErrors_
-              }
-            ]
+    [ { moduleName = "GLOBAL ERROR"
+      , inspector =
+            { isModule = False
+            , source = ""
+            , getCodeAtLocation = always Nothing
+            , checkIfLocationIsAmbiguous = \_ _ -> Expect.pass
+            }
+      , errors = List.filter (\error_ -> Rule.errorTarget error_ == Error.UserGlobal) errors
+      }
+    ]
 
 
 elmJsonRunResult : List ReviewError -> Project -> List SuccessfulRunResult
@@ -689,7 +684,7 @@ expectErrorsForModules expectedErrorsList reviewResult =
                 maybeUnknownModule =
                     Set.diff
                         (expectedErrorsList |> List.map Tuple.first |> Set.fromList)
-                        (Set.fromList ("GLOBAL ERROR" :: List.map .moduleName runResults))
+                        (Set.fromList (List.map .moduleName runResults))
                         |> Set.toList
                         |> List.head
             in
@@ -699,16 +694,21 @@ expectErrorsForModules expectedErrorsList reviewResult =
                         |> Expect.fail
 
                 Nothing ->
-                    runResults
-                        |> List.map
-                            (\runResult () ->
-                                expectedErrorsList
-                                    |> ListExtra.find (\( moduleName, _ ) -> moduleName == runResult.moduleName)
-                                    |> Maybe.map Tuple.second
-                                    |> Maybe.withDefault []
-                                    |> checkAllErrorsMatch runResult
-                            )
+                    expectErrorsForModuleFiles expectedErrorsList runResults
                         |> (\expectations -> Expect.all expectations ())
+
+
+expectErrorsForModuleFiles : List ( String, List ExpectedError ) -> List SuccessfulRunResult -> List (() -> Expectation)
+expectErrorsForModuleFiles expectedErrorsList runResults =
+    List.map
+        (\runResult () ->
+            expectedErrorsList
+                |> ListExtra.find (\( moduleName, _ ) -> moduleName == runResult.moduleName)
+                |> Maybe.map Tuple.second
+                |> Maybe.withDefault []
+                |> checkAllErrorsMatch runResult
+        )
+        runResults
 
 
 {-| Assert that the rule reported some errors for the `elm.json` file, by specifying which ones.
