@@ -378,6 +378,7 @@ runOnModulesWithProjectData project rule sources =
                             Nothing ->
                                 List.concat
                                     [ List.map (moduleToRunResult errors) modules
+                                    , globalErrorsRunResult errors
                                     , elmJsonRunResult errors projectWithModules
                                     , readmeRunResult errors projectWithModules
                                     ]
@@ -397,6 +398,25 @@ moduleToRunResult errors projectModule =
             |> List.filter (\error_ -> Rule.errorFilePath error_ == projectModule.path)
             |> List.sortWith compareErrorPositions
     }
+
+
+globalErrorsRunResult : List ReviewError -> List SuccessfulRunResult
+globalErrorsRunResult errors =
+    case List.filter (\error_ -> Rule.errorTarget error_ == Error.UserGlobal) errors of
+        [] ->
+            []
+
+        globalErrors_ ->
+            [ { moduleName = "GLOBAL ERROR"
+              , inspector =
+                    { isModule = False
+                    , source = ""
+                    , getCodeAtLocation = always Nothing
+                    , checkIfLocationIsAmbiguous = \_ _ -> Expect.pass
+                    }
+              , errors = globalErrors_
+              }
+            ]
 
 
 elmJsonRunResult : List ReviewError -> Project -> List SuccessfulRunResult
