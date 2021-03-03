@@ -3042,6 +3042,8 @@ elmReviewGlobalError { message, details } =
 
 globalError : { message : String, details : List String } -> Error scope
 globalError { message, details } =
+    -- TODO Reporting problems when global errors have been reported but not addressed
+    -- TODO Documentation
     SpecifiedError
         { filePath = "GLOBAL ERROR"
         , ruleName = ""
