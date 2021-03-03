@@ -1164,43 +1164,47 @@ checkErrorMatch codeInspector ((ExpectedError expectedError_) as expectedError) 
 
 checkMessageAppearsUnder : CodeInspector -> ReviewError -> ExpectedError -> (() -> Expectation)
 checkMessageAppearsUnder codeInspector error_ (ExpectedError expectedError) =
-    case codeInspector.getCodeAtLocation (Rule.errorRange error_) of
-        Just codeAtLocation ->
-            case expectedError.under of
-                Under under ->
-                    Expect.all
-                        [ \() ->
-                            case under of
-                                "" ->
-                                    FailureMessage.underMayNotBeEmpty
-                                        { message = expectedError.message
-                                        , codeAtLocation = codeAtLocation
-                                        }
-                                        |> Expect.fail
+    if Rule.errorTarget error_ == Error.UserGlobal then
+        \() -> Expect.pass
 
-                                _ ->
-                                    Expect.pass
-                        , \() ->
-                            (codeAtLocation == under)
-                                |> Expect.true (FailureMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
-                        , \() ->
-                            codeInspector.checkIfLocationIsAmbiguous error_ under
-                        ]
+    else
+        case codeInspector.getCodeAtLocation (Rule.errorRange error_) of
+            Just codeAtLocation ->
+                case expectedError.under of
+                    Under under ->
+                        Expect.all
+                            [ \() ->
+                                case under of
+                                    "" ->
+                                        FailureMessage.underMayNotBeEmpty
+                                            { message = expectedError.message
+                                            , codeAtLocation = codeAtLocation
+                                            }
+                                            |> Expect.fail
 
-                UnderExactly under range ->
-                    Expect.all
-                        [ \() ->
-                            (codeAtLocation == under)
-                                |> Expect.true (FailureMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
-                        , \() ->
-                            (Rule.errorRange error_ == range)
-                                |> Expect.true (FailureMessage.wrongLocation error_ range under)
-                        ]
+                                    _ ->
+                                        Expect.pass
+                            , \() ->
+                                (codeAtLocation == under)
+                                    |> Expect.true (FailureMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
+                            , \() ->
+                                codeInspector.checkIfLocationIsAmbiguous error_ under
+                            ]
 
-        Nothing ->
-            \() ->
-                FailureMessage.locationNotFound error_
-                    |> Expect.fail
+                    UnderExactly under range ->
+                        Expect.all
+                            [ \() ->
+                                (codeAtLocation == under)
+                                    |> Expect.true (FailureMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
+                            , \() ->
+                                (Rule.errorRange error_ == range)
+                                    |> Expect.true (FailureMessage.wrongLocation error_ range under)
+                            ]
+
+            Nothing ->
+                \() ->
+                    FailureMessage.locationNotFound error_
+                        |> Expect.fail
 
 
 checkDetailsAreCorrect : ReviewError -> ExpectedError -> (() -> Expectation)
