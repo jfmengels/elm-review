@@ -3034,7 +3034,7 @@ elmReviewGlobalError { message, details } =
         , ruleName = ""
         , message = message
         , details = details
-        , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
+        , range = Range.emptyRange
         , fixes = Nothing
         , target = Review.Error.UserGlobal
         }
@@ -3047,7 +3047,7 @@ globalError { message, details } =
         , ruleName = ""
         , message = message
         , details = details
-        , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
+        , range = Range.emptyRange
         , fixes = Nothing
         , target = Review.Error.Global
         }
@@ -3064,7 +3064,7 @@ parsingError rawFile =
             , "I need this file to be fixed before analyzing the rest of the project. If I didn't, I would potentially report incorrect things."
             , "Hint: Try running `elm make`. The compiler should give you better hints on how to resolve the problem."
             ]
-        , range = { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } }
+        , range = Range.emptyRange
         , fixes = Nothing
         , target = Review.Error.Module
         }
