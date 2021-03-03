@@ -167,7 +167,7 @@ a = SomeModule.Regex.fromLiteralFunc "^abc$"
                     |> Review.Test.runWithProjectData project (rule configuration)
                     |> Review.Test.expectGlobalErrors
                         [ Review.Test.error
-                            { message = "Could not find SomeModule.Regex"
+                            { message = "Could not find SomeModule.Regex.fromLiteralFunc"
                             , details =
                                 [ "I want to provide guarantees on the use of this function, but I can't find it. It is likely that it was renamed, which prevents me from giving you these guarantees."
                                 , "You should rename it back or update this rule to the new name. If you do not use the function anymore, remove the rule."
