@@ -560,11 +560,11 @@ findCycle graph edge =
             Graph.guidedBfs Graph.alongIncomingEdges (visitorDiscoverCycle edge.to) [ edge.from ] [] graph
                 |> Tuple.first
     in
-    findSmallerCycle graph initialCycle edge.from initialCycle
+    findSmallerCycle graph initialCycle initialCycle
         |> List.map .label
 
 
-findSmallerCycle graph currentBest targetNode nodesToVisit =
+findSmallerCycle graph currentBest nodesToVisit =
     case nodesToVisit of
         [] ->
             currentBest
@@ -572,7 +572,7 @@ findSmallerCycle graph currentBest targetNode nodesToVisit =
         startingNode :: restOfNodes ->
             let
                 cycle =
-                    Graph.guidedBfs Graph.alongIncomingEdges (visitorDiscoverCycle targetNode) [ startingNode.id ] [] graph
+                    Graph.guidedBfs Graph.alongIncomingEdges (visitorDiscoverCycle startingNode.id) [ startingNode.id ] [] graph
                         |> Tuple.first
 
                 newBest =
@@ -582,7 +582,7 @@ findSmallerCycle graph currentBest targetNode nodesToVisit =
                     else
                         currentBest
             in
-            findSmallerCycle graph newBest startingNode.id restOfNodes
+            findSmallerCycle graph newBest restOfNodes
 
 
 reachedTarget : a -> List { b | node : { c | id : a } } -> Bool
