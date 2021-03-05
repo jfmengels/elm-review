@@ -556,34 +556,53 @@ importCycleError moduleGraph edge =
 findCycle : Graph n e -> Graph.Edge e -> List n
 findCycle graph edge =
     let
-        startingNode : Graph.NodeId
-        startingNode =
-            edge.from
-
-        targetNode : Graph.NodeId
-        targetNode =
-            edge.to
-
-        reachedTarget : List { a | node : { b | id : Graph.NodeId } } -> Bool
-        reachedTarget path =
-            Maybe.map (.node >> .id) (List.head path) == Just targetNode
-
-        visitorDiscoverCycle : List { a | node : { id : Graph.NodeId, label : n } } -> b -> List n -> List n
-        visitorDiscoverCycle path _ acc =
-            if List.isEmpty acc then
-                -- we haven't found the cycle yet
-                if reachedTarget path then
-                    List.map (.node >> .label) path
-
-                else
-                    []
-
-            else
-                -- we already found the cycle
-                acc
+        initialCycle =
+            Graph.guidedBfs Graph.alongIncomingEdges (visitorDiscoverCycle edge.to) [ edge.from ] [] graph
+                |> Tuple.first
     in
-    Graph.guidedBfs Graph.alongIncomingEdges visitorDiscoverCycle [ startingNode ] [] graph
-        |> Tuple.first
+    findSmallerCycle graph initialCycle edge.from initialCycle
+        |> List.map .label
+
+
+findSmallerCycle graph currentBest targetNode nodesToVisit =
+    case nodesToVisit of
+        [] ->
+            currentBest
+
+        startingNode :: restOfNodes ->
+            let
+                cycle =
+                    Graph.guidedBfs Graph.alongIncomingEdges (visitorDiscoverCycle targetNode) [ startingNode.id ] [] graph
+                        |> Tuple.first
+
+                newBest =
+                    if List.length cycle > 0 && List.length cycle < List.length currentBest then
+                        cycle
+
+                    else
+                        currentBest
+            in
+            findSmallerCycle graph newBest startingNode.id restOfNodes
+
+
+reachedTarget : a -> List { b | node : { c | id : a } } -> Bool
+reachedTarget targetNode path =
+    Maybe.map (.node >> .id) (List.head path) == Just targetNode
+
+
+visitorDiscoverCycle : a -> List { b | node : { c | id : a } } -> d -> List { c | id : a } -> List { c | id : a }
+visitorDiscoverCycle targetNode path _ acc =
+    if List.isEmpty acc then
+        -- we haven't found the cycle yet
+        if reachedTarget targetNode path then
+            List.map .node path
+
+        else
+            []
+
+    else
+        -- we already found the cycle
+        acc
 
 
 printCycle : List ModuleName -> String
