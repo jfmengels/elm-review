@@ -585,7 +585,10 @@ expectNoErrors reviewResult =
             Expect.fail errorMessage
 
         SuccessfulRun _ {- TODO -} runResults ->
-            expectNoModuleErrors runResults
+            Expect.all
+                [ \() -> expectNoModuleErrors runResults
+                ]
+                ()
 
 
 expectNoModuleErrors : List SuccessfulRunResult -> Expectation
