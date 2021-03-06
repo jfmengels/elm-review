@@ -618,11 +618,13 @@ expectErrors expectedErrors reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun (runResult :: []) ->
-            checkAllErrorsMatch runResult expectedErrors
+        SuccessfulRun runResults ->
+            case runResults of
+                runResult :: [] ->
+                    checkAllErrorsMatch runResult expectedErrors
 
-        SuccessfulRun _ ->
-            Expect.fail FailureMessage.needToUsedExpectErrorsForModules
+                _ ->
+                    Expect.fail FailureMessage.needToUsedExpectErrorsForModules
 
 
 {-| Assert that the rule reported some errors, by specifying which ones and the
