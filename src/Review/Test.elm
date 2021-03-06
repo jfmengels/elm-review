@@ -585,19 +585,24 @@ expectNoErrors reviewResult =
             Expect.fail errorMessage
 
         SuccessfulRun _ {- TODO -} runResults ->
-            runResults
-                |> List.map
-                    (\{ errors, moduleName } () ->
-                        if List.isEmpty errors then
-                            Expect.pass
+            expectNoModuleErrors runResults
 
-                        else if moduleName == "GLOBAL ERROR" then
-                            Expect.fail (FailureMessage.didNotExpectGlobalErrors errors)
 
-                        else
-                            Expect.fail (FailureMessage.didNotExpectErrors moduleName errors)
-                    )
-                |> (\expectations -> Expect.all expectations ())
+expectNoModuleErrors : List SuccessfulRunResult -> Expectation
+expectNoModuleErrors runResults =
+    runResults
+        |> List.map
+            (\{ errors, moduleName } () ->
+                if List.isEmpty errors then
+                    Expect.pass
+
+                else if moduleName == "GLOBAL ERROR" then
+                    Expect.fail (FailureMessage.didNotExpectGlobalErrors errors)
+
+                else
+                    Expect.fail (FailureMessage.didNotExpectErrors moduleName errors)
+            )
+        |> (\expectations -> Expect.all expectations ())
 
 
 {-| Assert that the rule reported some errors, by specifying which ones.
