@@ -371,7 +371,7 @@ runOnModulesWithProjectData project rule sources =
                                     |> Rule.reviewV2 [ rule ] Nothing
                                     |> .errors
                         in
-                        case ListExtra.find (\err -> Rule.errorTarget err == Error.Global) errors of
+                        case Debug.log "result" <| ListExtra.find (\err -> Rule.errorTarget err == Error.Global) (Debug.log "errors" errors) of
                             Just globalError_ ->
                                 FailedRun <| FailureMessage.globalErrorInTest globalError_
 
