@@ -1,7 +1,6 @@
 module Review.Test exposing
     ( ReviewResult, run, runWithProjectData, runOnModules, runOnModulesWithProjectData
-    , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme
-    , expectGlobalErrors, globalError
+    , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectGlobalErrors, globalError
     )
 
 {-| Module that helps you test your rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/).
@@ -99,7 +98,7 @@ for this module.
 
 # Making assertions
 
-@docs ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme
+@docs ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectGlobalErrors, globalError
 
 -}
 
@@ -746,7 +745,7 @@ expectErrorsForModuleFiles expectedErrorsList runResults =
                         }
                     ]
 
-Alternatively, or if you need to specify errors for other files too, you can use [`expectErrorsForModules`](#expectErrorsForModules), specifying `elm.json` as the module name.
+Alternatively, or if you need to specify errors for other files too, you can use [`expectErrorsForModules`](#expectErrorsForModules), specifying `"elm.json"` as the module name.
 
     sourceCode
         |> Review.Test.runOnModulesWithProjectData project rule
@@ -765,6 +764,34 @@ expectErrorsForElmJson expectedErrors reviewResult =
     expectErrorsForModules [ ( "elm.json", expectedErrors ) ] reviewResult
 
 
+{-| Assert that the rule reported some global errors, by specifying which ones using [`globalError`](#globalError).
+
+    test "report an error when a module is unused" <|
+        \() ->
+            """
+    module ModuleA exposing (a)
+    a = 1"""
+                |> Review.Test.run rule
+                |> Review.Test.expectGlobalErrors
+                    [ Review.Test.globalError
+                        { message = "Unused dependency `author/package`"
+                        , details = [ "Dependency should be removed" ]
+                        }
+                    ]
+
+Alternatively, or if you need to specify errors for other files too, you can use [`expectErrorsForModules`](#expectErrorsForModules), specifying `"GLOBAL ERROR"` as the module name.
+
+    sourceCode
+        |> Review.Test.run rule
+        |> Review.Test.expectErrorsForModules
+            [ ( "ModuleB", [ Review.Test.error someErrorModuleB ] )
+            , ( "GLOBAL ERROR", [ Review.Test.globalError someGlobalError ] )
+            ]
+
+Assert which errors are reported using [`globalError`](#globalError), not [`error`](#error). The test will fail if
+a different number of errors than expected are reported, or if the message is incorrect.
+
+-}
 expectGlobalErrors : List ExpectedError -> ReviewResult -> Expectation
 expectGlobalErrors expectedErrors reviewResult =
     expectErrorsForModules [ ( "GLOBAL ERROR", expectedErrors ) ] reviewResult
@@ -792,7 +819,7 @@ expectGlobalErrors expectedErrors reviewResult =
                         }
                     ]
 
-Alternatively, or if you need to specify errors for other files too, you can use [`expectErrorsForModules`](#expectErrorsForModules), specifying `README.md` as the module name.
+Alternatively, or if you need to specify errors for other files too, you can use [`expectErrorsForModules`](#expectErrorsForModules), specifying `"README.md"` as the module name.
 
     sourceCode
         |> Review.Test.runOnModulesWithProjectData project rule
