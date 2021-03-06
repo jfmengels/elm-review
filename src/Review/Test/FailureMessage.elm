@@ -4,7 +4,7 @@ module Review.Test.FailureMessage exposing
     , underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
     , needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
     , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
-    , didNotExpectGlobalErrors, fixedCodeWhitespaceMismatch
+    , didNotExpectGlobalErrors, fixedCodeWhitespaceMismatch, tooManyGlobalErrors
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -244,6 +244,20 @@ tooManyErrors moduleName extraErrors =
         ("I found "
             ++ (String.fromInt numberOfErrors ++ " " ++ pluralizeErrors numberOfErrors ++ " too many for module `" ++ moduleName ++ "`:\n\n")
             ++ listErrorMessagesAndPositions extraErrors
+        )
+
+
+tooManyGlobalErrors : List ReviewError -> String
+tooManyGlobalErrors extraErrors =
+    let
+        numberOfErrors : Int
+        numberOfErrors =
+            List.length extraErrors
+    in
+    failureMessage "RULE REPORTED MORE GLOBAL ERRORS THAN EXPECTED"
+        ("I found "
+            ++ (String.fromInt numberOfErrors ++ " global " ++ pluralizeErrors numberOfErrors ++ " too many:\n\n")
+            ++ listErrorMessages extraErrors
         )
 
 

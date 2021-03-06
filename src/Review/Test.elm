@@ -1153,8 +1153,13 @@ checkErrorsMatch runResult expectedErrors expectedNumberOfErrors errors =
 
         ( [], error_ :: restOfErrors ) ->
             [ \() ->
-                FailureMessage.tooManyErrors runResult.moduleName (error_ :: restOfErrors)
-                    |> Expect.fail
+                if runResult.moduleName == "GLOBAL ERROR" then
+                    FailureMessage.tooManyGlobalErrors (error_ :: restOfErrors)
+                        |> Expect.fail
+
+                else
+                    FailureMessage.tooManyErrors runResult.moduleName (error_ :: restOfErrors)
+                        |> Expect.fail
             ]
 
 
