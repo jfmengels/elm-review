@@ -198,9 +198,17 @@ expectedMoreErrors moduleName expectedNumberOfErrors missingExpectedErrors =
         numberOfErrors : Int
         numberOfErrors =
             List.length missingExpectedErrors
+
+        what : String
+        what =
+            if moduleName == "GLOBAL ERROR" then
+                "global errors"
+
+            else
+                "errors for module `" ++ moduleName ++ "`"
     in
     failureMessage "RULE REPORTED LESS ERRORS THAN EXPECTED"
-        ("""I expected to see """ ++ String.fromInt expectedNumberOfErrors ++ """ errors for module `""" ++ moduleName ++ """` but only found """ ++ String.fromInt (expectedNumberOfErrors - numberOfErrors) ++ """.
+        ("I expected to see " ++ String.fromInt expectedNumberOfErrors ++ " " ++ what ++ " but only found " ++ String.fromInt (expectedNumberOfErrors - numberOfErrors) ++ """.
 Here are the """ ++ String.fromInt numberOfErrors ++ """ I could not find:
 
 """)
