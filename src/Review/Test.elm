@@ -124,7 +124,13 @@ import Vendor.ListExtra as ListExtra
 -}
 type ReviewResult
     = FailedRun String
-    | SuccessfulRun (List SuccessfulRunResult)
+    | SuccessfulRun (List GlobalError) (List SuccessfulRunResult)
+
+
+type alias GlobalError =
+    { message : String
+    , details : List String
+    }
 
 
 type alias SuccessfulRunResult =
@@ -381,7 +387,7 @@ runOnModulesWithProjectData project rule sources =
                                     , elmJsonRunResult errors projectWithModules
                                     , readmeRunResult errors projectWithModules
                                     ]
-                                    |> SuccessfulRun
+                                    |> SuccessfulRun [{- TODO -}]
 
 
 moduleToRunResult : List ReviewError -> ProjectModule -> SuccessfulRunResult
@@ -568,7 +574,7 @@ expectNoErrors reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun runResults ->
+        SuccessfulRun _ {- TODO -} runResults ->
             runResults
                 |> List.map
                     (\{ errors, moduleName } () ->
@@ -623,7 +629,7 @@ expectErrors expectedErrors reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun runResults ->
+        SuccessfulRun _ {- TODO -} runResults ->
             case ListExtra.find (\runResult -> runResult.moduleName == "GLOBAL ERROR" && not (List.isEmpty runResult.errors)) runResults of
                 Just globalRunResult ->
                     Expect.fail (FailureMessage.didNotExpectGlobalErrors globalRunResult.errors)
@@ -690,7 +696,7 @@ expectErrorsForModules expectedErrorsList reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun runResults ->
+        SuccessfulRun _ {- TODO -} runResults ->
             let
                 maybeUnknownModule : Maybe String
                 maybeUnknownModule =
