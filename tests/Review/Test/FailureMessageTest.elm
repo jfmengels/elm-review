@@ -487,23 +487,24 @@ If this helps, this is where I found the error:
 
 expectedMoreErrorsTest : Test
 expectedMoreErrorsTest =
-    test "expectedMoreErrors" <|
-        \() ->
-            let
-                missingErrors : List ExpectedErrorData
-                missingErrors =
-                    [ { message = "Remove the use of `Debug` before shipping to production"
-                      , details = [ "Some details" ]
-                      , under = "Debug.log"
-                      }
-                    , { message = "Remove the use of `Debug` before shipping to production"
-                      , details = [ "Some details" ]
-                      , under = "Debug.log"
-                      }
-                    ]
-            in
-            FailureMessage.expectedMoreErrors "MyModule" 5 missingErrors
-                |> expectMessageEqual """
+    describe "expectedMoreErrors"
+        [ test "for modules" <|
+            \() ->
+                let
+                    missingErrors : List ExpectedErrorData
+                    missingErrors =
+                        [ { message = "Remove the use of `Debug` before shipping to production"
+                          , details = [ "Some details" ]
+                          , under = "Debug.log"
+                          }
+                        , { message = "Remove the use of `Debug` before shipping to production"
+                          , details = [ "Some details" ]
+                          , under = "Debug.log"
+                          }
+                        ]
+                in
+                FailureMessage.expectedMoreErrors "MyModule" 5 missingErrors
+                    |> expectMessageEqual """
 \u{001B}[31m\u{001B}[1mRULE REPORTED LESS ERRORS THAN EXPECTED\u{001B}[22m\u{001B}[39m
 
 I expected to see 5 errors for module `MyModule` but only found 3.
@@ -512,6 +513,27 @@ Here are the 2 I could not find:
   - `Remove the use of `Debug` before shipping to production`
   - `Remove the use of `Debug` before shipping to production`
 """
+        , test "for global errors" <|
+            \() ->
+                let
+                    missingErrors : List ExpectedErrorData
+                    missingErrors =
+                        [ { message = "Remove the use of `Debug` before shipping to production"
+                          , details = [ "Some details" ]
+                          , under = ""
+                          }
+                        ]
+                in
+                FailureMessage.expectedMoreErrors "GLOBAL ERROR" 2 missingErrors
+                    |> expectMessageEqual """
+\u{001B}[31m\u{001B}[1mRULE REPORTED LESS ERRORS THAN EXPECTED\u{001B}[22m\u{001B}[39m
+
+I expected to see 2 global errors but only found 1.
+Here are the 1 I could not find:
+
+  - `Remove the use of `Debug` before shipping to production`
+"""
+        ]
 
 
 tooManyErrorsTest : Test
