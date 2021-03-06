@@ -584,7 +584,11 @@ findSmallerCycle graph currentBest nodesToVisit =
                     else
                         currentBest
             in
-            findSmallerCycle graph newBest restOfNodes
+            if List.length newBest == 1 then
+                newBest
+
+            else
+                findSmallerCycle graph newBest restOfNodes
 
 
 reachedTarget : a -> List { b | node : { c | id : a } } -> Bool
