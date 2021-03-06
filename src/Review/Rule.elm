@@ -3036,7 +3036,7 @@ elmReviewGlobalError { message, details } =
         , details = details
         , range = Range.emptyRange
         , fixes = Nothing
-        , target = Review.Error.UserGlobal
+        , target = Review.Error.Global
         }
 
 
