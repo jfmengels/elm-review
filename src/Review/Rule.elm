@@ -556,34 +556,73 @@ importCycleError moduleGraph edge =
 findCycle : Graph n e -> Graph.Edge e -> List n
 findCycle graph edge =
     let
-        startingNode : Graph.NodeId
-        startingNode =
-            edge.from
+        initialCycle : List (Graph.Node n)
+        initialCycle =
+            Graph.guidedBfs Graph.alongIncomingEdges (visitorDiscoverCycle edge.to) [ edge.from ] [] graph
+                |> Tuple.first
+    in
+    findSmallerCycle graph initialCycle initialCycle
+        |> List.map .label
 
-        targetNode : Graph.NodeId
-        targetNode =
-            edge.to
 
-        reachedTarget : List { a | node : { b | id : Graph.NodeId } } -> Bool
-        reachedTarget path =
-            Maybe.map (.node >> .id) (List.head path) == Just targetNode
+findSmallerCycle : Graph n e -> List (Graph.Node n) -> List (Graph.Node n) -> List (Graph.Node n)
+findSmallerCycle graph currentBest nodesToVisit =
+    case nodesToVisit of
+        [] ->
+            currentBest
 
-        visitorDiscoverCycle : List { a | node : { id : Graph.NodeId, label : n } } -> b -> List n -> List n
-        visitorDiscoverCycle path _ acc =
-            if List.isEmpty acc then
-                -- we haven't found the cycle yet
-                if reachedTarget path then
-                    List.map (.node >> .label) path
+        startingNode :: restOfNodes ->
+            let
+                cycle : List (Graph.Node n)
+                cycle =
+                    Graph.guidedBfs Graph.alongIncomingEdges (visitorDiscoverCycle startingNode.id) [ startingNode.id ] [] graph
+                        |> Tuple.first
 
-                else
-                    []
+                newBest : List (Graph.Node n)
+                newBest =
+                    if List.length cycle > 0 && List.length cycle < List.length currentBest then
+                        cycle
+
+                    else
+                        currentBest
+            in
+            if List.length newBest == 1 then
+                newBest
 
             else
-                -- we already found the cycle
-                acc
-    in
-    Graph.guidedBfs Graph.alongIncomingEdges visitorDiscoverCycle [ startingNode ] [] graph
-        |> Tuple.first
+                findSmallerCycle graph newBest restOfNodes
+
+
+reachedTarget : Graph.NodeId -> List (Graph.NodeContext n e) -> Bool
+reachedTarget targetNode path =
+    Maybe.map (.node >> .id) (List.head path) == Just targetNode
+
+
+visitorDiscoverCycle : Graph.NodeId -> List (Graph.NodeContext n e) -> Int -> List (Graph.Node n) -> List (Graph.Node n)
+visitorDiscoverCycle targetNode path distance acc =
+    if List.isEmpty acc then
+        -- We haven't found the cycle yet
+        if distance == 0 then
+            case List.head path of
+                Just head ->
+                    if IntDict.member head.node.id head.incoming then
+                        [ head.node ]
+
+                    else
+                        acc
+
+                Nothing ->
+                    acc
+
+        else if reachedTarget targetNode path then
+            List.map .node path
+
+        else
+            []
+
+    else
+        -- We already found the cycle
+        acc
 
 
 printCycle : List ModuleName -> String
