@@ -559,6 +559,7 @@ findCycle graph edge =
         initialCycle =
             Graph.guidedBfs Graph.alongIncomingEdges (visitorDiscoverCycle edge.to) [ edge.from ] [] graph
                 |> Tuple.first
+                |> Debug.log "initial"
     in
     findSmallerCycle graph initialCycle initialCycle
         |> List.map .label
@@ -574,6 +575,7 @@ findSmallerCycle graph currentBest nodesToVisit =
                 cycle =
                     Graph.guidedBfs Graph.alongIncomingEdges (visitorDiscoverCycle startingNode.id) [ startingNode.id ] [] graph
                         |> Tuple.first
+                        |> Debug.log ("for: " ++ Debug.toString startingNode)
 
                 newBest =
                     if List.length cycle > 0 && List.length cycle < List.length currentBest then
@@ -590,8 +592,15 @@ reachedTarget targetNode path =
     Maybe.map (.node >> .id) (List.head path) == Just targetNode
 
 
-visitorDiscoverCycle : a -> List { b | node : { c | id : a } } -> d -> List { c | id : a } -> List { c | id : a }
-visitorDiscoverCycle targetNode path _ acc =
+visitorDiscoverCycle : a -> List { b | node : { c | id : a, label : e } } -> Int -> List { c | id : a, label : e } -> List { c | id : a, label : e }
+visitorDiscoverCycle targetNode path distance acc =
+    let
+        _ =
+            Debug.log "distance" distance
+
+        _ =
+            Debug.log "path" (Maybe.map (.node >> .label) (List.head path))
+    in
     if List.isEmpty acc then
         -- we haven't found the cycle yet
         if reachedTarget targetNode path then
