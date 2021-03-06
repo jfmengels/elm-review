@@ -47,12 +47,12 @@ type alias SourceCode =
 didNotExpectErrors : String -> List ReviewError -> String
 didNotExpectErrors moduleName errors =
     let
-        target : String
-        target =
-            "module `" ++ moduleName ++ "`"
+        what : String
+        what =
+            "errors for module `" ++ moduleName ++ "`"
     in
     failureMessage "DID NOT EXPECT ERRORS"
-        ("I expected no errors for " ++ target ++ """ but found:
+        ("I expected no " ++ what ++ """ but found:
 
 """ ++ listErrorMessagesAndPositions errors)
 
