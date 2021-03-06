@@ -109,13 +109,7 @@ buildModuleGraph mods =
                         let
                             ( moduleNode, modulesEdges ) =
                                 nodesAndEdges
-                                    (\moduleName ->
-                                        if getModuleName module_ == [ "NoUnused", "VariablesTest" ] then
-                                            Dict.get moduleName moduleIds
-
-                                        else
-                                            Dict.get moduleName moduleIds
-                                    )
+                                    (\moduleName -> Dict.get moduleName moduleIds)
                                     module_
                                     (getModuleId <| getModuleName module_)
                         in
