@@ -556,6 +556,7 @@ importCycleError moduleGraph edge =
 findCycle : Graph n e -> Graph.Edge e -> List n
 findCycle graph edge =
     let
+        initialCycle : List (Graph.Node n)
         initialCycle =
             Graph.guidedBfs Graph.alongIncomingEdges (visitorDiscoverCycle edge.to) [ edge.from ] [] graph
                 |> Tuple.first
@@ -565,6 +566,7 @@ findCycle graph edge =
         |> List.map .label
 
 
+findSmallerCycle : Graph n e -> List (Graph.Node n) -> List (Graph.Node n) -> List (Graph.Node n)
 findSmallerCycle graph currentBest nodesToVisit =
     case nodesToVisit of
         [] ->
@@ -572,11 +574,13 @@ findSmallerCycle graph currentBest nodesToVisit =
 
         startingNode :: restOfNodes ->
             let
+                cycle : List (Graph.Node n)
                 cycle =
                     Graph.guidedBfs Graph.alongIncomingEdges (visitorDiscoverCycle startingNode.id) [ startingNode.id ] [] graph
                         |> Tuple.first
                         |> Debug.log ("for: " ++ Debug.toString startingNode)
 
+                newBest : List (Graph.Node n)
                 newBest =
                     if List.length cycle > 0 && List.length cycle < List.length currentBest then
                         cycle
@@ -591,12 +595,12 @@ findSmallerCycle graph currentBest nodesToVisit =
                 findSmallerCycle graph newBest restOfNodes
 
 
-reachedTarget : a -> List { b | node : { c | id : a } } -> Bool
+reachedTarget : Graph.NodeId -> List (Graph.NodeContext n e) -> Bool
 reachedTarget targetNode path =
     Maybe.map (.node >> .id) (List.head path) == Just targetNode
 
 
-visitorDiscoverCycle : a -> List { b | node : { c | id : a, label : e } } -> Int -> List { c | id : a, label : e } -> List { c | id : a, label : e }
+visitorDiscoverCycle : Graph.NodeId -> List (Graph.NodeContext n e) -> Int -> List (Graph.Node n) -> List (Graph.Node n)
 visitorDiscoverCycle targetNode path distance acc =
     let
         _ =
