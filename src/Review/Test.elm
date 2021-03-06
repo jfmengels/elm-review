@@ -381,13 +381,17 @@ runOnModulesWithProjectData project rule sources =
                                 FailedRun <| FailureMessage.globalErrorInTest globalError_
 
                             Nothing ->
-                                List.concat
-                                    [ List.map (moduleToRunResult errors) modules
-                                    , globalErrorsRunResult errors
-                                    , elmJsonRunResult errors projectWithModules
-                                    , readmeRunResult errors projectWithModules
-                                    ]
-                                    |> SuccessfulRun [{- TODO -}]
+                                let
+                                    fileErrors : List SuccessfulRunResult
+                                    fileErrors =
+                                        List.concat
+                                            [ List.map (moduleToRunResult errors) modules
+                                            , globalErrorsRunResult errors
+                                            , elmJsonRunResult errors projectWithModules
+                                            , readmeRunResult errors projectWithModules
+                                            ]
+                                in
+                                SuccessfulRun [{- TODO -}] fileErrors
 
 
 moduleToRunResult : List ReviewError -> ProjectModule -> SuccessfulRunResult
