@@ -111,10 +111,6 @@ buildModuleGraph mods =
                                 nodesAndEdges
                                     (\moduleName ->
                                         if getModuleName module_ == [ "NoUnused", "VariablesTest" ] then
-                                            let
-                                                _ =
-                                                    Debug.log "imports" ( moduleName, Dict.get moduleName moduleIds )
-                                            in
                                             Dict.get moduleName moduleIds
 
                                         else
