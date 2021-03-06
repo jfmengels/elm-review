@@ -13,6 +13,7 @@ all =
     describe "Review.Test.FailureMessage"
         [ parsingFailureTest
         , didNotExpectErrorsTest
+        , didNotExpectGlobalErrorsTest
         , messageMismatchTest
         , underMismatchTest
         , unexpectedDetailsTest
@@ -115,6 +116,36 @@ I expected no errors for module `ModuleName` but found:
     at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
   - `Some other error`
     at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
+"""
+
+
+didNotExpectGlobalErrorsTest : Test
+didNotExpectGlobalErrorsTest =
+    test "didNotExpectGlobalErrors" <|
+        \() ->
+            let
+                errors : List ReviewError
+                errors =
+                    [ Review.Error.error
+                        { message = "Some error"
+                        , details = [ "Some details" ]
+                        }
+                        dummyRange
+                    , Review.Error.error
+                        { message = "Some other error"
+                        , details = [ "Some other details" ]
+                        }
+                        dummyRange
+                    ]
+            in
+            FailureMessage.didNotExpectGlobalErrors errors
+                |> expectMessageEqual """
+\u{001B}[31m\u{001B}[1mDID NOT EXPECT GLOBAL ERRORS\u{001B}[22m\u{001B}[39m
+
+I expected no global errors but found:
+
+  - `Some error`
+  - `Some other error`
 """
 
 

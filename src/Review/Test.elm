@@ -573,8 +573,14 @@ expectNoErrors reviewResult =
             runResults
                 |> List.map
                     (\{ errors, moduleName } () ->
-                        List.isEmpty errors
-                            |> Expect.true (FailureMessage.didNotExpectErrors moduleName errors)
+                        if List.isEmpty errors then
+                            Expect.pass
+
+                        else if moduleName == "GLOBAL ERROR" then
+                            Expect.fail (FailureMessage.didNotExpectGlobalErrors errors)
+
+                        else
+                            Expect.fail (FailureMessage.didNotExpectErrors moduleName errors)
                     )
                 |> (\expectations -> Expect.all expectations ())
 
