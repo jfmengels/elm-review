@@ -542,10 +542,10 @@ importCycleError moduleGraph edge =
                 |> List.reverse
     in
     [ globalError
-        { message = "Your module imports form a cycle:"
+        { message = "Your module imports form a cycle"
         , details =
-            [ "Learn more about why this is disallowed and how to break cycles here:<https://elm-lang.org/0.19.1/import-cycles>"
-            , printCycle cycle
+            [ printCycle cycle
+            , "Learn more about why this is disallowed and how to break cycles here:<https://elm-lang.org/0.19.1/import-cycles>"
             ]
         }
         |> setRuleName "Incorrect project"
