@@ -613,7 +613,7 @@ visitorDiscoverCycle targetNode path distance acc =
         if distance == 0 then
             case List.head path of
                 Just head ->
-                    if IntDict.member head.node.id head.outgoing then
+                    if IntDict.member head.node.id (Debug.log "incoming" head.incoming) then
                         acc
 
                     else
