@@ -49,7 +49,11 @@ didNotExpectErrors moduleName errors =
     let
         what : String
         what =
-            "errors for module `" ++ moduleName ++ "`"
+            if moduleName == "GLOBAL ERROR" then
+                "global errors"
+
+            else
+                "errors for module `" ++ moduleName ++ "`"
     in
     failureMessage "DID NOT EXPECT ERRORS"
         ("I expected no " ++ what ++ """ but found:
