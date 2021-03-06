@@ -610,8 +610,23 @@ visitorDiscoverCycle targetNode path distance acc =
             Debug.log "path" (Maybe.map (.node >> .label) (List.head path))
     in
     if List.isEmpty acc then
+        if distance == 0 then
+            case List.head path of
+                Just head ->
+                    if IntDict.member head.node.id head.outgoing then
+                        acc
+
+                    else
+                        acc
+
+                Nothing ->
+                    acc
+
+        else
         -- we haven't found the cycle yet
-        if reachedTarget targetNode path then
+        if
+            reachedTarget targetNode path
+        then
             List.map .node path
 
         else
