@@ -390,8 +390,14 @@ runOnModulesWithProjectData project rule sources =
                                             , elmJsonRunResult errors projectWithModules
                                             , readmeRunResult errors projectWithModules
                                             ]
+
+                                    globalErrors : List GlobalError
+                                    globalErrors =
+                                        errors
+                                            |> List.filter (\error_ -> Rule.errorTarget error_ == Error.UserGlobal)
+                                            |> List.map (\error_ -> { message = Rule.errorMessage error_, details = Rule.errorDetails error_ })
                                 in
-                                SuccessfulRun [{- TODO -}] fileErrors
+                                SuccessfulRun globalErrors fileErrors
 
 
 moduleToRunResult : List ReviewError -> ProjectModule -> SuccessfulRunResult
