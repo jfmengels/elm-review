@@ -3051,7 +3051,7 @@ globalError { message, details } =
         , details = details
         , range = Range.emptyRange
         , fixes = Nothing
-        , target = Review.Error.Global
+        , target = Review.Error.UserGlobal
         }
 
 
