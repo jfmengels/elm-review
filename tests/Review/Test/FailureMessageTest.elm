@@ -1,6 +1,6 @@
 module Review.Test.FailureMessageTest exposing (all)
 
-import Elm.Syntax.Range exposing (Range)
+import Elm.Syntax.Range as Range exposing (Range)
 import Expect exposing (Expectation)
 import Review.Error exposing (ReviewError)
 import Review.Fix as Fix
@@ -23,6 +23,7 @@ all =
         , locationNotFoundTest
         , expectedMoreErrorsTest
         , tooManyErrorsTest
+        , tooManyGlobalErrorsTest
         , locationIsAmbiguousInSourceCodeTest
         , needToUsedExpectErrorsForModulesTest
         , missingSourcesTest
@@ -618,6 +619,58 @@ I found 2 errors too many for module `MyOtherModule`:
     at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
   - `Remove the use of `Debug` before shipping to production`
     at { start = { row = 3, column = 1 }, end = { row = 3, column = 5 } }
+"""
+        ]
+
+
+tooManyGlobalErrorsTest : Test
+tooManyGlobalErrorsTest =
+    describe "tooManyGlobalErrors"
+        [ test "with one extra error" <|
+            \() ->
+                let
+                    extraErrors : List ReviewError
+                    extraErrors =
+                        [ Review.Error.error
+                            { message = "Remove the use of `Debug` before shipping to production"
+                            , details = [ "Some details about Debug" ]
+                            }
+                            Range.emptyRange
+                        ]
+                in
+                FailureMessage.tooManyGlobalErrors extraErrors
+                    |> expectMessageEqual """
+\u{001B}[31m\u{001B}[1mRULE REPORTED MORE GLOBAL ERRORS THAN EXPECTED\u{001B}[22m\u{001B}[39m
+
+I found 1 global error too many:
+
+  - `Remove the use of `Debug` before shipping to production`
+"""
+        , test "with multiple extra errors" <|
+            \() ->
+                let
+                    extraErrors : List ReviewError
+                    extraErrors =
+                        [ Review.Error.error
+                            { message = "Remove the use of `Debug` before shipping to production"
+                            , details = [ "Some details about Debug" ]
+                            }
+                            Range.emptyRange
+                        , Review.Error.error
+                            { message = "Remove the use of `Debug` before shipping to production"
+                            , details = [ "Some details about Debug" ]
+                            }
+                            Range.emptyRange
+                        ]
+                in
+                FailureMessage.tooManyGlobalErrors extraErrors
+                    |> expectMessageEqual """
+\u{001B}[31m\u{001B}[1mRULE REPORTED MORE GLOBAL ERRORS THAN EXPECTED\u{001B}[22m\u{001B}[39m
+
+I found 2 global errors too many:
+
+  - `Remove the use of `Debug` before shipping to production`
+  - `Remove the use of `Debug` before shipping to production`
 """
         ]
 
