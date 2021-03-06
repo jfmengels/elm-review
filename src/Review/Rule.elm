@@ -614,7 +614,7 @@ visitorDiscoverCycle targetNode path distance acc =
             case List.head path of
                 Just head ->
                     if IntDict.member head.node.id (Debug.log "incoming" head.incoming) then
-                        acc
+                        [ head.node ]
 
                     else
                         acc
