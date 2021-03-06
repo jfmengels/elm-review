@@ -4,7 +4,7 @@ module Review.Test.FailureMessage exposing
     , underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
     , needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
     , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
-    , fixedCodeWhitespaceMismatch
+    , didNotExpectGlobalErrors, fixedCodeWhitespaceMismatch
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -50,6 +50,21 @@ didNotExpectErrors moduleName errors =
         ("""I expected no errors for module `""" ++ moduleName ++ """` but found:
 
 """ ++ listErrorMessagesAndPositions errors)
+
+
+didNotExpectGlobalErrors : List ReviewError -> String
+didNotExpectGlobalErrors errors =
+    failureMessage "DID NOT EXPECT GLOBAL ERRORS"
+        ("""I expected no global errors but found:
+
+""" ++ listErrorMessages errors)
+
+
+listErrorMessages : List ReviewError -> String
+listErrorMessages errors =
+    errors
+        |> List.map (\error -> "  - " ++ wrapInQuotes (Rule.errorMessage error))
+        |> String.join "\n"
 
 
 parsingFailure : Bool -> { index : Int, source : String } -> String
