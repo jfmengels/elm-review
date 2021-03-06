@@ -625,14 +625,18 @@ expectErrors expectedErrors reviewResult =
             Expect.fail errorMessage
 
         SuccessfulRun runResults ->
-            -- TODO Fail when there is a global error
             -- TODO Show different error message based on whether it was from the user or from elm-review
-            case List.filter (\runResult -> runResult.moduleName /= "GLOBAL ERROR") runResults of
-                runResult :: [] ->
-                    checkAllErrorsMatch runResult expectedErrors
+            case ListExtra.find (\runResult -> runResult.moduleName == "GLOBAL ERROR" && not (List.isEmpty runResult.errors)) runResults of
+                Just globalRunResult ->
+                    Expect.fail (FailureMessage.didNotExpectGlobalErrors globalRunResult.errors)
 
-                _ ->
-                    Expect.fail FailureMessage.needToUsedExpectErrorsForModules
+                Nothing ->
+                    case List.filter (\runResult -> runResult.moduleName /= "GLOBAL ERROR") runResults of
+                        runResult :: [] ->
+                            checkAllErrorsMatch runResult expectedErrors
+
+                        _ ->
+                            Expect.fail FailureMessage.needToUsedExpectErrorsForModules
 
 
 {-| Assert that the rule reported some errors, by specifying which ones and the
