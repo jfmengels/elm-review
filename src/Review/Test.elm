@@ -619,7 +619,7 @@ expectErrors expectedErrors reviewResult =
             Expect.fail errorMessage
 
         SuccessfulRun runResults ->
-            case runResults of
+            case List.filter (\runResult -> runResult.moduleName /= "GLOBAL ERROR") runResults of
                 runResult :: [] ->
                     checkAllErrorsMatch runResult expectedErrors
 
