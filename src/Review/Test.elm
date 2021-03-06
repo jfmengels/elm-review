@@ -619,6 +619,8 @@ expectErrors expectedErrors reviewResult =
             Expect.fail errorMessage
 
         SuccessfulRun runResults ->
+            -- TODO Fail when there is a global error
+            -- TODO Show different error message based on whether it was from the user or from elm-review
             case List.filter (\runResult -> runResult.moduleName /= "GLOBAL ERROR") runResults of
                 runResult :: [] ->
                     checkAllErrorsMatch runResult expectedErrors
