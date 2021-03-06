@@ -707,23 +707,28 @@ expectErrorsForModules expectedErrorsList reviewResult =
             Expect.fail errorMessage
 
         SuccessfulRun _ {- TODO -} runResults ->
-            let
-                maybeUnknownModule : Maybe String
-                maybeUnknownModule =
-                    Set.diff
-                        (expectedErrorsList |> List.map Tuple.first |> Set.fromList)
-                        (Set.fromList (List.map .moduleName runResults))
-                        |> Set.toList
-                        |> List.head
-            in
-            case maybeUnknownModule of
-                Just unknownModule ->
-                    FailureMessage.unknownModulesInExpectedErrors unknownModule
-                        |> Expect.fail
+            expectErrorsForModulesHelp expectedErrorsList runResults
 
-                Nothing ->
-                    expectErrorsForModuleFiles expectedErrorsList runResults
-                        |> (\expectations -> Expect.all expectations ())
+
+expectErrorsForModulesHelp : List ( String, List ExpectedError ) -> List SuccessfulRunResult -> Expectation
+expectErrorsForModulesHelp expectedErrorsList runResults =
+    let
+        maybeUnknownModule : Maybe String
+        maybeUnknownModule =
+            Set.diff
+                (expectedErrorsList |> List.map Tuple.first |> Set.fromList)
+                (Set.fromList (List.map .moduleName runResults))
+                |> Set.toList
+                |> List.head
+    in
+    case maybeUnknownModule of
+        Just unknownModule ->
+            FailureMessage.unknownModulesInExpectedErrors unknownModule
+                |> Expect.fail
+
+        Nothing ->
+            expectErrorsForModuleFiles expectedErrorsList runResults
+                |> (\expectations -> Expect.all expectations ())
 
 
 expectErrorsForModuleFiles : List ( String, List ExpectedError ) -> List SuccessfulRunResult -> List (() -> Expectation)
