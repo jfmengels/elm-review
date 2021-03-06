@@ -162,6 +162,7 @@ fromLiteralAlias = SomeModule.Regex.fromLiteralFunc
             \_ ->
                 """module A exposing (..)
 import SomeModule.Regex
+import A
 a = SomeModule.Regex.fromLiteralFunc "^abc$"
 """
                     |> Review.Test.runWithProjectData project (rule configuration)
