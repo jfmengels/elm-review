@@ -89,7 +89,7 @@ Before you start adding rules though, I suggest reading the rest of this documen
 
 ## Write your own rule
 
-You can write your own rule using this package's API and [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/).
+You can write your own rule using this package's API and [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/).
 Check out the [`Review.Rule`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.3.11/Review-Rule) documentation for how to get started.
 
 **NOTE**: If you want to **create a package** containing `elm-review` rules, I highly recommend using the

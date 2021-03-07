@@ -33,7 +33,7 @@ type alias ModuleNameLookupTable =
     Internal.ModuleNameLookupTable
 
 
-{-| Returns the name of the module the type or value referred to by this [`Node`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#Node).
+{-| Returns the name of the module the type or value referred to by this [`Node`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Node#Node).
 
 The function returns `Just []` if the type or value was defined in this module. It returns `Just moduleName` if the Node is among these kinds of AST nodes (and `Nothing` for all the others):
 
@@ -72,7 +72,7 @@ moduleNameFor (Internal.ModuleNameLookupTable dict) (Node range _) =
     Dict.get (Internal.toRangeLike range) dict
 
 
-{-| Returns the name of the module the type or value referred to by this [`Node`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#Node).
+{-| Returns the name of the module the type or value referred to by this [`Node`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Node#Node).
 
 The function returns `Just []` if the type or value was defined in this module. It returns `Just moduleName` if the Node is among these kinds of AST nodes (and `Nothing` for all the others):
 

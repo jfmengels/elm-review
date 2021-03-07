@@ -32,12 +32,12 @@ If you want to **add/create a rule** for the package or for your local configura
 `elm-review` reads the modules, `elm.json`, dependencies and `README.md` from your project,
 and turns each module into an [Abstract Syntax Tree (AST)](https://en.wikipedia.org/wiki/Abstract_syntax_tree),
 a tree-like structure which represents your source code, using the
-[`elm-syntax` package](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/).
+[`elm-syntax` package](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/).
 
 `elm-review` then feeds all this data into `review rules`, that traverse them to report problems.
 The way that review rules go through the data depends on whether it is a [module rule](#creating-a-module-rule) or a [project rule](#creating-a-project-rule).
 
-`elm-review` relies on the [`elm-syntax` package](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/),
+`elm-review` relies on the [`elm-syntax` package](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/),
 and all the node types you'll see will be coming from there. You are likely to
 need to have the documentation for that package open when writing a rule.
 
@@ -130,9 +130,9 @@ I recommend reading through [`the strategies for effective testing`](./Review-Te
 starting writing a rule.
 
 
-## Look at the documentation for [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/)
+## Look at the documentation for [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/)
 
-`elm-review` is heavily dependent on the types that [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/)
+`elm-review` is heavily dependent on the types that [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/)
 provides. If you don't understand the AST it provides, you will have a hard time
 implementing the rule you wish to create.
 
@@ -818,7 +818,7 @@ When visiting the AST, declaration and expression nodes are visited twice: once
 with `OnEnter`, before the children of the node are visited, and once with
 `OnExit`, after the children of the node have been visited.
 In most cases, you'll only want to handle the `OnEnter` case, but there are cases
-where you'll want to visit a [`Node`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#Node)
+where you'll want to visit a [`Node`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Node#Node)
 after having seen its children.
 
 For instance, if you are trying to detect the unused variables defined inside
@@ -1364,7 +1364,7 @@ what's most convenient.
 
 The [`Node`] containing the module name is passed for convenience, so you don't
 have to visit the module definition just to get the module name. Just like what
-it is in [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-ModuleName),
+it is in [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-ModuleName),
 the value will be `[ "My", "Module" ]` if the module name is `My.Module`.
 
 
@@ -1529,7 +1529,7 @@ but are unused in the rest of the project.
                 )
 
 [`ModuleKey`]: #ModuleKey
-[`Node`]: https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#Node
+[`Node`]: https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Node#Node
 [`fromProjectToModule`]: #-fromprojecttomodule-
 [`fromModuleToProject`]: #-frommoduletoproject-
 [`foldProjectContexts`]: #-foldprojectcontexts-
@@ -1759,7 +1759,7 @@ setFilePathIfUnset module_ error_ =
             error_
 
 
-{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's [module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`) and report patterns.
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's [module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`) and report patterns.
 
 The following example forbids having `_` in any part of a module name.
 
@@ -1840,7 +1840,7 @@ withSimpleCommentsVisitor visitor schema =
     withCommentsVisitor (\node moduleContext -> ( visitor node, moduleContext )) schema
 
 
-{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's [import statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Import) (`import Html as H exposing (div)`) in order of their definition and report patterns.
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's [import statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Import) (`import Html as H exposing (div)`) in order of their definition and report patterns.
 
 The following example forbids using the core Html package and suggests using
 `elm-css` instead.
@@ -1890,7 +1890,7 @@ withSimpleImportVisitor visitor schema =
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
-[declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Declaration)
+[declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Declaration)
 (`someVar = add 1 2`, `type Bool = True | False`, `port output : Json.Encode.Value -> Cmd msg`)
 and report patterns. The declarations will be visited in the order of their definition.
 
@@ -1946,7 +1946,7 @@ withSimpleDeclarationVisitor visitor schema =
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
-[expressions](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Expression)
+[expressions](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Expression)
 (`1`, `True`, `add 1 2`, `1 + 2`). The expressions are visited in pre-order
 depth-first search, meaning that an expression will be visited, then its first
 child, the first child's children (and so on), then the second child (and so on).
@@ -2088,7 +2088,7 @@ withDependenciesModuleVisitor visitor (ModuleRuleSchema schema) =
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
-[module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`), collect data in the `context` and/or report patterns.
+[module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`), collect data in the `context` and/or report patterns.
 
 The following example forbids the use of `Html.button` except in the "Button" module.
 The example is simplified to only forbid the use of the `Html.button` expression.
@@ -2168,7 +2168,7 @@ withCommentsVisitor visitor (ModuleRuleSchema schema) =
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
-[import statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Import)
+[import statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Import)
 (`import Html as H exposing (div)`) in order of their definition, collect data
 in the `context` and/or report patterns.
 
@@ -2251,7 +2251,7 @@ In the next major version, this function will be removed and [`withDeclarationEn
 **/DEPRECATED**
 
 Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
-[declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Declaration)
+[declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Declaration)
 (`someVar = add 1 2`, `type Bool = True | False`, `port output : Json.Encode.Value -> Cmd msg`),
 collect data and/or report patterns. The declarations will be visited in the order of their definition.
 
@@ -2351,7 +2351,7 @@ withDeclarationVisitor visitor (ModuleRuleSchema schema) =
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
-[declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Declaration)
+[declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Declaration)
 (`someVar = add 1 2`, `type Bool = True | False`, `port output : Json.Encode.Value -> Cmd msg`),
 collect data and/or report patterns. The declarations will be visited in the order of their definition.
 
@@ -2440,7 +2440,7 @@ withDeclarationEnterVisitor visitor (ModuleRuleSchema schema) =
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
-[declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Declaration)
+[declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Declaration)
 (`someVar = add 1 2`, `type Bool = True | False`, `port output : Json.Encode.Value -> Cmd msg`),
 collect data and/or report patterns. The declarations will be visited in the order of their definition.
 
@@ -2486,7 +2486,7 @@ withDeclarationExitVisitor visitor (ModuleRuleSchema schema) =
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
-[declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Declaration)
+[declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Declaration)
 (`someVar = add 1 2`, `type Bool = True | False`, `port output : Json.Encode.Value -> Cmd msg`),
 collect data and/or report patterns.
 
@@ -2512,7 +2512,7 @@ In the next major version, this function will be removed and [`withExpressionEnt
 **/DEPRECATED**
 
 Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
-[expressions](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Expression)
+[expressions](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Expression)
 (`1`, `True`, `add 1 2`, `1 + 2`), collect data in the `context` and/or report patterns.
 The expressions are visited in pre-order depth-first search, meaning that an
 expression will be visited, then its first child, the first child's children
@@ -2606,7 +2606,7 @@ withExpressionVisitor visitor (ModuleRuleSchema schema) =
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
-[expressions](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Expression)
+[expressions](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Expression)
 (`1`, `True`, `add 1 2`, `1 + 2`), collect data in the `context` and/or report patterns.
 The expressions are visited in pre-order depth-first search, meaning that an
 expression will be visited, then its first child, the first child's children
@@ -2693,7 +2693,7 @@ withExpressionEnterVisitor visitor (ModuleRuleSchema schema) =
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
-[expressions](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Expression)
+[expressions](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Expression)
 (`1`, `True`, `add 1 2`, `1 + 2`), collect data in the `context` and/or report patterns.
 The expressions are visited in pre-order depth-first search, meaning that an
 expression will be visited, then its first child, the first child's children
@@ -2843,8 +2843,8 @@ In most cases, you can get it using [`Node.range`].
 
 [message you want to display to the user]: #a-helpful-error-message-and-details
 
-[`Range`]: https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range
-[`Node.range`]: https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#range
+[`Range`]: https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Range
+[`Node.range`]: https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Node#range
 
 -}
 error : { message : String, details : List String } -> Range -> Error {}
@@ -2962,7 +2962,7 @@ function.
 
 The second argument is a function that takes the `elm.json` content as a raw string,
 and returns the error details. Using the raw string, you should try and find the
-most fitting [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range)
+most fitting [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Range)
 possible for the error.
 
 -}
@@ -3142,7 +3142,7 @@ errorDetails (Review.Error.ReviewError err) =
     err.details
 
 
-{-| Get the [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Range)
+{-| Get the [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Range)
 of an [`Error`](#Error).
 -}
 errorRange : Review.Error.ReviewError -> Range
@@ -4372,7 +4372,7 @@ moduleNameFromMetadata (Metadata metadata) =
     Node.value metadata.moduleNameNode
 
 
-{-| Get the [`Node`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.1.0/Elm-Syntax-Node#Node) to the module name of the current module.
+{-| Get the [`Node`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Node#Node) to the module name of the current module.
 -}
 moduleNameNodeFromMetadata : Metadata -> Node ModuleName
 moduleNameNodeFromMetadata (Metadata metadata) =
