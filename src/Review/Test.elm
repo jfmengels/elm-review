@@ -1189,6 +1189,53 @@ checkAllErrorsMatch runResult unorderedExpectedErrors =
         |> (\expectations -> Expect.all expectations ())
 
 
+happyPath : { expected : List GlobalError, actual : List GlobalError, needSecondPass : List GlobalError } -> List Expectation
+happyPath params =
+    case params.expected of
+        head :: rest ->
+            case findAndRemove head params.actual of
+                Just newActual ->
+                    happyPath { expected = rest, actual = newActual, needSecondPass = params.needSecondPass }
+
+                Nothing ->
+                    happyPath { expected = rest, actual = params.actual, needSecondPass = head :: params.needSecondPass }
+
+        [] ->
+            if List.isEmpty params.actual then
+                if List.isEmpty params.needSecondPass then
+                    [ Expect.pass ]
+
+                else
+                    -- TODO Report extraneous errors
+                    []
+
+            else
+                notHappyPath params.actual params.needSecondPass
+
+
+findAndRemove : a -> List a -> Maybe (List a)
+findAndRemove element list =
+    findAndRemoveHelp element [] list
+
+
+findAndRemoveHelp : a -> List a -> List a -> Maybe (List a)
+findAndRemoveHelp element previous list =
+    case list of
+        [] ->
+            Nothing
+
+        head :: rest ->
+            if element == head then
+                Just (List.reverse previous ++ rest)
+
+            else
+                findAndRemoveHelp element (head :: previous) rest
+
+
+notHappyPath =
+    Debug.todo ""
+
+
 checkAllGlobalErrorsMatch : { expected : List GlobalError, actual : List GlobalError } -> List (() -> Expectation)
 checkAllGlobalErrorsMatch params =
     case ( params.expected, params.actual ) of
