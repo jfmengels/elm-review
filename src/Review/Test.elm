@@ -709,7 +709,7 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
                         expectNoGlobalErrors globalErrors
 
                     else
-                        Expect.all (checkAllGlobalErrorsMatch { expected = global, actual = globalErrors }) ()
+                        checkAllGlobalErrorsMatch { expected = global, actual = globalErrors }
                 , \() ->
                     if List.isEmpty local then
                         expectNoModuleErrors runResults
@@ -738,7 +738,7 @@ expectGlobalAndModuleErrors { global, modules } reviewResult =
                         expectNoGlobalErrors globalErrors
 
                     else
-                        Expect.all (checkAllGlobalErrorsMatch { expected = global, actual = globalErrors }) ()
+                        checkAllGlobalErrorsMatch { expected = global, actual = globalErrors }
                 , \() -> expectErrorsForModulesHelp modules runResults
                 ]
                 ()
@@ -1189,7 +1189,7 @@ checkAllErrorsMatch runResult unorderedExpectedErrors =
         |> (\expectations -> Expect.all expectations ())
 
 
-happyPath : { expected : List GlobalError, actual : List GlobalError, needSecondPass : List GlobalError } -> List Expectation
+happyPath : { expected : List GlobalError, actual : List GlobalError, needSecondPass : List GlobalError } -> Expectation
 happyPath params =
     case params.expected of
         head :: rest ->
@@ -1203,11 +1203,12 @@ happyPath params =
         [] ->
             if List.isEmpty params.actual then
                 if List.isEmpty params.needSecondPass then
-                    [ Expect.pass ]
+                    -- All expected errors were found
+                    Expect.pass
 
                 else
-                    -- TODO Report extraneous errors
-                    []
+                    -- We found extraneous errors
+                    Expect.fail (FailureMessage.tooManyGlobalErrors params.needSecondPass)
 
             else
                 notHappyPath params.actual params.needSecondPass
@@ -1236,32 +1237,9 @@ notHappyPath =
     Debug.todo ""
 
 
-checkAllGlobalErrorsMatch : { expected : List GlobalError, actual : List GlobalError } -> List (() -> Expectation)
+checkAllGlobalErrorsMatch : { expected : List GlobalError, actual : List GlobalError } -> Expectation
 checkAllGlobalErrorsMatch params =
-    case ( params.expected, params.actual ) of
-        ( [], [] ) ->
-            [ always Expect.pass ]
-
-        ( expected :: restOfExpectedErrors, error_ :: restOfErrors ) ->
-            --checkErrorMatch runResult.inspector expected error_
-            --    :: checkErrorsMatch runResult restOfExpectedErrors expectedNumberOfErrors restOfErrors
-            [ always Expect.pass ]
-
-        ( expected :: restOfExpectedErrors, [] ) ->
-            --[ \() ->
-            --    (expected :: restOfExpectedErrors)
-            --        |> List.map extractExpectedErrorData
-            --        |> FailureMessage.expectedMoreErrors runResult.moduleName expectedNumberOfErrors
-            --        |> Expect.fail
-            --]
-            [ always Expect.pass ]
-
-        ( [], error_ :: restOfErrors ) ->
-            --[ \() ->
-            --    FailureMessage.tooManyErrors runResult.moduleName (error_ :: restOfErrors)
-            --        |> Expect.fail
-            --]
-            [ always Expect.pass ]
+    happyPath { expected = params.expected, actual = params.actual, needSecondPass = [] }
 
 
 
