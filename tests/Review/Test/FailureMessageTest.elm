@@ -1,6 +1,6 @@
 module Review.Test.FailureMessageTest exposing (all)
 
-import Elm.Syntax.Range as Range exposing (Range)
+import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
 import Review.Error exposing (ReviewError)
 import Review.Fix as Fix
@@ -125,18 +125,10 @@ didNotExpectGlobalErrorsTest =
     test "didNotExpectGlobalErrors" <|
         \() ->
             let
-                errors : List ReviewError
+                errors : List { message : String }
                 errors =
-                    [ Review.Error.error
-                        { message = "Some error"
-                        , details = [ "Some details" ]
-                        }
-                        dummyRange
-                    , Review.Error.error
-                        { message = "Some other error"
-                        , details = [ "Some other details" ]
-                        }
-                        dummyRange
+                    [ { message = "Some error" }
+                    , { message = "Some other error" }
                     ]
             in
             FailureMessage.didNotExpectGlobalErrors errors
@@ -629,13 +621,9 @@ tooManyGlobalErrorsTest =
         [ test "with one extra error" <|
             \() ->
                 let
-                    extraErrors : List ReviewError
+                    extraErrors : List { message : String }
                     extraErrors =
-                        [ Review.Error.error
-                            { message = "Remove the use of `Debug` before shipping to production"
-                            , details = [ "Some details about Debug" ]
-                            }
-                            Range.emptyRange
+                        [ { message = "Remove the use of `Debug` before shipping to production" }
                         ]
                 in
                 FailureMessage.tooManyGlobalErrors extraErrors
@@ -649,18 +637,10 @@ I found 1 global error too many:
         , test "with multiple extra errors" <|
             \() ->
                 let
-                    extraErrors : List ReviewError
+                    extraErrors : List { message : String }
                     extraErrors =
-                        [ Review.Error.error
-                            { message = "Remove the use of `Debug` before shipping to production"
-                            , details = [ "Some details about Debug" ]
-                            }
-                            Range.emptyRange
-                        , Review.Error.error
-                            { message = "Remove the use of `Debug` before shipping to production"
-                            , details = [ "Some details about Debug" ]
-                            }
-                            Range.emptyRange
+                        [ { message = "Remove the use of `Debug` before shipping to production" }
+                        , { message = "Remove the use of `Debug` before shipping to production" }
                         ]
                 in
                 FailureMessage.tooManyGlobalErrors extraErrors
