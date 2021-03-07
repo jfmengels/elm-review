@@ -21,6 +21,11 @@ module Review.Rule exposing
 
 {-| This module contains functions that are used for writing rules.
 
+**NOTE**: If you want to **create a package** containing `elm-review` rules, I highly recommend using the
+[CLI's](https://github.com/jfmengels/node-elm-review/) `elm-review new-package` subcommand. This will create a new package that will help you use the best practices and give you helpful tools like easy auto-publishing. More information is available in the maintenance file generated along with it.
+
+If you want to **add/create a rule** for the package or for your local configuration, then I recommend using `elm-review new-rule`, which will create a source and test file which you can use as a starting point. For packages, it will add the rule everywhere it should be present (`exposed-modules`, README, ...).
+
 
 # How does it work?
 
