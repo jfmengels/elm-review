@@ -52,7 +52,7 @@ didNotExpectErrors moduleName errors =
 """ ++ listErrorMessagesAndPositions errors)
 
 
-didNotExpectGlobalErrors : List ReviewError -> String
+didNotExpectGlobalErrors : List { a | message : String } -> String
 didNotExpectGlobalErrors errors =
     failureMessage "DID NOT EXPECT GLOBAL ERRORS"
         ("""I expected no global errors but found:
@@ -60,10 +60,10 @@ didNotExpectGlobalErrors errors =
 """ ++ listErrorMessages errors)
 
 
-listErrorMessages : List ReviewError -> String
+listErrorMessages : List { a | message : String } -> String
 listErrorMessages errors =
     errors
-        |> List.map (\error -> "  - " ++ wrapInQuotes (Rule.errorMessage error))
+        |> List.map (\error -> "  - " ++ wrapInQuotes error.message)
         |> String.join "\n"
 
 
@@ -247,7 +247,7 @@ tooManyErrors moduleName extraErrors =
         )
 
 
-tooManyGlobalErrors : List ReviewError -> String
+tooManyGlobalErrors : List { a | message : String } -> String
 tooManyGlobalErrors extraErrors =
     let
         numberOfErrors : Int

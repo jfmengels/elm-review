@@ -386,7 +386,6 @@ runOnModulesWithProjectData project rule sources =
                                     fileErrors =
                                         List.concat
                                             [ List.map (moduleToRunResult errors) modules
-                                            , globalErrorsRunResult errors
                                             , elmJsonRunResult errors projectWithModules
                                             , readmeRunResult errors projectWithModules
                                             ]
@@ -584,11 +583,21 @@ expectNoErrors reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun _ {- TODO -} runResults ->
+        SuccessfulRun globalErrors runResults ->
             Expect.all
-                [ \() -> expectNoModuleErrors runResults
+                [ \() -> expectNoGlobalErrors globalErrors
+                , \() -> expectNoModuleErrors runResults
                 ]
                 ()
+
+
+expectNoGlobalErrors : List GlobalError -> Expectation
+expectNoGlobalErrors globalErrors =
+    if List.isEmpty globalErrors then
+        Expect.pass
+
+    else
+        Expect.fail (FailureMessage.didNotExpectGlobalErrors globalErrors)
 
 
 expectNoModuleErrors : List SuccessfulRunResult -> Expectation
@@ -598,9 +607,6 @@ expectNoModuleErrors runResults =
             (\{ errors, moduleName } () ->
                 if List.isEmpty errors then
                     Expect.pass
-
-                else if moduleName == "GLOBAL ERROR" then
-                    Expect.fail (FailureMessage.didNotExpectGlobalErrors errors)
 
                 else
                     Expect.fail (FailureMessage.didNotExpectErrors moduleName errors)
@@ -647,18 +653,18 @@ expectErrors expectedErrors reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun _ {- TODO -} runResults ->
-            case ListExtra.find (\runResult -> runResult.moduleName == "GLOBAL ERROR" && not (List.isEmpty runResult.errors)) runResults of
-                Just globalRunResult ->
-                    Expect.fail (FailureMessage.didNotExpectGlobalErrors globalRunResult.errors)
-
-                Nothing ->
-                    case List.filter (\runResult -> runResult.moduleName /= "GLOBAL ERROR") runResults of
+        SuccessfulRun globalErrors runResults ->
+            Expect.all
+                [ \() -> expectNoGlobalErrors globalErrors
+                , \() ->
+                    case runResults of
                         runResult :: [] ->
                             checkAllErrorsMatch runResult expectedErrors
 
                         _ ->
                             Expect.fail FailureMessage.needToUsedExpectErrorsForModules
+                ]
+                ()
 
 
 {-| Assert that the rule reported some errors, by specifying which ones and the
@@ -714,8 +720,12 @@ expectErrorsForModules expectedErrorsList reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun _ {- TODO -} runResults ->
-            expectErrorsForModulesHelp expectedErrorsList runResults
+        SuccessfulRun globalErrors runResults ->
+            Expect.all
+                [ \() -> expectNoGlobalErrors globalErrors
+                , \() -> expectErrorsForModulesHelp expectedErrorsList runResults
+                ]
+                ()
 
 
 expectErrorsForModulesHelp : List ( String, List ExpectedError ) -> List SuccessfulRunResult -> Expectation
@@ -823,6 +833,7 @@ a different number of errors than expected are reported, or if the message is in
 -}
 expectGlobalErrors : List ExpectedError -> ReviewResult -> Expectation
 expectGlobalErrors expectedErrors reviewResult =
+    -- TODO
     expectErrorsForModules [ ( "GLOBAL ERROR", expectedErrors ) ] reviewResult
 
 
@@ -1209,13 +1220,8 @@ checkErrorsMatch runResult expectedErrors expectedNumberOfErrors errors =
 
         ( [], error_ :: restOfErrors ) ->
             [ \() ->
-                if runResult.moduleName == "GLOBAL ERROR" then
-                    FailureMessage.tooManyGlobalErrors (error_ :: restOfErrors)
-                        |> Expect.fail
-
-                else
-                    FailureMessage.tooManyErrors runResult.moduleName (error_ :: restOfErrors)
-                        |> Expect.fail
+                FailureMessage.tooManyErrors runResult.moduleName (error_ :: restOfErrors)
+                    |> Expect.fail
             ]
 
 
