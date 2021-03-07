@@ -580,16 +580,11 @@ like `expectErrors []`.
 -}
 expectNoErrors : ReviewResult -> Expectation
 expectNoErrors reviewResult =
-    case reviewResult of
-        FailedRun errorMessage ->
-            Expect.fail errorMessage
-
-        SuccessfulRun globalErrors runResults ->
-            Expect.all
-                [ \() -> expectNoGlobalErrors globalErrors
-                , \() -> expectNoModuleErrors runResults
-                ]
-                ()
+    expectGlobalAndLocalErrors
+        { global = []
+        , local = []
+        }
+        reviewResult
 
 
 expectNoGlobalErrors : List GlobalError -> Expectation
@@ -652,26 +647,11 @@ an error at the end of the source code.
 -}
 expectErrors : List ExpectedError -> ReviewResult -> Expectation
 expectErrors expectedErrors reviewResult =
-    case reviewResult of
-        FailedRun errorMessage ->
-            Expect.fail errorMessage
-
-        SuccessfulRun globalErrors runResults ->
-            Expect.all
-                [ \() -> expectNoGlobalErrors globalErrors
-                , \() ->
-                    if List.isEmpty expectedErrors then
-                        expectNoModuleErrors runResults
-
-                    else
-                        case runResults of
-                            runResult :: [] ->
-                                checkAllErrorsMatch runResult expectedErrors
-
-                            _ ->
-                                Expect.fail FailureMessage.needToUsedExpectErrorsForModules
-                ]
-                ()
+    expectGlobalAndLocalErrors
+        { global = []
+        , local = expectedErrors
+        }
+        reviewResult
 
 
 {-| Assert that the rule reported some errors, by specifying which ones and the
@@ -723,16 +703,11 @@ an error at the end of the source code.
 -}
 expectErrorsForModules : List ( String, List ExpectedError ) -> ReviewResult -> Expectation
 expectErrorsForModules expectedErrorsList reviewResult =
-    case reviewResult of
-        FailedRun errorMessage ->
-            Expect.fail errorMessage
-
-        SuccessfulRun globalErrors runResults ->
-            Expect.all
-                [ \() -> expectNoGlobalErrors globalErrors
-                , \() -> expectErrorsForModulesHelp expectedErrorsList runResults
-                ]
-                ()
+    expectGlobalAndModuleErrors
+        { global = []
+        , modules = expectedErrorsList
+        }
+        reviewResult
 
 
 expectGlobalAndLocalErrors : { global : List { message : String, details : List String }, local : List ExpectedError } -> ReviewResult -> Expectation
@@ -896,21 +871,11 @@ a different number of errors than expected are reported, or if the message is in
 -}
 expectGlobalErrors : List { message : String, details : List String } -> ReviewResult -> Expectation
 expectGlobalErrors expectedErrors reviewResult =
-    case reviewResult of
-        FailedRun errorMessage ->
-            Expect.fail errorMessage
-
-        SuccessfulRun globalErrors runResults ->
-            Expect.all
-                [ \() ->
-                    if List.isEmpty expectedErrors then
-                        expectNoGlobalErrors globalErrors
-
-                    else
-                        Expect.all (checkAllGlobalErrorsMatch { expected = expectedErrors, actual = globalErrors }) ()
-                , \() -> expectNoModuleErrors runResults
-                ]
-                ()
+    expectGlobalAndLocalErrors
+        { global = expectedErrors
+        , local = []
+        }
+        reviewResult
 
 
 {-| Assert that the rule reported some errors for the `README.md` file, by specifying which ones.
