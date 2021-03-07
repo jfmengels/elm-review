@@ -1,6 +1,6 @@
 module Review.Test exposing
     ( ReviewResult, run, runWithProjectData, runOnModules, runOnModulesWithProjectData
-    , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectGlobalErrors, globalError
+    , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectGlobalErrors
     , expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
     )
 
@@ -415,20 +415,6 @@ moduleToRunResult errors projectModule =
     }
 
 
-globalErrorsRunResult : List ReviewError -> List SuccessfulRunResult
-globalErrorsRunResult errors =
-    [ { moduleName = "GLOBAL ERROR"
-      , inspector =
-            { isModule = False
-            , source = ""
-            , getCodeAtLocation = always Nothing
-            , checkIfLocationIsAmbiguous = \_ _ -> Expect.pass
-            }
-      , errors = List.filter (\error_ -> Rule.errorTarget error_ == Error.UserGlobal) errors
-      }
-    ]
-
-
 elmJsonRunResult : List ReviewError -> Project -> List SuccessfulRunResult
 elmJsonRunResult errors project =
     case Project.elmJson project of
@@ -841,34 +827,6 @@ expectErrorsForElmJson expectedErrors reviewResult =
     expectErrorsForModules [ ( "elm.json", expectedErrors ) ] reviewResult
 
 
-{-| Assert that the rule reported some global errors, by specifying which ones using [`globalError`](#globalError).
-
-    test "report an error when a module is unused" <|
-        \() ->
-            """
-    module ModuleA exposing (a)
-    a = 1"""
-                |> Review.Test.run rule
-                |> Review.Test.expectGlobalErrors
-                    [ Review.Test.globalError
-                        { message = "Unused dependency `author/package`"
-                        , details = [ "Dependency should be removed" ]
-                        }
-                    ]
-
-Alternatively, or if you need to specify errors for other files too, you can use [`expectErrorsForModules`](#expectErrorsForModules), specifying `"GLOBAL ERROR"` as the module name.
-
-    sourceCode
-        |> Review.Test.run rule
-        |> Review.Test.expectErrorsForModules
-            [ ( "ModuleB", [ Review.Test.error someErrorModuleB ] )
-            , ( "GLOBAL ERROR", [ Review.Test.globalError someGlobalError ] )
-            ]
-
-Assert which errors are reported using [`globalError`](#globalError), not [`error`](#error). The test will fail if
-a different number of errors than expected are reported, or if the message is incorrect.
-
--}
 expectGlobalErrors : List { message : String, details : List String } -> ReviewResult -> Expectation
 expectGlobalErrors expectedErrors reviewResult =
     expectGlobalAndLocalErrors
@@ -955,16 +913,6 @@ error input =
         { message = input.message
         , details = input.details
         , under = Under input.under
-        , fixedSource = Nothing
-        }
-
-
-globalError : { message : String, details : List String } -> ExpectedError
-globalError input =
-    ExpectedError
-        { message = input.message
-        , details = input.details
-        , under = UnderExactly "" Range.emptyRange
         , fixedSource = Nothing
         }
 
