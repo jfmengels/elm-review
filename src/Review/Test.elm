@@ -831,10 +831,18 @@ Assert which errors are reported using [`globalError`](#globalError), not [`erro
 a different number of errors than expected are reported, or if the message is incorrect.
 
 -}
-expectGlobalErrors : List ExpectedError -> ReviewResult -> Expectation
+expectGlobalErrors : List { message : String, details : List String } -> ReviewResult -> Expectation
 expectGlobalErrors expectedErrors reviewResult =
-    -- TODO
-    expectErrorsForModules [ ( "GLOBAL ERROR", expectedErrors ) ] reviewResult
+    case reviewResult of
+        FailedRun errorMessage ->
+            Expect.fail errorMessage
+
+        SuccessfulRun globalErrors runResults ->
+            Expect.all
+                [ \() -> Expect.all (checkAllGlobalErrorsMatch { expected = expectedErrors, actual = globalErrors }) ()
+                , \() -> expectNoModuleErrors runResults
+                ]
+                ()
 
 
 {-| Assert that the rule reported some errors for the `README.md` file, by specifying which ones.
@@ -1198,6 +1206,50 @@ checkAllErrorsMatch runResult unorderedExpectedErrors =
     checkErrorsMatch runResult expectedErrors (List.length expectedErrors) reviewErrors
         |> List.reverse
         |> (\expectations -> Expect.all expectations ())
+
+
+checkAllGlobalErrorsMatch : { expected : List GlobalError, actual : List GlobalError } -> List (() -> Expectation)
+checkAllGlobalErrorsMatch params =
+    case ( params.expected, params.actual ) of
+        ( [], [] ) ->
+            [ always Expect.pass ]
+
+        ( expected :: restOfExpectedErrors, error_ :: restOfErrors ) ->
+            --checkErrorMatch runResult.inspector expected error_
+            --    :: checkErrorsMatch runResult restOfExpectedErrors expectedNumberOfErrors restOfErrors
+            [ always Expect.pass ]
+
+        ( expected :: restOfExpectedErrors, [] ) ->
+            --[ \() ->
+            --    (expected :: restOfExpectedErrors)
+            --        |> List.map extractExpectedErrorData
+            --        |> FailureMessage.expectedMoreErrors runResult.moduleName expectedNumberOfErrors
+            --        |> Expect.fail
+            --]
+            [ always Expect.pass ]
+
+        ( [], error_ :: restOfErrors ) ->
+            --[ \() ->
+            --    FailureMessage.tooManyErrors runResult.moduleName (error_ :: restOfErrors)
+            --        |> Expect.fail
+            --]
+            [ always Expect.pass ]
+
+
+
+--let
+--    ( expectedErrors, reviewErrors ) =
+--        reorderErrors
+--            runResult.inspector
+--            { expectedErrors = unorderedExpectedErrors
+--            , reviewErrors = runResult.errors
+--            , pairs = []
+--            , expectedErrorsWithNoMatch = []
+--            }
+--in
+--checkErrorsMatch runResult expectedErrors (List.length expectedErrors) reviewErrors
+--    |> List.reverse
+--    |> (\expectations -> Expect.all expectations ())
 
 
 checkErrorsMatch : SuccessfulRunResult -> List ExpectedError -> Int -> List ReviewError -> List (() -> Expectation)
