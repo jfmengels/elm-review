@@ -1233,8 +1233,27 @@ findAndRemoveHelp element previous list =
                 findAndRemoveHelp element (head :: previous) rest
 
 
-notHappyPath =
-    Debug.todo ""
+notHappyPath expected actual =
+    --case expected of
+    --    head :: rest ->
+    Debug.todo "notHappyPath"
+
+
+checkGlobalErrorMatch : GlobalError -> ReviewError -> (() -> Expectation)
+checkGlobalErrorMatch expectedError error_ =
+    --Expect.all
+    --    [ \() ->
+    --        (expectedError_.message == Rule.errorMessage error_)
+    --            |> Expect.true
+    --                (FailureMessage.messageMismatch
+    --                    (extractExpectedErrorData expectedError)
+    --                    error_
+    --                )
+    --    , checkMessageAppearsUnder codeInspector error_ expectedError
+    --    , checkDetailsAreCorrect error_ expectedError
+    --    , \() -> checkFixesAreCorrect codeInspector error_ expectedError
+    --    ]
+    Debug.todo "checkGLobal"
 
 
 checkAllGlobalErrorsMatch : { expected : List GlobalError, actual : List GlobalError } -> Expectation
