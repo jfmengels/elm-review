@@ -1210,6 +1210,9 @@ happyPath params =
                     -- We found extraneous errors
                     Expect.fail (FailureMessage.tooManyGlobalErrors params.needSecondPass)
 
+            else if List.isEmpty params.needSecondPass then
+                notHappyPath params.actual params.needSecondPass
+
             else
                 notHappyPath params.actual params.needSecondPass
 
