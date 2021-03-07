@@ -4,7 +4,7 @@ module Review.Test.FailureMessage exposing
     , underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
     , needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
     , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
-    , didNotExpectGlobalErrors, fixedCodeWhitespaceMismatch, tooManyGlobalErrors
+    , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, tooManyGlobalErrors
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -224,6 +224,24 @@ expectedMoreErrors moduleName expectedNumberOfErrors missingExpectedErrors =
     in
     failureMessage "RULE REPORTED LESS ERRORS THAN EXPECTED"
         ("I expected to see " ++ String.fromInt expectedNumberOfErrors ++ " " ++ what ++ " but only found " ++ String.fromInt (expectedNumberOfErrors - numberOfErrors) ++ """.
+Here are the """ ++ String.fromInt numberOfErrors ++ """ I could not find:
+
+""")
+        ++ (missingExpectedErrors
+                |> List.map expectedErrorToString
+                |> String.join "\n"
+           )
+
+
+expectedMoreGlobalErrors : Int -> List { a | message : String } -> String
+expectedMoreGlobalErrors expectedNumberOfErrors missingExpectedErrors =
+    let
+        numberOfErrors : Int
+        numberOfErrors =
+            List.length missingExpectedErrors
+    in
+    failureMessage "RULE REPORTED LESS ERRORS THAN EXPECTED"
+        ("I expected to see " ++ String.fromInt expectedNumberOfErrors ++ " global errors but only found " ++ String.fromInt (expectedNumberOfErrors - numberOfErrors) ++ """.
 Here are the """ ++ String.fromInt numberOfErrors ++ """ I could not find:
 
 """)
@@ -655,7 +673,7 @@ errorMessageAndPosition error =
     "  - " ++ wrapInQuotes (Rule.errorMessage error) ++ "\n    at " ++ rangeAsString (Rule.errorRange error)
 
 
-expectedErrorToString : ExpectedErrorData -> String
+expectedErrorToString : { a | message : String } -> String
 expectedErrorToString expectedError =
     "  - " ++ wrapInQuotes expectedError.message
 
