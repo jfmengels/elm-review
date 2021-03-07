@@ -1,7 +1,7 @@
 module Review.Test exposing
     ( ReviewResult, run, runWithProjectData, runOnModules, runOnModulesWithProjectData
     , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectGlobalErrors, globalError
-    , expectGlobalAndLocalErrors
+    , expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
     )
 
 {-| Module that helps you test your rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/).
@@ -760,6 +760,25 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
 
                             _ ->
                                 Expect.fail FailureMessage.needToUsedExpectErrorsForModules
+                ]
+                ()
+
+
+expectGlobalAndModuleErrors : { global : List { message : String, details : List String }, modules : List ( String, List ExpectedError ) } -> ReviewResult -> Expectation
+expectGlobalAndModuleErrors { global, modules } reviewResult =
+    case reviewResult of
+        FailedRun errorMessage ->
+            Expect.fail errorMessage
+
+        SuccessfulRun globalErrors runResults ->
+            Expect.all
+                [ \() ->
+                    if List.isEmpty global then
+                        expectNoGlobalErrors globalErrors
+
+                    else
+                        Expect.all (checkAllGlobalErrorsMatch { expected = global, actual = globalErrors }) ()
+                , \() -> expectErrorsForModulesHelp modules runResults
                 ]
                 ()
 
