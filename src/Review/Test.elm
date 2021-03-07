@@ -603,15 +603,17 @@ expectNoGlobalErrors globalErrors =
 expectNoModuleErrors : List SuccessfulRunResult -> Expectation
 expectNoModuleErrors runResults =
     runResults
-        |> List.map
-            (\{ errors, moduleName } () ->
-                if List.isEmpty errors then
-                    Expect.pass
-
-                else
-                    Expect.fail (FailureMessage.didNotExpectErrors moduleName errors)
-            )
+        |> List.map (expectNoErrorForModuleRunResult >> always)
         |> (\expectations -> Expect.all expectations ())
+
+
+expectNoErrorForModuleRunResult : SuccessfulRunResult -> Expectation
+expectNoErrorForModuleRunResult { moduleName, errors } =
+    if List.isEmpty errors then
+        Expect.pass
+
+    else
+        Expect.fail (FailureMessage.didNotExpectErrors moduleName errors)
 
 
 {-| Assert that the rule reported some errors, by specifying which ones.
@@ -657,12 +659,16 @@ expectErrors expectedErrors reviewResult =
             Expect.all
                 [ \() -> expectNoGlobalErrors globalErrors
                 , \() ->
-                    case runResults of
-                        runResult :: [] ->
-                            checkAllErrorsMatch runResult expectedErrors
+                    if List.isEmpty expectedErrors then
+                        expectNoModuleErrors runResults
 
-                        _ ->
-                            Expect.fail FailureMessage.needToUsedExpectErrorsForModules
+                    else
+                        case runResults of
+                            runResult :: [] ->
+                                checkAllErrorsMatch runResult expectedErrors
+
+                            _ ->
+                                Expect.fail FailureMessage.needToUsedExpectErrorsForModules
                 ]
                 ()
 
@@ -753,11 +759,19 @@ expectErrorsForModuleFiles : List ( String, List ExpectedError ) -> List Success
 expectErrorsForModuleFiles expectedErrorsList runResults =
     List.map
         (\runResult () ->
-            expectedErrorsList
-                |> ListExtra.find (\( moduleName, _ ) -> moduleName == runResult.moduleName)
-                |> Maybe.map Tuple.second
-                |> Maybe.withDefault []
-                |> checkAllErrorsMatch runResult
+            let
+                expectedErrors : List ExpectedError
+                expectedErrors =
+                    expectedErrorsList
+                        |> ListExtra.find (\( moduleName, _ ) -> moduleName == runResult.moduleName)
+                        |> Maybe.map Tuple.second
+                        |> Maybe.withDefault []
+            in
+            if List.isEmpty expectedErrors then
+                expectNoErrorForModuleRunResult runResult
+
+            else
+                checkAllErrorsMatch runResult expectedErrors
         )
         runResults
 
