@@ -839,7 +839,12 @@ expectGlobalErrors expectedErrors reviewResult =
 
         SuccessfulRun globalErrors runResults ->
             Expect.all
-                [ \() -> Expect.all (checkAllGlobalErrorsMatch { expected = expectedErrors, actual = globalErrors }) ()
+                [ \() ->
+                    if List.isEmpty expectedErrors then
+                        expectNoGlobalErrors globalErrors
+
+                    else
+                        Expect.all (checkAllGlobalErrorsMatch { expected = expectedErrors, actual = globalErrors }) ()
                 , \() -> expectNoModuleErrors runResults
                 ]
                 ()
