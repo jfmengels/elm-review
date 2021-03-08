@@ -4,7 +4,7 @@ module Review.Test.FailureMessage exposing
     , underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
     , needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
     , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
-    , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, tooManyGlobalErrors, unexpectedGlobalErrorDetails
+    , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForGlobalError, tooManyGlobalErrors, unexpectedGlobalErrorDetails
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -120,6 +120,18 @@ messageMismatch expectedError error =
 but I found the following error message:
 
   """ ++ wrapInQuotes (Rule.errorMessage error))
+
+
+messageMismatchForGlobalError : { a | message : String } -> { b | message : String } -> String
+messageMismatchForGlobalError expectedError error =
+    failureMessage "UNEXPECTED GLOBAL ERROR MESSAGE"
+        ("""I was looking for the global error with the following message:
+
+  """ ++ wrapInQuotes expectedError.message ++ """
+
+but I found the following error message:
+
+  """ ++ wrapInQuotes error.message)
 
 
 underMismatch : ReviewError -> { under : String, codeAtLocation : String } -> String

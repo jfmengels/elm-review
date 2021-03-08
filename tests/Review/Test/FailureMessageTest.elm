@@ -15,6 +15,7 @@ all =
         , didNotExpectErrorsTest
         , didNotExpectGlobalErrorsTest
         , messageMismatchTest
+        , messageMismatchForGlobalErrorTest
         , underMismatchTest
         , unexpectedDetailsTest
         , unexpectedGlobalErrorDetailsTest
@@ -169,6 +170,34 @@ messageMismatchTest =
 \u{001B}[31m\u{001B}[1mUNEXPECTED ERROR MESSAGE\u{001B}[22m\u{001B}[39m
 
 I was looking for the error with the following message:
+
+  `Remove the use of `Debug` before shipping to production`
+
+but I found the following error message:
+
+  `Some error`"""
+
+
+messageMismatchForGlobalErrorTest : Test
+messageMismatchForGlobalErrorTest =
+    test "messageMismatchForGlobalError" <|
+        \() ->
+            let
+                expectedError : { message : String }
+                expectedError =
+                    { message = "Remove the use of `Debug` before shipping to production"
+                    }
+
+                error : { message : String }
+                error =
+                    { message = "Some error"
+                    }
+            in
+            FailureMessage.messageMismatchForGlobalError expectedError error
+                |> expectMessageEqual """
+\u{001B}[31m\u{001B}[1mUNEXPECTED GLOBAL ERROR MESSAGE\u{001B}[22m\u{001B}[39m
+
+I was looking for the global error with the following message:
 
   `Remove the use of `Debug` before shipping to production`
 
