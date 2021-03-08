@@ -279,7 +279,7 @@ unexpectedDetailsTest =
                     |> expectMessageEqual """
 \u{001B}[31m\u{001B}[1mUNEXPECTED ERROR DETAILS\u{001B}[22m\u{001B}[39m
 
-I found an error with the following message:
+I found an error for a file with the following message:
 
   `Some error`
 
@@ -317,7 +317,7 @@ when I was expecting them to be:
                     |> expectMessageEqual """
 \u{001B}[31m\u{001B}[1mUNEXPECTED ERROR DETAILS\u{001B}[22m\u{001B}[39m
 
-I found an error with the following message:
+I found an error for a file with the following message:
 
   `Some other error`
 

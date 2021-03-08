@@ -144,7 +144,7 @@ calling `Rule.error`.""")
 unexpectedDetails : List String -> ReviewError -> String
 unexpectedDetails expectedDetails error =
     failureMessage "UNEXPECTED ERROR DETAILS"
-        ("""I found an error with the following message:
+        ("""I found an error for a file with the following message:
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
