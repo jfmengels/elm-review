@@ -1211,7 +1211,7 @@ happyPath originalNumberOfExpectedErrors params =
                     Expect.fail (FailureMessage.expectedMoreGlobalErrors originalNumberOfExpectedErrors params.needSecondPass)
 
             else if List.isEmpty params.needSecondPass then
-                notHappyPath params.actual params.needSecondPass
+                Expect.fail (FailureMessage.tooManyGlobalErrors params.actual)
 
             else
                 notHappyPath params.actual params.needSecondPass
