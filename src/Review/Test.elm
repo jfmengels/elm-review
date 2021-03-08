@@ -1210,11 +1210,13 @@ happyPath originalNumberOfExpectedErrors params =
                     -- We expected more errors
                     Expect.fail (FailureMessage.expectedMoreGlobalErrors originalNumberOfExpectedErrors params.needSecondPass)
 
-            else if List.isEmpty params.needSecondPass then
-                Expect.fail (FailureMessage.tooManyGlobalErrors params.actual)
-
             else
-                notHappyPath params.actual params.needSecondPass
+                case List.head (List.reverse params.needSecondPass) of
+                    Just unfoundError ->
+                        handlePartialOrNoMatch unfoundError params.actual
+
+                    Nothing ->
+                        Expect.fail (FailureMessage.tooManyGlobalErrors params.actual)
 
 
 findAndRemove : a -> List a -> Maybe (List a)
@@ -1236,10 +1238,14 @@ findAndRemoveHelp element previous list =
                 findAndRemoveHelp element (head :: previous) rest
 
 
-notHappyPath expected actual =
-    --case expected of
-    --    head :: rest ->
-    Debug.todo "notHappyPath"
+handlePartialOrNoMatch : GlobalError -> List GlobalError -> Expectation
+handlePartialOrNoMatch expectedError actual =
+    case ListExtra.find (\e -> e.message == expectedError.message) actual of
+        Just actualErrorWithTheSameMessage ->
+            Expect.fail (FailureMessage.unexpectedGlobalErrorDetails expectedError.details actualErrorWithTheSameMessage)
+
+        Nothing ->
+            Debug.todo "Handle case where it does not match at all"
 
 
 checkAllGlobalErrorsMatch : Int -> { expected : List GlobalError, actual : List GlobalError } -> Expectation
