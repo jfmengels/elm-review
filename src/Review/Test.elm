@@ -1245,6 +1245,7 @@ handlePartialOrNoMatch expectedError actual =
             Expect.fail (FailureMessage.unexpectedGlobalErrorDetails expectedError.details actualErrorWithTheSameMessage)
 
         Nothing ->
+            -- TODO
             Debug.todo "Handle case where it does not match at all"
 
 

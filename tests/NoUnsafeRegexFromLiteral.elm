@@ -203,14 +203,7 @@ finalProjectEvaluation target projectContext =
 
     else
         [ Rule.globalError
-            { message = "Could not find " ++ String.join "." target.moduleName ++ "." ++ target.name
-            , details =
-                [ "I want to provide guarantees on the use of this function, but I can't find it. It is likely that it was renamed, which prevents me from giving you these guarantees."
-                , "You should rename it back or update this rule to the new name. If you do not use the function anymore, remove the rule."
-                ]
-            }
-        , Rule.globalError
-            { message = "Could not find " ++ String.join "." target.moduleName ++ "." ++ target.name
+            { message = "Could not fin " ++ String.join "." target.moduleName ++ "." ++ target.name
             , details =
                 [ "I want to provide guarantees on the use of this function, but I can't find it. It is likely that it was renamed, which prevents me from giving you these guarantees."
                 , "You should rename it back or update this rule to the new name. If you do not use the function anymore, remove the rule."
