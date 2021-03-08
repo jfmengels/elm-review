@@ -17,6 +17,7 @@ all =
         , messageMismatchTest
         , underMismatchTest
         , unexpectedDetailsTest
+        , unexpectedGlobalErrorDetailsTest
         , emptyDetailsTest
         , wrongLocationTest
         , underMayNotBeEmptyTest
@@ -340,6 +341,38 @@ when I was expecting them to be:
   ```
 """
         ]
+
+
+unexpectedGlobalErrorDetailsTest : Test
+unexpectedGlobalErrorDetailsTest =
+    test "unexpectedGlobalErrorDetails" <|
+        \() ->
+            let
+                expectedDetails : List String
+                expectedDetails =
+                    [ "Some details" ]
+
+                error : { message : String, details : List String }
+                error =
+                    { message = "Some error"
+                    , details = [ "Some other details" ]
+                    }
+            in
+            FailureMessage.unexpectedGlobalErrorDetails expectedDetails error
+                |> expectMessageEqual """
+\u{001B}[31m\u{001B}[1mUNEXPECTED GLOBAL ERROR DETAILS\u{001B}[22m\u{001B}[39m
+
+I found a global error with the following message:
+
+  `Some error`
+
+which I was expecting, but its details were:
+
+  `Some other details`
+
+when I was expecting them to be:
+
+  `Some details`"""
 
 
 emptyDetailsTest : Test

@@ -4,7 +4,7 @@ module Review.Test.FailureMessage exposing
     , underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
     , needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
     , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
-    , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, tooManyGlobalErrors
+    , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, tooManyGlobalErrors, unexpectedGlobalErrorDetails
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -151,6 +151,22 @@ unexpectedDetails expectedDetails error =
 which I was expecting, but its details were:
 
   """ ++ formatDetails (Rule.errorDetails error) ++ """
+
+when I was expecting them to be:
+
+  """ ++ formatDetails expectedDetails)
+
+
+unexpectedGlobalErrorDetails : List String -> { message : String, details : List String } -> String
+unexpectedGlobalErrorDetails expectedDetails error =
+    failureMessage "UNEXPECTED GLOBAL ERROR DETAILS"
+        ("""I found a global error with the following message:
+
+  """ ++ wrapInQuotes error.message ++ """
+
+which I was expecting, but its details were:
+
+  """ ++ formatDetails error.details ++ """
 
 when I was expecting them to be:
 
