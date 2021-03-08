@@ -1189,34 +1189,35 @@ checkAllErrorsMatch runResult unorderedExpectedErrors =
         |> (\expectations -> Expect.all expectations ())
 
 
-happyPath : Int -> { expected : List GlobalError, actual : List GlobalError, needSecondPass : List GlobalError } -> Expectation
-happyPath originalNumberOfExpectedErrors params =
+checkGlobalErrorsMatch : Int -> { expected : List GlobalError, actual : List GlobalError, needSecondPass : List GlobalError } -> Expectation
+checkGlobalErrorsMatch originalNumberOfExpectedErrors params =
     case params.expected of
         head :: rest ->
             case findAndRemove head params.actual of
                 Just newActual ->
-                    happyPath originalNumberOfExpectedErrors { expected = rest, actual = newActual, needSecondPass = params.needSecondPass }
+                    checkGlobalErrorsMatch originalNumberOfExpectedErrors { expected = rest, actual = newActual, needSecondPass = params.needSecondPass }
 
                 Nothing ->
-                    happyPath originalNumberOfExpectedErrors { expected = rest, actual = params.actual, needSecondPass = head :: params.needSecondPass }
+                    checkGlobalErrorsMatch originalNumberOfExpectedErrors { expected = rest, actual = params.actual, needSecondPass = head :: params.needSecondPass }
 
         [] ->
-            if List.isEmpty params.actual then
-                if List.isEmpty params.needSecondPass then
-                    -- All expected errors were found
-                    Expect.pass
+            case params.actual of
+                firstActual :: restOfActual ->
+                    case List.head (List.reverse params.needSecondPass) of
+                        Just notFoundError ->
+                            failBecauseExpectedErrorCouldNotBeFound notFoundError ( firstActual, restOfActual )
 
-                else
-                    -- We expected more errors
-                    Expect.fail (FailureMessage.expectedMoreGlobalErrors originalNumberOfExpectedErrors params.needSecondPass)
+                        Nothing ->
+                            Expect.fail (FailureMessage.tooManyGlobalErrors params.actual)
 
-            else
-                case List.head (List.reverse params.needSecondPass) of
-                    Just unfoundError ->
-                        handlePartialOrNoMatch unfoundError params.actual
+                [] ->
+                    if List.isEmpty params.needSecondPass then
+                        -- All expected errors were found
+                        Expect.pass
 
-                    Nothing ->
-                        Expect.fail (FailureMessage.tooManyGlobalErrors params.actual)
+                    else
+                        -- We expected more errors
+                        Expect.fail (FailureMessage.expectedMoreGlobalErrors originalNumberOfExpectedErrors params.needSecondPass)
 
 
 findAndRemove : a -> List a -> Maybe (List a)
@@ -1238,35 +1239,19 @@ findAndRemoveHelp element previous list =
                 findAndRemoveHelp element (head :: previous) rest
 
 
-handlePartialOrNoMatch : GlobalError -> List GlobalError -> Expectation
-handlePartialOrNoMatch expectedError actual =
-    case ListExtra.find (\e -> e.message == expectedError.message) actual of
+failBecauseExpectedErrorCouldNotBeFound : GlobalError -> ( GlobalError, List GlobalError ) -> Expectation
+failBecauseExpectedErrorCouldNotBeFound expectedError ( firstActual, restOfActual ) =
+    case ListExtra.find (\e -> e.message == expectedError.message) (firstActual :: restOfActual) of
         Just actualErrorWithTheSameMessage ->
             Expect.fail (FailureMessage.unexpectedGlobalErrorDetails expectedError.details actualErrorWithTheSameMessage)
 
         Nothing ->
-            Debug.todo "Handle case where it does not match at all"
+            Expect.fail (FailureMessage.messageMismatchForGlobalError expectedError firstActual)
 
 
 checkAllGlobalErrorsMatch : Int -> { expected : List GlobalError, actual : List GlobalError } -> Expectation
 checkAllGlobalErrorsMatch expectedErrorToString params =
-    happyPath expectedErrorToString { expected = params.expected, actual = params.actual, needSecondPass = [] }
-
-
-
---let
---    ( expectedErrors, reviewErrors ) =
---        reorderErrors
---            runResult.inspector
---            { expectedErrors = unorderedExpectedErrors
---            , reviewErrors = runResult.errors
---            , pairs = []
---            , expectedErrorsWithNoMatch = []
---            }
---in
---checkErrorsMatch runResult expectedErrors (List.length expectedErrors) reviewErrors
---    |> List.reverse
---    |> (\expectations -> Expect.all expectations ())
+    checkGlobalErrorsMatch expectedErrorToString { expected = params.expected, actual = params.actual, needSecondPass = [] }
 
 
 checkErrorsMatch : SuccessfulRunResult -> List ExpectedError -> Int -> List ReviewError -> List (() -> Expectation)
