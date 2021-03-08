@@ -1242,23 +1242,6 @@ notHappyPath expected actual =
     Debug.todo "notHappyPath"
 
 
-checkGlobalErrorMatch : GlobalError -> ReviewError -> (() -> Expectation)
-checkGlobalErrorMatch expectedError error_ =
-    --Expect.all
-    --    [ \() ->
-    --        (expectedError_.message == Rule.errorMessage error_)
-    --            |> Expect.true
-    --                (FailureMessage.messageMismatch
-    --                    (extractExpectedErrorData expectedError)
-    --                    error_
-    --                )
-    --    , checkMessageAppearsUnder codeInspector error_ expectedError
-    --    , checkDetailsAreCorrect error_ expectedError
-    --    , \() -> checkFixesAreCorrect codeInspector error_ expectedError
-    --    ]
-    Debug.todo "checkGLobal"
-
-
 checkAllGlobalErrorsMatch : Int -> { expected : List GlobalError, actual : List GlobalError } -> Expectation
 checkAllGlobalErrorsMatch expectedErrorToString params =
     happyPath expectedErrorToString { expected = params.expected, actual = params.actual, needSecondPass = [] }
