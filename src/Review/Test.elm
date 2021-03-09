@@ -107,7 +107,7 @@ for this module.
 import Array exposing (Array)
 import Elm.Syntax.Module as Module
 import Elm.Syntax.Node as Node
-import Elm.Syntax.Range as Range exposing (Range)
+import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
 import Review.Error as Error
 import Review.Fix as Fix
@@ -379,8 +379,8 @@ runOnModulesWithProjectData project rule sources =
                                     |> .errors
                         in
                         case ListExtra.find (\err -> Rule.errorTarget err == Error.Global) errors of
-                            Just globalError_ ->
-                                FailedRun <| FailureMessage.globalErrorInTest globalError_
+                            Just globalError ->
+                                FailedRun <| FailureMessage.globalErrorInTest globalError
 
                             Nothing ->
                                 let
