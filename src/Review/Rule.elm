@@ -17,7 +17,7 @@ module Review.Rule exposing
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review, reviewV2, ProjectData, ruleName
     , Required, Forbidden
-    , getConfigurationError
+    , configurationError, getConfigurationError
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -1307,6 +1307,30 @@ removeExtensibleRecordTypeVariable :
     -> (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
 removeExtensibleRecordTypeVariable function =
     function >> (\(ModuleRuleSchema param) -> ModuleRuleSchema param)
+
+
+configurationError : String -> { message : String, details : List String } -> Rule
+configurationError name configurationError_ =
+    Rule
+        { name = name
+        , exceptions = Exceptions.init
+        , requestedData = RequestedData { metadata = False, moduleNameLookupTable = False }
+        , ruleImplementation =
+            \newExceptions newProject newNodeContexts ->
+                let
+                    result : { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache (), extract : Maybe Extract }
+                    result =
+                        runProjectVisitor
+                            name
+                            (fromProjectRuleSchemaToRunnableProjectVisitor (newProjectRuleSchema name ()))
+                            Nothing
+                            newExceptions
+                            newProject
+                            newNodeContexts
+                in
+                ( [], result.rule )
+        , configurationError = Just configurationError_
+        }
 
 
 {-| Used for phantom type constraints. You can safely ignore this type.
