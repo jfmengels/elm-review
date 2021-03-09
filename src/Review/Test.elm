@@ -1237,7 +1237,11 @@ checkGlobalErrorsMatch originalNumberOfExpectedErrors params =
         head :: rest ->
             case findAndRemove head params.actual of
                 Just newActual ->
-                    checkGlobalErrorsMatch originalNumberOfExpectedErrors { expected = rest, actual = newActual, needSecondPass = params.needSecondPass }
+                    if List.isEmpty head.details then
+                        Expect.fail (FailureMessage.emptyDetails head.message)
+
+                    else
+                        checkGlobalErrorsMatch originalNumberOfExpectedErrors { expected = rest, actual = newActual, needSecondPass = params.needSecondPass }
 
                 Nothing ->
                     checkGlobalErrorsMatch originalNumberOfExpectedErrors { expected = rest, actual = params.actual, needSecondPass = head :: params.needSecondPass }
