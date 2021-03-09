@@ -1,7 +1,7 @@
 module Review.Test exposing
     ( ReviewResult, run, runWithProjectData, runOnModules, runOnModulesWithProjectData
-    , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectGlobalErrors
-    , expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
+    , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme
+    , expectGlobalErrors, expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
     )
 
 {-| Module that helps you test your rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/).
@@ -99,7 +99,8 @@ for this module.
 
 # Making assertions
 
-@docs ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme, expectGlobalErrors, globalError
+@docs ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme
+@docs expectGlobalErrors, expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
 
 -}
 
