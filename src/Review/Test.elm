@@ -689,7 +689,17 @@ expectErrorsForModules expectedErrorsList reviewResult =
         reviewResult
 
 
-expectGlobalAndLocalErrors : { global : List { message : String, details : List String }, local : List ExpectedError } -> ReviewResult -> Expectation
+{-| Assert that the rule reported some local and global errors, by specifying which ones.
+
+Use this function when you expect both local and global errors for a particular test, and when you are using [`run`](#run) or [`runWithProjectData`](#runWithProjectData).
+When using [`runOnModules`](#runOnModules) or [`runOnModulesWithProjectData`](#runOnModulesWithProjectData), use [`expectGlobalAndModuleErrors`](#expectGlobalAndModuleErrors) instead.
+
+If you only have local or global errors, you should instead use [`expectErrors`](#expectErrors) or [`expectGlobalErrors`](#expectGlobalErrors) respectively.
+
+This function works in the same way as [`expectErrors`](#expectErrors) and [`expectGlobalErrors`](#expectGlobalErrors).
+
+-}
+expectGlobalAndLocalErrors : { local : List ExpectedError, global : List { message : String, details : List String } } -> ReviewResult -> Expectation
 expectGlobalAndLocalErrors { global, local } reviewResult =
     case reviewResult of
         FailedRun errorMessage ->
@@ -718,6 +728,16 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
                 ()
 
 
+{-| Assert that the rule reported some errors for modules and global errors, by specifying which ones.
+
+Use this function when you expect both local and global errors for a particular test, and when you are using [`runOnModules`](#runOnModules) or [`runOnModulesWithProjectData`](#runOnModulesWithProjectData).
+When using[`run`](#run) or [`runWithProjectData`](#runWithProjectData), use [`expectGlobalAndLocalErrors`](#expectGlobalAndLocalErrors) instead.
+
+If you only have local or global errors, you should instead use [`expectErrorsForModules`](#expectErrorsForModules) or [`expectGlobalErrors`](#expectGlobalErrors) respectively.
+
+This function works in the same way as [`expectErrorsForModules`](#expectErrorsForModules) and [`expectGlobalErrors`](#expectGlobalErrors).
+
+-}
 expectGlobalAndModuleErrors : { global : List { message : String, details : List String }, modules : List ( String, List ExpectedError ) } -> ReviewResult -> Expectation
 expectGlobalAndModuleErrors { global, modules } reviewResult =
     case reviewResult of
