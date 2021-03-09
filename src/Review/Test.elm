@@ -1386,7 +1386,7 @@ checkDetailsAreCorrect : ReviewError -> ExpectedError -> (() -> Expectation)
 checkDetailsAreCorrect error_ (ExpectedError expectedError) =
     Expect.all
         [ (not <| List.isEmpty <| Rule.errorDetails error_)
-            |> Expect.true (FailureMessage.emptyDetails error_)
+            |> Expect.true (FailureMessage.emptyDetails (Rule.errorMessage error_))
             |> always
         , (Rule.errorDetails error_ == expectedError.details)
             |> Expect.true (FailureMessage.unexpectedDetails expectedError.details error_)

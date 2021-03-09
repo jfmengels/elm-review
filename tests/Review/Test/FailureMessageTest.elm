@@ -409,17 +409,7 @@ emptyDetailsTest =
     describe "emptyDetails"
         [ test "with single-line details" <|
             \() ->
-                let
-                    error : ReviewError
-                    error =
-                        Review.Error.error
-                            { message = "Some error"
-                            , details = [ "Some details" ]
-                            }
-                            dummyRange
-                in
-                FailureMessage.emptyDetails
-                    error
+                FailureMessage.emptyDetails "Some error"
                     |> expectMessageEqual """
 \u{001B}[31m\u{001B}[1mEMPTY ERROR DETAILS\u{001B}[22m\u{001B}[39m
 
