@@ -4,7 +4,7 @@ module Review.Test.FailureMessage exposing
     , underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
     , needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
     , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
-    , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors, unexpectedConfigurationError, unexpectedGlobalErrorDetails
+    , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError, messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors, unexpectedConfigurationError, unexpectedGlobalErrorDetails
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -126,6 +126,18 @@ messageMismatchForGlobalError : { a | message : String } -> { b | message : Stri
 messageMismatchForGlobalError expectedError error =
     failureMessage "UNEXPECTED GLOBAL ERROR MESSAGE"
         ("""I was looking for the global error with the following message:
+
+  """ ++ wrapInQuotes expectedError.message ++ """
+
+but I found the following error message:
+
+  """ ++ wrapInQuotes error.message)
+
+
+messageMismatchForConfigurationError : { a | message : String } -> { b | message : String } -> String
+messageMismatchForConfigurationError expectedError error =
+    failureMessage "UNEXPECTED CONFIGURATION ERROR MESSAGE"
+        ("""I was looking for the configuration error with the following message:
 
   """ ++ wrapInQuotes expectedError.message ++ """
 
