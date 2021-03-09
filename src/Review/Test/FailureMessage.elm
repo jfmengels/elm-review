@@ -4,7 +4,7 @@ module Review.Test.FailureMessage exposing
     , underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
     , needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
     , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
-    , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForGlobalError, tooManyGlobalErrors, unexpectedGlobalErrorDetails
+    , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForGlobalError, tooManyGlobalErrors, unexpectedConfigurationError, unexpectedGlobalErrorDetails
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -579,6 +579,18 @@ the positions (for inserting) of every fix to be mutually exclusive.
 
 Hint: Maybe you duplicated a fix, or you targeted the wrong node for one
 of your fixes.""")
+
+
+unexpectedConfigurationError : { message : String, details : List String } -> String
+unexpectedConfigurationError error =
+    failureMessage "UNEXPECTED CONFIGURATION ERROR"
+        ("""I found a configuration error for this test:
+
+  """ ++ wrapInQuotes error.message ++ """
+
+  """ ++ formatDetails error.details ++ """
+
+You should use `expectConfigurationError` to expect this configuration error.""")
 
 
 
