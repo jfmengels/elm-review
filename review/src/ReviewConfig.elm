@@ -18,10 +18,8 @@ import NoExposingEverything
 import NoImportingEverything
 import NoMissingTypeAnnotation
 import NoMissingTypeAnnotationInLetIn
-import NoMissingTypeExpose
 import NoSimpleLetBody
 import NoUnnecessaryTrailingUnderscore
-import NoUnsafeRegexFromLiteral
 import NoUnused.CustomTypeConstructors
 import NoUnused.Dependencies
 import NoUnused.Exports
@@ -35,7 +33,6 @@ import Review.Rule as Rule exposing (Rule)
 config : List Rule
 config =
     [ Documentation.ReadmeLinksPointToCurrentVersion.rule
-    , NoUnsafeRegexFromLiteral.rule { moduleAlias = Nothing, unsafeFunction = "Haha.oko" }
     , NoDebug.Log.rule
     , NoDebug.TodoOrToString.rule
         |> Rule.ignoreErrorsForDirectories [ "tests/" ]
