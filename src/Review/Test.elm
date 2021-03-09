@@ -1483,4 +1483,4 @@ expectConfigurationErrorDetailsMatch expectedError configurationError =
         Expect.fail (FailureMessage.messageMismatchForConfigurationError expectedError configurationError)
 
     else
-        Expect.pass
+        Expect.fail (FailureMessage.unexpectedGlobalErrorDetails expectedError.details configurationError)
