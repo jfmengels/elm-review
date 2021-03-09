@@ -803,8 +803,8 @@ You should not have to use this when writing a rule. You might be looking for [`
 
 -}
 getConfigurationError : Rule -> Maybe { message : String, details : List String }
-getConfigurationError _ =
-    Nothing
+getConfigurationError (Rule rule) =
+    rule.configurationError
 
 
 {-| **DEPRECATED**
