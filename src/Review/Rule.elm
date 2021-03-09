@@ -3047,9 +3047,10 @@ elmReviewGlobalError { message, details } =
 
 {-| Create an [`Error`](#Error) that is not attached to any specific location in the project.
 
-This can be useful when needing to report problems that are not tied to any file, for instance by reporting missing elements like a module that was expected to be there.
+This can be useful when needing to report problems that are not tied to any file. For instance for reporting missing elements like a module that was expected to be there.
+
 This is however **NOT** the recommended way when it is possible to attach an error to a location (even if it is simply the module name of a file's module declaration),
-because [giving hints to where the problem is] makes it easier for the user to solve the reported problem.
+because [giving hints to where the problem is] makes it easier for the user to solve it.
 
 The `message` and `details` represent the [message you want to display to the user].
 The `details` is a list of paragraphs, and each item will be visually separated

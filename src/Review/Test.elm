@@ -820,6 +820,35 @@ expectErrorsForElmJson expectedErrors reviewResult =
     expectErrorsForModules [ ( "elm.json", expectedErrors ) ] reviewResult
 
 
+{-| Assert that the rule reported some global errors, by specifying which ones.
+
+Contrary to the non-global expect functions, the expected errors are simple records and don't have a only need to pass a record
+
+Assert which errors are reported using records with the expected message and details. The test will fail if
+a different number of errors than expected are reported, or if the message or details is incorrect.
+
+    import Review.Test
+    import Test exposing (Test, describe, test)
+    import The.Rule.You.Want.To.Test exposing (rule)
+
+    all : Test
+    all =
+        test "should report a global error when the specified module could not be found" <|
+            \() ->
+                """
+    module ModuleA exposing (a)
+    a = 1"""
+                    |> Review.Test.run (rule "ModuleB")
+                    |> Review.Test.expectGlobalErrors
+                        [ { message = "Could not find module ModuleB"
+                          , details =
+                                [ "You mentioned the module ModuleB in the configuration of this rule, but it could not be found."
+                                , "This likely means you misconfigured the rule or the configuration has become out of date with recent changes in your project."
+                                ]
+                          }
+                        ]
+
+-}
 expectGlobalErrors : List { message : String, details : List String } -> ReviewResult -> Expectation
 expectGlobalErrors expectedErrors reviewResult =
     expectGlobalAndLocalErrors
