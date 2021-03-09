@@ -492,7 +492,8 @@ to compare them or the model that holds them.
 -}
 reviewV2 : List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
 reviewV2 rules maybeProjectData project =
-    checkForModulesThatFailedToParse project
+    checkForConfigurationErrors rules
+        |> Result.andThen (\() -> checkForModulesThatFailedToParse project)
         |> Result.andThen (\() -> checkForDuplicateModules project)
         |> Result.andThen (\() -> getModulesSortedByImport project)
         |> Result.map (runReview project rules maybeProjectData)
@@ -504,6 +505,37 @@ reviewV2 rules maybeProjectData project =
                 }
             )
         |> extractResultValue
+
+
+checkForConfigurationErrors : List Rule -> Result (List ReviewError) ()
+checkForConfigurationErrors rules =
+    let
+        errors : List ReviewError
+        errors =
+            List.filterMap
+                (\rule ->
+                    Maybe.map
+                        (\{ message, details } ->
+                            SpecifiedError
+                                { filePath = "CONFIGURATION ERROR"
+                                , ruleName = ruleName rule
+                                , message = message
+                                , details = details
+                                , range = Range.emptyRange
+                                , fixes = Nothing
+                                , target = Review.Error.Global
+                                }
+                                |> errorToReviewError
+                        )
+                        (getConfigurationError rule)
+                )
+                rules
+    in
+    if List.isEmpty errors then
+        Ok ()
+
+    else
+        Err errors
 
 
 checkForModulesThatFailedToParse : Project -> Result (List ReviewError) ()
