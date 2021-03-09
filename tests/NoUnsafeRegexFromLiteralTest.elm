@@ -235,7 +235,7 @@ a = SomeModule.Regex.fromLiteralFunc "^abc$"
                         )
                     |> Review.Test.expectConfigurationError
                         { message = "invalid name is not a valid function name"
-                        , details = []
+                        , details = [ "Some details" ]
                         }
         ]
 
