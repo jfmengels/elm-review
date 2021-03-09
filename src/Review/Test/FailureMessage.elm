@@ -4,7 +4,7 @@ module Review.Test.FailureMessage exposing
     , underMismatch, expectedMoreErrors, tooManyErrors, locationNotFound, underMayNotBeEmpty, locationIsAmbiguousInSourceCode
     , needToUsedExpectErrorsForModules, missingSources, duplicateModuleName, unknownModulesInExpectedErrors
     , missingFixes, unexpectedFixes, fixedCodeMismatch, unchangedSourceAfterFix, invalidSourceAfterFix, hasCollisionsInFixRanges
-    , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForGlobalError, tooManyGlobalErrors, unexpectedConfigurationError, unexpectedGlobalErrorDetails
+    , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors, unexpectedConfigurationError, unexpectedGlobalErrorDetails
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -591,6 +591,16 @@ unexpectedConfigurationError error =
   """ ++ formatDetails error.details ++ """
 
 You should use `expectConfigurationError` to expect this configuration error.""")
+
+
+missingConfigurationError : String -> String
+missingConfigurationError errorMessage =
+    failureMessage "MISSING CONFIGURATION ERROR"
+        ("""I was expecting a configuration error with the message:
+
+  """ ++ wrapInQuotes errorMessage ++ """
+
+but I could not find it.""")
 
 
 
