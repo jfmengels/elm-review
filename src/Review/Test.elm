@@ -335,6 +335,16 @@ interested in project related details, then you should use [`runOnModules`](#run
 -}
 runOnModulesWithProjectData : Project -> Rule -> List String -> ReviewResult
 runOnModulesWithProjectData project rule sources =
+    case Rule.getConfigurationError rule of
+        Just configurationError ->
+            ConfigurationError configurationError
+
+        Nothing ->
+            runOnModulesWithProjectDataHelp project rule sources
+
+
+runOnModulesWithProjectDataHelp : Project -> Rule -> List String -> ReviewResult
+runOnModulesWithProjectDataHelp project rule sources =
     let
         projectWithModules : Project
         projectWithModules =

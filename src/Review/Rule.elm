@@ -17,6 +17,7 @@ module Review.Rule exposing
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review, reviewV2, ProjectData, ruleName
     , Required, Forbidden
+    , getConfigurationError
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -794,6 +795,16 @@ You should not have to use this when writing a rule.
 ruleName : Rule -> String
 ruleName (Rule rule) =
     rule.name
+
+
+{-| Get the configuration error for a rule.
+
+You should not have to use this when writing a rule. You might be looking for [`configurationError`](#configurationError) instead.
+
+-}
+getConfigurationError : Rule -> Maybe { message : String, details : List String }
+getConfigurationError _ =
+    Nothing
 
 
 {-| **DEPRECATED**
