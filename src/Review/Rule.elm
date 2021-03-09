@@ -3045,9 +3045,36 @@ elmReviewGlobalError { message, details } =
         }
 
 
+{-| Create an [`Error`](#Error) that is not attached to any specific location in the project.
+
+This can be useful when needing to report problems that are not tied to any file, for instance by reporting missing elements like a module that was expected to be there.
+This is however **NOT** the recommended way when it is possible to attach an error to a location (even if it is simply the module name of a file's module declaration),
+because [giving hints to where the problem is] makes it easier for the user to solve the reported problem.
+
+The `message` and `details` represent the [message you want to display to the user].
+The `details` is a list of paragraphs, and each item will be visually separated
+when shown to the user. The details may not be empty, and this will be enforced
+by the tests automatically.
+
+    error : String -> Error
+    error moduleName =
+        Rule.globalError
+            { message = "Could not find module " ++ moduleName
+            , details =
+                [ "You mentioned the module " ++ moduleName ++ " in the configuration of this rule, but it could not be found."
+                , "This likely means you misconfigured the rule or the configuration has become out of date with recent changes in your project."
+                ]
+            }
+
+[giving hints to where the problem is]: #the-smallest-section-of-code-that-makes-sense
+[message you want to display to the user]: #a-helpful-error-message-and-details
+
+[`Range`]: https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Range
+[`Node.range`]: https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Node#range
+
+-}
 globalError : { message : String, details : List String } -> Error scope
 globalError { message, details } =
-    -- TODO Documentation
     SpecifiedError
         { filePath = "GLOBAL ERROR"
         , ruleName = ""
