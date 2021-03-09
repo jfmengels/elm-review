@@ -126,7 +126,8 @@ import Vendor.ListExtra as ListExtra
 {-| The result of running a rule on a `String` containing source code.
 -}
 type ReviewResult
-    = FailedRun String
+    = ConfigurationError { message : String, details : List String }
+    | FailedRun String
     | SuccessfulRun (List GlobalError) (List SuccessfulRunResult)
 
 
@@ -703,6 +704,9 @@ This function works in the same way as [`expectErrors`](#expectErrors) and [`exp
 expectGlobalAndLocalErrors : { local : List ExpectedError, global : List { message : String, details : List String } } -> ReviewResult -> Expectation
 expectGlobalAndLocalErrors { global, local } reviewResult =
     case reviewResult of
+        ConfigurationError configurationError ->
+            Expect.fail (FailureMessage.unexpectedConfigurationError configurationError)
+
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
@@ -742,6 +746,9 @@ This function works in the same way as [`expectErrorsForModules`](#expectErrorsF
 expectGlobalAndModuleErrors : { global : List { message : String, details : List String }, modules : List ( String, List ExpectedError ) } -> ReviewResult -> Expectation
 expectGlobalAndModuleErrors { global, modules } reviewResult =
     case reviewResult of
+        ConfigurationError configurationError ->
+            Expect.fail (FailureMessage.unexpectedConfigurationError configurationError)
+
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
