@@ -579,7 +579,7 @@ expectNoGlobalErrors globalErrors =
         Expect.pass
 
     else
-        Expect.fail (FailureMessage.didNotExpectGlobalErrors globalErrors)
+        Expect.fail <| FailureMessage.didNotExpectGlobalErrors globalErrors
 
 
 expectNoModuleErrors : List SuccessfulRunResult -> Expectation
@@ -595,7 +595,7 @@ expectNoErrorForModuleRunResult { moduleName, errors } =
         Expect.pass
 
     else
-        Expect.fail (FailureMessage.didNotExpectErrors moduleName errors)
+        Expect.fail <| FailureMessage.didNotExpectErrors moduleName errors
 
 
 {-| Assert that the rule reported some errors, by specifying which ones.
@@ -1208,7 +1208,7 @@ checkGlobalErrorsMatch originalNumberOfExpectedErrors params =
                             failBecauseExpectedErrorCouldNotBeFound notFoundError ( firstActual, restOfActual )
 
                         Nothing ->
-                            Expect.fail (FailureMessage.tooManyGlobalErrors params.actual)
+                            Expect.fail <| FailureMessage.tooManyGlobalErrors params.actual
 
                 [] ->
                     if List.isEmpty params.needSecondPass then
@@ -1217,7 +1217,7 @@ checkGlobalErrorsMatch originalNumberOfExpectedErrors params =
 
                     else
                         -- We expected more errors
-                        Expect.fail (FailureMessage.expectedMoreGlobalErrors originalNumberOfExpectedErrors params.needSecondPass)
+                        Expect.fail <| FailureMessage.expectedMoreGlobalErrors originalNumberOfExpectedErrors params.needSecondPass
 
 
 findAndRemove : a -> List a -> Maybe (List a)
@@ -1243,10 +1243,10 @@ failBecauseExpectedErrorCouldNotBeFound : GlobalError -> ( GlobalError, List Glo
 failBecauseExpectedErrorCouldNotBeFound expectedError ( firstActual, restOfActual ) =
     case ListExtra.find (\e -> e.message == expectedError.message) (firstActual :: restOfActual) of
         Just actualErrorWithTheSameMessage ->
-            Expect.fail (FailureMessage.unexpectedGlobalErrorDetails expectedError.details actualErrorWithTheSameMessage)
+            Expect.fail <| FailureMessage.unexpectedGlobalErrorDetails expectedError.details actualErrorWithTheSameMessage
 
         Nothing ->
-            Expect.fail (FailureMessage.messageMismatchForGlobalError expectedError firstActual)
+            Expect.fail <| FailureMessage.messageMismatchForGlobalError expectedError firstActual
 
 
 checkAllGlobalErrorsMatch : Int -> { expected : List GlobalError, actual : List GlobalError } -> Expectation
@@ -1373,10 +1373,10 @@ checkFixesAreCorrect codeInspector ((Error.ReviewError err) as error_) ((Expecte
                         Expect.pass
 
                     else if removeWhitespace fixedSource == removeWhitespace expectedFixedSource then
-                        Expect.fail (FailureMessage.fixedCodeWhitespaceMismatch fixedSource expectedFixedSource error_)
+                        Expect.fail <| FailureMessage.fixedCodeWhitespaceMismatch fixedSource expectedFixedSource error_
 
                     else
-                        Expect.fail (FailureMessage.fixedCodeMismatch fixedSource expectedFixedSource error_)
+                        Expect.fail <| FailureMessage.fixedCodeMismatch fixedSource expectedFixedSource error_
 
                 Fix.Errored Fix.Unchanged ->
                     Expect.fail <| FailureMessage.unchangedSourceAfterFix error_
