@@ -1482,5 +1482,8 @@ expectConfigurationErrorDetailsMatch expectedError configurationError =
     if expectedError.message /= configurationError.message then
         Expect.fail (FailureMessage.messageMismatchForConfigurationError expectedError configurationError)
 
+    else if expectedError.details /= configurationError.details then
+        Expect.fail (FailureMessage.unexpectedConfigurationErrorDetails expectedError.details configurationError)
+
     else
-        Expect.fail (FailureMessage.unexpectedGlobalErrorDetails expectedError.details configurationError)
+        Expect.pass
