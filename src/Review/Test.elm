@@ -1455,5 +1455,13 @@ extractExpectedErrorData ((ExpectedError expectedErrorContent) as expectedError)
 
 
 expectConfigurationError : { message : String, details : List String } -> ReviewResult -> Expectation
-expectConfigurationError expectedErrors reviewResult =
-    Expect.fail "TODO configuration error"
+expectConfigurationError expectedError reviewResult =
+    case reviewResult of
+        ConfigurationError configurationError ->
+            Expect.fail (FailureMessage.unexpectedConfigurationError configurationError)
+
+        FailedRun _ ->
+            Expect.fail (FailureMessage.missingConfigurationError expectedError.message)
+
+        SuccessfulRun _ _ ->
+            Expect.fail (FailureMessage.missingConfigurationError expectedError.message)
