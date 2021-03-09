@@ -78,20 +78,27 @@ There is also an error if the target function could not be found anywhere in the
 -}
 rule : { unsafeFunction : String, moduleAlias : Maybe String } -> Rule
 rule config =
-    let
-        target : Target
-        target =
-            buildTarget config
-    in
-    Rule.newProjectRuleSchema "NoUnsafeRegexFromLiteral" initialProjectContext
-        |> Rule.withModuleVisitor (moduleVisitor target)
-        |> Rule.withModuleContextUsingContextCreator
-            { fromProjectToModule = fromProjectToModule
-            , fromModuleToProject = fromModuleToProject target
-            , foldProjectContexts = foldProjectContexts
+    if True then
+        Rule.configurationError "NoUnsafeRegexFromLiteral"
+            { message = "invalid name is not a valid function name"
+            , details = [ "Some details" ]
             }
-        |> Rule.withFinalProjectEvaluation (finalProjectEvaluation target)
-        |> Rule.fromProjectRuleSchema
+
+    else
+        let
+            target : Target
+            target =
+                buildTarget config
+        in
+        Rule.newProjectRuleSchema "NoUnsafeRegexFromLiteral" initialProjectContext
+            |> Rule.withModuleVisitor (moduleVisitor target)
+            |> Rule.withModuleContextUsingContextCreator
+                { fromProjectToModule = fromProjectToModule
+                , fromModuleToProject = fromModuleToProject target
+                , foldProjectContexts = foldProjectContexts
+                }
+            |> Rule.withFinalProjectEvaluation (finalProjectEvaluation target)
+            |> Rule.fromProjectRuleSchema
 
 
 buildTarget : { unsafeFunction : String, moduleAlias : Maybe String } -> Target
