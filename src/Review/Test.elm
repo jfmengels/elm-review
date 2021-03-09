@@ -1468,10 +1468,15 @@ expectConfigurationError : { message : String, details : List String } -> Review
 expectConfigurationError expectedError reviewResult =
     case reviewResult of
         ConfigurationError configurationError ->
-            Expect.fail (FailureMessage.unexpectedConfigurationError configurationError)
+            expectConfigurationErrorDetailsMatch expectedError configurationError
 
         FailedRun _ ->
             Expect.fail (FailureMessage.missingConfigurationError expectedError.message)
 
         SuccessfulRun _ _ ->
             Expect.fail (FailureMessage.missingConfigurationError expectedError.message)
+
+
+expectConfigurationErrorDetailsMatch : { message : String, details : List String } -> { message : String, details : List String } -> Expectation
+expectConfigurationErrorDetailsMatch expectedError configurationError =
+    Expect.fail (FailureMessage.unexpectedConfigurationError configurationError)
