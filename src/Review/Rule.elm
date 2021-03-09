@@ -301,6 +301,7 @@ type Rule
         , exceptions : Exceptions
         , requestedData : RequestedData
         , ruleImplementation : Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
+        , configurationError : Maybe { message : String, details : List String }
         }
 
 
@@ -1161,6 +1162,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                             nodeContexts
                 in
                 ( result.errors, result.rule )
+        , configurationError = Nothing
         }
 
 
@@ -3313,6 +3315,7 @@ ignoreErrorsForDirectories directories (Rule rule) =
         , exceptions = Exceptions.addDirectories directories rule.exceptions
         , requestedData = rule.requestedData
         , ruleImplementation = rule.ruleImplementation
+        , configurationError = rule.configurationError
         }
 
 
@@ -3380,6 +3383,7 @@ ignoreErrorsForFiles files (Rule rule) =
         , exceptions = Exceptions.addFiles files rule.exceptions
         , requestedData = rule.requestedData
         , ruleImplementation = rule.ruleImplementation
+        , configurationError = rule.configurationError
         }
 
 
@@ -3562,6 +3566,7 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
                                 newNodeContexts
                     in
                     ( result.errors, result.rule )
+            , configurationError = Nothing
             }
     , cache = newCache
     , extract =
