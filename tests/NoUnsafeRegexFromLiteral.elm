@@ -6,6 +6,7 @@ module NoUnsafeRegexFromLiteral exposing (rule)
 
 -}
 
+import Elm.Module
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.ModuleName exposing (ModuleName)
@@ -99,44 +100,47 @@ rule config =
 
 buildTarget : { unsafeFunction : String, moduleAlias : Maybe String } -> Maybe Target
 buildTarget { unsafeFunction, moduleAlias } =
-    let
-        unsafeFunctionAsList : List String
-        unsafeFunctionAsList =
-            String.split "." unsafeFunction
-                |> List.reverse
+    case List.reverse (String.split "." unsafeFunction) of
+        [] ->
+            Nothing
 
-        moduleName : List String
-        moduleName =
-            -- TODO Report an error if module names are invalid
-            List.reverse (List.drop 1 unsafeFunctionAsList)
-
-        name : String
-        name =
-            List.head unsafeFunctionAsList
-                -- TODO Report an error instead
-                |> Maybe.withDefault "INVALID CONFIGURATION"
-    in
-    Just
-        { moduleName = moduleName
-        , name = name
-        , suggestedImport =
-            "import "
-                ++ String.join "." moduleName
-                ++ (case moduleAlias of
-                        Just moduleAlias_ ->
-                            " as " ++ moduleAlias_
-
-                        Nothing ->
-                            ""
-                   )
-        , suggestedUsage =
-            case moduleAlias of
-                Just moduleAlias_ ->
-                    moduleAlias_ ++ "." ++ name
+        functionName :: invertedModules ->
+            let
+                moduleName : List String
+                moduleName =
+                    List.reverse invertedModules
+            in
+            case Elm.Module.fromString (String.join "." moduleName) of
+                Just _ ->
+                    -- TODO Validate moduleAlias
+                    Just (buildTargetHelp functionName moduleName moduleAlias)
 
                 Nothing ->
-                    String.join "." moduleName ++ "." ++ name
-        }
+                    Nothing
+
+
+buildTargetHelp : String -> List String -> Maybe String -> Target
+buildTargetHelp functionName moduleName moduleAlias =
+    { moduleName = moduleName
+    , name = functionName
+    , suggestedImport =
+        "import "
+            ++ String.join "." moduleName
+            ++ (case moduleAlias of
+                    Just moduleAlias_ ->
+                        " as " ++ moduleAlias_
+
+                    Nothing ->
+                        ""
+               )
+    , suggestedUsage =
+        case moduleAlias of
+            Just moduleAlias_ ->
+                moduleAlias_ ++ "." ++ functionName
+
+            Nothing ->
+                String.join "." moduleName ++ "." ++ functionName
+    }
 
 
 moduleVisitor : Target -> Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
