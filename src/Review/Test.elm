@@ -2,6 +2,7 @@ module Review.Test exposing
     ( ReviewResult, run, runWithProjectData, runOnModules, runOnModulesWithProjectData
     , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme
     , expectGlobalErrors, expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
+    , expectConfigurationError
     )
 
 {-| Module that helps you test your rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/).
@@ -1444,3 +1445,8 @@ extractExpectedErrorData ((ExpectedError expectedErrorContent) as expectedError)
     , details = expectedErrorContent.details
     , under = getUnder expectedError
     }
+
+
+expectConfigurationError : { message : String, details : List String } -> ReviewResult -> Expectation
+expectConfigurationError expectedErrors reviewResult =
+    Expect.fail "TODO configuration error"
