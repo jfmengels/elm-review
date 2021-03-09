@@ -1482,6 +1482,9 @@ expectConfigurationErrorDetailsMatch expectedError configurationError =
     if expectedError.message /= configurationError.message then
         Expect.fail (FailureMessage.messageMismatchForConfigurationError expectedError configurationError)
 
+    else if List.isEmpty configurationError.details then
+        Expect.fail (FailureMessage.emptyDetails configurationError.message)
+
     else if expectedError.details /= configurationError.details then
         Expect.fail (FailureMessage.unexpectedConfigurationErrorDetails expectedError.details configurationError)
 
