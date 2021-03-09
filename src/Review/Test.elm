@@ -1479,4 +1479,8 @@ expectConfigurationError expectedError reviewResult =
 
 expectConfigurationErrorDetailsMatch : { message : String, details : List String } -> { message : String, details : List String } -> Expectation
 expectConfigurationErrorDetailsMatch expectedError configurationError =
-    Expect.fail (FailureMessage.messageMismatchForConfigurationError expectedError configurationError)
+    if expectedError.message /= configurationError.message then
+        Expect.fail (FailureMessage.messageMismatchForConfigurationError expectedError configurationError)
+
+    else
+        Expect.pass
