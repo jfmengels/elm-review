@@ -78,30 +78,26 @@ There is also an error if the target function could not be found anywhere in the
 -}
 rule : { unsafeFunction : String, moduleAlias : Maybe String } -> Rule
 rule config =
-    if True then
-        Rule.configurationError "NoUnsafeRegexFromLiteral"
-            { message = "invalid name is not a valid function name"
-            , details = [ "Some details" ]
-            }
-
-    else
-        let
-            target : Target
-            target =
-                buildTarget config
-        in
-        Rule.newProjectRuleSchema "NoUnsafeRegexFromLiteral" initialProjectContext
-            |> Rule.withModuleVisitor (moduleVisitor target)
-            |> Rule.withModuleContextUsingContextCreator
-                { fromProjectToModule = fromProjectToModule
-                , fromModuleToProject = fromModuleToProject target
-                , foldProjectContexts = foldProjectContexts
+    case buildTarget config of
+        Nothing ->
+            Rule.configurationError "NoUnsafeRegexFromLiteral"
+                { message = config.unsafeFunction ++ " is not a valid function name"
+                , details = [ "Some details" ]
                 }
-            |> Rule.withFinalProjectEvaluation (finalProjectEvaluation target)
-            |> Rule.fromProjectRuleSchema
+
+        Just target ->
+            Rule.newProjectRuleSchema "NoUnsafeRegexFromLiteral" initialProjectContext
+                |> Rule.withModuleVisitor (moduleVisitor target)
+                |> Rule.withModuleContextUsingContextCreator
+                    { fromProjectToModule = fromProjectToModule
+                    , fromModuleToProject = fromModuleToProject target
+                    , foldProjectContexts = foldProjectContexts
+                    }
+                |> Rule.withFinalProjectEvaluation (finalProjectEvaluation target)
+                |> Rule.fromProjectRuleSchema
 
 
-buildTarget : { unsafeFunction : String, moduleAlias : Maybe String } -> Target
+buildTarget : { unsafeFunction : String, moduleAlias : Maybe String } -> Maybe Target
 buildTarget { unsafeFunction, moduleAlias } =
     let
         unsafeFunctionAsList : List String
@@ -120,26 +116,27 @@ buildTarget { unsafeFunction, moduleAlias } =
                 -- TODO Report an error instead
                 |> Maybe.withDefault "INVALID CONFIGURATION"
     in
-    { moduleName = moduleName
-    , name = name
-    , suggestedImport =
-        "import "
-            ++ String.join "." moduleName
-            ++ (case moduleAlias of
-                    Just moduleAlias_ ->
-                        " as " ++ moduleAlias_
+    Just
+        { moduleName = moduleName
+        , name = name
+        , suggestedImport =
+            "import "
+                ++ String.join "." moduleName
+                ++ (case moduleAlias of
+                        Just moduleAlias_ ->
+                            " as " ++ moduleAlias_
 
-                    Nothing ->
-                        ""
-               )
-    , suggestedUsage =
-        case moduleAlias of
-            Just moduleAlias_ ->
-                moduleAlias_ ++ "." ++ name
+                        Nothing ->
+                            ""
+                   )
+        , suggestedUsage =
+            case moduleAlias of
+                Just moduleAlias_ ->
+                    moduleAlias_ ++ "." ++ name
 
-            Nothing ->
-                String.join "." moduleName ++ "." ++ name
-    }
+                Nothing ->
+                    String.join "." moduleName ++ "." ++ name
+        }
 
 
 moduleVisitor : Target -> Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
