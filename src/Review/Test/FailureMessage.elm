@@ -197,6 +197,22 @@ when I was expecting them to be:
   """ ++ formatDetails expectedDetails)
 
 
+unexpectedConfigurationErrorDetails : List String -> { message : String, details : List String } -> String
+unexpectedConfigurationErrorDetails expectedDetails error =
+    failureMessage "UNEXPECTED CONFIGURATION ERROR DETAILS"
+        ("""I found a configuration error with the following message:
+
+  """ ++ wrapInQuotes error.message ++ """
+
+which I was expecting, but its details were:
+
+  """ ++ formatDetails error.details ++ """
+
+when I was expecting them to be:
+
+  """ ++ formatDetails expectedDetails)
+
+
 emptyDetails : String -> String
 emptyDetails errorMessage =
     failureMessage "EMPTY ERROR DETAILS"
