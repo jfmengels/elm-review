@@ -1372,7 +1372,7 @@ checkFixesAreCorrect codeInspector ((Error.ReviewError err) as error_) ((Expecte
                     if fixedSource == expectedFixedSource then
                         Expect.pass
 
-                    else if removeShitespace fixedSource == removeShitespace expectedFixedSource then
+                    else if removeWhitespace fixedSource == removeWhitespace expectedFixedSource then
                         Expect.fail (FailureMessage.fixedCodeWhitespaceMismatch fixedSource expectedFixedSource error_)
 
                     else
@@ -1388,8 +1388,8 @@ checkFixesAreCorrect codeInspector ((Error.ReviewError err) as error_) ((Expecte
                     Expect.fail <| FailureMessage.hasCollisionsInFixRanges error_
 
 
-removeShitespace : String -> String
-removeShitespace =
+removeWhitespace : String -> String
+removeWhitespace =
     String.replace " " ""
         >> String.replace "\n" ""
 
