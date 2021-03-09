@@ -185,12 +185,12 @@ when I was expecting them to be:
   """ ++ formatDetails expectedDetails)
 
 
-emptyDetails : ReviewError -> String
-emptyDetails error =
+emptyDetails : String -> String
+emptyDetails errorMessage =
     failureMessage "EMPTY ERROR DETAILS"
         ("""I found an error with the following message:
 
-  """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
+  """ ++ wrapInQuotes errorMessage ++ """
 
 but its details were empty. I require having details as I believe they will
 help the user who encounters the problem.
