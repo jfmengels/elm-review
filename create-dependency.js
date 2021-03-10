@@ -70,6 +70,13 @@ dependencyModules =
 
         Err error ->
             Debug.todo ("Failed to decode docs.json for ${packageName}: " ++ Debug.toString error)
+
+
+elmJson : String
+elmJson =
+    """${JSON.stringify(elmJson, null, 4)}
+"""
+
 `
 }
 
