@@ -1342,6 +1342,46 @@ removeExtensibleRecordTypeVariable function =
     function >> (\(ModuleRuleSchema param) -> ModuleRuleSchema param)
 
 
+{-| Creates a rule that will **only** report a configuration error, which stops `elm-review` from reviewing the project
+until the user has addressed the issue.
+
+When writing rules, some of them may take configuration arguments that specify what exactly the rule should do.
+I recommend to define custom types to limit the possibilities of what can be considered valid and invalid configuration,
+so that the user gets information from the compiler when the configuration is unexpected.
+
+Unfortunately it is not always possible or practical to let the type system forbid invalid possibilities, and you may need to
+manually parse or validate the arguments.
+
+    rule : SomeCustomConfiguration -> Rule
+    rule config =
+        case parseFunctionName config.functionName of
+            Nothing ->
+                Rule.configurationError "RuleName"
+                    { message = config.functionName ++ " is not a valid function name"
+                    , details =
+                        [ "I was expecting functionName to be a valid Elm function name."
+                        , "When that is not the case, I am not able to function as expected."
+                        ]
+                    }
+
+            Just functionName ->
+                Rule.newModuleRuleSchema "RuleName" ()
+                    |> Rule.withExpressionEnterVisitor (expressionVisitor functionName)
+                    |> Rule.fromModuleRuleSchema
+
+When you need to look at the project before determining whether something is actually a configuration error, for instance
+when reporting that a targeted function does not fit some criteria (unexpected arguments, ...), you should go for more
+usual errors like [`error`](#error) or potentially [`globalError`](#globalError). [`error`](#error) would be better because
+it will give the user a starting place to fix the issue.
+
+Be careful that the rule name is the same for the real rule and for the configuration error.
+
+The `message` and `details` represent the [message you want to display to the user].
+The `details` is a list of paragraphs, and each item will be visually separated
+when shown to the user. The details may not be empty, and this will be enforced
+by the tests automatically.
+
+-}
 configurationError : String -> { message : String, details : List String } -> Rule
 configurationError name configurationError_ =
     Rule
