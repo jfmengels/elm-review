@@ -842,8 +842,6 @@ expectErrorsForElmJson expectedErrors reviewResult =
 
 {-| Assert that the rule reported some global errors, by specifying which ones.
 
-Contrary to the non-global expect functions, the expected errors are simple records and don't have a only need to pass a record
-
 Assert which errors are reported using records with the expected message and details. The test will fail if
 a different number of errors than expected are reported, or if the message or details is incorrect.
 
