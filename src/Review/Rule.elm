@@ -1348,20 +1348,7 @@ configurationError name configurationError_ =
         { name = name
         , exceptions = Exceptions.init
         , requestedData = RequestedData { metadata = False, moduleNameLookupTable = False }
-        , ruleImplementation =
-            \newExceptions newProject newNodeContexts ->
-                let
-                    result : { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache (), extract : Maybe Extract }
-                    result =
-                        runProjectVisitor
-                            name
-                            (fromProjectRuleSchemaToRunnableProjectVisitor (newProjectRuleSchema name ()))
-                            Nothing
-                            newExceptions
-                            newProject
-                            newNodeContexts
-                in
-                ( [], result.rule )
+        , ruleImplementation = \_ _ _ -> ( [], configurationError name configurationError_ )
         , configurationError = Just configurationError_
         }
 
