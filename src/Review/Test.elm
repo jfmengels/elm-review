@@ -102,6 +102,7 @@ for this module.
 
 @docs ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme
 @docs expectGlobalErrors, expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
+@docs expectConfigurationError
 
 -}
 
@@ -1464,6 +1465,23 @@ extractExpectedErrorData ((ExpectedError expectedErrorContent) as expectedError)
     }
 
 
+{-| Assert that the rule will report a configuration error and with what details.
+
+    import Review.Test
+    import Test exposing (Test, test)
+    import The.Rule.You.Want.To.Test exposing (rule)
+
+    all : Test
+    all =
+        test "should report a configuration error when argument is empty" <|
+            \() ->
+                rule ""
+                    |> Review.Test.expectConfigurationError
+                        { message = "Configuration argument should not be empty"
+                        , details = [ "Some details" ]
+                        }
+
+-}
 expectConfigurationError : { message : String, details : List String } -> Rule -> Expectation
 expectConfigurationError expectedError rule =
     case Rule.getConfigurationError rule of
