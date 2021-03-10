@@ -15,20 +15,70 @@ function get(url) {
     })
 }
 
-if (!process.argv[2]) {
+const packageName = process.argv[2];
+
+if (!packageName) {
     console.error(`Need to pass in a package name. For instance:
  
         node create-dependency.js elm/html
 `)
 }
 
-async function downloadFiles(packageName) {
+async function downloadFiles() {
     const [elmJson, docsJson] = await Promise.all([
         get(`https://package.elm-lang.org/packages/${packageName}/latest/elm.json`),
         get(`https://package.elm-lang.org/packages/${packageName}/latest/docs.json`)
     ]);
-    console.log(elmJson);
+    return [elmJson, docsJson];
 }
 
-downloadFiles(process.argv[2])
+function createFile([elmJson, docsJson]) {
+    console.log(elmJson);
+    const moduleName = formatModuleName(packageName);
+
+    return `module Dependencies.${moduleName} exposing (dependency)
+
+import Elm.Docs
+import Elm.Project
+import Json.Decode as Decode
+import Review.Project.Dependency as Dependency exposing (Dependency)
+
+
+dependency : Dependency
+dependency =
+    Dependency.create
+        "${moduleName}"
+        (createElmJsonProject elmJson)
+        dependencyModules
+
+
+createElmJsonProject : String -> Elm.Project.Project
+createElmJsonProject rawElmJson =
+    case Decode.decodeString Elm.Project.decoder rawElmJson of
+        Ok project ->
+            project
+
+        Err error ->
+            Debug.todo ("Failed to decode elm.json for ${packageName}: " ++ Debug.toString error)
+
+
+dependencyModules : List Elm.Docs.Module
+dependencyModules =
+    case Decode.decodeString (Decode.list Elm.Docs.decoder) docsJson of
+        Ok modules ->
+            modules
+
+        Err error ->
+            Debug.todo ("Failed to decode docs.json for ${packageName}: " ++ Debug.toString error)
+`
+}
+
+function formatModuleName(packageName) {
+    return "ElmCore"
+}
+
+
+downloadFiles()
+    .then(createFile)
+    .then(console.log)
     .catch(console.error);
