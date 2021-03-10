@@ -13,11 +13,11 @@ module Review.Rule exposing
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
     , ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleNameLookupTable, withModuleKey
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, globalError, errorForReadme, errorForReadmeWithFix
+    , configurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
-    , review, reviewV2, ProjectData, ruleName
+    , review, reviewV2, ProjectData, ruleName, getConfigurationError
     , Required, Forbidden
-    , configurationError, getConfigurationError
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -224,6 +224,7 @@ first, as they are in practice a simpler version of project rules.
 ## Errors
 
 @docs Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, globalError, errorForReadme, errorForReadmeWithFix
+@docs configurationError
 @docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
 
 
@@ -249,7 +250,7 @@ reason or seemingly inappropriately.
 
 # Running rules
 
-@docs review, reviewV2, ProjectData, ruleName
+@docs review, reviewV2, ProjectData, ruleName, getConfigurationError
 
 
 # Internals
