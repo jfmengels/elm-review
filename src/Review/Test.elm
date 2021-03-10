@@ -655,7 +655,7 @@ a different number of errors than expected are reported, or if the message or th
 location is incorrect.
 
     import Review.Test
-    import Test exposing (Test, describe, test)
+    import Test exposing (Test, test)
     import The.Rule.You.Want.To.Test exposing (rule)
 
     all : Test
@@ -846,7 +846,7 @@ Assert which errors are reported using records with the expected message and det
 a different number of errors than expected are reported, or if the message or details is incorrect.
 
     import Review.Test
-    import Test exposing (Test, describe, test)
+    import Test exposing (Test, test)
     import The.Rule.You.Want.To.Test exposing (rule)
 
     all : Test
