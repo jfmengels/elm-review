@@ -1464,16 +1464,13 @@ extractExpectedErrorData ((ExpectedError expectedErrorContent) as expectedError)
     }
 
 
-expectConfigurationError : { message : String, details : List String } -> ReviewResult -> Expectation
-expectConfigurationError expectedError reviewResult =
-    case reviewResult of
-        ConfigurationError configurationError ->
+expectConfigurationError : { message : String, details : List String } -> Rule -> Expectation
+expectConfigurationError expectedError rule =
+    case Rule.getConfigurationError rule of
+        Just configurationError ->
             expectConfigurationErrorDetailsMatch expectedError configurationError
 
-        FailedRun _ ->
-            Expect.fail (FailureMessage.missingConfigurationError expectedError.message)
-
-        SuccessfulRun _ _ ->
+        Nothing ->
             Expect.fail (FailureMessage.missingConfigurationError expectedError.message)
 
 

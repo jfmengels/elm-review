@@ -223,16 +223,10 @@ a = Regex.fromString "(abc|"
                         ]
         , test "should report a configuration error when module name is invalid" <|
             \_ ->
-                """module A exposing (..)
-import SomeModule.Regex
-a = SomeModule.Regex.fromLiteralFunc "^abc$"
-"""
-                    |> Review.Test.runWithProjectData project
-                        (rule
-                            { unsafeFunction = "invalid name"
-                            , moduleAlias = Nothing
-                            }
-                        )
+                rule
+                    { unsafeFunction = "invalid name"
+                    , moduleAlias = Nothing
+                    }
                     |> Review.Test.expectConfigurationError
                         { message = "invalid name is not a valid function name"
                         , details = [ "Some details" ]
