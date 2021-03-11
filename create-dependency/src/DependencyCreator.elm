@@ -12,6 +12,7 @@ import Html.Attributes exposing (form, type_)
 import Json.Decode as Decode
 import Review.Project exposing (elmJson)
 import Review.Project.Dependency as Dependency exposing (Dependency)
+import String
 
 
 type alias Flags =
@@ -160,6 +161,10 @@ formatDep ( name, constraint ) =
     "( unsafePackageName " ++ stringify (Elm.Package.toString name) ++ ", unsafeConstraint " ++ stringify (Elm.Constraint.toString constraint) ++ ")"
 
 
+capitalize s =
+    String.toUpper (String.left 1 s) ++ String.dropLeft 1 s
+
+
 formatFile : Elm.Project.PackageInfo -> List Elm.Docs.Module -> String
 formatFile elmJson docsJson =
     let
@@ -177,7 +182,14 @@ formatFile elmJson docsJson =
                     "Elm.Project.ExposedDict [ " ++ String.join ", " (List.map (\( section, list ) -> "( \"" ++ section ++ "\", " ++ listOfModuleNames list ++ " ) ") dict) ++ " ]"
 
         moduleName =
-            "Hello"
+            "Review.Test.Dependencies."
+                ++ (elmJson.name
+                        |> Elm.Package.toString
+                        |> String.replace "/" "-"
+                        |> String.split "-"
+                        |> List.map capitalize
+                        |> String.join ""
+                   )
 
         dependencyModules =
             listOfThings formatModule docsJson
