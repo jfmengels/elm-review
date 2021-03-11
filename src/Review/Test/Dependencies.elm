@@ -9,19 +9,19 @@ import Review.Test.Dependencies.ElmUrl
 
 elmCore : Dependency
 elmCore =
-    Review.Test.Dependencies.ElmCore
+    Review.Test.Dependencies.ElmCore.dependency
 
 
 elmHtml : Dependency
 elmHtml =
-    Review.Test.Dependencies.ElmHtml
+    Review.Test.Dependencies.ElmHtml.dependency
 
 
 elmParser : Dependency
 elmParser =
-    Review.Test.Dependencies.ElmParser
+    Review.Test.Dependencies.ElmParser.dependency
 
 
 elmUrl : Dependency
 elmUrl =
-    Review.Test.Dependencies.ElmUrl
+    Review.Test.Dependencies.ElmUrl.dependency
