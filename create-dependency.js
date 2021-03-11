@@ -9,7 +9,7 @@ function get(url) {
                 data += chunk;
             });
             resp.on('end', () => {
-                resolve(JSON.parse(data));
+                resolve(data);
             });
         }).on("error", resolve);
     })
@@ -26,14 +26,13 @@ if (!packageName) {
 
 async function downloadFiles() {
     const [elmJson, docsJson] = await Promise.all([
-        get(`https://package.elm-lang.org/packages/${packageName}/latest/elm.json`),
+        get(`https://package.elm-lang.org/packages/${packageName}/latest/elm.json`).then(s => JSON.parse(s)),
         get(`https://package.elm-lang.org/packages/${packageName}/latest/docs.json`)
     ]);
     return [elmJson, docsJson];
 }
 
 function createFile([elmJson, docsJson]) {
-    console.log(elmJson);
     const moduleName = formatModuleName(packageName);
 
     return `module Dependencies.${moduleName} exposing (dependency)
@@ -77,11 +76,31 @@ elmJson =
     """${JSON.stringify(elmJson, null, 4)}
 """
 
-`
+
+docsJson : String
+docsJson =
+    """${docsJson
+            .split("\\\\n")
+            .map(s => s.split("\\n").join("\\\\n"))
+            .join("\\\\n")
+        }
+"""
+
+    `
 }
 
 function formatModuleName(packageName) {
-    return "ElmCore"
+    return "ElmParser"
+}
+
+function formatModule(moduleDoc) {
+    // if (JSON.stringify(moduleDoc).includes("initialize 4")) {
+    //     console.log(JSON.stringify(moduleDoc).slice(2470, 2530))
+    // }
+
+    return JSON.stringify(JSON.stringify(moduleDoc));
+    // .split("\\n")
+    // .join("\\\\n");
 }
 
 
