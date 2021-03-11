@@ -179,7 +179,7 @@ formatFile elmJson docsJson =
                     "Elm.Project.ExposedList [ " ++ listOfModuleNames list ++ " ]"
 
                 Elm.Project.ExposedDict dict ->
-                    "Elm.Project.ExposedDict [ " ++ String.join ", " (List.map (\( section, list ) -> "( \"" ++ section ++ "\", " ++ listOfModuleNames list ++ " ) ") dict) ++ " ]"
+                    "Elm.Project.ExposedDict [ " ++ String.join ", " (List.map (\( section, list ) -> "( \"" ++ section ++ "\", [ " ++ listOfModuleNames list ++ " ] ) ") dict) ++ " ]"
 
         moduleName =
             "Review.Test.Dependencies."
