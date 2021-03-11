@@ -1,1617 +1,1701 @@
-module Review.Test.Dependencies.ElmHtml exposing (dependency)
+module Review.Test.Dependencies.ElmParser exposing (dependency)
 
+import Elm.Constraint
 import Elm.Docs
+import Elm.License
+import Elm.Module
+import Elm.Package
 import Elm.Project
 import Elm.Type
-import Json.Decode as Decode
+import Elm.Version
 import Review.Project.Dependency as Dependency exposing (Dependency)
-
 
 dependency : Dependency
 dependency =
-    Dependency.create
-        "elm/html"
-        (createElmJsonProject elmJson)
+    Dependency.create "elm/parser"
+        elmJson
         dependencyModules
 
 
-createElmJsonProject : String -> Elm.Project.Project
-createElmJsonProject rawElmJson =
-    case Decode.decodeString Elm.Project.decoder rawElmJson of
-        Ok project ->
-            project
-
-        Err error ->
-            Debug.todo ("Failed to decode elm.json for elm/html: " ++ Debug.toString error)
-
-
-elmJson : String
+elmJson : Elm.Project.Project
 elmJson =
-    """{
-    "type": "package",
-    "name": "elm/html",
-    "summary": "Fast HTML, rendered with virtual DOM diffing",
-    "license": "BSD-3-Clause",
-    "version": "1.0.0",
-    "exposed-modules": {
-        "HTML": [
-            "Html",
-            "Html.Attributes",
-            "Html.Events"
-        ],
-        "Optimize": [
-            "Html.Keyed",
-            "Html.Lazy"
-        ]
-    },
-    "elm-version": "0.19.0 <= v < 0.20.0",
-    "dependencies": {
-        "elm/core": "1.0.0 <= v < 2.0.0",
-        "elm/json": "1.0.0 <= v < 2.0.0",
-        "elm/virtual-dom": "1.0.0 <= v < 2.0.0"
-    },
-    "test-dependencies": {}
-}
-"""
+    Elm.Project.Package
+        { elm = unsafeConstraint "0.19.0 <= v < 0.20.0"
+        , exposed = Elm.Project.ExposedList [ unsafeModuleName "Parser", unsafeModuleName "Parser.Advanced" ]
+        , license = Elm.License.fromString "BSD-3-Clause" |> Maybe.withDefault Elm.License.bsd3
+        , name = unsafePackageName "elm/parser"
+        , summary = "a parsing library, focused on simplicity and great error messages"
+        , deps = [ ( unsafePackageName "elm/core", unsafeConstraint "1.0.0 <= v < 2.0.0") ]
+        , testDeps = []
+        , version = Elm.Version.fromString "1.1.0" |> Maybe.withDefault Elm.Version.one
+        }
 
 
 dependencyModules : List Elm.Docs.Module
 dependencyModules =
-    [ { name = "Html"
-      , comment = """ This file is organized roughly in order of popularity. The tags which you'd
-expect to use frequently will be closer to the top.
+    [ { name = "Parser"
+    , comment = """
 
-# Primitives
-@docs Html, Attribute, text, node, map
+# Parsers
+@docs Parser, run
 
-# Tags
+# Building Blocks
+@docs int, float, number, symbol, keyword, variable, end
 
-## Headers
-@docs h1, h2, h3, h4, h5, h6
+# Pipelines
+@docs succeed, (|=), (|.), lazy, andThen, problem
 
-## Grouping Content
-@docs div, p, hr, pre, blockquote
+# Branches
+@docs oneOf, map, backtrackable, commit, token
 
-## Text
-@docs span, a, code, em, strong, i, b, u, sub, sup, br
+# Loops
+@docs sequence, Trailing, loop, Step
 
-## Lists
-@docs ol, ul, li, dl, dt, dd
+# Whitespace
+@docs spaces, lineComment, multiComment, Nestable
 
-## Embedded Content
-@docs img, iframe, canvas, math
+# Chompers
+@docs getChompedString, chompIf, chompWhile, chompUntil, chompUntilEndOr, mapChompedString
 
-## Inputs
-@docs form, input, textarea, button, select, option
+# Errors
+@docs DeadEnd, Problem, deadEndsToString
 
-## Sections
-@docs section, nav, article, aside, header, footer, address, main_
+# Indentation
+@docs withIndent, getIndent
 
-## Figures
-@docs figure, figcaption
-
-## Tables
-@docs table, caption, colgroup, col, tbody, thead, tfoot, tr, td, th
-
-
-## Less Common Elements
-
-### Less Common Inputs
-@docs fieldset, legend, label, datalist, optgroup, output, progress, meter
-
-### Audio and Video
-@docs audio, video, source, track
-
-### Embedded Objects
-@docs embed, object, param
-
-### Text Edits
-@docs ins, del
-
-### Semantic Text
-@docs small, cite, dfn, abbr, time, var, samp, kbd, s, q
-
-### Less Common Text Tags
-@docs mark, ruby, rt, rp, bdi, bdo, wbr
-
-## Interactive Elements
-@docs details, summary, menuitem, menu
-
+# Positions
+@docs getPosition, getRow, getCol, getOffset, getSource
 """
-      , unions = []
-      , aliases =
-            [ { name = "Attribute"
-              , comment = """ Set attributes on your `Html`. Learn more in the
-[`Html.Attributes`](Html-Attributes) module.
-"""
-              , args = [ "msg" ]
-              , tipe = decodeType "VirtualDom.Attribute msg"
-              }
-            , { name = "Html"
-              , comment = """ The core building block used to build up HTML. Here we create an `Html`
-value with no attributes and one child:
+    , aliases = [ { name = "DeadEnd"
+    , args = []
+    , comment = """ A parser can run into situations where there is no way to make progress.
+When that happens, I record the `row` and `col` where you got stuck and the
+particular `problem` you ran into. That is a `DeadEnd`!
 
-    hello : Html msg
-    hello =
-      div [] [ text "Hello!" ]
+**Note:** I count rows and columns like a text editor. The beginning is `row=1`
+and `col=1`. As I chomp characters, the `col` increments. When I reach a `\\n`
+character, I increment the `row` and set `col=1`.
 """
-              , args = [ "msg" ]
-              , tipe = decodeType "VirtualDom.Node msg"
-              }
-            ]
-      , values =
-            [ { name = "a"
-              , comment = """ Represents a hyperlink, linking to another resource. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "abbr"
-              , comment = """ Represents an abbreviation or an acronym; the expansion of the
-abbreviation can be represented in the title attribute.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "address"
-              , comment = """ Defines a section containing contact information. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "article"
-              , comment = """ Defines self-contained content that could exist independently of the rest
-of the content.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "aside"
-              , comment = """ Defines some content loosely related to the page content. If it is removed,
-the remaining content still makes sense.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "audio"
-              , comment = """ Represents a sound or audio stream. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "b"
-              , comment = """ Represents a text which to which attention is drawn for utilitarian
-purposes. It doesn't convey extra importance and doesn't imply an alternate
-voice.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "bdi"
-              , comment = """ Represents text that must be isolated from its surrounding for
-bidirectional text formatting. It allows embedding a span of text with a
-different, or unknown, directionality.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "bdo"
-              , comment = """ Represents the directionality of its children, in order to explicitly
-override the Unicode bidirectional algorithm.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "blockquote"
-              , comment = """ Represents a content that is quoted from another source. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "br"
-              , comment = """ Represents a line break. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "button"
-              , comment = """ Represents a button. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "canvas"
-              , comment = """ Represents a bitmap area for graphics rendering. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "caption"
-              , comment = """ Represents the title of a table. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "cite"
-              , comment = """ Represents the title of a work. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "code"
-              , comment = """ Represents computer code. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "col"
-              , comment = """ Represents a column of a table. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "colgroup"
-              , comment = """ Represents a set of one or more columns of a table. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "datalist"
-              , comment = """ Represents a set of predefined options for other controls. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "dd"
-              , comment = """ Represents the definition of the terms immediately listed before it. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "del"
-              , comment = """ Defines a removal from the document. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "details"
-              , comment = """ Represents a widget from which the user can obtain additional information
-or controls.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "dfn"
-              , comment = """ Represents a term whose definition is contained in its nearest ancestor
-content.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "div"
-              , comment = """ Represents a generic container with no special meaning. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "dl"
-              , comment = """ Defines a definition list, that is, a list of terms and their associated
-definitions.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "dt"
-              , comment = """ Represents a term defined by the next `dd`. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "em"
-              , comment = """ Represents emphasized text, like a stress accent. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "embed"
-              , comment = """ Represents a integration point for an external, often non-HTML,
-application or interactive content.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "fieldset"
-              , comment = """ Represents a set of controls. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "figcaption"
-              , comment = """ Represents the legend of a figure. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "figure"
-              , comment = """ Represents a figure illustrated as part of the document. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "footer"
-              , comment = """ Defines the footer for a page or section. It often contains a copyright
-notice, some links to legal information, or addresses to give feedback.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "form"
-              , comment = """ Represents a form, consisting of controls, that can be submitted to a
-server for processing.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "h1"
-              , comment = """"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "h2"
-              , comment = """"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "h3"
-              , comment = """"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "h4"
-              , comment = """"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "h5"
-              , comment = """"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "h6"
-              , comment = """"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "header"
-              , comment = """ Defines the header of a page or section. It often contains a logo, the
-title of the web site, and a navigational table of content.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "hr"
-              , comment = """ Represents a thematic break between paragraphs of a section or article or
-any longer content.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "i"
-              , comment = """ Represents some text in an alternate voice or mood, or at least of
-different quality, such as a taxonomic designation, a technical term, an
-idiomatic phrase, a thought, or a ship name.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "iframe"
-              , comment = """ Embedded an HTML document. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "img"
-              , comment = """ Represents an image. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "input"
-              , comment = """ Represents a typed data field allowing the user to edit the data. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "ins"
-              , comment = """ Defines an addition to the document. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "kbd"
-              , comment = """ Represents user input, often from the keyboard, but not necessarily; it
-may represent other input, like transcribed voice commands.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "label"
-              , comment = """ Represents the caption of a form control. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "legend"
-              , comment = """ Represents the caption for a `fieldset`. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "li"
-              , comment = """ Defines a item of an enumeration list. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "main_"
-              , comment = """ Defines the main or important content in the document. There is only one
-`main` element in the document.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "map"
-              , comment = """ Transform the messages produced by some `Html`. In the following example,
-we have `viewButton` that produces `()` messages, and we transform those values
-into `Msg` values in `view`.
+    , tipe = Elm.Type.Record [ ( "row", Elm.Type.Type "Basics.Int" [] )
+    , ( "col", Elm.Type.Type "Basics.Int" [] )
+    , ( "problem", Elm.Type.Type "Parser.Problem" [] ) ] Nothing
+    }
+    , { name = "Parser"
+    , args = [ "a" ]
+    , comment = """ A `Parser` helps turn a `String` into nicely structured data. For example,
+we can [`run`](#run) the [`int`](#int) parser to turn `String` to `Int`:
 
-    type Msg = Left | Right
+    run int \"123456\" == Ok 123456
+    run int \"3.1415\" == Err ...
 
-    view : model -> Html Msg
-    view model =
-      div []
-        [ map (\\_ -> Left) (viewButton "Left")
-        , map (\\_ -> Right) (viewButton "Right")
+The cool thing is that you can combine `Parser` values to handle much more
+complex scenarios.
+"""
+    , tipe = Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Type "Basics.Never" []
+    , Elm.Type.Type "Parser.Problem" []
+    , Elm.Type.Var "a" ]
+    } ]
+    , unions = [ { name = "Nestable"
+    , args = []
+    , comment = """ Not all languages handle multi-line comments the same. Multi-line comments
+in C-style syntax are `NotNestable`, meaning they can be implemented like this:
+
+    js : Parser ()
+    js =
+      symbol \"/*\"
+        |. chompUntil \"*/\"
+
+In fact, `multiComment \"/*\" \"*/\" NotNestable` *is* implemented like that! It is
+very simple, but it does not allow you to nest comments like this:
+
+```javascript
+/*
+line1
+/* line2 */
+line3
+*/
+```
+
+It would stop on the first `*/`, eventually throwing a syntax error on the
+second `*/`. This can be pretty annoying in long files.
+
+Languages like Elm allow you to nest multi-line comments, but your parser needs
+to be a bit fancier to handle this. After you start a comment, you have to
+detect if there is another one inside it! And then you have to make sure all
+the `{-` and `-}` match up properly! Saying `multiComment \"{-\" \"-}\" Nestable`
+does all that for you.
+"""
+    , tags = [ ( "NotNestable", [])
+    , ( "Nestable", []) ]
+    }
+    , { name = "Problem"
+    , args = []
+    , comment = """ When you run into a `DeadEnd`, I record some information about why you
+got stuck. This data is useful for producing helpful error messages. This is
+how [`deadEndsToString`](#deadEndsToString) works!
+
+**Note:** If you feel limited by this type (i.e. having to represent custom
+problems as strings) I highly recommend switching to `Parser.Advanced`. It
+lets you define your own `Problem` type. It can also track \"context\" which
+can improve error messages a ton! This is how the Elm compiler produces
+relatively nice parse errors, and I am excited to see those techniques applied
+elsewhere!
+"""
+    , tags = [ ( "Expecting", [ Elm.Type.Type "String.String" [] ])
+    , ( "ExpectingInt", [])
+    , ( "ExpectingHex", [])
+    , ( "ExpectingOctal", [])
+    , ( "ExpectingBinary", [])
+    , ( "ExpectingFloat", [])
+    , ( "ExpectingNumber", [])
+    , ( "ExpectingVariable", [])
+    , ( "ExpectingSymbol", [ Elm.Type.Type "String.String" [] ])
+    , ( "ExpectingKeyword", [ Elm.Type.Type "String.String" [] ])
+    , ( "ExpectingEnd", [])
+    , ( "UnexpectedChar", [])
+    , ( "Problem", [ Elm.Type.Type "String.String" [] ])
+    , ( "BadRepeat", []) ]
+    }
+    , { name = "Step"
+    , args = [ "state"
+    , "a" ]
+    , comment = """ Decide what steps to take next in your [`loop`](#loop).
+
+If you are `Done`, you give the result of the whole `loop`. If you decide to
+`Loop` around again, you give a new state to work from. Maybe you need to add
+an item to a list? Or maybe you need to track some information about what you
+just saw?
+
+**Note:** It may be helpful to learn about [finite-state machines][fsm] to get
+a broader intuition about using `state`. I.e. You may want to create a `type`
+that describes four possible states, and then use `Loop` to transition between
+them as you consume characters.
+
+[fsm]: https://en.wikipedia.org/wiki/Finite-state_machine
+"""
+    , tags = [ ( "Loop", [ Elm.Type.Var "state" ])
+    , ( "Done", [ Elm.Type.Var "a" ]) ]
+    }
+    , { name = "Trailing"
+    , args = []
+    , comment = """ What’s the deal with trailing commas? Are they `Forbidden`?
+Are they `Optional`? Are they `Mandatory`? Welcome to [shapes
+club](https://poorlydrawnlines.com/comic/shapes-club/)!
+"""
+    , tags = [ ( "Forbidden", [])
+    , ( "Optional", [])
+    , ( "Mandatory", []) ]
+    } ]
+    , binops = [ { name = "|."
+    , comment = """ **Skip** values in a parser pipeline. For example, maybe we want to parse
+some JavaScript variables:
+
+    var : Parser String
+    var =
+      getChompedString <|
+        succeed ()
+          |. chompIf isStartChar
+          |. chompWhile isInnerChar
+
+    isStartChar : Char -> Bool
+    isStartChar char =
+      Char.isAlpha char || char == '_' || char == '$'
+
+    isInnerChar : Char -> Bool
+    isInnerChar char =
+      isStartChar char || Char.isDigit char
+
+`chompIf isStartChar` can chomp one character and produce a `()` value.
+`chompWhile isInnerChar` can chomp zero or more characters and produce a `()`
+value. The `(|.)` operators are saying to still chomp all the characters, but
+skip the two `()` values that get produced. No one cares about them.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "keep" ]) (Elm.Type.Lambda (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "ignore" ]) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "keep" ]))
+    , associativity = Elm.Docs.Left
+    , precedence = 6
+    }
+    , { name = "|="
+    , comment = """ **Keep** values in a parser pipeline. For example, we could say:
+
+    type alias Point = { x : Float, y : Float }
+
+    point : Parser Point
+    point =
+      succeed Point
+        |. symbol \"(\"
+        |. spaces
+        |= float
+        |. spaces
+        |. symbol \",\"
+        |. spaces
+        |= float
+        |. spaces
+        |. symbol \")\"
+
+All the parsers in this pipeline will chomp characters and produce values. So
+`symbol \"(\"` will chomp one paren and produce a `()` value. Similarly, `float`
+will chomp some digits and produce a `Float` value. The `(|.)` and `(|=)`
+operators just decide whether we give the values to the `Point` function.
+
+So in this case, we skip the `()` from `symbol \"(\"`, we skip the `()` from
+`spaces`, we keep the `Float` from `float`, etc.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "Parser.Parser" [ Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b") ]) (Elm.Type.Lambda (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "b" ]))
+    , associativity = Elm.Docs.Left
+    , precedence = 5
+    } ]
+    , values = [ { name = "andThen"
+    , comment = """ Parse one thing `andThen` parse another thing. This is useful when you want
+to check on what you just parsed. For example, maybe you want U.S. zip codes
+and `int` is not suitable because it does not allow leading zeros. You could
+say:
+
+    zipCode : Parser String
+    zipCode =
+      getChompedString (chompWhile Char.isDigit)
+        |> andThen checkZipCode
+
+    checkZipCode : String -> Parser String
+    checkZipCode code =
+      if String.length code == 5 then
+        succeed code
+      else
+        problem \"a U.S. zip code has exactly 5 digits\"
+
+First we chomp digits `andThen` we check if it is a valid U.S. zip code. We
+`succeed` if it has exactly five digits and report a `problem` if not.
+
+Check out [`examples/DoubleQuoteString.elm`](https://github.com/elm/parser/blob/master/examples/DoubleQuoteString.elm)
+for another example, this time using `andThen` to verify unicode code points.
+
+**Note:** If you are using `andThen` recursively and blowing the stack, check
+out the [`loop`](#loop) function to limit stack usage.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "b" ])) (Elm.Type.Lambda (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "b" ]))
+    }
+    , { name = "backtrackable"
+    , comment = """ It is quite tricky to use `backtrackable` well! It can be very useful, but
+also can degrade performance and error message quality.
+
+Read [this document](https://github.com/elm/parser/blob/master/semantics.md)
+to learn how `oneOf`, `backtrackable`, and `commit` work and interact with
+each other. It is subtle and important!
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ])
+    }
+    , { name = "chompIf"
+    , comment = """ Chomp one character if it passes the test.
+
+    chompUpper : Parser ()
+    chompUpper =
+      chompIf Char.isUpper
+
+So this can chomp a character like `T` and produces a `()` value.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" [])) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ])
+    }
+    , { name = "chompUntil"
+    , comment = """ Chomp until you see a certain string. You could define C-style multi-line
+comments like this:
+
+    comment : Parser ()
+    comment =
+      symbol \"/*\"
+        |. chompUntil \"*/\"
+
+I recommend using [`multiComment`](#multiComment) for this particular scenario
+though. It can be trickier than it looks!
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ])
+    }
+    , { name = "chompUntilEndOr"
+    , comment = """ Chomp until you see a certain string or until you run out of characters to
+chomp! You could define single-line comments like this:
+
+    elm : Parser ()
+    elm =
+      symbol \"--\"
+        |. chompUntilEndOr \"\\n\"
+
+A file may end with a single-line comment, so the file can end before you see
+a newline. Tricky!
+
+I recommend just using [`lineComment`](#lineComment) for this particular
+scenario.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ])
+    }
+    , { name = "chompWhile"
+    , comment = """ Chomp zero or more characters if they pass the test. This is commonly
+useful for chomping whitespace or variable names:
+
+    whitespace : Parser ()
+    whitespace =
+      chompWhile (\\c -> c == ' ' || c == '\\t' || c == '\\n' || c == '\\r')
+
+    elmVar : Parser String
+    elmVar =
+      getChompedString <|
+        succeed ()
+          |. chompIf Char.isLower
+          |. chompWhile (\\c -> Char.isAlphaNum c || c == '_')
+
+**Note:** a `chompWhile` parser always succeeds! This can lead to tricky
+situations, especially if you define your whitespace with it. In that case,
+you could accidentally interpret `letx` as the keyword `let` followed by
+\"spaces\" followed by the variable `x`. This is why the `keyword` and `number`
+parsers peek ahead, making sure they are not followed by anything unexpected.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" [])) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ])
+    }
+    , { name = "commit"
+    , comment = """ `commit` is almost always paired with `backtrackable` in some way, and it
+is tricky to use well.
+
+Read [this document](https://github.com/elm/parser/blob/master/semantics.md)
+to learn how `oneOf`, `backtrackable`, and `commit` work and interact with
+each other. It is subtle and important!
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ])
+    }
+    , { name = "deadEndsToString"
+    , comment = """ Turn all the `DeadEnd` data into a string that is easier for people to
+read.
+
+**Note:** This is just a baseline of quality. It cannot do anything with colors.
+It is not interactivite. It just turns the raw data into strings. I really hope
+folks will check out the source code for some inspiration on how to turn errors
+into `Html` with nice colors and interaction! The `Parser.Advanced` module lets
+you work with context as well, which really unlocks another level of quality!
+The \"context\" technique is how the Elm compiler can say \"I think I am parsing a
+list, so I was expecting a closing `]` here.\" Telling users what the parser
+_thinks_ is happening can be really helpful!
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Parser.DeadEnd" [] ]) (Elm.Type.Type "String.String" [])
+    }
+    , { name = "end"
+    , comment = """ Check if you have reached the end of the string you are parsing.
+
+    justAnInt : Parser Int
+    justAnInt =
+      succeed identity
+        |= int
+        |. end
+
+    -- run justAnInt \"90210\" == Ok 90210
+    -- run justAnInt \"1 + 2\" == Err ...
+    -- run int       \"1 + 2\" == Ok 1
+
+Parsers can succeed without parsing the whole string. Ending your parser
+with `end` guarantees that you have successfully parsed the whole string.
+"""
+    , tipe = Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ]
+    }
+    , { name = "float"
+    , comment = """ Parse floats.
+
+    run float \"123\"       == Ok 123
+    run float \"3.1415\"    == Ok 3.1415
+    run float \"0.1234\"    == Ok 0.1234
+    run float \".1234\"     == Ok 0.1234
+    run float \"1e-42\"     == Ok 1e-42
+    run float \"6.022e23\"  == Ok 6.022e23
+    run float \"6.022E23\"  == Ok 6.022e23
+    run float \"6.022e+23\" == Ok 6.022e23
+
+If you want to disable literals like `.123` (like in Elm) you could write
+something like this:
+
+    elmFloat : Parser Float
+    elmFloat =
+      oneOf
+        [ symbol \".\"
+            |. problem \"floating point numbers must start with a digit, like 0.25\"
+        , float
         ]
 
-    viewButton : String -> Html ()
-    viewButton name =
-      button [ onClick () ] [ text name ]
+**Note:** If you want a parser for both `Int` and `Float` literals, check out
+[`number`](#number) below. It will be faster than using `oneOf` to combining
+`int` and `float` yourself.
+"""
+    , tipe = Elm.Type.Type "Parser.Parser" [ Elm.Type.Type "Basics.Float" [] ]
+    }
+    , { name = "getChompedString"
+    , comment = """ Sometimes parsers like `int` or `variable` cannot do exactly what you
+need. The \"chomping\" family of functions is meant for that case! Maybe you
+need to parse [valid PHP variables][php] like `$x` and `$txt`:
 
-This should not come in handy too often. Definitely read [this][reuse] before
-deciding if this is what you want.
+    php : Parser String
+    php =
+      getChompedString <|
+        succeed ()
+          |. chompIf (\\c -> c == '$')
+          |. chompIf (\\c -> Char.isAlpha c || c == '_')
+          |. chompWhile (\\c -> Char.isAlphaNum c || c == '_')
 
-[reuse]: https://guide.elm-lang.org/reuse/
-"""
-              , tipe = decodeType "(a -> msg) -> Html.Html a -> Html.Html msg"
-              }
-            , { name = "mark"
-              , comment = """ Represents text highlighted for reference purposes, that is for its
-relevance in another context.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "math"
-              , comment = """ Defines a mathematical formula. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "menu"
-              , comment = """ Represents a list of commands. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "menuitem"
-              , comment = """ Represents a command that the user can invoke. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "meter"
-              , comment = """ Represents a scalar measurement (or a fractional value), within a known
-range.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "nav"
-              , comment = """ Defines a section that contains only navigation links.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "node"
-              , comment = """ General way to create HTML nodes. It is used to define all of the helper
-functions in this library.
+The idea is that you create a bunch of chompers that validate the underlying
+characters. Then `getChompedString` extracts the underlying `String` efficiently.
 
-    div : List (Attribute msg) -> List (Html msg) -> Html msg
-    div attributes children =
-        node "div" attributes children
+**Note:** Maybe it is helpful to see how you can use [`getOffset`](#getOffset)
+and [`getSource`](#getSource) to implement this function:
 
-You can use this to create custom nodes if you need to create something that
-is not covered by the helper functions in this library.
-"""
-              , tipe = decodeType "String.String -> List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "object"
-              , comment = """ Represents an external resource, which is treated as an image, an HTML
-sub-document, or an external resource to be processed by a plug-in.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "ol"
-              , comment = """ Defines an ordered list of items. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "optgroup"
-              , comment = """ Represents a set of options, logically grouped. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "option"
-              , comment = """ Represents an option in a `select` element or a suggestion of a `datalist`
-element.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "output"
-              , comment = """ Represents the result of a calculation. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "p"
-              , comment = """ Defines a portion that should be displayed as a paragraph. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "param"
-              , comment = """ Defines parameters for use by plug-ins invoked by `object` elements. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "pre"
-              , comment = """ Indicates that its content is preformatted and that this format must be
-preserved.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "progress"
-              , comment = """ Represents the completion progress of a task. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "q"
-              , comment = """ Represents an inline quotation. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "rp"
-              , comment = """ Represents parenthesis around a ruby annotation, used to display the
-annotation in an alternate way by browsers not supporting the standard display
-for annotations.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "rt"
-              , comment = """ Represents the text of a ruby annotation. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "ruby"
-              , comment = """ Represents content to be marked with ruby annotations, short runs of text
-presented alongside the text. This is often used in conjunction with East Asian
-language where the annotations act as a guide for pronunciation, like the
-Japanese furigana.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "s"
-              , comment = """ Represents content that is no longer accurate or relevant. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "samp"
-              , comment = """ Represents the output of a program or a computer. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "section"
-              , comment = """ Defines a section in a document.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "select"
-              , comment = """ Represents a control allowing selection among a set of options. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "small"
-              , comment = """ Represents a side comment, that is, text like a disclaimer or a
-copyright, which is not essential to the comprehension of the document.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "source"
-              , comment = """ Allows authors to specify alternative media resources for media elements
-like `video` or `audio`.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "span"
-              , comment = """ Represents text with no specific meaning. This has to be used when no other
-text-semantic element conveys an adequate meaning, which, in this case, is
-often brought by global attributes like `class`, `lang`, or `dir`.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "strong"
-              , comment = """ Represents especially important text. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "sub"
-              , comment = """ Represent a subscript. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "summary"
-              , comment = """ Represents a summary, caption, or legend for a given `details`. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "sup"
-              , comment = """ Represent a superscript. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "table"
-              , comment = """ Represents data with more than one dimension. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "tbody"
-              , comment = """ Represents the block of rows that describes the concrete data of a table.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "td"
-              , comment = """ Represents a data cell in a table. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "text"
-              , comment = """ Just put plain text in the DOM. It will escape the string so that it appears
-exactly as you specify.
+    getChompedString : Parser a -> Parser String
+    getChompedString parser =
+      succeed String.slice
+        |= getOffset
+        |. parser
+        |= getOffset
+        |= getSource
 
-    text "Hello World!"
+[php]: https://www.w3schools.com/php/php_variables.asp
 """
-              , tipe = decodeType "String.String -> Html.Html msg"
-              }
-            , { name = "textarea"
-              , comment = """ Represents a multiline text edit control. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "tfoot"
-              , comment = """ Represents the block of rows that describes the column summaries of a table.
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Type "String.String" [] ])
+    }
+    , { name = "getCol"
+    , comment = """ This is a more efficient version of `map Tuple.second getPosition`. This
+can be useful in combination with [`withIndent`](#withIndent) and
+[`getIndent`](#getIndent), like this:
+
+    checkIndent : Parser ()
+    checkIndent =
+      succeed (\\indent column -> indent <= column)
+        |= getIndent
+        |= getCol
+        |> andThen checkIndentHelp
+
+    checkIndentHelp : Bool -> Parser ()
+    checkIndentHelp isIndented =
+      if isIndented then
+        succeed ()
+      else
+        problem \"expecting more spaces\"
+
+So the `checkIndent` parser only succeeds when you are \"deeper\" than the
+current indent level. You could use this to parse Elm-style `let` expressions.
 """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "th"
-              , comment = """ Represents a header cell in a table. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "thead"
-              , comment = """ Represents the block of rows that describes the column labels of a table.
+    , tipe = Elm.Type.Type "Parser.Parser" [ Elm.Type.Type "Basics.Int" [] ]
+    }
+    , { name = "getIndent"
+    , comment = """ When someone said `withIndent` earlier, what number did they put in there?
+
+- `getIndent` results in `0`, the default value
+- `withIndent 4 getIndent` results in `4`
+
+So you are just asking about things you said earlier. These numbers do not leak
+out of `withIndent`, so say we have:
+
+    succeed Tuple.pair
+      |= withIndent 4 getIndent
+      |= getIndent
+
+Assuming there are no `withIndent` above this, you would get `(4,0)` from this.
 """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "time"
-              , comment = """ Represents a date and time value; the machine-readable equivalent can be
-represented in the datetime attribute.
+    , tipe = Elm.Type.Type "Parser.Parser" [ Elm.Type.Type "Basics.Int" [] ]
+    }
+    , { name = "getOffset"
+    , comment = """ Editors think of code as a grid, but behind the scenes it is just a flat
+array of UTF-16 characters. `getOffset` tells you your index in that flat
+array. So if you chomp `\"\\n\\n\\n\\n\"` you are on row 5, column 1, and offset 4.
+
+**Note:** JavaScript uses a somewhat odd version of UTF-16 strings, so a single
+character may take two slots. So in JavaScript, `'abc'.length === 3` but
+`'🙈🙉🙊'.length === 6`. Try it out! And since Elm runs in JavaScript, the offset
+moves by those rules.
 """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "tr"
-              , comment = """ Represents a row of cells in a table. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "track"
-              , comment = """ Allows authors to specify timed text track for media elements like `video`
-or `audio`.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "u"
-              , comment = """ Represents a non-textual annotation for which the conventional
-presentation is underlining, such labeling the text as being misspelt or
-labeling a proper name in Chinese text.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "ul"
-              , comment = """ Defines an unordered list of items. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "var"
-              , comment = """ Represents a variable. Specific cases where it should be used include an
-actual mathematical expression or programming context, an identifier
-representing a constant, a symbol identifying a physical quantity, a function
-parameter, or a mere placeholder in prose.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "video"
-              , comment = """ Represents a video, the associated audio and captions, and controls. """
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            , { name = "wbr"
-              , comment = """ Represents a line break opportunity, that is a suggested point for
-wrapping text in order to improve readability of text split on several lines.
-"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List (Html.Html msg) -> Html.Html msg"
-              }
-            ]
-      , binops = []
+    , tipe = Elm.Type.Type "Parser.Parser" [ Elm.Type.Type "Basics.Int" [] ]
+    }
+    , { name = "getPosition"
+    , comment = """ Code editors treat code like a grid, with rows and columns. The start is
+`row=1` and `col=1`. As you chomp characters, the `col` increments. When you
+run into a `\\n` character, the `row` increments and `col` goes back to `1`.
+
+In the Elm compiler, I track the start and end position of every expression
+like this:
+
+    type alias Located a =
+      { start : (Int, Int)
+      , value : a
+      , end : (Int, Int)
       }
-    , { name = "Html.Attributes"
-      , comment = """ Helper functions for HTML attributes. They are organized roughly by
-category. Each attribute is labeled with the HTML tags it can be used with, so
-just search the page for `video` if you want video stuff.
 
-# Primitives
-@docs style, property, attribute, map
+    located : Parser a -> Parser (Located a)
+    located parser =
+      succeed Located
+        |= getPosition
+        |= parser
+        |= getPosition
 
-# Super Common Attributes
-@docs class, classList, id, title, hidden
+So if there is a problem during type inference, I use this saved position
+information to underline the exact problem!
 
-# Inputs
-@docs type_, value, checked, placeholder, selected
+**Note:** Tabs count as one character, so if you are parsing something like
+Python, I recommend sorting that out *after* parsing. So if I wanted the `^^^^`
+underline like in Elm, I would find the `row` in the source code and do
+something like this:
 
-## Input Helpers
-@docs accept, acceptCharset, action, autocomplete, autofocus,
-    disabled, enctype, list, maxlength, minlength, method, multiple,
-    name, novalidate, pattern, readonly, required, size, for, form
+    makeUnderline : String -> Int -> Int -> String
+    makeUnderline row minCol maxCol =
+      String.toList row
+        |> List.indexedMap (toUnderlineChar minCol maxCol)
+        |> String.fromList
 
-## Input Ranges
-@docs max, min, step
+    toUnderlineChar : Int -> Int -> Int -> Char -> Char
+    toUnderlineChar minCol maxCol col char =
+      if minCol <= col && col <= maxCol then
+        '^'
+      else if char == '\\t' then
+        '\\t'
+      else
+        ' '
 
-## Input Text Areas
-@docs cols, rows, wrap
+So it would preserve any tabs from the source line. There are tons of other
+ways to do this though. The point is just that you handle the tabs after
+parsing but before anyone looks at the numbers in a context where tabs may
+equal 2, 4, or 8.
+"""
+    , tipe = Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [ Elm.Type.Type "Basics.Int" []
+    , Elm.Type.Type "Basics.Int" [] ] ]
+    }
+    , { name = "getRow"
+    , comment = """ This is a more efficient version of `map Tuple.first getPosition`. Maybe
+you just want to track the line number for some reason? This lets you do that.
 
+See [`getPosition`](#getPosition) for an explanation of rows and columns.
+"""
+    , tipe = Elm.Type.Type "Parser.Parser" [ Elm.Type.Type "Basics.Int" [] ]
+    }
+    , { name = "getSource"
+    , comment = """ Get the full string that is being parsed. You could use this to define
+`getChompedString` or `mapChompedString` if you wanted:
 
-# Links and Areas
-@docs href, target, download, hreflang, media, ping, rel
+    getChompedString : Parser a -> Parser String
+    getChompedString parser =
+      succeed String.slice
+        |= getOffset
+        |. parser
+        |= getOffset
+        |= getSource
+"""
+    , tipe = Elm.Type.Type "Parser.Parser" [ Elm.Type.Type "String.String" [] ]
+    }
+    , { name = "int"
+    , comment = """ Parse integers.
 
-## Maps
-@docs ismap, usemap, shape, coords
+    run int \"1\"    == Ok 1
+    run int \"1234\" == Ok 1234
 
+    run int \"-789\" == Err ...
+    run int \"0123\" == Err ...
+    run int \"1.34\" == Err ...
+    run int \"1e31\" == Err ...
+    run int \"123a\" == Err ...
+    run int \"0x1A\" == Err ...
 
-# Embedded Content
-@docs src, height, width, alt
+If you want to handle a leading `+` or `-` you should do it with a custom
+parser like this:
 
-## Audio and Video
-@docs autoplay, controls, loop, preload, poster, default, kind, srclang
-
-## iframes
-@docs sandbox, srcdoc
-
-# Ordered Lists
-@docs reversed, start
-
-# Tables
-@docs align, colspan, rowspan, headers, scope
-
-# Less Common Global Attributes
-Attributes that can be attached to any HTML tag but are less commonly used.
-@docs accesskey, contenteditable, contextmenu, dir, draggable, dropzone,
-      itemprop, lang, spellcheck, tabindex
-
-# Miscellaneous
-@docs cite, datetime, pubdate, manifest
-
-"""
-      , unions = []
-      , aliases = []
-      , values =
-            [ { name = "accept"
-              , comment = """ List of types the server accepts, typically a file type.
-For `form` and `input`.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "acceptCharset"
-              , comment = """ List of supported charsets in a `form`.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "accesskey"
-              , comment = """ Defines a keyboard shortcut to activate or add focus to the element. """
-              , tipe = decodeType "Char.Char -> Html.Attribute msg"
-              }
-            , { name = "action"
-              , comment = """ The URI of a program that processes the information submitted via a `form`.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "align"
-              , comment = """ Specifies the horizontal alignment of a `caption`, `col`, `colgroup`,
-`hr`, `iframe`, `img`, `table`, `tbody`,  `td`,  `tfoot`, `th`, `thead`, or
-`tr`.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "alt"
-              , comment = """ Alternative text in case an image can't be displayed. Works with `img`,
-`area`, and `input`.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "attribute"
-              , comment = """ Create *attributes*, like saying `domNode.setAttribute('class', 'greeting')`
-in JavaScript.
-
-    class : String -> Attribute msg
-    class name =
-      attribute "class" name
-
-Read more about the difference between properties and attributes [here][].
-
-[here]: https://github.com/elm/html/blob/master/properties-vs-attributes.md
-"""
-              , tipe = decodeType "String.String -> String.String -> Html.Attribute msg"
-              }
-            , { name = "autocomplete"
-              , comment = """ Indicates whether a `form` or an `input` can have their values automatically
-completed by the browser.
-"""
-              , tipe = decodeType "Basics.Bool -> Html.Attribute msg"
-              }
-            , { name = "autofocus"
-              , comment = """ The element should be automatically focused after the page loaded.
-For `button`, `input`, `select`, and `textarea`.
-"""
-              , tipe = decodeType "Basics.Bool -> Html.Attribute msg"
-              }
-            , { name = "autoplay"
-              , comment = """ The `audio` or `video` should play as soon as possible. """
-              , tipe = decodeType "Basics.Bool -> Html.Attribute msg"
-              }
-            , { name = "checked"
-              , comment = """ Indicates whether an `input` of type checkbox is checked. """
-              , tipe = decodeType "Basics.Bool -> Html.Attribute msg"
-              }
-            , { name = "cite"
-              , comment = """ Contains a URI which points to the source of the quote or change in a
-`blockquote`, `del`, `ins`, or `q`.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "class"
-              , comment = """ Often used with CSS to style elements with common properties.
-
-**Note:** You can have as many `class` and `classList` attributes as you want.
-They all get applied, so if you say `[ class "notice", class "notice-seen" ]`
-you will get both classes!
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "classList"
-              , comment = """ This function makes it easier to build a space-separated class attribute.
-Each class can easily be added and removed depending on the boolean value it
-is paired with. For example, maybe we want a way to view notices:
-
-    viewNotice : Notice -> Html msg
-    viewNotice notice =
-      div
-        [ classList
-            [ ("notice", True)
-            , ("notice-important", notice.isImportant)
-            , ("notice-seen", notice.isSeen)
-            ]
-        ]
-        [ text notice.content ]
-
-**Note:** You can have as many `class` and `classList` attributes as you want.
-They all get applied, so if you say `[ class "notice", class "notice-seen" ]`
-you will get both classes!
-"""
-              , tipe = decodeType "List.List ( String.String, Basics.Bool ) -> Html.Attribute msg"
-              }
-            , { name = "cols"
-              , comment = """ Defines the number of columns in a `textarea`. """
-              , tipe = decodeType "Basics.Int -> Html.Attribute msg"
-              }
-            , { name = "colspan"
-              , comment = """ The colspan attribute defines the number of columns a cell should span.
-For `td` and `th`.
-"""
-              , tipe = decodeType "Basics.Int -> Html.Attribute msg"
-              }
-            , { name = "contenteditable"
-              , comment = """ Indicates whether the element's content is editable. """
-              , tipe = decodeType "Basics.Bool -> Html.Attribute msg"
-              }
-            , { name = "contextmenu"
-              , comment = """ Defines the ID of a `menu` element which will serve as the element's
-context menu.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "controls"
-              , comment = """ Indicates whether the browser should show playback controls for the `audio`
-or `video`.
-"""
-              , tipe = decodeType "Basics.Bool -> Html.Attribute msg"
-              }
-            , { name = "coords"
-              , comment = """ A set of values specifying the coordinates of the hot-spot region in an
-`area`. Needs to be paired with a `shape` attribute to be meaningful.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "datetime"
-              , comment = """ Indicates the date and time associated with the element.
-For `del`, `ins`, `time`.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "default"
-              , comment = """ Indicates that the `track` should be enabled unless the user's preferences
-indicate something different.
-"""
-              , tipe = decodeType "Basics.Bool -> Html.Attribute msg"
-              }
-            , { name = "dir"
-              , comment = """ Defines the text direction. Allowed values are ltr (Left-To-Right) or rtl
-(Right-To-Left).
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "disabled"
-              , comment = """ Indicates whether the user can interact with a `button`, `fieldset`,
-`input`, `optgroup`, `option`, `select` or `textarea`.
-"""
-              , tipe = decodeType "Basics.Bool -> Html.Attribute msg"
-              }
-            , { name = "download"
-              , comment = """ Indicates that clicking an `a` and `area` will download the resource
-directly. The `String` argument determins the name of the downloaded file.
-Say the file you are serving is named `hats.json`.
-
-    download ""               -- hats.json
-    download "my-hats.json"   -- my-hats.json
-    download "snakes.json"    -- snakes.json
-
-The empty `String` says to just name it whatever it was called on the server.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "draggable"
-              , comment = """ Defines whether the element can be dragged. """
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "dropzone"
-              , comment = """ Indicates that the element accept the dropping of content on it. """
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "enctype"
-              , comment = """ How `form` data should be encoded when submitted with the POST method.
-Options include: application/x-www-form-urlencoded, multipart/form-data, and
-text/plain.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "for"
-              , comment = """ The element ID described by this `label` or the element IDs that are used
-for an `output`.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "form"
-              , comment = """ Indicates the element ID of the `form` that owns this particular `button`,
-`fieldset`, `input`, `label`, `meter`, `object`, `output`, `progress`,
-`select`, or `textarea`.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "headers"
-              , comment = """ A space separated list of element IDs indicating which `th` elements are
-headers for this cell. For `td` and `th`.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "height"
-              , comment = """ Declare the height of a `canvas`, `embed`, `iframe`, `img`, `input`,
-`object`, or `video`.
-"""
-              , tipe = decodeType "Basics.Int -> Html.Attribute msg"
-              }
-            , { name = "hidden"
-              , comment = """ Indicates the relevance of an element. """
-              , tipe = decodeType "Basics.Bool -> Html.Attribute msg"
-              }
-            , { name = "href"
-              , comment = """ The URL of a linked resource, such as `a`, `area`, `base`, or `link`. """
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "hreflang"
-              , comment = """ Two-letter language code of the linked resource of an `a`, `area`, or `link`.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "id"
-              , comment = """ Often used with CSS to style a specific element. The value of this
-attribute must be unique.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "ismap"
-              , comment = """ When an `img` is a descendant of an `a` tag, the `ismap` attribute
-indicates that the click location should be added to the parent `a`'s href as
-a query string.
-"""
-              , tipe = decodeType "Basics.Bool -> Html.Attribute msg"
-              }
-            , { name = "itemprop"
-              , comment = """"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "kind"
-              , comment = """ Specifies the kind of text `track`. """
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "lang"
-              , comment = """ Defines the language used in the element. """
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "list"
-              , comment = """ Associates an `input` with a `datalist` tag. The datalist gives some
-pre-defined options to suggest to the user as they interact with an input.
-The value of the list attribute must match the id of a `datalist` node.
-For `input`.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "loop"
-              , comment = """ Indicates whether the `audio` or `video` should start playing from the
-start when it's finished.
-"""
-              , tipe = decodeType "Basics.Bool -> Html.Attribute msg"
-              }
-            , { name = "manifest"
-              , comment = """ Specifies the URL of the cache manifest for an `html` tag. """
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "map"
-              , comment = """ Transform the messages produced by an `Attribute`.
-"""
-              , tipe = decodeType "(a -> msg) -> Html.Attribute a -> Html.Attribute msg"
-              }
-            , { name = "max"
-              , comment = """ Indicates the maximum value allowed. When using an input of type number or
-date, the max value must be a number or date. For `input`, `meter`, and `progress`.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "maxlength"
-              , comment = """ Defines the maximum number of characters allowed in an `input` or
-`textarea`.
-"""
-              , tipe = decodeType "Basics.Int -> Html.Attribute msg"
-              }
-            , { name = "media"
-              , comment = """ Specifies a hint of the target media of a `a`, `area`, `link`, `source`,
-or `style`.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "method"
-              , comment = """ Defines which HTTP method to use when submitting a `form`. Can be GET
-(default) or POST.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "min"
-              , comment = """ Indicates the minimum value allowed. When using an input of type number or
-date, the min value must be a number or date. For `input` and `meter`.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "minlength"
-              , comment = """ Defines the minimum number of characters allowed in an `input` or
-`textarea`.
-"""
-              , tipe = decodeType "Basics.Int -> Html.Attribute msg"
-              }
-            , { name = "multiple"
-              , comment = """ Indicates whether multiple values can be entered in an `input` of type
-email or file. Can also indicate that you can `select` many options.
-"""
-              , tipe = decodeType "Basics.Bool -> Html.Attribute msg"
-              }
-            , { name = "name"
-              , comment = """ Name of the element. For example used by the server to identify the fields
-in form submits. For `button`, `form`, `fieldset`, `iframe`, `input`,
-`object`, `output`, `select`, `textarea`, `map`, `meta`, and `param`.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "novalidate"
-              , comment = """ This attribute indicates that a `form` shouldn't be validated when
-submitted.
-"""
-              , tipe = decodeType "Basics.Bool -> Html.Attribute msg"
-              }
-            , { name = "pattern"
-              , comment = """ Defines a regular expression which an `input`'s value will be validated
-against.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "ping"
-              , comment = """ Specify a URL to send a short POST request to when the user clicks on an
-`a` or `area`. Useful for monitoring and tracking.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "placeholder"
-              , comment = """ Provides a hint to the user of what can be entered into an `input` or
-`textarea`.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "poster"
-              , comment = """ A URL indicating a poster frame to show until the user plays or seeks the
-`video`.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "preload"
-              , comment = """ Control how much of an `audio` or `video` resource should be preloaded. """
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "property"
-              , comment = """ Create *properties*, like saying `domNode.className = 'greeting'` in
-JavaScript.
-
-    import Json.Encode as Encode
-
-    class : String -> Attribute msg
-    class name =
-      property "className" (Encode.string name)
-
-Read more about the difference between properties and attributes [here][].
-
-[here]: https://github.com/elm/html/blob/master/properties-vs-attributes.md
-"""
-              , tipe = decodeType "String.String -> Json.Encode.Value -> Html.Attribute msg"
-              }
-            , { name = "pubdate"
-              , comment = """ Indicates whether this date and time is the date of the nearest `article`
-ancestor element. For `time`.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "readonly"
-              , comment = """ Indicates whether an `input` or `textarea` can be edited. """
-              , tipe = decodeType "Basics.Bool -> Html.Attribute msg"
-              }
-            , { name = "rel"
-              , comment = """ Specifies the relationship of the target object to the link object.
-For `a`, `area`, `link`.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "required"
-              , comment = """ Indicates whether this element is required to fill out or not.
-For `input`, `select`, and `textarea`.
-"""
-              , tipe = decodeType "Basics.Bool -> Html.Attribute msg"
-              }
-            , { name = "reversed"
-              , comment = """ Indicates whether an ordered list `ol` should be displayed in a descending
-order instead of a ascending.
-"""
-              , tipe = decodeType "Basics.Bool -> Html.Attribute msg"
-              }
-            , { name = "rows"
-              , comment = """ Defines the number of rows in a `textarea`. """
-              , tipe = decodeType "Basics.Int -> Html.Attribute msg"
-              }
-            , { name = "rowspan"
-              , comment = """ Defines the number of rows a table cell should span over.
-For `td` and `th`.
-"""
-              , tipe = decodeType "Basics.Int -> Html.Attribute msg"
-              }
-            , { name = "sandbox"
-              , comment = """ A space separated list of security restrictions you'd like to lift for an
-`iframe`.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "scope"
-              , comment = """ Specifies the scope of a header cell `th`. Possible values are: col, row,
-colgroup, rowgroup.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "selected"
-              , comment = """ Defines which `option` will be selected on page load. """
-              , tipe = decodeType "Basics.Bool -> Html.Attribute msg"
-              }
-            , { name = "shape"
-              , comment = """ Declare the shape of the clickable area in an `a` or `area`. Valid values
-include: default, rect, circle, poly. This attribute can be paired with
-`coords` to create more particular shapes.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "size"
-              , comment = """ For `input` specifies the width of an input in characters.
-
-For `select` specifies the number of visible options in a drop-down list.
-"""
-              , tipe = decodeType "Basics.Int -> Html.Attribute msg"
-              }
-            , { name = "spellcheck"
-              , comment = """ Indicates whether spell checking is allowed for the element. """
-              , tipe = decodeType "Basics.Bool -> Html.Attribute msg"
-              }
-            , { name = "src"
-              , comment = """ The URL of the embeddable content. For `audio`, `embed`, `iframe`, `img`,
-`input`, `script`, `source`, `track`, and `video`.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "srcdoc"
-              , comment = """ An HTML document that will be displayed as the body of an `iframe`. It will
-override the content of the `src` attribute if it has been specified.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "srclang"
-              , comment = """ A two letter language code indicating the language of the `track` text data.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "start"
-              , comment = """ Defines the first number of an ordered list if you want it to be something
-besides 1.
-"""
-              , tipe = decodeType "Basics.Int -> Html.Attribute msg"
-              }
-            , { name = "step"
-              , comment = """ Add a step size to an `input`. Use `step "any"` to allow any floating-point
-number to be used in the input.
-"""
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "style"
-              , comment = """ Specify a style.
-
-    greeting : Node msg
-    greeting =
-      div
-        [ style "background-color" "red"
-        , style "height" "90px"
-        , style "width" "100%"
-        ]
-        [ text "Hello!"
+    myInt : Parser Int
+    myInt =
+      oneOf
+        [ succeed negate
+            |. symbol \"-\"
+            |= int
+        , int
         ]
 
-There is no `Html.Styles` module because best practices for working with HTML
-suggest that this should primarily be specified in CSS files. So the general
-recommendation is to use this function lightly.
+**Note:** If you want a parser for both `Int` and `Float` literals, check out
+[`number`](#number) below. It will be faster than using `oneOf` to combining
+`int` and `float` yourself.
 """
-              , tipe = decodeType "String.String -> String.String -> Html.Attribute msg"
-              }
-            , { name = "tabindex"
-              , comment = """ Overrides the browser's default tab order and follows the one specified
-instead.
-"""
-              , tipe = decodeType "Basics.Int -> Html.Attribute msg"
-              }
-            , { name = "target"
-              , comment = """ Specify where the results of clicking an `a`, `area`, `base`, or `form`
-should appear. Possible special values include:
+    , tipe = Elm.Type.Type "Parser.Parser" [ Elm.Type.Type "Basics.Int" [] ]
+    }
+    , { name = "keyword"
+    , comment = """ Parse keywords like `let`, `case`, and `type`.
 
-  * _blank &mdash; a new window or tab
-  * _self &mdash; the same frame (this is default)
-  * _parent &mdash; the parent frame
-  * _top &mdash; the full body of the window
+    run (keyword \"let\") \"let\"     == Ok ()
+    run (keyword \"let\") \"var\"     == Err ... (ExpectingKeyword \"let\") ...
+    run (keyword \"let\") \"letters\" == Err ... (ExpectingKeyword \"let\") ...
 
-You can also give the name of any `frame` you have created.
+**Note:** Notice the third case there! `keyword` actually looks ahead one
+character to make sure it is not a letter, number, or underscore. The goal is
+to help with parsers like this:
+
+    succeed identity
+      |. keyword \"let\"
+      |. spaces
+      |= elmVar
+      |. spaces
+      |. symbol \"=\"
+
+The trouble is that `spaces` may chomp zero characters (to handle expressions
+like `[1,2]` and `[ 1 , 2 ]`) and in this case, it would mean `letters` could
+be parsed as `let ters` and then wonder where the equals sign is! Check out the
+[`token`](#token) docs if you need to customize this!
 """
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "title"
-              , comment = """ Text to be displayed in a tooltip when hovering over the element. """
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "type_"
-              , comment = """ Defines the type of a `button`, `input`, `embed`, `object`, `script`,
-`source`, `style`, or `menu`.
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ])
+    }
+    , { name = "lazy"
+    , comment = """ Helper to define recursive parsers. Say we want a parser for simple
+boolean expressions:
+
+    true
+    false
+    (true || false)
+    (true || (true || false))
+
+Notice that a boolean expression might contain *other* boolean expressions.
+That means we will want to define our parser in terms of itself:
+
+    type Boolean
+      = MyTrue
+      | MyFalse
+      | MyOr Boolean Boolean
+
+    boolean : Parser Boolean
+    boolean =
+      oneOf
+        [ succeed MyTrue
+            |. keyword \"true\"
+        , succeed MyFalse
+            |. keyword \"false\"
+        , succeed MyOr
+            |. symbol \"(\"
+            |. spaces
+            |= lazy (\\_ -> boolean)
+            |. spaces
+            |. symbol \"||\"
+            |. spaces
+            |= lazy (\\_ -> boolean)
+            |. spaces
+            |. symbol \")\"
+        ]
+
+**Notice that `boolean` uses `boolean` in its definition!** In Elm, you can
+only define a value in terms of itself it is behind a function call. So
+`lazy` helps us define these self-referential parsers. (`andThen` can be used
+for this as well!)
 """
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "usemap"
-              , comment = """ Specify the hash name reference of a `map` that should be used for an `img`
-or `object`. A hash name reference is a hash symbol followed by the element's name or id.
-E.g. `"#planet-map"`.
+    , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Tuple []) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ])) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ])
+    }
+    , { name = "lineComment"
+    , comment = """ Parse single-line comments:
+
+    elm : Parser ()
+    elm =
+      lineComment \"--\"
+
+    js : Parser ()
+    js =
+      lineComment \"//\"
+
+    python : Parser ()
+    python =
+      lineComment \"#\"
+
+This parser is defined like this:
+
+    lineComment : String -> Parser ()
+    lineComment str =
+      symbol str
+        |. chompUntilEndOr \"\\n\"
+
+So it will consume the remainder of the line. If the file ends before you see
+a newline, that is fine too.
 """
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "value"
-              , comment = """ Defines a default value which will be displayed in a `button`, `option`,
-`input`, `li`, `meter`, `progress`, or `param`.
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ])
+    }
+    , { name = "loop"
+    , comment = """ A parser that can loop indefinitely. This can be helpful when parsing
+repeated structures, like a bunch of statements:
+
+    statements : Parser (List Stmt)
+    statements =
+      loop [] statementsHelp
+
+    statementsHelp : List Stmt -> Parser (Step (List Stmt) (List Stmt))
+    statementsHelp revStmts =
+      oneOf
+        [ succeed (\\stmt -> Loop (stmt :: revStmts))
+            |= statement
+            |. spaces
+            |. symbol \";\"
+            |. spaces
+        , succeed ()
+            |> map (\\_ -> Done (List.reverse revStmts))
+        ]
+
+    -- statement : Parser Stmt
+
+Notice that the statements are tracked in reverse as we `Loop`, and we reorder
+them only once we are `Done`. This is a very common pattern with `loop`!
+
+Check out [`examples/DoubleQuoteString.elm`](https://github.com/elm/parser/blob/master/examples/DoubleQuoteString.elm)
+for another example.
+
+**IMPORTANT NOTE:** Parsers like `succeed ()` and `chompWhile Char.isAlpha` can
+succeed without consuming any characters. So in some cases you may want to use
+[`getOffset`](#getOffset) to ensure that each step actually consumed characters.
+Otherwise you could end up in an infinite loop!
+
+**Note:** Anything you can write with `loop`, you can also write as a parser
+that chomps some characters `andThen` calls itself with new arguments. The
+problem with calling `andThen` recursively is that it grows the stack, so you
+cannot do it indefinitely. So `loop` is important because enables tail-call
+elimination, allowing you to parse however many repeats you want.
 """
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
-            , { name = "width"
-              , comment = """ Declare the width of a `canvas`, `embed`, `iframe`, `img`, `input`,
-`object`, or `video`.
+    , tipe = Elm.Type.Lambda (Elm.Type.Var "state") (Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "state") (Elm.Type.Type "Parser.Parser" [ Elm.Type.Type "Parser.Step" [ Elm.Type.Var "state"
+    , Elm.Type.Var "a" ] ])) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ]))
+    }
+    , { name = "map"
+    , comment = """ Transform the result of a parser. Maybe you have a value that is
+an integer or `null`:
+
+    nullOrInt : Parser (Maybe Int)
+    nullOrInt =
+      oneOf
+        [ map Just int
+        , map (\\_ -> Nothing) (keyword \"null\")
+        ]
+
+    -- run nullOrInt \"0\"    == Ok (Just 0)
+    -- run nullOrInt \"13\"   == Ok (Just 13)
+    -- run nullOrInt \"null\" == Ok Nothing
+    -- run nullOrInt \"zero\" == Err ...
 """
-              , tipe = decodeType "Basics.Int -> Html.Attribute msg"
-              }
-            , { name = "wrap"
-              , comment = """ Indicates whether the text should be wrapped in a `textarea`. Possible
-values are "hard" and "soft".
+    , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b")) (Elm.Type.Lambda (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "b" ]))
+    }
+    , { name = "mapChompedString"
+    , comment = """ This works just like [`getChompedString`](#getChompedString) but gives
+a bit more flexibility. For example, maybe you want to parse Elm doc comments
+and get (1) the full comment and (2) all of the names listed in the docs.
+
+You could implement `mapChompedString` like this:
+
+    mapChompedString : (String -> a -> b) -> Parser a -> Parser String
+    mapChompedString func parser =
+      succeed (\\start value end src -> func (String.slice start end src) value)
+        |= getOffset
+        |= parser
+        |= getOffset
+        |= getSource
+
 """
-              , tipe = decodeType "String.String -> Html.Attribute msg"
-              }
+    , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b"))) (Elm.Type.Lambda (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "b" ]))
+    }
+    , { name = "multiComment"
+    , comment = """ Parse multi-line comments. So if you wanted to parse Elm whitespace or
+JS whitespace, you could say:
+
+    elm : Parser ()
+    elm =
+      loop 0 <| ifProgress <|
+        oneOf
+          [ lineComment \"--\"
+          , multiComment \"{-\" \"-}\" Nestable
+          , spaces
+          ]
+
+    js : Parser ()
+    js =
+      loop 0 <| ifProgress <|
+        oneOf
+          [ lineComment \"//\"
+          , multiComment \"/*\" \"*/\" NotNestable
+          , chompWhile (\\c -> c == ' ' || c == '\\n' || c == '\\r' || c == '\\t')
+          ]
+
+    ifProgress : Parser a -> Int -> Parser (Step Int ())
+    ifProgress parser offset =
+      succeed identity
+        |. parser
+        |= getOffset
+        |> map (\\newOffset -> if offset == newOffset then Done () else Loop newOffset)
+
+**Note:** The fact that `spaces` comes last in the definition of `elm` is very
+important! It can succeed without consuming any characters, so if it were the
+first option, it would always succeed and bypass the others! (Same is true of
+`chompWhile` in `js`.) This possibility of success without consumption is also
+why wee need the `ifProgress` helper. It detects if there is no more whitespace
+to consume.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "Parser.Nestable" []) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ])))
+    }
+    , { name = "number"
+    , comment = """ Parse a bunch of different kinds of numbers without backtracking. A parser
+for Elm would need to handle integers, floats, and hexadecimal like this:
+
+    type Expr
+      = Variable String
+      | Int Int
+      | Float Float
+      | Apply Expr Expr
+
+    elmNumber : Parser Expr
+    elmNumber =
+      number
+        { int = Just Int
+        , hex = Just Int    -- 0x001A is allowed
+        , octal = Nothing   -- 0o0731 is not
+        , binary = Nothing  -- 0b1101 is not
+        , float = Just Float
+        }
+
+If you wanted to implement the [`float`](#float) parser, it would be like this:
+
+    float : Parser Float
+    float =
+      number
+        { int = Just toFloat
+        , hex = Nothing
+        , octal = Nothing
+        , binary = Nothing
+        , float = Just identity
+        }
+
+Notice that it actually is processing `int` results! This is because `123`
+looks like an integer to me, but maybe it looks like a float to you. If you had
+`int = Nothing`, floats would need a decimal like `1.0` in every case. If you
+like explicitness, that may actually be preferable!
+
+**Note:** This function does not check for weird trailing characters in the
+current implementation, so parsing `123abc` can succeed up to `123` and then
+move on. This is helpful for people who want to parse things like `40px` or
+`3m`, but it requires a bit of extra code to rule out trailing characters in
+other cases.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Record [ ( "int", Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Var "a") ] )
+    , ( "hex", Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Var "a") ] )
+    , ( "octal", Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Var "a") ] )
+    , ( "binary", Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Var "a") ] )
+    , ( "float", Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Var "a") ] ) ] Nothing) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ])
+    }
+    , { name = "oneOf"
+    , comment = """ If you are parsing JSON, the values can be strings, floats, booleans,
+arrays, objects, or null. You need a way to pick `oneOf` them! Here is a
+sample of what that code might look like:
+
+    type Json
+      = Number Float
+      | Boolean Bool
+      | Null
+
+    json : Parser Json
+    json =
+      oneOf
+        [ map Number float
+        , map (\\_ -> Boolean True) (keyword \"true\")
+        , map (\\_ -> Boolean False) (keyword \"false\")
+        , map (\\_ -> Null) keyword \"null\"
+        ]
+
+This parser will keep trying parsers until `oneOf` them starts chomping
+characters. Once a path is chosen, it does not come back and try the others.
+
+**Note:** I highly recommend reading [this document][semantics] to learn how
+`oneOf` and `backtrackable` interact. It is subtle and important!
+
+[semantics]: https://github.com/elm/parser/blob/master/semantics.md
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ] ]) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ])
+    }
+    , { name = "problem"
+    , comment = """ Indicate that a parser has reached a dead end. \"Everything was going fine
+until I ran into this problem.\" Check out the [`andThen`](#andThen) docs to see
+an example usage.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ])
+    }
+    , { name = "run"
+    , comment = """ Try a parser. Here are some examples using the [`keyword`](#keyword)
+parser:
+
+    run (keyword \"true\") \"true\"  == Ok ()
+    run (keyword \"true\") \"True\"  == Err ...
+    run (keyword \"true\") \"false\" == Err ...
+    run (keyword \"true\") \"true!\" == Ok ()
+
+Notice the last case! A `Parser` will chomp as much as possible and not worry
+about the rest. Use the [`end`](#end) parser to ensure you made it to the end
+of the string!
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Result.Result" [ Elm.Type.Type "List.List" [ Elm.Type.Type "Parser.DeadEnd" [] ]
+    , Elm.Type.Var "a" ]))
+    }
+    , { name = "sequence"
+    , comment = """ Handle things like lists and records, but you can customize the details
+however you need. Say you want to parse C-style code blocks:
+
+    import Parser exposing (Parser, Trailing(..))
+
+    block : Parser (List Stmt)
+    block =
+      Parser.sequence
+        { start = \"{\"
+        , separator = \";\"
+        , end = \"}\"
+        , spaces = spaces
+        , item = statement
+        , trailing = Mandatory -- demand a trailing semi-colon
+        }
+
+    -- statement : Parser Stmt
+
+**Note:** If you need something more custom, do not be afraid to check
+out the implementation and customize it for your case. It is better to
+get nice error messages with a lower-level implementation than to try
+to hack high-level parsers to do things they are not made for.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Record [ ( "start", Elm.Type.Type "String.String" [] )
+    , ( "separator", Elm.Type.Type "String.String" [] )
+    , ( "end", Elm.Type.Type "String.String" [] )
+    , ( "spaces", Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ] )
+    , ( "item", Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ] )
+    , ( "trailing", Elm.Type.Type "Parser.Trailing" [] ) ] Nothing) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Type "List.List" [ Elm.Type.Var "a" ] ])
+    }
+    , { name = "spaces"
+    , comment = """ Parse zero or more `' '`, `'\\n'`, and `'\\r'` characters.
+
+The implementation is pretty simple:
+
+    spaces : Parser ()
+    spaces =
+      chompWhile (\\c -> c == ' ' || c == '\\n' || c == '\\r')
+
+So if you need something different (like tabs) just define an alternative with
+the necessary tweaks! Check out [`lineComment`](#lineComment) and
+[`multiComment`](#multiComment) for more complex situations.
+"""
+    , tipe = Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ]
+    }
+    , { name = "succeed"
+    , comment = """ A parser that succeeds without chomping any characters.
+
+    run (succeed 90210  ) \"mississippi\" == Ok 90210
+    run (succeed 3.141  ) \"mississippi\" == Ok 3.141
+    run (succeed ()     ) \"mississippi\" == Ok ()
+    run (succeed Nothing) \"mississippi\" == Ok Nothing
+
+Seems weird on its own, but it is very useful in combination with other
+functions. The docs for [`(|=)`](#|=) and [`andThen`](#andThen) have some neat
+examples.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ])
+    }
+    , { name = "symbol"
+    , comment = """ Parse symbols like `(` and `,`.
+
+    run (symbol \"[\") \"[\" == Ok ()
+    run (symbol \"[\") \"4\" == Err ... (ExpectingSymbol \"[\") ...
+
+**Note:** This is good for stuff like brackets and semicolons, but it probably
+should not be used for binary operators like `+` and `-` because you can find
+yourself in weird situations. For example, is `3--4` a typo? Or is it `3 - -4`?
+I have had better luck with `chompWhile isSymbol` and sorting out which
+operator it is afterwards.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ])
+    }
+    , { name = "token"
+    , comment = """ Parse exactly the given string, without any regard to what comes next.
+
+A potential pitfall when parsing keywords is getting tricked by variables that
+start with a keyword, like `let` in `letters` or `import` in `important`. This
+is especially likely if you have a whitespace parser that can consume zero
+charcters. So the [`keyword`](#keyword) parser is defined with `token` and a
+trick to peek ahead a bit:
+
+    keyword : String -> Parser ()
+    keyword kwd =
+      succeed identity
+        |. backtrackable (token kwd)
+        |= oneOf
+            [ map (\\_ -> True) (backtrackable (chompIf isVarChar))
+            , succeed False
             ]
-      , binops = []
+        |> andThen (checkEnding kwd)
+
+    checkEnding : String -> Bool -> Parser ()
+    checkEnding kwd isBadEnding =
+      if isBadEnding then
+        problem (\"expecting the `\" ++ kwd ++ \"` keyword\")
+      else
+        commit ()
+
+    isVarChar : Char -> Bool
+    isVarChar char =
+      Char.isAlphaNum char || char == '_'
+
+This definition is specially designed so that (1) if you really see `let` you
+commit to that path and (2) if you see `letters` instead you can backtrack and
+try other options. If I had just put a `backtrackable` around the whole thing
+you would not get (1) anymore.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ])
+    }
+    , { name = "variable"
+    , comment = """ Create a parser for variables. If we wanted to parse type variables in Elm,
+we could try something like this:
+
+    import Char
+    import Parser exposing (..)
+    import Set
+
+    typeVar : Parser String
+    typeVar =
+      variable
+        { start = Char.isLower
+        , inner = \\c -> Char.isAlphaNum c || c == '_'
+        , reserved = Set.fromList [ \"let\", \"in\", \"case\", \"of\" ]
+        }
+
+This is saying it _must_ start with a lower-case character. After that,
+characters can be letters, numbers, or underscores. It is also saying that if
+you run into any of these reserved names, it is definitely not a variable.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Record [ ( "start", Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" []) )
+    , ( "inner", Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" []) )
+    , ( "reserved", Elm.Type.Type "Set.Set" [ Elm.Type.Type "String.String" [] ] ) ] Nothing) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Type "String.String" [] ])
+    }
+    , { name = "withIndent"
+    , comment = """ Some languages are indentation sensitive. Python cares about tabs. Elm
+cares about spaces sometimes. `withIndent` and `getIndent` allow you to manage
+\"indentation state\" yourself, however is necessary in your scenario.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ]))
+    } ]
+    }
+    , { name = "Parser.Advanced"
+    , comment = """
+
+# Parsers
+@docs Parser, run, DeadEnd, inContext, Token
+
+* * *
+**Everything past here works just like in the
+[`Parser`](/packages/elm/parser/latest/Parser) module, except that `String`
+arguments become `Token` arguments, and you need to provide a `Problem` for
+certain scenarios.**
+* * *
+
+# Building Blocks
+@docs int, float, number, symbol, keyword, variable, end
+
+# Pipelines
+@docs succeed, (|=), (|.), lazy, andThen, problem
+
+# Branches
+@docs oneOf, map, backtrackable, commit, token
+
+# Loops
+@docs sequence, Trailing, loop, Step
+
+# Whitespace
+@docs spaces, lineComment, multiComment, Nestable
+
+# Chompers
+@docs getChompedString, chompIf, chompWhile, chompUntil, chompUntilEndOr, mapChompedString
+
+# Indentation
+@docs withIndent, getIndent
+
+# Positions
+@docs getPosition, getRow, getCol, getOffset, getSource
+"""
+    , aliases = [ { name = "DeadEnd"
+    , args = [ "context"
+    , "problem" ]
+    , comment = """ Say you are parsing a function named `viewHealthData` that contains a list.
+You might get a `DeadEnd` like this:
+
+```elm
+{ row = 18
+, col = 22
+, problem = UnexpectedComma
+, contextStack =
+    [ { row = 14
+      , col = 1
+      , context = Definition \"viewHealthData\"
       }
-    , { name = "Html.Events"
-      , comment = """
-It is often helpful to create an [Union Type][] so you can have many different kinds
-of events as seen in the [TodoMVC][] example.
-
-[Union Type]: https://elm-lang.org/learn/Union-Types.elm
-[TodoMVC]: https://github.com/evancz/elm-todomvc/blob/master/Todo.elm
-
-# Mouse
-@docs onClick, onDoubleClick,
-      onMouseDown, onMouseUp,
-      onMouseEnter, onMouseLeave,
-      onMouseOver, onMouseOut
-
-# Forms
-@docs onInput, onCheck, onSubmit
-
-# Focus
-@docs onBlur, onFocus
-
-# Custom
-@docs on, stopPropagationOn, preventDefaultOn, custom
-
-## Custom Decoders
-@docs targetValue, targetChecked, keyCode
-"""
-      , unions = []
-      , aliases = []
-      , values =
-            [ { name = "custom"
-              , comment = """ Create an event listener that may [`stopPropagation`][stop] or
-[`preventDefault`][prevent].
-
-[stop]: https://developer.mozilla.org/en-US/docs/Web/API/Event/stopPropagation
-[prevent]: https://developer.mozilla.org/en-US/docs/Web/API/Event/preventDefault
-
-**Note:** If you need something even more custom (like capture phase) check
-out the lower-level event API in `elm/virtual-dom`.
-"""
-              , tipe = decodeType "String.String -> Json.Decode.Decoder { message : msg, stopPropagation : Basics.Bool, preventDefault : Basics.Bool } -> Html.Attribute msg"
-              }
-            , { name = "keyCode"
-              , comment = """ A `Json.Decoder` for grabbing `event.keyCode`. This helps you define
-keyboard listeners like this:
-
-    import Json.Decode as Json
-
-    onKeyUp : (Int -> msg) -> Attribute msg
-    onKeyUp tagger =
-      on "keyup" (Json.map tagger keyCode)
-
-**Note:** It looks like the spec is moving away from `event.keyCode` and
-towards `event.key`. Once this is supported in more browsers, we may add
-helpers here for `onKeyUp`, `onKeyDown`, `onKeyPress`, etc.
-"""
-              , tipe = decodeType "Json.Decode.Decoder Basics.Int"
-              }
-            , { name = "on"
-              , comment = """ Create a custom event listener. Normally this will not be necessary, but
-you have the power! Here is how `onClick` is defined for example:
-
-    import Json.Decode as Decode
-
-    onClick : msg -> Attribute msg
-    onClick message =
-      on "click" (Decode.succeed message)
-
-The first argument is the event name in the same format as with JavaScript's
-[`addEventListener`][aEL] function.
-
-The second argument is a JSON decoder. Read more about these [here][decoder].
-When an event occurs, the decoder tries to turn the event object into an Elm
-value. If successful, the value is routed to your `update` function. In the
-case of `onClick` we always just succeed with the given `message`.
-
-If this is confusing, work through the [Elm Architecture Tutorial][tutorial].
-It really helps!
-
-[aEL]: https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener
-[decoder]: /packages/elm/json/latest/Json-Decode
-[tutorial]: https://github.com/evancz/elm-architecture-tutorial/
-
-**Note:** This creates a [passive][] event listener, enabling optimizations for
-touch, scroll, and wheel events in some browsers.
-
-[passive]: https://github.com/WICG/EventListenerOptions/blob/gh-pages/explainer.md
-"""
-              , tipe = decodeType "String.String -> Json.Decode.Decoder msg -> Html.Attribute msg"
-              }
-            , { name = "onBlur"
-              , comment = """"""
-              , tipe = decodeType "msg -> Html.Attribute msg"
-              }
-            , { name = "onCheck"
-              , comment = """ Detect [change](https://developer.mozilla.org/en-US/docs/Web/Events/change)
-events on checkboxes. It will grab the boolean value from `event.target.checked`
-on any input event.
-
-Check out [`targetChecked`](#targetChecked) for more details on how this works.
-"""
-              , tipe = decodeType "(Basics.Bool -> msg) -> Html.Attribute msg"
-              }
-            , { name = "onClick"
-              , comment = """"""
-              , tipe = decodeType "msg -> Html.Attribute msg"
-              }
-            , { name = "onDoubleClick"
-              , comment = """"""
-              , tipe = decodeType "msg -> Html.Attribute msg"
-              }
-            , { name = "onFocus"
-              , comment = """"""
-              , tipe = decodeType "msg -> Html.Attribute msg"
-              }
-            , { name = "onInput"
-              , comment = """ Detect [input](https://developer.mozilla.org/en-US/docs/Web/Events/input)
-events for things like text fields or text areas.
-
-For more details on how `onInput` works, check out [`targetValue`](#targetValue).
-
-**Note 1:** It grabs the **string** value at `event.target.value`, so it will
-not work if you need some other information. For example, if you want to track
-inputs on a range slider, make a custom handler with [`on`](#on).
-
-**Note 2:** It uses `stopPropagationOn` internally to always stop propagation
-of the event. This is important for complicated reasons explained [here][1] and
-[here][2].
-
-[1]: /packages/elm/virtual-dom/latest/VirtualDom#Handler
-[2]: https://github.com/elm/virtual-dom/issues/125
-"""
-              , tipe = decodeType "(String.String -> msg) -> Html.Attribute msg"
-              }
-            , { name = "onMouseDown"
-              , comment = """"""
-              , tipe = decodeType "msg -> Html.Attribute msg"
-              }
-            , { name = "onMouseEnter"
-              , comment = """"""
-              , tipe = decodeType "msg -> Html.Attribute msg"
-              }
-            , { name = "onMouseLeave"
-              , comment = """"""
-              , tipe = decodeType "msg -> Html.Attribute msg"
-              }
-            , { name = "onMouseOut"
-              , comment = """"""
-              , tipe = decodeType "msg -> Html.Attribute msg"
-              }
-            , { name = "onMouseOver"
-              , comment = """"""
-              , tipe = decodeType "msg -> Html.Attribute msg"
-              }
-            , { name = "onMouseUp"
-              , comment = """"""
-              , tipe = decodeType "msg -> Html.Attribute msg"
-              }
-            , { name = "onSubmit"
-              , comment = """ Detect a [submit](https://developer.mozilla.org/en-US/docs/Web/Events/submit)
-event with [`preventDefault`](https://developer.mozilla.org/en-US/docs/Web/API/Event/preventDefault)
-in order to prevent the form from changing the page’s location. If you need
-different behavior, create a custom event handler.
-"""
-              , tipe = decodeType "msg -> Html.Attribute msg"
-              }
-            , { name = "preventDefaultOn"
-              , comment = """ Create an event listener that may [`preventDefault`][prevent]. Your decoder
-must produce a message and a `Bool` that decides if `preventDefault` should
-be called.
-
-For example, the `onSubmit` function in this library *always* prevents the
-default behavior:
-
-[prevent]: https://developer.mozilla.org/en-US/docs/Web/API/Event/preventDefault
-
-    onSubmit : msg -> Attribute msg
-    onSubmit msg =
-      preventDefaultOn "submit" (Json.map alwaysPreventDefault (Json.succeed msg))
-
-    alwaysPreventDefault : msg -> ( msg, Bool )
-    alwaysPreventDefault msg =
-      ( msg, True )
-"""
-              , tipe = decodeType "String.String -> Json.Decode.Decoder ( msg, Basics.Bool ) -> Html.Attribute msg"
-              }
-            , { name = "stopPropagationOn"
-              , comment = """ Create an event listener that may [`stopPropagation`][stop]. Your decoder
-must produce a message and a `Bool` that decides if `stopPropagation` should
-be called.
-
-[stop]: https://developer.mozilla.org/en-US/docs/Web/API/Event/stopPropagation
-
-**Note:** This creates a [passive][] event listener, enabling optimizations for
-touch, scroll, and wheel events in some browsers.
-
-[passive]: https://github.com/WICG/EventListenerOptions/blob/gh-pages/explainer.md
-"""
-              , tipe = decodeType "String.String -> Json.Decode.Decoder ( msg, Basics.Bool ) -> Html.Attribute msg"
-              }
-            , { name = "targetChecked"
-              , comment = """ A `Json.Decoder` for grabbing `event.target.checked`. We use this to define
-`onCheck` as follows:
-
-    import Json.Decode as Json
-
-    onCheck : (Bool -> msg) -> Attribute msg
-    onCheck tagger =
-      on "input" (Json.map tagger targetChecked)
-"""
-              , tipe = decodeType "Json.Decode.Decoder Basics.Bool"
-              }
-            , { name = "targetValue"
-              , comment = """ A `Json.Decoder` for grabbing `event.target.value`. We use this to define
-`onInput` as follows:
-
-    import Json.Decode as Json
-
-    onInput : (String -> msg) -> Attribute msg
-    onInput tagger =
-      stopPropagationOn "input" <|
-        Json.map alwaysStop (Json.map tagger targetValue)
-
-    alwaysStop : a -> (a, Bool)
-    alwaysStop x =
-      (x, True)
-
-You probably will never need this, but hopefully it gives some insights into
-how to make custom event handlers.
-"""
-              , tipe = decodeType "Json.Decode.Decoder String.String"
-              }
-            ]
-      , binops = []
-      }
-    , { name = "Html.Keyed"
-      , comment = """ A keyed node helps optimize cases where children are getting added, moved,
-removed, etc. Common examples include:
-
-  - The user can delete items from a list.
-  - The user can create new items in a list.
-  - You can sort a list based on name or date or whatever.
-
-When you use a keyed node, every child is paired with a string identifier. This
-makes it possible for the underlying diffing algorithm to reuse nodes more
-efficiently.
-
-# Keyed Nodes
-@docs node
-
-# Commonly Keyed Nodes
-@docs ol, ul
-"""
-      , unions = []
-      , aliases = []
-      , values =
-            [ { name = "node"
-              , comment = """ Works just like `Html.node`, but you add a unique identifier to each child
-node. You want this when you have a list of nodes that is changing: adding
-nodes, removing nodes, etc. In these cases, the unique identifiers help make
-the DOM modifications more efficient.
-"""
-              , tipe = decodeType "String.String -> List.List (Html.Attribute msg) -> List.List ( String.String, Html.Html msg ) -> Html.Html msg"
-              }
-            , { name = "ol"
-              , comment = """"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List ( String.String, Html.Html msg ) -> Html.Html msg"
-              }
-            , { name = "ul"
-              , comment = """"""
-              , tipe = decodeType "List.List (Html.Attribute msg) -> List.List ( String.String, Html.Html msg ) -> Html.Html msg"
-              }
-            ]
-      , binops = []
-      }
-    , { name = "Html.Lazy"
-      , comment = """ Since all Elm functions are pure we have a guarantee that the same input
-will always result in the same output. This module gives us tools to be lazy
-about building `Html` that utilize this fact.
-
-Rather than immediately applying functions to their arguments, the `lazy`
-functions just bundle the function and arguments up for later. When diffing
-the old and new virtual DOM, it checks to see if all the arguments are equal
-by reference. If so, it skips calling the function!
-
-This is a really cheap test and often makes things a lot faster, but definitely
-benchmark to be sure!
-
-@docs lazy, lazy2, lazy3, lazy4, lazy5, lazy6, lazy7, lazy8
-
-"""
-      , unions = []
-      , aliases = []
-      , values =
-            [ { name = "lazy"
-              , comment = """ A performance optimization that delays the building of virtual DOM nodes.
-
-Calling `(view model)` will definitely build some virtual DOM, perhaps a lot of
-it. Calling `(lazy view model)` delays the call until later. During diffing, we
-can check to see if `model` is referentially equal to the previous value used,
-and if so, we just stop. No need to build up the tree structure and diff it,
-we know if the input to `view` is the same, the output must be the same!
-"""
-              , tipe = decodeType "(a -> Html.Html msg) -> a -> Html.Html msg"
-              }
-            , { name = "lazy2"
-              , comment = """ Same as `lazy` but checks on two arguments.
-"""
-              , tipe = decodeType "(a -> b -> Html.Html msg) -> a -> b -> Html.Html msg"
-              }
-            , { name = "lazy3"
-              , comment = """ Same as `lazy` but checks on three arguments.
-"""
-              , tipe = decodeType "(a -> b -> c -> Html.Html msg) -> a -> b -> c -> Html.Html msg"
-              }
-            , { name = "lazy4"
-              , comment = """ Same as `lazy` but checks on four arguments.
-"""
-              , tipe = decodeType "(a -> b -> c -> d -> Html.Html msg) -> a -> b -> c -> d -> Html.Html msg"
-              }
-            , { name = "lazy5"
-              , comment = """ Same as `lazy` but checks on five arguments.
-"""
-              , tipe = decodeType "(a -> b -> c -> d -> e -> Html.Html msg) -> a -> b -> c -> d -> e -> Html.Html msg"
-              }
-            , { name = "lazy6"
-              , comment = """ Same as `lazy` but checks on six arguments.
-"""
-              , tipe = decodeType "(a -> b -> c -> d -> e -> f -> Html.Html msg) -> a -> b -> c -> d -> e -> f -> Html.Html msg"
-              }
-            , { name = "lazy7"
-              , comment = """ Same as `lazy` but checks on seven arguments.
-"""
-              , tipe = decodeType "(a -> b -> c -> d -> e -> f -> g -> Html.Html msg) -> a -> b -> c -> d -> e -> f -> g -> Html.Html msg"
-              }
-            , { name = "lazy8"
-              , comment = """ Same as `lazy` but checks on eight arguments.
-"""
-              , tipe = decodeType "(a -> b -> c -> d -> e -> f -> g -> h -> Html.Html msg) -> a -> b -> c -> d -> e -> f -> g -> h -> Html.Html msg"
-              }
-            ]
-      , binops = []
+    , { row = 15
+      , col = 4
+      , context = List
       }
     ]
+}
+```
+
+We have a ton of information here! So in the error message, we can say that “I
+ran into an issue when parsing a list in the definition of `viewHealthData`. It
+looks like there is an extra comma.” Or maybe something even better!
+
+Furthermore, many parsers just put a mark where the problem manifested. By
+tracking the `row` and `col` of the context, we can show a much larger region
+as a way of indicating “I thought I was parsing this thing that starts over
+here.” Otherwise you can get very confusing error messages on a missing `]` or
+`}` or `)` because “I need more indentation” on something unrelated.
+
+**Note:** Rows and columns are counted like a text editor. The beginning is `row=1`
+and `col=1`. The `col` increments as characters are chomped. When a `\\n` is chomped,
+`row` is incremented and `col` starts over again at `1`.
+"""
+    , tipe = Elm.Type.Record [ ( "row", Elm.Type.Type "Basics.Int" [] )
+    , ( "col", Elm.Type.Type "Basics.Int" [] )
+    , ( "problem", Elm.Type.Var "problem" )
+    , ( "contextStack", Elm.Type.Type "List.List" [ Elm.Type.Record [ ( "row", Elm.Type.Type "Basics.Int" [] )
+    , ( "col", Elm.Type.Type "Basics.Int" [] )
+    , ( "context", Elm.Type.Var "context" ) ] Nothing ] ) ] Nothing
+    } ]
+    , unions = [ { name = "Nestable"
+    , args = []
+    , comment = """ Works just like [`Parser.Nestable`](Parser#nestable) to help distinguish
+between unnestable `/*` `*/` comments like in JS and nestable `{-` `-}`
+comments like in Elm.
+"""
+    , tags = [ ( "NotNestable", [])
+    , ( "Nestable", []) ]
+    }
+    , { name = "Parser"
+    , args = [ "context"
+    , "problem"
+    , "value" ]
+    , comment = """ An advanced `Parser` gives two ways to improve your error messages:
+
+- `problem` &mdash; Instead of all errors being a `String`, you can create a
+custom type like `type Problem = BadIndent | BadKeyword String` and track
+problems much more precisely.
+- `context` &mdash; Error messages can be further improved when precise
+problems are paired with information about where you ran into trouble. By
+tracking the context, instead of saying “I found a bad keyword” you can say
+“I found a bad keyword when parsing a list” and give folks a better idea of
+what the parser thinks it is doing.
+
+I recommend starting with the simpler [`Parser`][parser] module though, and
+when you feel comfortable and want better error messages, you can create a type
+alias like this:
+
+```elm
+import Parser.Advanced
+
+type alias MyParser a =
+  Parser.Advanced.Parser Context Problem a
+
+type Context = Definition String | List | Record
+
+type Problem = BadIndent | BadKeyword String
+```
+
+All of the functions from `Parser` should exist in `Parser.Advanced` in some
+form, allowing you to switch over pretty easily.
+
+[parser]: /packages/elm/parser/latest/Parser
+"""
+    , tags = []
+    }
+    , { name = "Step"
+    , args = [ "state"
+    , "a" ]
+    , comment = """ Just like [`Parser.Step`](Parser#Step)
+"""
+    , tags = [ ( "Loop", [ Elm.Type.Var "state" ])
+    , ( "Done", [ Elm.Type.Var "a" ]) ]
+    }
+    , { name = "Token"
+    , args = [ "x" ]
+    , comment = """ With the simpler `Parser` module, you could just say `symbol \",\"` and
+parse all the commas you wanted. But now that we have a custom type for our
+problems, we actually have to specify that as well. So anywhere you just used
+a `String` in the simpler module, you now use a `Token Problem` in the advanced
+module:
+
+    type Problem
+      = ExpectingComma
+      | ExpectingListEnd
+
+    comma : Token Problem
+    comma =
+      Token \",\" ExpectingComma
+
+    listEnd : Token Problem
+    listEnd =
+      Token \"]\" ExpectingListEnd
+
+You can be creative with your custom type. Maybe you want a lot of detail.
+Maybe you want looser categories. It is a custom type. Do what makes sense for
+you!
+"""
+    , tags = [ ( "Token", [ Elm.Type.Type "String.String" []
+    , Elm.Type.Var "x" ]) ]
+    }
+    , { name = "Trailing"
+    , args = []
+    , comment = """ What’s the deal with trailing commas? Are they `Forbidden`?
+Are they `Optional`? Are they `Mandatory`? Welcome to [shapes
+club](https://poorlydrawnlines.com/comic/shapes-club/)!
+"""
+    , tags = [ ( "Forbidden", [])
+    , ( "Optional", [])
+    , ( "Mandatory", []) ]
+    } ]
+    , binops = [ { name = "|."
+    , comment = """ Just like the [`(|.)`](Parser#|.) from the `Parser` module.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "keep" ]) (Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "ignore" ]) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "keep" ]))
+    , associativity = Elm.Docs.Left
+    , precedence = 6
+    }
+    , { name = "|="
+    , comment = """ Just like the [`(|=)`](Parser#|=) from the `Parser` module.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b") ]) (Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "a" ]) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "b" ]))
+    , associativity = Elm.Docs.Left
+    , precedence = 5
+    } ]
+    , values = [ { name = "andThen"
+    , comment = """ Just like [`Parser.andThen`](Parser#andThen)
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "b" ])) (Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "a" ]) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "b" ]))
+    }
+    , { name = "backtrackable"
+    , comment = """ Just like [`Parser.backtrackable`](Parser#backtrackable)
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "a" ]) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "a" ])
+    }
+    , { name = "chompIf"
+    , comment = """ Just like [`Parser.chompIf`](Parser#chompIf) except you provide a problem
+in case a character cannot be chomped.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" [])) (Elm.Type.Lambda (Elm.Type.Var "x") (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Tuple [] ]))
+    }
+    , { name = "chompUntil"
+    , comment = """ Just like [`Parser.chompUntil`](Parser#chompUntil) except you provide a
+`Token` in case you chomp all the way to the end of the input without finding
+what you need.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Token" [ Elm.Type.Var "x" ]) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Tuple [] ])
+    }
+    , { name = "chompUntilEndOr"
+    , comment = """ Just like [`Parser.chompUntilEndOr`](Parser#chompUntilEndOr)
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Tuple [] ])
+    }
+    , { name = "chompWhile"
+    , comment = """ Just like [`Parser.chompWhile`](Parser#chompWhile)
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" [])) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Tuple [] ])
+    }
+    , { name = "commit"
+    , comment = """ Just like [`Parser.commit`](Parser#commit)
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "a" ])
+    }
+    , { name = "end"
+    , comment = """ Just like [`Parser.end`](Parser#end) except you provide the problem that
+arises when the parser is not at the end of the input.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Var "x") (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Tuple [] ])
+    }
+    , { name = "float"
+    , comment = """ Just like [`Parser.float`](Parser#float) where you have to handle negation
+yourself. The only difference is that you provide a two potential problems:
+
+    float : x -> x -> Parser c x Float
+    float expecting invalid =
+      number
+        { int = Ok toFloat
+        , hex = Err invalid
+        , octal = Err invalid
+        , binary = Err invalid
+        , float = Ok identity
+        , invalid = invalid
+        , expecting = expecting
+        }
+
+You can use problems like `ExpectingFloat` and `InvalidNumber`.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Var "x") (Elm.Type.Lambda (Elm.Type.Var "x") (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Type "Basics.Float" [] ]))
+    }
+    , { name = "getChompedString"
+    , comment = """ Just like [`Parser.getChompedString`](Parser#getChompedString)
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "a" ]) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Type "String.String" [] ])
+    }
+    , { name = "getCol"
+    , comment = """ Just like [`Parser.getCol`](Parser#getCol)
+"""
+    , tipe = Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Type "Basics.Int" [] ]
+    }
+    , { name = "getIndent"
+    , comment = """ Just like [`Parser.getIndent`](Parser#getIndent)
+"""
+    , tipe = Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Type "Basics.Int" [] ]
+    }
+    , { name = "getOffset"
+    , comment = """ Just like [`Parser.getOffset`](Parser#getOffset)
+"""
+    , tipe = Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Type "Basics.Int" [] ]
+    }
+    , { name = "getPosition"
+    , comment = """ Just like [`Parser.getPosition`](Parser#getPosition)
+"""
+    , tipe = Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Tuple [ Elm.Type.Type "Basics.Int" []
+    , Elm.Type.Type "Basics.Int" [] ] ]
+    }
+    , { name = "getRow"
+    , comment = """ Just like [`Parser.getRow`](Parser#getRow)
+"""
+    , tipe = Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Type "Basics.Int" [] ]
+    }
+    , { name = "getSource"
+    , comment = """ Just like [`Parser.getSource`](Parser#getSource)
+"""
+    , tipe = Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Type "String.String" [] ]
+    }
+    , { name = "inContext"
+    , comment = """ This is how you mark that you are in a certain context. For example, here
+is a rough outline of some code that uses `inContext` to mark when you are
+parsing a specific definition:
+
+    import Char
+    import Parser.Advanced exposing (..)
+    import Set
+
+    type Context
+      = Definition String
+      | List
+
+    definition : Parser Context Problem Expr
+    definition =
+      functionName
+        |> andThen definitionBody
+
+    definitionBody : String -> Parser Context Problem Expr
+    definitionBody name =
+      inContext (Definition name) <|
+        succeed (Function name)
+          |= arguments
+          |. symbol (Token \"=\" ExpectingEquals)
+          |= expression
+
+    functionName : Parser c Problem String
+    functionName =
+      variable
+        { start = Char.isLower
+        , inner = Char.isAlphaNum
+        , reserved = Set.fromList [\"let\",\"in\"]
+        , expecting = ExpectingFunctionName
+        }
+
+First we parse the function name, and then we parse the rest of the definition.
+Importantly, we call `inContext` so that any dead end that occurs in
+`definitionBody` will get this extra context information. That way you can say
+things like, “I was expecting an equals sign in the `view` definition.” Context!
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Var "context") (Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "context"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "a" ]) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "context"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "a" ]))
+    }
+    , { name = "int"
+    , comment = """ Just like [`Parser.int`](Parser#int) where you have to handle negation
+yourself. The only difference is that you provide a two potential problems:
+
+    int : x -> x -> Parser c x Int
+    int expecting invalid =
+      number
+        { int = Ok identity
+        , hex = Err invalid
+        , octal = Err invalid
+        , binary = Err invalid
+        , float = Err invalid
+        , invalid = invalid
+        , expecting = expecting
+        }
+
+You can use problems like `ExpectingInt` and `InvalidNumber`.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Var "x") (Elm.Type.Lambda (Elm.Type.Var "x") (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Type "Basics.Int" [] ]))
+    }
+    , { name = "keyword"
+    , comment = """ Just like [`Parser.keyword`](Parser#keyword) except you provide a `Token`
+to clearly indicate your custom type of problems:
+
+    let_ : Parser Context Problem ()
+    let_ =
+      symbol (Token \"let\" ExpectingLet)
+
+Note that this would fail to chomp `letter` because of the subsequent
+characters. Use `token` if you do not want that last letter check.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Token" [ Elm.Type.Var "x" ]) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Tuple [] ])
+    }
+    , { name = "lazy"
+    , comment = """ Just like [`Parser.lazy`](Parser#lazy)
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Tuple []) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "a" ])) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "a" ])
+    }
+    , { name = "lineComment"
+    , comment = """ Just like [`Parser.lineComment`](Parser#lineComment) except you provide a
+`Token` describing the starting symbol.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Token" [ Elm.Type.Var "x" ]) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Tuple [] ])
+    }
+    , { name = "loop"
+    , comment = """ Just like [`Parser.loop`](Parser#loop)
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Var "state") (Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "state") (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Type "Parser.Advanced.Step" [ Elm.Type.Var "state"
+    , Elm.Type.Var "a" ] ])) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "a" ]))
+    }
+    , { name = "map"
+    , comment = """ Just like [`Parser.map`](Parser#map)
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b")) (Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "a" ]) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "b" ]))
+    }
+    , { name = "mapChompedString"
+    , comment = """ Just like [`Parser.mapChompedString`](Parser#mapChompedString)
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b"))) (Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "a" ]) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "b" ]))
+    }
+    , { name = "multiComment"
+    , comment = """ Just like [`Parser.multiComment`](Parser#multiComment) except with a
+`Token` for the open and close symbols.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Token" [ Elm.Type.Var "x" ]) (Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Token" [ Elm.Type.Var "x" ]) (Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Nestable" []) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Tuple [] ])))
+    }
+    , { name = "number"
+    , comment = """ Just like [`Parser.number`](Parser#number) where you have to handle
+negation yourself. The only difference is that you provide all the potential
+problems.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Record [ ( "int", Elm.Type.Type "Result.Result" [ Elm.Type.Var "x"
+    , Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Var "a") ] )
+    , ( "hex", Elm.Type.Type "Result.Result" [ Elm.Type.Var "x"
+    , Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Var "a") ] )
+    , ( "octal", Elm.Type.Type "Result.Result" [ Elm.Type.Var "x"
+    , Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Var "a") ] )
+    , ( "binary", Elm.Type.Type "Result.Result" [ Elm.Type.Var "x"
+    , Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Var "a") ] )
+    , ( "float", Elm.Type.Type "Result.Result" [ Elm.Type.Var "x"
+    , Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Var "a") ] )
+    , ( "invalid", Elm.Type.Var "x" )
+    , ( "expecting", Elm.Type.Var "x" ) ] Nothing) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "a" ])
+    }
+    , { name = "oneOf"
+    , comment = """ Just like [`Parser.oneOf`](Parser#oneOf)
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "a" ] ]) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "a" ])
+    }
+    , { name = "problem"
+    , comment = """ Just like [`Parser.problem`](Parser#problem) except you provide a custom
+type for your problem.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Var "x") (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "a" ])
+    }
+    , { name = "run"
+    , comment = """ This works just like [`Parser.run`](/packages/elm/parser/latest/Parser#run).
+The only difference is that when it fails, it has much more precise information
+for each dead end.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Result.Result" [ Elm.Type.Type "List.List" [ Elm.Type.Type "Parser.Advanced.DeadEnd" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x" ] ]
+    , Elm.Type.Var "a" ]))
+    }
+    , { name = "sequence"
+    , comment = """ Just like [`Parser.sequence`](Parser#sequence) except with a `Token` for
+the start, separator, and end. That way you can specify your custom type of
+problem for when something is not found.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Record [ ( "start", Elm.Type.Type "Parser.Advanced.Token" [ Elm.Type.Var "x" ] )
+    , ( "separator", Elm.Type.Type "Parser.Advanced.Token" [ Elm.Type.Var "x" ] )
+    , ( "end", Elm.Type.Type "Parser.Advanced.Token" [ Elm.Type.Var "x" ] )
+    , ( "spaces", Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Tuple [] ] )
+    , ( "item", Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "a" ] )
+    , ( "trailing", Elm.Type.Type "Parser.Advanced.Trailing" [] ) ] Nothing) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Type "List.List" [ Elm.Type.Var "a" ] ])
+    }
+    , { name = "spaces"
+    , comment = """ Just like [`Parser.spaces`](Parser#spaces)
+"""
+    , tipe = Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Tuple [] ]
+    }
+    , { name = "succeed"
+    , comment = """ Just like [`Parser.succeed`](Parser#succeed)
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "a" ])
+    }
+    , { name = "symbol"
+    , comment = """ Just like [`Parser.symbol`](Parser#symbol) except you provide a `Token` to
+clearly indicate your custom type of problems:
+
+    comma : Parser Context Problem ()
+    comma =
+      symbol (Token \",\" ExpectingComma)
+
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Token" [ Elm.Type.Var "x" ]) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Tuple [] ])
+    }
+    , { name = "token"
+    , comment = """ Just like [`Parser.token`](Parser#token) except you provide a `Token`
+specifying your custom type of problems.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Token" [ Elm.Type.Var "x" ]) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Tuple [] ])
+    }
+    , { name = "variable"
+    , comment = """ Just like [`Parser.variable`](Parser#variable) except you specify the
+problem yourself.
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Record [ ( "start", Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" []) )
+    , ( "inner", Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" []) )
+    , ( "reserved", Elm.Type.Type "Set.Set" [ Elm.Type.Type "String.String" [] ] )
+    , ( "expecting", Elm.Type.Var "x" ) ] Nothing) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Type "String.String" [] ])
+    }
+    , { name = "withIndent"
+    , comment = """ Just like [`Parser.withIndent`](Parser#withIndent)
+"""
+    , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "a" ]) (Elm.Type.Type "Parser.Advanced.Parser" [ Elm.Type.Var "c"
+    , Elm.Type.Var "x"
+    , Elm.Type.Var "a" ]))
+    } ]
+    } ]
 
 
-decodeType : String -> Elm.Type.Type
-decodeType type_ =
-    case Decode.decodeString Elm.Type.decoder type_ of
-        Ok resultType ->
-            resultType
+unsafePackageName : String -> Elm.Package.Name
+unsafePackageName packageName =
+    case Elm.Package.fromString packageName of
+        Just name ->
+            name
 
-        Err _ ->
-            Elm.Type.Var "unknown"
+        Nothing ->
+            -- unsafe, but if the generation went well, it should all be good.
+            unsafePackageName packageName
+                -- Disables the tail-call optimization, so that the test crashes if we enter this case
+                |> identity
+
+
+unsafeModuleName : String -> Elm.Module.Name
+unsafeModuleName moduleName =
+    case Elm.Module.fromString moduleName of
+        Just name ->
+            name
+
+        Nothing ->
+            -- unsafe, but if the generation went well, it should all be good.
+            unsafeModuleName moduleName
+                -- Disables the tail-call optimization, so that the test crashes if we enter this case
+                |> identity
+
+
+unsafeConstraint : String -> Elm.Constraint.Constraint
+unsafeConstraint constraint =
+    case Elm.Constraint.fromString constraint of
+        Just constr ->
+            constr
+
+        Nothing ->
+            -- unsafe, but if the generation went well, it should all be good.
+            unsafeConstraint constraint
+                -- Disables the tail-call optimization, so that the test crashes if we enter this case
+                |> identity
