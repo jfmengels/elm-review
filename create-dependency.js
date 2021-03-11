@@ -75,6 +75,7 @@ dependencyModules =
     ]
 
 
+decodeType : String -> Elm.Type.Type
 decodeType type_ =
     case Decode.decodeString Elm.Type.decoder type_ of
         Ok resultType ->
@@ -144,15 +145,21 @@ function formatValue(value) {
 
 
 function formatBinop(binop) {
-    return ""
-    return `{
-    name = "${binop.name}"
-        , comment = ${formatComment(binop.comment)}
-            , unions = [${binop.unions.map(formatUnion).join("\n    , ")}]
-        , aliases = [${binop.aliases.map(formatAlias).join("\n    , ")}]
-        , values = [${binop.values.map(formatValue).join("\n    , ")}]
-        , binops = [${binop.binops.map(formatBinop).join("\n    , ")}]
-} `
+    return `{ name = "${binop.name}"
+    , comment = ${formatComment(binop.comment)}
+    , tipe = ${formatType(binop.type)}
+    , associativity = ${formatAssociativity(binop.associativity)}
+    , precedence = ${binop.precedence}
+    }`
+}
+
+function formatAssociativity(associativity) {
+    switch (associativity) {
+        case "left": return "Elm.Docs.Left"
+        case "right": return "Elm.Docs.Right"
+        case "non": return "Elm.Docs.None"
+        default: return "unknown"
+    }
 }
 
 downloadFiles()
