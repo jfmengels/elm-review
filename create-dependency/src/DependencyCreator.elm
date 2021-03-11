@@ -68,7 +68,7 @@ formatAlias alias_ =
 
 stringify : String -> String
 stringify s =
-    "\"" ++ s ++ "\""
+    "\"\"\"" ++ String.replace "\"\"\"" """\\"\\"\\""" s ++ "\"\"\""
 
 
 listOfThings : (a -> String) -> List a -> String
@@ -890,7 +890,7 @@ elmJson =
     Elm.Project.Package
         { elm = unsafeConstraint """ ++ stringify (Elm.Constraint.toString elmJson.elm) ++ """
         , exposed = """ ++ exposed ++ """
-        , license = Elm.License.fromString """ ++ stringify (Elm.License.toString elmJson.license) ++ """" |> Maybe.withDefault Elm.License.bsd3
+        , license = Elm.License.fromString """ ++ stringify (Elm.License.toString elmJson.license) ++ """ |> Maybe.withDefault Elm.License.bsd3
         , name = unsafePackageName """ ++ stringify (Elm.Package.toString elmJson.name) ++ """
         , summary = """ ++ stringify elmJson.summary ++ """
         , deps = """ ++ listOfThings formatDep elmJson.deps ++ """
