@@ -39,7 +39,7 @@ function createFile([elmJson, docsJson]) {
 
 import Elm.Docs
 import Elm.Project
-import Elm.Type exposing (Type(..))
+import Elm.Type
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Review.Project.Dependency as Dependency exposing (Dependency)
@@ -73,6 +73,14 @@ dependencyModules : List Elm.Docs.Module
 dependencyModules =
     [ ${docsJson.map(formatModule).join("\n    , ")}
     ]
+
+
+decodeType type_ =
+    case Decode.decodeString Elm.Type.decoder type_ of
+        Ok resultType ->
+            resultType
+        Err _ ->
+            Elm.Type.Var "unknown"
 `
 }
 
@@ -109,8 +117,7 @@ function formatUnion(union) {
 }
 
 function formatType(type) {
-    // |> Decode.decodeString Elm.Type.decoder |> Result.toMaybe |> Maybe.withDefault [] )
-    return `Var "a"`;
+    return `decodeType "${type}"`;
 }
 
 function formatComment(comment) {
