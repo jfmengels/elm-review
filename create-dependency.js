@@ -27,7 +27,7 @@ if (!packageName) {
 async function downloadFiles() {
     const [elmJson, docsJson] = await Promise.all([
         get(`https://package.elm-lang.org/packages/${packageName}/latest/elm.json`).then(s => JSON.parse(s)),
-        get(`https://package.elm-lang.org/packages/${packageName}/latest/docs.json`)
+        get(`https://package.elm-lang.org/packages/${packageName}/latest/docs.json`).then(s => JSON.parse(s))
     ]);
     return [elmJson, docsJson];
 }
@@ -40,6 +40,7 @@ function createFile([elmJson, docsJson]) {
 import Elm.Docs
 import Elm.Project
 import Json.Decode as Decode
+import Json.Encode as Encode
 import Review.Project.Dependency as Dependency exposing (Dependency)
 
 
@@ -61,34 +62,17 @@ createElmJsonProject rawElmJson =
             Debug.todo ("Failed to decode elm.json for ${packageName}: " ++ Debug.toString error)
 
 
-dependencyModules : List Elm.Docs.Module
-dependencyModules =
-    case Decode.decodeString (Decode.list Elm.Docs.decoder) docsJson of
-        Ok modules ->
-            modules
-
-        Err error ->
-            Debug.todo ("Failed to decode docs.json for ${packageName}: " ++ Debug.toString error)
-
-
 elmJson : String
 elmJson =
     """${JSON.stringify(elmJson, null, 4)}
 """
 
 
-docsJson : String
-docsJson =
-    """${docsJson
-            .split("\\\\n")
-            .map(s => s.split("\\n").join("\\\\n"))
-            .join("\\\\\\\\n")
-            .split('\\"')
-            .join('\\\\"')
-        }
-"""
-
-    `
+dependencyModules : List Elm.Docs.Module
+dependencyModules =
+    [ ${docsJson.map(formatModule).join("\n    , ")}
+    ]
+`
 }
 
 function formatModuleName(packageName) {
@@ -96,6 +80,13 @@ function formatModuleName(packageName) {
 }
 
 function formatModule(moduleDoc) {
+    return `{ name = "${moduleDoc.name}"
+      , comment = ""
+      , unions = []
+      , aliases = []
+      , values = []
+      , binops = []
+      }`
     // if (JSON.stringify(moduleDoc).includes("initialize 4")) {
     //     console.log(JSON.stringify(moduleDoc).slice(2470, 2530))
     // }
