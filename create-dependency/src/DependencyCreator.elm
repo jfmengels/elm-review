@@ -30,7 +30,7 @@ main =
         }
 
 
-parseThings : Flags -> String
+parseThings : Flags -> ( String, String )
 parseThings flags =
     let
         elmJson : Result String Elm.Project.PackageInfo
@@ -57,7 +57,7 @@ parseThings flags =
             str
 
         Err error ->
-            error
+            ( "", error )
 
 
 formatValue value =
@@ -165,7 +165,7 @@ capitalize s =
     String.toUpper (String.left 1 s) ++ String.dropLeft 1 s
 
 
-formatFile : Elm.Project.PackageInfo -> List Elm.Docs.Module -> String
+formatFile : Elm.Project.PackageInfo -> List Elm.Docs.Module -> ( String, String )
 formatFile elmJson docsJson =
     let
         listOfModuleNames list =
@@ -194,7 +194,8 @@ formatFile elmJson docsJson =
         dependencyModules =
             listOfThings formatModule docsJson
     in
-    "module " ++ moduleName ++ """ exposing (dependency)
+    ( "src/" ++ String.replace "." "/" moduleName ++ ".elm"
+    , "module " ++ moduleName ++ """ exposing (dependency)
 
 import Elm.Constraint
 import Elm.Docs
@@ -270,6 +271,7 @@ unsafeConstraint constraint =
                 -- Disables the tail-call optimization, so that the test crashes if we enter this case
                 |> identity
 """
+    )
 
 
 formatPackageName : Elm.Package.Name -> String
@@ -277,4 +279,4 @@ formatPackageName packageName =
     "Elm.Package.fromString " ++ stringify (Elm.Package.toString packageName) ++ " |> Maybe.withDefault Elm.Package.one"
 
 
-port sendToJs : String -> Cmd msg
+port sendToJs : ( String, String ) -> Cmd msg
