@@ -1,5 +1,6 @@
-const util = require('util');
+const path = require('path');
 const https = require('https');
+const fs = require('fs').promises;
 
 console.warn = () => { }
 
@@ -41,9 +42,10 @@ function createFile([elmJson, docsJson]) {
         flags: { elmJson, docsJson }
     });
 
-    app.ports.sendToJs.subscribe(result => {
-        console.log(result);
-        process.exit(0);
+    app.ports.sendToJs.subscribe(async ([filePath, source]) => {
+        const relativeFilePath = path.resolve(process.cwd(), filePath);
+        await fs.mkdir(path.dirname(relativeFilePath), { recursive: true });
+        await fs.writeFile(relativeFilePath, source);
     });
     return;
 
