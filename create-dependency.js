@@ -83,6 +83,8 @@ docsJson =
             .split("\\\\n")
             .map(s => s.split("\\n").join("\\\\n"))
             .join("\\\\\\\\n")
+            .split('\\"')
+            .join('\\\\"')
         }
 """
 
