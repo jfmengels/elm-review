@@ -45,7 +45,6 @@ import Elm.Docs
 import Elm.Project
 import Elm.Type
 import Json.Decode as Decode
-import Json.Encode as Encode
 import Review.Project.Dependency as Dependency exposing (Dependency)
 
 
