@@ -48,7 +48,7 @@ import Review.Project.Dependency as Dependency exposing (Dependency)
 dependency : Dependency
 dependency =
     Dependency.create
-        "${moduleName}"
+        "${packageName}"
         (createElmJsonProject elmJson)
         dependencyModules
 
