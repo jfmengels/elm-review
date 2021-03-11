@@ -67,6 +67,14 @@ formatAlias alias_ =
     }"""
 
 
+formatUnion union =
+    "{ name = " ++ stringify union.name ++ """
+    , args = """ ++ listOfThings stringify union.args ++ """
+    , comment = """ ++ stringify union.comment ++ """
+    , tags = """ ++ listOfThings (\( name, types ) -> "( " ++ stringify name ++ ", " ++ listOfThings formatType types ++ ")") union.tags ++ """
+    }"""
+
+
 formatType : Elm.Type.Type -> String
 formatType type_ =
     case type_ of
@@ -125,7 +133,7 @@ formatModule mod =
     "{ name = " ++ stringify mod.name ++ """
     , comment = """ ++ stringify mod.comment ++ """
     , aliases = """ ++ listOfThings formatAlias mod.aliases ++ """
-    , unions = []
+    , unions = """ ++ listOfThings formatUnion mod.unions ++ """
     , binops = []
     , values = []
     }"""
