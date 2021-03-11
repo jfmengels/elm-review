@@ -73,7 +73,7 @@ stringify s =
 
 listOfThings : (a -> String) -> List a -> String
 listOfThings mapper list =
-    "[ " ++ String.join "\n" (List.map mapper list) ++ " ]"
+    "[ " ++ String.join "\n    , " (List.map mapper list) ++ " ]"
 
 
 formatModule mod =
@@ -840,6 +840,10 @@ cares about spaces sometimes. `withIndent` and `getIndent` allow you to manage
     }"""
 
 
+formatDep ( name, constraint ) =
+    "( unsafePackageName " ++ stringify (Elm.Package.toString name) ++ ", unsafeConstraint " ++ stringify (Elm.Constraint.toString constraint) ++ ")"
+
+
 formatFile : Elm.Project.PackageInfo -> List Elm.Docs.Module -> String
 formatFile elmJson docsJson =
     let
@@ -860,7 +864,7 @@ formatFile elmJson docsJson =
             "Hello"
 
         dependencyModules =
-            "[" ++ String.join "\n    , " (List.map formatModule docsJson) ++ "\n    ]"
+            listOfThings formatModule docsJson
     in
     "module " ++ moduleName ++ """ exposing (dependency)
 
@@ -889,8 +893,8 @@ elmJson =
         , license = Elm.License.fromString """ ++ stringify (Elm.License.toString elmJson.license) ++ """" |> Maybe.withDefault Elm.License.bsd3
         , name = unsafePackageName """ ++ stringify (Elm.Package.toString elmJson.name) ++ """
         , summary = """ ++ stringify elmJson.summary ++ """
-        , deps = [ """ ++ String.join ", " (List.map (\( name, constraint ) -> "( unsafePackageName " ++ stringify (Elm.Package.toString name) ++ ", unsafeConstraint " ++ stringify (Elm.Constraint.toString constraint) ++ ")") elmJson.deps) ++ """ ]
-        , testDeps = [ """ ++ String.join ", " (List.map (\( name, constraint ) -> "( unsafePackageName " ++ stringify (Elm.Package.toString name) ++ ", unsafeConstraint " ++ stringify (Elm.Constraint.toString constraint) ++ ")") elmJson.testDeps) ++ """ ]
+        , deps = """ ++ listOfThings formatDep elmJson.deps ++ """
+        , testDeps = """ ++ listOfThings formatDep elmJson.testDeps ++ """
         , version = Elm.Version.fromString """ ++ stringify (Elm.Version.toString elmJson.version) ++ """ |> Maybe.withDefault Elm.Version.one
         }
 
