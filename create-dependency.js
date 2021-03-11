@@ -82,7 +82,7 @@ docsJson =
     """${docsJson
             .split("\\\\n")
             .map(s => s.split("\\n").join("\\\\n"))
-            .join("\\\\n")
+            .join("\\\\\\\\n")
         }
 """
 
