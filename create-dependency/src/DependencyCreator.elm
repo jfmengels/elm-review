@@ -8,6 +8,7 @@ import Elm.Package
 import Elm.Project
 import Elm.Type
 import Elm.Version
+import Html.Attributes exposing (form, type_)
 import Json.Decode as Decode
 import Review.Project exposing (elmJson)
 import Review.Project.Dependency as Dependency exposing (Dependency)
@@ -59,11 +60,40 @@ parseThings flags =
 
 
 formatAlias alias_ =
-    "{ args = " ++ listOfThings stringify alias_.args ++ """
+    "{ name = " ++ stringify alias_.name ++ """
+    , args = """ ++ listOfThings stringify alias_.args ++ """
     , comment = """ ++ stringify alias_.comment ++ """
-    , name = """ ++ stringify alias_.name ++ """
-    , tipe = Elm.Type.Record [ ( "row", Elm.Type.Type "Basics.Int" [] ), ( "col", Elm.Type.Type "Basics.Int" [] ), ( "problem", Elm.Type.Type "Parser.Problem" [] ) ] Nothing
+    , tipe = """ ++ formatType alias_.tipe ++ """
     }"""
+
+
+formatType : Elm.Type.Type -> String
+formatType type_ =
+    case type_ of
+        Elm.Type.Var name ->
+            "Elm.Type.Var " ++ stringify name
+
+        Elm.Type.Tuple list ->
+            "Elm.Type.Tuple " ++ listOfThings formatType list
+
+        Elm.Type.Type name list ->
+            "Elm.Type.Type " ++ stringify name ++ " " ++ listOfThings formatType list
+
+        Elm.Type.Record fields maybeVar ->
+            let
+                var : String
+                var =
+                    case maybeVar of
+                        Just var_ ->
+                            var_ ++ " | "
+
+                        Nothing ->
+                            ""
+            in
+            "Elm.Type.Record " ++ listOfThings (\( field, subType ) -> "( " ++ stringify field ++ ", " ++ formatType subType ++ " )") fields ++ " " ++ Debug.toString maybeVar
+
+        Elm.Type.Lambda input output ->
+            "Elm.Type.Lambda (" ++ formatType input ++ ") (" ++ formatType output ++ ")"
 
 
 stringify : String -> String
@@ -84,7 +114,11 @@ wrapInQuotes s =
 
 listOfThings : (a -> String) -> List a -> String
 listOfThings mapper list =
-    "[ " ++ String.join "\n    , " (List.map mapper list) ++ " ]"
+    if List.isEmpty list then
+        "[]"
+
+    else
+        "[ " ++ String.join "\n    , " (List.map mapper list) ++ " ]"
 
 
 formatModule mod =
