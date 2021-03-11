@@ -9,7 +9,7 @@ function get(url) {
                 data += chunk;
             });
             resp.on('end', () => {
-                resolve(data);
+                resolve(JSON.parse(data));
             });
         }).on("error", resolve);
     })
@@ -26,8 +26,8 @@ if (!packageName) {
 
 async function downloadFiles() {
     const [elmJson, docsJson] = await Promise.all([
-        get(`https://package.elm-lang.org/packages/${packageName}/latest/elm.json`).then(s => JSON.parse(s)),
-        get(`https://package.elm-lang.org/packages/${packageName}/latest/docs.json`).then(s => JSON.parse(s))
+        get(`https://package.elm-lang.org/packages/${packageName}/latest/elm.json`),
+        get(`https://package.elm-lang.org/packages/${packageName}/latest/docs.json`)
     ]);
     return [elmJson, docsJson];
 }
