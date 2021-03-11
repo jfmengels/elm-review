@@ -111,8 +111,8 @@ elmJson =
         }
 
 
+dependencyModules : List Elm.Docs.Module
 dependencyModules =
-    {- """ ++ Debug.toString docsJson ++ """ -}
     []
 
 
