@@ -76,6 +76,9 @@ formatFile elmJson docsJson =
 
         moduleName =
             "Hello"
+
+        dependencyModules =
+            "[]"
     in
     "module " ++ moduleName ++ """ exposing (dependency)
 
@@ -113,7 +116,7 @@ elmJson =
 
 dependencyModules : List Elm.Docs.Module
 dependencyModules =
-    []
+    """ ++ dependencyModules ++ """
 
 
 unsafePackageName : String -> Elm.Package.Name
