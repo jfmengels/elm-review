@@ -121,29 +121,28 @@ function formatType(type) {
 }
 
 function formatComment(comment) {
-    const withEscapedTripleQuotes = comment.split(`"""`).join(`\\"\\"\\"`);
+    const withEscapedTripleQuotes = comment
+        .split(`"""`).join(`\\"\\"\\"`)
+        .split("\\").join("\\\\");
     return `"""${withEscapedTripleQuotes}"""`
 }
 
 function formatAlias(alias) {
-    return `{ name = "${alias.name}"
-    , comment = ${formatComment(alias.comment)}
+    return `{
+            name = "${alias.name}"
+            , comment = ${formatComment(alias.comment)
+        }
     , args = ${JSON.stringify(alias.args)}
     , tipe = ${formatType(alias.type)}
     }`
 }
 
 function formatValue(value) {
-    return ""
-
     return `{
     name = "${value.name}"
-        , comment = ${formatComment(value.comment)}
-            , unions = [${value.unions.map(formatUnion).join("\n    , ")}]
-            , aliases = [${value.aliases.map(formatAlias).join("\n    , ")}]
-            , values = [${value.values.map(formatValue).join("\n    , ")}]
-            , binops = [${value.binops.map(formatBinop).join("\n    , ")}]
-} `
+    , comment = ${formatComment(value.comment)}
+    , tipe = ${formatType(value.type)}
+    }`
 }
 
 
@@ -153,9 +152,9 @@ function formatBinop(binop) {
     name = "${binop.name}"
         , comment = ${formatComment(binop.comment)}
             , unions = [${binop.unions.map(formatUnion).join("\n    , ")}]
-            , aliases = [${binop.aliases.map(formatAlias).join("\n    , ")}]
-            , values = [${binop.values.map(formatValue).join("\n    , ")}]
-            , binops = [${binop.binops.map(formatBinop).join("\n    , ")}]
+        , aliases = [${binop.aliases.map(formatAlias).join("\n    , ")}]
+        , values = [${binop.values.map(formatValue).join("\n    , ")}]
+        , binops = [${binop.binops.map(formatBinop).join("\n    , ")}]
 } `
 }
 
