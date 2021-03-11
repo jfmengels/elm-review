@@ -128,18 +128,15 @@ function formatComment(comment) {
 }
 
 function formatAlias(alias) {
-    return `{
-            name = "${alias.name}"
-            , comment = ${formatComment(alias.comment)
-        }
+    return `{ name = "${alias.name}"
+            , comment = ${formatComment(alias.comment)}
     , args = ${JSON.stringify(alias.args)}
     , tipe = ${formatType(alias.type)}
     }`
 }
 
 function formatValue(value) {
-    return `{
-    name = "${value.name}"
+    return `{ name = "${value.name}"
     , comment = ${formatComment(value.comment)}
     , tipe = ${formatType(value.type)}
     }`
