@@ -33,7 +33,11 @@ async function downloadFiles() {
 }
 
 function createFile([elmJson, docsJson]) {
-    const moduleName = formatModuleName(packageName);
+    const moduleName = packageName
+        .replace("/", "-")
+        .split("-")
+        .map(capitalize)
+        .join("");
 
     return `module Dependencies.${moduleName} exposing (dependency)
 
@@ -85,8 +89,8 @@ decodeType type_ =
 `
 }
 
-function formatModuleName(packageName) {
-    return "ElmParser"
+function capitalize(str) {
+    return str[0].toUpperCase() + str.slice(1);
 }
 
 function formatModule(moduleDoc) {
