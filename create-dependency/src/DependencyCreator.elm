@@ -66,6 +66,15 @@ formatValue value =
     }"""
 
 
+formatBinop binop =
+    "{ name = " ++ stringify binop.name ++ """
+    , comment = """ ++ stringify binop.comment ++ """
+    , tipe = """ ++ formatType binop.tipe ++ """
+    , associativity = Elm.Docs.""" ++ Debug.toString binop.associativity ++ """
+    , precedence = """ ++ String.fromInt binop.precedence ++ """
+    }"""
+
+
 formatAlias alias_ =
     "{ name = " ++ stringify alias_.name ++ """
     , args = """ ++ listOfThings stringify alias_.args ++ """
@@ -142,7 +151,7 @@ formatModule mod =
     , comment = """ ++ stringify mod.comment ++ """
     , aliases = """ ++ listOfThings formatAlias mod.aliases ++ """
     , unions = """ ++ listOfThings formatUnion mod.unions ++ """
-    , binops = []
+    , binops = """ ++ listOfThings formatBinop mod.binops ++ """
     , values = """ ++ listOfThings formatValue mod.values ++ """
     }"""
 
