@@ -39,7 +39,7 @@ function createFile([elmJson, docsJson]) {
         .map(capitalize)
         .join("");
 
-    return `module Dependencies.${moduleName} exposing (dependency)
+    return `module Review.Test.Dependencies.${moduleName} exposing (dependency)
 
 import Elm.Docs
 import Elm.Project
