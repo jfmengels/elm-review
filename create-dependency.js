@@ -11,7 +11,7 @@ function get(url) {
             resp.on('end', () => {
                 resolve(JSON.parse(data));
             });
-        }).on("error", resolve);
+        }).on("error", reject);
     })
 }
 
