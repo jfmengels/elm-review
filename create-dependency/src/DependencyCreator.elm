@@ -59,6 +59,13 @@ parseThings flags =
             error
 
 
+formatValue value =
+    "{ name = " ++ stringify value.name ++ """
+    , comment = """ ++ stringify value.comment ++ """
+    , tipe = """ ++ formatType value.tipe ++ """
+    }"""
+
+
 formatAlias alias_ =
     "{ name = " ++ stringify alias_.name ++ """
     , args = """ ++ listOfThings stringify alias_.args ++ """
@@ -107,6 +114,7 @@ formatType type_ =
 stringify : String -> String
 stringify s =
     s
+        |> String.replace "\\" "\\\\"
         |> String.replace "\"" "\\\""
         |> wrapInQuotes
 
@@ -135,7 +143,7 @@ formatModule mod =
     , aliases = """ ++ listOfThings formatAlias mod.aliases ++ """
     , unions = """ ++ listOfThings formatUnion mod.unions ++ """
     , binops = []
-    , values = []
+    , values = """ ++ listOfThings formatValue mod.values ++ """
     }"""
 
 
