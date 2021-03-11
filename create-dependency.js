@@ -39,7 +39,7 @@ function createFile([elmJson, docsJson]) {
 
 import Elm.Docs
 import Elm.Project
-import Elm.Type
+import Elm.Type exposing (Type(..))
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Review.Project.Dependency as Dependency exposing (Dependency)
@@ -102,10 +102,15 @@ function formatUnion(union) {
       , comment = ${formatComment(union.comment)}
       , args = ${JSON.stringify(union.args)}
       , tags = [ ${union.cases.map(
-        (([name, type]) =>
-            `( "${name}", ${JSON.stringify(type)} |> Decode.decodeString Elm.Type.decoder |> Result.toMaybe |> Maybe.withDefault [] )`)
+        (([name, types]) =>
+            `( "${name}", [ ${types.map(formatType).join(", ")} ] )`)
     ).join("\n    , ")} ]
       }`
+}
+
+function formatType(type) {
+    // |> Decode.decodeString Elm.Type.decoder |> Result.toMaybe |> Maybe.withDefault [] )
+    return `Var "a"`;
 }
 
 function formatComment(comment) {
