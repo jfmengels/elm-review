@@ -77,50 +77,7 @@ listOfThings mapper list =
 
 
 formatModule mod =
-    """{ aliases = [ { args = [], comment = 
-        |. symbol ")"
-
-All the parsers in this pipeline will chomp characters and produce values. So
-`symbol "("` will chomp one paren and produce a `()` value. Similarly, `float`
-will chomp some digits and produce a `Float` value. The `(|.)` and `(|=)`
-operators just decide whether we give the values to the `Point` function.
-
-So in this case, we skip the `()` from `symbol "("`, we skip the `()` from
-`spaces`, we keep the `Float` from `float`, etc.
-", name = "|=", precedence = 5, tipe = Lambda (Type "Parser.Parser" [ Lambda (Var "a") (Var "b") ]) (Lambda (Type "Parser.Parser" [ Var "a" ]) (Type "Parser.Parser" [ Var "b" ])) } ]
-    , comment = "
-
-# Parsers
-@docs Parser, run
-
-# Building Blocks
-@docs int, float, number, symbol, keyword, variable, end
-
-# Pipelines
-@docs succeed, (|=), (|.), lazy, andThen, problem
-
-# Branches
-@docs oneOf, map, backtrackable, commit, token
-
-# Loops
-@docs sequence, Trailing, loop, Step
-
-# Whitespace
-@docs spaces, lineComment, multiComment, Nestable
-
-# Chompers
-@docs getChompedString, chompIf, chompWhile, chompUntil, chompUntilEndOr, mapChompedString
-
-# Errors
-@docs DeadEnd, Problem, deadEndsToString
-
-# Indentation
-@docs withIndent, getIndent
-
-# Positions
-@docs getPosition, getRow, getCol, getOffset, getSource
-"
-    , name = """ ++ stringify mod.name ++ """
+    """{ aliases = """ ++ listOfThings formatAlias mod.aliases ++ """
     , unions = [ { args = [], comment = " Not all languages handle multi-line comments the same. Multi-line comments
 in C-style syntax are `NotNestable`, meaning they can be implemented like this:
 
