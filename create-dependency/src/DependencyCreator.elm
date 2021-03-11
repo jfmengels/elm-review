@@ -68,7 +68,18 @@ formatAlias alias_ =
 
 stringify : String -> String
 stringify s =
-    "\"\"\"" ++ String.replace "\"\"\"" """\\"\\"\\""" s ++ "\"\"\""
+    s
+        |> String.replace "\"" "\\\""
+        |> wrapInQuotes
+
+
+wrapInQuotes : String -> String
+wrapInQuotes s =
+    if String.contains "\n" s then
+        "\"\"\"" ++ s ++ "\"\"\""
+
+    else
+        "\"" ++ s ++ "\""
 
 
 listOfThings : (a -> String) -> List a -> String
