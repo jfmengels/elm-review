@@ -898,6 +898,9 @@ elmJson =
         , version = Elm.Version.fromString """ ++ stringify (Elm.Version.toString elmJson.version) ++ """ |> Maybe.withDefault Elm.Version.one
         }
 
+dependencyModules : List Elm.Docs.Module
+dependencyModules =
+    """ ++ dependencyModules ++ """
 
 unsafePackageName : String -> Elm.Package.Name
 unsafePackageName packageName =
