@@ -126,15 +126,11 @@ function formatComment(comment) {
 }
 
 function formatAlias(alias) {
-    return ""
-    return `{
-    name = "${alias.name}"
-        , comment = ${formatComment(alias.comment)}
-            , args = ${JSON.stringify(alias.unions)}
-      , cases = [${alias.aliases.map(formatAlias).join("\n    , ")}]
-        , values = [${alias.values.map(formatValue).join("\n    , ")}]
-        , binops = [${alias.binops.map(formatBinop).join("\n    , ")}]
-} `
+    return `{ name = "${alias.name}"
+    , comment = ${formatComment(alias.comment)}
+    , args = ${JSON.stringify(alias.args)}
+    , tipe = ${formatType(alias.type)}
+    }`
 }
 
 function formatValue(value) {
