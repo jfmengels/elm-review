@@ -6,7 +6,7 @@ import Elm.License
 import Elm.Module
 import Elm.Package
 import Elm.Project
-import Elm.Type
+import Elm.Type exposing (Type(..))
 import Elm.Version
 import Review.Project.Dependency as Dependency exposing (Dependency)
 
@@ -70,13 +70,13 @@ spec. Specifically, it does not accept the `userinfo` segment you see in email
 addresses like `tom@example.com`.
 """
               , tipe =
-                    Elm.Type.Record
-                        [ ( "protocol", Elm.Type.Type "Url.Protocol" [] )
-                        , ( "host", Elm.Type.Type "String.String" [] )
-                        , ( "port_", Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "Basics.Int" [] ] )
-                        , ( "path", Elm.Type.Type "String.String" [] )
-                        , ( "query", Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "String.String" [] ] )
-                        , ( "fragment", Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "String.String" [] ] )
+                    Record
+                        [ ( "protocol", Type "Url.Protocol" [] )
+                        , ( "host", Type "String.String" [] )
+                        , ( "port_", Type "Maybe.Maybe" [ Type "Basics.Int" [] ] )
+                        , ( "path", Type "String.String" [] )
+                        , ( "query", Type "Maybe.Maybe" [ Type "String.String" [] ] )
+                        , ( "fragment", Type "Maybe.Maybe" [ Type "String.String" [] ] )
                         ]
                         Nothing
               }
@@ -140,7 +140,7 @@ It just splits things up. [`Url.Parser`](Url-Parser) actually _needs_ the raw
 `query` string to parse it properly. Otherwise it could get confused about `=`
 and `&` characters!
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "Url.Url" [] ])
+              , tipe = Lambda (Type "String.String" []) (Type "Maybe.Maybe" [ Type "Url.Url" [] ])
               }
             , { name = "percentDecode"
               , comment = """ **Use [Url.Parser](Url-Parser) instead!** It will decode query
@@ -171,7 +171,7 @@ This is the same behavior as JavaScript's [`decodeURIComponent`][js] function.
 
 [js]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "String.String" [] ])
+              , tipe = Lambda (Type "String.String" []) (Type "Maybe.Maybe" [ Type "String.String" [] ])
               }
             , { name = "percentEncode"
               , comment = """ **Use [Url.Builder](Url-Builder) instead!** Functions like `absolute`,
@@ -204,12 +204,12 @@ notes about Unicode [here][wiki].
 [s2]: https://tools.ietf.org/html/rfc3986#section-2.1
 [wiki]: https://en.wikipedia.org/wiki/Percent-encoding
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" [])
+              , tipe = Lambda (Type "String.String" []) (Type "String.String" [])
               }
             , { name = "toString"
               , comment = """ Turn a [`Url`](#Url) into a `String`.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Url.Url" []) (Elm.Type.Type "String.String" [])
+              , tipe = Lambda (Type "Url.Url" []) (Type "String.String" [])
               }
             ]
       }
@@ -251,7 +251,7 @@ cross-origin.
               , tags =
                     [ ( "Absolute", [] )
                     , ( "Relative", [] )
-                    , ( "CrossOrigin", [ Elm.Type.Type "String.String" [] ] )
+                    , ( "CrossOrigin", [ Type "String.String" [] ] )
                     ]
               }
             ]
@@ -274,7 +274,7 @@ cross-origin.
 
 Notice that the URLs start with a slash!
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Url.Builder.QueryParameter" [] ]) (Elm.Type.Type "String.String" []))
+              , tipe = Lambda (Type "List.List" [ Type "String.String" [] ]) (Lambda (Type "List.List" [ Type "Url.Builder.QueryParameter" [] ]) (Type "String.String" []))
               }
             , { name = "crossOrigin"
               , comment = """ Create a cross-origin URL.
@@ -299,7 +299,7 @@ so the appropriate `Access-Control-Allow-Origin` header must be enabled on the
 [sop]: https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy
 [cors]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Url.Builder.QueryParameter" [] ]) (Elm.Type.Type "String.String" [])))
+              , tipe = Lambda (Type "String.String" []) (Lambda (Type "List.List" [ Type "String.String" [] ]) (Lambda (Type "List.List" [ Type "Url.Builder.QueryParameter" [] ]) (Type "String.String" [])))
               }
             , { name = "custom"
               , comment = """ Create custom URLs that may have a hash on the end:
@@ -320,7 +320,7 @@ so the appropriate `Access-Control-Allow-Origin` header must be enabled on the
       (Just "nose")
     -- "https://example.com:8042/over/there?name=ferret#nose"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Url.Builder.Root" []) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Url.Builder.QueryParameter" [] ]) (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Type "String.String" []))))
+              , tipe = Lambda (Type "Url.Builder.Root" []) (Lambda (Type "List.List" [ Type "String.String" [] ]) (Lambda (Type "List.List" [ Type "Url.Builder.QueryParameter" [] ]) (Lambda (Type "Maybe.Maybe" [ Type "String.String" [] ]) (Type "String.String" []))))
               }
             , { name = "int"
               , comment = """ Create a percent-encoded query parameter.
@@ -331,7 +331,7 @@ so the appropriate `Access-Control-Allow-Origin` header must be enabled on the
 Writing `int key n` is the same as writing `string key (String.fromInt n)`.
 So this is just a convenience function, making your code a bit shorter!
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Type "Url.Builder.QueryParameter" []))
+              , tipe = Lambda (Type "String.String" []) (Lambda (Type "Basics.Int" []) (Type "Url.Builder.QueryParameter" []))
               }
             , { name = "relative"
               , comment = """ Create a relative URL:
@@ -350,7 +350,7 @@ So this is just a convenience function, making your code a bit shorter!
 
 Notice that the URLs **do not** start with a slash!
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Url.Builder.QueryParameter" [] ]) (Elm.Type.Type "String.String" []))
+              , tipe = Lambda (Type "List.List" [ Type "String.String" [] ]) (Lambda (Type "List.List" [ Type "Url.Builder.QueryParameter" [] ]) (Type "String.String" []))
               }
             , { name = "string"
               , comment = """ Create a percent-encoded query parameter.
@@ -361,7 +361,7 @@ Notice that the URLs **do not** start with a slash!
     absolute ["products"] [ string "search" "coffee table" ]
     -- "/products?search=coffee%20table"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Url.Builder.QueryParameter" []))
+              , tipe = Lambda (Type "String.String" []) (Lambda (Type "String.String" []) (Type "Url.Builder.QueryParameter" []))
               }
             , { name = "toQuery"
               , comment = """ Convert a list of query parameters to a percent-encoded query. This
@@ -379,7 +379,7 @@ function is used by `absolute`, `relative`, etc.
     toQuery []
     -- ""
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Url.Builder.QueryParameter" [] ]) (Elm.Type.Type "String.String" [])
+              , tipe = Lambda (Type "List.List" [ Type "Url.Builder.QueryParameter" [] ]) (Type "String.String" [])
               }
             ]
       }
@@ -448,21 +448,21 @@ This module is primarily for parsing the `path` part.
     -- /wolf/         ==>  Nothing
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "Url.Parser.Parser"
-                            [ Elm.Type.Var "a"
-                            , Elm.Type.Var "b"
+                    Lambda
+                        (Type "Url.Parser.Parser"
+                            [ Var "a"
+                            , Var "b"
                             ]
                         )
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Url.Parser.Parser"
-                                [ Elm.Type.Var "b"
-                                , Elm.Type.Var "c"
+                        (Lambda
+                            (Type "Url.Parser.Parser"
+                                [ Var "b"
+                                , Var "c"
                                 ]
                             )
-                            (Elm.Type.Type "Url.Parser.Parser"
-                                [ Elm.Type.Var "a"
-                                , Elm.Type.Var "c"
+                            (Type "Url.Parser.Parser"
+                                [ Var "a"
+                                , Var "c"
                                 ]
                             )
                         )
@@ -496,16 +496,16 @@ your blog website:
     -- /blog/42/wolf    ==>  Nothing
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "Url.Parser.Parser"
-                            [ Elm.Type.Var "a"
-                            , Elm.Type.Lambda (Elm.Type.Var "query") (Elm.Type.Var "b")
+                    Lambda
+                        (Type "Url.Parser.Parser"
+                            [ Var "a"
+                            , Lambda (Var "query") (Var "b")
                             ]
                         )
-                        (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "query" ])
-                            (Elm.Type.Type "Url.Parser.Parser"
-                                [ Elm.Type.Var "a"
-                                , Elm.Type.Var "b"
+                        (Lambda (Type "Url.Parser.Query.Parser" [ Var "query" ])
+                            (Type "Url.Parser.Parser"
+                                [ Var "a"
+                                , Var "b"
                                 ]
                             )
                         )
@@ -533,11 +533,11 @@ You can use it to define something like “only CSS files” like this:
           Nothing
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Type "String.String" [])
-                        (Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "a" ]))
-                            (Elm.Type.Type "Url.Parser.Parser"
-                                [ Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b")
-                                , Elm.Type.Var "b"
+                    Lambda (Type "String.String" [])
+                        (Lambda (Lambda (Type "String.String" []) (Type "Maybe.Maybe" [ Var "a" ]))
+                            (Type "Url.Parser.Parser"
+                                [ Lambda (Var "a") (Var "b")
+                                , Var "b"
                                 ]
                             )
                         )
@@ -562,10 +562,10 @@ be handy for handling links to DOM elements within a page. Pages like this one!
 
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Var "fragment"))
-                        (Elm.Type.Type "Url.Parser.Parser"
-                            [ Elm.Type.Lambda (Elm.Type.Var "fragment") (Elm.Type.Var "a")
-                            , Elm.Type.Var "a"
+                    Lambda (Lambda (Type "Maybe.Maybe" [ Type "String.String" [] ]) (Var "fragment"))
+                        (Type "Url.Parser.Parser"
+                            [ Lambda (Var "fragment") (Var "a")
+                            , Var "a"
                             ]
                         )
               }
@@ -578,9 +578,9 @@ be handy for handling links to DOM elements within a page. Pages like this one!
     -- /        ==>  Nothing
 """
               , tipe =
-                    Elm.Type.Type "Url.Parser.Parser"
-                        [ Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Var "a")
-                        , Elm.Type.Var "a"
+                    Type "Url.Parser.Parser"
+                        [ Lambda (Type "Basics.Int" []) (Var "a")
+                        , Var "a"
                         ]
               }
             , { name = "map"
@@ -601,16 +601,16 @@ be handy for handling links to DOM elements within a page. Pages like this one!
     -- /user/sam/             ==>  Nothing
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Var "a")
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Url.Parser.Parser"
-                                [ Elm.Type.Var "a"
-                                , Elm.Type.Var "b"
+                    Lambda (Var "a")
+                        (Lambda
+                            (Type "Url.Parser.Parser"
+                                [ Var "a"
+                                , Var "b"
                                 ]
                             )
-                            (Elm.Type.Type "Url.Parser.Parser"
-                                [ Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "c")
-                                , Elm.Type.Var "c"
+                            (Type "Url.Parser.Parser"
+                                [ Lambda (Var "b") (Var "c")
+                                , Var "c"
                                 ]
                             )
                         )
@@ -647,17 +647,17 @@ be handy for handling links to DOM elements within a page. Pages like this one!
 If there are multiple parsers that could succeed, the first one wins.
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "List.List"
-                            [ Elm.Type.Type "Url.Parser.Parser"
-                                [ Elm.Type.Var "a"
-                                , Elm.Type.Var "b"
+                    Lambda
+                        (Type "List.List"
+                            [ Type "Url.Parser.Parser"
+                                [ Var "a"
+                                , Var "b"
                                 ]
                             ]
                         )
-                        (Elm.Type.Type "Url.Parser.Parser"
-                            [ Elm.Type.Var "a"
-                            , Elm.Type.Var "b"
+                        (Type "Url.Parser.Parser"
+                            [ Var "a"
+                            , Var "b"
                             ]
                         )
               }
@@ -703,13 +703,13 @@ the initial URL and any changes.
 [fs]: /packages/elm/browser/latest/Browser#fullscreen
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "Url.Parser.Parser"
-                            [ Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "a")
-                            , Elm.Type.Var "a"
+                    Lambda
+                        (Type "Url.Parser.Parser"
+                            [ Lambda (Var "a") (Var "a")
+                            , Var "a"
                             ]
                         )
-                        (Elm.Type.Lambda (Elm.Type.Type "Url.Url" []) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "a" ]))
+                        (Lambda (Type "Url.Url" []) (Type "Maybe.Maybe" [ Var "a" ]))
               }
             , { name = "query"
               , comment = """ The [`Url.Parser.Query`](Url-Parser-Query) module defines its own
@@ -727,10 +727,10 @@ This may be handy if you need query parameters but are not parsing any path
 segments.
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "query" ])
-                        (Elm.Type.Type "Url.Parser.Parser"
-                            [ Elm.Type.Lambda (Elm.Type.Var "query") (Elm.Type.Var "a")
-                            , Elm.Type.Var "a"
+                    Lambda (Type "Url.Parser.Query.Parser" [ Var "query" ])
+                        (Type "Url.Parser.Parser"
+                            [ Lambda (Var "query") (Var "a")
+                            , Var "a"
                             ]
                         )
               }
@@ -748,10 +748,10 @@ always used with [`</>`](#</>) or [`oneOf`](#oneOf). For example:
 The path segment must be an exact match!
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Type "String.String" [])
-                        (Elm.Type.Type "Url.Parser.Parser"
-                            [ Elm.Type.Var "a"
-                            , Elm.Type.Var "a"
+                    Lambda (Type "String.String" [])
+                        (Type "Url.Parser.Parser"
+                            [ Var "a"
+                            , Var "a"
                             ]
                         )
               }
@@ -764,9 +764,9 @@ The path segment must be an exact match!
     -- /        ==>  Nothing
 """
               , tipe =
-                    Elm.Type.Type "Url.Parser.Parser"
-                        [ Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Var "a")
-                        , Elm.Type.Var "a"
+                    Type "Url.Parser.Parser"
+                        [ Lambda (Type "String.String" []) (Var "a")
+                        , Var "a"
                         ]
               }
             , { name = "top"
@@ -786,9 +786,9 @@ The path segment must be an exact match!
     -- /blog/post/42  ==>  Just (Post 42)
 """
               , tipe =
-                    Elm.Type.Type "Url.Parser.Parser"
-                        [ Elm.Type.Var "a"
-                        , Elm.Type.Var "a"
+                    Type "Url.Parser.Parser"
+                        [ Var "a"
+                        , Var "a"
                         ]
               }
             ]
@@ -822,7 +822,7 @@ parameter by the `&` character.
               , args = [ "a" ]
               , comment = """ Parse a query like `?search=hat&page=2` into nice Elm data.
 """
-              , tipe = Elm.Type.Type "Url.Parser.Internal.QueryParser" [ Elm.Type.Var "a" ]
+              , tipe = Type "Url.Parser.Internal.QueryParser" [ Var "a" ]
               }
             ]
       , unions = []
@@ -845,7 +845,7 @@ posts on screen at once. You could say:
     -- ?post=2&post=x == [2]
     -- ?hats=2        == []
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Var "a")) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]))
+              , tipe = Lambda (Type "String.String" []) (Lambda (Lambda (Type "List.List" [ Type "String.String" [] ]) (Var "a")) (Type "Url.Parser.Query.Parser" [ Var "a" ]))
               }
             , { name = "enum"
               , comment = """ Handle enumerated parameters. Maybe you want a true-or-false parameter:
@@ -871,14 +871,14 @@ to get a parser of type `Parser Bool` that swallows any errors and defaults to
 **Note:** Parameters like `?debug` with no `=` are not supported by this library.
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Type "String.String" [])
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Dict.Dict"
-                                [ Elm.Type.Type "String.String" []
-                                , Elm.Type.Var "a"
+                    Lambda (Type "String.String" [])
+                        (Lambda
+                            (Type "Dict.Dict"
+                                [ Type "String.String" []
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "a" ] ])
+                            (Type "Url.Parser.Query.Parser" [ Type "Maybe.Maybe" [ Var "a" ] ])
                         )
               }
             , { name = "int"
@@ -897,7 +897,7 @@ to get a parser of type `Parser Bool` that swallows any errors and defaults to
 Check out [`custom`](#custom) if you need to handle multiple `page` parameters
 or something like that.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "Basics.Int" [] ] ])
+              , tipe = Lambda (Type "String.String" []) (Type "Url.Parser.Query.Parser" [ Type "Maybe.Maybe" [ Type "Basics.Int" [] ] ])
               }
             , { name = "map"
               , comment = """ Transform a parser in some way. Maybe you want your `page` query parser to
@@ -908,7 +908,7 @@ default to `1` if there is any problem?
       map (Result.withDefault 1) (int "page")
 
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b")) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]))
+              , tipe = Lambda (Lambda (Var "a") (Var "b")) (Lambda (Type "Url.Parser.Query.Parser" [ Var "a" ]) (Type "Url.Parser.Query.Parser" [ Var "b" ]))
               }
             , { name = "map2"
               , comment = """ Combine two parsers. A query like `?search=hats&page=2` could be parsed
@@ -924,7 +924,7 @@ with something like this:
       map2 Query (string "search") (int "page")
 
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "result"))) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "result" ])))
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Var "result"))) (Lambda (Type "Url.Parser.Query.Parser" [ Var "a" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "b" ]) (Type "Url.Parser.Query.Parser" [ Var "result" ])))
               }
             , { name = "map3"
               , comment = """ Combine three parsers. A query like `?search=hats&page=2&sort=ascending`
@@ -951,23 +951,23 @@ could be parsed with something like this:
         , ( "descending", Descending )
         ]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Var "result")))) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "c" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "result" ]))))
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Var "result")))) (Lambda (Type "Url.Parser.Query.Parser" [ Var "a" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "b" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "c" ]) (Type "Url.Parser.Query.Parser" [ Var "result" ]))))
               }
             , { name = "map4"
               , comment = ""
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Var "result"))))) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "c" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "d" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "result" ])))))
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Lambda (Var "d") (Var "result"))))) (Lambda (Type "Url.Parser.Query.Parser" [ Var "a" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "b" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "c" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "d" ]) (Type "Url.Parser.Query.Parser" [ Var "result" ])))))
               }
             , { name = "map5"
               , comment = ""
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Lambda (Elm.Type.Var "e") (Elm.Type.Var "result")))))) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "c" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "d" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "e" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "result" ]))))))
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Lambda (Var "d") (Lambda (Var "e") (Var "result")))))) (Lambda (Type "Url.Parser.Query.Parser" [ Var "a" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "b" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "c" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "d" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "e" ]) (Type "Url.Parser.Query.Parser" [ Var "result" ]))))))
               }
             , { name = "map6"
               , comment = ""
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Lambda (Elm.Type.Var "e") (Elm.Type.Lambda (Elm.Type.Var "f") (Elm.Type.Var "result"))))))) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "c" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "d" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "e" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "f" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "result" ])))))))
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Lambda (Var "d") (Lambda (Var "e") (Lambda (Var "f") (Var "result"))))))) (Lambda (Type "Url.Parser.Query.Parser" [ Var "a" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "b" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "c" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "d" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "e" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "f" ]) (Type "Url.Parser.Query.Parser" [ Var "result" ])))))))
               }
             , { name = "map7"
               , comment = ""
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Lambda (Elm.Type.Var "e") (Elm.Type.Lambda (Elm.Type.Var "f") (Elm.Type.Lambda (Elm.Type.Var "g") (Elm.Type.Var "result")))))))) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "c" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "d" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "e" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "f" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "g" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "result" ]))))))))
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Lambda (Var "d") (Lambda (Var "e") (Lambda (Var "f") (Lambda (Var "g") (Var "result")))))))) (Lambda (Type "Url.Parser.Query.Parser" [ Var "a" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "b" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "c" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "d" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "e" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "f" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "g" ]) (Type "Url.Parser.Query.Parser" [ Var "result" ]))))))))
               }
             , { name = "map8"
               , comment = """ If you need higher than eight, you can define a function like this:
@@ -983,7 +983,7 @@ And then you can chain it to do as many of these as you would like:
       |> apply (int "per-page")
 
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Lambda (Elm.Type.Var "e") (Elm.Type.Lambda (Elm.Type.Var "f") (Elm.Type.Lambda (Elm.Type.Var "g") (Elm.Type.Lambda (Elm.Type.Var "h") (Elm.Type.Var "result"))))))))) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "c" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "d" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "e" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "f" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "g" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "h" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "result" ])))))))))
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Lambda (Var "d") (Lambda (Var "e") (Lambda (Var "f") (Lambda (Var "g") (Lambda (Var "h") (Var "result"))))))))) (Lambda (Type "Url.Parser.Query.Parser" [ Var "a" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "b" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "c" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "d" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "e" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "f" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "g" ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "h" ]) (Type "Url.Parser.Query.Parser" [ Var "result" ])))))))))
               }
             , { name = "string"
               , comment = """ Handle `String` parameters.
@@ -1000,7 +1000,7 @@ And then you can chain it to do as many of these as you would like:
 Check out [`custom`](#custom) if you need to handle multiple `search`
 parameters for some reason.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "String.String" [] ] ])
+              , tipe = Lambda (Type "String.String" []) (Type "Url.Parser.Query.Parser" [ Type "Maybe.Maybe" [ Type "String.String" [] ] ])
               }
             ]
       }

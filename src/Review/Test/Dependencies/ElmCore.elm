@@ -6,7 +6,7 @@ import Elm.License
 import Elm.Module
 import Elm.Package
 import Elm.Project
-import Elm.Type
+import Elm.Type exposing (Type(..))
 import Elm.Version
 import Review.Project.Dependency as Dependency exposing (Dependency)
 
@@ -73,40 +73,40 @@ dream up.
 
     append (repeat 2 42) (repeat 3 81) == fromList [42,42,81,81,81]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ]))
+              , tipe = Lambda (Type "Array.Array" [ Var "a" ]) (Lambda (Type "Array.Array" [ Var "a" ]) (Type "Array.Array" [ Var "a" ]))
               }
             , { name = "empty"
               , comment = """ Return an empty array.
 
     length empty == 0
 """
-              , tipe = Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ]
+              , tipe = Type "Array.Array" [ Var "a" ]
               }
             , { name = "filter"
               , comment = """ Keep elements that pass the test.
 
     filter isEven (fromList [1,2,3,4,5,6]) == (fromList [2,4,6])
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "Basics.Bool" [])) (Elm.Type.Lambda (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ]))
+              , tipe = Lambda (Lambda (Var "a") (Type "Basics.Bool" [])) (Lambda (Type "Array.Array" [ Var "a" ]) (Type "Array.Array" [ Var "a" ]))
               }
             , { name = "foldl"
               , comment = """ Reduce an array from the left. Read `foldl` as fold from the left.
 
     foldl (::) [] (fromList [1,2,3]) == [3,2,1]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "b"))) (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ]) (Elm.Type.Var "b")))
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Var "b"))) (Lambda (Var "b") (Lambda (Type "Array.Array" [ Var "a" ]) (Var "b")))
               }
             , { name = "foldr"
               , comment = """ Reduce an array from the right. Read `foldr` as fold from the right.
 
     foldr (+) 0 (repeat 3 5) == 15
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "b"))) (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ]) (Elm.Type.Var "b")))
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Var "b"))) (Lambda (Var "b") (Lambda (Type "Array.Array" [ Var "a" ]) (Var "b")))
               }
             , { name = "fromList"
               , comment = """ Create an array from a `List`.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ])
+              , tipe = Lambda (Type "List.List" [ Var "a" ]) (Type "Array.Array" [ Var "a" ])
               }
             , { name = "get"
               , comment = """ Return `Just` the element at the index or `Nothing` if the index is out of
@@ -117,14 +117,14 @@ range.
     get  5 (fromList [0,1,2]) == Nothing
     get -1 (fromList [0,1,2]) == Nothing
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "a" ]))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "Array.Array" [ Var "a" ]) (Type "Maybe.Maybe" [ Var "a" ]))
               }
             , { name = "indexedMap"
               , comment = """ Apply a function on every element with its index as first argument.
 
     indexedMap (*) (fromList [5,5,5]) == fromList [0,5,10]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b"))) (Elm.Type.Lambda (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Array.Array" [ Elm.Type.Var "b" ]))
+              , tipe = Lambda (Lambda (Type "Basics.Int" []) (Lambda (Var "a") (Var "b"))) (Lambda (Type "Array.Array" [ Var "a" ]) (Type "Array.Array" [ Var "b" ]))
               }
             , { name = "initialize"
               , comment = """ Initialize an array. `initialize n f` creates an array of length `n` with
@@ -134,35 +134,35 @@ the element at index `i` initialized to the result of `(f i)`.
     initialize 4 (\\n -> n*n) == fromList [0,1,4,9]
     initialize 4 (always 0)  == fromList [0,0,0,0]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Var "a")) (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ]))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Lambda (Type "Basics.Int" []) (Var "a")) (Type "Array.Array" [ Var "a" ]))
               }
             , { name = "isEmpty"
               , comment = """ Determine if an array is empty.
 
     isEmpty empty == True
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Basics.Bool" [])
+              , tipe = Lambda (Type "Array.Array" [ Var "a" ]) (Type "Basics.Bool" [])
               }
             , { name = "length"
               , comment = """ Return the length of an array.
 
     length (fromList [1,2,3]) == 3
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Basics.Int" [])
+              , tipe = Lambda (Type "Array.Array" [ Var "a" ]) (Type "Basics.Int" [])
               }
             , { name = "map"
               , comment = """ Apply a function on every element in an array.
 
     map sqrt (fromList [1,4,9]) == fromList [1,2,3]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b")) (Elm.Type.Lambda (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Array.Array" [ Elm.Type.Var "b" ]))
+              , tipe = Lambda (Lambda (Var "a") (Var "b")) (Lambda (Type "Array.Array" [ Var "a" ]) (Type "Array.Array" [ Var "b" ]))
               }
             , { name = "push"
               , comment = """ Push an element onto the end of an array.
 
     push 3 (fromList [1,2]) == fromList [1,2,3]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ]))
+              , tipe = Lambda (Var "a") (Lambda (Type "Array.Array" [ Var "a" ]) (Type "Array.Array" [ Var "a" ]))
               }
             , { name = "repeat"
               , comment = """ Creates an array with a given length, filled with a default element.
@@ -172,7 +172,7 @@ the element at index `i` initialized to the result of `(f i)`.
 
 Notice that `repeat 3 x` is the same as `initialize 3 (always x)`.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ]))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Var "a") (Type "Array.Array" [ Var "a" ]))
               }
             , { name = "set"
               , comment = """ Set the element at a particular index. Returns an updated array.
@@ -180,7 +180,7 @@ If the index is out of range, the array is unaltered.
 
     set 1 7 (fromList [1,2,3]) == fromList [1,7,3]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ])))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Var "a") (Lambda (Type "Array.Array" [ Var "a" ]) (Type "Array.Array" [ Var "a" ])))
               }
             , { name = "slice"
               , comment = """ Get a sub-section of an array: `(slice start end array)`. The `start` is a
@@ -200,7 +200,7 @@ the end of the array.
 This makes it pretty easy to `pop` the last element off of an array:
 `slice 0 -1 array`
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ])))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "Basics.Int" []) (Lambda (Type "Array.Array" [ Var "a" ]) (Type "Array.Array" [ Var "a" ])))
               }
             , { name = "toIndexedList"
               , comment = """ Create an indexed list from an array. Each element of the array will be
@@ -209,11 +209,11 @@ paired with its index.
     toIndexedList (fromList ["cat","dog"]) == [(0,"cat"), (1,"dog")]
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ])
-                        (Elm.Type.Type "List.List"
-                            [ Elm.Type.Tuple
-                                [ Elm.Type.Type "Basics.Int" []
-                                , Elm.Type.Var "a"
+                    Lambda (Type "Array.Array" [ Var "a" ])
+                        (Type "List.List"
+                            [ Tuple
+                                [ Type "Basics.Int" []
+                                , Var "a"
                                 ]
                             ]
                         )
@@ -223,7 +223,7 @@ paired with its index.
 
     toList (fromList [3,5,8]) == [3,5,8]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Array.Array" [ Elm.Type.Var "a" ]) (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ])
+              , tipe = Lambda (Type "Array.Array" [ Var "a" ]) (Type "List.List" [ Var "a" ])
               }
             ]
       }
@@ -392,7 +392,7 @@ The relations are less than, equal to, and greater than.
 short-circuits. This means if `left` is `False` we do not bother evaluating `right`
 and just return `False` overall.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Bool" []) (Elm.Type.Lambda (Elm.Type.Type "Basics.Bool" []) (Elm.Type.Type "Basics.Bool" []))
+              , tipe = Lambda (Type "Basics.Bool" []) (Lambda (Type "Basics.Bool" []) (Type "Basics.Bool" []))
               , associativity = Elm.Docs.Right
               , precedence = 3
               }
@@ -401,7 +401,7 @@ and just return `False` overall.
 
 See [`(+)`](#+) for docs on the `number` type variable.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "number") (Elm.Type.Lambda (Elm.Type.Var "number") (Elm.Type.Var "number"))
+              , tipe = Lambda (Var "number") (Lambda (Var "number") (Var "number"))
               , associativity = Elm.Docs.Left
               , precedence = 7
               }
@@ -427,7 +427,7 @@ exactly what type of number you are dealing with. When you try to _infer_ these
 conversions (as Scala does) it can be even more confusing. Elm has opted for a
 design that makes all conversions explicit.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "number") (Elm.Type.Lambda (Elm.Type.Var "number") (Elm.Type.Var "number"))
+              , tipe = Lambda (Var "number") (Lambda (Var "number") (Var "number"))
               , associativity = Elm.Docs.Left
               , precedence = 6
               }
@@ -437,7 +437,7 @@ design that makes all conversions explicit.
     "hello" ++ "world" == "helloworld"
     [1,1,2] ++ [3,5,8] == [1,1,2,3,5,8]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "appendable") (Elm.Type.Lambda (Elm.Type.Var "appendable") (Elm.Type.Var "appendable"))
+              , tipe = Lambda (Var "appendable") (Lambda (Var "appendable") (Var "appendable"))
               , associativity = Elm.Docs.Right
               , precedence = 5
               }
@@ -446,7 +446,7 @@ design that makes all conversions explicit.
 
 See [`(+)`](#+) for docs on the `number` type variable.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "number") (Elm.Type.Lambda (Elm.Type.Var "number") (Elm.Type.Var "number"))
+              , tipe = Lambda (Var "number") (Lambda (Var "number") (Var "number"))
               , associativity = Elm.Docs.Left
               , precedence = 6
               }
@@ -463,7 +463,7 @@ See [`(+)`](#+) for docs on the `number` type variable.
     -5 / 4 == -1.25
 
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Type "Basics.Float" []))
+              , tipe = Lambda (Type "Basics.Float" []) (Lambda (Type "Basics.Float" []) (Type "Basics.Float" []))
               , associativity = Elm.Docs.Left
               , precedence = 7
               }
@@ -485,7 +485,7 @@ similar to `truncate (3 / 4)`.
 It may sometimes be useful to pair this with the [`remainderBy`](#remainderBy)
 function.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Type "Basics.Int" []))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "Basics.Int" []) (Type "Basics.Int" []))
               , associativity = Elm.Docs.Left
               , precedence = 7
               }
@@ -494,13 +494,13 @@ function.
 
 So `(a /= b)` is the same as `(not (a == b))`.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "Basics.Bool" []))
+              , tipe = Lambda (Var "a") (Lambda (Var "a") (Type "Basics.Bool" []))
               , associativity = Elm.Docs.None
               , precedence = 4
               }
             , { name = "<"
               , comment = ""
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Type "Basics.Bool" []))
+              , tipe = Lambda (Var "comparable") (Lambda (Var "comparable") (Type "Basics.Bool" []))
               , associativity = Elm.Docs.None
               , precedence = 4
               }
@@ -518,13 +518,13 @@ So our example expands out to something like this:
 
     \\n -> not (isEven (sqrt n))
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "c")) (Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b")) (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "c")))
+              , tipe = Lambda (Lambda (Var "b") (Var "c")) (Lambda (Lambda (Var "a") (Var "b")) (Lambda (Var "a") (Var "c")))
               , associativity = Elm.Docs.Left
               , precedence = 9
               }
             , { name = "<="
               , comment = ""
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Type "Basics.Bool" []))
+              , tipe = Lambda (Var "comparable") (Lambda (Var "comparable") (Type "Basics.Bool" []))
               , associativity = Elm.Docs.None
               , precedence = 4
               }
@@ -534,7 +534,7 @@ So our example expands out to something like this:
 It can help you avoid parentheses, which can be nice sometimes. Maybe you want
 to apply a function to a `case` expression? That sort of thing.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b")) (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b"))
+              , tipe = Lambda (Lambda (Var "a") (Var "b")) (Lambda (Var "a") (Var "b"))
               , associativity = Elm.Docs.Right
               , precedence = 0
               }
@@ -562,19 +562,19 @@ possible.
 
 [undecidable]: https://en.wikipedia.org/wiki/Undecidable_problem
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "Basics.Bool" []))
+              , tipe = Lambda (Var "a") (Lambda (Var "a") (Type "Basics.Bool" []))
               , associativity = Elm.Docs.None
               , precedence = 4
               }
             , { name = ">"
               , comment = ""
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Type "Basics.Bool" []))
+              , tipe = Lambda (Var "comparable") (Lambda (Var "comparable") (Type "Basics.Bool" []))
               , associativity = Elm.Docs.None
               , precedence = 4
               }
             , { name = ">="
               , comment = ""
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Type "Basics.Bool" []))
+              , tipe = Lambda (Var "comparable") (Lambda (Var "comparable") (Type "Basics.Bool" []))
               , associativity = Elm.Docs.None
               , precedence = 4
               }
@@ -585,7 +585,7 @@ example, the following code checks if the square root of a number is odd:
     sqrt >> isEven >> not
 
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b")) (Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "c")) (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "c")))
+              , tipe = Lambda (Lambda (Var "a") (Var "b")) (Lambda (Lambda (Var "b") (Var "c")) (Lambda (Var "a") (Var "c")))
               , associativity = Elm.Docs.Right
               , precedence = 9
               }
@@ -595,7 +595,7 @@ example, the following code checks if the square root of a number is odd:
     3^2 == 9
     3^3 == 27
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "number") (Elm.Type.Lambda (Elm.Type.Var "number") (Elm.Type.Var "number"))
+              , tipe = Lambda (Var "number") (Lambda (Var "number") (Var "number"))
               , associativity = Elm.Docs.Right
               , precedence = 8
               }
@@ -630,7 +630,7 @@ top-level helper function. Now the transformation has a name. The arguments are
 named. It has a type annotation. It is much more self-documenting that way!
 Testing the logic gets easier too. Nice side benefit!
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b")) (Elm.Type.Var "b"))
+              , tipe = Lambda (Var "a") (Lambda (Lambda (Var "a") (Var "b")) (Var "b"))
               , associativity = Elm.Docs.Left
               , precedence = 0
               }
@@ -646,7 +646,7 @@ Testing the logic gets easier too. Nice side benefit!
 short-circuits. This means if `left` is `True` we do not bother evaluating `right`
 and just return `True` overall.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Bool" []) (Elm.Type.Lambda (Elm.Type.Type "Basics.Bool" []) (Elm.Type.Type "Basics.Bool" []))
+              , tipe = Lambda (Type "Basics.Bool" []) (Lambda (Type "Basics.Bool" []) (Type "Basics.Bool" []))
               , associativity = Elm.Docs.Right
               , precedence = 2
               }
@@ -662,7 +662,7 @@ and just return `True` overall.
 
 [abs]: https://en.wikipedia.org/wiki/Absolute_value
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "number") (Elm.Type.Var "number")
+              , tipe = Lambda (Var "number") (Var "number")
               }
             , { name = "acos"
               , comment = """ Figure out the arccosine for `adjacent / hypotenuse` in radians:
@@ -670,7 +670,7 @@ and just return `True` overall.
     acos (1/2) == 1.0471975511965979 -- 60° or pi/3 radians
 
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Type "Basics.Float" [])
+              , tipe = Lambda (Type "Basics.Float" []) (Type "Basics.Float" [])
               }
             , { name = "always"
               , comment = """ Create a function that *always* returns the same value. Useful with
@@ -681,7 +681,7 @@ functions like `map`:
     -- List.map (\\_ -> 0) [1,2,3,4,5] == [0,0,0,0,0]
     -- always = (\\x _ -> x)
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "a"))
+              , tipe = Lambda (Var "a") (Lambda (Var "b") (Var "a"))
               }
             , { name = "asin"
               , comment = """ Figure out the arcsine for `opposite / hypotenuse` in radians:
@@ -689,7 +689,7 @@ functions like `map`:
     asin (1/2) == 0.5235987755982989 -- 30° or pi/6 radians
 
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Type "Basics.Float" [])
+              , tipe = Lambda (Type "Basics.Float" []) (Type "Basics.Float" [])
               }
             , { name = "atan"
               , comment = """ This helps you find the angle (in radians) to an `(x,y)` coordinate, but
@@ -710,7 +710,7 @@ Notice that everything is between `pi/2` and `-pi/2`. That is pretty useless
 for figuring out angles in any sort of visualization, so again, check out
 [`atan2`](#atan2) instead!
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Type "Basics.Float" [])
+              , tipe = Lambda (Type "Basics.Float" []) (Type "Basics.Float" [])
               }
             , { name = "atan2"
               , comment = """ This helps you find the angle (in radians) to an `(x,y)` coordinate.
@@ -723,7 +723,7 @@ range of angles:
     atan2 -1  1 == -0.7853981633974483 -- 315° or 7*pi/4 radians
 
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Type "Basics.Float" []))
+              , tipe = Lambda (Type "Basics.Float" []) (Lambda (Type "Basics.Float" []) (Type "Basics.Float" []))
               }
             , { name = "ceiling"
               , comment = """ Ceiling function, rounding up.
@@ -737,7 +737,7 @@ range of angles:
     ceiling -1.5 == -1
     ceiling -1.8 == -1
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Type "Basics.Int" [])
+              , tipe = Lambda (Type "Basics.Float" []) (Type "Basics.Int" [])
               }
             , { name = "clamp"
               , comment = """ Clamps a number within a given range. With the expression
@@ -747,7 +747,7 @@ range of angles:
      x      if 100 <= x < 200
     200     if 200 <= x
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "number") (Elm.Type.Lambda (Elm.Type.Var "number") (Elm.Type.Lambda (Elm.Type.Var "number") (Elm.Type.Var "number")))
+              , tipe = Lambda (Var "number") (Lambda (Var "number") (Lambda (Var "number") (Var "number")))
               }
             , { name = "compare"
               , comment = """ Compare any two comparable values. Comparable values include `String`,
@@ -758,7 +758,7 @@ are also the only values that work as `Dict` keys or `Set` members.
     compare 4 4 == EQ
     compare 5 4 == GT
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Type "Basics.Order" []))
+              , tipe = Lambda (Var "comparable") (Lambda (Var "comparable") (Type "Basics.Order" []))
               }
             , { name = "cos"
               , comment = """ Figure out the cosine given an angle in radians.
@@ -769,19 +769,19 @@ are also the only values that work as `Dict` keys or `Set` members.
     cos (pi/3)           == 0.5000000000000001
 
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Type "Basics.Float" [])
+              , tipe = Lambda (Type "Basics.Float" []) (Type "Basics.Float" [])
               }
             , { name = "degrees"
               , comment = """ Convert degrees to standard Elm angles (radians).
 
     degrees 180 == 3.141592653589793
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Type "Basics.Float" [])
+              , tipe = Lambda (Type "Basics.Float" []) (Type "Basics.Float" [])
               }
             , { name = "e"
               , comment = """ An approximation of e.
 """
-              , tipe = Elm.Type.Type "Basics.Float" []
+              , tipe = Type "Basics.Float" []
               }
             , { name = "floor"
               , comment = """ Floor function, rounding down.
@@ -795,7 +795,7 @@ are also the only values that work as `Dict` keys or `Set` members.
     floor -1.5 == -2
     floor -1.8 == -2
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Type "Basics.Int" [])
+              , tipe = Lambda (Type "Basics.Float" []) (Type "Basics.Int" [])
               }
             , { name = "fromPolar"
               , comment = """ Convert polar coordinates (r,&theta;) to Cartesian coordinates (x,y).
@@ -803,15 +803,15 @@ are also the only values that work as `Dict` keys or `Set` members.
     fromPolar (sqrt 2, degrees 45) == (1, 1)
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Tuple
-                            [ Elm.Type.Type "Basics.Float" []
-                            , Elm.Type.Type "Basics.Float" []
+                    Lambda
+                        (Tuple
+                            [ Type "Basics.Float" []
+                            , Type "Basics.Float" []
                             ]
                         )
-                        (Elm.Type.Tuple
-                            [ Elm.Type.Type "Basics.Float" []
-                            , Elm.Type.Type "Basics.Float" []
+                        (Tuple
+                            [ Type "Basics.Float" []
+                            , Type "Basics.Float" []
                             ]
                         )
               }
@@ -819,7 +819,7 @@ are also the only values that work as `Dict` keys or `Set` members.
               , comment = """ Given a value, returns exactly the same value. This is called
 [the identity function](https://en.wikipedia.org/wiki/Identity_function).
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "a")
+              , tipe = Lambda (Var "a") (Var "a")
               }
             , { name = "isInfinite"
               , comment = """ Determine whether a float is positive or negative infinity.
@@ -832,7 +832,7 @@ are also the only values that work as `Dict` keys or `Set` members.
 Notice that NaN is not infinite! For float `n` to be finite implies that
 `not (isInfinite n || isNaN n)` evaluates to `True`.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Type "Basics.Bool" [])
+              , tipe = Lambda (Type "Basics.Float" []) (Type "Basics.Bool" [])
               }
             , { name = "isNaN"
               , comment = """ Determine whether a float is an undefined or unrepresentable number.
@@ -844,7 +844,7 @@ numbers](https://en.wikipedia.org/wiki/NaN).
     isNaN (1/0)     == False  -- infinity is a number
     isNaN 1         == False
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Type "Basics.Bool" [])
+              , tipe = Lambda (Type "Basics.Float" []) (Type "Basics.Bool" [])
               }
             , { name = "logBase"
               , comment = """ Calculate the logarithm of a number with a given base.
@@ -852,7 +852,7 @@ numbers](https://en.wikipedia.org/wiki/NaN).
     logBase 10 100 == 2
     logBase 2 256 == 8
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Type "Basics.Float" []))
+              , tipe = Lambda (Type "Basics.Float" []) (Lambda (Type "Basics.Float" []) (Type "Basics.Float" []))
               }
             , { name = "max"
               , comment = """ Find the larger of two comparables.
@@ -860,7 +860,7 @@ numbers](https://en.wikipedia.org/wiki/NaN).
     max 42 12345678 == 12345678
     max "abc" "xyz" == "xyz"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Var "comparable"))
+              , tipe = Lambda (Var "comparable") (Lambda (Var "comparable") (Var "comparable"))
               }
             , { name = "min"
               , comment = """ Find the smaller of two comparables.
@@ -868,7 +868,7 @@ numbers](https://en.wikipedia.org/wiki/NaN).
     min 42 12345678 == 42
     min "abc" "xyz" == "abc"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Var "comparable"))
+              , tipe = Lambda (Var "comparable") (Lambda (Var "comparable") (Var "comparable"))
               }
             , { name = "modBy"
               , comment = """ Perform [modular arithmetic](https://en.wikipedia.org/wiki/Modular_arithmetic).
@@ -891,7 +891,7 @@ information.
 
 [dm]: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/divmodnote-letter.pdf
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Type "Basics.Int" []))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "Basics.Int" []) (Type "Basics.Int" []))
               }
             , { name = "negate"
               , comment = """ Negate a number.
@@ -900,7 +900,7 @@ information.
     negate -42 == 42
     negate 0 == 0
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "number") (Elm.Type.Var "number")
+              , tipe = Lambda (Var "number") (Var "number")
               }
             , { name = "never"
               , comment = """ A function that can never be called. Seems extremely pointless, but it
@@ -920,7 +920,7 @@ messages. You could say:
 So the `never` function is basically telling the type system, make sure no one
 ever calls me!
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Never" []) (Elm.Type.Var "a")
+              , tipe = Lambda (Type "Basics.Never" []) (Var "a")
               }
             , { name = "not"
               , comment = """ Negate a boolean value.
@@ -928,19 +928,19 @@ ever calls me!
     not True == False
     not False == True
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Bool" []) (Elm.Type.Type "Basics.Bool" [])
+              , tipe = Lambda (Type "Basics.Bool" []) (Type "Basics.Bool" [])
               }
             , { name = "pi"
               , comment = """ An approximation of pi.
 """
-              , tipe = Elm.Type.Type "Basics.Float" []
+              , tipe = Type "Basics.Float" []
               }
             , { name = "radians"
               , comment = """ Convert radians to standard Elm angles (radians).
 
     radians pi == 3.141592653589793
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Type "Basics.Float" [])
+              , tipe = Lambda (Type "Basics.Float" []) (Type "Basics.Float" [])
               }
             , { name = "remainderBy"
               , comment = """ Get the remainder after division. Here are bunch of examples of dividing by four:
@@ -954,7 +954,7 @@ information.
 
 [dm]: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/divmodnote-letter.pdf
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Type "Basics.Int" []))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "Basics.Int" []) (Type "Basics.Int" []))
               }
             , { name = "round"
               , comment = """ Round a number to the nearest integer.
@@ -968,7 +968,7 @@ information.
     round -1.5 == -1
     round -1.8 == -2
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Type "Basics.Int" [])
+              , tipe = Lambda (Type "Basics.Float" []) (Type "Basics.Int" [])
               }
             , { name = "sin"
               , comment = """ Figure out the sine given an angle in radians.
@@ -979,7 +979,7 @@ information.
     sin (pi/6)           == 0.49999999999999994
 
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Type "Basics.Float" [])
+              , tipe = Lambda (Type "Basics.Float" []) (Type "Basics.Float" [])
               }
             , { name = "sqrt"
               , comment = """ Take the square root of a number.
@@ -989,7 +989,7 @@ information.
     sqrt 16 == 4
     sqrt 25 == 5
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Type "Basics.Float" [])
+              , tipe = Lambda (Type "Basics.Float" []) (Type "Basics.Float" [])
               }
             , { name = "tan"
               , comment = """ Figure out the tangent given an angle in radians.
@@ -999,7 +999,7 @@ information.
     tan (radians (pi/4)) == 0.9999999999999999
     tan (pi/4)           == 0.9999999999999999
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Type "Basics.Float" [])
+              , tipe = Lambda (Type "Basics.Float" []) (Type "Basics.Float" [])
               }
             , { name = "toFloat"
               , comment = """ Convert an integer into a float. Useful when mixing `Int` and `Float`
@@ -1010,7 +1010,7 @@ values like this:
       toFloat number / 2
 
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Type "Basics.Float" [])
+              , tipe = Lambda (Type "Basics.Int" []) (Type "Basics.Float" [])
               }
             , { name = "toPolar"
               , comment = """ Convert Cartesian coordinates (x,y) to polar coordinates (r,&theta;).
@@ -1019,15 +1019,15 @@ values like this:
     toPolar (5,12) == (13, 1.1760052070951352)
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Tuple
-                            [ Elm.Type.Type "Basics.Float" []
-                            , Elm.Type.Type "Basics.Float" []
+                    Lambda
+                        (Tuple
+                            [ Type "Basics.Float" []
+                            , Type "Basics.Float" []
                             ]
                         )
-                        (Elm.Type.Tuple
-                            [ Elm.Type.Type "Basics.Float" []
-                            , Elm.Type.Type "Basics.Float" []
+                        (Tuple
+                            [ Type "Basics.Float" []
+                            , Type "Basics.Float" []
                             ]
                         )
               }
@@ -1043,14 +1043,14 @@ values like this:
     truncate -1.5 == -1
     truncate -1.8 == -1
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Type "Basics.Int" [])
+              , tipe = Lambda (Type "Basics.Float" []) (Type "Basics.Int" [])
               }
             , { name = "turns"
               , comment = """ Convert turns to standard Elm angles (radians). One turn is equal to 360°.
 
     turns (1/2) == 3.141592653589793
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Type "Basics.Float" [])
+              , tipe = Lambda (Type "Basics.Float" []) (Type "Basics.Float" [])
               }
             , { name = "xor"
               , comment = """ The exclusive-or operator. `True` if exactly one input is `True`.
@@ -1060,7 +1060,7 @@ values like this:
     xor False True  == True
     xor False False == False
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Bool" []) (Elm.Type.Lambda (Elm.Type.Type "Basics.Bool" []) (Elm.Type.Type "Basics.Bool" []))
+              , tipe = Lambda (Type "Basics.Bool" []) (Lambda (Type "Basics.Bool" []) (Type "Basics.Bool" []))
               }
             ]
       }
@@ -1080,17 +1080,17 @@ values like this:
             [ { name = "and"
               , comment = """ Bitwise AND
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Type "Basics.Int" []))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "Basics.Int" []) (Type "Basics.Int" []))
               }
             , { name = "complement"
               , comment = """ Flip each bit individually, often called bitwise NOT
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Type "Basics.Int" [])
+              , tipe = Lambda (Type "Basics.Int" []) (Type "Basics.Int" [])
               }
             , { name = "or"
               , comment = """ Bitwise OR
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Type "Basics.Int" []))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "Basics.Int" []) (Type "Basics.Int" []))
               }
             , { name = "shiftLeftBy"
               , comment = """ Shift bits to the left by a given offset, filling new bits with zeros.
@@ -1099,7 +1099,7 @@ This can be used to multiply numbers by powers of two.
     shiftLeftBy 1 5 == 10
     shiftLeftBy 5 1 == 32
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Type "Basics.Int" []))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "Basics.Int" []) (Type "Basics.Int" []))
               }
             , { name = "shiftRightBy"
               , comment = """ Shift bits to the right by a given offset, filling new bits with
@@ -1115,7 +1115,7 @@ with copies of the highest bit.
 
 [ars]: https://en.wikipedia.org/wiki/Bitwise_operation#Arithmetic_shift
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Type "Basics.Int" []))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "Basics.Int" []) (Type "Basics.Int" []))
               }
             , { name = "shiftRightZfBy"
               , comment = """ Shift bits to the right by a given offset, filling new bits with zeros.
@@ -1130,12 +1130,12 @@ zeros.
 
 [lrs]: https://en.wikipedia.org/wiki/Bitwise_operation#Logical_shift
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Type "Basics.Int" []))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "Basics.Int" []) (Type "Basics.Int" []))
               }
             , { name = "xor"
               , comment = """ Bitwise XOR
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Type "Basics.Int" []))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "Basics.Int" []) (Type "Basics.Int" []))
               }
             ]
       }
@@ -1209,7 +1209,7 @@ range, you get [the replacement character][fffd].
 [cp]: https://en.wikipedia.org/wiki/Code_point
 [fffd]: https://en.wikipedia.org/wiki/Specials_(Unicode_block)#Replacement_character
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Type "Char.Char" [])
+              , tipe = Lambda (Type "Basics.Int" []) (Type "Char.Char" [])
               }
             , { name = "isAlpha"
               , comment = """ Detect upper case and lower case ASCII characters.
@@ -1223,7 +1223,7 @@ range, you get [the replacement character][fffd].
     isAlpha '-' == False
     isAlpha 'π' == False
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" [])
+              , tipe = Lambda (Type "Char.Char" []) (Type "Basics.Bool" [])
               }
             , { name = "isAlphaNum"
               , comment = """ Detect upper case and lower case ASCII characters.
@@ -1238,7 +1238,7 @@ range, you get [the replacement character][fffd].
     isAlphaNum '-' == False
     isAlphaNum 'π' == False
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" [])
+              , tipe = Lambda (Type "Char.Char" []) (Type "Basics.Bool" [])
               }
             , { name = "isDigit"
               , comment = """ Detect digits `0123456789`
@@ -1252,12 +1252,12 @@ range, you get [the replacement character][fffd].
     isDigit 'b' == False
     isDigit 'A' == False
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" [])
+              , tipe = Lambda (Type "Char.Char" []) (Type "Basics.Bool" [])
               }
             , { name = "isHexDigit"
               , comment = """ Detect hexadecimal digits `0123456789abcdefABCDEF`
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" [])
+              , tipe = Lambda (Type "Char.Char" []) (Type "Basics.Bool" [])
               }
             , { name = "isLower"
               , comment = """ Detect lower case ASCII characters.
@@ -1272,7 +1272,7 @@ range, you get [the replacement character][fffd].
     isLower '-' == False
     isLower 'π' == False
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" [])
+              , tipe = Lambda (Type "Char.Char" []) (Type "Basics.Bool" [])
               }
             , { name = "isOctDigit"
               , comment = """ Detect octal digits `01234567`
@@ -1286,7 +1286,7 @@ range, you get [the replacement character][fffd].
     isOctDigit 'a' == False
     isOctDigit 'A' == False
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" [])
+              , tipe = Lambda (Type "Char.Char" []) (Type "Basics.Bool" [])
               }
             , { name = "isUpper"
               , comment = """ Detect upper case ASCII characters.
@@ -1301,7 +1301,7 @@ range, you get [the replacement character][fffd].
     isUpper '-' == False
     isUpper 'Σ' == False
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" [])
+              , tipe = Lambda (Type "Char.Char" []) (Type "Basics.Bool" [])
               }
             , { name = "toCode"
               , comment = """ Convert to the corresponding Unicode [code point][cp].
@@ -1314,23 +1314,23 @@ range, you get [the replacement character][fffd].
     toCode '𝌆' == 0x1D306
     toCode '😃' == 0x1F603
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Int" [])
+              , tipe = Lambda (Type "Char.Char" []) (Type "Basics.Int" [])
               }
             , { name = "toLocaleLower"
               , comment = " Convert to lower case, according to any locale-specific case mappings. "
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Char.Char" [])
+              , tipe = Lambda (Type "Char.Char" []) (Type "Char.Char" [])
               }
             , { name = "toLocaleUpper"
               , comment = " Convert to upper case, according to any locale-specific case mappings. "
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Char.Char" [])
+              , tipe = Lambda (Type "Char.Char" []) (Type "Char.Char" [])
               }
             , { name = "toLower"
               , comment = " Convert to lower case. "
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Char.Char" [])
+              , tipe = Lambda (Type "Char.Char" []) (Type "Char.Char" [])
               }
             , { name = "toUpper"
               , comment = " Convert to upper case. "
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Char.Char" [])
+              , tipe = Lambda (Type "Char.Char" []) (Type "Char.Char" [])
               }
             ]
       }
@@ -1364,7 +1364,7 @@ use ports for now. That will give you full access to reading and writing in the
 terminal. We may have a package in Elm for this someday, but browser
 applications are the primary focus of platform development for now.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "a"))
+              , tipe = Lambda (Type "String.String" []) (Lambda (Var "a") (Var "a"))
               }
             , { name = "toString"
               , comment = """ Turn any kind of value into a string.
@@ -1384,7 +1384,7 @@ a bunch of runtime metadata. For example, it shortens record field names, and
 we need that info to `toString` the value! As a consequence, packages cannot
 use `toString` because they may be used in `--optimize` mode.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "String.String" [])
+              , tipe = Lambda (Var "a") (Type "String.String" [])
               }
             , { name = "todo"
               , comment = """ This is a placeholder for code that you will write later.
@@ -1417,7 +1417,7 @@ exceptions should not appear in the resulting applications.
 like [`Maybe`](#Maybe) and [`Result`](#Result) which guarantee that no error
 goes unhandled!
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Var "a")
+              , tipe = Lambda (Type "String.String" []) (Var "a")
               }
             ]
       }
@@ -1483,21 +1483,21 @@ that lets you look up a `String` (such as user names) and find the associated
               , comment = """ Keep a key-value pair when its key does not appear in the second dictionary.
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "Dict.Dict"
-                            [ Elm.Type.Var "comparable"
-                            , Elm.Type.Var "a"
+                    Lambda
+                        (Type "Dict.Dict"
+                            [ Var "comparable"
+                            , Var "a"
                             ]
                         )
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Dict.Dict"
-                                [ Elm.Type.Var "comparable"
-                                , Elm.Type.Var "b"
+                        (Lambda
+                            (Type "Dict.Dict"
+                                [ Var "comparable"
+                                , Var "b"
                                 ]
                             )
-                            (Elm.Type.Type "Dict.Dict"
-                                [ Elm.Type.Var "comparable"
-                                , Elm.Type.Var "a"
+                            (Type "Dict.Dict"
+                                [ Var "comparable"
+                                , Var "a"
                                 ]
                             )
                         )
@@ -1505,24 +1505,24 @@ that lets you look up a `String` (such as user names) and find the associated
             , { name = "empty"
               , comment = " Create an empty dictionary. "
               , tipe =
-                    Elm.Type.Type "Dict.Dict"
-                        [ Elm.Type.Var "k"
-                        , Elm.Type.Var "v"
+                    Type "Dict.Dict"
+                        [ Var "k"
+                        , Var "v"
                         ]
               }
             , { name = "filter"
               , comment = " Keep only the key-value pairs that pass the given test. "
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Lambda (Elm.Type.Var "v") (Elm.Type.Type "Basics.Bool" [])))
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Dict.Dict"
-                                [ Elm.Type.Var "comparable"
-                                , Elm.Type.Var "v"
+                    Lambda (Lambda (Var "comparable") (Lambda (Var "v") (Type "Basics.Bool" [])))
+                        (Lambda
+                            (Type "Dict.Dict"
+                                [ Var "comparable"
+                                , Var "v"
                                 ]
                             )
-                            (Elm.Type.Type "Dict.Dict"
-                                [ Elm.Type.Var "comparable"
-                                , Elm.Type.Var "v"
+                            (Type "Dict.Dict"
+                                [ Var "comparable"
+                                , Var "v"
                                 ]
                             )
                         )
@@ -1543,15 +1543,15 @@ that lets you look up a `String` (such as user names) and find the associated
     -- getAges users == [33,19,28]
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "k") (Elm.Type.Lambda (Elm.Type.Var "v") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "b"))))
-                        (Elm.Type.Lambda (Elm.Type.Var "b")
-                            (Elm.Type.Lambda
-                                (Elm.Type.Type "Dict.Dict"
-                                    [ Elm.Type.Var "k"
-                                    , Elm.Type.Var "v"
+                    Lambda (Lambda (Var "k") (Lambda (Var "v") (Lambda (Var "b") (Var "b"))))
+                        (Lambda (Var "b")
+                            (Lambda
+                                (Type "Dict.Dict"
+                                    [ Var "k"
+                                    , Var "v"
                                     ]
                                 )
-                                (Elm.Type.Var "b")
+                                (Var "b")
                             )
                         )
               }
@@ -1571,32 +1571,32 @@ that lets you look up a `String` (such as user names) and find the associated
     -- getAges users == [28,19,33]
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "k") (Elm.Type.Lambda (Elm.Type.Var "v") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "b"))))
-                        (Elm.Type.Lambda (Elm.Type.Var "b")
-                            (Elm.Type.Lambda
-                                (Elm.Type.Type "Dict.Dict"
-                                    [ Elm.Type.Var "k"
-                                    , Elm.Type.Var "v"
+                    Lambda (Lambda (Var "k") (Lambda (Var "v") (Lambda (Var "b") (Var "b"))))
+                        (Lambda (Var "b")
+                            (Lambda
+                                (Type "Dict.Dict"
+                                    [ Var "k"
+                                    , Var "v"
                                     ]
                                 )
-                                (Elm.Type.Var "b")
+                                (Var "b")
                             )
                         )
               }
             , { name = "fromList"
               , comment = " Convert an association list into a dictionary. "
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "List.List"
-                            [ Elm.Type.Tuple
-                                [ Elm.Type.Var "comparable"
-                                , Elm.Type.Var "v"
+                    Lambda
+                        (Type "List.List"
+                            [ Tuple
+                                [ Var "comparable"
+                                , Var "v"
                                 ]
                             ]
                         )
-                        (Elm.Type.Type "Dict.Dict"
-                            [ Elm.Type.Var "comparable"
-                            , Elm.Type.Var "v"
+                        (Type "Dict.Dict"
+                            [ Var "comparable"
+                            , Var "v"
                             ]
                         )
               }
@@ -1613,31 +1613,31 @@ dictionary.
 
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Var "comparable")
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Dict.Dict"
-                                [ Elm.Type.Var "comparable"
-                                , Elm.Type.Var "v"
+                    Lambda (Var "comparable")
+                        (Lambda
+                            (Type "Dict.Dict"
+                                [ Var "comparable"
+                                , Var "v"
                                 ]
                             )
-                            (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "v" ])
+                            (Type "Maybe.Maybe" [ Var "v" ])
                         )
               }
             , { name = "insert"
               , comment = """ Insert a key-value pair into a dictionary. Replaces value when there is
 a collision. """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Var "comparable")
-                        (Elm.Type.Lambda (Elm.Type.Var "v")
-                            (Elm.Type.Lambda
-                                (Elm.Type.Type "Dict.Dict"
-                                    [ Elm.Type.Var "comparable"
-                                    , Elm.Type.Var "v"
+                    Lambda (Var "comparable")
+                        (Lambda (Var "v")
+                            (Lambda
+                                (Type "Dict.Dict"
+                                    [ Var "comparable"
+                                    , Var "v"
                                     ]
                                 )
-                                (Elm.Type.Type "Dict.Dict"
-                                    [ Elm.Type.Var "comparable"
-                                    , Elm.Type.Var "v"
+                                (Type "Dict.Dict"
+                                    [ Var "comparable"
+                                    , Var "v"
                                     ]
                                 )
                             )
@@ -1648,21 +1648,21 @@ a collision. """
 Preference is given to values in the first dictionary.
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "Dict.Dict"
-                            [ Elm.Type.Var "comparable"
-                            , Elm.Type.Var "v"
+                    Lambda
+                        (Type "Dict.Dict"
+                            [ Var "comparable"
+                            , Var "v"
                             ]
                         )
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Dict.Dict"
-                                [ Elm.Type.Var "comparable"
-                                , Elm.Type.Var "v"
+                        (Lambda
+                            (Type "Dict.Dict"
+                                [ Var "comparable"
+                                , Var "v"
                                 ]
                             )
-                            (Elm.Type.Type "Dict.Dict"
-                                [ Elm.Type.Var "comparable"
-                                , Elm.Type.Var "v"
+                            (Type "Dict.Dict"
+                                [ Var "comparable"
+                                , Var "v"
                                 ]
                             )
                         )
@@ -1673,13 +1673,13 @@ Preference is given to values in the first dictionary.
     isEmpty empty == True
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "Dict.Dict"
-                            [ Elm.Type.Var "k"
-                            , Elm.Type.Var "v"
+                    Lambda
+                        (Type "Dict.Dict"
+                            [ Var "k"
+                            , Var "v"
                             ]
                         )
-                        (Elm.Type.Type "Basics.Bool" [])
+                        (Type "Basics.Bool" [])
               }
             , { name = "keys"
               , comment = """ Get all of the keys in a dictionary, sorted from lowest to highest.
@@ -1687,28 +1687,28 @@ Preference is given to values in the first dictionary.
     keys (fromList [(0,"Alice"),(1,"Bob")]) == [0,1]
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "Dict.Dict"
-                            [ Elm.Type.Var "k"
-                            , Elm.Type.Var "v"
+                    Lambda
+                        (Type "Dict.Dict"
+                            [ Var "k"
+                            , Var "v"
                             ]
                         )
-                        (Elm.Type.Type "List.List" [ Elm.Type.Var "k" ])
+                        (Type "List.List" [ Var "k" ])
               }
             , { name = "map"
               , comment = """ Apply a function to all values in a dictionary.
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "k") (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b")))
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Dict.Dict"
-                                [ Elm.Type.Var "k"
-                                , Elm.Type.Var "a"
+                    Lambda (Lambda (Var "k") (Lambda (Var "a") (Var "b")))
+                        (Lambda
+                            (Type "Dict.Dict"
+                                [ Var "k"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Type "Dict.Dict"
-                                [ Elm.Type.Var "k"
-                                , Elm.Type.Var "b"
+                            (Type "Dict.Dict"
+                                [ Var "k"
+                                , Var "b"
                                 ]
                             )
                         )
@@ -1716,14 +1716,14 @@ Preference is given to values in the first dictionary.
             , { name = "member"
               , comment = " Determine if a key is in a dictionary. "
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Var "comparable")
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Dict.Dict"
-                                [ Elm.Type.Var "comparable"
-                                , Elm.Type.Var "v"
+                    Lambda (Var "comparable")
+                        (Lambda
+                            (Type "Dict.Dict"
+                                [ Var "comparable"
+                                , Var "v"
                                 ]
                             )
-                            (Elm.Type.Type "Basics.Bool" [])
+                            (Type "Basics.Bool" [])
                         )
               }
             , { name = "merge"
@@ -1738,22 +1738,22 @@ You then traverse all the keys from lowest to highest, building up whatever
 you want.
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "result") (Elm.Type.Var "result"))))
-                        (Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "result") (Elm.Type.Var "result")))))
-                            (Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "result") (Elm.Type.Var "result"))))
-                                (Elm.Type.Lambda
-                                    (Elm.Type.Type "Dict.Dict"
-                                        [ Elm.Type.Var "comparable"
-                                        , Elm.Type.Var "a"
+                    Lambda (Lambda (Var "comparable") (Lambda (Var "a") (Lambda (Var "result") (Var "result"))))
+                        (Lambda (Lambda (Var "comparable") (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "result") (Var "result")))))
+                            (Lambda (Lambda (Var "comparable") (Lambda (Var "b") (Lambda (Var "result") (Var "result"))))
+                                (Lambda
+                                    (Type "Dict.Dict"
+                                        [ Var "comparable"
+                                        , Var "a"
                                         ]
                                     )
-                                    (Elm.Type.Lambda
-                                        (Elm.Type.Type "Dict.Dict"
-                                            [ Elm.Type.Var "comparable"
-                                            , Elm.Type.Var "b"
+                                    (Lambda
+                                        (Type "Dict.Dict"
+                                            [ Var "comparable"
+                                            , Var "b"
                                             ]
                                         )
-                                        (Elm.Type.Lambda (Elm.Type.Var "result") (Elm.Type.Var "result"))
+                                        (Lambda (Var "result") (Var "result"))
                                     )
                                 )
                             )
@@ -1765,21 +1765,21 @@ contains all key-value pairs which passed the test, and the second contains
 the pairs that did not.
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Lambda (Elm.Type.Var "v") (Elm.Type.Type "Basics.Bool" [])))
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Dict.Dict"
-                                [ Elm.Type.Var "comparable"
-                                , Elm.Type.Var "v"
+                    Lambda (Lambda (Var "comparable") (Lambda (Var "v") (Type "Basics.Bool" [])))
+                        (Lambda
+                            (Type "Dict.Dict"
+                                [ Var "comparable"
+                                , Var "v"
                                 ]
                             )
-                            (Elm.Type.Tuple
-                                [ Elm.Type.Type "Dict.Dict"
-                                    [ Elm.Type.Var "comparable"
-                                    , Elm.Type.Var "v"
+                            (Tuple
+                                [ Type "Dict.Dict"
+                                    [ Var "comparable"
+                                    , Var "v"
                                     ]
-                                , Elm.Type.Type "Dict.Dict"
-                                    [ Elm.Type.Var "comparable"
-                                    , Elm.Type.Var "v"
+                                , Type "Dict.Dict"
+                                    [ Var "comparable"
+                                    , Var "v"
                                     ]
                                 ]
                             )
@@ -1789,16 +1789,16 @@ the pairs that did not.
               , comment = """ Remove a key-value pair from a dictionary. If the key is not found,
 no changes are made. """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Var "comparable")
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Dict.Dict"
-                                [ Elm.Type.Var "comparable"
-                                , Elm.Type.Var "v"
+                    Lambda (Var "comparable")
+                        (Lambda
+                            (Type "Dict.Dict"
+                                [ Var "comparable"
+                                , Var "v"
                                 ]
                             )
-                            (Elm.Type.Type "Dict.Dict"
-                                [ Elm.Type.Var "comparable"
-                                , Elm.Type.Var "v"
+                            (Type "Dict.Dict"
+                                [ Var "comparable"
+                                , Var "v"
                                 ]
                             )
                         )
@@ -1806,11 +1806,11 @@ no changes are made. """
             , { name = "singleton"
               , comment = " Create a dictionary with one key-value pair. "
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Var "comparable")
-                        (Elm.Type.Lambda (Elm.Type.Var "v")
-                            (Elm.Type.Type "Dict.Dict"
-                                [ Elm.Type.Var "comparable"
-                                , Elm.Type.Var "v"
+                    Lambda (Var "comparable")
+                        (Lambda (Var "v")
+                            (Type "Dict.Dict"
+                                [ Var "comparable"
+                                , Var "v"
                                 ]
                             )
                         )
@@ -1818,27 +1818,27 @@ no changes are made. """
             , { name = "size"
               , comment = " Determine the number of key-value pairs in the dictionary. "
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "Dict.Dict"
-                            [ Elm.Type.Var "k"
-                            , Elm.Type.Var "v"
+                    Lambda
+                        (Type "Dict.Dict"
+                            [ Var "k"
+                            , Var "v"
                             ]
                         )
-                        (Elm.Type.Type "Basics.Int" [])
+                        (Type "Basics.Int" [])
               }
             , { name = "toList"
               , comment = " Convert a dictionary into an association list of key-value pairs, sorted by keys. "
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "Dict.Dict"
-                            [ Elm.Type.Var "k"
-                            , Elm.Type.Var "v"
+                    Lambda
+                        (Type "Dict.Dict"
+                            [ Var "k"
+                            , Var "v"
                             ]
                         )
-                        (Elm.Type.Type "List.List"
-                            [ Elm.Type.Tuple
-                                [ Elm.Type.Var "k"
-                                , Elm.Type.Var "v"
+                        (Type "List.List"
+                            [ Tuple
+                                [ Var "k"
+                                , Var "v"
                                 ]
                             ]
                         )
@@ -1848,21 +1848,21 @@ no changes are made. """
 to the first dictionary.
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "Dict.Dict"
-                            [ Elm.Type.Var "comparable"
-                            , Elm.Type.Var "v"
+                    Lambda
+                        (Type "Dict.Dict"
+                            [ Var "comparable"
+                            , Var "v"
                             ]
                         )
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Dict.Dict"
-                                [ Elm.Type.Var "comparable"
-                                , Elm.Type.Var "v"
+                        (Lambda
+                            (Type "Dict.Dict"
+                                [ Var "comparable"
+                                , Var "v"
                                 ]
                             )
-                            (Elm.Type.Type "Dict.Dict"
-                                [ Elm.Type.Var "comparable"
-                                , Elm.Type.Var "v"
+                            (Type "Dict.Dict"
+                                [ Var "comparable"
+                                , Var "v"
                                 ]
                             )
                         )
@@ -1870,17 +1870,17 @@ to the first dictionary.
             , { name = "update"
               , comment = " Update the value of a dictionary for a specific key with a given function. "
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Var "comparable")
-                        (Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "v" ]) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "v" ]))
-                            (Elm.Type.Lambda
-                                (Elm.Type.Type "Dict.Dict"
-                                    [ Elm.Type.Var "comparable"
-                                    , Elm.Type.Var "v"
+                    Lambda (Var "comparable")
+                        (Lambda (Lambda (Type "Maybe.Maybe" [ Var "v" ]) (Type "Maybe.Maybe" [ Var "v" ]))
+                            (Lambda
+                                (Type "Dict.Dict"
+                                    [ Var "comparable"
+                                    , Var "v"
                                     ]
                                 )
-                                (Elm.Type.Type "Dict.Dict"
-                                    [ Elm.Type.Var "comparable"
-                                    , Elm.Type.Var "v"
+                                (Type "Dict.Dict"
+                                    [ Var "comparable"
+                                    , Var "v"
                                     ]
                                 )
                             )
@@ -1892,13 +1892,13 @@ to the first dictionary.
     values (fromList [(0,"Alice"),(1,"Bob")]) == ["Alice", "Bob"]
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "Dict.Dict"
-                            [ Elm.Type.Var "k"
-                            , Elm.Type.Var "v"
+                    Lambda
+                        (Type "Dict.Dict"
+                            [ Var "k"
+                            , Var "v"
                             ]
                         )
-                        (Elm.Type.Type "List.List" [ Elm.Type.Var "v" ])
+                        (Type "List.List" [ Var "v" ])
               }
             ]
       }
@@ -1938,7 +1938,7 @@ with them!
 This operator is pronounced *cons* for historical reasons, but you can think
 of it like pushing an entry onto a stack.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]))
+              , tipe = Lambda (Var "a") (Lambda (Type "List.List" [ Var "a" ]) (Type "List.List" [ Var "a" ]))
               , associativity = Elm.Docs.Right
               , precedence = 5
               }
@@ -1951,7 +1951,7 @@ of it like pushing an entry onto a stack.
     all isEven [2,3] == False
     all isEven [] == True
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "Basics.Bool" [])) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Basics.Bool" []))
+              , tipe = Lambda (Lambda (Var "a") (Type "Basics.Bool" [])) (Lambda (Type "List.List" [ Var "a" ]) (Type "Basics.Bool" []))
               }
             , { name = "any"
               , comment = """ Determine if any elements satisfy some test.
@@ -1960,7 +1960,7 @@ of it like pushing an entry onto a stack.
     any isEven [1,3] == False
     any isEven [] == False
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "Basics.Bool" [])) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Basics.Bool" []))
+              , tipe = Lambda (Lambda (Var "a") (Type "Basics.Bool" [])) (Lambda (Type "List.List" [ Var "a" ]) (Type "Basics.Bool" []))
               }
             , { name = "append"
               , comment = """ Put two lists together.
@@ -1970,35 +1970,35 @@ of it like pushing an entry onto a stack.
 
 You can also use [the `(++)` operator](Basics#++) to append lists.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]))
+              , tipe = Lambda (Type "List.List" [ Var "a" ]) (Lambda (Type "List.List" [ Var "a" ]) (Type "List.List" [ Var "a" ]))
               }
             , { name = "concat"
               , comment = """ Concatenate a bunch of lists into a single list:
 
     concat [[1,2],[3],[4,5]] == [1,2,3,4,5]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "List.List" [ Elm.Type.Var "a" ] ]) (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ])
+              , tipe = Lambda (Type "List.List" [ Type "List.List" [ Var "a" ] ]) (Type "List.List" [ Var "a" ])
               }
             , { name = "concatMap"
               , comment = """ Map a given function onto a list and flatten the resulting lists.
 
     concatMap f xs == concat (map f xs)
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "List.List" [ Elm.Type.Var "b" ])) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Type "List.List" [ Elm.Type.Var "b" ]))
+              , tipe = Lambda (Lambda (Var "a") (Type "List.List" [ Var "b" ])) (Lambda (Type "List.List" [ Var "a" ]) (Type "List.List" [ Var "b" ]))
               }
             , { name = "drop"
               , comment = """ Drop the first *n* members of a list.
 
     drop 2 [1,2,3,4] == [3,4]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "List.List" [ Var "a" ]) (Type "List.List" [ Var "a" ]))
               }
             , { name = "filter"
               , comment = """ Keep elements that satisfy the test.
 
     filter isEven [1,2,3,4,5,6] == [2,4,6]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "Basics.Bool" [])) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]))
+              , tipe = Lambda (Lambda (Var "a") (Type "Basics.Bool" [])) (Lambda (Type "List.List" [ Var "a" ]) (Type "List.List" [ Var "a" ]))
               }
             , { name = "filterMap"
               , comment = """ Filter out certain values. For example, maybe you have a bunch of strings
@@ -2011,7 +2011,7 @@ from an untrusted source and you want to turn them into numbers:
     -- numbers == [3, 12]
 
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "b" ])) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Type "List.List" [ Elm.Type.Var "b" ]))
+              , tipe = Lambda (Lambda (Var "a") (Type "Maybe.Maybe" [ Var "b" ])) (Lambda (Type "List.List" [ Var "a" ]) (Type "List.List" [ Var "b" ]))
               }
             , { name = "foldl"
               , comment = """ Reduce a list from the left.
@@ -2026,7 +2026,7 @@ So `foldl step state [1,2,3]` is like saying:
       |> step 2
       |> step 3
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "b"))) (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Var "b")))
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Var "b"))) (Lambda (Var "b") (Lambda (Type "List.List" [ Var "a" ]) (Var "b")))
               }
             , { name = "foldr"
               , comment = """ Reduce a list from the right.
@@ -2041,7 +2041,7 @@ So `foldr step state [1,2,3]` is like saying:
       |> step 2
       |> step 1
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "b"))) (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Var "b")))
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Var "b"))) (Lambda (Var "b") (Lambda (Type "List.List" [ Var "a" ]) (Var "b")))
               }
             , { name = "head"
               , comment = """ Extract the first element of a list.
@@ -2052,7 +2052,7 @@ So `foldr step state [1,2,3]` is like saying:
 **Note:** It is usually preferable to use a `case` to deconstruct a `List`
 because it gives you `(x :: xs)` and you can work with both subparts.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "a" ])
+              , tipe = Lambda (Type "List.List" [ Var "a" ]) (Type "Maybe.Maybe" [ Var "a" ])
               }
             , { name = "indexedMap"
               , comment = """ Same as `map` but the function is also applied to the index of each
@@ -2060,14 +2060,14 @@ element (starting at zero).
 
     indexedMap Tuple.pair ["Tom","Sue","Bob"] == [ (0,"Tom"), (1,"Sue"), (2,"Bob") ]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b"))) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Type "List.List" [ Elm.Type.Var "b" ]))
+              , tipe = Lambda (Lambda (Type "Basics.Int" []) (Lambda (Var "a") (Var "b"))) (Lambda (Type "List.List" [ Var "a" ]) (Type "List.List" [ Var "b" ]))
               }
             , { name = "intersperse"
               , comment = """ Places the given value between all members of the given list.
 
     intersperse "on" ["turtles","turtles","turtles"] == ["turtles","on","turtles","on","turtles"]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]))
+              , tipe = Lambda (Var "a") (Lambda (Type "List.List" [ Var "a" ]) (Type "List.List" [ Var "a" ]))
               }
             , { name = "isEmpty"
               , comment = """ Determine if a list is empty.
@@ -2077,14 +2077,14 @@ element (starting at zero).
 **Note:** It is usually preferable to use a `case` to test this so you do not
 forget to handle the `(x :: xs)` case as well!
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Basics.Bool" [])
+              , tipe = Lambda (Type "List.List" [ Var "a" ]) (Type "Basics.Bool" [])
               }
             , { name = "length"
               , comment = """ Determine the length of a list.
 
     length [1,2,3] == 3
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Basics.Int" [])
+              , tipe = Lambda (Type "List.List" [ Var "a" ]) (Type "Basics.Int" [])
               }
             , { name = "map"
               , comment = """ Apply a function to every element of a list.
@@ -2095,7 +2095,7 @@ forget to handle the `(x :: xs)` case as well!
 
 So `map func [ a, b, c ]` is the same as `[ func a, func b, func c ]`
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b")) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Type "List.List" [ Elm.Type.Var "b" ]))
+              , tipe = Lambda (Lambda (Var "a") (Var "b")) (Lambda (Type "List.List" [ Var "a" ]) (Type "List.List" [ Var "b" ]))
               }
             , { name = "map2"
               , comment = """ Combine two lists, combining them with the given function.
@@ -2115,19 +2115,19 @@ If one list is longer, the extra elements are dropped.
     --   == [("alice",2),("bob",5),("chuck",7)]
 
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "result"))) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "b" ]) (Elm.Type.Type "List.List" [ Elm.Type.Var "result" ])))
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Var "result"))) (Lambda (Type "List.List" [ Var "a" ]) (Lambda (Type "List.List" [ Var "b" ]) (Type "List.List" [ Var "result" ])))
               }
             , { name = "map3"
               , comment = ""
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Var "result")))) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "c" ]) (Elm.Type.Type "List.List" [ Elm.Type.Var "result" ]))))
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Var "result")))) (Lambda (Type "List.List" [ Var "a" ]) (Lambda (Type "List.List" [ Var "b" ]) (Lambda (Type "List.List" [ Var "c" ]) (Type "List.List" [ Var "result" ]))))
               }
             , { name = "map4"
               , comment = ""
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Var "result"))))) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "c" ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "d" ]) (Elm.Type.Type "List.List" [ Elm.Type.Var "result" ])))))
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Lambda (Var "d") (Var "result"))))) (Lambda (Type "List.List" [ Var "a" ]) (Lambda (Type "List.List" [ Var "b" ]) (Lambda (Type "List.List" [ Var "c" ]) (Lambda (Type "List.List" [ Var "d" ]) (Type "List.List" [ Var "result" ])))))
               }
             , { name = "map5"
               , comment = ""
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Lambda (Elm.Type.Var "e") (Elm.Type.Var "result")))))) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "c" ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "d" ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "e" ]) (Elm.Type.Type "List.List" [ Elm.Type.Var "result" ]))))))
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Lambda (Var "d") (Lambda (Var "e") (Var "result")))))) (Lambda (Type "List.List" [ Var "a" ]) (Lambda (Type "List.List" [ Var "b" ]) (Lambda (Type "List.List" [ Var "c" ]) (Lambda (Type "List.List" [ Var "d" ]) (Lambda (Type "List.List" [ Var "e" ]) (Type "List.List" [ Var "result" ]))))))
               }
             , { name = "maximum"
               , comment = """ Find the maximum element in a non-empty list.
@@ -2135,7 +2135,7 @@ If one list is longer, the extra elements are dropped.
     maximum [1,4,2] == Just 4
     maximum []      == Nothing
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "comparable" ]) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "comparable" ])
+              , tipe = Lambda (Type "List.List" [ Var "comparable" ]) (Type "Maybe.Maybe" [ Var "comparable" ])
               }
             , { name = "member"
               , comment = """ Figure out whether a list contains a value.
@@ -2143,7 +2143,7 @@ If one list is longer, the extra elements are dropped.
     member 9 [1,2,3,4] == False
     member 4 [1,2,3,4] == True
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Basics.Bool" []))
+              , tipe = Lambda (Var "a") (Lambda (Type "List.List" [ Var "a" ]) (Type "Basics.Bool" []))
               }
             , { name = "minimum"
               , comment = """ Find the minimum element in a non-empty list.
@@ -2151,7 +2151,7 @@ If one list is longer, the extra elements are dropped.
     minimum [3,2,1] == Just 1
     minimum []      == Nothing
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "comparable" ]) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "comparable" ])
+              , tipe = Lambda (Type "List.List" [ Var "comparable" ]) (Type "Maybe.Maybe" [ Var "comparable" ])
               }
             , { name = "partition"
               , comment = """ Partition a list based on some test. The first list contains all values
@@ -2161,11 +2161,11 @@ that satisfy the test, and the second list contains all the value that do not.
     partition isEven        [0,1,2,3,4,5] == ([0,2,4], [1,3,5])
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "Basics.Bool" []))
-                        (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ])
-                            (Elm.Type.Tuple
-                                [ Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]
-                                , Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]
+                    Lambda (Lambda (Var "a") (Type "Basics.Bool" []))
+                        (Lambda (Type "List.List" [ Var "a" ])
+                            (Tuple
+                                [ Type "List.List" [ Var "a" ]
+                                , Type "List.List" [ Var "a" ]
                                 ]
                             )
                         )
@@ -2178,7 +2178,7 @@ that satisfy the test, and the second list contains all the value that do not.
     product []      == 1
 
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "number" ]) (Elm.Type.Var "number")
+              , tipe = Lambda (Type "List.List" [ Var "number" ]) (Var "number")
               }
             , { name = "range"
               , comment = """ Create a list of numbers, every element increasing by one.
@@ -2188,21 +2188,21 @@ You give the lowest and highest number that should be in the list.
     range 3 3 == [3]
     range 6 3 == []
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Type "List.List" [ Elm.Type.Type "Basics.Int" [] ]))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "Basics.Int" []) (Type "List.List" [ Type "Basics.Int" [] ]))
               }
             , { name = "repeat"
               , comment = """ Create a list with *n* copies of a value:
 
     repeat 3 (0,0) == [(0,0),(0,0),(0,0)]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Var "a") (Type "List.List" [ Var "a" ]))
               }
             , { name = "reverse"
               , comment = """ Reverse a list.
 
     reverse [1,2,3,4] == [4,3,2,1]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ])
+              , tipe = Lambda (Type "List.List" [ Var "a" ]) (Type "List.List" [ Var "a" ])
               }
             , { name = "singleton"
               , comment = """ Create a list with only one element:
@@ -2210,14 +2210,14 @@ You give the lowest and highest number that should be in the list.
     singleton 1234 == [1234]
     singleton "hi" == ["hi"]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ])
+              , tipe = Lambda (Var "a") (Type "List.List" [ Var "a" ])
               }
             , { name = "sort"
               , comment = """ Sort values from lowest to highest
 
     sort [3,1,5] == [1,3,5]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "comparable" ]) (Elm.Type.Type "List.List" [ Elm.Type.Var "comparable" ])
+              , tipe = Lambda (Type "List.List" [ Var "comparable" ]) (Type "List.List" [ Var "comparable" ])
               }
             , { name = "sortBy"
               , comment = """ Sort values by a derived property.
@@ -2231,7 +2231,7 @@ You give the lowest and highest number that should be in the list.
 
     sortBy String.length ["mouse","cat"] == ["cat","mouse"]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "comparable")) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]))
+              , tipe = Lambda (Lambda (Var "a") (Var "comparable")) (Lambda (Type "List.List" [ Var "a" ]) (Type "List.List" [ Var "a" ]))
               }
             , { name = "sortWith"
               , comment = """ Sort values with a custom comparison function.
@@ -2247,7 +2247,7 @@ You give the lowest and highest number that should be in the list.
 This is also the most general sort function, allowing you
 to define any other: `sort == sortWith compare`
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "Basics.Order" []))) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]))
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "a") (Type "Basics.Order" []))) (Lambda (Type "List.List" [ Var "a" ]) (Type "List.List" [ Var "a" ]))
               }
             , { name = "sum"
               , comment = """ Get the sum of the list elements.
@@ -2257,7 +2257,7 @@ to define any other: `sort == sortWith compare`
     sum []      == 0
 
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "number" ]) (Elm.Type.Var "number")
+              , tipe = Lambda (Type "List.List" [ Var "number" ]) (Var "number")
               }
             , { name = "tail"
               , comment = """ Extract the rest of the list.
@@ -2268,14 +2268,14 @@ to define any other: `sort == sortWith compare`
 **Note:** It is usually preferable to use a `case` to deconstruct a `List`
 because it gives you `(x :: xs)` and you can work with both subparts.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "List.List" [ Elm.Type.Var "a" ] ])
+              , tipe = Lambda (Type "List.List" [ Var "a" ]) (Type "Maybe.Maybe" [ Type "List.List" [ Var "a" ] ])
               }
             , { name = "take"
               , comment = """ Take the first *n* members of a list.
 
     take 2 [1,2,3,4] == [1,2]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]) (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "List.List" [ Var "a" ]) (Type "List.List" [ Var "a" ]))
               }
             , { name = "unzip"
               , comment = """ Decompose a list of tuples into a tuple of lists.
@@ -2283,17 +2283,17 @@ because it gives you `(x :: xs)` and you can work with both subparts.
     unzip [(0, True), (17, False), (1337, True)] == ([0,17,1337], [True,False,True])
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "List.List"
-                            [ Elm.Type.Tuple
-                                [ Elm.Type.Var "a"
-                                , Elm.Type.Var "b"
+                    Lambda
+                        (Type "List.List"
+                            [ Tuple
+                                [ Var "a"
+                                , Var "b"
                                 ]
                             ]
                         )
-                        (Elm.Type.Tuple
-                            [ Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]
-                            , Elm.Type.Type "List.List" [ Elm.Type.Var "b" ]
+                        (Tuple
+                            [ Type "List.List" [ Var "a" ]
+                            , Type "List.List" [ Var "b" ]
                             ]
                         )
               }
@@ -2330,7 +2330,7 @@ sometimes, but does not absolutely need it.
     sue = { name = "Sue", age = Nothing }
 """
               , tags =
-                    [ ( "Just", [ Elm.Type.Var "a" ] )
+                    [ ( "Just", [ Var "a" ] )
                     , ( "Nothing", [] )
                     ]
               }
@@ -2370,7 +2370,7 @@ the `userInput` was not an integer) this entire chain of operations will
 short-circuit and result in `Nothing`. If `toValidMonth` results in `Nothing`,
 again the chain of computations will result in `Nothing`.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "b" ])) (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "b" ]))
+              , tipe = Lambda (Lambda (Var "a") (Type "Maybe.Maybe" [ Var "b" ])) (Lambda (Type "Maybe.Maybe" [ Var "a" ]) (Type "Maybe.Maybe" [ Var "b" ]))
               }
             , { name = "map"
               , comment = """ Transform a `Maybe` value with a given function:
@@ -2382,7 +2382,7 @@ again the chain of computations will result in `Nothing`.
     map sqrt (String.toFloat "x") == Nothing
 
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b")) (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "b" ]))
+              , tipe = Lambda (Lambda (Var "a") (Var "b")) (Lambda (Type "Maybe.Maybe" [ Var "a" ]) (Type "Maybe.Maybe" [ Var "b" ]))
               }
             , { name = "map2"
               , comment = """ Apply a function if all the arguments are `Just` a value.
@@ -2395,19 +2395,19 @@ again the chain of computations will result in `Nothing`.
     map2 (+) (String.toInt "x") (String.toInt "123") == Nothing
     map2 (+) (String.toInt "1") (String.toInt "1.3") == Nothing
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "value"))) (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "b" ]) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "value" ])))
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Var "value"))) (Lambda (Type "Maybe.Maybe" [ Var "a" ]) (Lambda (Type "Maybe.Maybe" [ Var "b" ]) (Type "Maybe.Maybe" [ Var "value" ])))
               }
             , { name = "map3"
               , comment = ""
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Var "value")))) (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "c" ]) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "value" ]))))
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Var "value")))) (Lambda (Type "Maybe.Maybe" [ Var "a" ]) (Lambda (Type "Maybe.Maybe" [ Var "b" ]) (Lambda (Type "Maybe.Maybe" [ Var "c" ]) (Type "Maybe.Maybe" [ Var "value" ]))))
               }
             , { name = "map4"
               , comment = ""
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Var "value"))))) (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "c" ]) (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "d" ]) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "value" ])))))
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Lambda (Var "d") (Var "value"))))) (Lambda (Type "Maybe.Maybe" [ Var "a" ]) (Lambda (Type "Maybe.Maybe" [ Var "b" ]) (Lambda (Type "Maybe.Maybe" [ Var "c" ]) (Lambda (Type "Maybe.Maybe" [ Var "d" ]) (Type "Maybe.Maybe" [ Var "value" ])))))
               }
             , { name = "map5"
               , comment = ""
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Lambda (Elm.Type.Var "e") (Elm.Type.Var "value")))))) (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "c" ]) (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "d" ]) (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "e" ]) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "value" ]))))))
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Lambda (Var "d") (Lambda (Var "e") (Var "value")))))) (Lambda (Type "Maybe.Maybe" [ Var "a" ]) (Lambda (Type "Maybe.Maybe" [ Var "b" ]) (Lambda (Type "Maybe.Maybe" [ Var "c" ]) (Lambda (Type "Maybe.Maybe" [ Var "d" ]) (Lambda (Type "Maybe.Maybe" [ Var "e" ]) (Type "Maybe.Maybe" [ Var "value" ]))))))
               }
             , { name = "withDefault"
               , comment = """ Provide a default value, turning an optional value into a normal
@@ -2425,7 +2425,7 @@ that a [custom type][ct] will clean your code up quite a bit!
 
 [ct]: https://guide.elm-lang.org/types/custom_types.html
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "a" ]) (Elm.Type.Var "a"))
+              , tipe = Lambda (Var "a") (Lambda (Type "Maybe.Maybe" [ Var "a" ]) (Var "a"))
               }
             ]
       }
@@ -2500,16 +2500,16 @@ primitive.
 be handled by the overall `update` function, just like events from `Html`.
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "Platform.Router"
-                            [ Elm.Type.Var "msg"
-                            , Elm.Type.Var "a"
+                    Lambda
+                        (Type "Platform.Router"
+                            [ Var "msg"
+                            , Var "a"
                             ]
                         )
-                        (Elm.Type.Lambda (Elm.Type.Var "msg")
-                            (Elm.Type.Type "Platform.Task"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Tuple []
+                        (Lambda (Var "msg")
+                            (Type "Platform.Task"
+                                [ Var "x"
+                                , Tuple []
                                 ]
                             )
                         )
@@ -2522,16 +2522,16 @@ effect manager as necessary.
 As an example, the effect manager for web sockets
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "Platform.Router"
-                            [ Elm.Type.Var "a"
-                            , Elm.Type.Var "msg"
+                    Lambda
+                        (Type "Platform.Router"
+                            [ Var "a"
+                            , Var "msg"
                             ]
                         )
-                        (Elm.Type.Lambda (Elm.Type.Var "msg")
-                            (Elm.Type.Type "Platform.Task"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Tuple []
+                        (Lambda (Var "msg")
+                            (Type "Platform.Task"
+                                [ Var "x"
+                                , Tuple []
                                 ]
                             )
                         )
@@ -2558,34 +2558,34 @@ module has a few ways to create that kind of `Program` instead!
 [browser]: /packages/elm/browser/latest/Browser
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Record
+                    Lambda
+                        (Record
                             [ ( "init"
-                              , Elm.Type.Lambda (Elm.Type.Var "flags")
-                                    (Elm.Type.Tuple
-                                        [ Elm.Type.Var "model"
-                                        , Elm.Type.Type "Platform.Cmd.Cmd" [ Elm.Type.Var "msg" ]
+                              , Lambda (Var "flags")
+                                    (Tuple
+                                        [ Var "model"
+                                        , Type "Platform.Cmd.Cmd" [ Var "msg" ]
                                         ]
                                     )
                               )
                             , ( "update"
-                              , Elm.Type.Lambda (Elm.Type.Var "msg")
-                                    (Elm.Type.Lambda (Elm.Type.Var "model")
-                                        (Elm.Type.Tuple
-                                            [ Elm.Type.Var "model"
-                                            , Elm.Type.Type "Platform.Cmd.Cmd" [ Elm.Type.Var "msg" ]
+                              , Lambda (Var "msg")
+                                    (Lambda (Var "model")
+                                        (Tuple
+                                            [ Var "model"
+                                            , Type "Platform.Cmd.Cmd" [ Var "msg" ]
                                             ]
                                         )
                                     )
                               )
-                            , ( "subscriptions", Elm.Type.Lambda (Elm.Type.Var "model") (Elm.Type.Type "Platform.Sub.Sub" [ Elm.Type.Var "msg" ]) )
+                            , ( "subscriptions", Lambda (Var "model") (Type "Platform.Sub.Sub" [ Var "msg" ]) )
                             ]
                             Nothing
                         )
-                        (Elm.Type.Type "Platform.Program"
-                            [ Elm.Type.Var "flags"
-                            , Elm.Type.Var "model"
-                            , Elm.Type.Var "msg"
+                        (Type "Platform.Program"
+                            [ Var "flags"
+                            , Var "model"
+                            , Var "msg"
                             ]
                         )
               }
@@ -2641,7 +2641,7 @@ no ordering guarantees about the results.
 **Note:** `Cmd.none` and `Cmd.batch [ Cmd.none, Cmd.none ]` and `Cmd.batch []`
 all do the same thing.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Platform.Cmd.Cmd" [ Elm.Type.Var "msg" ] ]) (Elm.Type.Type "Platform.Cmd.Cmd" [ Elm.Type.Var "msg" ])
+              , tipe = Lambda (Type "List.List" [ Type "Platform.Cmd.Cmd" [ Var "msg" ] ]) (Type "Platform.Cmd.Cmd" [ Var "msg" ])
               }
             , { name = "map"
               , comment = """ Transform the messages produced by a command.
@@ -2652,13 +2652,13 @@ section on [structure][] in the guide before reaching for this!
 
 [structure]: https://guide.elm-lang.org/webapps/structure.html
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "msg")) (Elm.Type.Lambda (Elm.Type.Type "Platform.Cmd.Cmd" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Platform.Cmd.Cmd" [ Elm.Type.Var "msg" ]))
+              , tipe = Lambda (Lambda (Var "a") (Var "msg")) (Lambda (Type "Platform.Cmd.Cmd" [ Var "a" ]) (Type "Platform.Cmd.Cmd" [ Var "msg" ]))
               }
             , { name = "none"
               , comment = """ Tell the runtime that there are no commands.
 
 """
-              , tipe = Elm.Type.Type "Platform.Cmd.Cmd" [ Elm.Type.Var "msg" ]
+              , tipe = Type "Platform.Cmd.Cmd" [ Var "msg" ]
               }
             ]
       }
@@ -2712,7 +2712,7 @@ subscriptions.
 **Note:** `Sub.none` and `Sub.batch [ Sub.none, Sub.none ]` and
 `Sub.batch []` all do the same thing.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Platform.Sub.Sub" [ Elm.Type.Var "msg" ] ]) (Elm.Type.Type "Platform.Sub.Sub" [ Elm.Type.Var "msg" ])
+              , tipe = Lambda (Type "List.List" [ Type "Platform.Sub.Sub" [ Var "msg" ] ]) (Type "Platform.Sub.Sub" [ Var "msg" ])
               }
             , { name = "map"
               , comment = """ Transform the messages produced by a subscription.
@@ -2723,12 +2723,12 @@ section on [structure][] in the guide before reaching for this!
 
 [structure]: https://guide.elm-lang.org/webapps/structure.html
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "msg")) (Elm.Type.Lambda (Elm.Type.Type "Platform.Sub.Sub" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Platform.Sub.Sub" [ Elm.Type.Var "msg" ]))
+              , tipe = Lambda (Lambda (Var "a") (Var "msg")) (Lambda (Type "Platform.Sub.Sub" [ Var "a" ]) (Type "Platform.Sub.Sub" [ Var "msg" ]))
               }
             , { name = "none"
               , comment = """ Tell the runtime that there are no subscriptions.
 """
-              , tipe = Elm.Type.Type "Platform.Sub.Sub" [ Elm.Type.Var "msg" ]
+              , tipe = Type "Platform.Sub.Sub" [ Var "msg" ]
               }
             ]
       }
@@ -2786,7 +2786,7 @@ sequences at the exact same time. For example, a
 concurrent, but not necessarily parallel. So even though JS runs within a
 single OS-level thread, Elm can still run things concurrently.
 """
-              , tipe = Elm.Type.Type "Platform.ProcessId" []
+              , tipe = Type "Platform.ProcessId" []
               }
             ]
       , unions = []
@@ -2799,10 +2799,10 @@ to bail on whatever task it is running. So if there is an HTTP request in
 flight, it will also abort the request.
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Type "Process.Id" [])
-                        (Elm.Type.Type "Task.Task"
-                            [ Elm.Type.Var "x"
-                            , Elm.Type.Tuple []
+                    Lambda (Type "Process.Id" [])
+                        (Type "Task.Task"
+                            [ Var "x"
+                            , Tuple []
                             ]
                         )
               }
@@ -2814,10 +2814,10 @@ delay work until later.
 [setTimeout]: https://developer.mozilla.org/en-US/docs/Web/API/WindowTimers/setTimeout
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Type "Basics.Float" [])
-                        (Elm.Type.Type "Task.Task"
-                            [ Elm.Type.Var "x"
-                            , Elm.Type.Tuple []
+                    Lambda (Type "Basics.Float" [])
+                        (Type "Task.Task"
+                            [ Var "x"
+                            , Tuple []
                             ]
                         )
               }
@@ -2835,15 +2835,15 @@ cannot receive any messages. More flexibility for user-defined processes will
 come in a later release!
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "Task.Task"
-                            [ Elm.Type.Var "x"
-                            , Elm.Type.Var "a"
+                    Lambda
+                        (Type "Task.Task"
+                            [ Var "x"
+                            , Var "a"
                             ]
                         )
-                        (Elm.Type.Type "Task.Task"
-                            [ Elm.Type.Var "y"
-                            , Elm.Type.Type "Process.Id" []
+                        (Type "Task.Task"
+                            [ Var "y"
+                            , Type "Process.Id" []
                             ]
                         )
               }
@@ -2876,8 +2876,8 @@ way to manage errors in Elm.
 `Err` meaning that there was some failure.
 """
               , tags =
-                    [ ( "Ok", [ Elm.Type.Var "value" ] )
-                    , ( "Err", [ Elm.Type.Var "error" ] )
+                    [ ( "Ok", [ Var "value" ] )
+                    , ( "Err", [ Var "error" ] )
                     ]
               }
             ]
@@ -2919,23 +2919,23 @@ the exact ways your computation may fail. This way it is easy to handle in your
 code.
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Lambda (Elm.Type.Var "a")
-                            (Elm.Type.Type "Result.Result"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "b"
+                    Lambda
+                        (Lambda (Var "a")
+                            (Type "Result.Result"
+                                [ Var "x"
+                                , Var "b"
                                 ]
                             )
                         )
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Result.Result"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                        (Lambda
+                            (Type "Result.Result"
+                                [ Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Type "Result.Result"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "b"
+                            (Type "Result.Result"
+                                [ Var "x"
+                                , Var "b"
                                 ]
                             )
                         )
@@ -2951,11 +2951,11 @@ uses `Results`.
         fromMaybe ("error parsing string: " ++ toString string) (parseInt string)
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Var "x")
-                        (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "a" ])
-                            (Elm.Type.Type "Result.Result"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                    Lambda (Var "x")
+                        (Lambda (Type "Maybe.Maybe" [ Var "a" ])
+                            (Type "Result.Result"
+                                [ Var "x"
+                                , Var "a"
                                 ]
                             )
                         )
@@ -2968,16 +2968,16 @@ If the result is an `Err`, the same error value will propagate through.
     map sqrt (Err "bad input") == Err "bad input"
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "value"))
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Result.Result"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                    Lambda (Lambda (Var "a") (Var "value"))
+                        (Lambda
+                            (Type "Result.Result"
+                                [ Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Type "Result.Result"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "value"
+                            (Type "Result.Result"
+                                [ Var "x"
+                                , Var "value"
                                 ]
                             )
                         )
@@ -2995,22 +2995,22 @@ This can be useful if you have two computations that may fail, and you want
 to put them together quickly.
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "value")))
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Result.Result"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                    Lambda (Lambda (Var "a") (Lambda (Var "b") (Var "value")))
+                        (Lambda
+                            (Type "Result.Result"
+                                [ Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Lambda
-                                (Elm.Type.Type "Result.Result"
-                                    [ Elm.Type.Var "x"
-                                    , Elm.Type.Var "b"
+                            (Lambda
+                                (Type "Result.Result"
+                                    [ Var "x"
+                                    , Var "b"
                                     ]
                                 )
-                                (Elm.Type.Type "Result.Result"
-                                    [ Elm.Type.Var "x"
-                                    , Elm.Type.Var "value"
+                                (Type "Result.Result"
+                                    [ Var "x"
+                                    , Var "value"
                                     ]
                                 )
                             )
@@ -3019,28 +3019,28 @@ to put them together quickly.
             , { name = "map3"
               , comment = ""
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Var "value"))))
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Result.Result"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                    Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Var "value"))))
+                        (Lambda
+                            (Type "Result.Result"
+                                [ Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Lambda
-                                (Elm.Type.Type "Result.Result"
-                                    [ Elm.Type.Var "x"
-                                    , Elm.Type.Var "b"
+                            (Lambda
+                                (Type "Result.Result"
+                                    [ Var "x"
+                                    , Var "b"
                                     ]
                                 )
-                                (Elm.Type.Lambda
-                                    (Elm.Type.Type "Result.Result"
-                                        [ Elm.Type.Var "x"
-                                        , Elm.Type.Var "c"
+                                (Lambda
+                                    (Type "Result.Result"
+                                        [ Var "x"
+                                        , Var "c"
                                         ]
                                     )
-                                    (Elm.Type.Type "Result.Result"
-                                        [ Elm.Type.Var "x"
-                                        , Elm.Type.Var "value"
+                                    (Type "Result.Result"
+                                        [ Var "x"
+                                        , Var "value"
                                         ]
                                     )
                                 )
@@ -3050,34 +3050,34 @@ to put them together quickly.
             , { name = "map4"
               , comment = ""
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Var "value")))))
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Result.Result"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                    Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Lambda (Var "d") (Var "value")))))
+                        (Lambda
+                            (Type "Result.Result"
+                                [ Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Lambda
-                                (Elm.Type.Type "Result.Result"
-                                    [ Elm.Type.Var "x"
-                                    , Elm.Type.Var "b"
+                            (Lambda
+                                (Type "Result.Result"
+                                    [ Var "x"
+                                    , Var "b"
                                     ]
                                 )
-                                (Elm.Type.Lambda
-                                    (Elm.Type.Type "Result.Result"
-                                        [ Elm.Type.Var "x"
-                                        , Elm.Type.Var "c"
+                                (Lambda
+                                    (Type "Result.Result"
+                                        [ Var "x"
+                                        , Var "c"
                                         ]
                                     )
-                                    (Elm.Type.Lambda
-                                        (Elm.Type.Type "Result.Result"
-                                            [ Elm.Type.Var "x"
-                                            , Elm.Type.Var "d"
+                                    (Lambda
+                                        (Type "Result.Result"
+                                            [ Var "x"
+                                            , Var "d"
                                             ]
                                         )
-                                        (Elm.Type.Type "Result.Result"
-                                            [ Elm.Type.Var "x"
-                                            , Elm.Type.Var "value"
+                                        (Type "Result.Result"
+                                            [ Var "x"
+                                            , Var "value"
                                             ]
                                         )
                                     )
@@ -3088,40 +3088,40 @@ to put them together quickly.
             , { name = "map5"
               , comment = ""
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Lambda (Elm.Type.Var "e") (Elm.Type.Var "value"))))))
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Result.Result"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                    Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Lambda (Var "d") (Lambda (Var "e") (Var "value"))))))
+                        (Lambda
+                            (Type "Result.Result"
+                                [ Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Lambda
-                                (Elm.Type.Type "Result.Result"
-                                    [ Elm.Type.Var "x"
-                                    , Elm.Type.Var "b"
+                            (Lambda
+                                (Type "Result.Result"
+                                    [ Var "x"
+                                    , Var "b"
                                     ]
                                 )
-                                (Elm.Type.Lambda
-                                    (Elm.Type.Type "Result.Result"
-                                        [ Elm.Type.Var "x"
-                                        , Elm.Type.Var "c"
+                                (Lambda
+                                    (Type "Result.Result"
+                                        [ Var "x"
+                                        , Var "c"
                                         ]
                                     )
-                                    (Elm.Type.Lambda
-                                        (Elm.Type.Type "Result.Result"
-                                            [ Elm.Type.Var "x"
-                                            , Elm.Type.Var "d"
+                                    (Lambda
+                                        (Type "Result.Result"
+                                            [ Var "x"
+                                            , Var "d"
                                             ]
                                         )
-                                        (Elm.Type.Lambda
-                                            (Elm.Type.Type "Result.Result"
-                                                [ Elm.Type.Var "x"
-                                                , Elm.Type.Var "e"
+                                        (Lambda
+                                            (Type "Result.Result"
+                                                [ Var "x"
+                                                , Var "e"
                                                 ]
                                             )
-                                            (Elm.Type.Type "Result.Result"
-                                                [ Elm.Type.Var "x"
-                                                , Elm.Type.Var "value"
+                                            (Type "Result.Result"
+                                                [ Var "x"
+                                                , Var "value"
                                                 ]
                                             )
                                         )
@@ -3146,16 +3146,16 @@ information:
     mapError .message (parseInt "abc") == Err "char 'a' is not a number"
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "x") (Elm.Type.Var "y"))
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Result.Result"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                    Lambda (Lambda (Var "x") (Var "y"))
+                        (Lambda
+                            (Type "Result.Result"
+                                [ Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Type "Result.Result"
-                                [ Elm.Type.Var "y"
-                                , Elm.Type.Var "a"
+                            (Type "Result.Result"
+                                [ Var "y"
+                                , Var "a"
                                 ]
                             )
                         )
@@ -3171,13 +3171,13 @@ you need to interact with some code that primarily uses maybes.
         toMaybe (parseInt string)
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "Result.Result"
-                            [ Elm.Type.Var "x"
-                            , Elm.Type.Var "a"
+                    Lambda
+                        (Type "Result.Result"
+                            [ Var "x"
+                            , Var "a"
                             ]
                         )
-                        (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "a" ])
+                        (Type "Maybe.Maybe" [ Var "a" ])
               }
             , { name = "withDefault"
               , comment = """ If the result is `Ok` return the value, but if the result is an `Err` then
@@ -3187,14 +3187,14 @@ return a given default value. The following examples try to parse integers.
     Result.withDefault 0 (Err "no") == 0
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Var "a")
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Result.Result"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                    Lambda (Var "a")
+                        (Lambda
+                            (Type "Result.Result"
+                                [ Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Var "a")
+                            (Var "a")
                         )
               }
             ]
@@ -3241,12 +3241,12 @@ Insert, remove, and query operations all take *O(log n)* time.
               , comment = """ Get the difference between the first set and the second. Keeps values
 that do not appear in the second set.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable" ]) (Elm.Type.Lambda (Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable" ]) (Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable" ]))
+              , tipe = Lambda (Type "Set.Set" [ Var "comparable" ]) (Lambda (Type "Set.Set" [ Var "comparable" ]) (Type "Set.Set" [ Var "comparable" ]))
               }
             , { name = "empty"
               , comment = """ Create an empty set.
 """
-              , tipe = Elm.Type.Type "Set.Set" [ Elm.Type.Var "a" ]
+              , tipe = Type "Set.Set" [ Var "a" ]
               }
             , { name = "filter"
               , comment = """ Only keep elements that pass the given test.
@@ -3263,58 +3263,58 @@ that do not appear in the second set.
 
     -- positives == Set.fromList [1,2]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Type "Basics.Bool" [])) (Elm.Type.Lambda (Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable" ]) (Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable" ]))
+              , tipe = Lambda (Lambda (Var "comparable") (Type "Basics.Bool" [])) (Lambda (Type "Set.Set" [ Var "comparable" ]) (Type "Set.Set" [ Var "comparable" ]))
               }
             , { name = "foldl"
               , comment = """ Fold over the values in a set, in order from lowest to highest.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "b"))) (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Type "Set.Set" [ Elm.Type.Var "a" ]) (Elm.Type.Var "b")))
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Var "b"))) (Lambda (Var "b") (Lambda (Type "Set.Set" [ Var "a" ]) (Var "b")))
               }
             , { name = "foldr"
               , comment = """ Fold over the values in a set, in order from highest to lowest.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "b"))) (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Type "Set.Set" [ Elm.Type.Var "a" ]) (Elm.Type.Var "b")))
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Var "b"))) (Lambda (Var "b") (Lambda (Type "Set.Set" [ Var "a" ]) (Var "b")))
               }
             , { name = "fromList"
               , comment = """ Convert a list into a set, removing any duplicates.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Var "comparable" ]) (Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable" ])
+              , tipe = Lambda (Type "List.List" [ Var "comparable" ]) (Type "Set.Set" [ Var "comparable" ])
               }
             , { name = "insert"
               , comment = """ Insert a value into a set.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Lambda (Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable" ]) (Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable" ]))
+              , tipe = Lambda (Var "comparable") (Lambda (Type "Set.Set" [ Var "comparable" ]) (Type "Set.Set" [ Var "comparable" ]))
               }
             , { name = "intersect"
               , comment = """ Get the intersection of two sets. Keeps values that appear in both sets.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable" ]) (Elm.Type.Lambda (Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable" ]) (Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable" ]))
+              , tipe = Lambda (Type "Set.Set" [ Var "comparable" ]) (Lambda (Type "Set.Set" [ Var "comparable" ]) (Type "Set.Set" [ Var "comparable" ]))
               }
             , { name = "isEmpty"
               , comment = """ Determine if a set is empty.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Set.Set" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Basics.Bool" [])
+              , tipe = Lambda (Type "Set.Set" [ Var "a" ]) (Type "Basics.Bool" [])
               }
             , { name = "map"
               , comment = """ Map a function onto a set, creating a new set with no duplicates.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Var "comparable2")) (Elm.Type.Lambda (Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable" ]) (Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable2" ]))
+              , tipe = Lambda (Lambda (Var "comparable") (Var "comparable2")) (Lambda (Type "Set.Set" [ Var "comparable" ]) (Type "Set.Set" [ Var "comparable2" ]))
               }
             , { name = "member"
               , comment = """ Determine if a value is in a set.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Lambda (Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable" ]) (Elm.Type.Type "Basics.Bool" []))
+              , tipe = Lambda (Var "comparable") (Lambda (Type "Set.Set" [ Var "comparable" ]) (Type "Basics.Bool" []))
               }
             , { name = "partition"
               , comment = """ Create two new sets. The first contains all the elements that passed the
 given test, and the second contains all the elements that did not.
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Type "Basics.Bool" []))
-                        (Elm.Type.Lambda (Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable" ])
-                            (Elm.Type.Tuple
-                                [ Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable" ]
-                                , Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable" ]
+                    Lambda (Lambda (Var "comparable") (Type "Basics.Bool" []))
+                        (Lambda (Type "Set.Set" [ Var "comparable" ])
+                            (Tuple
+                                [ Type "Set.Set" [ Var "comparable" ]
+                                , Type "Set.Set" [ Var "comparable" ]
                                 ]
                             )
                         )
@@ -3322,27 +3322,27 @@ given test, and the second contains all the elements that did not.
             , { name = "remove"
               , comment = """ Remove a value from a set. If the value is not found, no changes are made.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Lambda (Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable" ]) (Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable" ]))
+              , tipe = Lambda (Var "comparable") (Lambda (Type "Set.Set" [ Var "comparable" ]) (Type "Set.Set" [ Var "comparable" ]))
               }
             , { name = "singleton"
               , comment = """ Create a set with one value.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "comparable") (Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable" ])
+              , tipe = Lambda (Var "comparable") (Type "Set.Set" [ Var "comparable" ])
               }
             , { name = "size"
               , comment = """ Determine the number of elements in a set.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Set.Set" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Basics.Int" [])
+              , tipe = Lambda (Type "Set.Set" [ Var "a" ]) (Type "Basics.Int" [])
               }
             , { name = "toList"
               , comment = """ Convert a set into a list, sorted from lowest to highest.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Set.Set" [ Elm.Type.Var "a" ]) (Elm.Type.Type "List.List" [ Elm.Type.Var "a" ])
+              , tipe = Lambda (Type "Set.Set" [ Var "a" ]) (Type "List.List" [ Var "a" ])
               }
             , { name = "union"
               , comment = """ Get the union of two sets. Keep all values.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable" ]) (Elm.Type.Lambda (Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable" ]) (Elm.Type.Type "Set.Set" [ Elm.Type.Var "comparable" ]))
+              , tipe = Lambda (Type "Set.Set" [ Var "comparable" ]) (Lambda (Type "Set.Set" [ Var "comparable" ]) (Type "Set.Set" [ Var "comparable" ]))
               }
             ]
       }
@@ -3426,7 +3426,7 @@ use single quotes for a [`Char`](Char#Char).
     all isDigit "R2-D2" == False
     all isDigit "heart" == False
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" [])) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Basics.Bool" []))
+              , tipe = Lambda (Lambda (Type "Char.Char" []) (Type "Basics.Bool" [])) (Lambda (Type "String.String" []) (Type "Basics.Bool" []))
               }
             , { name = "any"
               , comment = """ Determine whether *any* characters pass the test.
@@ -3435,7 +3435,7 @@ use single quotes for a [`Char`](Char#Char).
     any isDigit "R2-D2" == True
     any isDigit "heart" == False
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" [])) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Basics.Bool" []))
+              , tipe = Lambda (Lambda (Type "Char.Char" []) (Type "Basics.Bool" [])) (Lambda (Type "String.String" []) (Type "Basics.Bool" []))
               }
             , { name = "append"
               , comment = """ Append two strings. You can also use [the `(++)` operator](Basics#++)
@@ -3443,21 +3443,21 @@ to do this.
 
     append "butter" "fly" == "butterfly"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" []))
+              , tipe = Lambda (Type "String.String" []) (Lambda (Type "String.String" []) (Type "String.String" []))
               }
             , { name = "concat"
               , comment = """ Concatenate many strings into one.
 
     concat ["never","the","less"] == "nevertheless"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Type "String.String" [])
+              , tipe = Lambda (Type "List.List" [ Type "String.String" [] ]) (Type "String.String" [])
               }
             , { name = "cons"
               , comment = """ Add a character to the beginning of a string.
 
     cons 'T' "he truth is out there" == "The truth is out there"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" []))
+              , tipe = Lambda (Type "Char.Char" []) (Lambda (Type "String.String" []) (Type "String.String" []))
               }
             , { name = "contains"
               , comment = """ See if the second string contains the first one.
@@ -3467,21 +3467,21 @@ to do this.
     contains "THE" "theory" == False
 
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Basics.Bool" []))
+              , tipe = Lambda (Type "String.String" []) (Lambda (Type "String.String" []) (Type "Basics.Bool" []))
               }
             , { name = "dropLeft"
               , comment = """ Drop *n* characters from the left side of a string.
 
     dropLeft 2 "The Lone Gunmen" == "e Lone Gunmen"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" []))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "String.String" []) (Type "String.String" []))
               }
             , { name = "dropRight"
               , comment = """ Drop *n* characters from the right side of a string.
 
     dropRight 2 "Cigarette Smoking Man" == "Cigarette Smoking M"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" []))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "String.String" []) (Type "String.String" []))
               }
             , { name = "endsWith"
               , comment = """ See if the second string ends with the first one.
@@ -3489,35 +3489,35 @@ to do this.
     endsWith "the" "theory" == False
     endsWith "ory" "theory" == True
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Basics.Bool" []))
+              , tipe = Lambda (Type "String.String" []) (Lambda (Type "String.String" []) (Type "Basics.Bool" []))
               }
             , { name = "filter"
               , comment = """ Keep only the characters that pass the test.
 
     filter isDigit "R2-D2" == "22"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" [])) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" []))
+              , tipe = Lambda (Lambda (Type "Char.Char" []) (Type "Basics.Bool" [])) (Lambda (Type "String.String" []) (Type "String.String" []))
               }
             , { name = "foldl"
               , comment = """ Reduce a string from the left.
 
     foldl cons "" "time" == "emit"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "b"))) (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Var "b")))
+              , tipe = Lambda (Lambda (Type "Char.Char" []) (Lambda (Var "b") (Var "b"))) (Lambda (Var "b") (Lambda (Type "String.String" []) (Var "b")))
               }
             , { name = "foldr"
               , comment = """ Reduce a string from the right.
 
     foldr cons "" "time" == "time"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "b"))) (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Var "b")))
+              , tipe = Lambda (Lambda (Type "Char.Char" []) (Lambda (Var "b") (Var "b"))) (Lambda (Var "b") (Lambda (Type "String.String" []) (Var "b")))
               }
             , { name = "fromChar"
               , comment = """ Create a string from a given character.
 
     fromChar 'a' == "a"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "String.String" [])
+              , tipe = Lambda (Type "Char.Char" []) (Type "String.String" [])
               }
             , { name = "fromFloat"
               , comment = """ Convert a `Float` to a `String`.
@@ -3529,7 +3529,7 @@ to do this.
 Check out [`Debug.toString`](Debug#toString) to convert *any* value to a string
 for debugging purposes.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Type "String.String" [])
+              , tipe = Lambda (Type "Basics.Float" []) (Type "String.String" [])
               }
             , { name = "fromInt"
               , comment = """ Convert an `Int` to a `String`.
@@ -3540,7 +3540,7 @@ for debugging purposes.
 Check out [`Debug.toString`](Debug#toString) to convert *any* value to a string
 for debugging purposes.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Type "String.String" [])
+              , tipe = Lambda (Type "Basics.Int" []) (Type "String.String" [])
               }
             , { name = "fromList"
               , comment = """ Convert a list of characters into a String. Can be useful if you
@@ -3550,7 +3550,7 @@ something.
     fromList ['a','b','c'] == "abc"
     fromList ['🙈','🙉','🙊'] == "🙈🙉🙊"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Char.Char" [] ]) (Elm.Type.Type "String.String" [])
+              , tipe = Lambda (Type "List.List" [ Type "Char.Char" [] ]) (Type "String.String" [])
               }
             , { name = "indexes"
               , comment = """ Get all of the indexes for a substring in another string.
@@ -3559,11 +3559,11 @@ something.
     indexes "ss" "Mississippi"  == [2,5]
     indexes "needle" "haystack" == []
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "List.List" [ Elm.Type.Type "Basics.Int" [] ]))
+              , tipe = Lambda (Type "String.String" []) (Lambda (Type "String.String" []) (Type "List.List" [ Type "Basics.Int" [] ]))
               }
             , { name = "indices"
               , comment = " Alias for `indexes`. "
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "List.List" [ Elm.Type.Type "Basics.Int" [] ]))
+              , tipe = Lambda (Type "String.String" []) (Lambda (Type "String.String" []) (Type "List.List" [ Type "Basics.Int" [] ]))
               }
             , { name = "isEmpty"
               , comment = """ Determine if a string is empty.
@@ -3571,7 +3571,7 @@ something.
     isEmpty "" == True
     isEmpty "the world" == False
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Basics.Bool" [])
+              , tipe = Lambda (Type "String.String" []) (Type "Basics.Bool" [])
               }
             , { name = "join"
               , comment = """ Put many strings together with a given separator.
@@ -3580,14 +3580,14 @@ something.
     join " " ["cat","dog","cow"]       == "cat dog cow"
     join "/" ["home","evan","Desktop"] == "home/evan/Desktop"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Type "String.String" []))
+              , tipe = Lambda (Type "String.String" []) (Lambda (Type "List.List" [ Type "String.String" [] ]) (Type "String.String" []))
               }
             , { name = "left"
               , comment = """ Take *n* characters from the left side of a string.
 
     left 2 "Mulder" == "Mu"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" []))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "String.String" []) (Type "String.String" []))
               }
             , { name = "length"
               , comment = """ Get the length of a string.
@@ -3596,21 +3596,21 @@ something.
     length "" == 0
 
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Basics.Int" [])
+              , tipe = Lambda (Type "String.String" []) (Type "Basics.Int" [])
               }
             , { name = "lines"
               , comment = """ Break a string into lines, splitting on newlines.
 
     lines "How are you?\\nGood?" == ["How are you?", "Good?"]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "List.List" [ Elm.Type.Type "String.String" [] ])
+              , tipe = Lambda (Type "String.String" []) (Type "List.List" [ Type "String.String" [] ])
               }
             , { name = "map"
               , comment = """ Transform every character in a string
 
     map (\\c -> if c == '/' then '.' else c) "a/b/c" == "a.b.c"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Char.Char" [])) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" []))
+              , tipe = Lambda (Lambda (Type "Char.Char" []) (Type "Char.Char" [])) (Lambda (Type "String.String" []) (Type "String.String" []))
               }
             , { name = "pad"
               , comment = """ Pad a string on both sides until it has a given length.
@@ -3619,7 +3619,7 @@ something.
     pad 5 ' ' "11"  == "  11 "
     pad 5 ' ' "121" == " 121 "
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" [])))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "Char.Char" []) (Lambda (Type "String.String" []) (Type "String.String" [])))
               }
             , { name = "padLeft"
               , comment = """ Pad a string on the left until it has a given length.
@@ -3628,7 +3628,7 @@ something.
     padLeft 5 '.' "11"  == "...11"
     padLeft 5 '.' "121" == "..121"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" [])))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "Char.Char" []) (Lambda (Type "String.String" []) (Type "String.String" [])))
               }
             , { name = "padRight"
               , comment = """ Pad a string on the right until it has a given length.
@@ -3637,14 +3637,14 @@ something.
     padRight 5 '.' "11"  == "11..."
     padRight 5 '.' "121" == "121.."
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" [])))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "Char.Char" []) (Lambda (Type "String.String" []) (Type "String.String" [])))
               }
             , { name = "repeat"
               , comment = """ Repeat a string *n* times.
 
     repeat 3 "ha" == "hahaha"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" []))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "String.String" []) (Type "String.String" []))
               }
             , { name = "replace"
               , comment = """ Replace all occurrences of some substring.
@@ -3658,21 +3658,21 @@ something.
 [parser]: /packages/elm/parser/latest
 [regex]: /packages/elm/regex/latest
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" [])))
+              , tipe = Lambda (Type "String.String" []) (Lambda (Type "String.String" []) (Lambda (Type "String.String" []) (Type "String.String" [])))
               }
             , { name = "reverse"
               , comment = """ Reverse a string.
 
     reverse "stressed" == "desserts"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" [])
+              , tipe = Lambda (Type "String.String" []) (Type "String.String" [])
               }
             , { name = "right"
               , comment = """ Take *n* characters from the right side of a string.
 
     right 2 "Scully" == "ly"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" []))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "String.String" []) (Type "String.String" []))
               }
             , { name = "slice"
               , comment = """ Take a substring given a start and end index. Negative indexes
@@ -3683,7 +3683,7 @@ are taken starting from the *end* of the list.
     slice  0 -7 "snakes on a plane!" == "snakes on a"
     slice -6 -1 "snakes on a plane!" == "plane"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" [])))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "Basics.Int" []) (Lambda (Type "String.String" []) (Type "String.String" [])))
               }
             , { name = "split"
               , comment = """ Split a string using a given separator.
@@ -3692,7 +3692,7 @@ are taken starting from the *end* of the list.
     split "/" "home/evan/Desktop/" == ["home","evan","Desktop", ""]
 
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "List.List" [ Elm.Type.Type "String.String" [] ]))
+              , tipe = Lambda (Type "String.String" []) (Lambda (Type "String.String" []) (Type "List.List" [ Type "String.String" [] ]))
               }
             , { name = "startsWith"
               , comment = """ See if the second string starts with the first one.
@@ -3700,7 +3700,7 @@ are taken starting from the *end* of the list.
     startsWith "the" "theory" == True
     startsWith "ory" "theory" == False
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Basics.Bool" []))
+              , tipe = Lambda (Type "String.String" []) (Lambda (Type "String.String" []) (Type "Basics.Bool" []))
               }
             , { name = "toFloat"
               , comment = """ Try to convert a string into a float, failing on improperly formatted strings.
@@ -3716,7 +3716,7 @@ want to use [`Maybe.withDefault`](Maybe#withDefault) to handle bad data:
     Maybe.withDefault 0 (String.toFloat "42.5") == 42.5
     Maybe.withDefault 0 (String.toFloat "cats") == 0
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "Basics.Float" [] ])
+              , tipe = Lambda (Type "String.String" []) (Type "Maybe.Maybe" [ Type "Basics.Float" [] ])
               }
             , { name = "toInt"
               , comment = """ Try to convert a string into an int, failing on improperly formatted strings.
@@ -3732,7 +3732,7 @@ want to use [`Maybe.withDefault`](Maybe#withDefault) to handle bad data:
     Maybe.withDefault 0 (String.toInt "42") == 42
     Maybe.withDefault 0 (String.toInt "ab") == 0
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "Basics.Int" [] ])
+              , tipe = Lambda (Type "String.String" []) (Type "Maybe.Maybe" [ Type "Basics.Int" [] ])
               }
             , { name = "toList"
               , comment = """ Convert a string to a list of characters.
@@ -3740,14 +3740,14 @@ want to use [`Maybe.withDefault`](Maybe#withDefault) to handle bad data:
     toList "abc" == ['a','b','c']
     toList "🙈🙉🙊" == ['🙈','🙉','🙊']
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "List.List" [ Elm.Type.Type "Char.Char" [] ])
+              , tipe = Lambda (Type "String.String" []) (Type "List.List" [ Type "Char.Char" [] ])
               }
             , { name = "toLower"
               , comment = """ Convert a string to all lower case. Useful for case-insensitive comparisons.
 
     toLower "X-FILES" == "x-files"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" [])
+              , tipe = Lambda (Type "String.String" []) (Type "String.String" [])
               }
             , { name = "toUpper"
               , comment = """ Convert a string to all upper case. Useful for case-insensitive comparisons
@@ -3755,28 +3755,28 @@ and VIRTUAL YELLING.
 
     toUpper "skinner" == "SKINNER"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" [])
+              , tipe = Lambda (Type "String.String" []) (Type "String.String" [])
               }
             , { name = "trim"
               , comment = """ Get rid of whitespace on both sides of a string.
 
     trim "  hats  \\n" == "hats"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" [])
+              , tipe = Lambda (Type "String.String" []) (Type "String.String" [])
               }
             , { name = "trimLeft"
               , comment = """ Get rid of whitespace on the left of a string.
 
     trimLeft "  hats  \\n" == "hats  \\n"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" [])
+              , tipe = Lambda (Type "String.String" []) (Type "String.String" [])
               }
             , { name = "trimRight"
               , comment = """ Get rid of whitespace on the right of a string.
 
     trimRight "  hats  \\n" == "  hats"
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" [])
+              , tipe = Lambda (Type "String.String" []) (Type "String.String" [])
               }
             , { name = "uncons"
               , comment = """ Split a non-empty string into its head and tail. This lets you
@@ -3786,11 +3786,11 @@ pattern match on strings exactly as you would with lists.
     uncons ""    == Nothing
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Type "String.String" [])
-                        (Elm.Type.Type "Maybe.Maybe"
-                            [ Elm.Type.Tuple
-                                [ Elm.Type.Type "Char.Char" []
-                                , Elm.Type.Type "String.String" []
+                    Lambda (Type "String.String" [])
+                        (Type "Maybe.Maybe"
+                            [ Tuple
+                                [ Type "Char.Char" []
+                                , Type "String.String" []
                                 ]
                             ]
                         )
@@ -3800,7 +3800,7 @@ pattern match on strings exactly as you would with lists.
 
     words "How are \\t you? \\n Good?" == ["How","are","you?","Good?"]
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "List.List" [ Elm.Type.Type "String.String" [] ])
+              , tipe = Lambda (Type "String.String" []) (Type "List.List" [ Type "String.String" [] ])
               }
             ]
       }
@@ -3849,9 +3849,9 @@ to tell me the current POSIX time" does not complete the task! You need
 [`perform`](#perform) tasks or [`attempt`](#attempt) tasks.
 """
               , tipe =
-                    Elm.Type.Type "Platform.Task"
-                        [ Elm.Type.Var "x"
-                        , Elm.Type.Var "a"
+                    Type "Platform.Task"
+                        [ Var "x"
+                        , Var "a"
                         ]
               }
             ]
@@ -3875,23 +3875,23 @@ now:
 First the process sleeps for an hour **and then** it tells us what time it is.
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Lambda (Elm.Type.Var "a")
-                            (Elm.Type.Type "Task.Task"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "b"
+                    Lambda
+                        (Lambda (Var "a")
+                            (Type "Task.Task"
+                                [ Var "x"
+                                , Var "b"
                                 ]
                             )
                         )
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Task.Task"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                        (Lambda
+                            (Type "Task.Task"
+                                [ Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Type "Task.Task"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "b"
+                            (Type "Task.Task"
+                                [ Var "x"
+                                , Var "b"
                                 ]
                             )
                         )
@@ -3922,22 +3922,22 @@ feeling for how commands fit into The Elm Architecture.
 [guide]: https://guide.elm-lang.org/
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Result.Result"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                    Lambda
+                        (Lambda
+                            (Type "Result.Result"
+                                [ Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Var "msg")
+                            (Var "msg")
                         )
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Task.Task"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                        (Lambda
+                            (Type "Task.Task"
+                                [ Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Type "Platform.Cmd.Cmd" [ Elm.Type.Var "msg" ])
+                            (Type "Platform.Cmd.Cmd" [ Var "msg" ])
                         )
               }
             , { name = "fail"
@@ -3951,10 +3951,10 @@ used with `andThen` to check on the outcome of another task.
       fail NotFound
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Var "x")
-                        (Elm.Type.Type "Task.Task"
-                            [ Elm.Type.Var "x"
-                            , Elm.Type.Var "a"
+                    Lambda (Var "x")
+                        (Type "Task.Task"
+                            [ Var "x"
+                            , Var "a"
                             ]
                         )
               }
@@ -3976,16 +3976,16 @@ out what time it will be in one hour:
 [time]: /packages/elm/time/latest/
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b"))
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Task.Task"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                    Lambda (Lambda (Var "a") (Var "b"))
+                        (Lambda
+                            (Type "Task.Task"
+                                [ Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Type "Task.Task"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "b"
+                            (Type "Task.Task"
+                                [ Var "x"
+                                , Var "b"
                                 ]
                             )
                         )
@@ -4008,22 +4008,22 @@ If it fails, the whole thing fails!
 [time]: /packages/elm/time/latest/
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "result")))
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Task.Task"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                    Lambda (Lambda (Var "a") (Lambda (Var "b") (Var "result")))
+                        (Lambda
+                            (Type "Task.Task"
+                                [ Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Lambda
-                                (Elm.Type.Type "Task.Task"
-                                    [ Elm.Type.Var "x"
-                                    , Elm.Type.Var "b"
+                            (Lambda
+                                (Type "Task.Task"
+                                    [ Var "x"
+                                    , Var "b"
                                     ]
                                 )
-                                (Elm.Type.Type "Task.Task"
-                                    [ Elm.Type.Var "x"
-                                    , Elm.Type.Var "result"
+                                (Type "Task.Task"
+                                    [ Var "x"
+                                    , Var "result"
                                     ]
                                 )
                             )
@@ -4032,28 +4032,28 @@ If it fails, the whole thing fails!
             , { name = "map3"
               , comment = ""
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Var "result"))))
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Task.Task"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                    Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Var "result"))))
+                        (Lambda
+                            (Type "Task.Task"
+                                [ Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Lambda
-                                (Elm.Type.Type "Task.Task"
-                                    [ Elm.Type.Var "x"
-                                    , Elm.Type.Var "b"
+                            (Lambda
+                                (Type "Task.Task"
+                                    [ Var "x"
+                                    , Var "b"
                                     ]
                                 )
-                                (Elm.Type.Lambda
-                                    (Elm.Type.Type "Task.Task"
-                                        [ Elm.Type.Var "x"
-                                        , Elm.Type.Var "c"
+                                (Lambda
+                                    (Type "Task.Task"
+                                        [ Var "x"
+                                        , Var "c"
                                         ]
                                     )
-                                    (Elm.Type.Type "Task.Task"
-                                        [ Elm.Type.Var "x"
-                                        , Elm.Type.Var "result"
+                                    (Type "Task.Task"
+                                        [ Var "x"
+                                        , Var "result"
                                         ]
                                     )
                                 )
@@ -4063,34 +4063,34 @@ If it fails, the whole thing fails!
             , { name = "map4"
               , comment = ""
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Var "result")))))
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Task.Task"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                    Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Lambda (Var "d") (Var "result")))))
+                        (Lambda
+                            (Type "Task.Task"
+                                [ Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Lambda
-                                (Elm.Type.Type "Task.Task"
-                                    [ Elm.Type.Var "x"
-                                    , Elm.Type.Var "b"
+                            (Lambda
+                                (Type "Task.Task"
+                                    [ Var "x"
+                                    , Var "b"
                                     ]
                                 )
-                                (Elm.Type.Lambda
-                                    (Elm.Type.Type "Task.Task"
-                                        [ Elm.Type.Var "x"
-                                        , Elm.Type.Var "c"
+                                (Lambda
+                                    (Type "Task.Task"
+                                        [ Var "x"
+                                        , Var "c"
                                         ]
                                     )
-                                    (Elm.Type.Lambda
-                                        (Elm.Type.Type "Task.Task"
-                                            [ Elm.Type.Var "x"
-                                            , Elm.Type.Var "d"
+                                    (Lambda
+                                        (Type "Task.Task"
+                                            [ Var "x"
+                                            , Var "d"
                                             ]
                                         )
-                                        (Elm.Type.Type "Task.Task"
-                                            [ Elm.Type.Var "x"
-                                            , Elm.Type.Var "result"
+                                        (Type "Task.Task"
+                                            [ Var "x"
+                                            , Var "result"
                                             ]
                                         )
                                     )
@@ -4101,40 +4101,40 @@ If it fails, the whole thing fails!
             , { name = "map5"
               , comment = ""
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Lambda (Elm.Type.Var "e") (Elm.Type.Var "result"))))))
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Task.Task"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                    Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Lambda (Var "d") (Lambda (Var "e") (Var "result"))))))
+                        (Lambda
+                            (Type "Task.Task"
+                                [ Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Lambda
-                                (Elm.Type.Type "Task.Task"
-                                    [ Elm.Type.Var "x"
-                                    , Elm.Type.Var "b"
+                            (Lambda
+                                (Type "Task.Task"
+                                    [ Var "x"
+                                    , Var "b"
                                     ]
                                 )
-                                (Elm.Type.Lambda
-                                    (Elm.Type.Type "Task.Task"
-                                        [ Elm.Type.Var "x"
-                                        , Elm.Type.Var "c"
+                                (Lambda
+                                    (Type "Task.Task"
+                                        [ Var "x"
+                                        , Var "c"
                                         ]
                                     )
-                                    (Elm.Type.Lambda
-                                        (Elm.Type.Type "Task.Task"
-                                            [ Elm.Type.Var "x"
-                                            , Elm.Type.Var "d"
+                                    (Lambda
+                                        (Type "Task.Task"
+                                            [ Var "x"
+                                            , Var "d"
                                             ]
                                         )
-                                        (Elm.Type.Lambda
-                                            (Elm.Type.Type "Task.Task"
-                                                [ Elm.Type.Var "x"
-                                                , Elm.Type.Var "e"
+                                        (Lambda
+                                            (Type "Task.Task"
+                                                [ Var "x"
+                                                , Var "e"
                                                 ]
                                             )
-                                            (Elm.Type.Type "Task.Task"
-                                                [ Elm.Type.Var "x"
-                                                , Elm.Type.Var "result"
+                                            (Type "Task.Task"
+                                                [ Var "x"
+                                                , Var "result"
                                                 ]
                                             )
                                         )
@@ -4159,16 +4159,16 @@ types to match up.
         ]
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "x") (Elm.Type.Var "y"))
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Task.Task"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                    Lambda (Lambda (Var "x") (Var "y"))
+                        (Lambda
+                            (Type "Task.Task"
+                                [ Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Type "Task.Task"
-                                [ Elm.Type.Var "y"
-                                , Elm.Type.Var "a"
+                            (Type "Task.Task"
+                                [ Var "y"
+                                , Var "a"
                                 ]
                             )
                         )
@@ -4186,23 +4186,23 @@ callback to recover.
       -- succeed 9
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Lambda (Elm.Type.Var "x")
-                            (Elm.Type.Type "Task.Task"
-                                [ Elm.Type.Var "y"
-                                , Elm.Type.Var "a"
+                    Lambda
+                        (Lambda (Var "x")
+                            (Type "Task.Task"
+                                [ Var "y"
+                                , Var "a"
                                 ]
                             )
                         )
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Task.Task"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                        (Lambda
+                            (Type "Task.Task"
+                                [ Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Type "Task.Task"
-                                [ Elm.Type.Var "y"
-                                , Elm.Type.Var "a"
+                            (Type "Task.Task"
+                                [ Var "y"
+                                , Var "a"
                                 ]
                             )
                         )
@@ -4231,14 +4231,14 @@ delicious lasagna and give it to my `update` function as a `Msg` value."
 [guide]: https://guide.elm-lang.org/
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "msg"))
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Task.Task"
-                                [ Elm.Type.Type "Basics.Never" []
-                                , Elm.Type.Var "a"
+                    Lambda (Lambda (Var "a") (Var "msg"))
+                        (Lambda
+                            (Type "Task.Task"
+                                [ Type "Basics.Never" []
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Type "Platform.Cmd.Cmd" [ Elm.Type.Var "msg" ])
+                            (Type "Platform.Cmd.Cmd" [ Var "msg" ])
                         )
               }
             , { name = "sequence"
@@ -4250,17 +4250,17 @@ sequence fails.
 
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "List.List"
-                            [ Elm.Type.Type "Task.Task"
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                    Lambda
+                        (Type "List.List"
+                            [ Type "Task.Task"
+                                [ Var "x"
+                                , Var "a"
                                 ]
                             ]
                         )
-                        (Elm.Type.Type "Task.Task"
-                            [ Elm.Type.Var "x"
-                            , Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]
+                        (Type "Task.Task"
+                            [ Var "x"
+                            , Type "List.List" [ Var "a" ]
                             ]
                         )
               }
@@ -4277,10 +4277,10 @@ sequence fails.
 
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Var "a")
-                        (Elm.Type.Type "Task.Task"
-                            [ Elm.Type.Var "x"
-                            , Elm.Type.Var "a"
+                    Lambda (Var "a")
+                        (Type "Task.Task"
+                            [ Var "x"
+                            , Var "a"
                             ]
                         )
               }
@@ -4331,13 +4331,13 @@ info on this. (Picking appropriate data structures is super important in Elm!)
     first ("john", "doe") == "john"
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Tuple
-                            [ Elm.Type.Var "a"
-                            , Elm.Type.Var "b"
+                    Lambda
+                        (Tuple
+                            [ Var "a"
+                            , Var "b"
                             ]
                         )
-                        (Elm.Type.Var "a")
+                        (Var "a")
               }
             , { name = "mapBoth"
               , comment = """ Transform both parts of a tuple.
@@ -4348,17 +4348,17 @@ info on this. (Picking appropriate data structures is super important in Elm!)
     mapBoth String.length negate ("stressed", 16) == (8, -16)
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "x"))
-                        (Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "y"))
-                            (Elm.Type.Lambda
-                                (Elm.Type.Tuple
-                                    [ Elm.Type.Var "a"
-                                    , Elm.Type.Var "b"
+                    Lambda (Lambda (Var "a") (Var "x"))
+                        (Lambda (Lambda (Var "b") (Var "y"))
+                            (Lambda
+                                (Tuple
+                                    [ Var "a"
+                                    , Var "b"
                                     ]
                                 )
-                                (Elm.Type.Tuple
-                                    [ Elm.Type.Var "x"
-                                    , Elm.Type.Var "y"
+                                (Tuple
+                                    [ Var "x"
+                                    , Var "y"
                                     ]
                                 )
                             )
@@ -4373,16 +4373,16 @@ info on this. (Picking appropriate data structures is super important in Elm!)
     mapFirst String.length  ("stressed", 16) == (8, 16)
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "x"))
-                        (Elm.Type.Lambda
-                            (Elm.Type.Tuple
-                                [ Elm.Type.Var "a"
-                                , Elm.Type.Var "b"
+                    Lambda (Lambda (Var "a") (Var "x"))
+                        (Lambda
+                            (Tuple
+                                [ Var "a"
+                                , Var "b"
                                 ]
                             )
-                            (Elm.Type.Tuple
-                                [ Elm.Type.Var "x"
-                                , Elm.Type.Var "b"
+                            (Tuple
+                                [ Var "x"
+                                , Var "b"
                                 ]
                             )
                         )
@@ -4394,16 +4394,16 @@ info on this. (Picking appropriate data structures is super important in Elm!)
     mapSecond negate ("stressed", 16) == ("stressed", -16)
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "y"))
-                        (Elm.Type.Lambda
-                            (Elm.Type.Tuple
-                                [ Elm.Type.Var "a"
-                                , Elm.Type.Var "b"
+                    Lambda (Lambda (Var "b") (Var "y"))
+                        (Lambda
+                            (Tuple
+                                [ Var "a"
+                                , Var "b"
                                 ]
                             )
-                            (Elm.Type.Tuple
-                                [ Elm.Type.Var "a"
-                                , Elm.Type.Var "y"
+                            (Tuple
+                                [ Var "a"
+                                , Var "y"
                                 ]
                             )
                         )
@@ -4418,11 +4418,11 @@ info on this. (Picking appropriate data structures is super important in Elm!)
       List.map2 Tuple.pair xs ys
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Var "a")
-                        (Elm.Type.Lambda (Elm.Type.Var "b")
-                            (Elm.Type.Tuple
-                                [ Elm.Type.Var "a"
-                                , Elm.Type.Var "b"
+                    Lambda (Var "a")
+                        (Lambda (Var "b")
+                            (Tuple
+                                [ Var "a"
+                                , Var "b"
                                 ]
                             )
                         )
@@ -4434,13 +4434,13 @@ info on this. (Picking appropriate data structures is super important in Elm!)
     second ("john", "doe") == "doe"
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Tuple
-                            [ Elm.Type.Var "a"
-                            , Elm.Type.Var "b"
+                    Lambda
+                        (Tuple
+                            [ Var "a"
+                            , Var "b"
                             ]
                         )
-                        (Elm.Type.Var "b")
+                        (Var "b")
               }
             ]
       }
