@@ -115,6 +115,7 @@ import Review.Error as Error
 import Review.Fix as Fix
 import Review.Project as Project exposing (Project, ProjectModule)
 import Review.Rule as Rule exposing (ReviewError, Rule)
+import Review.Test.Dependencies exposing (projectWithElmCore)
 import Review.Test.FailureMessage as FailureMessage
 import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
@@ -208,7 +209,7 @@ If your rule is interested in project related details, then you should use
 -}
 run : Rule -> String -> ReviewResult
 run rule source =
-    runWithProjectData Project.new rule source
+    runWithProjectData projectWithElmCore rule source
 
 
 {-| Run a `Rule` on a `String` containing source code, with data about the
@@ -289,7 +290,7 @@ If your rule is interested in project related details, then you should use
 -}
 runOnModules : Rule -> List String -> ReviewResult
 runOnModules rule sources =
-    runOnModulesWithProjectData Project.new rule sources
+    runOnModulesWithProjectData projectWithElmCore rule sources
 
 
 {-| Run a `Rule` on several modules. You can then use

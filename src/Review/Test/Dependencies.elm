@@ -1,4 +1,7 @@
-module Review.Test.Dependencies exposing (elmCore, elmHtml, elmParser, elmUrl)
+module Review.Test.Dependencies exposing
+    ( elmCore, elmHtml, elmParser, elmUrl
+    , projectWithElmCore
+    )
 
 {-| Pre-built dependencies that you can use for your tests.
 
@@ -13,8 +16,11 @@ script to generate dependencies](TODO LINK).
 
 @docs elmCore, elmHtml, elmParser, elmUrl
 
+@docs projectWithElmCore
+
 -}
 
+import Review.Project as Project exposing (Project)
 import Review.Project.Dependency exposing (Dependency)
 import Review.Test.Dependencies.ElmCore
 import Review.Test.Dependencies.ElmHtml
@@ -23,10 +29,25 @@ import Review.Test.Dependencies.ElmUrl
 
 
 {-| Dependency for `elm/core`. It contains operators.
+
+It is present by default in `elm-review` tests when you use [`Review.Test.run`](./Review-Test#run) or
+[`Review.Test.runOnModules`](./Review-Test#runOnModules).
+
+Note that if you create a new project using [`Review.Project.new`](/Review-Project#new), you'll have to manually add it
+again with [`Review.Project.addDependency`](./Review-Project#addDependency) if you so wish to. You can also use
+[`projectWithElmCore`](#projectWithElmCore) as a starting block instead of `Review.Project.new`.
+
 -}
 elmCore : Dependency
 elmCore =
     Review.Test.Dependencies.ElmCore.dependency
+
+
+{-| A project that only contains the `elm/core` dependency.
+-}
+projectWithElmCore : Project
+projectWithElmCore =
+    Project.addDependency elmCore Project.new
 
 
 {-| Dependency for `elm/html`.
