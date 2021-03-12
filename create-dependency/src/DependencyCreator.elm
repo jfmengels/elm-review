@@ -97,19 +97,19 @@ formatType : Elm.Type.Type -> String
 formatType type_ =
     case type_ of
         Elm.Type.Var name ->
-            "Elm.Type.Var " ++ stringify name
+            "Var " ++ stringify name
 
         Elm.Type.Tuple list ->
-            "Elm.Type.Tuple " ++ listOfThings formatType list
+            "Tuple " ++ listOfThings formatType list
 
         Elm.Type.Type name list ->
-            "Elm.Type.Type " ++ stringify name ++ " " ++ listOfThings formatType list
+            "Type " ++ stringify name ++ " " ++ listOfThings formatType list
 
         Elm.Type.Record fields maybeVar ->
-            "Elm.Type.Record " ++ listOfThings (\( field, subType ) -> "( " ++ stringify field ++ ", " ++ formatType subType ++ " )") fields ++ " " ++ Debug.toString maybeVar
+            "Record " ++ listOfThings (\( field, subType ) -> "( " ++ stringify field ++ ", " ++ formatType subType ++ " )") fields ++ " " ++ Debug.toString maybeVar
 
         Elm.Type.Lambda input output ->
-            "Elm.Type.Lambda (" ++ formatType input ++ ") (" ++ formatType output ++ ")"
+            "Lambda (" ++ formatType input ++ ") (" ++ formatType output ++ ")"
 
 
 stringify : String -> String
@@ -201,7 +201,7 @@ import Elm.License
 import Elm.Module
 import Elm.Package
 import Elm.Project
-import Elm.Type
+import Elm.Type exposing (Type(..))
 import Elm.Version
 import Review.Project.Dependency as Dependency exposing (Dependency)
 

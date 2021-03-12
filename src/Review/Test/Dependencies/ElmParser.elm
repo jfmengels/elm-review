@@ -6,7 +6,7 @@ import Elm.License
 import Elm.Module
 import Elm.Package
 import Elm.Project
-import Elm.Type
+import Elm.Type exposing (Type(..))
 import Elm.Version
 import Review.Project.Dependency as Dependency exposing (Dependency)
 
@@ -79,10 +79,10 @@ and `col=1`. As I chomp characters, the `col` increments. When I reach a `\\n`
 character, I increment the `row` and set `col=1`.
 """
               , tipe =
-                    Elm.Type.Record
-                        [ ( "row", Elm.Type.Type "Basics.Int" [] )
-                        , ( "col", Elm.Type.Type "Basics.Int" [] )
-                        , ( "problem", Elm.Type.Type "Parser.Problem" [] )
+                    Record
+                        [ ( "row", Type "Basics.Int" [] )
+                        , ( "col", Type "Basics.Int" [] )
+                        , ( "problem", Type "Parser.Problem" [] )
                         ]
                         Nothing
               }
@@ -98,10 +98,10 @@ The cool thing is that you can combine `Parser` values to handle much more
 complex scenarios.
 """
               , tipe =
-                    Elm.Type.Type "Parser.Advanced.Parser"
-                        [ Elm.Type.Type "Basics.Never" []
-                        , Elm.Type.Type "Parser.Problem" []
-                        , Elm.Type.Var "a"
+                    Type "Parser.Advanced.Parser"
+                        [ Type "Basics.Never" []
+                        , Type "Parser.Problem" []
+                        , Var "a"
                         ]
               }
             ]
@@ -155,7 +155,7 @@ relatively nice parse errors, and I am excited to see those techniques applied
 elsewhere!
 """
               , tags =
-                    [ ( "Expecting", [ Elm.Type.Type "String.String" [] ] )
+                    [ ( "Expecting", [ Type "String.String" [] ] )
                     , ( "ExpectingInt", [] )
                     , ( "ExpectingHex", [] )
                     , ( "ExpectingOctal", [] )
@@ -163,11 +163,11 @@ elsewhere!
                     , ( "ExpectingFloat", [] )
                     , ( "ExpectingNumber", [] )
                     , ( "ExpectingVariable", [] )
-                    , ( "ExpectingSymbol", [ Elm.Type.Type "String.String" [] ] )
-                    , ( "ExpectingKeyword", [ Elm.Type.Type "String.String" [] ] )
+                    , ( "ExpectingSymbol", [ Type "String.String" [] ] )
+                    , ( "ExpectingKeyword", [ Type "String.String" [] ] )
                     , ( "ExpectingEnd", [] )
                     , ( "UnexpectedChar", [] )
-                    , ( "Problem", [ Elm.Type.Type "String.String" [] ] )
+                    , ( "Problem", [ Type "String.String" [] ] )
                     , ( "BadRepeat", [] )
                     ]
               }
@@ -191,8 +191,8 @@ them as you consume characters.
 [fsm]: https://en.wikipedia.org/wiki/Finite-state_machine
 """
               , tags =
-                    [ ( "Loop", [ Elm.Type.Var "state" ] )
-                    , ( "Done", [ Elm.Type.Var "a" ] )
+                    [ ( "Loop", [ Var "state" ] )
+                    , ( "Done", [ Var "a" ] )
                     ]
               }
             , { name = "Trailing"
@@ -233,7 +233,7 @@ some JavaScript variables:
 value. The `(|.)` operators are saying to still chomp all the characters, but
 skip the two `()` values that get produced. No one cares about them.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "keep" ]) (Elm.Type.Lambda (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "ignore" ]) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "keep" ]))
+              , tipe = Lambda (Type "Parser.Parser" [ Var "keep" ]) (Lambda (Type "Parser.Parser" [ Var "ignore" ]) (Type "Parser.Parser" [ Var "keep" ]))
               , associativity = Elm.Docs.Left
               , precedence = 6
               }
@@ -263,7 +263,7 @@ operators just decide whether we give the values to the `Point` function.
 So in this case, we skip the `()` from `symbol "("`, we skip the `()` from
 `spaces`, we keep the `Float` from `float`, etc.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Parser.Parser" [ Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b") ]) (Elm.Type.Lambda (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "b" ]))
+              , tipe = Lambda (Type "Parser.Parser" [ Lambda (Var "a") (Var "b") ]) (Lambda (Type "Parser.Parser" [ Var "a" ]) (Type "Parser.Parser" [ Var "b" ]))
               , associativity = Elm.Docs.Left
               , precedence = 5
               }
@@ -296,7 +296,7 @@ for another example, this time using `andThen` to verify unicode code points.
 **Note:** If you are using `andThen` recursively and blowing the stack, check
 out the [`loop`](#loop) function to limit stack usage.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "b" ])) (Elm.Type.Lambda (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "b" ]))
+              , tipe = Lambda (Lambda (Var "a") (Type "Parser.Parser" [ Var "b" ])) (Lambda (Type "Parser.Parser" [ Var "a" ]) (Type "Parser.Parser" [ Var "b" ]))
               }
             , { name = "backtrackable"
               , comment = """ It is quite tricky to use `backtrackable` well! It can be very useful, but
@@ -306,7 +306,7 @@ Read [this document](https://github.com/elm/parser/blob/master/semantics.md)
 to learn how `oneOf`, `backtrackable`, and `commit` work and interact with
 each other. It is subtle and important!
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ])
+              , tipe = Lambda (Type "Parser.Parser" [ Var "a" ]) (Type "Parser.Parser" [ Var "a" ])
               }
             , { name = "chompIf"
               , comment = """ Chomp one character if it passes the test.
@@ -317,7 +317,7 @@ each other. It is subtle and important!
 
 So this can chomp a character like `T` and produces a `()` value.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" [])) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ])
+              , tipe = Lambda (Lambda (Type "Char.Char" []) (Type "Basics.Bool" [])) (Type "Parser.Parser" [ Tuple [] ])
               }
             , { name = "chompUntil"
               , comment = """ Chomp until you see a certain string. You could define C-style multi-line
@@ -331,7 +331,7 @@ comments like this:
 I recommend using [`multiComment`](#multiComment) for this particular scenario
 though. It can be trickier than it looks!
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ])
+              , tipe = Lambda (Type "String.String" []) (Type "Parser.Parser" [ Tuple [] ])
               }
             , { name = "chompUntilEndOr"
               , comment = """ Chomp until you see a certain string or until you run out of characters to
@@ -348,7 +348,7 @@ a newline. Tricky!
 I recommend just using [`lineComment`](#lineComment) for this particular
 scenario.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ])
+              , tipe = Lambda (Type "String.String" []) (Type "Parser.Parser" [ Tuple [] ])
               }
             , { name = "chompWhile"
               , comment = """ Chomp zero or more characters if they pass the test. This is commonly
@@ -371,7 +371,7 @@ you could accidentally interpret `letx` as the keyword `let` followed by
 "spaces" followed by the variable `x`. This is why the `keyword` and `number`
 parsers peek ahead, making sure they are not followed by anything unexpected.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" [])) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ])
+              , tipe = Lambda (Lambda (Type "Char.Char" []) (Type "Basics.Bool" [])) (Type "Parser.Parser" [ Tuple [] ])
               }
             , { name = "commit"
               , comment = """ `commit` is almost always paired with `backtrackable` in some way, and it
@@ -381,7 +381,7 @@ Read [this document](https://github.com/elm/parser/blob/master/semantics.md)
 to learn how `oneOf`, `backtrackable`, and `commit` work and interact with
 each other. It is subtle and important!
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ])
+              , tipe = Lambda (Var "a") (Type "Parser.Parser" [ Var "a" ])
               }
             , { name = "deadEndsToString"
               , comment = """ Turn all the `DeadEnd` data into a string that is easier for people to
@@ -396,7 +396,7 @@ The "context" technique is how the Elm compiler can say "I think I am parsing a
 list, so I was expecting a closing `]` here." Telling users what the parser
 _thinks_ is happening can be really helpful!
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Parser.DeadEnd" [] ]) (Elm.Type.Type "String.String" [])
+              , tipe = Lambda (Type "List.List" [ Type "Parser.DeadEnd" [] ]) (Type "String.String" [])
               }
             , { name = "end"
               , comment = """ Check if you have reached the end of the string you are parsing.
@@ -414,7 +414,7 @@ _thinks_ is happening can be really helpful!
 Parsers can succeed without parsing the whole string. Ending your parser
 with `end` guarantees that you have successfully parsed the whole string.
 """
-              , tipe = Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ]
+              , tipe = Type "Parser.Parser" [ Tuple [] ]
               }
             , { name = "float"
               , comment = """ Parse floats.
@@ -443,7 +443,7 @@ something like this:
 [`number`](#number) below. It will be faster than using `oneOf` to combining
 `int` and `float` yourself.
 """
-              , tipe = Elm.Type.Type "Parser.Parser" [ Elm.Type.Type "Basics.Float" [] ]
+              , tipe = Type "Parser.Parser" [ Type "Basics.Float" [] ]
               }
             , { name = "getChompedString"
               , comment = """ Sometimes parsers like `int` or `variable` cannot do exactly what you
@@ -474,7 +474,7 @@ and [`getSource`](#getSource) to implement this function:
 
 [php]: https://www.w3schools.com/php/php_variables.asp
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Type "String.String" [] ])
+              , tipe = Lambda (Type "Parser.Parser" [ Var "a" ]) (Type "Parser.Parser" [ Type "String.String" [] ])
               }
             , { name = "getCol"
               , comment = """ This is a more efficient version of `map Tuple.second getPosition`. This
@@ -498,7 +498,7 @@ can be useful in combination with [`withIndent`](#withIndent) and
 So the `checkIndent` parser only succeeds when you are "deeper" than the
 current indent level. You could use this to parse Elm-style `let` expressions.
 """
-              , tipe = Elm.Type.Type "Parser.Parser" [ Elm.Type.Type "Basics.Int" [] ]
+              , tipe = Type "Parser.Parser" [ Type "Basics.Int" [] ]
               }
             , { name = "getIndent"
               , comment = """ When someone said `withIndent` earlier, what number did they put in there?
@@ -515,7 +515,7 @@ out of `withIndent`, so say we have:
 
 Assuming there are no `withIndent` above this, you would get `(4,0)` from this.
 """
-              , tipe = Elm.Type.Type "Parser.Parser" [ Elm.Type.Type "Basics.Int" [] ]
+              , tipe = Type "Parser.Parser" [ Type "Basics.Int" [] ]
               }
             , { name = "getOffset"
               , comment = """ Editors think of code as a grid, but behind the scenes it is just a flat
@@ -527,7 +527,7 @@ character may take two slots. So in JavaScript, `'abc'.length === 3` but
 `'🙈🙉🙊'.length === 6`. Try it out! And since Elm runs in JavaScript, the offset
 moves by those rules.
 """
-              , tipe = Elm.Type.Type "Parser.Parser" [ Elm.Type.Type "Basics.Int" [] ]
+              , tipe = Type "Parser.Parser" [ Type "Basics.Int" [] ]
               }
             , { name = "getPosition"
               , comment = """ Code editors treat code like a grid, with rows and columns. The start is
@@ -579,10 +579,10 @@ parsing but before anyone looks at the numbers in a context where tabs may
 equal 2, 4, or 8.
 """
               , tipe =
-                    Elm.Type.Type "Parser.Parser"
-                        [ Elm.Type.Tuple
-                            [ Elm.Type.Type "Basics.Int" []
-                            , Elm.Type.Type "Basics.Int" []
+                    Type "Parser.Parser"
+                        [ Tuple
+                            [ Type "Basics.Int" []
+                            , Type "Basics.Int" []
                             ]
                         ]
               }
@@ -592,7 +592,7 @@ you just want to track the line number for some reason? This lets you do that.
 
 See [`getPosition`](#getPosition) for an explanation of rows and columns.
 """
-              , tipe = Elm.Type.Type "Parser.Parser" [ Elm.Type.Type "Basics.Int" [] ]
+              , tipe = Type "Parser.Parser" [ Type "Basics.Int" [] ]
               }
             , { name = "getSource"
               , comment = """ Get the full string that is being parsed. You could use this to define
@@ -606,7 +606,7 @@ See [`getPosition`](#getPosition) for an explanation of rows and columns.
         |= getOffset
         |= getSource
 """
-              , tipe = Elm.Type.Type "Parser.Parser" [ Elm.Type.Type "String.String" [] ]
+              , tipe = Type "Parser.Parser" [ Type "String.String" [] ]
               }
             , { name = "int"
               , comment = """ Parse integers.
@@ -637,7 +637,7 @@ parser like this:
 [`number`](#number) below. It will be faster than using `oneOf` to combining
 `int` and `float` yourself.
 """
-              , tipe = Elm.Type.Type "Parser.Parser" [ Elm.Type.Type "Basics.Int" [] ]
+              , tipe = Type "Parser.Parser" [ Type "Basics.Int" [] ]
               }
             , { name = "keyword"
               , comment = """ Parse keywords like `let`, `case`, and `type`.
@@ -662,7 +662,7 @@ like `[1,2]` and `[ 1 , 2 ]`) and in this case, it would mean `letters` could
 be parsed as `let ters` and then wonder where the equals sign is! Check out the
 [`token`](#token) docs if you need to customize this!
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ])
+              , tipe = Lambda (Type "String.String" []) (Type "Parser.Parser" [ Tuple [] ])
               }
             , { name = "lazy"
               , comment = """ Helper to define recursive parsers. Say we want a parser for simple
@@ -705,7 +705,7 @@ only define a value in terms of itself it is behind a function call. So
 `lazy` helps us define these self-referential parsers. (`andThen` can be used
 for this as well!)
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Tuple []) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ])) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ])
+              , tipe = Lambda (Lambda (Tuple []) (Type "Parser.Parser" [ Var "a" ])) (Type "Parser.Parser" [ Var "a" ])
               }
             , { name = "lineComment"
               , comment = """ Parse single-line comments:
@@ -732,7 +732,7 @@ This parser is defined like this:
 So it will consume the remainder of the line. If the file ends before you see
 a newline, that is fine too.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ])
+              , tipe = Lambda (Type "String.String" []) (Type "Parser.Parser" [ Tuple [] ])
               }
             , { name = "loop"
               , comment = """ A parser that can loop indefinitely. This can be helpful when parsing
@@ -774,18 +774,18 @@ cannot do it indefinitely. So `loop` is important because enables tail-call
 elimination, allowing you to parse however many repeats you want.
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Var "state")
-                        (Elm.Type.Lambda
-                            (Elm.Type.Lambda (Elm.Type.Var "state")
-                                (Elm.Type.Type "Parser.Parser"
-                                    [ Elm.Type.Type "Parser.Step"
-                                        [ Elm.Type.Var "state"
-                                        , Elm.Type.Var "a"
+                    Lambda (Var "state")
+                        (Lambda
+                            (Lambda (Var "state")
+                                (Type "Parser.Parser"
+                                    [ Type "Parser.Step"
+                                        [ Var "state"
+                                        , Var "a"
                                         ]
                                     ]
                                 )
                             )
-                            (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ])
+                            (Type "Parser.Parser" [ Var "a" ])
                         )
               }
             , { name = "map"
@@ -804,7 +804,7 @@ an integer or `null`:
     -- run nullOrInt "null" == Ok Nothing
     -- run nullOrInt "zero" == Err ...
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b")) (Elm.Type.Lambda (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "b" ]))
+              , tipe = Lambda (Lambda (Var "a") (Var "b")) (Lambda (Type "Parser.Parser" [ Var "a" ]) (Type "Parser.Parser" [ Var "b" ]))
               }
             , { name = "mapChompedString"
               , comment = """ This works just like [`getChompedString`](#getChompedString) but gives
@@ -822,7 +822,7 @@ You could implement `mapChompedString` like this:
         |= getSource
 
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b"))) (Elm.Type.Lambda (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "b" ]))
+              , tipe = Lambda (Lambda (Type "String.String" []) (Lambda (Var "a") (Var "b"))) (Lambda (Type "Parser.Parser" [ Var "a" ]) (Type "Parser.Parser" [ Var "b" ]))
               }
             , { name = "multiComment"
               , comment = """ Parse multi-line comments. So if you wanted to parse Elm whitespace or
@@ -860,7 +860,7 @@ first option, it would always succeed and bypass the others! (Same is true of
 why wee need the `ifProgress` helper. It detects if there is no more whitespace
 to consume.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "Parser.Nestable" []) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ])))
+              , tipe = Lambda (Type "String.String" []) (Lambda (Type "String.String" []) (Lambda (Type "Parser.Nestable" []) (Type "Parser.Parser" [ Tuple [] ])))
               }
             , { name = "number"
               , comment = """ Parse a bunch of different kinds of numbers without backtracking. A parser
@@ -906,17 +906,17 @@ move on. This is helpful for people who want to parse things like `40px` or
 other cases.
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Record
-                            [ ( "int", Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Var "a") ] )
-                            , ( "hex", Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Var "a") ] )
-                            , ( "octal", Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Var "a") ] )
-                            , ( "binary", Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Var "a") ] )
-                            , ( "float", Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Var "a") ] )
+                    Lambda
+                        (Record
+                            [ ( "int", Type "Maybe.Maybe" [ Lambda (Type "Basics.Int" []) (Var "a") ] )
+                            , ( "hex", Type "Maybe.Maybe" [ Lambda (Type "Basics.Int" []) (Var "a") ] )
+                            , ( "octal", Type "Maybe.Maybe" [ Lambda (Type "Basics.Int" []) (Var "a") ] )
+                            , ( "binary", Type "Maybe.Maybe" [ Lambda (Type "Basics.Int" []) (Var "a") ] )
+                            , ( "float", Type "Maybe.Maybe" [ Lambda (Type "Basics.Float" []) (Var "a") ] )
                             ]
                             Nothing
                         )
-                        (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ])
+                        (Type "Parser.Parser" [ Var "a" ])
               }
             , { name = "oneOf"
               , comment = """ If you are parsing JSON, the values can be strings, floats, booleans,
@@ -945,14 +945,14 @@ characters. Once a path is chosen, it does not come back and try the others.
 
 [semantics]: https://github.com/elm/parser/blob/master/semantics.md
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ] ]) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ])
+              , tipe = Lambda (Type "List.List" [ Type "Parser.Parser" [ Var "a" ] ]) (Type "Parser.Parser" [ Var "a" ])
               }
             , { name = "problem"
               , comment = """ Indicate that a parser has reached a dead end. "Everything was going fine
 until I ran into this problem." Check out the [`andThen`](#andThen) docs to see
 an example usage.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ])
+              , tipe = Lambda (Type "String.String" []) (Type "Parser.Parser" [ Var "a" ])
               }
             , { name = "run"
               , comment = """ Try a parser. Here are some examples using the [`keyword`](#keyword)
@@ -968,11 +968,11 @@ about the rest. Use the [`end`](#end) parser to ensure you made it to the end
 of the string!
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ])
-                        (Elm.Type.Lambda (Elm.Type.Type "String.String" [])
-                            (Elm.Type.Type "Result.Result"
-                                [ Elm.Type.Type "List.List" [ Elm.Type.Type "Parser.DeadEnd" [] ]
-                                , Elm.Type.Var "a"
+                    Lambda (Type "Parser.Parser" [ Var "a" ])
+                        (Lambda (Type "String.String" [])
+                            (Type "Result.Result"
+                                [ Type "List.List" [ Type "Parser.DeadEnd" [] ]
+                                , Var "a"
                                 ]
                             )
                         )
@@ -1002,18 +1002,18 @@ get nice error messages with a lower-level implementation than to try
 to hack high-level parsers to do things they are not made for.
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Record
-                            [ ( "start", Elm.Type.Type "String.String" [] )
-                            , ( "separator", Elm.Type.Type "String.String" [] )
-                            , ( "end", Elm.Type.Type "String.String" [] )
-                            , ( "spaces", Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ] )
-                            , ( "item", Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ] )
-                            , ( "trailing", Elm.Type.Type "Parser.Trailing" [] )
+                    Lambda
+                        (Record
+                            [ ( "start", Type "String.String" [] )
+                            , ( "separator", Type "String.String" [] )
+                            , ( "end", Type "String.String" [] )
+                            , ( "spaces", Type "Parser.Parser" [ Tuple [] ] )
+                            , ( "item", Type "Parser.Parser" [ Var "a" ] )
+                            , ( "trailing", Type "Parser.Trailing" [] )
                             ]
                             Nothing
                         )
-                        (Elm.Type.Type "Parser.Parser" [ Elm.Type.Type "List.List" [ Elm.Type.Var "a" ] ])
+                        (Type "Parser.Parser" [ Type "List.List" [ Var "a" ] ])
               }
             , { name = "spaces"
               , comment = """ Parse zero or more `' '`, `'\\n'`, and `'\\r'` characters.
@@ -1028,7 +1028,7 @@ So if you need something different (like tabs) just define an alternative with
 the necessary tweaks! Check out [`lineComment`](#lineComment) and
 [`multiComment`](#multiComment) for more complex situations.
 """
-              , tipe = Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ]
+              , tipe = Type "Parser.Parser" [ Tuple [] ]
               }
             , { name = "succeed"
               , comment = """ A parser that succeeds without chomping any characters.
@@ -1042,7 +1042,7 @@ Seems weird on its own, but it is very useful in combination with other
 functions. The docs for [`(|=)`](#|=) and [`andThen`](#andThen) have some neat
 examples.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ])
+              , tipe = Lambda (Var "a") (Type "Parser.Parser" [ Var "a" ])
               }
             , { name = "symbol"
               , comment = """ Parse symbols like `(` and `,`.
@@ -1056,7 +1056,7 @@ yourself in weird situations. For example, is `3--4` a typo? Or is it `3 - -4`?
 I have had better luck with `chompWhile isSymbol` and sorting out which
 operator it is afterwards.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ])
+              , tipe = Lambda (Type "String.String" []) (Type "Parser.Parser" [ Tuple [] ])
               }
             , { name = "token"
               , comment = """ Parse exactly the given string, without any regard to what comes next.
@@ -1093,7 +1093,7 @@ commit to that path and (2) if you see `letters` instead you can backtrack and
 try other options. If I had just put a `backtrackable` around the whole thing
 you would not get (1) anymore.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Tuple [] ])
+              , tipe = Lambda (Type "String.String" []) (Type "Parser.Parser" [ Tuple [] ])
               }
             , { name = "variable"
               , comment = """ Create a parser for variables. If we wanted to parse type variables in Elm,
@@ -1116,22 +1116,22 @@ characters can be letters, numbers, or underscores. It is also saying that if
 you run into any of these reserved names, it is definitely not a variable.
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Record
-                            [ ( "start", Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" []) )
-                            , ( "inner", Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" []) )
-                            , ( "reserved", Elm.Type.Type "Set.Set" [ Elm.Type.Type "String.String" [] ] )
+                    Lambda
+                        (Record
+                            [ ( "start", Lambda (Type "Char.Char" []) (Type "Basics.Bool" []) )
+                            , ( "inner", Lambda (Type "Char.Char" []) (Type "Basics.Bool" []) )
+                            , ( "reserved", Type "Set.Set" [ Type "String.String" [] ] )
                             ]
                             Nothing
                         )
-                        (Elm.Type.Type "Parser.Parser" [ Elm.Type.Type "String.String" [] ])
+                        (Type "Parser.Parser" [ Type "String.String" [] ])
               }
             , { name = "withIndent"
               , comment = """ Some languages are indentation sensitive. Python cares about tabs. Elm
 cares about spaces sometimes. `withIndent` and `getIndent` allow you to manage
 "indentation state" yourself, however is necessary in your scenario.
 """
-              , tipe = Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Lambda (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Parser.Parser" [ Elm.Type.Var "a" ]))
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "Parser.Parser" [ Var "a" ]) (Type "Parser.Parser" [ Var "a" ]))
               }
             ]
       }
@@ -1213,16 +1213,16 @@ and `col=1`. The `col` increments as characters are chomped. When a `\\n` is cho
 `row` is incremented and `col` starts over again at `1`.
 """
               , tipe =
-                    Elm.Type.Record
-                        [ ( "row", Elm.Type.Type "Basics.Int" [] )
-                        , ( "col", Elm.Type.Type "Basics.Int" [] )
-                        , ( "problem", Elm.Type.Var "problem" )
+                    Record
+                        [ ( "row", Type "Basics.Int" [] )
+                        , ( "col", Type "Basics.Int" [] )
+                        , ( "problem", Var "problem" )
                         , ( "contextStack"
-                          , Elm.Type.Type "List.List"
-                                [ Elm.Type.Record
-                                    [ ( "row", Elm.Type.Type "Basics.Int" [] )
-                                    , ( "col", Elm.Type.Type "Basics.Int" [] )
-                                    , ( "context", Elm.Type.Var "context" )
+                          , Type "List.List"
+                                [ Record
+                                    [ ( "row", Type "Basics.Int" [] )
+                                    , ( "col", Type "Basics.Int" [] )
+                                    , ( "context", Var "context" )
                                     ]
                                     Nothing
                                 ]
@@ -1290,8 +1290,8 @@ form, allowing you to switch over pretty easily.
               , comment = """ Just like [`Parser.Step`](Parser#Step)
 """
               , tags =
-                    [ ( "Loop", [ Elm.Type.Var "state" ] )
-                    , ( "Done", [ Elm.Type.Var "a" ] )
+                    [ ( "Loop", [ Var "state" ] )
+                    , ( "Done", [ Var "a" ] )
                     ]
               }
             , { name = "Token"
@@ -1320,8 +1320,8 @@ you!
 """
               , tags =
                     [ ( "Token"
-                      , [ Elm.Type.Type "String.String" []
-                        , Elm.Type.Var "x"
+                      , [ Type "String.String" []
+                        , Var "x"
                         ]
                       )
                     ]
@@ -1344,24 +1344,24 @@ club](https://poorlydrawnlines.com/comic/shapes-club/)!
               , comment = """ Just like the [`(|.)`](Parser#|.) from the `Parser` module.
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Var "keep"
+                    Lambda
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Var "keep"
                             ]
                         )
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Parser.Advanced.Parser"
-                                [ Elm.Type.Var "c"
-                                , Elm.Type.Var "x"
-                                , Elm.Type.Var "ignore"
+                        (Lambda
+                            (Type "Parser.Advanced.Parser"
+                                [ Var "c"
+                                , Var "x"
+                                , Var "ignore"
                                 ]
                             )
-                            (Elm.Type.Type "Parser.Advanced.Parser"
-                                [ Elm.Type.Var "c"
-                                , Elm.Type.Var "x"
-                                , Elm.Type.Var "keep"
+                            (Type "Parser.Advanced.Parser"
+                                [ Var "c"
+                                , Var "x"
+                                , Var "keep"
                                 ]
                             )
                         )
@@ -1372,24 +1372,24 @@ club](https://poorlydrawnlines.com/comic/shapes-club/)!
               , comment = """ Just like the [`(|=)`](Parser#|=) from the `Parser` module.
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b")
+                    Lambda
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Lambda (Var "a") (Var "b")
                             ]
                         )
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Parser.Advanced.Parser"
-                                [ Elm.Type.Var "c"
-                                , Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                        (Lambda
+                            (Type "Parser.Advanced.Parser"
+                                [ Var "c"
+                                , Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Type "Parser.Advanced.Parser"
-                                [ Elm.Type.Var "c"
-                                , Elm.Type.Var "x"
-                                , Elm.Type.Var "b"
+                            (Type "Parser.Advanced.Parser"
+                                [ Var "c"
+                                , Var "x"
+                                , Var "b"
                                 ]
                             )
                         )
@@ -1402,26 +1402,26 @@ club](https://poorlydrawnlines.com/comic/shapes-club/)!
               , comment = """ Just like [`Parser.andThen`](Parser#andThen)
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Lambda (Elm.Type.Var "a")
-                            (Elm.Type.Type "Parser.Advanced.Parser"
-                                [ Elm.Type.Var "c"
-                                , Elm.Type.Var "x"
-                                , Elm.Type.Var "b"
+                    Lambda
+                        (Lambda (Var "a")
+                            (Type "Parser.Advanced.Parser"
+                                [ Var "c"
+                                , Var "x"
+                                , Var "b"
                                 ]
                             )
                         )
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Parser.Advanced.Parser"
-                                [ Elm.Type.Var "c"
-                                , Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                        (Lambda
+                            (Type "Parser.Advanced.Parser"
+                                [ Var "c"
+                                , Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Type "Parser.Advanced.Parser"
-                                [ Elm.Type.Var "c"
-                                , Elm.Type.Var "x"
-                                , Elm.Type.Var "b"
+                            (Type "Parser.Advanced.Parser"
+                                [ Var "c"
+                                , Var "x"
+                                , Var "b"
                                 ]
                             )
                         )
@@ -1430,17 +1430,17 @@ club](https://poorlydrawnlines.com/comic/shapes-club/)!
               , comment = """ Just like [`Parser.backtrackable`](Parser#backtrackable)
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Var "a"
+                    Lambda
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Var "a"
                             ]
                         )
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Var "a"
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Var "a"
                             ]
                         )
               }
@@ -1449,12 +1449,12 @@ club](https://poorlydrawnlines.com/comic/shapes-club/)!
 in case a character cannot be chomped.
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" []))
-                        (Elm.Type.Lambda (Elm.Type.Var "x")
-                            (Elm.Type.Type "Parser.Advanced.Parser"
-                                [ Elm.Type.Var "c"
-                                , Elm.Type.Var "x"
-                                , Elm.Type.Tuple []
+                    Lambda (Lambda (Type "Char.Char" []) (Type "Basics.Bool" []))
+                        (Lambda (Var "x")
+                            (Type "Parser.Advanced.Parser"
+                                [ Var "c"
+                                , Var "x"
+                                , Tuple []
                                 ]
                             )
                         )
@@ -1465,11 +1465,11 @@ in case a character cannot be chomped.
 what you need.
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Token" [ Elm.Type.Var "x" ])
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Tuple []
+                    Lambda (Type "Parser.Advanced.Token" [ Var "x" ])
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Tuple []
                             ]
                         )
               }
@@ -1477,11 +1477,11 @@ what you need.
               , comment = """ Just like [`Parser.chompUntilEndOr`](Parser#chompUntilEndOr)
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Type "String.String" [])
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Tuple []
+                    Lambda (Type "String.String" [])
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Tuple []
                             ]
                         )
               }
@@ -1489,11 +1489,11 @@ what you need.
               , comment = """ Just like [`Parser.chompWhile`](Parser#chompWhile)
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" []))
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Tuple []
+                    Lambda (Lambda (Type "Char.Char" []) (Type "Basics.Bool" []))
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Tuple []
                             ]
                         )
               }
@@ -1501,11 +1501,11 @@ what you need.
               , comment = """ Just like [`Parser.commit`](Parser#commit)
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Var "a")
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Var "a"
+                    Lambda (Var "a")
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Var "a"
                             ]
                         )
               }
@@ -1514,11 +1514,11 @@ what you need.
 arises when the parser is not at the end of the input.
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Var "x")
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Tuple []
+                    Lambda (Var "x")
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Tuple []
                             ]
                         )
               }
@@ -1541,12 +1541,12 @@ yourself. The only difference is that you provide a two potential problems:
 You can use problems like `ExpectingFloat` and `InvalidNumber`.
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Var "x")
-                        (Elm.Type.Lambda (Elm.Type.Var "x")
-                            (Elm.Type.Type "Parser.Advanced.Parser"
-                                [ Elm.Type.Var "c"
-                                , Elm.Type.Var "x"
-                                , Elm.Type.Type "Basics.Float" []
+                    Lambda (Var "x")
+                        (Lambda (Var "x")
+                            (Type "Parser.Advanced.Parser"
+                                [ Var "c"
+                                , Var "x"
+                                , Type "Basics.Float" []
                                 ]
                             )
                         )
@@ -1555,17 +1555,17 @@ You can use problems like `ExpectingFloat` and `InvalidNumber`.
               , comment = """ Just like [`Parser.getChompedString`](Parser#getChompedString)
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Var "a"
+                    Lambda
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Var "a"
                             ]
                         )
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Type "String.String" []
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Type "String.String" []
                             ]
                         )
               }
@@ -1573,42 +1573,42 @@ You can use problems like `ExpectingFloat` and `InvalidNumber`.
               , comment = """ Just like [`Parser.getCol`](Parser#getCol)
 """
               , tipe =
-                    Elm.Type.Type "Parser.Advanced.Parser"
-                        [ Elm.Type.Var "c"
-                        , Elm.Type.Var "x"
-                        , Elm.Type.Type "Basics.Int" []
+                    Type "Parser.Advanced.Parser"
+                        [ Var "c"
+                        , Var "x"
+                        , Type "Basics.Int" []
                         ]
               }
             , { name = "getIndent"
               , comment = """ Just like [`Parser.getIndent`](Parser#getIndent)
 """
               , tipe =
-                    Elm.Type.Type "Parser.Advanced.Parser"
-                        [ Elm.Type.Var "c"
-                        , Elm.Type.Var "x"
-                        , Elm.Type.Type "Basics.Int" []
+                    Type "Parser.Advanced.Parser"
+                        [ Var "c"
+                        , Var "x"
+                        , Type "Basics.Int" []
                         ]
               }
             , { name = "getOffset"
               , comment = """ Just like [`Parser.getOffset`](Parser#getOffset)
 """
               , tipe =
-                    Elm.Type.Type "Parser.Advanced.Parser"
-                        [ Elm.Type.Var "c"
-                        , Elm.Type.Var "x"
-                        , Elm.Type.Type "Basics.Int" []
+                    Type "Parser.Advanced.Parser"
+                        [ Var "c"
+                        , Var "x"
+                        , Type "Basics.Int" []
                         ]
               }
             , { name = "getPosition"
               , comment = """ Just like [`Parser.getPosition`](Parser#getPosition)
 """
               , tipe =
-                    Elm.Type.Type "Parser.Advanced.Parser"
-                        [ Elm.Type.Var "c"
-                        , Elm.Type.Var "x"
-                        , Elm.Type.Tuple
-                            [ Elm.Type.Type "Basics.Int" []
-                            , Elm.Type.Type "Basics.Int" []
+                    Type "Parser.Advanced.Parser"
+                        [ Var "c"
+                        , Var "x"
+                        , Tuple
+                            [ Type "Basics.Int" []
+                            , Type "Basics.Int" []
                             ]
                         ]
               }
@@ -1616,20 +1616,20 @@ You can use problems like `ExpectingFloat` and `InvalidNumber`.
               , comment = """ Just like [`Parser.getRow`](Parser#getRow)
 """
               , tipe =
-                    Elm.Type.Type "Parser.Advanced.Parser"
-                        [ Elm.Type.Var "c"
-                        , Elm.Type.Var "x"
-                        , Elm.Type.Type "Basics.Int" []
+                    Type "Parser.Advanced.Parser"
+                        [ Var "c"
+                        , Var "x"
+                        , Type "Basics.Int" []
                         ]
               }
             , { name = "getSource"
               , comment = """ Just like [`Parser.getSource`](Parser#getSource)
 """
               , tipe =
-                    Elm.Type.Type "Parser.Advanced.Parser"
-                        [ Elm.Type.Var "c"
-                        , Elm.Type.Var "x"
-                        , Elm.Type.Type "String.String" []
+                    Type "Parser.Advanced.Parser"
+                        [ Var "c"
+                        , Var "x"
+                        , Type "String.String" []
                         ]
               }
             , { name = "inContext"
@@ -1673,18 +1673,18 @@ Importantly, we call `inContext` so that any dead end that occurs in
 things like, “I was expecting an equals sign in the `view` definition.” Context!
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Var "context")
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Parser.Advanced.Parser"
-                                [ Elm.Type.Var "context"
-                                , Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                    Lambda (Var "context")
+                        (Lambda
+                            (Type "Parser.Advanced.Parser"
+                                [ Var "context"
+                                , Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Type "Parser.Advanced.Parser"
-                                [ Elm.Type.Var "context"
-                                , Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                            (Type "Parser.Advanced.Parser"
+                                [ Var "context"
+                                , Var "x"
+                                , Var "a"
                                 ]
                             )
                         )
@@ -1708,12 +1708,12 @@ yourself. The only difference is that you provide a two potential problems:
 You can use problems like `ExpectingInt` and `InvalidNumber`.
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Var "x")
-                        (Elm.Type.Lambda (Elm.Type.Var "x")
-                            (Elm.Type.Type "Parser.Advanced.Parser"
-                                [ Elm.Type.Var "c"
-                                , Elm.Type.Var "x"
-                                , Elm.Type.Type "Basics.Int" []
+                    Lambda (Var "x")
+                        (Lambda (Var "x")
+                            (Type "Parser.Advanced.Parser"
+                                [ Var "c"
+                                , Var "x"
+                                , Type "Basics.Int" []
                                 ]
                             )
                         )
@@ -1730,11 +1730,11 @@ Note that this would fail to chomp `letter` because of the subsequent
 characters. Use `token` if you do not want that last letter check.
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Token" [ Elm.Type.Var "x" ])
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Tuple []
+                    Lambda (Type "Parser.Advanced.Token" [ Var "x" ])
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Tuple []
                             ]
                         )
               }
@@ -1742,19 +1742,19 @@ characters. Use `token` if you do not want that last letter check.
               , comment = """ Just like [`Parser.lazy`](Parser#lazy)
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Lambda (Elm.Type.Tuple [])
-                            (Elm.Type.Type "Parser.Advanced.Parser"
-                                [ Elm.Type.Var "c"
-                                , Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                    Lambda
+                        (Lambda (Tuple [])
+                            (Type "Parser.Advanced.Parser"
+                                [ Var "c"
+                                , Var "x"
+                                , Var "a"
                                 ]
                             )
                         )
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Var "a"
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Var "a"
                             ]
                         )
               }
@@ -1763,11 +1763,11 @@ characters. Use `token` if you do not want that last letter check.
 `Token` describing the starting symbol.
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Token" [ Elm.Type.Var "x" ])
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Tuple []
+                    Lambda (Type "Parser.Advanced.Token" [ Var "x" ])
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Tuple []
                             ]
                         )
               }
@@ -1775,23 +1775,23 @@ characters. Use `token` if you do not want that last letter check.
               , comment = """ Just like [`Parser.loop`](Parser#loop)
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Var "state")
-                        (Elm.Type.Lambda
-                            (Elm.Type.Lambda (Elm.Type.Var "state")
-                                (Elm.Type.Type "Parser.Advanced.Parser"
-                                    [ Elm.Type.Var "c"
-                                    , Elm.Type.Var "x"
-                                    , Elm.Type.Type "Parser.Advanced.Step"
-                                        [ Elm.Type.Var "state"
-                                        , Elm.Type.Var "a"
+                    Lambda (Var "state")
+                        (Lambda
+                            (Lambda (Var "state")
+                                (Type "Parser.Advanced.Parser"
+                                    [ Var "c"
+                                    , Var "x"
+                                    , Type "Parser.Advanced.Step"
+                                        [ Var "state"
+                                        , Var "a"
                                         ]
                                     ]
                                 )
                             )
-                            (Elm.Type.Type "Parser.Advanced.Parser"
-                                [ Elm.Type.Var "c"
-                                , Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                            (Type "Parser.Advanced.Parser"
+                                [ Var "c"
+                                , Var "x"
+                                , Var "a"
                                 ]
                             )
                         )
@@ -1800,18 +1800,18 @@ characters. Use `token` if you do not want that last letter check.
               , comment = """ Just like [`Parser.map`](Parser#map)
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b"))
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Parser.Advanced.Parser"
-                                [ Elm.Type.Var "c"
-                                , Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                    Lambda (Lambda (Var "a") (Var "b"))
+                        (Lambda
+                            (Type "Parser.Advanced.Parser"
+                                [ Var "c"
+                                , Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Type "Parser.Advanced.Parser"
-                                [ Elm.Type.Var "c"
-                                , Elm.Type.Var "x"
-                                , Elm.Type.Var "b"
+                            (Type "Parser.Advanced.Parser"
+                                [ Var "c"
+                                , Var "x"
+                                , Var "b"
                                 ]
                             )
                         )
@@ -1820,18 +1820,18 @@ characters. Use `token` if you do not want that last letter check.
               , comment = """ Just like [`Parser.mapChompedString`](Parser#mapChompedString)
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b")))
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Parser.Advanced.Parser"
-                                [ Elm.Type.Var "c"
-                                , Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                    Lambda (Lambda (Type "String.String" []) (Lambda (Var "a") (Var "b")))
+                        (Lambda
+                            (Type "Parser.Advanced.Parser"
+                                [ Var "c"
+                                , Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Type "Parser.Advanced.Parser"
-                                [ Elm.Type.Var "c"
-                                , Elm.Type.Var "x"
-                                , Elm.Type.Var "b"
+                            (Type "Parser.Advanced.Parser"
+                                [ Var "c"
+                                , Var "x"
+                                , Var "b"
                                 ]
                             )
                         )
@@ -1841,13 +1841,13 @@ characters. Use `token` if you do not want that last letter check.
 `Token` for the open and close symbols.
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Token" [ Elm.Type.Var "x" ])
-                        (Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Token" [ Elm.Type.Var "x" ])
-                            (Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Nestable" [])
-                                (Elm.Type.Type "Parser.Advanced.Parser"
-                                    [ Elm.Type.Var "c"
-                                    , Elm.Type.Var "x"
-                                    , Elm.Type.Tuple []
+                    Lambda (Type "Parser.Advanced.Token" [ Var "x" ])
+                        (Lambda (Type "Parser.Advanced.Token" [ Var "x" ])
+                            (Lambda (Type "Parser.Advanced.Nestable" [])
+                                (Type "Parser.Advanced.Parser"
+                                    [ Var "c"
+                                    , Var "x"
+                                    , Tuple []
                                     ]
                                 )
                             )
@@ -1859,47 +1859,47 @@ negation yourself. The only difference is that you provide all the potential
 problems.
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Record
+                    Lambda
+                        (Record
                             [ ( "int"
-                              , Elm.Type.Type "Result.Result"
-                                    [ Elm.Type.Var "x"
-                                    , Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Var "a")
+                              , Type "Result.Result"
+                                    [ Var "x"
+                                    , Lambda (Type "Basics.Int" []) (Var "a")
                                     ]
                               )
                             , ( "hex"
-                              , Elm.Type.Type "Result.Result"
-                                    [ Elm.Type.Var "x"
-                                    , Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Var "a")
+                              , Type "Result.Result"
+                                    [ Var "x"
+                                    , Lambda (Type "Basics.Int" []) (Var "a")
                                     ]
                               )
                             , ( "octal"
-                              , Elm.Type.Type "Result.Result"
-                                    [ Elm.Type.Var "x"
-                                    , Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Var "a")
+                              , Type "Result.Result"
+                                    [ Var "x"
+                                    , Lambda (Type "Basics.Int" []) (Var "a")
                                     ]
                               )
                             , ( "binary"
-                              , Elm.Type.Type "Result.Result"
-                                    [ Elm.Type.Var "x"
-                                    , Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Var "a")
+                              , Type "Result.Result"
+                                    [ Var "x"
+                                    , Lambda (Type "Basics.Int" []) (Var "a")
                                     ]
                               )
                             , ( "float"
-                              , Elm.Type.Type "Result.Result"
-                                    [ Elm.Type.Var "x"
-                                    , Elm.Type.Lambda (Elm.Type.Type "Basics.Float" []) (Elm.Type.Var "a")
+                              , Type "Result.Result"
+                                    [ Var "x"
+                                    , Lambda (Type "Basics.Float" []) (Var "a")
                                     ]
                               )
-                            , ( "invalid", Elm.Type.Var "x" )
-                            , ( "expecting", Elm.Type.Var "x" )
+                            , ( "invalid", Var "x" )
+                            , ( "expecting", Var "x" )
                             ]
                             Nothing
                         )
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Var "a"
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Var "a"
                             ]
                         )
               }
@@ -1907,19 +1907,19 @@ problems.
               , comment = """ Just like [`Parser.oneOf`](Parser#oneOf)
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "List.List"
-                            [ Elm.Type.Type "Parser.Advanced.Parser"
-                                [ Elm.Type.Var "c"
-                                , Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                    Lambda
+                        (Type "List.List"
+                            [ Type "Parser.Advanced.Parser"
+                                [ Var "c"
+                                , Var "x"
+                                , Var "a"
                                 ]
                             ]
                         )
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Var "a"
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Var "a"
                             ]
                         )
               }
@@ -1928,11 +1928,11 @@ problems.
 type for your problem.
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Var "x")
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Var "a"
+                    Lambda (Var "x")
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Var "a"
                             ]
                         )
               }
@@ -1942,22 +1942,22 @@ The only difference is that when it fails, it has much more precise information
 for each dead end.
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Var "a"
+                    Lambda
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Var "a"
                             ]
                         )
-                        (Elm.Type.Lambda (Elm.Type.Type "String.String" [])
-                            (Elm.Type.Type "Result.Result"
-                                [ Elm.Type.Type "List.List"
-                                    [ Elm.Type.Type "Parser.Advanced.DeadEnd"
-                                        [ Elm.Type.Var "c"
-                                        , Elm.Type.Var "x"
+                        (Lambda (Type "String.String" [])
+                            (Type "Result.Result"
+                                [ Type "List.List"
+                                    [ Type "Parser.Advanced.DeadEnd"
+                                        [ Var "c"
+                                        , Var "x"
                                         ]
                                     ]
-                                , Elm.Type.Var "a"
+                                , Var "a"
                                 ]
                             )
                         )
@@ -1968,33 +1968,33 @@ the start, separator, and end. That way you can specify your custom type of
 problem for when something is not found.
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Record
-                            [ ( "start", Elm.Type.Type "Parser.Advanced.Token" [ Elm.Type.Var "x" ] )
-                            , ( "separator", Elm.Type.Type "Parser.Advanced.Token" [ Elm.Type.Var "x" ] )
-                            , ( "end", Elm.Type.Type "Parser.Advanced.Token" [ Elm.Type.Var "x" ] )
+                    Lambda
+                        (Record
+                            [ ( "start", Type "Parser.Advanced.Token" [ Var "x" ] )
+                            , ( "separator", Type "Parser.Advanced.Token" [ Var "x" ] )
+                            , ( "end", Type "Parser.Advanced.Token" [ Var "x" ] )
                             , ( "spaces"
-                              , Elm.Type.Type "Parser.Advanced.Parser"
-                                    [ Elm.Type.Var "c"
-                                    , Elm.Type.Var "x"
-                                    , Elm.Type.Tuple []
+                              , Type "Parser.Advanced.Parser"
+                                    [ Var "c"
+                                    , Var "x"
+                                    , Tuple []
                                     ]
                               )
                             , ( "item"
-                              , Elm.Type.Type "Parser.Advanced.Parser"
-                                    [ Elm.Type.Var "c"
-                                    , Elm.Type.Var "x"
-                                    , Elm.Type.Var "a"
+                              , Type "Parser.Advanced.Parser"
+                                    [ Var "c"
+                                    , Var "x"
+                                    , Var "a"
                                     ]
                               )
-                            , ( "trailing", Elm.Type.Type "Parser.Advanced.Trailing" [] )
+                            , ( "trailing", Type "Parser.Advanced.Trailing" [] )
                             ]
                             Nothing
                         )
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Type "List.List" [ Elm.Type.Var "a" ]
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Type "List.List" [ Var "a" ]
                             ]
                         )
               }
@@ -2002,21 +2002,21 @@ problem for when something is not found.
               , comment = """ Just like [`Parser.spaces`](Parser#spaces)
 """
               , tipe =
-                    Elm.Type.Type "Parser.Advanced.Parser"
-                        [ Elm.Type.Var "c"
-                        , Elm.Type.Var "x"
-                        , Elm.Type.Tuple []
+                    Type "Parser.Advanced.Parser"
+                        [ Var "c"
+                        , Var "x"
+                        , Tuple []
                         ]
               }
             , { name = "succeed"
               , comment = """ Just like [`Parser.succeed`](Parser#succeed)
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Var "a")
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Var "a"
+                    Lambda (Var "a")
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Var "a"
                             ]
                         )
               }
@@ -2030,11 +2030,11 @@ clearly indicate your custom type of problems:
 
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Token" [ Elm.Type.Var "x" ])
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Tuple []
+                    Lambda (Type "Parser.Advanced.Token" [ Var "x" ])
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Tuple []
                             ]
                         )
               }
@@ -2043,11 +2043,11 @@ clearly indicate your custom type of problems:
 specifying your custom type of problems.
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Type "Parser.Advanced.Token" [ Elm.Type.Var "x" ])
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Tuple []
+                    Lambda (Type "Parser.Advanced.Token" [ Var "x" ])
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Tuple []
                             ]
                         )
               }
@@ -2056,19 +2056,19 @@ specifying your custom type of problems.
 problem yourself.
 """
               , tipe =
-                    Elm.Type.Lambda
-                        (Elm.Type.Record
-                            [ ( "start", Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" []) )
-                            , ( "inner", Elm.Type.Lambda (Elm.Type.Type "Char.Char" []) (Elm.Type.Type "Basics.Bool" []) )
-                            , ( "reserved", Elm.Type.Type "Set.Set" [ Elm.Type.Type "String.String" [] ] )
-                            , ( "expecting", Elm.Type.Var "x" )
+                    Lambda
+                        (Record
+                            [ ( "start", Lambda (Type "Char.Char" []) (Type "Basics.Bool" []) )
+                            , ( "inner", Lambda (Type "Char.Char" []) (Type "Basics.Bool" []) )
+                            , ( "reserved", Type "Set.Set" [ Type "String.String" [] ] )
+                            , ( "expecting", Var "x" )
                             ]
                             Nothing
                         )
-                        (Elm.Type.Type "Parser.Advanced.Parser"
-                            [ Elm.Type.Var "c"
-                            , Elm.Type.Var "x"
-                            , Elm.Type.Type "String.String" []
+                        (Type "Parser.Advanced.Parser"
+                            [ Var "c"
+                            , Var "x"
+                            , Type "String.String" []
                             ]
                         )
               }
@@ -2076,18 +2076,18 @@ problem yourself.
               , comment = """ Just like [`Parser.withIndent`](Parser#withIndent)
 """
               , tipe =
-                    Elm.Type.Lambda (Elm.Type.Type "Basics.Int" [])
-                        (Elm.Type.Lambda
-                            (Elm.Type.Type "Parser.Advanced.Parser"
-                                [ Elm.Type.Var "c"
-                                , Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                    Lambda (Type "Basics.Int" [])
+                        (Lambda
+                            (Type "Parser.Advanced.Parser"
+                                [ Var "c"
+                                , Var "x"
+                                , Var "a"
                                 ]
                             )
-                            (Elm.Type.Type "Parser.Advanced.Parser"
-                                [ Elm.Type.Var "c"
-                                , Elm.Type.Var "x"
-                                , Elm.Type.Var "a"
+                            (Type "Parser.Advanced.Parser"
+                                [ Var "c"
+                                , Var "x"
+                                , Var "a"
                                 ]
                             )
                         )
