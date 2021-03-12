@@ -1,7 +1,6 @@
 /* To run this script:
 
 - Clone `elm-review` locally
-- npm install
 
 Then run
 
