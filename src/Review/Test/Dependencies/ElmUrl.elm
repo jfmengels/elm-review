@@ -69,16 +69,7 @@ module as well!
 spec. Specifically, it does not accept the `userinfo` segment you see in email
 addresses like `tom@example.com`.
 """
-              , tipe =
-                    Record
-                        [ ( "protocol", Type "Url.Protocol" [] )
-                        , ( "host", Type "String.String" [] )
-                        , ( "port_", Type "Maybe.Maybe" [ Type "Basics.Int" [] ] )
-                        , ( "path", Type "String.String" [] )
-                        , ( "query", Type "Maybe.Maybe" [ Type "String.String" [] ] )
-                        , ( "fragment", Type "Maybe.Maybe" [ Type "String.String" [] ] )
-                        ]
-                        Nothing
+              , tipe = Record [ ( "protocol", Type "Url.Protocol" [] ), ( "host", Type "String.String" [] ), ( "port_", Type "Maybe.Maybe" [ Type "Basics.Int" [] ] ), ( "path", Type "String.String" [] ), ( "query", Type "Maybe.Maybe" [ Type "String.String" [] ] ), ( "fragment", Type "Maybe.Maybe" [ Type "String.String" [] ] ) ] Nothing
               }
             ]
       , unions =
@@ -416,10 +407,7 @@ This module is primarily for parsing the `path` part.
       , aliases = []
       , unions =
             [ { name = "Parser"
-              , args =
-                    [ "a"
-                    , "b"
-                    ]
+              , args = [ "a", "b" ]
               , comment = """ Turn URLs like `/blog/42/cat-herding-techniques` into nice Elm data.
 """
               , tags = []
@@ -447,25 +435,7 @@ This module is primarily for parsing the `path` part.
     -- /search/       ==>  Nothing
     -- /wolf/         ==>  Nothing
 """
-              , tipe =
-                    Lambda
-                        (Type "Url.Parser.Parser"
-                            [ Var "a"
-                            , Var "b"
-                            ]
-                        )
-                        (Lambda
-                            (Type "Url.Parser.Parser"
-                                [ Var "b"
-                                , Var "c"
-                                ]
-                            )
-                            (Type "Url.Parser.Parser"
-                                [ Var "a"
-                                , Var "c"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Type "Url.Parser.Parser" [ Var "a", Var "b" ]) (Lambda (Type "Url.Parser.Parser" [ Var "b", Var "c" ]) (Type "Url.Parser.Parser" [ Var "a", Var "c" ]))
               , associativity = Elm.Docs.Right
               , precedence = 7
               }
@@ -495,20 +465,7 @@ your blog website:
     -- /blog/42?q=wolf  ==>  Just (Post 42)
     -- /blog/42/wolf    ==>  Nothing
 """
-              , tipe =
-                    Lambda
-                        (Type "Url.Parser.Parser"
-                            [ Var "a"
-                            , Lambda (Var "query") (Var "b")
-                            ]
-                        )
-                        (Lambda (Type "Url.Parser.Query.Parser" [ Var "query" ])
-                            (Type "Url.Parser.Parser"
-                                [ Var "a"
-                                , Var "b"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Type "Url.Parser.Parser" [ Var "a", Lambda (Var "query") (Var "b") ]) (Lambda (Type "Url.Parser.Query.Parser" [ Var "query" ]) (Type "Url.Parser.Parser" [ Var "a", Var "b" ]))
               , associativity = Elm.Docs.Left
               , precedence = 8
               }
@@ -532,15 +489,7 @@ You can use it to define something like “only CSS files” like this:
         else
           Nothing
 """
-              , tipe =
-                    Lambda (Type "String.String" [])
-                        (Lambda (Lambda (Type "String.String" []) (Type "Maybe.Maybe" [ Var "a" ]))
-                            (Type "Url.Parser.Parser"
-                                [ Lambda (Var "a") (Var "b")
-                                , Var "b"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Type "String.String" []) (Lambda (Lambda (Type "String.String" []) (Type "Maybe.Maybe" [ Var "a" ])) (Type "Url.Parser.Parser" [ Lambda (Var "a") (Var "b"), Var "b" ]))
               }
             , { name = "fragment"
               , comment = """ Create a parser for the URL fragment, the stuff after the `#`. This can
@@ -561,13 +510,7 @@ be handy for handling links to DOM elements within a page. Pages like this one!
     -- /           ==>  Nothing
 
 """
-              , tipe =
-                    Lambda (Lambda (Type "Maybe.Maybe" [ Type "String.String" [] ]) (Var "fragment"))
-                        (Type "Url.Parser.Parser"
-                            [ Lambda (Var "fragment") (Var "a")
-                            , Var "a"
-                            ]
-                        )
+              , tipe = Lambda (Lambda (Type "Maybe.Maybe" [ Type "String.String" [] ]) (Var "fragment")) (Type "Url.Parser.Parser" [ Lambda (Var "fragment") (Var "a"), Var "a" ])
               }
             , { name = "int"
               , comment = """ Parse a segment of the path as an `Int`.
@@ -577,11 +520,7 @@ be handy for handling links to DOM elements within a page. Pages like this one!
     -- /42/     ==>  Just 42
     -- /        ==>  Nothing
 """
-              , tipe =
-                    Type "Url.Parser.Parser"
-                        [ Lambda (Type "Basics.Int" []) (Var "a")
-                        , Var "a"
-                        ]
+              , tipe = Type "Url.Parser.Parser" [ Lambda (Type "Basics.Int" []) (Var "a"), Var "a" ]
               }
             , { name = "map"
               , comment = """ Transform a path parser.
@@ -600,20 +539,7 @@ be handy for handling links to DOM elements within a page. Pages like this one!
     -- /user/tom/comment/35  ==>  Just { user = "tom", id = 35 }
     -- /user/sam/             ==>  Nothing
 """
-              , tipe =
-                    Lambda (Var "a")
-                        (Lambda
-                            (Type "Url.Parser.Parser"
-                                [ Var "a"
-                                , Var "b"
-                                ]
-                            )
-                            (Type "Url.Parser.Parser"
-                                [ Lambda (Var "b") (Var "c")
-                                , Var "c"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Var "a") (Lambda (Type "Url.Parser.Parser" [ Var "a", Var "b" ]) (Type "Url.Parser.Parser" [ Lambda (Var "b") (Var "c"), Var "c" ]))
               }
             , { name = "oneOf"
               , comment = """ Try a bunch of different path parsers.
@@ -646,20 +572,7 @@ be handy for handling links to DOM elements within a page. Pages like this one!
 
 If there are multiple parsers that could succeed, the first one wins.
 """
-              , tipe =
-                    Lambda
-                        (Type "List.List"
-                            [ Type "Url.Parser.Parser"
-                                [ Var "a"
-                                , Var "b"
-                                ]
-                            ]
-                        )
-                        (Type "Url.Parser.Parser"
-                            [ Var "a"
-                            , Var "b"
-                            ]
-                        )
+              , tipe = Lambda (Type "List.List" [ Type "Url.Parser.Parser" [ Var "a", Var "b" ] ]) (Type "Url.Parser.Parser" [ Var "a", Var "b" ])
               }
             , { name = "parse"
               , comment = """ Actually run a parser! You provide some [`Url`](Url#Url) that
@@ -702,14 +615,7 @@ the initial URL and any changes.
 
 [fs]: /packages/elm/browser/latest/Browser#fullscreen
 """
-              , tipe =
-                    Lambda
-                        (Type "Url.Parser.Parser"
-                            [ Lambda (Var "a") (Var "a")
-                            , Var "a"
-                            ]
-                        )
-                        (Lambda (Type "Url.Url" []) (Type "Maybe.Maybe" [ Var "a" ]))
+              , tipe = Lambda (Type "Url.Parser.Parser" [ Lambda (Var "a") (Var "a"), Var "a" ]) (Lambda (Type "Url.Url" []) (Type "Maybe.Maybe" [ Var "a" ]))
               }
             , { name = "query"
               , comment = """ The [`Url.Parser.Query`](Url-Parser-Query) module defines its own
@@ -726,13 +632,7 @@ those into normal parsers.
 This may be handy if you need query parameters but are not parsing any path
 segments.
 """
-              , tipe =
-                    Lambda (Type "Url.Parser.Query.Parser" [ Var "query" ])
-                        (Type "Url.Parser.Parser"
-                            [ Lambda (Var "query") (Var "a")
-                            , Var "a"
-                            ]
-                        )
+              , tipe = Lambda (Type "Url.Parser.Query.Parser" [ Var "query" ]) (Type "Url.Parser.Parser" [ Lambda (Var "query") (Var "a"), Var "a" ])
               }
             , { name = "s"
               , comment = """ Parse a segment of the path if it matches a given string. It is almost
@@ -747,13 +647,7 @@ always used with [`</>`](#</>) or [`oneOf`](#oneOf). For example:
 
 The path segment must be an exact match!
 """
-              , tipe =
-                    Lambda (Type "String.String" [])
-                        (Type "Url.Parser.Parser"
-                            [ Var "a"
-                            , Var "a"
-                            ]
-                        )
+              , tipe = Lambda (Type "String.String" []) (Type "Url.Parser.Parser" [ Var "a", Var "a" ])
               }
             , { name = "string"
               , comment = """ Parse a segment of the path as a `String`.
@@ -763,11 +657,7 @@ The path segment must be an exact match!
     -- /42/     ==>  Just "42"
     -- /        ==>  Nothing
 """
-              , tipe =
-                    Type "Url.Parser.Parser"
-                        [ Lambda (Type "String.String" []) (Var "a")
-                        , Var "a"
-                        ]
+              , tipe = Type "Url.Parser.Parser" [ Lambda (Type "String.String" []) (Var "a"), Var "a" ]
               }
             , { name = "top"
               , comment = """ A parser that does not consume any path segments.
@@ -785,11 +675,7 @@ The path segment must be an exact match!
     -- /blog/         ==>  Just Overview
     -- /blog/post/42  ==>  Just (Post 42)
 """
-              , tipe =
-                    Type "Url.Parser.Parser"
-                        [ Var "a"
-                        , Var "a"
-                        ]
+              , tipe = Type "Url.Parser.Parser" [ Var "a", Var "a" ]
               }
             ]
       }
@@ -870,16 +756,7 @@ to get a parser of type `Parser Bool` that swallows any errors and defaults to
 
 **Note:** Parameters like `?debug` with no `=` are not supported by this library.
 """
-              , tipe =
-                    Lambda (Type "String.String" [])
-                        (Lambda
-                            (Type "Dict.Dict"
-                                [ Type "String.String" []
-                                , Var "a"
-                                ]
-                            )
-                            (Type "Url.Parser.Query.Parser" [ Type "Maybe.Maybe" [ Var "a" ] ])
-                        )
+              , tipe = Lambda (Type "String.String" []) (Lambda (Type "Dict.Dict" [ Type "String.String" [], Var "a" ]) (Type "Url.Parser.Query.Parser" [ Type "Maybe.Maybe" [ Var "a" ] ]))
               }
             , { name = "int"
               , comment = """ Handle `Int` parameters. Maybe you want to show paginated search results:

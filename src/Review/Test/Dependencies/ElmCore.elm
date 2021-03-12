@@ -22,7 +22,14 @@ elmJson : Elm.Project.Project
 elmJson =
     Elm.Project.Package
         { elm = unsafeConstraint "0.19.0 <= v < 0.20.0"
-        , exposed = Elm.Project.ExposedDict [ ( "Primitives", [ unsafeModuleName "Basics", unsafeModuleName "String", unsafeModuleName "Char", unsafeModuleName "Bitwise", unsafeModuleName "Tuple" ] ), ( "Collections", [ unsafeModuleName "List", unsafeModuleName "Dict", unsafeModuleName "Set", unsafeModuleName "Array" ] ), ( "Error Handling", [ unsafeModuleName "Maybe", unsafeModuleName "Result" ] ), ( "Debug", [ unsafeModuleName "Debug" ] ), ( "Effects", [ unsafeModuleName "Platform.Cmd", unsafeModuleName "Platform.Sub", unsafeModuleName "Platform", unsafeModuleName "Process", unsafeModuleName "Task" ] ) ]
+        , exposed =
+            Elm.Project.ExposedDict
+                [ ( "Primitives", [ unsafeModuleName "Basics", unsafeModuleName "String", unsafeModuleName "Char", unsafeModuleName "Bitwise", unsafeModuleName "Tuple" ] )
+                , ( "Collections", [ unsafeModuleName "List", unsafeModuleName "Dict", unsafeModuleName "Set", unsafeModuleName "Array" ] )
+                , ( "Error Handling", [ unsafeModuleName "Maybe", unsafeModuleName "Result" ] )
+                , ( "Debug", [ unsafeModuleName "Debug" ] )
+                , ( "Effects", [ unsafeModuleName "Platform.Cmd", unsafeModuleName "Platform.Sub", unsafeModuleName "Platform", unsafeModuleName "Process", unsafeModuleName "Task" ] )
+                ]
         , license = Elm.License.fromString "BSD-3-Clause" |> Maybe.withDefault Elm.License.bsd3
         , name = unsafePackageName "elm/core"
         , summary = "Elm's standard libraries"
@@ -208,15 +215,7 @@ paired with its index.
 
     toIndexedList (fromList ["cat","dog"]) == [(0,"cat"), (1,"dog")]
 """
-              , tipe =
-                    Lambda (Type "Array.Array" [ Var "a" ])
-                        (Type "List.List"
-                            [ Tuple
-                                [ Type "Basics.Int" []
-                                , Var "a"
-                                ]
-                            ]
-                        )
+              , tipe = Lambda (Type "Array.Array" [ Var "a" ]) (Type "List.List" [ Tuple [ Type "Basics.Int" [], Var "a" ] ])
               }
             , { name = "toList"
               , comment = """ Create a list of elements from an array.
@@ -802,18 +801,7 @@ are also the only values that work as `Dict` keys or `Set` members.
 
     fromPolar (sqrt 2, degrees 45) == (1, 1)
 """
-              , tipe =
-                    Lambda
-                        (Tuple
-                            [ Type "Basics.Float" []
-                            , Type "Basics.Float" []
-                            ]
-                        )
-                        (Tuple
-                            [ Type "Basics.Float" []
-                            , Type "Basics.Float" []
-                            ]
-                        )
+              , tipe = Lambda (Tuple [ Type "Basics.Float" [], Type "Basics.Float" [] ]) (Tuple [ Type "Basics.Float" [], Type "Basics.Float" [] ])
               }
             , { name = "identity"
               , comment = """ Given a value, returns exactly the same value. This is called
@@ -1018,18 +1006,7 @@ values like this:
     toPolar (3, 4) == ( 5, 0.9272952180016122)
     toPolar (5,12) == (13, 1.1760052070951352)
 """
-              , tipe =
-                    Lambda
-                        (Tuple
-                            [ Type "Basics.Float" []
-                            , Type "Basics.Float" []
-                            ]
-                        )
-                        (Tuple
-                            [ Type "Basics.Float" []
-                            , Type "Basics.Float" []
-                            ]
-                        )
+              , tipe = Lambda (Tuple [ Type "Basics.Float" [], Type "Basics.Float" [] ]) (Tuple [ Type "Basics.Float" [], Type "Basics.Float" [] ])
               }
             , { name = "truncate"
               , comment = """ Truncate a number, rounding towards zero.
@@ -1450,10 +1427,7 @@ Insert, remove, and query operations all take *O(log n)* time.
       , aliases = []
       , unions =
             [ { name = "Dict"
-              , args =
-                    [ "k"
-                    , "v"
-                    ]
+              , args = [ "k", "v" ]
               , comment = """ A dictionary of keys and values. So a `Dict String User` is a dictionary
 that lets you look up a `String` (such as user names) and find the associated
 `User`.
@@ -1482,50 +1456,15 @@ that lets you look up a `String` (such as user names) and find the associated
             [ { name = "diff"
               , comment = """ Keep a key-value pair when its key does not appear in the second dictionary.
 """
-              , tipe =
-                    Lambda
-                        (Type "Dict.Dict"
-                            [ Var "comparable"
-                            , Var "a"
-                            ]
-                        )
-                        (Lambda
-                            (Type "Dict.Dict"
-                                [ Var "comparable"
-                                , Var "b"
-                                ]
-                            )
-                            (Type "Dict.Dict"
-                                [ Var "comparable"
-                                , Var "a"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Type "Dict.Dict" [ Var "comparable", Var "a" ]) (Lambda (Type "Dict.Dict" [ Var "comparable", Var "b" ]) (Type "Dict.Dict" [ Var "comparable", Var "a" ]))
               }
             , { name = "empty"
               , comment = " Create an empty dictionary. "
-              , tipe =
-                    Type "Dict.Dict"
-                        [ Var "k"
-                        , Var "v"
-                        ]
+              , tipe = Type "Dict.Dict" [ Var "k", Var "v" ]
               }
             , { name = "filter"
               , comment = " Keep only the key-value pairs that pass the given test. "
-              , tipe =
-                    Lambda (Lambda (Var "comparable") (Lambda (Var "v") (Type "Basics.Bool" [])))
-                        (Lambda
-                            (Type "Dict.Dict"
-                                [ Var "comparable"
-                                , Var "v"
-                                ]
-                            )
-                            (Type "Dict.Dict"
-                                [ Var "comparable"
-                                , Var "v"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "comparable") (Lambda (Var "v") (Type "Basics.Bool" []))) (Lambda (Type "Dict.Dict" [ Var "comparable", Var "v" ]) (Type "Dict.Dict" [ Var "comparable", Var "v" ]))
               }
             , { name = "foldl"
               , comment = """ Fold over the key-value pairs in a dictionary from lowest key to highest key.
@@ -1542,18 +1481,7 @@ that lets you look up a `String` (such as user names) and find the associated
 
     -- getAges users == [33,19,28]
 """
-              , tipe =
-                    Lambda (Lambda (Var "k") (Lambda (Var "v") (Lambda (Var "b") (Var "b"))))
-                        (Lambda (Var "b")
-                            (Lambda
-                                (Type "Dict.Dict"
-                                    [ Var "k"
-                                    , Var "v"
-                                    ]
-                                )
-                                (Var "b")
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "k") (Lambda (Var "v") (Lambda (Var "b") (Var "b")))) (Lambda (Var "b") (Lambda (Type "Dict.Dict" [ Var "k", Var "v" ]) (Var "b")))
               }
             , { name = "foldr"
               , comment = """ Fold over the key-value pairs in a dictionary from highest key to lowest key.
@@ -1570,35 +1498,11 @@ that lets you look up a `String` (such as user names) and find the associated
 
     -- getAges users == [28,19,33]
 """
-              , tipe =
-                    Lambda (Lambda (Var "k") (Lambda (Var "v") (Lambda (Var "b") (Var "b"))))
-                        (Lambda (Var "b")
-                            (Lambda
-                                (Type "Dict.Dict"
-                                    [ Var "k"
-                                    , Var "v"
-                                    ]
-                                )
-                                (Var "b")
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "k") (Lambda (Var "v") (Lambda (Var "b") (Var "b")))) (Lambda (Var "b") (Lambda (Type "Dict.Dict" [ Var "k", Var "v" ]) (Var "b")))
               }
             , { name = "fromList"
               , comment = " Convert an association list into a dictionary. "
-              , tipe =
-                    Lambda
-                        (Type "List.List"
-                            [ Tuple
-                                [ Var "comparable"
-                                , Var "v"
-                                ]
-                            ]
-                        )
-                        (Type "Dict.Dict"
-                            [ Var "comparable"
-                            , Var "v"
-                            ]
-                        )
+              , tipe = Lambda (Type "List.List" [ Tuple [ Var "comparable", Var "v" ] ]) (Type "Dict.Dict" [ Var "comparable", Var "v" ])
               }
             , { name = "get"
               , comment = """ Get the value associated with a key. If the key is not found, return
@@ -1612,119 +1516,41 @@ dictionary.
     get "Spike" animals == Nothing
 
 """
-              , tipe =
-                    Lambda (Var "comparable")
-                        (Lambda
-                            (Type "Dict.Dict"
-                                [ Var "comparable"
-                                , Var "v"
-                                ]
-                            )
-                            (Type "Maybe.Maybe" [ Var "v" ])
-                        )
+              , tipe = Lambda (Var "comparable") (Lambda (Type "Dict.Dict" [ Var "comparable", Var "v" ]) (Type "Maybe.Maybe" [ Var "v" ]))
               }
             , { name = "insert"
               , comment = """ Insert a key-value pair into a dictionary. Replaces value when there is
 a collision. """
-              , tipe =
-                    Lambda (Var "comparable")
-                        (Lambda (Var "v")
-                            (Lambda
-                                (Type "Dict.Dict"
-                                    [ Var "comparable"
-                                    , Var "v"
-                                    ]
-                                )
-                                (Type "Dict.Dict"
-                                    [ Var "comparable"
-                                    , Var "v"
-                                    ]
-                                )
-                            )
-                        )
+              , tipe = Lambda (Var "comparable") (Lambda (Var "v") (Lambda (Type "Dict.Dict" [ Var "comparable", Var "v" ]) (Type "Dict.Dict" [ Var "comparable", Var "v" ])))
               }
             , { name = "intersect"
               , comment = """ Keep a key-value pair when its key appears in the second dictionary.
 Preference is given to values in the first dictionary.
 """
-              , tipe =
-                    Lambda
-                        (Type "Dict.Dict"
-                            [ Var "comparable"
-                            , Var "v"
-                            ]
-                        )
-                        (Lambda
-                            (Type "Dict.Dict"
-                                [ Var "comparable"
-                                , Var "v"
-                                ]
-                            )
-                            (Type "Dict.Dict"
-                                [ Var "comparable"
-                                , Var "v"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Type "Dict.Dict" [ Var "comparable", Var "v" ]) (Lambda (Type "Dict.Dict" [ Var "comparable", Var "v" ]) (Type "Dict.Dict" [ Var "comparable", Var "v" ]))
               }
             , { name = "isEmpty"
               , comment = """ Determine if a dictionary is empty.
 
     isEmpty empty == True
 """
-              , tipe =
-                    Lambda
-                        (Type "Dict.Dict"
-                            [ Var "k"
-                            , Var "v"
-                            ]
-                        )
-                        (Type "Basics.Bool" [])
+              , tipe = Lambda (Type "Dict.Dict" [ Var "k", Var "v" ]) (Type "Basics.Bool" [])
               }
             , { name = "keys"
               , comment = """ Get all of the keys in a dictionary, sorted from lowest to highest.
 
     keys (fromList [(0,"Alice"),(1,"Bob")]) == [0,1]
 """
-              , tipe =
-                    Lambda
-                        (Type "Dict.Dict"
-                            [ Var "k"
-                            , Var "v"
-                            ]
-                        )
-                        (Type "List.List" [ Var "k" ])
+              , tipe = Lambda (Type "Dict.Dict" [ Var "k", Var "v" ]) (Type "List.List" [ Var "k" ])
               }
             , { name = "map"
               , comment = """ Apply a function to all values in a dictionary.
 """
-              , tipe =
-                    Lambda (Lambda (Var "k") (Lambda (Var "a") (Var "b")))
-                        (Lambda
-                            (Type "Dict.Dict"
-                                [ Var "k"
-                                , Var "a"
-                                ]
-                            )
-                            (Type "Dict.Dict"
-                                [ Var "k"
-                                , Var "b"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "k") (Lambda (Var "a") (Var "b"))) (Lambda (Type "Dict.Dict" [ Var "k", Var "a" ]) (Type "Dict.Dict" [ Var "k", Var "b" ]))
               }
             , { name = "member"
               , comment = " Determine if a key is in a dictionary. "
-              , tipe =
-                    Lambda (Var "comparable")
-                        (Lambda
-                            (Type "Dict.Dict"
-                                [ Var "comparable"
-                                , Var "v"
-                                ]
-                            )
-                            (Type "Basics.Bool" [])
-                        )
+              , tipe = Lambda (Var "comparable") (Lambda (Type "Dict.Dict" [ Var "comparable", Var "v" ]) (Type "Basics.Bool" []))
               }
             , { name = "merge"
               , comment = """ The most general way of combining two dictionaries. You provide three
@@ -1737,168 +1563,48 @@ accumulators for when a given key appears:
 You then traverse all the keys from lowest to highest, building up whatever
 you want.
 """
-              , tipe =
-                    Lambda (Lambda (Var "comparable") (Lambda (Var "a") (Lambda (Var "result") (Var "result"))))
-                        (Lambda (Lambda (Var "comparable") (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "result") (Var "result")))))
-                            (Lambda (Lambda (Var "comparable") (Lambda (Var "b") (Lambda (Var "result") (Var "result"))))
-                                (Lambda
-                                    (Type "Dict.Dict"
-                                        [ Var "comparable"
-                                        , Var "a"
-                                        ]
-                                    )
-                                    (Lambda
-                                        (Type "Dict.Dict"
-                                            [ Var "comparable"
-                                            , Var "b"
-                                            ]
-                                        )
-                                        (Lambda (Var "result") (Var "result"))
-                                    )
-                                )
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "comparable") (Lambda (Var "a") (Lambda (Var "result") (Var "result")))) (Lambda (Lambda (Var "comparable") (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "result") (Var "result"))))) (Lambda (Lambda (Var "comparable") (Lambda (Var "b") (Lambda (Var "result") (Var "result")))) (Lambda (Type "Dict.Dict" [ Var "comparable", Var "a" ]) (Lambda (Type "Dict.Dict" [ Var "comparable", Var "b" ]) (Lambda (Var "result") (Var "result"))))))
               }
             , { name = "partition"
               , comment = """ Partition a dictionary according to some test. The first dictionary
 contains all key-value pairs which passed the test, and the second contains
 the pairs that did not.
 """
-              , tipe =
-                    Lambda (Lambda (Var "comparable") (Lambda (Var "v") (Type "Basics.Bool" [])))
-                        (Lambda
-                            (Type "Dict.Dict"
-                                [ Var "comparable"
-                                , Var "v"
-                                ]
-                            )
-                            (Tuple
-                                [ Type "Dict.Dict"
-                                    [ Var "comparable"
-                                    , Var "v"
-                                    ]
-                                , Type "Dict.Dict"
-                                    [ Var "comparable"
-                                    , Var "v"
-                                    ]
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "comparable") (Lambda (Var "v") (Type "Basics.Bool" []))) (Lambda (Type "Dict.Dict" [ Var "comparable", Var "v" ]) (Tuple [ Type "Dict.Dict" [ Var "comparable", Var "v" ], Type "Dict.Dict" [ Var "comparable", Var "v" ] ]))
               }
             , { name = "remove"
               , comment = """ Remove a key-value pair from a dictionary. If the key is not found,
 no changes are made. """
-              , tipe =
-                    Lambda (Var "comparable")
-                        (Lambda
-                            (Type "Dict.Dict"
-                                [ Var "comparable"
-                                , Var "v"
-                                ]
-                            )
-                            (Type "Dict.Dict"
-                                [ Var "comparable"
-                                , Var "v"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Var "comparable") (Lambda (Type "Dict.Dict" [ Var "comparable", Var "v" ]) (Type "Dict.Dict" [ Var "comparable", Var "v" ]))
               }
             , { name = "singleton"
               , comment = " Create a dictionary with one key-value pair. "
-              , tipe =
-                    Lambda (Var "comparable")
-                        (Lambda (Var "v")
-                            (Type "Dict.Dict"
-                                [ Var "comparable"
-                                , Var "v"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Var "comparable") (Lambda (Var "v") (Type "Dict.Dict" [ Var "comparable", Var "v" ]))
               }
             , { name = "size"
               , comment = " Determine the number of key-value pairs in the dictionary. "
-              , tipe =
-                    Lambda
-                        (Type "Dict.Dict"
-                            [ Var "k"
-                            , Var "v"
-                            ]
-                        )
-                        (Type "Basics.Int" [])
+              , tipe = Lambda (Type "Dict.Dict" [ Var "k", Var "v" ]) (Type "Basics.Int" [])
               }
             , { name = "toList"
               , comment = " Convert a dictionary into an association list of key-value pairs, sorted by keys. "
-              , tipe =
-                    Lambda
-                        (Type "Dict.Dict"
-                            [ Var "k"
-                            , Var "v"
-                            ]
-                        )
-                        (Type "List.List"
-                            [ Tuple
-                                [ Var "k"
-                                , Var "v"
-                                ]
-                            ]
-                        )
+              , tipe = Lambda (Type "Dict.Dict" [ Var "k", Var "v" ]) (Type "List.List" [ Tuple [ Var "k", Var "v" ] ])
               }
             , { name = "union"
               , comment = """ Combine two dictionaries. If there is a collision, preference is given
 to the first dictionary.
 """
-              , tipe =
-                    Lambda
-                        (Type "Dict.Dict"
-                            [ Var "comparable"
-                            , Var "v"
-                            ]
-                        )
-                        (Lambda
-                            (Type "Dict.Dict"
-                                [ Var "comparable"
-                                , Var "v"
-                                ]
-                            )
-                            (Type "Dict.Dict"
-                                [ Var "comparable"
-                                , Var "v"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Type "Dict.Dict" [ Var "comparable", Var "v" ]) (Lambda (Type "Dict.Dict" [ Var "comparable", Var "v" ]) (Type "Dict.Dict" [ Var "comparable", Var "v" ]))
               }
             , { name = "update"
               , comment = " Update the value of a dictionary for a specific key with a given function. "
-              , tipe =
-                    Lambda (Var "comparable")
-                        (Lambda (Lambda (Type "Maybe.Maybe" [ Var "v" ]) (Type "Maybe.Maybe" [ Var "v" ]))
-                            (Lambda
-                                (Type "Dict.Dict"
-                                    [ Var "comparable"
-                                    , Var "v"
-                                    ]
-                                )
-                                (Type "Dict.Dict"
-                                    [ Var "comparable"
-                                    , Var "v"
-                                    ]
-                                )
-                            )
-                        )
+              , tipe = Lambda (Var "comparable") (Lambda (Lambda (Type "Maybe.Maybe" [ Var "v" ]) (Type "Maybe.Maybe" [ Var "v" ])) (Lambda (Type "Dict.Dict" [ Var "comparable", Var "v" ]) (Type "Dict.Dict" [ Var "comparable", Var "v" ])))
               }
             , { name = "values"
               , comment = """ Get all of the values in a dictionary, in the order of their keys.
 
     values (fromList [(0,"Alice"),(1,"Bob")]) == ["Alice", "Bob"]
 """
-              , tipe =
-                    Lambda
-                        (Type "Dict.Dict"
-                            [ Var "k"
-                            , Var "v"
-                            ]
-                        )
-                        (Type "List.List" [ Var "v" ])
+              , tipe = Lambda (Type "Dict.Dict" [ Var "k", Var "v" ]) (Type "List.List" [ Var "v" ])
               }
             ]
       }
@@ -2160,15 +1866,7 @@ that satisfy the test, and the second list contains all the value that do not.
     partition (\\x -> x < 3) [0,1,2,3,4,5] == ([0,1,2], [3,4,5])
     partition isEven        [0,1,2,3,4,5] == ([0,2,4], [1,3,5])
 """
-              , tipe =
-                    Lambda (Lambda (Var "a") (Type "Basics.Bool" []))
-                        (Lambda (Type "List.List" [ Var "a" ])
-                            (Tuple
-                                [ Type "List.List" [ Var "a" ]
-                                , Type "List.List" [ Var "a" ]
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "a") (Type "Basics.Bool" [])) (Lambda (Type "List.List" [ Var "a" ]) (Tuple [ Type "List.List" [ Var "a" ], Type "List.List" [ Var "a" ] ]))
               }
             , { name = "product"
               , comment = """ Get the product of the list elements.
@@ -2282,20 +1980,7 @@ because it gives you `(x :: xs)` and you can work with both subparts.
 
     unzip [(0, True), (17, False), (1337, True)] == ([0,17,1337], [True,False,True])
 """
-              , tipe =
-                    Lambda
-                        (Type "List.List"
-                            [ Tuple
-                                [ Var "a"
-                                , Var "b"
-                                ]
-                            ]
-                        )
-                        (Tuple
-                            [ Type "List.List" [ Var "a" ]
-                            , Type "List.List" [ Var "b" ]
-                            ]
-                        )
+              , tipe = Lambda (Type "List.List" [ Tuple [ Var "a", Var "b" ] ]) (Tuple [ Type "List.List" [ Var "a" ], Type "List.List" [ Var "b" ] ])
               }
             ]
       }
@@ -2461,31 +2146,21 @@ primitive.
               , tags = []
               }
             , { name = "Program"
-              , args =
-                    [ "flags"
-                    , "model"
-                    , "msg"
-                    ]
+              , args = [ "flags", "model", "msg" ]
               , comment = """ A `Program` describes an Elm program! How does it react to input? Does it
 show anything on screen? Etc.
 """
               , tags = []
               }
             , { name = "Router"
-              , args =
-                    [ "appMsg"
-                    , "selfMsg"
-                    ]
+              , args = [ "appMsg", "selfMsg" ]
               , comment = """ An effect manager has access to a “router” that routes messages between
 the main app and your individual effect manager.
 """
               , tags = []
               }
             , { name = "Task"
-              , args =
-                    [ "err"
-                    , "ok"
-                    ]
+              , args = [ "err", "ok" ]
               , comment = """ Head over to the documentation for the [`Task`](Task) module for more
 information on this. It is only defined here because it is a platform
 primitive.
@@ -2499,20 +2174,7 @@ primitive.
               , comment = """ Send the router a message for the main loop of your app. This message will
 be handled by the overall `update` function, just like events from `Html`.
 """
-              , tipe =
-                    Lambda
-                        (Type "Platform.Router"
-                            [ Var "msg"
-                            , Var "a"
-                            ]
-                        )
-                        (Lambda (Var "msg")
-                            (Type "Platform.Task"
-                                [ Var "x"
-                                , Tuple []
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Type "Platform.Router" [ Var "msg", Var "a" ]) (Lambda (Var "msg") (Type "Platform.Task" [ Var "x", Tuple [] ]))
               }
             , { name = "sendToSelf"
               , comment = """ Send the router a message for your effect manager. This message will
@@ -2521,20 +2183,7 @@ effect manager as necessary.
 
 As an example, the effect manager for web sockets
 """
-              , tipe =
-                    Lambda
-                        (Type "Platform.Router"
-                            [ Var "a"
-                            , Var "msg"
-                            ]
-                        )
-                        (Lambda (Var "msg")
-                            (Type "Platform.Task"
-                                [ Var "x"
-                                , Tuple []
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Type "Platform.Router" [ Var "a", Var "msg" ]) (Lambda (Var "msg") (Type "Platform.Task" [ Var "x", Tuple [] ]))
               }
             , { name = "worker"
               , comment = """ Create a [headless][] program with no user interface.
@@ -2557,37 +2206,7 @@ module has a few ways to create that kind of `Program` instead!
 [headless]: https://en.wikipedia.org/wiki/Headless_software
 [browser]: /packages/elm/browser/latest/Browser
 """
-              , tipe =
-                    Lambda
-                        (Record
-                            [ ( "init"
-                              , Lambda (Var "flags")
-                                    (Tuple
-                                        [ Var "model"
-                                        , Type "Platform.Cmd.Cmd" [ Var "msg" ]
-                                        ]
-                                    )
-                              )
-                            , ( "update"
-                              , Lambda (Var "msg")
-                                    (Lambda (Var "model")
-                                        (Tuple
-                                            [ Var "model"
-                                            , Type "Platform.Cmd.Cmd" [ Var "msg" ]
-                                            ]
-                                        )
-                                    )
-                              )
-                            , ( "subscriptions", Lambda (Var "model") (Type "Platform.Sub.Sub" [ Var "msg" ]) )
-                            ]
-                            Nothing
-                        )
-                        (Type "Platform.Program"
-                            [ Var "flags"
-                            , Var "model"
-                            , Var "msg"
-                            ]
-                        )
+              , tipe = Lambda (Record [ ( "init", Lambda (Var "flags") (Tuple [ Var "model", Type "Platform.Cmd.Cmd" [ Var "msg" ] ]) ), ( "update", Lambda (Var "msg") (Lambda (Var "model") (Tuple [ Var "model", Type "Platform.Cmd.Cmd" [ Var "msg" ] ])) ), ( "subscriptions", Lambda (Var "model") (Type "Platform.Sub.Sub" [ Var "msg" ]) ) ] Nothing) (Type "Platform.Program" [ Var "flags", Var "model", Var "msg" ])
               }
             ]
       }
@@ -2798,13 +2417,7 @@ have it keep running and doing stuff. The `kill` function will force a process
 to bail on whatever task it is running. So if there is an HTTP request in
 flight, it will also abort the request.
 """
-              , tipe =
-                    Lambda (Type "Process.Id" [])
-                        (Type "Task.Task"
-                            [ Var "x"
-                            , Tuple []
-                            ]
-                        )
+              , tipe = Lambda (Type "Process.Id" []) (Type "Task.Task" [ Var "x", Tuple [] ])
               }
             , { name = "sleep"
               , comment = """ Block progress on the current process for the given number of milliseconds.
@@ -2813,13 +2426,7 @@ delay work until later.
 
 [setTimeout]: https://developer.mozilla.org/en-US/docs/Web/API/WindowTimers/setTimeout
 """
-              , tipe =
-                    Lambda (Type "Basics.Float" [])
-                        (Type "Task.Task"
-                            [ Var "x"
-                            , Tuple []
-                            ]
-                        )
+              , tipe = Lambda (Type "Basics.Float" []) (Type "Task.Task" [ Var "x", Tuple [] ])
               }
             , { name = "spawn"
               , comment = """ Run a task in its own light-weight process. In the following example,
@@ -2834,18 +2441,7 @@ there.
 cannot receive any messages. More flexibility for user-defined processes will
 come in a later release!
 """
-              , tipe =
-                    Lambda
-                        (Type "Task.Task"
-                            [ Var "x"
-                            , Var "a"
-                            ]
-                        )
-                        (Type "Task.Task"
-                            [ Var "y"
-                            , Type "Process.Id" []
-                            ]
-                        )
+              , tipe = Lambda (Type "Task.Task" [ Var "x", Var "a" ]) (Type "Task.Task" [ Var "y", Type "Process.Id" [] ])
               }
             ]
       }
@@ -2868,10 +2464,7 @@ way to manage errors in Elm.
       , aliases = []
       , unions =
             [ { name = "Result"
-              , args =
-                    [ "error"
-                    , "value"
-                    ]
+              , args = [ "error", "value" ]
               , comment = """ A `Result` is either `Ok` meaning the computation succeeded, or it is an
 `Err` meaning that there was some failure.
 """
@@ -2918,27 +2511,7 @@ message. It is often best to create a custom type that explicitly represents
 the exact ways your computation may fail. This way it is easy to handle in your
 code.
 """
-              , tipe =
-                    Lambda
-                        (Lambda (Var "a")
-                            (Type "Result.Result"
-                                [ Var "x"
-                                , Var "b"
-                                ]
-                            )
-                        )
-                        (Lambda
-                            (Type "Result.Result"
-                                [ Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Type "Result.Result"
-                                [ Var "x"
-                                , Var "b"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "a") (Type "Result.Result" [ Var "x", Var "b" ])) (Lambda (Type "Result.Result" [ Var "x", Var "a" ]) (Type "Result.Result" [ Var "x", Var "b" ]))
               }
             , { name = "fromMaybe"
               , comment = """ Convert from a simple `Maybe` to interact with some code that primarily
@@ -2950,15 +2523,7 @@ uses `Results`.
     resultParseInt string =
         fromMaybe ("error parsing string: " ++ toString string) (parseInt string)
 """
-              , tipe =
-                    Lambda (Var "x")
-                        (Lambda (Type "Maybe.Maybe" [ Var "a" ])
-                            (Type "Result.Result"
-                                [ Var "x"
-                                , Var "a"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Var "x") (Lambda (Type "Maybe.Maybe" [ Var "a" ]) (Type "Result.Result" [ Var "x", Var "a" ]))
               }
             , { name = "map"
               , comment = """ Apply a function to a result. If the result is `Ok`, it will be converted.
@@ -2967,20 +2532,7 @@ If the result is an `Err`, the same error value will propagate through.
     map sqrt (Ok 4.0)          == Ok 2.0
     map sqrt (Err "bad input") == Err "bad input"
 """
-              , tipe =
-                    Lambda (Lambda (Var "a") (Var "value"))
-                        (Lambda
-                            (Type "Result.Result"
-                                [ Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Type "Result.Result"
-                                [ Var "x"
-                                , Var "value"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "a") (Var "value")) (Lambda (Type "Result.Result" [ Var "x", Var "a" ]) (Type "Result.Result" [ Var "x", Var "value" ]))
               }
             , { name = "map2"
               , comment = """ Apply a function if both results are `Ok`. If not, the first `Err` will
@@ -2994,141 +2546,19 @@ propagate through.
 This can be useful if you have two computations that may fail, and you want
 to put them together quickly.
 """
-              , tipe =
-                    Lambda (Lambda (Var "a") (Lambda (Var "b") (Var "value")))
-                        (Lambda
-                            (Type "Result.Result"
-                                [ Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Lambda
-                                (Type "Result.Result"
-                                    [ Var "x"
-                                    , Var "b"
-                                    ]
-                                )
-                                (Type "Result.Result"
-                                    [ Var "x"
-                                    , Var "value"
-                                    ]
-                                )
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Var "value"))) (Lambda (Type "Result.Result" [ Var "x", Var "a" ]) (Lambda (Type "Result.Result" [ Var "x", Var "b" ]) (Type "Result.Result" [ Var "x", Var "value" ])))
               }
             , { name = "map3"
               , comment = ""
-              , tipe =
-                    Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Var "value"))))
-                        (Lambda
-                            (Type "Result.Result"
-                                [ Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Lambda
-                                (Type "Result.Result"
-                                    [ Var "x"
-                                    , Var "b"
-                                    ]
-                                )
-                                (Lambda
-                                    (Type "Result.Result"
-                                        [ Var "x"
-                                        , Var "c"
-                                        ]
-                                    )
-                                    (Type "Result.Result"
-                                        [ Var "x"
-                                        , Var "value"
-                                        ]
-                                    )
-                                )
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Var "value")))) (Lambda (Type "Result.Result" [ Var "x", Var "a" ]) (Lambda (Type "Result.Result" [ Var "x", Var "b" ]) (Lambda (Type "Result.Result" [ Var "x", Var "c" ]) (Type "Result.Result" [ Var "x", Var "value" ]))))
               }
             , { name = "map4"
               , comment = ""
-              , tipe =
-                    Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Lambda (Var "d") (Var "value")))))
-                        (Lambda
-                            (Type "Result.Result"
-                                [ Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Lambda
-                                (Type "Result.Result"
-                                    [ Var "x"
-                                    , Var "b"
-                                    ]
-                                )
-                                (Lambda
-                                    (Type "Result.Result"
-                                        [ Var "x"
-                                        , Var "c"
-                                        ]
-                                    )
-                                    (Lambda
-                                        (Type "Result.Result"
-                                            [ Var "x"
-                                            , Var "d"
-                                            ]
-                                        )
-                                        (Type "Result.Result"
-                                            [ Var "x"
-                                            , Var "value"
-                                            ]
-                                        )
-                                    )
-                                )
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Lambda (Var "d") (Var "value"))))) (Lambda (Type "Result.Result" [ Var "x", Var "a" ]) (Lambda (Type "Result.Result" [ Var "x", Var "b" ]) (Lambda (Type "Result.Result" [ Var "x", Var "c" ]) (Lambda (Type "Result.Result" [ Var "x", Var "d" ]) (Type "Result.Result" [ Var "x", Var "value" ])))))
               }
             , { name = "map5"
               , comment = ""
-              , tipe =
-                    Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Lambda (Var "d") (Lambda (Var "e") (Var "value"))))))
-                        (Lambda
-                            (Type "Result.Result"
-                                [ Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Lambda
-                                (Type "Result.Result"
-                                    [ Var "x"
-                                    , Var "b"
-                                    ]
-                                )
-                                (Lambda
-                                    (Type "Result.Result"
-                                        [ Var "x"
-                                        , Var "c"
-                                        ]
-                                    )
-                                    (Lambda
-                                        (Type "Result.Result"
-                                            [ Var "x"
-                                            , Var "d"
-                                            ]
-                                        )
-                                        (Lambda
-                                            (Type "Result.Result"
-                                                [ Var "x"
-                                                , Var "e"
-                                                ]
-                                            )
-                                            (Type "Result.Result"
-                                                [ Var "x"
-                                                , Var "value"
-                                                ]
-                                            )
-                                        )
-                                    )
-                                )
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Lambda (Var "d") (Lambda (Var "e") (Var "value")))))) (Lambda (Type "Result.Result" [ Var "x", Var "a" ]) (Lambda (Type "Result.Result" [ Var "x", Var "b" ]) (Lambda (Type "Result.Result" [ Var "x", Var "c" ]) (Lambda (Type "Result.Result" [ Var "x", Var "d" ]) (Lambda (Type "Result.Result" [ Var "x", Var "e" ]) (Type "Result.Result" [ Var "x", Var "value" ]))))))
               }
             , { name = "mapError"
               , comment = """ Transform an `Err` value. For example, say the errors we get have too much
@@ -3145,20 +2575,7 @@ information:
     mapError .message (parseInt "123") == Ok 123
     mapError .message (parseInt "abc") == Err "char 'a' is not a number"
 """
-              , tipe =
-                    Lambda (Lambda (Var "x") (Var "y"))
-                        (Lambda
-                            (Type "Result.Result"
-                                [ Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Type "Result.Result"
-                                [ Var "y"
-                                , Var "a"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "x") (Var "y")) (Lambda (Type "Result.Result" [ Var "x", Var "a" ]) (Type "Result.Result" [ Var "y", Var "a" ]))
               }
             , { name = "toMaybe"
               , comment = """ Convert to a simpler `Maybe` if the actual error message is not needed or
@@ -3170,14 +2587,7 @@ you need to interact with some code that primarily uses maybes.
     maybeParseInt string =
         toMaybe (parseInt string)
 """
-              , tipe =
-                    Lambda
-                        (Type "Result.Result"
-                            [ Var "x"
-                            , Var "a"
-                            ]
-                        )
-                        (Type "Maybe.Maybe" [ Var "a" ])
+              , tipe = Lambda (Type "Result.Result" [ Var "x", Var "a" ]) (Type "Maybe.Maybe" [ Var "a" ])
               }
             , { name = "withDefault"
               , comment = """ If the result is `Ok` return the value, but if the result is an `Err` then
@@ -3186,16 +2596,7 @@ return a given default value. The following examples try to parse integers.
     Result.withDefault 0 (Ok 123)   == 123
     Result.withDefault 0 (Err "no") == 0
 """
-              , tipe =
-                    Lambda (Var "a")
-                        (Lambda
-                            (Type "Result.Result"
-                                [ Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Var "a")
-                        )
+              , tipe = Lambda (Var "a") (Lambda (Type "Result.Result" [ Var "x", Var "a" ]) (Var "a"))
               }
             ]
       }
@@ -3309,15 +2710,7 @@ that do not appear in the second set.
               , comment = """ Create two new sets. The first contains all the elements that passed the
 given test, and the second contains all the elements that did not.
 """
-              , tipe =
-                    Lambda (Lambda (Var "comparable") (Type "Basics.Bool" []))
-                        (Lambda (Type "Set.Set" [ Var "comparable" ])
-                            (Tuple
-                                [ Type "Set.Set" [ Var "comparable" ]
-                                , Type "Set.Set" [ Var "comparable" ]
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "comparable") (Type "Basics.Bool" [])) (Lambda (Type "Set.Set" [ Var "comparable" ]) (Tuple [ Type "Set.Set" [ Var "comparable" ], Type "Set.Set" [ Var "comparable" ] ]))
               }
             , { name = "remove"
               , comment = """ Remove a value from a set. If the value is not found, no changes are made.
@@ -3785,15 +3178,7 @@ pattern match on strings exactly as you would with lists.
     uncons "abc" == Just ('a',"bc")
     uncons ""    == Nothing
 """
-              , tipe =
-                    Lambda (Type "String.String" [])
-                        (Type "Maybe.Maybe"
-                            [ Tuple
-                                [ Type "Char.Char" []
-                                , Type "String.String" []
-                                ]
-                            ]
-                        )
+              , tipe = Lambda (Type "String.String" []) (Type "Maybe.Maybe" [ Tuple [ Type "Char.Char" [], Type "String.String" [] ] ])
               }
             , { name = "words"
               , comment = """ Break a string into words, splitting on chunks of whitespace.
@@ -3823,10 +3208,7 @@ HTTP requests or writing to a database.
 """
       , aliases =
             [ { name = "Task"
-              , args =
-                    [ "x"
-                    , "a"
-                    ]
+              , args = [ "x", "a" ]
               , comment = """ Here are some common tasks:
 
 - [`now : Task x Posix`][now]
@@ -3848,11 +3230,7 @@ list. Or like a grocery list. Or like GitHub issues. So saying "the task is
 to tell me the current POSIX time" does not complete the task! You need
 [`perform`](#perform) tasks or [`attempt`](#attempt) tasks.
 """
-              , tipe =
-                    Type "Platform.Task"
-                        [ Var "x"
-                        , Var "a"
-                        ]
+              , tipe = Type "Platform.Task" [ Var "x", Var "a" ]
               }
             ]
       , unions = []
@@ -3874,27 +3252,7 @@ now:
 
 First the process sleeps for an hour **and then** it tells us what time it is.
 """
-              , tipe =
-                    Lambda
-                        (Lambda (Var "a")
-                            (Type "Task.Task"
-                                [ Var "x"
-                                , Var "b"
-                                ]
-                            )
-                        )
-                        (Lambda
-                            (Type "Task.Task"
-                                [ Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Type "Task.Task"
-                                [ Var "x"
-                                , Var "b"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "a") (Type "Task.Task" [ Var "x", Var "b" ])) (Lambda (Type "Task.Task" [ Var "x", Var "a" ]) (Type "Task.Task" [ Var "x", Var "b" ]))
               }
             , { name = "attempt"
               , comment = """ This is very similar to [`perform`](#perform) except it can handle failures!
@@ -3921,24 +3279,7 @@ feeling for how commands fit into The Elm Architecture.
 
 [guide]: https://guide.elm-lang.org/
 """
-              , tipe =
-                    Lambda
-                        (Lambda
-                            (Type "Result.Result"
-                                [ Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Var "msg")
-                        )
-                        (Lambda
-                            (Type "Task.Task"
-                                [ Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Type "Platform.Cmd.Cmd" [ Var "msg" ])
-                        )
+              , tipe = Lambda (Lambda (Type "Result.Result" [ Var "x", Var "a" ]) (Var "msg")) (Lambda (Type "Task.Task" [ Var "x", Var "a" ]) (Type "Platform.Cmd.Cmd" [ Var "msg" ]))
               }
             , { name = "fail"
               , comment = """ A task that fails immediately when run. Like with `succeed`, this can be
@@ -3950,13 +3291,7 @@ used with `andThen` to check on the outcome of another task.
     notFound =
       fail NotFound
 """
-              , tipe =
-                    Lambda (Var "x")
-                        (Type "Task.Task"
-                            [ Var "x"
-                            , Var "a"
-                            ]
-                        )
+              , tipe = Lambda (Var "x") (Type "Task.Task" [ Var "x", Var "a" ])
               }
             , { name = "map"
               , comment = """ Transform a task. Maybe you want to use [`elm/time`][time] to figure
@@ -3975,20 +3310,7 @@ out what time it will be in one hour:
 
 [time]: /packages/elm/time/latest/
 """
-              , tipe =
-                    Lambda (Lambda (Var "a") (Var "b"))
-                        (Lambda
-                            (Type "Task.Task"
-                                [ Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Type "Task.Task"
-                                [ Var "x"
-                                , Var "b"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "a") (Var "b")) (Lambda (Type "Task.Task" [ Var "x", Var "a" ]) (Type "Task.Task" [ Var "x", Var "b" ]))
               }
             , { name = "map2"
               , comment = """ Put the results of two tasks together. For example, if we wanted to know
@@ -4007,141 +3329,19 @@ If it fails, the whole thing fails!
 
 [time]: /packages/elm/time/latest/
 """
-              , tipe =
-                    Lambda (Lambda (Var "a") (Lambda (Var "b") (Var "result")))
-                        (Lambda
-                            (Type "Task.Task"
-                                [ Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Lambda
-                                (Type "Task.Task"
-                                    [ Var "x"
-                                    , Var "b"
-                                    ]
-                                )
-                                (Type "Task.Task"
-                                    [ Var "x"
-                                    , Var "result"
-                                    ]
-                                )
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Var "result"))) (Lambda (Type "Task.Task" [ Var "x", Var "a" ]) (Lambda (Type "Task.Task" [ Var "x", Var "b" ]) (Type "Task.Task" [ Var "x", Var "result" ])))
               }
             , { name = "map3"
               , comment = ""
-              , tipe =
-                    Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Var "result"))))
-                        (Lambda
-                            (Type "Task.Task"
-                                [ Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Lambda
-                                (Type "Task.Task"
-                                    [ Var "x"
-                                    , Var "b"
-                                    ]
-                                )
-                                (Lambda
-                                    (Type "Task.Task"
-                                        [ Var "x"
-                                        , Var "c"
-                                        ]
-                                    )
-                                    (Type "Task.Task"
-                                        [ Var "x"
-                                        , Var "result"
-                                        ]
-                                    )
-                                )
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Var "result")))) (Lambda (Type "Task.Task" [ Var "x", Var "a" ]) (Lambda (Type "Task.Task" [ Var "x", Var "b" ]) (Lambda (Type "Task.Task" [ Var "x", Var "c" ]) (Type "Task.Task" [ Var "x", Var "result" ]))))
               }
             , { name = "map4"
               , comment = ""
-              , tipe =
-                    Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Lambda (Var "d") (Var "result")))))
-                        (Lambda
-                            (Type "Task.Task"
-                                [ Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Lambda
-                                (Type "Task.Task"
-                                    [ Var "x"
-                                    , Var "b"
-                                    ]
-                                )
-                                (Lambda
-                                    (Type "Task.Task"
-                                        [ Var "x"
-                                        , Var "c"
-                                        ]
-                                    )
-                                    (Lambda
-                                        (Type "Task.Task"
-                                            [ Var "x"
-                                            , Var "d"
-                                            ]
-                                        )
-                                        (Type "Task.Task"
-                                            [ Var "x"
-                                            , Var "result"
-                                            ]
-                                        )
-                                    )
-                                )
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Lambda (Var "d") (Var "result"))))) (Lambda (Type "Task.Task" [ Var "x", Var "a" ]) (Lambda (Type "Task.Task" [ Var "x", Var "b" ]) (Lambda (Type "Task.Task" [ Var "x", Var "c" ]) (Lambda (Type "Task.Task" [ Var "x", Var "d" ]) (Type "Task.Task" [ Var "x", Var "result" ])))))
               }
             , { name = "map5"
               , comment = ""
-              , tipe =
-                    Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Lambda (Var "d") (Lambda (Var "e") (Var "result"))))))
-                        (Lambda
-                            (Type "Task.Task"
-                                [ Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Lambda
-                                (Type "Task.Task"
-                                    [ Var "x"
-                                    , Var "b"
-                                    ]
-                                )
-                                (Lambda
-                                    (Type "Task.Task"
-                                        [ Var "x"
-                                        , Var "c"
-                                        ]
-                                    )
-                                    (Lambda
-                                        (Type "Task.Task"
-                                            [ Var "x"
-                                            , Var "d"
-                                            ]
-                                        )
-                                        (Lambda
-                                            (Type "Task.Task"
-                                                [ Var "x"
-                                                , Var "e"
-                                                ]
-                                            )
-                                            (Type "Task.Task"
-                                                [ Var "x"
-                                                , Var "result"
-                                                ]
-                                            )
-                                        )
-                                    )
-                                )
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "a") (Lambda (Var "b") (Lambda (Var "c") (Lambda (Var "d") (Lambda (Var "e") (Var "result")))))) (Lambda (Type "Task.Task" [ Var "x", Var "a" ]) (Lambda (Type "Task.Task" [ Var "x", Var "b" ]) (Lambda (Type "Task.Task" [ Var "x", Var "c" ]) (Lambda (Type "Task.Task" [ Var "x", Var "d" ]) (Lambda (Type "Task.Task" [ Var "x", Var "e" ]) (Type "Task.Task" [ Var "x", Var "result" ]))))))
               }
             , { name = "mapError"
               , comment = """ Transform the error value. This can be useful if you need a bunch of error
@@ -4158,20 +3358,7 @@ types to match up.
         , mapError WebGL textureTask
         ]
 """
-              , tipe =
-                    Lambda (Lambda (Var "x") (Var "y"))
-                        (Lambda
-                            (Type "Task.Task"
-                                [ Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Type "Task.Task"
-                                [ Var "y"
-                                , Var "a"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "x") (Var "y")) (Lambda (Type "Task.Task" [ Var "x", Var "a" ]) (Type "Task.Task" [ Var "y", Var "a" ]))
               }
             , { name = "onError"
               , comment = """ Recover from a failure in a task. If the given task fails, we use the
@@ -4185,27 +3372,7 @@ callback to recover.
       |> onError (\\msg -> succeed 42)
       -- succeed 9
 """
-              , tipe =
-                    Lambda
-                        (Lambda (Var "x")
-                            (Type "Task.Task"
-                                [ Var "y"
-                                , Var "a"
-                                ]
-                            )
-                        )
-                        (Lambda
-                            (Type "Task.Task"
-                                [ Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Type "Task.Task"
-                                [ Var "y"
-                                , Var "a"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "x") (Type "Task.Task" [ Var "y", Var "a" ])) (Lambda (Type "Task.Task" [ Var "x", Var "a" ]) (Type "Task.Task" [ Var "y", Var "a" ]))
               }
             , { name = "perform"
               , comment = """ Like I was saying in the [`Task`](#Task) documentation, just having a
@@ -4230,16 +3397,7 @@ delicious lasagna and give it to my `update` function as a `Msg` value."
 
 [guide]: https://guide.elm-lang.org/
 """
-              , tipe =
-                    Lambda (Lambda (Var "a") (Var "msg"))
-                        (Lambda
-                            (Type "Task.Task"
-                                [ Type "Basics.Never" []
-                                , Var "a"
-                                ]
-                            )
-                            (Type "Platform.Cmd.Cmd" [ Var "msg" ])
-                        )
+              , tipe = Lambda (Lambda (Var "a") (Var "msg")) (Lambda (Type "Task.Task" [ Type "Basics.Never" [], Var "a" ]) (Type "Platform.Cmd.Cmd" [ Var "msg" ]))
               }
             , { name = "sequence"
               , comment = """ Start with a list of tasks, and turn them into a single task that returns a
@@ -4249,20 +3407,7 @@ sequence fails.
     sequence [ succeed 1, succeed 2 ] == succeed [ 1, 2 ]
 
 """
-              , tipe =
-                    Lambda
-                        (Type "List.List"
-                            [ Type "Task.Task"
-                                [ Var "x"
-                                , Var "a"
-                                ]
-                            ]
-                        )
-                        (Type "Task.Task"
-                            [ Var "x"
-                            , Type "List.List" [ Var "a" ]
-                            ]
-                        )
+              , tipe = Lambda (Type "List.List" [ Type "Task.Task" [ Var "x", Var "a" ] ]) (Type "Task.Task" [ Var "x", Type "List.List" [ Var "a" ] ])
               }
             , { name = "succeed"
               , comment = """ A task that succeeds immediately when run. It is usually used with
@@ -4276,13 +3421,7 @@ sequence fails.
         |> andThen (\\t -> succeed (Time.posixToMillis t))
 
 """
-              , tipe =
-                    Lambda (Var "a")
-                        (Type "Task.Task"
-                            [ Var "x"
-                            , Var "a"
-                            ]
-                        )
+              , tipe = Lambda (Var "a") (Type "Task.Task" [ Var "x", Var "a" ])
               }
             ]
       }
@@ -4330,14 +3469,7 @@ info on this. (Picking appropriate data structures is super important in Elm!)
     first (3, 4) == 3
     first ("john", "doe") == "john"
 """
-              , tipe =
-                    Lambda
-                        (Tuple
-                            [ Var "a"
-                            , Var "b"
-                            ]
-                        )
-                        (Var "a")
+              , tipe = Lambda (Tuple [ Var "a", Var "b" ]) (Var "a")
               }
             , { name = "mapBoth"
               , comment = """ Transform both parts of a tuple.
@@ -4347,22 +3479,7 @@ info on this. (Picking appropriate data structures is super important in Elm!)
     mapBoth String.reverse sqrt  ("stressed", 16) == ("desserts", 4)
     mapBoth String.length negate ("stressed", 16) == (8, -16)
 """
-              , tipe =
-                    Lambda (Lambda (Var "a") (Var "x"))
-                        (Lambda (Lambda (Var "b") (Var "y"))
-                            (Lambda
-                                (Tuple
-                                    [ Var "a"
-                                    , Var "b"
-                                    ]
-                                )
-                                (Tuple
-                                    [ Var "x"
-                                    , Var "y"
-                                    ]
-                                )
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "a") (Var "x")) (Lambda (Lambda (Var "b") (Var "y")) (Lambda (Tuple [ Var "a", Var "b" ]) (Tuple [ Var "x", Var "y" ])))
               }
             , { name = "mapFirst"
               , comment = """ Transform the first value in a tuple.
@@ -4372,20 +3489,7 @@ info on this. (Picking appropriate data structures is super important in Elm!)
     mapFirst String.reverse ("stressed", 16) == ("desserts", 16)
     mapFirst String.length  ("stressed", 16) == (8, 16)
 """
-              , tipe =
-                    Lambda (Lambda (Var "a") (Var "x"))
-                        (Lambda
-                            (Tuple
-                                [ Var "a"
-                                , Var "b"
-                                ]
-                            )
-                            (Tuple
-                                [ Var "x"
-                                , Var "b"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "a") (Var "x")) (Lambda (Tuple [ Var "a", Var "b" ]) (Tuple [ Var "x", Var "b" ]))
               }
             , { name = "mapSecond"
               , comment = """ Transform the second value in a tuple.
@@ -4393,20 +3497,7 @@ info on this. (Picking appropriate data structures is super important in Elm!)
     mapSecond sqrt   ("stressed", 16) == ("stressed", 4)
     mapSecond negate ("stressed", 16) == ("stressed", -16)
 """
-              , tipe =
-                    Lambda (Lambda (Var "b") (Var "y"))
-                        (Lambda
-                            (Tuple
-                                [ Var "a"
-                                , Var "b"
-                                ]
-                            )
-                            (Tuple
-                                [ Var "a"
-                                , Var "y"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "b") (Var "y")) (Lambda (Tuple [ Var "a", Var "b" ]) (Tuple [ Var "a", Var "y" ]))
               }
             , { name = "pair"
               , comment = """ Create a 2-tuple.
@@ -4417,15 +3508,7 @@ info on this. (Picking appropriate data structures is super important in Elm!)
     zip xs ys =
       List.map2 Tuple.pair xs ys
 """
-              , tipe =
-                    Lambda (Var "a")
-                        (Lambda (Var "b")
-                            (Tuple
-                                [ Var "a"
-                                , Var "b"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Var "a") (Lambda (Var "b") (Tuple [ Var "a", Var "b" ]))
               }
             , { name = "second"
               , comment = """ Extract the second value from a tuple.
@@ -4433,14 +3516,7 @@ info on this. (Picking appropriate data structures is super important in Elm!)
     second (3, 4) == 4
     second ("john", "doe") == "doe"
 """
-              , tipe =
-                    Lambda
-                        (Tuple
-                            [ Var "a"
-                            , Var "b"
-                            ]
-                        )
-                        (Var "b")
+              , tipe = Lambda (Tuple [ Var "a", Var "b" ]) (Var "b")
               }
             ]
       }

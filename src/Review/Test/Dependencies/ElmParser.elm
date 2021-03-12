@@ -78,13 +78,7 @@ particular `problem` you ran into. That is a `DeadEnd`!
 and `col=1`. As I chomp characters, the `col` increments. When I reach a `\\n`
 character, I increment the `row` and set `col=1`.
 """
-              , tipe =
-                    Record
-                        [ ( "row", Type "Basics.Int" [] )
-                        , ( "col", Type "Basics.Int" [] )
-                        , ( "problem", Type "Parser.Problem" [] )
-                        ]
-                        Nothing
+              , tipe = Record [ ( "row", Type "Basics.Int" [] ), ( "col", Type "Basics.Int" [] ), ( "problem", Type "Parser.Problem" [] ) ] Nothing
               }
             , { name = "Parser"
               , args = [ "a" ]
@@ -97,12 +91,7 @@ we can [`run`](#run) the [`int`](#int) parser to turn `String` to `Int`:
 The cool thing is that you can combine `Parser` values to handle much more
 complex scenarios.
 """
-              , tipe =
-                    Type "Parser.Advanced.Parser"
-                        [ Type "Basics.Never" []
-                        , Type "Parser.Problem" []
-                        , Var "a"
-                        ]
+              , tipe = Type "Parser.Advanced.Parser" [ Type "Basics.Never" [], Type "Parser.Problem" [], Var "a" ]
               }
             ]
       , unions =
@@ -172,10 +161,7 @@ elsewhere!
                     ]
               }
             , { name = "Step"
-              , args =
-                    [ "state"
-                    , "a"
-                    ]
+              , args = [ "state", "a" ]
               , comment = """ Decide what steps to take next in your [`loop`](#loop).
 
 If you are `Done`, you give the result of the whole `loop`. If you decide to
@@ -578,13 +564,7 @@ ways to do this though. The point is just that you handle the tabs after
 parsing but before anyone looks at the numbers in a context where tabs may
 equal 2, 4, or 8.
 """
-              , tipe =
-                    Type "Parser.Parser"
-                        [ Tuple
-                            [ Type "Basics.Int" []
-                            , Type "Basics.Int" []
-                            ]
-                        ]
+              , tipe = Type "Parser.Parser" [ Tuple [ Type "Basics.Int" [], Type "Basics.Int" [] ] ]
               }
             , { name = "getRow"
               , comment = """ This is a more efficient version of `map Tuple.first getPosition`. Maybe
@@ -773,20 +753,7 @@ problem with calling `andThen` recursively is that it grows the stack, so you
 cannot do it indefinitely. So `loop` is important because enables tail-call
 elimination, allowing you to parse however many repeats you want.
 """
-              , tipe =
-                    Lambda (Var "state")
-                        (Lambda
-                            (Lambda (Var "state")
-                                (Type "Parser.Parser"
-                                    [ Type "Parser.Step"
-                                        [ Var "state"
-                                        , Var "a"
-                                        ]
-                                    ]
-                                )
-                            )
-                            (Type "Parser.Parser" [ Var "a" ])
-                        )
+              , tipe = Lambda (Var "state") (Lambda (Lambda (Var "state") (Type "Parser.Parser" [ Type "Parser.Step" [ Var "state", Var "a" ] ])) (Type "Parser.Parser" [ Var "a" ]))
               }
             , { name = "map"
               , comment = """ Transform the result of a parser. Maybe you have a value that is
@@ -905,18 +872,7 @@ move on. This is helpful for people who want to parse things like `40px` or
 `3m`, but it requires a bit of extra code to rule out trailing characters in
 other cases.
 """
-              , tipe =
-                    Lambda
-                        (Record
-                            [ ( "int", Type "Maybe.Maybe" [ Lambda (Type "Basics.Int" []) (Var "a") ] )
-                            , ( "hex", Type "Maybe.Maybe" [ Lambda (Type "Basics.Int" []) (Var "a") ] )
-                            , ( "octal", Type "Maybe.Maybe" [ Lambda (Type "Basics.Int" []) (Var "a") ] )
-                            , ( "binary", Type "Maybe.Maybe" [ Lambda (Type "Basics.Int" []) (Var "a") ] )
-                            , ( "float", Type "Maybe.Maybe" [ Lambda (Type "Basics.Float" []) (Var "a") ] )
-                            ]
-                            Nothing
-                        )
-                        (Type "Parser.Parser" [ Var "a" ])
+              , tipe = Lambda (Record [ ( "int", Type "Maybe.Maybe" [ Lambda (Type "Basics.Int" []) (Var "a") ] ), ( "hex", Type "Maybe.Maybe" [ Lambda (Type "Basics.Int" []) (Var "a") ] ), ( "octal", Type "Maybe.Maybe" [ Lambda (Type "Basics.Int" []) (Var "a") ] ), ( "binary", Type "Maybe.Maybe" [ Lambda (Type "Basics.Int" []) (Var "a") ] ), ( "float", Type "Maybe.Maybe" [ Lambda (Type "Basics.Float" []) (Var "a") ] ) ] Nothing) (Type "Parser.Parser" [ Var "a" ])
               }
             , { name = "oneOf"
               , comment = """ If you are parsing JSON, the values can be strings, floats, booleans,
@@ -967,15 +923,7 @@ Notice the last case! A `Parser` will chomp as much as possible and not worry
 about the rest. Use the [`end`](#end) parser to ensure you made it to the end
 of the string!
 """
-              , tipe =
-                    Lambda (Type "Parser.Parser" [ Var "a" ])
-                        (Lambda (Type "String.String" [])
-                            (Type "Result.Result"
-                                [ Type "List.List" [ Type "Parser.DeadEnd" [] ]
-                                , Var "a"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Type "Parser.Parser" [ Var "a" ]) (Lambda (Type "String.String" []) (Type "Result.Result" [ Type "List.List" [ Type "Parser.DeadEnd" [] ], Var "a" ]))
               }
             , { name = "sequence"
               , comment = """ Handle things like lists and records, but you can customize the details
@@ -1001,19 +949,7 @@ out the implementation and customize it for your case. It is better to
 get nice error messages with a lower-level implementation than to try
 to hack high-level parsers to do things they are not made for.
 """
-              , tipe =
-                    Lambda
-                        (Record
-                            [ ( "start", Type "String.String" [] )
-                            , ( "separator", Type "String.String" [] )
-                            , ( "end", Type "String.String" [] )
-                            , ( "spaces", Type "Parser.Parser" [ Tuple [] ] )
-                            , ( "item", Type "Parser.Parser" [ Var "a" ] )
-                            , ( "trailing", Type "Parser.Trailing" [] )
-                            ]
-                            Nothing
-                        )
-                        (Type "Parser.Parser" [ Type "List.List" [ Var "a" ] ])
+              , tipe = Lambda (Record [ ( "start", Type "String.String" [] ), ( "separator", Type "String.String" [] ), ( "end", Type "String.String" [] ), ( "spaces", Type "Parser.Parser" [ Tuple [] ] ), ( "item", Type "Parser.Parser" [ Var "a" ] ), ( "trailing", Type "Parser.Trailing" [] ) ] Nothing) (Type "Parser.Parser" [ Type "List.List" [ Var "a" ] ])
               }
             , { name = "spaces"
               , comment = """ Parse zero or more `' '`, `'\\n'`, and `'\\r'` characters.
@@ -1115,16 +1051,7 @@ This is saying it _must_ start with a lower-case character. After that,
 characters can be letters, numbers, or underscores. It is also saying that if
 you run into any of these reserved names, it is definitely not a variable.
 """
-              , tipe =
-                    Lambda
-                        (Record
-                            [ ( "start", Lambda (Type "Char.Char" []) (Type "Basics.Bool" []) )
-                            , ( "inner", Lambda (Type "Char.Char" []) (Type "Basics.Bool" []) )
-                            , ( "reserved", Type "Set.Set" [ Type "String.String" [] ] )
-                            ]
-                            Nothing
-                        )
-                        (Type "Parser.Parser" [ Type "String.String" [] ])
+              , tipe = Lambda (Record [ ( "start", Lambda (Type "Char.Char" []) (Type "Basics.Bool" []) ), ( "inner", Lambda (Type "Char.Char" []) (Type "Basics.Bool" []) ), ( "reserved", Type "Set.Set" [ Type "String.String" [] ] ) ] Nothing) (Type "Parser.Parser" [ Type "String.String" [] ])
               }
             , { name = "withIndent"
               , comment = """ Some languages are indentation sensitive. Python cares about tabs. Elm
@@ -1174,10 +1101,7 @@ certain scenarios.**
 """
       , aliases =
             [ { name = "DeadEnd"
-              , args =
-                    [ "context"
-                    , "problem"
-                    ]
+              , args = [ "context", "problem" ]
               , comment = """ Say you are parsing a function named `viewHealthData` that contains a list.
 You might get a `DeadEnd` like this:
 
@@ -1212,23 +1136,7 @@ here.” Otherwise you can get very confusing error messages on a missing `]` or
 and `col=1`. The `col` increments as characters are chomped. When a `\\n` is chomped,
 `row` is incremented and `col` starts over again at `1`.
 """
-              , tipe =
-                    Record
-                        [ ( "row", Type "Basics.Int" [] )
-                        , ( "col", Type "Basics.Int" [] )
-                        , ( "problem", Var "problem" )
-                        , ( "contextStack"
-                          , Type "List.List"
-                                [ Record
-                                    [ ( "row", Type "Basics.Int" [] )
-                                    , ( "col", Type "Basics.Int" [] )
-                                    , ( "context", Var "context" )
-                                    ]
-                                    Nothing
-                                ]
-                          )
-                        ]
-                        Nothing
+              , tipe = Record [ ( "row", Type "Basics.Int" [] ), ( "col", Type "Basics.Int" [] ), ( "problem", Var "problem" ), ( "contextStack", Type "List.List" [ Record [ ( "row", Type "Basics.Int" [] ), ( "col", Type "Basics.Int" [] ), ( "context", Var "context" ) ] Nothing ] ) ] Nothing
               }
             ]
       , unions =
@@ -1244,11 +1152,7 @@ comments like in Elm.
                     ]
               }
             , { name = "Parser"
-              , args =
-                    [ "context"
-                    , "problem"
-                    , "value"
-                    ]
+              , args = [ "context", "problem", "value" ]
               , comment = """ An advanced `Parser` gives two ways to improve your error messages:
 
 - `problem` &mdash; Instead of all errors being a `String`, you can create a
@@ -1283,10 +1187,7 @@ form, allowing you to switch over pretty easily.
               , tags = []
               }
             , { name = "Step"
-              , args =
-                    [ "state"
-                    , "a"
-                    ]
+              , args = [ "state", "a" ]
               , comment = """ Just like [`Parser.Step`](Parser#Step)
 """
               , tags =
@@ -1318,13 +1219,7 @@ You can be creative with your custom type. Maybe you want a lot of detail.
 Maybe you want looser categories. It is a custom type. Do what makes sense for
 you!
 """
-              , tags =
-                    [ ( "Token"
-                      , [ Type "String.String" []
-                        , Var "x"
-                        ]
-                      )
-                    ]
+              , tags = [ ( "Token", [ Type "String.String" [], Var "x" ] ) ]
               }
             , { name = "Trailing"
               , args = []
@@ -1343,56 +1238,14 @@ club](https://poorlydrawnlines.com/comic/shapes-club/)!
             [ { name = "|."
               , comment = """ Just like the [`(|.)`](Parser#|.) from the `Parser` module.
 """
-              , tipe =
-                    Lambda
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Var "keep"
-                            ]
-                        )
-                        (Lambda
-                            (Type "Parser.Advanced.Parser"
-                                [ Var "c"
-                                , Var "x"
-                                , Var "ignore"
-                                ]
-                            )
-                            (Type "Parser.Advanced.Parser"
-                                [ Var "c"
-                                , Var "x"
-                                , Var "keep"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "keep" ]) (Lambda (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "ignore" ]) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "keep" ]))
               , associativity = Elm.Docs.Left
               , precedence = 6
               }
             , { name = "|="
               , comment = """ Just like the [`(|=)`](Parser#|=) from the `Parser` module.
 """
-              , tipe =
-                    Lambda
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Lambda (Var "a") (Var "b")
-                            ]
-                        )
-                        (Lambda
-                            (Type "Parser.Advanced.Parser"
-                                [ Var "c"
-                                , Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Type "Parser.Advanced.Parser"
-                                [ Var "c"
-                                , Var "x"
-                                , Var "b"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Lambda (Var "a") (Var "b") ]) (Lambda (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "a" ]) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "b" ]))
               , associativity = Elm.Docs.Left
               , precedence = 5
               }
@@ -1401,126 +1254,46 @@ club](https://poorlydrawnlines.com/comic/shapes-club/)!
             [ { name = "andThen"
               , comment = """ Just like [`Parser.andThen`](Parser#andThen)
 """
-              , tipe =
-                    Lambda
-                        (Lambda (Var "a")
-                            (Type "Parser.Advanced.Parser"
-                                [ Var "c"
-                                , Var "x"
-                                , Var "b"
-                                ]
-                            )
-                        )
-                        (Lambda
-                            (Type "Parser.Advanced.Parser"
-                                [ Var "c"
-                                , Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Type "Parser.Advanced.Parser"
-                                [ Var "c"
-                                , Var "x"
-                                , Var "b"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "a") (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "b" ])) (Lambda (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "a" ]) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "b" ]))
               }
             , { name = "backtrackable"
               , comment = """ Just like [`Parser.backtrackable`](Parser#backtrackable)
 """
-              , tipe =
-                    Lambda
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Var "a"
-                            ]
-                        )
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Var "a"
-                            ]
-                        )
+              , tipe = Lambda (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "a" ]) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "a" ])
               }
             , { name = "chompIf"
               , comment = """ Just like [`Parser.chompIf`](Parser#chompIf) except you provide a problem
 in case a character cannot be chomped.
 """
-              , tipe =
-                    Lambda (Lambda (Type "Char.Char" []) (Type "Basics.Bool" []))
-                        (Lambda (Var "x")
-                            (Type "Parser.Advanced.Parser"
-                                [ Var "c"
-                                , Var "x"
-                                , Tuple []
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Lambda (Type "Char.Char" []) (Type "Basics.Bool" [])) (Lambda (Var "x") (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Tuple [] ]))
               }
             , { name = "chompUntil"
               , comment = """ Just like [`Parser.chompUntil`](Parser#chompUntil) except you provide a
 `Token` in case you chomp all the way to the end of the input without finding
 what you need.
 """
-              , tipe =
-                    Lambda (Type "Parser.Advanced.Token" [ Var "x" ])
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Tuple []
-                            ]
-                        )
+              , tipe = Lambda (Type "Parser.Advanced.Token" [ Var "x" ]) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Tuple [] ])
               }
             , { name = "chompUntilEndOr"
               , comment = """ Just like [`Parser.chompUntilEndOr`](Parser#chompUntilEndOr)
 """
-              , tipe =
-                    Lambda (Type "String.String" [])
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Tuple []
-                            ]
-                        )
+              , tipe = Lambda (Type "String.String" []) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Tuple [] ])
               }
             , { name = "chompWhile"
               , comment = """ Just like [`Parser.chompWhile`](Parser#chompWhile)
 """
-              , tipe =
-                    Lambda (Lambda (Type "Char.Char" []) (Type "Basics.Bool" []))
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Tuple []
-                            ]
-                        )
+              , tipe = Lambda (Lambda (Type "Char.Char" []) (Type "Basics.Bool" [])) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Tuple [] ])
               }
             , { name = "commit"
               , comment = """ Just like [`Parser.commit`](Parser#commit)
 """
-              , tipe =
-                    Lambda (Var "a")
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Var "a"
-                            ]
-                        )
+              , tipe = Lambda (Var "a") (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "a" ])
               }
             , { name = "end"
               , comment = """ Just like [`Parser.end`](Parser#end) except you provide the problem that
 arises when the parser is not at the end of the input.
 """
-              , tipe =
-                    Lambda (Var "x")
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Tuple []
-                            ]
-                        )
+              , tipe = Lambda (Var "x") (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Tuple [] ])
               }
             , { name = "float"
               , comment = """ Just like [`Parser.float`](Parser#float) where you have to handle negation
@@ -1540,97 +1313,42 @@ yourself. The only difference is that you provide a two potential problems:
 
 You can use problems like `ExpectingFloat` and `InvalidNumber`.
 """
-              , tipe =
-                    Lambda (Var "x")
-                        (Lambda (Var "x")
-                            (Type "Parser.Advanced.Parser"
-                                [ Var "c"
-                                , Var "x"
-                                , Type "Basics.Float" []
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Var "x") (Lambda (Var "x") (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Type "Basics.Float" [] ]))
               }
             , { name = "getChompedString"
               , comment = """ Just like [`Parser.getChompedString`](Parser#getChompedString)
 """
-              , tipe =
-                    Lambda
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Var "a"
-                            ]
-                        )
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Type "String.String" []
-                            ]
-                        )
+              , tipe = Lambda (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "a" ]) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Type "String.String" [] ])
               }
             , { name = "getCol"
               , comment = """ Just like [`Parser.getCol`](Parser#getCol)
 """
-              , tipe =
-                    Type "Parser.Advanced.Parser"
-                        [ Var "c"
-                        , Var "x"
-                        , Type "Basics.Int" []
-                        ]
+              , tipe = Type "Parser.Advanced.Parser" [ Var "c", Var "x", Type "Basics.Int" [] ]
               }
             , { name = "getIndent"
               , comment = """ Just like [`Parser.getIndent`](Parser#getIndent)
 """
-              , tipe =
-                    Type "Parser.Advanced.Parser"
-                        [ Var "c"
-                        , Var "x"
-                        , Type "Basics.Int" []
-                        ]
+              , tipe = Type "Parser.Advanced.Parser" [ Var "c", Var "x", Type "Basics.Int" [] ]
               }
             , { name = "getOffset"
               , comment = """ Just like [`Parser.getOffset`](Parser#getOffset)
 """
-              , tipe =
-                    Type "Parser.Advanced.Parser"
-                        [ Var "c"
-                        , Var "x"
-                        , Type "Basics.Int" []
-                        ]
+              , tipe = Type "Parser.Advanced.Parser" [ Var "c", Var "x", Type "Basics.Int" [] ]
               }
             , { name = "getPosition"
               , comment = """ Just like [`Parser.getPosition`](Parser#getPosition)
 """
-              , tipe =
-                    Type "Parser.Advanced.Parser"
-                        [ Var "c"
-                        , Var "x"
-                        , Tuple
-                            [ Type "Basics.Int" []
-                            , Type "Basics.Int" []
-                            ]
-                        ]
+              , tipe = Type "Parser.Advanced.Parser" [ Var "c", Var "x", Tuple [ Type "Basics.Int" [], Type "Basics.Int" [] ] ]
               }
             , { name = "getRow"
               , comment = """ Just like [`Parser.getRow`](Parser#getRow)
 """
-              , tipe =
-                    Type "Parser.Advanced.Parser"
-                        [ Var "c"
-                        , Var "x"
-                        , Type "Basics.Int" []
-                        ]
+              , tipe = Type "Parser.Advanced.Parser" [ Var "c", Var "x", Type "Basics.Int" [] ]
               }
             , { name = "getSource"
               , comment = """ Just like [`Parser.getSource`](Parser#getSource)
 """
-              , tipe =
-                    Type "Parser.Advanced.Parser"
-                        [ Var "c"
-                        , Var "x"
-                        , Type "String.String" []
-                        ]
+              , tipe = Type "Parser.Advanced.Parser" [ Var "c", Var "x", Type "String.String" [] ]
               }
             , { name = "inContext"
               , comment = """ This is how you mark that you are in a certain context. For example, here
@@ -1672,22 +1390,7 @@ Importantly, we call `inContext` so that any dead end that occurs in
 `definitionBody` will get this extra context information. That way you can say
 things like, “I was expecting an equals sign in the `view` definition.” Context!
 """
-              , tipe =
-                    Lambda (Var "context")
-                        (Lambda
-                            (Type "Parser.Advanced.Parser"
-                                [ Var "context"
-                                , Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Type "Parser.Advanced.Parser"
-                                [ Var "context"
-                                , Var "x"
-                                , Var "a"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Var "context") (Lambda (Type "Parser.Advanced.Parser" [ Var "context", Var "x", Var "a" ]) (Type "Parser.Advanced.Parser" [ Var "context", Var "x", Var "a" ]))
               }
             , { name = "int"
               , comment = """ Just like [`Parser.int`](Parser#int) where you have to handle negation
@@ -1707,16 +1410,7 @@ yourself. The only difference is that you provide a two potential problems:
 
 You can use problems like `ExpectingInt` and `InvalidNumber`.
 """
-              , tipe =
-                    Lambda (Var "x")
-                        (Lambda (Var "x")
-                            (Type "Parser.Advanced.Parser"
-                                [ Var "c"
-                                , Var "x"
-                                , Type "Basics.Int" []
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Var "x") (Lambda (Var "x") (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Type "Basics.Int" [] ]))
               }
             , { name = "keyword"
               , comment = """ Just like [`Parser.keyword`](Parser#keyword) except you provide a `Token`
@@ -1729,296 +1423,81 @@ to clearly indicate your custom type of problems:
 Note that this would fail to chomp `letter` because of the subsequent
 characters. Use `token` if you do not want that last letter check.
 """
-              , tipe =
-                    Lambda (Type "Parser.Advanced.Token" [ Var "x" ])
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Tuple []
-                            ]
-                        )
+              , tipe = Lambda (Type "Parser.Advanced.Token" [ Var "x" ]) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Tuple [] ])
               }
             , { name = "lazy"
               , comment = """ Just like [`Parser.lazy`](Parser#lazy)
 """
-              , tipe =
-                    Lambda
-                        (Lambda (Tuple [])
-                            (Type "Parser.Advanced.Parser"
-                                [ Var "c"
-                                , Var "x"
-                                , Var "a"
-                                ]
-                            )
-                        )
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Var "a"
-                            ]
-                        )
+              , tipe = Lambda (Lambda (Tuple []) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "a" ])) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "a" ])
               }
             , { name = "lineComment"
               , comment = """ Just like [`Parser.lineComment`](Parser#lineComment) except you provide a
 `Token` describing the starting symbol.
 """
-              , tipe =
-                    Lambda (Type "Parser.Advanced.Token" [ Var "x" ])
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Tuple []
-                            ]
-                        )
+              , tipe = Lambda (Type "Parser.Advanced.Token" [ Var "x" ]) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Tuple [] ])
               }
             , { name = "loop"
               , comment = """ Just like [`Parser.loop`](Parser#loop)
 """
-              , tipe =
-                    Lambda (Var "state")
-                        (Lambda
-                            (Lambda (Var "state")
-                                (Type "Parser.Advanced.Parser"
-                                    [ Var "c"
-                                    , Var "x"
-                                    , Type "Parser.Advanced.Step"
-                                        [ Var "state"
-                                        , Var "a"
-                                        ]
-                                    ]
-                                )
-                            )
-                            (Type "Parser.Advanced.Parser"
-                                [ Var "c"
-                                , Var "x"
-                                , Var "a"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Var "state") (Lambda (Lambda (Var "state") (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Type "Parser.Advanced.Step" [ Var "state", Var "a" ] ])) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "a" ]))
               }
             , { name = "map"
               , comment = """ Just like [`Parser.map`](Parser#map)
 """
-              , tipe =
-                    Lambda (Lambda (Var "a") (Var "b"))
-                        (Lambda
-                            (Type "Parser.Advanced.Parser"
-                                [ Var "c"
-                                , Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Type "Parser.Advanced.Parser"
-                                [ Var "c"
-                                , Var "x"
-                                , Var "b"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Lambda (Var "a") (Var "b")) (Lambda (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "a" ]) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "b" ]))
               }
             , { name = "mapChompedString"
               , comment = """ Just like [`Parser.mapChompedString`](Parser#mapChompedString)
 """
-              , tipe =
-                    Lambda (Lambda (Type "String.String" []) (Lambda (Var "a") (Var "b")))
-                        (Lambda
-                            (Type "Parser.Advanced.Parser"
-                                [ Var "c"
-                                , Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Type "Parser.Advanced.Parser"
-                                [ Var "c"
-                                , Var "x"
-                                , Var "b"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Lambda (Type "String.String" []) (Lambda (Var "a") (Var "b"))) (Lambda (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "a" ]) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "b" ]))
               }
             , { name = "multiComment"
               , comment = """ Just like [`Parser.multiComment`](Parser#multiComment) except with a
 `Token` for the open and close symbols.
 """
-              , tipe =
-                    Lambda (Type "Parser.Advanced.Token" [ Var "x" ])
-                        (Lambda (Type "Parser.Advanced.Token" [ Var "x" ])
-                            (Lambda (Type "Parser.Advanced.Nestable" [])
-                                (Type "Parser.Advanced.Parser"
-                                    [ Var "c"
-                                    , Var "x"
-                                    , Tuple []
-                                    ]
-                                )
-                            )
-                        )
+              , tipe = Lambda (Type "Parser.Advanced.Token" [ Var "x" ]) (Lambda (Type "Parser.Advanced.Token" [ Var "x" ]) (Lambda (Type "Parser.Advanced.Nestable" []) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Tuple [] ])))
               }
             , { name = "number"
               , comment = """ Just like [`Parser.number`](Parser#number) where you have to handle
 negation yourself. The only difference is that you provide all the potential
 problems.
 """
-              , tipe =
-                    Lambda
-                        (Record
-                            [ ( "int"
-                              , Type "Result.Result"
-                                    [ Var "x"
-                                    , Lambda (Type "Basics.Int" []) (Var "a")
-                                    ]
-                              )
-                            , ( "hex"
-                              , Type "Result.Result"
-                                    [ Var "x"
-                                    , Lambda (Type "Basics.Int" []) (Var "a")
-                                    ]
-                              )
-                            , ( "octal"
-                              , Type "Result.Result"
-                                    [ Var "x"
-                                    , Lambda (Type "Basics.Int" []) (Var "a")
-                                    ]
-                              )
-                            , ( "binary"
-                              , Type "Result.Result"
-                                    [ Var "x"
-                                    , Lambda (Type "Basics.Int" []) (Var "a")
-                                    ]
-                              )
-                            , ( "float"
-                              , Type "Result.Result"
-                                    [ Var "x"
-                                    , Lambda (Type "Basics.Float" []) (Var "a")
-                                    ]
-                              )
-                            , ( "invalid", Var "x" )
-                            , ( "expecting", Var "x" )
-                            ]
-                            Nothing
-                        )
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Var "a"
-                            ]
-                        )
+              , tipe = Lambda (Record [ ( "int", Type "Result.Result" [ Var "x", Lambda (Type "Basics.Int" []) (Var "a") ] ), ( "hex", Type "Result.Result" [ Var "x", Lambda (Type "Basics.Int" []) (Var "a") ] ), ( "octal", Type "Result.Result" [ Var "x", Lambda (Type "Basics.Int" []) (Var "a") ] ), ( "binary", Type "Result.Result" [ Var "x", Lambda (Type "Basics.Int" []) (Var "a") ] ), ( "float", Type "Result.Result" [ Var "x", Lambda (Type "Basics.Float" []) (Var "a") ] ), ( "invalid", Var "x" ), ( "expecting", Var "x" ) ] Nothing) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "a" ])
               }
             , { name = "oneOf"
               , comment = """ Just like [`Parser.oneOf`](Parser#oneOf)
 """
-              , tipe =
-                    Lambda
-                        (Type "List.List"
-                            [ Type "Parser.Advanced.Parser"
-                                [ Var "c"
-                                , Var "x"
-                                , Var "a"
-                                ]
-                            ]
-                        )
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Var "a"
-                            ]
-                        )
+              , tipe = Lambda (Type "List.List" [ Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "a" ] ]) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "a" ])
               }
             , { name = "problem"
               , comment = """ Just like [`Parser.problem`](Parser#problem) except you provide a custom
 type for your problem.
 """
-              , tipe =
-                    Lambda (Var "x")
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Var "a"
-                            ]
-                        )
+              , tipe = Lambda (Var "x") (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "a" ])
               }
             , { name = "run"
               , comment = """ This works just like [`Parser.run`](/packages/elm/parser/latest/Parser#run).
 The only difference is that when it fails, it has much more precise information
 for each dead end.
 """
-              , tipe =
-                    Lambda
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Var "a"
-                            ]
-                        )
-                        (Lambda (Type "String.String" [])
-                            (Type "Result.Result"
-                                [ Type "List.List"
-                                    [ Type "Parser.Advanced.DeadEnd"
-                                        [ Var "c"
-                                        , Var "x"
-                                        ]
-                                    ]
-                                , Var "a"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "a" ]) (Lambda (Type "String.String" []) (Type "Result.Result" [ Type "List.List" [ Type "Parser.Advanced.DeadEnd" [ Var "c", Var "x" ] ], Var "a" ]))
               }
             , { name = "sequence"
               , comment = """ Just like [`Parser.sequence`](Parser#sequence) except with a `Token` for
 the start, separator, and end. That way you can specify your custom type of
 problem for when something is not found.
 """
-              , tipe =
-                    Lambda
-                        (Record
-                            [ ( "start", Type "Parser.Advanced.Token" [ Var "x" ] )
-                            , ( "separator", Type "Parser.Advanced.Token" [ Var "x" ] )
-                            , ( "end", Type "Parser.Advanced.Token" [ Var "x" ] )
-                            , ( "spaces"
-                              , Type "Parser.Advanced.Parser"
-                                    [ Var "c"
-                                    , Var "x"
-                                    , Tuple []
-                                    ]
-                              )
-                            , ( "item"
-                              , Type "Parser.Advanced.Parser"
-                                    [ Var "c"
-                                    , Var "x"
-                                    , Var "a"
-                                    ]
-                              )
-                            , ( "trailing", Type "Parser.Advanced.Trailing" [] )
-                            ]
-                            Nothing
-                        )
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Type "List.List" [ Var "a" ]
-                            ]
-                        )
+              , tipe = Lambda (Record [ ( "start", Type "Parser.Advanced.Token" [ Var "x" ] ), ( "separator", Type "Parser.Advanced.Token" [ Var "x" ] ), ( "end", Type "Parser.Advanced.Token" [ Var "x" ] ), ( "spaces", Type "Parser.Advanced.Parser" [ Var "c", Var "x", Tuple [] ] ), ( "item", Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "a" ] ), ( "trailing", Type "Parser.Advanced.Trailing" [] ) ] Nothing) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Type "List.List" [ Var "a" ] ])
               }
             , { name = "spaces"
               , comment = """ Just like [`Parser.spaces`](Parser#spaces)
 """
-              , tipe =
-                    Type "Parser.Advanced.Parser"
-                        [ Var "c"
-                        , Var "x"
-                        , Tuple []
-                        ]
+              , tipe = Type "Parser.Advanced.Parser" [ Var "c", Var "x", Tuple [] ]
               }
             , { name = "succeed"
               , comment = """ Just like [`Parser.succeed`](Parser#succeed)
 """
-              , tipe =
-                    Lambda (Var "a")
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Var "a"
-                            ]
-                        )
+              , tipe = Lambda (Var "a") (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "a" ])
               }
             , { name = "symbol"
               , comment = """ Just like [`Parser.symbol`](Parser#symbol) except you provide a `Token` to
@@ -2029,68 +1508,24 @@ clearly indicate your custom type of problems:
       symbol (Token "," ExpectingComma)
 
 """
-              , tipe =
-                    Lambda (Type "Parser.Advanced.Token" [ Var "x" ])
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Tuple []
-                            ]
-                        )
+              , tipe = Lambda (Type "Parser.Advanced.Token" [ Var "x" ]) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Tuple [] ])
               }
             , { name = "token"
               , comment = """ Just like [`Parser.token`](Parser#token) except you provide a `Token`
 specifying your custom type of problems.
 """
-              , tipe =
-                    Lambda (Type "Parser.Advanced.Token" [ Var "x" ])
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Tuple []
-                            ]
-                        )
+              , tipe = Lambda (Type "Parser.Advanced.Token" [ Var "x" ]) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Tuple [] ])
               }
             , { name = "variable"
               , comment = """ Just like [`Parser.variable`](Parser#variable) except you specify the
 problem yourself.
 """
-              , tipe =
-                    Lambda
-                        (Record
-                            [ ( "start", Lambda (Type "Char.Char" []) (Type "Basics.Bool" []) )
-                            , ( "inner", Lambda (Type "Char.Char" []) (Type "Basics.Bool" []) )
-                            , ( "reserved", Type "Set.Set" [ Type "String.String" [] ] )
-                            , ( "expecting", Var "x" )
-                            ]
-                            Nothing
-                        )
-                        (Type "Parser.Advanced.Parser"
-                            [ Var "c"
-                            , Var "x"
-                            , Type "String.String" []
-                            ]
-                        )
+              , tipe = Lambda (Record [ ( "start", Lambda (Type "Char.Char" []) (Type "Basics.Bool" []) ), ( "inner", Lambda (Type "Char.Char" []) (Type "Basics.Bool" []) ), ( "reserved", Type "Set.Set" [ Type "String.String" [] ] ), ( "expecting", Var "x" ) ] Nothing) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Type "String.String" [] ])
               }
             , { name = "withIndent"
               , comment = """ Just like [`Parser.withIndent`](Parser#withIndent)
 """
-              , tipe =
-                    Lambda (Type "Basics.Int" [])
-                        (Lambda
-                            (Type "Parser.Advanced.Parser"
-                                [ Var "c"
-                                , Var "x"
-                                , Var "a"
-                                ]
-                            )
-                            (Type "Parser.Advanced.Parser"
-                                [ Var "c"
-                                , Var "x"
-                                , Var "a"
-                                ]
-                            )
-                        )
+              , tipe = Lambda (Type "Basics.Int" []) (Lambda (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "a" ]) (Type "Parser.Advanced.Parser" [ Var "c", Var "x", Var "a" ]))
               }
             ]
       }
