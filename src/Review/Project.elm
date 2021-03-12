@@ -65,7 +65,12 @@ type alias Project =
     Internal.Project
 
 
-{-| Create a new Project.
+{-| Create a new empty Project.
+
+**For tests**, you can also start of with a project that contains the `elm/core` dependency using
+[`Review.Test.Dependencies.projectWithElmCore`](./Review-Test-Dependencies#projectWithElmCore). Some more prepared
+dependencies can be found in that same module.
+
 -}
 new : Project
 new =
@@ -359,6 +364,9 @@ Knowing the dependencies of the project will also help better parse the source
 files, since the dependencies will allow us to know the precedence and
 associativity of operators, which has an impact on the resulting AST when
 parsing a file.
+
+**For tests**, `elm-review` comes with a few dependencies that you can find in
+[`Review.Test.Dependencies`](./Review-Test-Dependencies).
 
 -}
 addDependency : Dependency -> Project -> Project
