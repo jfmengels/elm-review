@@ -1,3 +1,12 @@
+/* To run this script:
+
+    npm run generate-dep -- <dependency>
+
+Example:
+
+    npm run generate-dep -- elm/url
+*/
+
 const path = require('path');
 const https = require('https');
 const fs = require('fs').promises;
@@ -29,8 +38,13 @@ const packageName = process.argv[2];
 if (!packageName) {
     console.error(`Need to pass in a package name. For instance:
 
-        node create-dependency.js elm/html
+    npm run generate-dep -- <dependency>
+
+Example:
+
+    npm run generate-dep -- elm/url
 `)
+    process.exit(1);
 }
 
 async function downloadFiles() {
