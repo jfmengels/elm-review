@@ -22,7 +22,11 @@ elmJson : Elm.Project.Project
 elmJson =
     Elm.Project.Package
         { elm = unsafeConstraint "0.19.0 <= v < 0.20.0"
-        , exposed = Elm.Project.ExposedDict [ ( "HTML", [ unsafeModuleName "Html", unsafeModuleName "Html.Attributes", unsafeModuleName "Html.Events" ] ), ( "Optimize", [ unsafeModuleName "Html.Keyed", unsafeModuleName "Html.Lazy" ] ) ]
+        , exposed =
+            Elm.Project.ExposedDict
+                [ ( "HTML", [ unsafeModuleName "Html", unsafeModuleName "Html.Attributes", unsafeModuleName "Html.Events" ] )
+                , ( "Optimize", [ unsafeModuleName "Html.Keyed", unsafeModuleName "Html.Lazy" ] )
+                ]
         , license = Elm.License.fromString "BSD-3-Clause" |> Maybe.withDefault Elm.License.bsd3
         , name = unsafePackageName "elm/html"
         , summary = "Fast HTML, rendered with virtual DOM diffing"
@@ -796,16 +800,7 @@ is paired with. For example, maybe we want a way to view notices:
 They all get applied, so if you say `[ class "notice", class "notice-seen" ]`
 you will get both classes!
 """
-              , tipe =
-                    Lambda
-                        (Type "List.List"
-                            [ Tuple
-                                [ Type "String.String" []
-                                , Type "Basics.Bool" []
-                                ]
-                            ]
-                        )
-                        (Type "Html.Attribute" [ Var "msg" ])
+              , tipe = Lambda (Type "List.List" [ Tuple [ Type "String.String" [], Type "Basics.Bool" [] ] ]) (Type "Html.Attribute" [ Var "msg" ])
               }
             , { name = "cols"
               , comment = " Defines the number of columns in a `textarea`. "
@@ -1292,20 +1287,7 @@ of events as seen in the [TodoMVC][] example.
 **Note:** If you need something even more custom (like capture phase) check
 out the lower-level event API in `elm/virtual-dom`.
 """
-              , tipe =
-                    Lambda (Type "String.String" [])
-                        (Lambda
-                            (Type "Json.Decode.Decoder"
-                                [ Record
-                                    [ ( "message", Var "msg" )
-                                    , ( "stopPropagation", Type "Basics.Bool" [] )
-                                    , ( "preventDefault", Type "Basics.Bool" [] )
-                                    ]
-                                    Nothing
-                                ]
-                            )
-                            (Type "Html.Attribute" [ Var "msg" ])
-                        )
+              , tipe = Lambda (Type "String.String" []) (Lambda (Type "Json.Decode.Decoder" [ Record [ ( "message", Var "msg" ), ( "stopPropagation", Type "Basics.Bool" [] ), ( "preventDefault", Type "Basics.Bool" [] ) ] Nothing ]) (Type "Html.Attribute" [ Var "msg" ]))
               }
             , { name = "keyCode"
               , comment = """ A `Json.Decoder` for grabbing `event.keyCode`. This helps you define
@@ -1449,18 +1431,7 @@ default behavior:
     alwaysPreventDefault msg =
       ( msg, True )
 """
-              , tipe =
-                    Lambda (Type "String.String" [])
-                        (Lambda
-                            (Type "Json.Decode.Decoder"
-                                [ Tuple
-                                    [ Var "msg"
-                                    , Type "Basics.Bool" []
-                                    ]
-                                ]
-                            )
-                            (Type "Html.Attribute" [ Var "msg" ])
-                        )
+              , tipe = Lambda (Type "String.String" []) (Lambda (Type "Json.Decode.Decoder" [ Tuple [ Var "msg", Type "Basics.Bool" [] ] ]) (Type "Html.Attribute" [ Var "msg" ]))
               }
             , { name = "stopPropagationOn"
               , comment = """ Create an event listener that may [`stopPropagation`][stop]. Your decoder
@@ -1474,18 +1445,7 @@ touch, scroll, and wheel events in some browsers.
 
 [passive]: https://github.com/WICG/EventListenerOptions/blob/gh-pages/explainer.md
 """
-              , tipe =
-                    Lambda (Type "String.String" [])
-                        (Lambda
-                            (Type "Json.Decode.Decoder"
-                                [ Tuple
-                                    [ Var "msg"
-                                    , Type "Basics.Bool" []
-                                    ]
-                                ]
-                            )
-                            (Type "Html.Attribute" [ Var "msg" ])
-                        )
+              , tipe = Lambda (Type "String.String" []) (Lambda (Type "Json.Decode.Decoder" [ Tuple [ Var "msg", Type "Basics.Bool" [] ] ]) (Type "Html.Attribute" [ Var "msg" ]))
               }
             , { name = "targetChecked"
               , comment = """ A `Json.Decoder` for grabbing `event.target.checked`. We use this to define
@@ -1549,50 +1509,15 @@ node. You want this when you have a list of nodes that is changing: adding
 nodes, removing nodes, etc. In these cases, the unique identifiers help make
 the DOM modifications more efficient.
 """
-              , tipe =
-                    Lambda (Type "String.String" [])
-                        (Lambda (Type "List.List" [ Type "Html.Attribute" [ Var "msg" ] ])
-                            (Lambda
-                                (Type "List.List"
-                                    [ Tuple
-                                        [ Type "String.String" []
-                                        , Type "Html.Html" [ Var "msg" ]
-                                        ]
-                                    ]
-                                )
-                                (Type "Html.Html" [ Var "msg" ])
-                            )
-                        )
+              , tipe = Lambda (Type "String.String" []) (Lambda (Type "List.List" [ Type "Html.Attribute" [ Var "msg" ] ]) (Lambda (Type "List.List" [ Tuple [ Type "String.String" [], Type "Html.Html" [ Var "msg" ] ] ]) (Type "Html.Html" [ Var "msg" ])))
               }
             , { name = "ol"
               , comment = ""
-              , tipe =
-                    Lambda (Type "List.List" [ Type "Html.Attribute" [ Var "msg" ] ])
-                        (Lambda
-                            (Type "List.List"
-                                [ Tuple
-                                    [ Type "String.String" []
-                                    , Type "Html.Html" [ Var "msg" ]
-                                    ]
-                                ]
-                            )
-                            (Type "Html.Html" [ Var "msg" ])
-                        )
+              , tipe = Lambda (Type "List.List" [ Type "Html.Attribute" [ Var "msg" ] ]) (Lambda (Type "List.List" [ Tuple [ Type "String.String" [], Type "Html.Html" [ Var "msg" ] ] ]) (Type "Html.Html" [ Var "msg" ]))
               }
             , { name = "ul"
               , comment = ""
-              , tipe =
-                    Lambda (Type "List.List" [ Type "Html.Attribute" [ Var "msg" ] ])
-                        (Lambda
-                            (Type "List.List"
-                                [ Tuple
-                                    [ Type "String.String" []
-                                    , Type "Html.Html" [ Var "msg" ]
-                                    ]
-                                ]
-                            )
-                            (Type "Html.Html" [ Var "msg" ])
-                        )
+              , tipe = Lambda (Type "List.List" [ Type "Html.Attribute" [ Var "msg" ] ]) (Lambda (Type "List.List" [ Tuple [ Type "String.String" [], Type "Html.Html" [ Var "msg" ] ] ]) (Type "Html.Html" [ Var "msg" ]))
               }
             ]
       }
