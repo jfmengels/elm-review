@@ -1,5 +1,10 @@
 /* To run this script:
 
+- Clone `elm-review` locally
+- npm install
+
+Then run
+
     npm run generate-dep -- <dependency>
 
 Example:
