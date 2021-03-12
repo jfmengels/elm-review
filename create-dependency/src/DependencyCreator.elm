@@ -62,18 +62,16 @@ formatFile elmJson docsJson =
     let
         listOfModuleNames : List Elm.Module.Name -> String
         listOfModuleNames list =
-            list
-                |> List.map (\name -> "unsafeModuleName " ++ stringify (Elm.Module.toString name))
-                |> String.join ", "
+            listOfThings SingleLine (\name -> "unsafeModuleName " ++ stringify (Elm.Module.toString name)) list
 
         exposed : String
         exposed =
             case elmJson.exposed of
                 Elm.Project.ExposedList list ->
-                    "Elm.Project.ExposedList [ " ++ listOfModuleNames list ++ " ]"
+                    "Elm.Project.ExposedList " ++ listOfModuleNames list
 
                 Elm.Project.ExposedDict dict ->
-                    "Elm.Project.ExposedDict [ " ++ String.join ", " (List.map (\( section, list ) -> "( \"" ++ section ++ "\", [ " ++ listOfModuleNames list ++ " ] ) ") dict) ++ " ]"
+                    "Elm.Project.ExposedDict " ++ listOfThings MultipleLines (\( section, list ) -> "( \"" ++ section ++ "\", " ++ listOfModuleNames list ++ " ) ") dict
 
         moduleName : String
         moduleName =
