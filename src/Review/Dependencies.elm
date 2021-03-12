@@ -1,5 +1,12 @@
 module Review.Dependencies exposing (elmCore, elmParser, elmUrl)
 
+{-| Not to be confused with `Review.Test.Dependencies`. This is for internal purposes only.
+
+These packages contain all known operators in the Elm ecosystem, and they are used to properly parse
+Elm files. The dependencies here are simplified and **only** contain information relative to the operators.
+
+-}
+
 import Dict
 import Elm.Dependency
 import Elm.Interface as Interface
