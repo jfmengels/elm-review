@@ -1,26 +1,24 @@
 module NoUnused.CustomTypeConstructorsTest exposing (all)
 
-import Dependencies.ElmCore
 import Elm.Project
 import Json.Decode as Decode
 import NoUnused.CustomTypeConstructors exposing (rule)
 import Review.Project as Project exposing (Project)
 import Review.Test
+import Review.Test.Dependencies
 import Test exposing (Test, describe, test)
 
 
 packageProject : Project
 packageProject =
-    Project.new
+    Review.Test.Dependencies.projectWithElmCore
         |> Project.addElmJson (createElmJson packageElmJson)
-        |> Project.addDependency Dependencies.ElmCore.dependency
 
 
 applicationProject : Project
 applicationProject =
-    Project.new
+    Review.Test.Dependencies.projectWithElmCore
         |> Project.addElmJson (createElmJson applicationElmJson)
-        |> Project.addDependency Dependencies.ElmCore.dependency
 
 
 createElmJson : String -> { path : String, raw : String, project : Elm.Project.Project }

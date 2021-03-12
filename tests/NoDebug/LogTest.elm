@@ -1,8 +1,6 @@
 module NoDebug.LogTest exposing (all)
 
-import Dependencies.ElmCore
 import NoDebug.Log exposing (rule)
-import Review.Project as Project exposing (Project)
 import Review.Test exposing (ReviewResult)
 import Test exposing (Test, describe, test)
 
@@ -11,7 +9,7 @@ testRule : String -> ReviewResult
 testRule string =
     "module A exposing (..)\n\n"
         ++ string
-        |> Review.Test.runWithProjectData project rule
+        |> Review.Test.run rule
 
 
 errorDetails : { message : String, details : List String, under : String }
@@ -20,11 +18,6 @@ errorDetails =
     , details = details
     , under = "Debug.log"
     }
-
-
-project : Project
-project =
-    Project.addDependency Dependencies.ElmCore.dependency Project.new
 
 
 whenFixed : String -> Review.Test.ExpectedError -> Review.Test.ExpectedError
