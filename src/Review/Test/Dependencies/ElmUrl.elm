@@ -10,6 +10,7 @@ import Elm.Type
 import Elm.Version
 import Review.Project.Dependency as Dependency exposing (Dependency)
 
+
 dependency : Dependency
 dependency =
     Dependency.create "elm/url"
@@ -25,7 +26,7 @@ elmJson =
         , license = Elm.License.fromString "BSD-3-Clause" |> Maybe.withDefault Elm.License.bsd3
         , name = unsafePackageName "elm/url"
         , summary = "Create and parse URLs. Use for HTTP and \"routing\" in single-page apps (SPAs)"
-        , deps = [ ( unsafePackageName "elm/core", unsafeConstraint "1.0.0 <= v < 2.0.0") ]
+        , deps = [ ( unsafePackageName "elm/core", unsafeConstraint "1.0.0 <= v < 2.0.0" ) ]
         , testDeps = []
         , version = Elm.Version.fromString "1.0.0" |> Maybe.withDefault Elm.Version.one
         }
@@ -34,7 +35,7 @@ elmJson =
 dependencyModules : List Elm.Docs.Module
 dependencyModules =
     [ { name = "Url"
-    , comment = """
+      , comment = """
 
 # URLs
 @docs Url, Protocol, toString, fromString
@@ -43,9 +44,10 @@ dependencyModules =
 @docs percentEncode, percentDecode
 
 """
-    , aliases = [ { name = "Url"
-    , args = []
-    , comment = """ In [the URI spec](https://tools.ietf.org/html/rfc3986), Tim Berners-Lee
+      , aliases =
+            [ { name = "Url"
+              , args = []
+              , comment = """ In [the URI spec](https://tools.ietf.org/html/rfc3986), Tim Berners-Lee
 says a URL looks like this:
 
 ```
@@ -67,71 +69,81 @@ module as well!
 spec. Specifically, it does not accept the `userinfo` segment you see in email
 addresses like `tom@example.com`.
 """
-    , tipe = Elm.Type.Record [ ( "protocol", Elm.Type.Type "Url.Protocol" [] )
-    , ( "host", Elm.Type.Type "String.String" [] )
-    , ( "port_", Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "Basics.Int" [] ] )
-    , ( "path", Elm.Type.Type "String.String" [] )
-    , ( "query", Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "String.String" [] ] )
-    , ( "fragment", Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "String.String" [] ] ) ] Nothing
-    } ]
-    , unions = [ { name = "Protocol"
-    , args = []
-    , comment = """ Is the URL served over a secure connection or not?
+              , tipe =
+                    Elm.Type.Record
+                        [ ( "protocol", Elm.Type.Type "Url.Protocol" [] )
+                        , ( "host", Elm.Type.Type "String.String" [] )
+                        , ( "port_", Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "Basics.Int" [] ] )
+                        , ( "path", Elm.Type.Type "String.String" [] )
+                        , ( "query", Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "String.String" [] ] )
+                        , ( "fragment", Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "String.String" [] ] )
+                        ]
+                        Nothing
+              }
+            ]
+      , unions =
+            [ { name = "Protocol"
+              , args = []
+              , comment = """ Is the URL served over a secure connection or not?
 """
-    , tags = [ ( "Http", [])
-    , ( "Https", []) ]
-    } ]
-    , binops = []
-    , values = [ { name = "fromString"
-    , comment = """ Attempt to break a URL up into [`Url`](#Url). This is useful in
+              , tags =
+                    [ ( "Http", [] )
+                    , ( "Https", [] )
+                    ]
+              }
+            ]
+      , binops = []
+      , values =
+            [ { name = "fromString"
+              , comment = """ Attempt to break a URL up into [`Url`](#Url). This is useful in
 single-page apps when you want to parse certain chunks of a URL to figure out
 what to show on screen.
 
-    fromString \"https://example.com:443\"
+    fromString "https://example.com:443"
     -- Just
     --   { protocol = Https
-    --   , host = \"example.com\"
+    --   , host = "example.com"
     --   , port_ = Just 443
-    --   , path = \"/\"
+    --   , path = "/"
     --   , query = Nothing
     --   , fragment = Nothing
     --   }
 
-    fromString \"https://example.com/hats?q=top%20hat\"
+    fromString "https://example.com/hats?q=top%20hat"
     -- Just
     --   { protocol = Https
-    --   , host = \"example.com\"
+    --   , host = "example.com"
     --   , port_ = Nothing
-    --   , path = \"/hats\"
-    --   , query = Just \"q=top%20hat\"
+    --   , path = "/hats"
+    --   , query = Just "q=top%20hat"
     --   , fragment = Nothing
     --   }
 
-    fromString \"http://example.com/core/List/#map\"
+    fromString "http://example.com/core/List/#map"
     -- Just
     --   { protocol = Http
-    --   , host = \"example.com\"
+    --   , host = "example.com"
     --   , port_ = Nothing
-    --   , path = \"/core/List/\"
+    --   , path = "/core/List/"
     --   , query = Nothing
-    --   , fragment = Just \"map\"
+    --   , fragment = Just "map"
     --   }
 
 The conversion to segments can fail in some cases as well:
 
-    fromString \"example.com:443\"        == Nothing  -- no protocol
-    fromString \"http://tom@example.com\" == Nothing  -- userinfo disallowed
-    fromString \"http://#cats\"           == Nothing  -- no host
+    fromString "example.com:443"        == Nothing  -- no protocol
+    fromString "http://tom@example.com" == Nothing  -- userinfo disallowed
+    fromString "http://#cats"           == Nothing  -- no host
 
 **Note:** This function does not use [`percentDecode`](#percentDecode) anything.
 It just splits things up. [`Url.Parser`](Url-Parser) actually _needs_ the raw
 `query` string to parse it properly. Otherwise it could get confused about `=`
 and `&` characters!
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "Url.Url" [] ])
-    }
-    , { name = "percentDecode"
-    , comment = """ **Use [Url.Parser](Url-Parser) instead!** It will decode query
+              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "Url.Url" [] ])
+              }
+            , { name = "percentDecode"
+              , comment = """ **Use [Url.Parser](Url-Parser) instead!** It will decode query
 parameters appropriately already! `percentDecode` is only available so that
 extremely custom cases are possible, if needed.
 
@@ -139,30 +151,30 @@ Check out the `percentEncode` function to learn about percent-encoding.
 This function does the opposite! Here are the reverse examples:
 
     -- ASCII
-    percentDecode \"99%25\"     == Just \"hat\"
-    percentDecode \"to%20be\"   == Just \"to be\"
-    percentDecode \"hat\"       == Just \"99%\"
+    percentDecode "99%25"     == Just "hat"
+    percentDecode "to%20be"   == Just "to be"
+    percentDecode "hat"       == Just "99%"
 
     -- UTF-8
-    percentDecode \"%24\"       == Just \"$\"
-    percentDecode \"%C2%A2\"    == Just \"¢\"
-    percentDecode \"%E2%82%AC\" == Just \"€\"
+    percentDecode "%24"       == Just "$"
+    percentDecode "%C2%A2"    == Just "¢"
+    percentDecode "%E2%82%AC" == Just "€"
 
 Why is it a `Maybe` though? Well, these strings come from strangers on the
 internet as a bunch of bits and may have encoding problems. For example:
 
-    percentDecode \"%\"   == Nothing  -- not followed by two hex digits
-    percentDecode \"%XY\" == Nothing  -- not followed by two HEX digits
-    percentDecode \"%C2\" == Nothing  -- half of the \"¢\" encoding \"%C2%A2\"
+    percentDecode "%"   == Nothing  -- not followed by two hex digits
+    percentDecode "%XY" == Nothing  -- not followed by two HEX digits
+    percentDecode "%C2" == Nothing  -- half of the "¢" encoding "%C2%A2"
 
 This is the same behavior as JavaScript's [`decodeURIComponent`][js] function.
 
 [js]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "String.String" [] ])
-    }
-    , { name = "percentEncode"
-    , comment = """ **Use [Url.Builder](Url-Builder) instead!** Functions like `absolute`,
+              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "String.String" [] ])
+              }
+            , { name = "percentEncode"
+              , comment = """ **Use [Url.Builder](Url-Builder) instead!** Functions like `absolute`,
 `relative`, and `crossOrigin` already do this automatically! `percentEncode`
 is only available so that extremely custom cases are possible, if needed.
 
@@ -174,14 +186,14 @@ This function exists in case you want to do something extra custom. Here are
 some examples:
 
     -- standard ASCII encoding
-    percentEncode \"hat\"   == \"hat\"
-    percentEncode \"to be\" == \"to%20be\"
-    percentEncode \"99%\"   == \"99%25\"
+    percentEncode "hat"   == "hat"
+    percentEncode "to be" == "to%20be"
+    percentEncode "99%"   == "99%25"
 
     -- non-standard, but widely accepted, UTF-8 encoding
-    percentEncode \"$\" == \"%24\"
-    percentEncode \"¢\" == \"%C2%A2\"
-    percentEncode \"€\" == \"%E2%82%AC\"
+    percentEncode "$" == "%24"
+    percentEncode "¢" == "%C2%A2"
+    percentEncode "€" == "%E2%82%AC"
 
 This is the same behavior as JavaScript's [`encodeURIComponent`][js] function,
 and the rules are described in more detail officially [here][s2] and with some
@@ -192,16 +204,17 @@ notes about Unicode [here][wiki].
 [s2]: https://tools.ietf.org/html/rfc3986#section-2.1
 [wiki]: https://en.wikipedia.org/wiki/Percent-encoding
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" [])
-    }
-    , { name = "toString"
-    , comment = """ Turn a [`Url`](#Url) into a `String`.
+              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "String.String" [])
+              }
+            , { name = "toString"
+              , comment = """ Turn a [`Url`](#Url) into a `String`.
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Type "Url.Url" []) (Elm.Type.Type "String.String" [])
-    } ]
-    }
+              , tipe = Elm.Type.Lambda (Elm.Type.Type "Url.Url" []) (Elm.Type.Type "String.String" [])
+              }
+            ]
+      }
     , { name = "Url.Builder"
-    , comment = """ In [the URI spec](https://tools.ietf.org/html/rfc3986), Tim Berners-Lee
+      , comment = """ In [the URI spec](https://tools.ietf.org/html/rfc3986), Tim Berners-Lee
 says a URL looks like this:
 
 ```
@@ -221,57 +234,62 @@ This module helps you create these!
 @docs QueryParameter, string, int, toQuery
 
 """
-    , aliases = []
-    , unions = [ { name = "QueryParameter"
-    , args = []
-    , comment = """ Represents query parameter. Builder functions like `absolute` percent-encode
+      , aliases = []
+      , unions =
+            [ { name = "QueryParameter"
+              , args = []
+              , comment = """ Represents query parameter. Builder functions like `absolute` percent-encode
 all the query parameters they get, so you do not need to worry about it!
 """
-    , tags = []
-    }
-    , { name = "Root"
-    , args = []
-    , comment = """ Specify whether a [`custom`](#custom) URL is absolute, relative, or
+              , tags = []
+              }
+            , { name = "Root"
+              , args = []
+              , comment = """ Specify whether a [`custom`](#custom) URL is absolute, relative, or
 cross-origin.
 """
-    , tags = [ ( "Absolute", [])
-    , ( "Relative", [])
-    , ( "CrossOrigin", [ Elm.Type.Type "String.String" [] ]) ]
-    } ]
-    , binops = []
-    , values = [ { name = "absolute"
-    , comment = """ Create an absolute URL:
+              , tags =
+                    [ ( "Absolute", [] )
+                    , ( "Relative", [] )
+                    , ( "CrossOrigin", [ Elm.Type.Type "String.String" [] ] )
+                    ]
+              }
+            ]
+      , binops = []
+      , values =
+            [ { name = "absolute"
+              , comment = """ Create an absolute URL:
 
     absolute [] []
-    -- \"/\"
+    -- "/"
 
-    absolute [ \"packages\", \"elm\", \"core\" ] []
-    -- \"/packages/elm/core\"
+    absolute [ "packages", "elm", "core" ] []
+    -- "/packages/elm/core"
 
-    absolute [ \"blog\", String.fromInt 42 ] []
-    -- \"/blog/42\"
+    absolute [ "blog", String.fromInt 42 ] []
+    -- "/blog/42"
 
-    absolute [ \"products\" ] [ string \"search\" \"hat\", int \"page\" 2 ]
-    -- \"/products?search=hat&page=2\"
+    absolute [ "products" ] [ string "search" "hat", int "page" 2 ]
+    -- "/products?search=hat&page=2"
 
 Notice that the URLs start with a slash!
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Url.Builder.QueryParameter" [] ]) (Elm.Type.Type "String.String" []))
-    }
-    , { name = "crossOrigin"
-    , comment = """ Create a cross-origin URL.
+              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Url.Builder.QueryParameter" [] ]) (Elm.Type.Type "String.String" []))
+              }
+            , { name = "crossOrigin"
+              , comment = """ Create a cross-origin URL.
 
-    crossOrigin \"https://example.com\" [ \"products\" ] []
-    -- \"https://example.com/products\"
+    crossOrigin "https://example.com" [ "products" ] []
+    -- "https://example.com/products"
 
-    crossOrigin \"https://example.com\" [] []
-    -- \"https://example.com/\"
+    crossOrigin "https://example.com" [] []
+    -- "https://example.com/"
 
     crossOrigin
-      \"https://example.com:8042\"
-      [ \"over\", \"there\" ]
-      [ string \"name\" \"ferret\" ]
-    -- \"https://example.com:8042/over/there?name=ferret\"
+      "https://example.com:8042"
+      [ "over", "there" ]
+      [ string "name" "ferret" ]
+    -- "https://example.com:8042/over/there?name=ferret"
 
 **Note:** Cross-origin requests are slightly restricted for security.
 For example, the [same-origin policy][sop] applies when sending HTTP requests,
@@ -281,91 +299,92 @@ so the appropriate `Access-Control-Allow-Origin` header must be enabled on the
 [sop]: https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy
 [cors]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Url.Builder.QueryParameter" [] ]) (Elm.Type.Type "String.String" [])))
-    }
-    , { name = "custom"
-    , comment = """ Create custom URLs that may have a hash on the end:
+              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Url.Builder.QueryParameter" [] ]) (Elm.Type.Type "String.String" [])))
+              }
+            , { name = "custom"
+              , comment = """ Create custom URLs that may have a hash on the end:
 
     custom Absolute
-      [ \"packages\", \"elm\", \"core\", \"latest\", \"String\" ]
+      [ "packages", "elm", "core", "latest", "String" ]
       []
-      (Just \"length\")
-    -- \"/packages/elm/core/latest/String#length\"
+      (Just "length")
+    -- "/packages/elm/core/latest/String#length"
 
-    custom Relative [ \"there\" ] [ string \"name\" \"ferret\" ] Nothing
-    -- \"there?name=ferret\"
+    custom Relative [ "there" ] [ string "name" "ferret" ] Nothing
+    -- "there?name=ferret"
 
     custom
-      (CrossOrigin \"https://example.com:8042\")
-      [ \"over\", \"there\" ]
-      [ string \"name\" \"ferret\" ]
-      (Just \"nose\")
-    -- \"https://example.com:8042/over/there?name=ferret#nose\"
+      (CrossOrigin "https://example.com:8042")
+      [ "over", "there" ]
+      [ string "name" "ferret" ]
+      (Just "nose")
+    -- "https://example.com:8042/over/there?name=ferret#nose"
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Type "Url.Builder.Root" []) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Url.Builder.QueryParameter" [] ]) (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Type "String.String" []))))
-    }
-    , { name = "int"
-    , comment = """ Create a percent-encoded query parameter.
+              , tipe = Elm.Type.Lambda (Elm.Type.Type "Url.Builder.Root" []) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Url.Builder.QueryParameter" [] ]) (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Type "String.String" []))))
+              }
+            , { name = "int"
+              , comment = """ Create a percent-encoded query parameter.
 
-    absolute [\"products\"] [ string \"search\" \"hat\", int \"page\" 2 ]
-    -- \"/products?search=hat&page=2\"
+    absolute ["products"] [ string "search" "hat", int "page" 2 ]
+    -- "/products?search=hat&page=2"
 
 Writing `int key n` is the same as writing `string key (String.fromInt n)`.
 So this is just a convenience function, making your code a bit shorter!
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Type "Url.Builder.QueryParameter" []))
-    }
-    , { name = "relative"
-    , comment = """ Create a relative URL:
+              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Type "Url.Builder.QueryParameter" []))
+              }
+            , { name = "relative"
+              , comment = """ Create a relative URL:
 
     relative [] []
-    -- \"\"
+    -- ""
 
-    relative [ \"elm\", \"core\" ] []
-    -- \"elm/core\"
+    relative [ "elm", "core" ] []
+    -- "elm/core"
 
-    relative [ \"blog\", String.fromInt 42 ] []
-    -- \"blog/42\"
+    relative [ "blog", String.fromInt 42 ] []
+    -- "blog/42"
 
-    relative [ \"products\" ] [ string \"search\" \"hat\", int \"page\" 2 ]
-    -- \"products?search=hat&page=2\"
+    relative [ "products" ] [ string "search" "hat", int "page" 2 ]
+    -- "products?search=hat&page=2"
 
 Notice that the URLs **do not** start with a slash!
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Url.Builder.QueryParameter" [] ]) (Elm.Type.Type "String.String" []))
-    }
-    , { name = "string"
-    , comment = """ Create a percent-encoded query parameter.
+              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Url.Builder.QueryParameter" [] ]) (Elm.Type.Type "String.String" []))
+              }
+            , { name = "string"
+              , comment = """ Create a percent-encoded query parameter.
 
-    absolute [\"products\"] [ string \"search\" \"hat\" ]
-    -- \"/products?search=hat\"
+    absolute ["products"] [ string "search" "hat" ]
+    -- "/products?search=hat"
 
-    absolute [\"products\"] [ string \"search\" \"coffee table\" ]
-    -- \"/products?search=coffee%20table\"
+    absolute ["products"] [ string "search" "coffee table" ]
+    -- "/products?search=coffee%20table"
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Url.Builder.QueryParameter" []))
-    }
-    , { name = "toQuery"
-    , comment = """ Convert a list of query parameters to a percent-encoded query. This
+              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Url.Builder.QueryParameter" []))
+              }
+            , { name = "toQuery"
+              , comment = """ Convert a list of query parameters to a percent-encoded query. This
 function is used by `absolute`, `relative`, etc.
 
-    toQuery [ string \"search\" \"hat\" ]
-    -- \"?search=hat\"
+    toQuery [ string "search" "hat" ]
+    -- "?search=hat"
 
-    toQuery [ string \"search\" \"coffee table\" ]
-    -- \"?search=coffee%20table\"
+    toQuery [ string "search" "coffee table" ]
+    -- "?search=coffee%20table"
 
-    toQuery [ string \"search\" \"hat\", int \"page\" 2 ]
-    -- \"?search=hat&page=2\"
+    toQuery [ string "search" "hat", int "page" 2 ]
+    -- "?search=hat&page=2"
 
     toQuery []
-    -- \"\"
+    -- ""
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Url.Builder.QueryParameter" [] ]) (Elm.Type.Type "String.String" [])
-    } ]
-    }
+              , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Url.Builder.QueryParameter" [] ]) (Elm.Type.Type "String.String" [])
+              }
+            ]
+      }
     , { name = "Url.Parser"
-    , comment = """ In [the URI spec](https://tools.ietf.org/html/rfc3986), Tim Berners-Lee
+      , comment = """ In [the URI spec](https://tools.ietf.org/html/rfc3986), Tim Berners-Lee
 says a URL looks like this:
 
 ```
@@ -394,20 +413,25 @@ This module is primarily for parsing the `path` part.
 @docs parse
 
 """
-    , aliases = []
-    , unions = [ { name = "Parser"
-    , args = [ "a"
-    , "b" ]
-    , comment = """ Turn URLs like `/blog/42/cat-herding-techniques` into nice Elm data.
+      , aliases = []
+      , unions =
+            [ { name = "Parser"
+              , args =
+                    [ "a"
+                    , "b"
+                    ]
+              , comment = """ Turn URLs like `/blog/42/cat-herding-techniques` into nice Elm data.
 """
-    , tags = []
-    } ]
-    , binops = [ { name = "</>"
-    , comment = """ Parse a path with multiple segments.
+              , tags = []
+              }
+            ]
+      , binops =
+            [ { name = "</>"
+              , comment = """ Parse a path with multiple segments.
 
     blog : Parser (Int -> a) a
     blog =
-      s \"blog\" </> int
+      s "blog" </> int
 
     -- /blog/35/  ==>  Just 35
     -- /blog/42   ==>  Just 42
@@ -416,22 +440,37 @@ This module is primarily for parsing the `path` part.
 
     search : Parser (String -> a) a
     search =
-      s \"search\" </> string
+      s "search" </> string
 
-    -- /search/wolf/  ==>  Just \"wolf\"
-    -- /search/frog   ==>  Just \"frog\"
+    -- /search/wolf/  ==>  Just "wolf"
+    -- /search/frog   ==>  Just "frog"
     -- /search/       ==>  Nothing
     -- /wolf/         ==>  Nothing
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Parser" [ Elm.Type.Var "a"
-    , Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Parser" [ Elm.Type.Var "b"
-    , Elm.Type.Var "c" ]) (Elm.Type.Type "Url.Parser.Parser" [ Elm.Type.Var "a"
-    , Elm.Type.Var "c" ]))
-    , associativity = Elm.Docs.Right
-    , precedence = 7
-    }
-    , { name = "<?>"
-    , comment = """ The [`Url.Parser.Query`](Url-Parser-Query) module defines its own
+              , tipe =
+                    Elm.Type.Lambda
+                        (Elm.Type.Type "Url.Parser.Parser"
+                            [ Elm.Type.Var "a"
+                            , Elm.Type.Var "b"
+                            ]
+                        )
+                        (Elm.Type.Lambda
+                            (Elm.Type.Type "Url.Parser.Parser"
+                                [ Elm.Type.Var "b"
+                                , Elm.Type.Var "c"
+                                ]
+                            )
+                            (Elm.Type.Type "Url.Parser.Parser"
+                                [ Elm.Type.Var "a"
+                                , Elm.Type.Var "c"
+                                ]
+                            )
+                        )
+              , associativity = Elm.Docs.Right
+              , precedence = 7
+              }
+            , { name = "<?>"
+              , comment = """ The [`Url.Parser.Query`](Url-Parser-Query) module defines its own
 [`Parser`](Url-Parser-Query#Parser) type. This function helps you use those
 with normal parsers. For example, maybe you want to add a search feature to
 your blog website:
@@ -445,46 +484,66 @@ your blog website:
     blog : Parser (Route -> a) a
     blog =
       oneOf
-        [ map Overview (s \"blog\" <?> Query.string \"q\")
-        , map Post (s \"blog\" </> int)
+        [ map Overview (s "blog" <?> Query.string "q")
+        , map Post (s "blog" </> int)
         ]
 
     -- /blog/           ==>  Just (Overview Nothing)
-    -- /blog/?q=wolf    ==>  Just (Overview (Just \"wolf\"))
+    -- /blog/?q=wolf    ==>  Just (Overview (Just "wolf"))
     -- /blog/wolf       ==>  Nothing
     -- /blog/42         ==>  Just (Post 42)
     -- /blog/42?q=wolf  ==>  Just (Post 42)
     -- /blog/42/wolf    ==>  Nothing
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Parser" [ Elm.Type.Var "a"
-    , Elm.Type.Lambda (Elm.Type.Var "query") (Elm.Type.Var "b") ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "query" ]) (Elm.Type.Type "Url.Parser.Parser" [ Elm.Type.Var "a"
-    , Elm.Type.Var "b" ]))
-    , associativity = Elm.Docs.Left
-    , precedence = 8
-    } ]
-    , values = [ { name = "custom"
-    , comment = """ Create a custom path segment parser. Here is how it is used to define the
+              , tipe =
+                    Elm.Type.Lambda
+                        (Elm.Type.Type "Url.Parser.Parser"
+                            [ Elm.Type.Var "a"
+                            , Elm.Type.Lambda (Elm.Type.Var "query") (Elm.Type.Var "b")
+                            ]
+                        )
+                        (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "query" ])
+                            (Elm.Type.Type "Url.Parser.Parser"
+                                [ Elm.Type.Var "a"
+                                , Elm.Type.Var "b"
+                                ]
+                            )
+                        )
+              , associativity = Elm.Docs.Left
+              , precedence = 8
+              }
+            ]
+      , values =
+            [ { name = "custom"
+              , comment = """ Create a custom path segment parser. Here is how it is used to define the
 `int` parser:
 
     int : Parser (Int -> a) a
     int =
-      custom \"NUMBER\" String.toInt
+      custom "NUMBER" String.toInt
 
 You can use it to define something like “only CSS files” like this:
 
     css : Parser (String -> a) a
     css =
-      custom \"CSS_FILE\" <| \\segment ->
-        if String.endsWith \".css\" segment then
+      custom "CSS_FILE" <| \\segment ->
+        if String.endsWith ".css" segment then
           Just segment
         else
           Nothing
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "a" ])) (Elm.Type.Type "Url.Parser.Parser" [ Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b")
-    , Elm.Type.Var "b" ]))
-    }
-    , { name = "fragment"
-    , comment = """ Create a parser for the URL fragment, the stuff after the `#`. This can
+              , tipe =
+                    Elm.Type.Lambda (Elm.Type.Type "String.String" [])
+                        (Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "a" ]))
+                            (Elm.Type.Type "Url.Parser.Parser"
+                                [ Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b")
+                                , Elm.Type.Var "b"
+                                ]
+                            )
+                        )
+              }
+            , { name = "fragment"
+              , comment = """ Create a parser for the URL fragment, the stuff after the `#`. This can
 be handy for handling links to DOM elements within a page. Pages like this one!
 
     type alias Docs =
@@ -495,50 +554,69 @@ be handy for handling links to DOM elements within a page. Pages like this one!
       map Tuple.pair (string </> fragment identity)
 
     -- /List/map   ==>  Nothing
-    -- /List/#map  ==>  Just (\"List\", Just \"map\")
-    -- /List#map   ==>  Just (\"List\", Just \"map\")
-    -- /List#      ==>  Just (\"List\", Just \"\")
-    -- /List       ==>  Just (\"List\", Nothing)
+    -- /List/#map  ==>  Just ("List", Just "map")
+    -- /List#map   ==>  Just ("List", Just "map")
+    -- /List#      ==>  Just ("List", Just "")
+    -- /List       ==>  Just ("List", Nothing)
     -- /           ==>  Nothing
 
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Var "fragment")) (Elm.Type.Type "Url.Parser.Parser" [ Elm.Type.Lambda (Elm.Type.Var "fragment") (Elm.Type.Var "a")
-    , Elm.Type.Var "a" ])
-    }
-    , { name = "int"
-    , comment = """ Parse a segment of the path as an `Int`.
+              , tipe =
+                    Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Var "fragment"))
+                        (Elm.Type.Type "Url.Parser.Parser"
+                            [ Elm.Type.Lambda (Elm.Type.Var "fragment") (Elm.Type.Var "a")
+                            , Elm.Type.Var "a"
+                            ]
+                        )
+              }
+            , { name = "int"
+              , comment = """ Parse a segment of the path as an `Int`.
 
     -- /alice/  ==>  Nothing
     -- /bob     ==>  Nothing
     -- /42/     ==>  Just 42
     -- /        ==>  Nothing
 """
-    , tipe = Elm.Type.Type "Url.Parser.Parser" [ Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Var "a")
-    , Elm.Type.Var "a" ]
-    }
-    , { name = "map"
-    , comment = """ Transform a path parser.
+              , tipe =
+                    Elm.Type.Type "Url.Parser.Parser"
+                        [ Elm.Type.Lambda (Elm.Type.Type "Basics.Int" []) (Elm.Type.Var "a")
+                        , Elm.Type.Var "a"
+                        ]
+              }
+            , { name = "map"
+              , comment = """ Transform a path parser.
 
     type alias Comment = { user : String, id : Int }
 
     userAndId : Parser (String -> Int -> a) a
     userAndId =
-      s \"user\" </> string </> s \"comment\" </> int
+      s "user" </> string </> s "comment" </> int
 
     comment : Parser (Comment -> a) a
     comment =
       map Comment userAndId
 
-    -- /user/bob/comment/42  ==>  Just { user = \"bob\", id = 42 }
-    -- /user/tom/comment/35  ==>  Just { user = \"tom\", id = 35 }
+    -- /user/bob/comment/42  ==>  Just { user = "bob", id = 42 }
+    -- /user/tom/comment/35  ==>  Just { user = "tom", id = 35 }
     -- /user/sam/             ==>  Nothing
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Parser" [ Elm.Type.Var "a"
-    , Elm.Type.Var "b" ]) (Elm.Type.Type "Url.Parser.Parser" [ Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "c")
-    , Elm.Type.Var "c" ]))
-    }
-    , { name = "oneOf"
-    , comment = """ Try a bunch of different path parsers.
+              , tipe =
+                    Elm.Type.Lambda (Elm.Type.Var "a")
+                        (Elm.Type.Lambda
+                            (Elm.Type.Type "Url.Parser.Parser"
+                                [ Elm.Type.Var "a"
+                                , Elm.Type.Var "b"
+                                ]
+                            )
+                            (Elm.Type.Type "Url.Parser.Parser"
+                                [ Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "c")
+                                , Elm.Type.Var "c"
+                                ]
+                            )
+                        )
+              }
+            , { name = "oneOf"
+              , comment = """ Try a bunch of different path parsers.
 
     type Route
       = Topic String
@@ -549,31 +627,42 @@ be handy for handling links to DOM elements within a page. Pages like this one!
     route : Parser (Route -> a) a
     route =
       oneOf
-        [ map Topic   (s \"topic\" </> string)
-        , map Blog    (s \"blog\" </> int)
-        , map User    (s \"user\" </> string)
-        , map Comment (s \"user\" </> string </> s \"comment\" </> int)
+        [ map Topic   (s "topic" </> string)
+        , map Blog    (s "blog" </> int)
+        , map User    (s "user" </> string)
+        , map Comment (s "user" </> string </> s "comment" </> int)
         ]
 
-    -- /topic/wolf           ==>  Just (Topic \"wolf\")
+    -- /topic/wolf           ==>  Just (Topic "wolf")
     -- /topic/               ==>  Nothing
 
     -- /blog/42               ==>  Just (Blog 42)
     -- /blog/wolf             ==>  Nothing
 
-    -- /user/sam/             ==>  Just (User \"sam\")
-    -- /user/bob/comment/42  ==>  Just (Comment \"bob\" 42)
-    -- /user/tom/comment/35  ==>  Just (Comment \"tom\" 35)
+    -- /user/sam/             ==>  Just (User "sam")
+    -- /user/bob/comment/42  ==>  Just (Comment "bob" 42)
+    -- /user/tom/comment/35  ==>  Just (Comment "tom" 35)
     -- /user/                 ==>  Nothing
 
 If there are multiple parsers that could succeed, the first one wins.
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "Url.Parser.Parser" [ Elm.Type.Var "a"
-    , Elm.Type.Var "b" ] ]) (Elm.Type.Type "Url.Parser.Parser" [ Elm.Type.Var "a"
-    , Elm.Type.Var "b" ])
-    }
-    , { name = "parse"
-    , comment = """ Actually run a parser! You provide some [`Url`](Url#Url) that
+              , tipe =
+                    Elm.Type.Lambda
+                        (Elm.Type.Type "List.List"
+                            [ Elm.Type.Type "Url.Parser.Parser"
+                                [ Elm.Type.Var "a"
+                                , Elm.Type.Var "b"
+                                ]
+                            ]
+                        )
+                        (Elm.Type.Type "Url.Parser.Parser"
+                            [ Elm.Type.Var "a"
+                            , Elm.Type.Var "b"
+                            ]
+                        )
+              }
+            , { name = "parse"
+              , comment = """ Actually run a parser! You provide some [`Url`](Url#Url) that
 represent a valid URL. From there `parse` runs your parser on the path, query
 parameters, and fragment.
 
@@ -586,7 +675,7 @@ parameters, and fragment.
     route =
       oneOf
         [ map Home top
-        , map Blog (s \"blog\" </> int)
+        , map Blog (s "blog" </> int)
         ]
 
     toRoute : String -> Route
@@ -598,14 +687,14 @@ parameters, and fragment.
         Just url ->
           Maybe.withDefault NotFound (parse route url)
 
-    -- toRoute \"/blog/42\"                            ==  NotFound
-    -- toRoute \"https://example.com/\"                ==  Home
-    -- toRoute \"https://example.com/blog\"            ==  NotFound
-    -- toRoute \"https://example.com/blog/42\"         ==  Blog 42
-    -- toRoute \"https://example.com/blog/42/\"        ==  Blog 42
-    -- toRoute \"https://example.com/blog/42#wolf\"    ==  Blog 42
-    -- toRoute \"https://example.com/blog/42?q=wolf\"  ==  Blog 42
-    -- toRoute \"https://example.com/settings\"        ==  NotFound
+    -- toRoute "/blog/42"                            ==  NotFound
+    -- toRoute "https://example.com/"                ==  Home
+    -- toRoute "https://example.com/blog"            ==  NotFound
+    -- toRoute "https://example.com/blog/42"         ==  Blog 42
+    -- toRoute "https://example.com/blog/42/"        ==  Blog 42
+    -- toRoute "https://example.com/blog/42#wolf"    ==  Blog 42
+    -- toRoute "https://example.com/blog/42?q=wolf"  ==  Blog 42
+    -- toRoute "https://example.com/settings"        ==  NotFound
 
 Functions like `toRoute` are useful when creating single-page apps with
 [`Browser.fullscreen`][fs]. I use them in `init` and `onNavigation` to handle
@@ -613,11 +702,17 @@ the initial URL and any changes.
 
 [fs]: /packages/elm/browser/latest/Browser#fullscreen
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Parser" [ Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "a")
-    , Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Url" []) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "a" ]))
-    }
-    , { name = "query"
-    , comment = """ The [`Url.Parser.Query`](Url-Parser-Query) module defines its own
+              , tipe =
+                    Elm.Type.Lambda
+                        (Elm.Type.Type "Url.Parser.Parser"
+                            [ Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "a")
+                            , Elm.Type.Var "a"
+                            ]
+                        )
+                        (Elm.Type.Lambda (Elm.Type.Type "Url.Url" []) (Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "a" ]))
+              }
+            , { name = "query"
+              , comment = """ The [`Url.Parser.Query`](Url-Parser-Query) module defines its own
 [`Parser`](Url-Parser-Query#Parser) type. This function is a helper to convert
 those into normal parsers.
 
@@ -625,64 +720,81 @@ those into normal parsers.
 
     -- the following expressions are both the same!
     --
-    -- s \"blog\" <?> Query.string \"search\"
-    -- s \"blog\" </> query (Query.string \"search\")
+    -- s "blog" <?> Query.string "search"
+    -- s "blog" </> query (Query.string "search")
 
 This may be handy if you need query parameters but are not parsing any path
 segments.
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "query" ]) (Elm.Type.Type "Url.Parser.Parser" [ Elm.Type.Lambda (Elm.Type.Var "query") (Elm.Type.Var "a")
-    , Elm.Type.Var "a" ])
-    }
-    , { name = "s"
-    , comment = """ Parse a segment of the path if it matches a given string. It is almost
+              , tipe =
+                    Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "query" ])
+                        (Elm.Type.Type "Url.Parser.Parser"
+                            [ Elm.Type.Lambda (Elm.Type.Var "query") (Elm.Type.Var "a")
+                            , Elm.Type.Var "a"
+                            ]
+                        )
+              }
+            , { name = "s"
+              , comment = """ Parse a segment of the path if it matches a given string. It is almost
 always used with [`</>`](#</>) or [`oneOf`](#oneOf). For example:
 
     blog : Parser (Int -> a) a
     blog =
-      s \"blog\" </> int
+      s "blog" </> int
 
     -- /blog/42  ==>  Just 42
     -- /tree/42  ==>  Nothing
 
 The path segment must be an exact match!
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Url.Parser.Parser" [ Elm.Type.Var "a"
-    , Elm.Type.Var "a" ])
-    }
-    , { name = "string"
-    , comment = """ Parse a segment of the path as a `String`.
+              , tipe =
+                    Elm.Type.Lambda (Elm.Type.Type "String.String" [])
+                        (Elm.Type.Type "Url.Parser.Parser"
+                            [ Elm.Type.Var "a"
+                            , Elm.Type.Var "a"
+                            ]
+                        )
+              }
+            , { name = "string"
+              , comment = """ Parse a segment of the path as a `String`.
 
-    -- /alice/  ==>  Just \"alice\"
-    -- /bob     ==>  Just \"bob\"
-    -- /42/     ==>  Just \"42\"
+    -- /alice/  ==>  Just "alice"
+    -- /bob     ==>  Just "bob"
+    -- /42/     ==>  Just "42"
     -- /        ==>  Nothing
 """
-    , tipe = Elm.Type.Type "Url.Parser.Parser" [ Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Var "a")
-    , Elm.Type.Var "a" ]
-    }
-    , { name = "top"
-    , comment = """ A parser that does not consume any path segments.
+              , tipe =
+                    Elm.Type.Type "Url.Parser.Parser"
+                        [ Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Var "a")
+                        , Elm.Type.Var "a"
+                        ]
+              }
+            , { name = "top"
+              , comment = """ A parser that does not consume any path segments.
 
     type Route = Overview | Post Int
 
     blog : Parser (BlogRoute -> a) a
     blog =
-      s \"blog\" </>
+      s "blog" </>
         oneOf
           [ map Overview top
-          , map Post (s \"post\" </> int)
+          , map Post (s "post" </> int)
           ]
 
     -- /blog/         ==>  Just Overview
     -- /blog/post/42  ==>  Just (Post 42)
 """
-    , tipe = Elm.Type.Type "Url.Parser.Parser" [ Elm.Type.Var "a"
-    , Elm.Type.Var "a" ]
-    } ]
-    }
+              , tipe =
+                    Elm.Type.Type "Url.Parser.Parser"
+                        [ Elm.Type.Var "a"
+                        , Elm.Type.Var "a"
+                        ]
+              }
+            ]
+      }
     , { name = "Url.Parser.Query"
-    , comment = """ In [the URI spec](https://tools.ietf.org/html/rfc3986), Tim Berners-Lee
+      , comment = """ In [the URI spec](https://tools.ietf.org/html/rfc3986), Tim Berners-Lee
 says a URL looks like this:
 
 ```
@@ -705,16 +817,19 @@ parameter by the `&` character.
 @docs map, map2, map3, map4, map5, map6, map7, map8
 
 """
-    , aliases = [ { name = "Parser"
-    , args = [ "a" ]
-    , comment = """ Parse a query like `?search=hat&page=2` into nice Elm data.
+      , aliases =
+            [ { name = "Parser"
+              , args = [ "a" ]
+              , comment = """ Parse a query like `?search=hat&page=2` into nice Elm data.
 """
-    , tipe = Elm.Type.Type "Url.Parser.Internal.QueryParser" [ Elm.Type.Var "a" ]
-    } ]
-    , unions = []
-    , binops = []
-    , values = [ { name = "custom"
-    , comment = """ Create a custom query parser. The [`string`](#string), [`int`](#int), and
+              , tipe = Elm.Type.Type "Url.Parser.Internal.QueryParser" [ Elm.Type.Var "a" ]
+              }
+            ]
+      , unions = []
+      , binops = []
+      , values =
+            [ { name = "custom"
+              , comment = """ Create a custom query parser. The [`string`](#string), [`int`](#int), and
 [`enum`](#enum) parsers are defined using this function. It can help you handle
 anything though!
 
@@ -723,23 +838,23 @@ posts on screen at once. You could say:
 
     posts : Parser (Maybe (List Int))
     posts =
-      custom \"post\" (List.maybeMap String.toInt)
+      custom "post" (List.maybeMap String.toInt)
 
     -- ?post=2        == [2]
     -- ?post=2&post=7 == [2, 7]
     -- ?post=2&post=x == [2]
     -- ?hats=2        == []
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Var "a")) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]))
-    }
-    , { name = "enum"
-    , comment = """ Handle enumerated parameters. Maybe you want a true-or-false parameter:
+              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Type "List.List" [ Elm.Type.Type "String.String" [] ]) (Elm.Type.Var "a")) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]))
+              }
+            , { name = "enum"
+              , comment = """ Handle enumerated parameters. Maybe you want a true-or-false parameter:
 
     import Dict
 
     debug : Parser (Maybe Bool)
     debug =
-      enum \"debug\" (Dict.fromList [ (\"true\", True), (\"false\", False) ])
+      enum "debug" (Dict.fromList [ ("true", True), ("false", False) ])
 
     -- ?debug=true            == Just True
     -- ?debug=false           == Just False
@@ -755,15 +870,23 @@ to get a parser of type `Parser Bool` that swallows any errors and defaults to
 
 **Note:** Parameters like `?debug` with no `=` are not supported by this library.
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Lambda (Elm.Type.Type "Dict.Dict" [ Elm.Type.Type "String.String" []
-    , Elm.Type.Var "a" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "a" ] ]))
-    }
-    , { name = "int"
-    , comment = """ Handle `Int` parameters. Maybe you want to show paginated search results:
+              , tipe =
+                    Elm.Type.Lambda (Elm.Type.Type "String.String" [])
+                        (Elm.Type.Lambda
+                            (Elm.Type.Type "Dict.Dict"
+                                [ Elm.Type.Type "String.String" []
+                                , Elm.Type.Var "a"
+                                ]
+                            )
+                            (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Var "a" ] ])
+                        )
+              }
+            , { name = "int"
+              , comment = """ Handle `Int` parameters. Maybe you want to show paginated search results:
 
     page : Parser (Maybe Int)
     page =
-      int \"page\"
+      int "page"
 
     -- ?page=2        == Just 2
     -- ?page=17       == Just 17
@@ -774,21 +897,21 @@ to get a parser of type `Parser Bool` that swallows any errors and defaults to
 Check out [`custom`](#custom) if you need to handle multiple `page` parameters
 or something like that.
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "Basics.Int" [] ] ])
-    }
-    , { name = "map"
-    , comment = """ Transform a parser in some way. Maybe you want your `page` query parser to
+              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "Basics.Int" [] ] ])
+              }
+            , { name = "map"
+              , comment = """ Transform a parser in some way. Maybe you want your `page` query parser to
 default to `1` if there is any problem?
 
     page : Parser Int
     page =
-      map (Result.withDefault 1) (int \"page\")
+      map (Result.withDefault 1) (int "page")
 
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b")) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]))
-    }
-    , { name = "map2"
-    , comment = """ Combine two parsers. A query like `?search=hats&page=2` could be parsed
+              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Var "b")) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]))
+              }
+            , { name = "map2"
+              , comment = """ Combine two parsers. A query like `?search=hats&page=2` could be parsed
 with something like this:
 
     type alias Query =
@@ -798,13 +921,13 @@ with something like this:
 
     query : Parser Query
     query =
-      map2 Query (string \"search\") (int \"page\")
+      map2 Query (string "search") (int "page")
 
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "result"))) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "result" ])))
-    }
-    , { name = "map3"
-    , comment = """ Combine three parsers. A query like `?search=hats&page=2&sort=ascending`
+              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Var "result"))) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "result" ])))
+              }
+            , { name = "map3"
+              , comment = """ Combine three parsers. A query like `?search=hats&page=2&sort=ascending`
 could be parsed with something like this:
 
     import Dict
@@ -819,35 +942,35 @@ could be parsed with something like this:
 
     query : Parser Query
     query =
-      map3 Query (string \"search\") (int \"page\") (enum \"sort\" order)
+      map3 Query (string "search") (int "page") (enum "sort" order)
 
     order : Dict.Dict String Order
     order =
       Dict.fromList
-        [ ( \"ascending\", Ascending )
-        , ( \"descending\", Descending )
+        [ ( "ascending", Ascending )
+        , ( "descending", Descending )
         ]
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Var "result")))) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "c" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "result" ]))))
-    }
-    , { name = "map4"
-    , comment = ""
-    , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Var "result"))))) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "c" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "d" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "result" ])))))
-    }
-    , { name = "map5"
-    , comment = ""
-    , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Lambda (Elm.Type.Var "e") (Elm.Type.Var "result")))))) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "c" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "d" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "e" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "result" ]))))))
-    }
-    , { name = "map6"
-    , comment = ""
-    , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Lambda (Elm.Type.Var "e") (Elm.Type.Lambda (Elm.Type.Var "f") (Elm.Type.Var "result"))))))) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "c" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "d" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "e" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "f" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "result" ])))))))
-    }
-    , { name = "map7"
-    , comment = ""
-    , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Lambda (Elm.Type.Var "e") (Elm.Type.Lambda (Elm.Type.Var "f") (Elm.Type.Lambda (Elm.Type.Var "g") (Elm.Type.Var "result")))))))) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "c" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "d" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "e" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "f" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "g" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "result" ]))))))))
-    }
-    , { name = "map8"
-    , comment = """ If you need higher than eight, you can define a function like this:
+              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Var "result")))) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "c" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "result" ]))))
+              }
+            , { name = "map4"
+              , comment = ""
+              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Var "result"))))) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "c" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "d" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "result" ])))))
+              }
+            , { name = "map5"
+              , comment = ""
+              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Lambda (Elm.Type.Var "e") (Elm.Type.Var "result")))))) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "c" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "d" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "e" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "result" ]))))))
+              }
+            , { name = "map6"
+              , comment = ""
+              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Lambda (Elm.Type.Var "e") (Elm.Type.Lambda (Elm.Type.Var "f") (Elm.Type.Var "result"))))))) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "c" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "d" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "e" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "f" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "result" ])))))))
+              }
+            , { name = "map7"
+              , comment = ""
+              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Lambda (Elm.Type.Var "e") (Elm.Type.Lambda (Elm.Type.Var "f") (Elm.Type.Lambda (Elm.Type.Var "g") (Elm.Type.Var "result")))))))) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "c" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "d" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "e" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "f" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "g" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "result" ]))))))))
+              }
+            , { name = "map8"
+              , comment = """ If you need higher than eight, you can define a function like this:
 
     apply : Parser a -> Parser (a -> b) -> Parser b
     apply argParser funcParser =
@@ -855,31 +978,33 @@ could be parsed with something like this:
 
 And then you can chain it to do as many of these as you would like:
 
-    map func (string \"search\")
-      |> apply (int \"page\")
-      |> apply (int \"per-page\")
+    map func (string "search")
+      |> apply (int "page")
+      |> apply (int "per-page")
 
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Lambda (Elm.Type.Var "e") (Elm.Type.Lambda (Elm.Type.Var "f") (Elm.Type.Lambda (Elm.Type.Var "g") (Elm.Type.Lambda (Elm.Type.Var "h") (Elm.Type.Var "result"))))))))) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "c" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "d" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "e" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "f" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "g" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "h" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "result" ])))))))))
-    }
-    , { name = "string"
-    , comment = """ Handle `String` parameters.
+              , tipe = Elm.Type.Lambda (Elm.Type.Lambda (Elm.Type.Var "a") (Elm.Type.Lambda (Elm.Type.Var "b") (Elm.Type.Lambda (Elm.Type.Var "c") (Elm.Type.Lambda (Elm.Type.Var "d") (Elm.Type.Lambda (Elm.Type.Var "e") (Elm.Type.Lambda (Elm.Type.Var "f") (Elm.Type.Lambda (Elm.Type.Var "g") (Elm.Type.Lambda (Elm.Type.Var "h") (Elm.Type.Var "result"))))))))) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "a" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "b" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "c" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "d" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "e" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "f" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "g" ]) (Elm.Type.Lambda (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "h" ]) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Var "result" ])))))))))
+              }
+            , { name = "string"
+              , comment = """ Handle `String` parameters.
 
     search : Parser (Maybe String)
     search =
-      string \"search\"
+      string "search"
 
-    -- ?search=cats             == Just \"cats\"
-    -- ?search=42               == Just \"42\"
+    -- ?search=cats             == Just "cats"
+    -- ?search=42               == Just "42"
     -- ?branch=left             == Nothing
     -- ?search=cats&search=dogs == Nothing
 
 Check out [`custom`](#custom) if you need to handle multiple `search`
 parameters for some reason.
 """
-    , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "String.String" [] ] ])
-    } ]
-    } ]
+              , tipe = Elm.Type.Lambda (Elm.Type.Type "String.String" []) (Elm.Type.Type "Url.Parser.Query.Parser" [ Elm.Type.Type "Maybe.Maybe" [ Elm.Type.Type "String.String" [] ] ])
+              }
+            ]
+      }
+    ]
 
 
 unsafePackageName : String -> Elm.Package.Name
