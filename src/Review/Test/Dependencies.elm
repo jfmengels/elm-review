@@ -1,6 +1,6 @@
 module Review.Test.Dependencies exposing
-    ( elmCore, elmHtml, elmParser, elmUrl
-    , projectWithElmCore
+    ( projectWithElmCore
+    , elmCore, elmHtml, elmParser, elmUrl
     )
 
 {-| Pre-built dependencies that you can use for your tests.
@@ -14,9 +14,8 @@ script to generate dependencies](TODO LINK).
 
 ## Dependencies
 
-@docs elmCore, elmHtml, elmParser, elmUrl
-
 @docs projectWithElmCore
+@docs elmCore, elmHtml, elmParser, elmUrl
 
 -}
 
@@ -26,6 +25,13 @@ import Review.Test.Dependencies.ElmCore
 import Review.Test.Dependencies.ElmHtml
 import Review.Test.Dependencies.ElmParser
 import Review.Test.Dependencies.ElmUrl
+
+
+{-| A project that only contains the `elm/core` dependency.
+-}
+projectWithElmCore : Project
+projectWithElmCore =
+    Project.addDependency elmCore Project.new
 
 
 {-| Dependency for `elm/core`. It contains operators.
@@ -41,13 +47,6 @@ again with [`Review.Project.addDependency`](./Review-Project#addDependency) if y
 elmCore : Dependency
 elmCore =
     Review.Test.Dependencies.ElmCore.dependency
-
-
-{-| A project that only contains the `elm/core` dependency.
--}
-projectWithElmCore : Project
-projectWithElmCore =
-    Project.addDependency elmCore Project.new
 
 
 {-| Dependency for `elm/html`.
