@@ -1,6 +1,15 @@
 const path = require('path');
 const https = require('https');
 const fs = require('fs').promises;
+const util = require('util');
+const exec = util.promisify(require('child_process').exec);
+
+async function runElmMake() {
+  process.chdir('create-dependency/');
+  await exec('npx elm make src/DependencyCreator.elm --output elm-stuff/app.js');
+  process.chdir('..');
+}
+
 
 console.warn = () => { }
 
@@ -24,7 +33,7 @@ const packageName = process.argv[2];
 
 if (!packageName) {
     console.error(`Need to pass in a package name. For instance:
- 
+
         node create-dependency.js elm/html
 `)
 }
