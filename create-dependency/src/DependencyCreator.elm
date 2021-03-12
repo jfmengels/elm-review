@@ -88,7 +88,7 @@ formatFile elmJson docsJson =
 
         dependencyModules : String
         dependencyModules =
-            listOfThings formatModule docsJson
+            listOfThings MultipleLines formatModule docsJson
     in
     ( "src/" ++ String.replace "." "/" moduleName ++ ".elm"
     , "module " ++ moduleName ++ """ exposing (dependency)
@@ -118,8 +118,8 @@ elmJson =
         , license = Elm.License.fromString """ ++ stringify (Elm.License.toString elmJson.license) ++ """ |> Maybe.withDefault Elm.License.bsd3
         , name = unsafePackageName """ ++ stringify (Elm.Package.toString elmJson.name) ++ """
         , summary = """ ++ stringify elmJson.summary ++ """
-        , deps = """ ++ listOfThings formatDep elmJson.deps ++ """
-        , testDeps = """ ++ listOfThings formatDep elmJson.testDeps ++ """
+        , deps = """ ++ listOfThings MultipleLines formatDep elmJson.deps ++ """
+        , testDeps = """ ++ listOfThings MultipleLines formatDep elmJson.testDeps ++ """
         , version = Elm.Version.fromString """ ++ stringify (Elm.Version.toString elmJson.version) ++ """ |> Maybe.withDefault Elm.Version.one
         }
 
@@ -174,10 +174,10 @@ formatModule : Elm.Docs.Module -> String
 formatModule mod =
     "{ name = " ++ stringify mod.name ++ """
     , comment = """ ++ stringify mod.comment ++ """
-    , aliases = """ ++ listOfThings formatAlias mod.aliases ++ """
-    , unions = """ ++ listOfThings formatUnion mod.unions ++ """
-    , binops = """ ++ listOfThings formatBinop mod.binops ++ """
-    , values = """ ++ listOfThings formatValue mod.values ++ """
+    , aliases = """ ++ listOfThings MultipleLines formatAlias mod.aliases ++ """
+    , unions = """ ++ listOfThings MultipleLines formatUnion mod.unions ++ """
+    , binops = """ ++ listOfThings MultipleLines formatBinop mod.binops ++ """
+    , values = """ ++ listOfThings MultipleLines formatValue mod.values ++ """
     }"""
 
 
@@ -202,7 +202,7 @@ formatBinop binop =
 formatAlias : Elm.Docs.Alias -> String
 formatAlias alias_ =
     "{ name = " ++ stringify alias_.name ++ """
-    , args = """ ++ listOfThings stringify alias_.args ++ """
+    , args = """ ++ listOfThings SingleLine stringify alias_.args ++ """
     , comment = """ ++ stringify alias_.comment ++ """
     , tipe = """ ++ formatType alias_.tipe ++ """
     }"""
@@ -211,9 +211,9 @@ formatAlias alias_ =
 formatUnion : Elm.Docs.Union -> String
 formatUnion union =
     "{ name = " ++ stringify union.name ++ """
-    , args = """ ++ listOfThings stringify union.args ++ """
+    , args = """ ++ listOfThings SingleLine stringify union.args ++ """
     , comment = """ ++ stringify union.comment ++ """
-    , tags = """ ++ listOfThings (\( name, types ) -> "( " ++ stringify name ++ ", " ++ listOfThings formatType types ++ ")") union.tags ++ """
+    , tags = """ ++ listOfThings MultipleLines (\( name, types ) -> "( " ++ stringify name ++ ", " ++ listOfThings SingleLine formatType types ++ ")") union.tags ++ """
     }"""
 
 
@@ -224,13 +224,13 @@ formatType type_ =
             "Var " ++ stringify name
 
         Elm.Type.Tuple list ->
-            "Tuple " ++ listOfThings formatType list
+            "Tuple " ++ listOfThings SingleLine formatType list
 
         Elm.Type.Type name list ->
-            "Type " ++ stringify name ++ " " ++ listOfThings formatType list
+            "Type " ++ stringify name ++ " " ++ listOfThings SingleLine formatType list
 
         Elm.Type.Record fields maybeVar ->
-            "Record " ++ listOfThings (\( field, subType ) -> "( " ++ stringify field ++ ", " ++ formatType subType ++ " )") fields ++ " " ++ Debug.toString maybeVar
+            "Record " ++ listOfThings SingleLine (\( field, subType ) -> "( " ++ stringify field ++ ", " ++ formatType subType ++ " )") fields ++ " " ++ Debug.toString maybeVar
 
         Elm.Type.Lambda input output ->
             "Lambda (" ++ formatType input ++ ") (" ++ formatType output ++ ")"
@@ -258,13 +258,23 @@ wrapInQuotes s =
         "\"" ++ s ++ "\""
 
 
-listOfThings : (a -> String) -> List a -> String
-listOfThings mapper list =
+type LineFormatting
+    = SingleLine
+    | MultipleLines
+
+
+listOfThings : LineFormatting -> (a -> String) -> List a -> String
+listOfThings lineFormatting mapper list =
     if List.isEmpty list then
         "[]"
 
     else
-        "[ " ++ String.join "\n    , " (List.map mapper list) ++ " ]"
+        case lineFormatting of
+            SingleLine ->
+                "[ " ++ String.join ", " (List.map mapper list) ++ " ]"
+
+            MultipleLines ->
+                "[ " ++ String.join "\n    , " (List.map mapper list) ++ " ]"
 
 
 capitalize : String -> String
