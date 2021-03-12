@@ -10,11 +10,6 @@ async function runElmMake() {
   process.chdir('..');
 }
 
-
-console.warn = () => { }
-
-const Elm = require('./dist');
-
 function get(url) {
     return new Promise((resolve, reject) => {
         https.get(url, (resp) => {
@@ -46,10 +41,16 @@ async function downloadFiles() {
     return [elmJson, docsJson];
 }
 
-function createFile([elmJson, docsJson]) {
-    const app = Elm.Elm.DependencyCreator.init({
+async function createFile([elmJson, docsJson]) {
+    await runElmMake();
+
+    const oldWarn = console.warn;
+    console.warn = () => { }
+
+    const app = require('./elm-stuff/app.js').Elm.DependencyCreator.init({
         flags: { elmJson, docsJson }
     });
+    console.warn = oldWarn;
 
     app.ports.sendToJs.subscribe(async ([filePath, source]) => {
         const relativeFilePath = path.resolve(process.cwd(), filePath);
