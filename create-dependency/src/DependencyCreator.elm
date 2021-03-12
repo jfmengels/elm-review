@@ -57,6 +57,7 @@ parseThings flags =
             ( "", error )
 
 
+formatValue : Elm.Docs.Value -> String
 formatValue value =
     "{ name = " ++ stringify value.name ++ """
     , comment = """ ++ stringify value.comment ++ """
@@ -64,6 +65,7 @@ formatValue value =
     }"""
 
 
+formatBinop : Elm.Docs.Binop -> String
 formatBinop binop =
     "{ name = " ++ stringify binop.name ++ """
     , comment = """ ++ stringify binop.comment ++ """
@@ -73,6 +75,7 @@ formatBinop binop =
     }"""
 
 
+formatAlias : Elm.Docs.Alias -> String
 formatAlias alias_ =
     "{ name = " ++ stringify alias_.name ++ """
     , args = """ ++ listOfThings stringify alias_.args ++ """
@@ -81,6 +84,7 @@ formatAlias alias_ =
     }"""
 
 
+formatUnion : Elm.Docs.Union -> String
 formatUnion union =
     "{ name = " ++ stringify union.name ++ """
     , args = """ ++ listOfThings stringify union.args ++ """
@@ -134,6 +138,7 @@ listOfThings mapper list =
         "[ " ++ String.join "\n    , " (List.map mapper list) ++ " ]"
 
 
+formatModule : Elm.Docs.Module -> String
 formatModule mod =
     "{ name = " ++ stringify mod.name ++ """
     , comment = """ ++ stringify mod.comment ++ """
@@ -144,10 +149,12 @@ formatModule mod =
     }"""
 
 
+formatDep : ( Elm.Package.Name, Elm.Constraint.Constraint ) -> String
 formatDep ( name, constraint ) =
     "( unsafePackageName " ++ stringify (Elm.Package.toString name) ++ ", unsafeConstraint " ++ stringify (Elm.Constraint.toString constraint) ++ ")"
 
 
+capitalize : String -> String
 capitalize s =
     String.toUpper (String.left 1 s) ++ String.dropLeft 1 s
 
@@ -155,11 +162,13 @@ capitalize s =
 formatFile : Elm.Project.PackageInfo -> List Elm.Docs.Module -> ( String, String )
 formatFile elmJson docsJson =
     let
+        listOfModuleNames : List Elm.Module.Name -> String
         listOfModuleNames list =
             list
                 |> List.map (\name -> "unsafeModuleName " ++ stringify (Elm.Module.toString name))
                 |> String.join ", "
 
+        exposed : String
         exposed =
             case elmJson.exposed of
                 Elm.Project.ExposedList list ->
@@ -168,6 +177,7 @@ formatFile elmJson docsJson =
                 Elm.Project.ExposedDict dict ->
                     "Elm.Project.ExposedDict [ " ++ String.join ", " (List.map (\( section, list ) -> "( \"" ++ section ++ "\", [ " ++ listOfModuleNames list ++ " ] ) ") dict) ++ " ]"
 
+        moduleName : String
         moduleName =
             "Review.Test.Dependencies."
                 ++ (elmJson.name
@@ -178,6 +188,7 @@ formatFile elmJson docsJson =
                         |> String.join ""
                    )
 
+        dependencyModules : String
         dependencyModules =
             listOfThings formatModule docsJson
     in
