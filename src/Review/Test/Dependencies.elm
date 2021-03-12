@@ -9,7 +9,7 @@ If you are looking for a specific dependency not provided by this list, you can 
 are not enough, you can create one yourself. If you only care about a few types or functions, you can re-create them
 manually using the api from [`elm/project-metadata-utils`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.0/Elm-Project).
 If you need a more complete dependency, with comments and everything, that is surprisingly difficult, so I made [this
-script to generate dependencies](TODO LINK).
+script to generate dependencies](https://github.com/jfmengels/elm-review/blob/master/create-dependency/index.js#L1-L13).
 
 
 ## Dependencies
