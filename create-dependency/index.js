@@ -71,6 +71,7 @@ async function createFile([elmJson, docsJson]) {
         await fs.mkdir(path.dirname(relativeFilePath), { recursive: true });
         await fs.writeFile(relativeFilePath, source);
         await exec('npx elm-format --yes ' + relativeFilePath);
+        console.log("File created! You can find it at:\n   ", relativeFilePath);
     });
     return;
 
