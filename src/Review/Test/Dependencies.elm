@@ -1,5 +1,20 @@
 module Review.Test.Dependencies exposing (elmCore, elmHtml, elmParser, elmUrl)
 
+{-| Pre-built dependencies that you can use for your tests.
+
+If you are looking for a specific dependency not provided by this list, you can create one yourself.
+are not enough, you can create one yourself. If you only care about a few types or functions, you can re-create them
+manually using the api from [`elm/project-metadata-utils`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.0/Elm-Project).
+If you need a more complete dependency, with comments and everything, that is surprisingly difficult, so I made [this
+script to generate dependencies](TODO LINK).
+
+
+## Dependencies
+
+@docs elmCore, elmHtml, elmParser, elmUrl
+
+-}
+
 import Review.Project.Dependency exposing (Dependency)
 import Review.Test.Dependencies.ElmCore
 import Review.Test.Dependencies.ElmHtml
@@ -7,21 +22,29 @@ import Review.Test.Dependencies.ElmParser
 import Review.Test.Dependencies.ElmUrl
 
 
+{-| Dependency for `elm/core`. It contains operators.
+-}
 elmCore : Dependency
 elmCore =
     Review.Test.Dependencies.ElmCore.dependency
 
 
+{-| Dependency for `elm/html`.
+-}
 elmHtml : Dependency
 elmHtml =
     Review.Test.Dependencies.ElmHtml.dependency
 
 
+{-| Dependency for `elm/parser`. It contains operators.
+-}
 elmParser : Dependency
 elmParser =
     Review.Test.Dependencies.ElmParser.dependency
 
 
+{-| Dependency for `elm/url`. It contains operators.
+-}
 elmUrl : Dependency
 elmUrl =
     Review.Test.Dependencies.ElmUrl.dependency
