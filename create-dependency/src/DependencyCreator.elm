@@ -57,108 +57,6 @@ parseThings flags =
             ( "", error )
 
 
-formatValue : Elm.Docs.Value -> String
-formatValue value =
-    "{ name = " ++ stringify value.name ++ """
-    , comment = """ ++ stringify value.comment ++ """
-    , tipe = """ ++ formatType value.tipe ++ """
-    }"""
-
-
-formatBinop : Elm.Docs.Binop -> String
-formatBinop binop =
-    "{ name = " ++ stringify binop.name ++ """
-    , comment = """ ++ stringify binop.comment ++ """
-    , tipe = """ ++ formatType binop.tipe ++ """
-    , associativity = Elm.Docs.""" ++ Debug.toString binop.associativity ++ """
-    , precedence = """ ++ String.fromInt binop.precedence ++ """
-    }"""
-
-
-formatAlias : Elm.Docs.Alias -> String
-formatAlias alias_ =
-    "{ name = " ++ stringify alias_.name ++ """
-    , args = """ ++ listOfThings stringify alias_.args ++ """
-    , comment = """ ++ stringify alias_.comment ++ """
-    , tipe = """ ++ formatType alias_.tipe ++ """
-    }"""
-
-
-formatUnion : Elm.Docs.Union -> String
-formatUnion union =
-    "{ name = " ++ stringify union.name ++ """
-    , args = """ ++ listOfThings stringify union.args ++ """
-    , comment = """ ++ stringify union.comment ++ """
-    , tags = """ ++ listOfThings (\( name, types ) -> "( " ++ stringify name ++ ", " ++ listOfThings formatType types ++ ")") union.tags ++ """
-    }"""
-
-
-formatType : Elm.Type.Type -> String
-formatType type_ =
-    case type_ of
-        Elm.Type.Var name ->
-            "Var " ++ stringify name
-
-        Elm.Type.Tuple list ->
-            "Tuple " ++ listOfThings formatType list
-
-        Elm.Type.Type name list ->
-            "Type " ++ stringify name ++ " " ++ listOfThings formatType list
-
-        Elm.Type.Record fields maybeVar ->
-            "Record " ++ listOfThings (\( field, subType ) -> "( " ++ stringify field ++ ", " ++ formatType subType ++ " )") fields ++ " " ++ Debug.toString maybeVar
-
-        Elm.Type.Lambda input output ->
-            "Lambda (" ++ formatType input ++ ") (" ++ formatType output ++ ")"
-
-
-stringify : String -> String
-stringify s =
-    s
-        |> String.replace "\\" "\\\\"
-        |> String.replace "\"" "\\\""
-        |> wrapInQuotes
-
-
-wrapInQuotes : String -> String
-wrapInQuotes s =
-    if String.contains "\n" s then
-        "\"\"\"" ++ s ++ "\"\"\""
-
-    else
-        "\"" ++ s ++ "\""
-
-
-listOfThings : (a -> String) -> List a -> String
-listOfThings mapper list =
-    if List.isEmpty list then
-        "[]"
-
-    else
-        "[ " ++ String.join "\n    , " (List.map mapper list) ++ " ]"
-
-
-formatModule : Elm.Docs.Module -> String
-formatModule mod =
-    "{ name = " ++ stringify mod.name ++ """
-    , comment = """ ++ stringify mod.comment ++ """
-    , aliases = """ ++ listOfThings formatAlias mod.aliases ++ """
-    , unions = """ ++ listOfThings formatUnion mod.unions ++ """
-    , binops = """ ++ listOfThings formatBinop mod.binops ++ """
-    , values = """ ++ listOfThings formatValue mod.values ++ """
-    }"""
-
-
-formatDep : ( Elm.Package.Name, Elm.Constraint.Constraint ) -> String
-formatDep ( name, constraint ) =
-    "( unsafePackageName " ++ stringify (Elm.Package.toString name) ++ ", unsafeConstraint " ++ stringify (Elm.Constraint.toString constraint) ++ ")"
-
-
-capitalize : String -> String
-capitalize s =
-    String.toUpper (String.left 1 s) ++ String.dropLeft 1 s
-
-
 formatFile : Elm.Project.PackageInfo -> List Elm.Docs.Module -> ( String, String )
 formatFile elmJson docsJson =
     let
@@ -270,6 +168,108 @@ unsafeConstraint constraint =
                 |> identity
 """
     )
+
+
+formatModule : Elm.Docs.Module -> String
+formatModule mod =
+    "{ name = " ++ stringify mod.name ++ """
+    , comment = """ ++ stringify mod.comment ++ """
+    , aliases = """ ++ listOfThings formatAlias mod.aliases ++ """
+    , unions = """ ++ listOfThings formatUnion mod.unions ++ """
+    , binops = """ ++ listOfThings formatBinop mod.binops ++ """
+    , values = """ ++ listOfThings formatValue mod.values ++ """
+    }"""
+
+
+formatValue : Elm.Docs.Value -> String
+formatValue value =
+    "{ name = " ++ stringify value.name ++ """
+    , comment = """ ++ stringify value.comment ++ """
+    , tipe = """ ++ formatType value.tipe ++ """
+    }"""
+
+
+formatBinop : Elm.Docs.Binop -> String
+formatBinop binop =
+    "{ name = " ++ stringify binop.name ++ """
+    , comment = """ ++ stringify binop.comment ++ """
+    , tipe = """ ++ formatType binop.tipe ++ """
+    , associativity = Elm.Docs.""" ++ Debug.toString binop.associativity ++ """
+    , precedence = """ ++ String.fromInt binop.precedence ++ """
+    }"""
+
+
+formatAlias : Elm.Docs.Alias -> String
+formatAlias alias_ =
+    "{ name = " ++ stringify alias_.name ++ """
+    , args = """ ++ listOfThings stringify alias_.args ++ """
+    , comment = """ ++ stringify alias_.comment ++ """
+    , tipe = """ ++ formatType alias_.tipe ++ """
+    }"""
+
+
+formatUnion : Elm.Docs.Union -> String
+formatUnion union =
+    "{ name = " ++ stringify union.name ++ """
+    , args = """ ++ listOfThings stringify union.args ++ """
+    , comment = """ ++ stringify union.comment ++ """
+    , tags = """ ++ listOfThings (\( name, types ) -> "( " ++ stringify name ++ ", " ++ listOfThings formatType types ++ ")") union.tags ++ """
+    }"""
+
+
+formatType : Elm.Type.Type -> String
+formatType type_ =
+    case type_ of
+        Elm.Type.Var name ->
+            "Var " ++ stringify name
+
+        Elm.Type.Tuple list ->
+            "Tuple " ++ listOfThings formatType list
+
+        Elm.Type.Type name list ->
+            "Type " ++ stringify name ++ " " ++ listOfThings formatType list
+
+        Elm.Type.Record fields maybeVar ->
+            "Record " ++ listOfThings (\( field, subType ) -> "( " ++ stringify field ++ ", " ++ formatType subType ++ " )") fields ++ " " ++ Debug.toString maybeVar
+
+        Elm.Type.Lambda input output ->
+            "Lambda (" ++ formatType input ++ ") (" ++ formatType output ++ ")"
+
+
+formatDep : ( Elm.Package.Name, Elm.Constraint.Constraint ) -> String
+formatDep ( name, constraint ) =
+    "( unsafePackageName " ++ stringify (Elm.Package.toString name) ++ ", unsafeConstraint " ++ stringify (Elm.Constraint.toString constraint) ++ ")"
+
+
+stringify : String -> String
+stringify s =
+    s
+        |> String.replace "\\" "\\\\"
+        |> String.replace "\"" "\\\""
+        |> wrapInQuotes
+
+
+wrapInQuotes : String -> String
+wrapInQuotes s =
+    if String.contains "\n" s then
+        "\"\"\"" ++ s ++ "\"\"\""
+
+    else
+        "\"" ++ s ++ "\""
+
+
+listOfThings : (a -> String) -> List a -> String
+listOfThings mapper list =
+    if List.isEmpty list then
+        "[]"
+
+    else
+        "[ " ++ String.join "\n    , " (List.map mapper list) ++ " ]"
+
+
+capitalize : String -> String
+capitalize s =
+    String.toUpper (String.left 1 s) ++ String.dropLeft 1 s
 
 
 port sendToJs : ( String, String ) -> Cmd msg
