@@ -8,10 +8,7 @@ import Elm.Package
 import Elm.Project
 import Elm.Type
 import Elm.Version
-import Html.Attributes exposing (form, type_)
 import Json.Decode as Decode
-import Review.Project exposing (elmJson)
-import Review.Project.Dependency as Dependency exposing (Dependency)
 import String
 
 
@@ -105,16 +102,6 @@ formatType type_ =
             "Elm.Type.Type " ++ stringify name ++ " " ++ listOfThings formatType list
 
         Elm.Type.Record fields maybeVar ->
-            let
-                var : String
-                var =
-                    case maybeVar of
-                        Just var_ ->
-                            var_ ++ " | "
-
-                        Nothing ->
-                            ""
-            in
             "Elm.Type.Record " ++ listOfThings (\( field, subType ) -> "( " ++ stringify field ++ ", " ++ formatType subType ++ " )") fields ++ " " ++ Debug.toString maybeVar
 
         Elm.Type.Lambda input output ->
@@ -272,11 +259,6 @@ unsafeConstraint constraint =
                 |> identity
 """
     )
-
-
-formatPackageName : Elm.Package.Name -> String
-formatPackageName packageName =
-    "Elm.Package.fromString " ++ stringify (Elm.Package.toString packageName) ++ " |> Maybe.withDefault Elm.Package.one"
 
 
 port sendToJs : ( String, String ) -> Cmd msg
