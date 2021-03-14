@@ -3154,7 +3154,7 @@ The `details` is a list of paragraphs, and each item will be visually separated
 when shown to the user. The details may not be empty, and this will be enforced
 by the tests automatically.
 
-    error : String -> Error
+    error : String -> Error scope
     error moduleName =
         Rule.globalError
             { message = "Could not find module " ++ moduleName
