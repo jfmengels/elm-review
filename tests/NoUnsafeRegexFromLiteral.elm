@@ -80,7 +80,7 @@ There is also an error if the target function could not be found anywhere in the
 rule : { unsafeFunction : String, moduleAlias : Maybe String } -> Rule
 rule config =
     case buildTarget config of
-        Just target ->
+        Ok target ->
             Rule.newProjectRuleSchema "NoUnsafeRegexFromLiteral" initialProjectContext
                 |> Rule.withModuleVisitor (moduleVisitor target)
                 |> Rule.withModuleContextUsingContextCreator
@@ -91,18 +91,15 @@ rule config =
                 |> Rule.withFinalProjectEvaluation (finalProjectEvaluation target)
                 |> Rule.fromProjectRuleSchema
 
-        Nothing ->
-            Rule.configurationError "NoUnsafeRegexFromLiteral"
-                { message = config.unsafeFunction ++ " is not a valid function name"
-                , details = [ "Some details" ]
-                }
+        Err errorDetails ->
+            Rule.configurationError "NoUnsafeRegexFromLiteral" errorDetails
 
 
-buildTarget : { unsafeFunction : String, moduleAlias : Maybe String } -> Maybe Target
+buildTarget : { unsafeFunction : String, moduleAlias : Maybe String } -> Result { message : String, details : List String } Target
 buildTarget { unsafeFunction, moduleAlias } =
     case List.reverse (String.split "." unsafeFunction) of
         [] ->
-            Nothing
+            Err (invalidFunctionName unsafeFunction)
 
         functionName :: invertedModules ->
             let
@@ -113,10 +110,17 @@ buildTarget { unsafeFunction, moduleAlias } =
             case Elm.Module.fromString (String.join "." moduleName) of
                 Just _ ->
                     -- TODO Validate moduleAlias
-                    Just (buildTargetHelp functionName moduleName moduleAlias)
+                    Ok (buildTargetHelp functionName moduleName moduleAlias)
 
                 Nothing ->
-                    Nothing
+                    Err (invalidFunctionName unsafeFunction)
+
+
+invalidFunctionName : String -> { message : String, details : List String }
+invalidFunctionName unsafeFunction =
+    { message = unsafeFunction ++ " is not a valid function name"
+    , details = [ "Some details" ]
+    }
 
 
 buildTargetHelp : String -> List String -> Maybe String -> Target
