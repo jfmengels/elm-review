@@ -147,7 +147,7 @@ moduleVisitor : Target -> Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleR
 moduleVisitor target schema =
     schema
         |> Rule.withDeclarationListVisitor (declarationListVisitor target)
-        |> Rule.withExpressionVisitor (expressionVisitor target)
+        |> Rule.withExpressionEnterVisitor (expressionVisitor target)
 
 
 type alias Target =
@@ -250,10 +250,10 @@ isTargetFunction target moduleContext functionNode functionName =
         && (ModuleNameLookupTable.moduleNameFor moduleContext.lookupTable functionNode == Just target.moduleName)
 
 
-expressionVisitor : Target -> Node Expression -> Rule.Direction -> ModuleContext -> ( List (Error {}), ModuleContext )
-expressionVisitor target node direction moduleContext =
-    case ( direction, Node.value node ) of
-        ( Rule.OnEnter, Expression.Application (function :: argument :: []) ) ->
+expressionVisitor : Target -> Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
+expressionVisitor target node moduleContext =
+    case Node.value node of
+        Expression.Application (function :: argument :: []) ->
             case Node.value function of
                 Expression.FunctionOrValue _ functionName ->
                     if isTargetFunction target moduleContext function functionName then
@@ -300,7 +300,7 @@ expressionVisitor target node direction moduleContext =
                 _ ->
                     ( [], moduleContext )
 
-        ( Rule.OnEnter, Expression.FunctionOrValue _ functionName ) ->
+        Expression.FunctionOrValue _ functionName ->
             if
                 isTargetFunction target moduleContext node functionName
                     && not (List.member (Node.range node) moduleContext.allowedFunctionOrValues)
