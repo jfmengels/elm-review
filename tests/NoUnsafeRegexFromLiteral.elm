@@ -80,12 +80,6 @@ There is also an error if the target function could not be found anywhere in the
 rule : { unsafeFunction : String, moduleAlias : Maybe String } -> Rule
 rule config =
     case buildTarget config of
-        Nothing ->
-            Rule.configurationError "NoUnsafeRegexFromLiteral"
-                { message = config.unsafeFunction ++ " is not a valid function name"
-                , details = [ "Some details" ]
-                }
-
         Just target ->
             Rule.newProjectRuleSchema "NoUnsafeRegexFromLiteral" initialProjectContext
                 |> Rule.withModuleVisitor (moduleVisitor target)
@@ -96,6 +90,12 @@ rule config =
                     }
                 |> Rule.withFinalProjectEvaluation (finalProjectEvaluation target)
                 |> Rule.fromProjectRuleSchema
+
+        Nothing ->
+            Rule.configurationError "NoUnsafeRegexFromLiteral"
+                { message = config.unsafeFunction ++ " is not a valid function name"
+                , details = [ "Some details" ]
+                }
 
 
 buildTarget : { unsafeFunction : String, moduleAlias : Maybe String } -> Maybe Target
