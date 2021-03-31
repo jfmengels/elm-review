@@ -185,8 +185,8 @@ the errors reported by the rule.
     import Review.Test
     import Test exposing (Test, test)
 
-    all : Test
-    all =
+    someTest : Test
+    someTest =
         test "test title" <|
             \() ->
                 """
@@ -220,8 +220,8 @@ project loaded, such as the contents of `elm.json` file.
     import Review.Test
     import Test exposing (Test, test)
 
-    all : Test
-    all =
+    someTest : Test
+    someTest =
         test "test title" <|
             \() ->
                 let
@@ -264,8 +264,8 @@ several files, and where the context of the project is important.
     import Review.Test
     import Test exposing (Test, test)
 
-    all : Test
-    all =
+    someTest : Test
+    someTest =
         test "test title" <|
             \() ->
                 [ """
@@ -306,8 +306,8 @@ several modules, and where the context of the project is important.
     import Review.Test
     import Test exposing (Test, test)
 
-    all : Test
-    all =
+    someTest : Test
+    someTest =
         test "test title" <|
             \() ->
                 let
@@ -672,8 +672,8 @@ location is incorrect.
     import Test exposing (Test, test)
     import The.Rule.You.Want.To.Test exposing (rule)
 
-    all : Test
-    all =
+    someTest : Test
+    someTest =
         test "should report an error when a module uses `Debug.log`" <|
             \() ->
                 [ """
@@ -703,7 +703,7 @@ expectErrorsForModules expectedErrorsList reviewResult =
         reviewResult
 
 
-{-| Assert that the rule reported some local and global errors, by specifying which ones.
+{-| Assert that the rule reported some [global errors](./Review-Rule#globalError) and [local](./Review-Test#ExpectedError) errors, by specifying which ones.
 
 Use this function when you expect both local and global errors for a particular test, and when you are using [`run`](#run) or [`runWithProjectData`](#runWithProjectData).
 When using [`runOnModules`](#runOnModules) or [`runOnModulesWithProjectData`](#runOnModulesWithProjectData), use [`expectGlobalAndModuleErrors`](#expectGlobalAndModuleErrors) instead.
@@ -860,7 +860,7 @@ expectErrorsForElmJson expectedErrors reviewResult =
     expectErrorsForModules [ ( "elm.json", expectedErrors ) ] reviewResult
 
 
-{-| Assert that the rule reported some global errors, by specifying which ones.
+{-| Assert that the rule reported some [global errors](./Review-Rule#globalError), by specifying which ones.
 
 Assert which errors are reported using records with the expected message and details. The test will fail if
 a different number of errors than expected are reported, or if the message or details is incorrect.
@@ -869,8 +869,8 @@ a different number of errors than expected are reported, or if the message or de
     import Test exposing (Test, test)
     import The.Rule.You.Want.To.Test exposing (rule)
 
-    all : Test
-    all =
+    someTest : Test
+    someTest =
         test "should report a global error when the specified module could not be found" <|
             \() ->
                 """
@@ -1466,14 +1466,14 @@ extractExpectedErrorData ((ExpectedError expectedErrorContent) as expectedError)
     }
 
 
-{-| Assert that the rule will report a configuration error and with what details.
+{-| Assert that the rule will report a configuration error.
 
     import Review.Test
     import Test exposing (Test, test)
     import The.Rule.You.Want.To.Test exposing (rule)
 
-    all : Test
-    all =
+    someTest : Test
+    someTest =
         test "should report a configuration error when argument is empty" <|
             \() ->
                 rule ""
