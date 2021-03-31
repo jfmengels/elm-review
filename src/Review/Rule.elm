@@ -12,8 +12,8 @@ module Review.Rule exposing
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
     , ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleNameLookupTable, withModuleKey
-    , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, globalError, errorForReadme, errorForReadmeWithFix
-    , configurationError
+    , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
+    , globalError, configurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review, reviewV2, ProjectData, ruleName, getConfigurationError
@@ -223,8 +223,8 @@ first, as they are in practice a simpler version of project rules.
 
 ## Errors
 
-@docs Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, globalError, errorForReadme, errorForReadmeWithFix
-@docs configurationError
+@docs Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
+@docs globalError, configurationError
 @docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
 
 
@@ -345,7 +345,7 @@ type ModuleRuleSchema schemaState moduleContext
 -- REVIEWING
 
 
-{-| DEPRECATED: Use [`reviewV2`](#reviewV2) instead.
+{-| **DEPRECATED:** Use [`reviewV2`](#reviewV2) instead.
 
 Review a project and gives back the errors raised by the given rules.
 
@@ -1374,9 +1374,9 @@ when reporting that a targeted function does not fit some criteria (unexpected a
 usual errors like [`error`](#error) or potentially [`globalError`](#globalError). [`error`](#error) would be better because
 it will give the user a starting place to fix the issue.
 
-Be careful that the rule name is the same for the real rule and for the configuration error.
+Be careful that the rule name is the same for the rule and for the configuration error.
 
-The `message` and `details` represent the [message you want to display to the user].
+The `message` and `details` represent the [message you want to display to the user](#a-helpful-error-message-and-details).
 The `details` is a list of paragraphs, and each item will be visually separated
 when shown to the user. The details may not be empty, and this will be enforced
 by the tests automatically.
