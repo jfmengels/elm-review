@@ -6,10 +6,10 @@ module Review.Test.Dependencies exposing
 {-| Pre-built dependencies that you can use for your tests.
 
 If you are looking for a specific dependency not provided by this list, you can create one yourself.
-are not enough, you can create one yourself. If you only care about a few types or functions, you can re-create them
-manually using the api from [`elm/project-metadata-utils`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.0/Elm-Project).
-If you need a more complete dependency, with comments and everything, that is surprisingly difficult, so I made [this
-script to generate dependencies](https://github.com/jfmengels/elm-review/blob/master/create-dependency/index.js#L1-L12).
+If you only care about a few types or functions, you can re-create them
+manually using the API in [`elm/project-metadata-utils`](https://package.elm-lang.org/packages/elm/project-metadata-utils/1.0.0/Elm-Project).
+If you need the complete dependency of an existing package, with comments and everything, that is surprisingly difficult, so I made [this
+script to generate dependencies](https://github.com/jfmengels/elm-review/blob/master/create-dependency/index.js#L1-L12) to make that easier.
 
 
 ## Dependencies
@@ -37,11 +37,10 @@ projectWithElmCore =
 {-| Dependency for `elm/core`. It contains operators.
 
 It is present by default in `elm-review` tests when you use [`Review.Test.run`](./Review-Test#run) or
-[`Review.Test.runOnModules`](./Review-Test#runOnModules).
+[`Review.Test.runOnModules`](./Review-Test#runOnModules), or when you create a new project starting with [`projectWithElmCore`](#projectWithElmCore).
 
-Note that if you create a new project using [`Review.Project.new`](/Review-Project#new), you'll have to manually add it
-again with [`Review.Project.addDependency`](./Review-Project#addDependency) if you so wish to. You can also use
-[`projectWithElmCore`](#projectWithElmCore) as a starting block instead of `Review.Project.new`.
+Note that if you create a new project using [`Review.Project.new`](./Review-Project#new), you'll have to manually add it
+again with [`Review.Project.addDependency`](./Review-Project#addDependency) if you so wish to.
 
 -}
 elmCore : Dependency
