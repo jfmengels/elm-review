@@ -3045,6 +3045,7 @@ type ElmJsonKey
     = ElmJsonKey
         { path : String
         , raw : String
+        , project : Elm.Project.Project
         }
 
 
@@ -3710,7 +3711,7 @@ computeProjectContext projectVisitor project maybePreviousCache =
         elmJsonData =
             Maybe.map
                 (\elmJson ->
-                    { elmJsonKey = ElmJsonKey { path = elmJson.path, raw = elmJson.raw }
+                    { elmJsonKey = ElmJsonKey elmJson
                     , project = elmJson.project
                     }
                 )
