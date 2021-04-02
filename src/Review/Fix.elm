@@ -133,7 +133,9 @@ in the context of your rule.
 
 import Array
 import Elm.Parser
+import Elm.Project
 import Elm.Syntax.Range exposing (Range)
+import Json.Decode as Decode
 import Review.Error as Error
 import Vendor.ListExtra as ListExtra
 
@@ -203,23 +205,19 @@ fix target fixes sourceCode =
             tryToApplyFix
                 fixes
                 sourceCode
-                (\resultAfterFix ->
-                    case Elm.Parser.parse resultAfterFix of
-                        Err _ ->
-                            Err (SourceCodeIsNotValid resultAfterFix)
-
-                        Ok _ ->
-                            Ok resultAfterFix
-                )
+                (\resultAfterFix -> (Elm.Parser.parse resultAfterFix |> Result.toMaybe) /= Nothing)
 
         Error.Readme ->
             tryToApplyFix
                 fixes
                 sourceCode
-                (always (Ok ()))
+                (always True)
 
         Error.ElmJson ->
-            Errored Unchanged
+            tryToApplyFix
+                fixes
+                sourceCode
+                (\resultAfterFix -> (Decode.decodeString Elm.Project.decoder resultAfterFix |> Result.toMaybe) /= Nothing)
 
         Error.Global ->
             Errored Unchanged
@@ -228,8 +226,8 @@ fix target fixes sourceCode =
             Errored Unchanged
 
 
-tryToApplyFix : List Fix -> String -> (String -> Result Problem b) -> FixResult
-tryToApplyFix fixes sourceCode validation =
+tryToApplyFix : List Fix -> String -> (String -> Bool) -> FixResult
+tryToApplyFix fixes sourceCode isValidSourceCode =
     if containRangeCollisions fixes then
         Errored HasCollisionsInFixRanges
 
@@ -245,13 +243,11 @@ tryToApplyFix fixes sourceCode validation =
         if sourceCode == resultAfterFix then
             Errored Unchanged
 
-        else
-            case validation resultAfterFix of
-                Ok _ ->
-                    Successful resultAfterFix
+        else if isValidSourceCode resultAfterFix then
+            Successful resultAfterFix
 
-                Err problem ->
-                    Errored problem
+        else
+            Errored (SourceCodeIsNotValid resultAfterFix)
 
 
 containRangeCollisions : List Fix -> Bool
