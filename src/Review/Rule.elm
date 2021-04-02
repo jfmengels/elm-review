@@ -12,7 +12,7 @@ module Review.Rule exposing
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
     , ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleNameLookupTable, withModuleKey
-    , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
+    , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , globalError, configurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
@@ -223,7 +223,7 @@ first, as they are in practice a simpler version of project rules.
 
 ## Errors
 
-@docs Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, ReadmeKey, errorForReadme, errorForReadmeWithFix
+@docs Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
 @docs globalError, configurationError
 @docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
 
@@ -277,9 +277,10 @@ import Elm.Syntax.Signature exposing (Signature)
 import Elm.Syntax.Type
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
+import Json.Encode as Encode
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
-import Review.Fix exposing (Fix)
+import Review.Fix as Fix exposing (Fix)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Project exposing (ProjectModule)
@@ -3074,6 +3075,55 @@ errorForElmJson (ElmJsonKey { path, raw }) getErrorInfo =
         , range = errorInfo.range
         , filePath = path
         , fixes = Nothing
+        , target = Review.Error.ElmJson
+        }
+
+
+{-| Create an [`Error`](#Error) for the `elm.json` file.
+
+You will need an [`ElmJsonKey`](#ElmJsonKey), which you can get from the [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor)
+function.
+
+The second argument is a function that takes the `elm.json` content as a raw string,
+and returns the error details. Using the raw string, you should try and find the
+most fitting [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Range)
+possible for the error.
+
+The third argument is a function that takes the [`elm.json`](https://package.elm-lang.org/packages/elm/project-metadata-utils/latest/Elm-Project)
+and returns a different one that will be suggested as a fix. If the function returns `Nothing`, no fix will be applied.
+
+The `elm.json` will be the same as the one you got from [`withElmJsonProjectVisitor`](#withElmJsonProjectVisitor), use either depending on what you find most practical.
+
+-}
+errorForElmJsonWithFix : ElmJsonKey -> (String -> { message : String, details : List String, range : Range }) -> (Elm.Project.Project -> Maybe Elm.Project.Project) -> Error scope
+errorForElmJsonWithFix (ElmJsonKey elmJson) getErrorInfo getFix =
+    let
+        errorInfo : { message : String, details : List String, range : Range }
+        errorInfo =
+            getErrorInfo elmJson.raw
+    in
+    SpecifiedError
+        { message = errorInfo.message
+        , ruleName = ""
+        , details = errorInfo.details
+        , range = errorInfo.range
+        , filePath = elmJson.path
+        , fixes =
+            Maybe.map
+                (\updatedProject ->
+                    let
+                        encoded : String
+                        encoded =
+                            updatedProject
+                                |> Elm.Project.encode
+                                |> Encode.encode 4
+                    in
+                    [ Fix.replaceRangeBy
+                        { start = { row = 1, column = 1 }, end = { row = 100000000, column = 1 } }
+                        (encoded ++ "\n")
+                    ]
+                )
+                (getFix elmJson.project)
         , target = Review.Error.ElmJson
         }
 
