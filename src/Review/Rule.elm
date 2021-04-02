@@ -3601,8 +3601,7 @@ runProjectVisitor :
     -> { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
 runProjectVisitor name projectVisitor maybePreviousCache exceptions project nodeContexts =
     let
-        cacheWithInitialContext : ProjectRuleCache projectContext
-        cacheWithInitialContext =
+        ( cacheWithInitialContext, hasInitialContextChanged ) =
             computeProjectContext projectVisitor project maybePreviousCache
 
         initialContext : projectContext
@@ -3750,7 +3749,7 @@ errorsFromCache cache =
 -- VISIT PROJECT
 
 
-computeProjectContext : RunnableProjectVisitor projectContext moduleContext -> Project -> Maybe (ProjectRuleCache projectContext) -> ProjectRuleCache projectContext
+computeProjectContext : RunnableProjectVisitor projectContext moduleContext -> Project -> Maybe (ProjectRuleCache projectContext) -> ( ProjectRuleCache projectContext, Bool )
 computeProjectContext projectVisitor project maybePreviousCache =
     let
         projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
@@ -3834,8 +3833,7 @@ computeProjectContext projectVisitor project maybePreviousCache =
                 Nothing ->
                     computeReadme ()
 
-        dependenciesCacheEntry : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
-        dependenciesCacheEntry =
+        ( dependenciesCacheEntry, hasAnythingChanged ) =
             -- TODO Rewrite these steps to make it less likely to make an error at every step
             let
                 dependencies : Dict String Review.Project.Dependency.Dependency
@@ -3862,20 +3860,22 @@ computeProjectContext projectVisitor project maybePreviousCache =
                             -- and the dependencies stayed the same
                             && (previousCache.dependencies.value == dependencies)
                     then
-                        previousCache.dependencies
+                        ( previousCache.dependencies, False )
 
                     else
-                        computeDependencies ()
+                        ( computeDependencies (), True )
 
                 Nothing ->
-                    computeDependencies ()
+                    ( computeDependencies (), True )
     in
-    { elmJson = elmJsonCacheEntry
-    , readme = readmeCacheEntry
-    , dependencies = dependenciesCacheEntry
-    , moduleContexts = Dict.empty
-    , finalEvaluationErrors = []
-    }
+    ( { elmJson = elmJsonCacheEntry
+      , readme = readmeCacheEntry
+      , dependencies = dependenciesCacheEntry
+      , moduleContexts = Dict.empty
+      , finalEvaluationErrors = []
+      }
+    , hasAnythingChanged
+    )
 
 
 
