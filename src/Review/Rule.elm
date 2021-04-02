@@ -3610,12 +3610,16 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
 
         previousModuleContexts : Dict String (CacheEntry projectContext)
         previousModuleContexts =
-            case maybePreviousCache of
-                Just { moduleContexts } ->
-                    moduleContexts
+            if hasInitialContextChanged then
+                Dict.empty
 
-                Nothing ->
-                    Dict.empty
+            else
+                case maybePreviousCache of
+                    Just { moduleContexts } ->
+                        moduleContexts
+
+                    Nothing ->
+                        Dict.empty
 
         newCachedModuleContexts : Dict String (CacheEntry projectContext)
         newCachedModuleContexts =
@@ -3653,7 +3657,7 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
         errorsFromFinalEvaluation =
             case maybePreviousCache of
                 Just previousCache ->
-                    if initialContext == previousCache.dependencies.context && allModulesContext == previousAllModulesContext then
+                    if allModulesContext == previousAllModulesContext then
                         previousCache.finalEvaluationErrors
 
                     else
