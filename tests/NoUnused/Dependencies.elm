@@ -200,16 +200,33 @@ finalEvaluationForProject projectContext =
 
 error : Rule.ElmJsonKey -> String -> Error scope
 error elmJsonKey packageName =
-    Rule.errorForElmJson elmJsonKey
+    Rule.errorForElmJsonWithFix elmJsonKey
         (\elmJson ->
+            let
+                packageNameLocation : Range
+                packageNameLocation =
+                    findPackageNameInElmJson packageName elmJson
+            in
             { message = "Unused dependency `" ++ packageName ++ "`"
             , details =
                 [ "To remove it, I recommend running the following command:"
                 , "    elm-json uninstall " ++ packageName
                 ]
-            , range = findPackageNameInElmJson packageName elmJson
+            , range = packageNameLocation
             }
         )
+        (removeDependency packageName)
+
+
+removeDependency : String -> Project -> Maybe Project
+removeDependency packageName project =
+    case project of
+        Elm.Project.Application _ ->
+            Nothing
+
+        Elm.Project.Package packageInfo ->
+            Elm.Project.Package { packageInfo | deps = List.filter (\( name, _ ) -> Elm.Package.toString name /= packageName) packageInfo.deps }
+                |> Just
 
 
 findPackageNameInElmJson : String -> String -> Range

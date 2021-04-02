@@ -42,9 +42,9 @@ applicationElmJson =
     "elm-version": "0.19.1",
     "dependencies": {
         "direct": {
-            "elm/core": "1.0.0",
+            "author/package-with-bar": "1.0.0",
             "author/package-with-foo": "1.0.0",
-            "author/package-with-bar": "1.0.0"
+            "elm/core": "1.0.0"
         },
         "indirect": {}
     },
@@ -69,9 +69,9 @@ packageElmJson =
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
-        "elm/core": "1.0.0 <= v < 2.0.0",
+        "author/package-with-bar": "1.0.0 <= v < 2.0.0",
         "author/package-with-foo": "1.0.0 <= v < 2.0.0",
-        "author/package-with-bar": "1.0.0 <= v < 2.0.0"
+        "elm/core": "1.0.0 <= v < 2.0.0"
     },
     "test-dependencies": {}
 }"""
@@ -217,6 +217,23 @@ a = 1
                                 ]
                             , under = "author/package-with-bar"
                             }
+                            |> Review.Test.whenFixed """{
+    "type": "package",
+    "name": "author/package",
+    "summary": "Summary",
+    "license": "BSD-3-Clause",
+    "version": "1.0.0",
+    "exposed-modules": [
+        "Exposed"
+    ],
+    "elm-version": "0.19.0 <= v < 0.20.0",
+    "dependencies": {
+        "author/package-with-foo": "1.0.0 <= v < 2.0.0",
+        "elm/core": "1.0.0 <= v < 2.0.0"
+    },
+    "test-dependencies": {}
+}
+"""
                         , Review.Test.error
                             { message = "Unused dependency `author/package-with-foo`"
                             , details =
@@ -225,6 +242,23 @@ a = 1
                                 ]
                             , under = "author/package-with-foo"
                             }
+                            |> Review.Test.whenFixed """{
+    "type": "package",
+    "name": "author/package",
+    "summary": "Summary",
+    "license": "BSD-3-Clause",
+    "version": "1.0.0",
+    "exposed-modules": [
+        "Exposed"
+    ],
+    "elm-version": "0.19.0 <= v < 0.20.0",
+    "dependencies": {
+        "author/package-with-bar": "1.0.0 <= v < 2.0.0",
+        "elm/core": "1.0.0 <= v < 2.0.0"
+    },
+    "test-dependencies": {}
+}
+"""
                         ]
         , test "should not report dependencies for a package whose modules are imported" <|
             \() ->
