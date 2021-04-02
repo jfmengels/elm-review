@@ -3822,9 +3822,9 @@ computeProjectContext projectVisitor project maybePreviousCache =
                 Just previousCache ->
                     if
                         -- If the previous context stayed the same
-                        (previousCache.elmJson.context /= elmJsonCacheEntry.context)
+                        (previousCache.elmJson.context == elmJsonCacheEntry.context)
                             -- and the readme stayed the same
-                            || (previousCache.readme.value == readmeData)
+                            && (previousCache.readme.value == readmeData)
                     then
                         previousCache.readme
 
@@ -3858,9 +3858,9 @@ computeProjectContext projectVisitor project maybePreviousCache =
                 Just previousCache ->
                     if
                         -- If the previous context stayed the same
-                        (previousCache.readme.context /= readmeCacheEntry.context)
+                        (previousCache.readme.context == readmeCacheEntry.context)
                             -- and the dependencies stayed the same
-                            || (previousCache.dependencies.value == dependencies)
+                            && (previousCache.dependencies.value == dependencies)
                     then
                         previousCache.dependencies
 
