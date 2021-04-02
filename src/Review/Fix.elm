@@ -200,47 +200,23 @@ fix : Error.Target -> List Fix -> String -> FixResult
 fix target fixes sourceCode =
     case target of
         Error.Module ->
-            if containRangeCollisions fixes then
-                Errored HasCollisionsInFixRanges
-
-            else
-                let
-                    resultAfterFix : String
-                    resultAfterFix =
-                        fixes
-                            |> List.sortBy (rangePosition >> negate)
-                            |> List.foldl applyFix (String.lines sourceCode)
-                            |> String.join "\n"
-                in
-                if sourceCode == resultAfterFix then
-                    Errored Unchanged
-
-                else
+            tryToApplyFix
+                fixes
+                sourceCode
+                (\resultAfterFix ->
                     case Elm.Parser.parse resultAfterFix of
                         Err _ ->
-                            Errored <| SourceCodeIsNotValid resultAfterFix
+                            Err (SourceCodeIsNotValid resultAfterFix)
 
                         Ok _ ->
-                            Successful resultAfterFix
+                            Ok resultAfterFix
+                )
 
         Error.Readme ->
-            if containRangeCollisions fixes then
-                Errored HasCollisionsInFixRanges
-
-            else
-                let
-                    resultAfterFix : String
-                    resultAfterFix =
-                        fixes
-                            |> List.sortBy (rangePosition >> negate)
-                            |> List.foldl applyFix (String.lines sourceCode)
-                            |> String.join "\n"
-                in
-                if sourceCode == resultAfterFix then
-                    Errored Unchanged
-
-                else
-                    Successful resultAfterFix
+            tryToApplyFix
+                fixes
+                sourceCode
+                (always (Ok ()))
 
         Error.ElmJson ->
             Errored Unchanged
@@ -250,6 +226,32 @@ fix target fixes sourceCode =
 
         Error.UserGlobal ->
             Errored Unchanged
+
+
+tryToApplyFix : List Fix -> String -> (String -> Result Problem b) -> FixResult
+tryToApplyFix fixes sourceCode validation =
+    if containRangeCollisions fixes then
+        Errored HasCollisionsInFixRanges
+
+    else
+        let
+            resultAfterFix : String
+            resultAfterFix =
+                fixes
+                    |> List.sortBy (rangePosition >> negate)
+                    |> List.foldl applyFix (String.lines sourceCode)
+                    |> String.join "\n"
+        in
+        if sourceCode == resultAfterFix then
+            Errored Unchanged
+
+        else
+            case validation resultAfterFix of
+                Ok _ ->
+                    Successful resultAfterFix
+
+                Err problem ->
+                    Errored problem
 
 
 containRangeCollisions : List Fix -> Bool
