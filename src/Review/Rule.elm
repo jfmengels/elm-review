@@ -4062,7 +4062,7 @@ computeModuleAndCacheResult traversalAndFolder modules graph computeModule { nod
                     compute Nothing
 
                 Just cacheEntry ->
-                    if cacheEntry.source == module_.source && (traversesAllModulesInParallel traversalAndFolder || noImportedModulesHaveANewContext importedModules invalidatedModules) then
+                    if cacheEntry.source == module_.source && (traversesAllModulesInParallel traversalAndFolder || not (someImportedModulesHaveANewContext importedModules invalidatedModules)) then
                         -- The module's source and the module's imported modules' context are unchanged, we will later return the cached errors and context
                         ( cache, invalidatedModules )
 
@@ -4080,13 +4080,14 @@ traversesAllModulesInParallel traversalAndFolder =
             False
 
 
-noImportedModulesHaveANewContext : List ProjectModule -> Set ModuleName -> Bool
-noImportedModulesHaveANewContext importedModules invalidatedModules =
+someImportedModulesHaveANewContext : List ProjectModule -> Set ModuleName -> Bool
+someImportedModulesHaveANewContext importedModules invalidatedModules =
     importedModules
         |> List.map getModuleName
         |> Set.fromList
         |> Set.intersect invalidatedModules
         |> Set.isEmpty
+        |> not
 
 
 getFolderFromTraversal : TraversalAndFolder projectContext moduleContext -> Maybe (Folder projectContext moduleContext)
