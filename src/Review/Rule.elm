@@ -4082,12 +4082,9 @@ traversesAllModulesInParallel traversalAndFolder =
 
 someImportedModulesHaveANewContext : List ProjectModule -> Set ModuleName -> Bool
 someImportedModulesHaveANewContext importedModules invalidatedModules =
-    importedModules
-        |> List.map getModuleName
-        |> Set.fromList
-        |> Set.intersect invalidatedModules
-        |> Set.isEmpty
-        |> not
+    List.any
+        (\importedModule -> Set.member (getModuleName importedModule) invalidatedModules)
+        importedModules
 
 
 getFolderFromTraversal : TraversalAndFolder projectContext moduleContext -> Maybe (Folder projectContext moduleContext)
