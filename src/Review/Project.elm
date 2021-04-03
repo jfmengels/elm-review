@@ -379,7 +379,6 @@ addDependency dependency (Internal.Project project) =
                     dependency
                     project.dependencies
         }
-        |> recomputeModuleGraphIfNeeded
 
 
 {-| Remove all dependencies of a project. Use this to flush the dependencies of
@@ -388,7 +387,6 @@ a project when they are changed, before re-adding them.
 removeDependencies : Project -> Project
 removeDependencies (Internal.Project project) =
     Internal.Project { project | dependencies = Dict.empty }
-        |> recomputeModuleGraphIfNeeded
 
 
 {-| Get the [dependencies](./Review-Project-Dependency#Dependency) of the project.
