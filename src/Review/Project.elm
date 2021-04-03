@@ -3,7 +3,7 @@ module Review.Project exposing
     , ProjectModule, addModule, addParsedModule, removeModule, modules, modulesThatFailedToParse, precomputeModuleGraph
     , addElmJson, elmJson
     , addReadme, readme
-    , addDependency, removeDependencies, dependencies
+    , addDependency, removeDependency, removeDependencies, dependencies
     )
 
 {-| Represents the contents of the project to be analyzed. This information will
@@ -37,7 +37,7 @@ does not look at project information (like the `elm.json`, dependencies, ...).
 
 # Project dependencies
 
-@docs addDependency, removeDependencies, dependencies
+@docs addDependency, removeDependency, removeDependencies, dependencies
 
 -}
 
@@ -379,6 +379,13 @@ addDependency dependency (Internal.Project project) =
                     dependency
                     project.dependencies
         }
+
+
+{-| Remove a dependency from a project by name.
+-}
+removeDependency : String -> Project -> Project
+removeDependency dependencyName (Internal.Project project) =
+    Internal.Project { project | dependencies = Dict.remove dependencyName project.dependencies }
 
 
 {-| Remove all dependencies of a project. Use this to flush the dependencies of
