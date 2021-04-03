@@ -4062,7 +4062,7 @@ computeModuleAndCacheResult traversalAndFolder modules graph computeModule { nod
                     compute Nothing
 
                 Just cacheEntry ->
-                    if cacheEntry.source == module_.source && (traversesAllModulesInParallel traversalAndFolder || not (someImportedModulesHaveANewContext importedModules invalidatedModules)) then
+                    if cacheEntry.source == module_.source && contextFromImportedModulesIsUnchanged traversalAndFolder importedModules invalidatedModules then
                         -- The module's source and the module's imported modules' context are unchanged, we will later return the cached errors and context
                         ( cache, invalidatedModules )
 
@@ -4070,21 +4070,17 @@ computeModuleAndCacheResult traversalAndFolder modules graph computeModule { nod
                         compute (Just cacheEntry)
 
 
-traversesAllModulesInParallel : TraversalAndFolder projectContext moduleContext -> Bool
-traversesAllModulesInParallel traversalAndFolder =
+contextFromImportedModulesIsUnchanged : TraversalAndFolder projectContext moduleContext -> List ProjectModule -> Set ModuleName -> Bool
+contextFromImportedModulesIsUnchanged traversalAndFolder importedModules invalidatedModules =
     case traversalAndFolder of
         TraverseAllModulesInParallel _ ->
             True
 
         TraverseImportedModulesFirst _ ->
-            False
-
-
-someImportedModulesHaveANewContext : List ProjectModule -> Set ModuleName -> Bool
-someImportedModulesHaveANewContext importedModules invalidatedModules =
-    List.any
-        (\importedModule -> Set.member (getModuleName importedModule) invalidatedModules)
-        importedModules
+            List.any
+                (\importedModule -> Set.member (getModuleName importedModule) invalidatedModules)
+                importedModules
+                |> not
 
 
 getFolderFromTraversal : TraversalAndFolder projectContext moduleContext -> Maybe (Folder projectContext moduleContext)
