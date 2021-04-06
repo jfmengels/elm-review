@@ -131,73 +131,16 @@ handleWhenSingleArg rangeToPotentiallyRemove context node =
             ( [], context )
 
 
-collectPipeline : Node Expression -> ( List Range, List (Node Expression) )
-collectPipeline node =
-    collectPipelineHelp node
-
-
-collectPipelineHelp : Node Expression -> ( List Range, List (Node Expression) )
-collectPipelineHelp node =
-    case Node.value node of
-        Expression.OperatorApplication "|>" _ left right ->
-            let
-                ( x1, y1 ) =
-                    collectPipelineHelp left
-
-                ( x2, y2 ) =
-                    collectPipelineHelp right
-            in
-            ( Node.range node :: (x1 ++ x2), y1 ++ y2 )
-
-        _ ->
-            ( [], [ node ] )
-
-
 expressionVisitor : Node Expression -> Context -> ( List (Error {}), Context )
 expressionVisitor node context =
-    if List.member (Node.range node) context.rangesToIgnore then
-        ( [], context )
-
-    else
-        expressionVisitorHelp node context
-
-
-expressionVisitorHelp : Node Expression -> Context -> ( List (Error {}), Context )
-expressionVisitorHelp node context =
     case Node.value node of
         Expression.OperatorApplication "|>" _ left right ->
-            let
-                ( pipelineOperators, pipelineOperations ) =
-                    collectPipeline node
-
-                contextWithIgnoredElements : Context
-                contextWithIgnoredElements =
-                    { context | rangesToIgnore = List.concat [ pipelineOperators, List.map Node.range pipelineOperations, context.rangesToIgnore ] }
-
-                ( errorsAfterLeft, contextAfterLeft ) =
-                    handleWhenSingleArg
-                        { start = (Node.range left).start
-                        , end = (Node.range right).start
-                        }
-                        contextWithIgnoredElements
-                        left
-            in
-            List.foldl
-                (\pipelineItem ( prev, ( errors, ctx ) ) ->
-                    let
-                        ( newErrors, newContext ) =
-                            handleWhenSingleArg
-                                { start = (Node.range prev).end
-                                , end = (Node.range pipelineItem).end
-                                }
-                                ctx
-                                pipelineItem
-                    in
-                    ( pipelineItem, ( newErrors ++ errors, newContext ) )
-                )
-                ( left, ( errorsAfterLeft, contextAfterLeft ) )
-                pipelineOperations
-                |> Tuple.second
+            handleWhenSingleArg
+                { start = (Node.range left).end
+                , end = (Node.range right).end
+                }
+                context
+                right
 
         Expression.OperatorApplication "<|" _ left right ->
             handleWhenSingleArg
