@@ -188,11 +188,23 @@ b = 2"""
                         |> Review.Test.whenFixed """module SomeModule exposing (b)
 b = 2"""
                     ]
-    , test "should not report unused top-level variables if everything is exposed" <|
+    , test "should not report unused top-level variables if everything is exposed (functions)" <|
         \() ->
             """module SomeModule exposing (..)
 a n = 1
 b = a 1"""
+                |> Review.Test.run rule
+                |> Review.Test.expectNoErrors
+    , test "should not report unused top-level variables if everything is exposed (custom types)" <|
+        \() ->
+            """module SomeModule exposing (..)
+type A = A"""
+                |> Review.Test.run rule
+                |> Review.Test.expectNoErrors
+    , test "should not report unused top-level variables if everything is exposed (type aliases)" <|
+        \() ->
+            """module SomeModule exposing (..)
+type alias A = ()"""
                 |> Review.Test.run rule
                 |> Review.Test.expectNoErrors
     , test "should not report unused top-level variables that are exposed by name" <|
@@ -435,6 +447,23 @@ a = let _ = 1
                             [ "This value has been assigned to a wildcard, which makes the value unusable. You should remove it at the location I pointed at."
                             ]
                         , under = "_"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+a = 2"""
+                    ]
+    , test "should report () destructuring" <|
+        \() ->
+            """module SomeModule exposing (a)
+a = let () = b
+    in 2"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Unit value is unused"
+                        , details =
+                            [ "This value has no data, which makes the value unusable. You should remove it at the location I pointed at."
+                            ]
+                        , under = "()"
                         }
                         |> Review.Test.whenFixed """module SomeModule exposing (a)
 a = 2"""
@@ -742,6 +771,18 @@ import Html.Styled.Attributes"""
 import Html.Styled.Attributes
 a = Html.Styled.Attributes.href"""
                 |> Review.Test.run rule
+                |> Review.Test.expectNoErrors
+    , test "should not report used import (let destructuring)" <|
+        \() ->
+            [ """module SomeModule exposing (a)
+import B
+a = let (B.B ()) = x
+    in 1
+"""
+            , """module B exposing (B)
+type B = B ()"""
+            ]
+                |> Review.Test.runOnModules rule
                 |> Review.Test.expectNoErrors
     , test "should not report unused import if it is aliased" <|
         \() ->
@@ -1225,6 +1266,20 @@ a = 1"""
                         ]
                       )
                     ]
+    , test "should not report import if it exposes all and its contents are unknown" <|
+        \() ->
+            """module SomeModule exposing (a)
+import Unknown exposing (..)
+a = 1"""
+                |> Review.Test.run rule
+                |> Review.Test.expectNoErrors
+    , test "should not report imported type if it exposes the constructors and the module is unknown" <|
+        \() ->
+            """module SomeModule exposing (a)
+import Unknown exposing (A(..))
+a = 1"""
+                |> Review.Test.run rule
+                |> Review.Test.expectNoErrors
     , test "should report unused import from dependency that exposes everything" <|
         \() ->
             """module SomeModule exposing (..)
@@ -1371,6 +1426,77 @@ a = U.b + b"""
             , """module Used exposing (b)
 b = 1
 """
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectNoErrors
+    , test "should report unused imported value if it is redefined" <|
+        \() ->
+            [ """module A exposing (a)
+import Used exposing (shadowed)
+shadowed = 1
+a = shadowed"""
+            , """module Used exposing (shadowed)
+shadowed = 1
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectErrorsForModules
+                    [ ( "A"
+                      , [ Review.Test.error
+                            { message = "Imported variable `shadowed` is not used"
+                            , details = details
+                            , under = "shadowed"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 31 } }
+                            |> Review.Test.whenFixed ("""module A exposing (a)
+import Used$
+shadowed = 1
+a = shadowed""" |> String.replace "$" " ")
+                        ]
+                      )
+                    ]
+    , test "should report unused imported value if it is redefined, and should not report the top-level one even if used before declaration" <|
+        \() ->
+            [ """module A exposing (a)
+import Used exposing (shadowed)
+a = shadowed
+shadowed = 1"""
+            , """module Used exposing (shadowed)
+shadowed = 1
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectErrorsForModules
+                    [ ( "A"
+                      , [ Review.Test.error
+                            { message = "Imported variable `shadowed` is not used"
+                            , details = details
+                            , under = "shadowed"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 31 } }
+                            |> Review.Test.whenFixed ("""module A exposing (a)
+import Used$
+a = shadowed
+shadowed = 1""" |> String.replace "$" " ")
+                        ]
+                      )
+                    ]
+    , test "should not report imported type as unused when it's used in a type annotation, and the name conflicts with an imported custom type constructor" <|
+        \() ->
+            [ """module Main exposing (thing, main)
+import ModuleA exposing (A)
+import ModuleB exposing (Variants(..))
+
+thing : Variants
+thing = A
+
+main : A
+main = ()
+"""
+            , """module ModuleA exposing (A)
+type alias A = ()"""
+            , """module ModuleB exposing (Variants(..))
+type Variants = A"""
             ]
                 |> Review.Test.runOnModules rule
                 |> Review.Test.expectNoErrors
@@ -1932,6 +2058,22 @@ port input : (Json.Decode.Value -> msg) -> Sub msg
 
 a = output ()
 subscriptions = input GotInput"""
+                |> Review.Test.run rule
+                |> Review.Test.expectNoErrors
+    , test "should not report exposed ports" <|
+        \() ->
+            """port module SomeModule exposing (output, input)
+import Json.Decode
+port output : () -> Cmd msg
+port input : (Json.Decode.Value -> msg) -> Sub msg"""
+                |> Review.Test.run rule
+                |> Review.Test.expectNoErrors
+    , test "should not report exposed ports using (..)" <|
+        \() ->
+            """port module SomeModule exposing (..)
+import Json.Decode
+port output : () -> Cmd msg
+port input : (Json.Decode.Value -> msg) -> Sub msg"""
                 |> Review.Test.run rule
                 |> Review.Test.expectNoErrors
     , test "should report unused ports (ingoing)" <|

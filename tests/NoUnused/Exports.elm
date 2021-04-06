@@ -504,8 +504,8 @@ declarationName declaration =
         Declaration.CustomTypeDeclaration type_ ->
             Just <| Node.value type_.name
 
-        Declaration.AliasDeclaration alias ->
-            Just <| Node.value alias.name
+        Declaration.AliasDeclaration alias_ ->
+            Just <| Node.value alias_.name
 
         Declaration.PortDeclaration port_ ->
             Just <| Node.value port_.name
@@ -569,8 +569,8 @@ typesUsedInDeclaration moduleContext declaration =
                         False
             )
 
-        Declaration.AliasDeclaration alias ->
-            ( collectTypesFromTypeAnnotation moduleContext alias.typeAnnotation, False )
+        Declaration.AliasDeclaration alias_ ->
+            ( collectTypesFromTypeAnnotation moduleContext alias_.typeAnnotation, False )
 
         Declaration.PortDeclaration _ ->
             ( [], False )
@@ -647,6 +647,25 @@ expressionVisitor node moduleContext =
 
                 Nothing ->
                     ( [], moduleContext )
+
+        Expression.LetExpression { declarations } ->
+            let
+                used : List ( ModuleName, String )
+                used =
+                    List.concatMap
+                        (\declaration ->
+                            case Node.value declaration of
+                                Expression.LetFunction function ->
+                                    function.signature
+                                        |> Maybe.map (Node.value >> .typeAnnotation >> collectTypesFromTypeAnnotation moduleContext)
+                                        |> Maybe.withDefault []
+
+                                Expression.LetDestructuring _ _ ->
+                                    []
+                        )
+                        declarations
+            in
+            ( [], registerMultipleAsUsed used moduleContext )
 
         _ ->
             ( [], moduleContext )

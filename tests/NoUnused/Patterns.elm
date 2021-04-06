@@ -154,8 +154,7 @@ expressionEnterVisitorHelp node context =
         Expression.CaseExpression { cases } ->
             ( []
             , { context
-                | scopes = { declared = [], used = Set.empty } :: context.scopes
-                , scopesToCreate =
+                | scopesToCreate =
                     List.foldl
                         (\( pattern, expr ) scopesToCreate -> RangeDict.insert (Node.range expr) (findPatterns Matching pattern) scopesToCreate)
                         context.scopesToCreate

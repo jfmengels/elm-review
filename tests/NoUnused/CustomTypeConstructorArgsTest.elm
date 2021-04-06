@@ -5,6 +5,7 @@ import Json.Decode as Decode
 import NoUnused.CustomTypeConstructorArgs exposing (rule)
 import Review.Project as Project exposing (Project)
 import Review.Test
+import Review.Test.Dependencies
 import Test exposing (Test, describe, test)
 
 
@@ -384,12 +385,146 @@ type Msg
                 ]
                     |> Review.Test.runOnModules rule
                     |> Review.Test.expectNoErrors
+        , test "should not report Never arguments" <|
+            \() ->
+                """
+module Main exposing (a)
+a = 1
+type CustomType
+  = B Never
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report Never arguments even when aliased" <|
+            \() ->
+                """
+module Main exposing (a)
+import Basics as B
+a = 1
+type CustomType
+  = B B.Never
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
+        , test "should report arguments next to Never" <|
+            -- Honestly I'm unsure about doing this, but I currently don't see
+            -- the point of having other args next to a Never arg.
+            \() ->
+                """
+module Main exposing (a)
+a = 1
+type CustomType
+  = B SomeData Never
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = message
+                            , details = details
+                            , under = "SomeData"
+                            }
+                        ]
+        , test "should not report args for type constructors used in an equality expression (==)" <|
+            \() ->
+                """
+module MyModule exposing (a, b)
+type Foo = Unused Int | B
+a = Unused 0 == b
+b = B
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report args for type constructors used in an inequality expression (/=)" <|
+            \() ->
+                """
+module MyModule exposing (a, b)
+type Foo = Unused Int | B
+a = Unused 0 /= b
+b = B
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
+        , test "should report args for type constructors used in non-equality operator expressions" <|
+            \() ->
+                """
+module MyModule exposing (a, b)
+type Foo = Unused Int | B
+a = Unused <| b
+b = B
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = message
+                            , details = details
+                            , under = "Int"
+                            }
+                        ]
+        , test "should not report args for type constructors used in an equality expression with parenthesized expressions" <|
+            \() ->
+                """
+module MyModule exposing (a, b)
+type Foo = Unused Int | B
+a = ( Unused 0 ) == b
+b = ( B )
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report args for type constructors used in an equality expression with tuples" <|
+            \() ->
+                """
+module MyModule exposing (a, b)
+type Foo = Unused Int | B
+a = ( Unused 0, Unused 1 ) == b
+b = ( B, B )
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report args for type constructors used in an equality expression with lists" <|
+            \() ->
+                """
+module MyModule exposing (a, b)
+type Foo = Unused Int | B
+a = [ Unused 0 ] == b
+b = [ B ]
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report args for type constructors used in an equality expression (==) in a different module" <|
+            \() ->
+                [ """
+module MyModule exposing (a, b)
+import Foo as F
+a = F.Unused 0 == b
+b = F.B
+""", """
+module Foo exposing (Foo(..))
+type Foo = Unused Int | B
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
+        , test "should report args for type constructors used in an equality expression when value is passed to a function" <|
+            \() ->
+                """
+module MyModule exposing (a, b)
+type Foo = Unused Int | B
+a = foo (Unused 0) == b
+b = B
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = message
+                            , details = details
+                            , under = "Int"
+                            }
+                        ]
         ]
 
 
 packageProject : Project
 packageProject =
-    Project.new
+    Review.Test.Dependencies.projectWithElmCore
         |> Project.addElmJson (createElmJson packageElmJson)
 
 

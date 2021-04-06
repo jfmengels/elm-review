@@ -302,6 +302,37 @@ bar =
             Nothing
 """
                     ]
+    , test "should report patterns in nested case declarations" <|
+        \() ->
+            """
+module A exposing (..)
+foo =
+    case thing of
+        Just data ->
+            case () of
+                _ -> 1
+        _ ->
+            bosh
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Value `data` is not used."
+                        , details = useOrReplaceDetails
+                        , under = "data"
+                        }
+                        |> Review.Test.whenFixed
+                            """
+module A exposing (..)
+foo =
+    case thing of
+        Just _ ->
+            case () of
+                _ -> 1
+        _ ->
+            bosh
+"""
+                    ]
     ]
 
 
