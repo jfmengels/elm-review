@@ -84,7 +84,7 @@ declarationListVisitor declarations context =
             ( [ Rule.errorWithFix
                     { message = "Module exposes everything implicitly \"(..)\""
                     , details =
-                        [ "Modules should have hidden implementation details with an explicit API so that the module is used in a proper and controlled way. The users of this module should not have to know about what is inside a module it is using, and they shouldn't need to access it's internal details. Therefore, the API should be explicitly defined and ideally as small as possible."
+                        [ "Modules should have hidden implementation details with an explicit API so that the module is used in a proper and controlled way. The users of this module should not have to know about what is inside a module it is using, and they shouldn't need to access its internal details. Therefore, the API should be explicitly defined and ideally as small as possible."
                         ]
                     }
                     { start = { row = range.start.row, column = range.start.column - 1 }

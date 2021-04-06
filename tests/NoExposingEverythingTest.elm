@@ -29,7 +29,7 @@ bar = 2
                         [ Review.Test.error
                             { message = "Module exposes everything implicitly \"(..)\""
                             , details =
-                                [ "Modules should have hidden implementation details with an explicit API so that the module is used in a proper and controlled way. The users of this module should not have to know about what is inside a module it is using, and they shouldn't need to access it's internal details. Therefore, the API should be explicitly defined and ideally as small as possible."
+                                [ "Modules should have hidden implementation details with an explicit API so that the module is used in a proper and controlled way. The users of this module should not have to know about what is inside a module it is using, and they shouldn't need to access its internal details. Therefore, the API should be explicitly defined and ideally as small as possible."
                                 ]
                             , under = "(..)"
                             }
@@ -51,7 +51,7 @@ type Foo = Foo
                         [ Review.Test.error
                             { message = "Module exposes everything implicitly \"(..)\""
                             , details =
-                                [ "Modules should have hidden implementation details with an explicit API so that the module is used in a proper and controlled way. The users of this module should not have to know about what is inside a module it is using, and they shouldn't need to access it's internal details. Therefore, the API should be explicitly defined and ideally as small as possible."
+                                [ "Modules should have hidden implementation details with an explicit API so that the module is used in a proper and controlled way. The users of this module should not have to know about what is inside a module it is using, and they shouldn't need to access its internal details. Therefore, the API should be explicitly defined and ideally as small as possible."
                                 ]
                             , under = "(..)"
                             }
@@ -72,7 +72,7 @@ type alias Foo = String
                         [ Review.Test.error
                             { message = "Module exposes everything implicitly \"(..)\""
                             , details =
-                                [ "Modules should have hidden implementation details with an explicit API so that the module is used in a proper and controlled way. The users of this module should not have to know about what is inside a module it is using, and they shouldn't need to access it's internal details. Therefore, the API should be explicitly defined and ideally as small as possible."
+                                [ "Modules should have hidden implementation details with an explicit API so that the module is used in a proper and controlled way. The users of this module should not have to know about what is inside a module it is using, and they shouldn't need to access its internal details. Therefore, the API should be explicitly defined and ideally as small as possible."
                                 ]
                             , under = "(..)"
                             }
@@ -93,7 +93,7 @@ port foo : String
                         [ Review.Test.error
                             { message = "Module exposes everything implicitly \"(..)\""
                             , details =
-                                [ "Modules should have hidden implementation details with an explicit API so that the module is used in a proper and controlled way. The users of this module should not have to know about what is inside a module it is using, and they shouldn't need to access it's internal details. Therefore, the API should be explicitly defined and ideally as small as possible."
+                                [ "Modules should have hidden implementation details with an explicit API so that the module is used in a proper and controlled way. The users of this module should not have to know about what is inside a module it is using, and they shouldn't need to access its internal details. Therefore, the API should be explicitly defined and ideally as small as possible."
                                 ]
                             , under = "(..)"
                             }
@@ -118,7 +118,7 @@ cons =
                         [ Review.Test.error
                             { message = "Module exposes everything implicitly \"(..)\""
                             , details =
-                                [ "Modules should have hidden implementation details with an explicit API so that the module is used in a proper and controlled way. The users of this module should not have to know about what is inside a module it is using, and they shouldn't need to access it's internal details. Therefore, the API should be explicitly defined and ideally as small as possible."
+                                [ "Modules should have hidden implementation details with an explicit API so that the module is used in a proper and controlled way. The users of this module should not have to know about what is inside a module it is using, and they shouldn't need to access its internal details. Therefore, the API should be explicitly defined and ideally as small as possible."
                                 ]
                             , under = "(..)"
                             }
