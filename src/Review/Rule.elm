@@ -3312,21 +3312,21 @@ errorToReviewError error_ =
 
 {-| Get the name of the rule that triggered this [`Error`](#Error).
 -}
-errorRuleName : Review.Error.ReviewError -> String
+errorRuleName : ReviewError -> String
 errorRuleName (Review.Error.ReviewError err) =
     err.ruleName
 
 
 {-| Get the error message of an [`Error`](#Error).
 -}
-errorMessage : Review.Error.ReviewError -> String
+errorMessage : ReviewError -> String
 errorMessage (Review.Error.ReviewError err) =
     err.message
 
 
 {-| Get the error details of an [`Error`](#Error).
 -}
-errorDetails : Review.Error.ReviewError -> List String
+errorDetails : ReviewError -> List String
 errorDetails (Review.Error.ReviewError err) =
     err.details
 
@@ -3334,7 +3334,7 @@ errorDetails (Review.Error.ReviewError err) =
 {-| Get the [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Range)
 of an [`Error`](#Error).
 -}
-errorRange : Review.Error.ReviewError -> Range
+errorRange : ReviewError -> Range
 errorRange (Review.Error.ReviewError err) =
     err.range
 
@@ -3342,21 +3342,21 @@ errorRange (Review.Error.ReviewError err) =
 {-| Get the automatic [`fixes`](./Review-Fix#Fix) of an [`Error`](#Error), if it
 defined any.
 -}
-errorFixes : Review.Error.ReviewError -> Maybe (List Fix)
+errorFixes : ReviewError -> Maybe (List Fix)
 errorFixes (Review.Error.ReviewError err) =
     err.fixes
 
 
 {-| Get the file path of an [`Error`](#Error).
 -}
-errorFilePath : Review.Error.ReviewError -> String
+errorFilePath : ReviewError -> String
 errorFilePath (Review.Error.ReviewError err) =
     err.filePath
 
 
 {-| Get the target of an [`Error`](#Error).
 -}
-errorTarget : Review.Error.ReviewError -> Review.Error.Target
+errorTarget : ReviewError -> Review.Error.Target
 errorTarget (Review.Error.ReviewError err) =
     err.target
 
