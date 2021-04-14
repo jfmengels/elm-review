@@ -278,6 +278,7 @@ import Elm.Syntax.Type
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
 import Json.Encode as Encode
+import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix as Fix exposing (Fix)
@@ -3115,7 +3116,7 @@ errorForElmJsonWithFix (ElmJsonKey elmJson) getErrorInfo getFix =
                         encoded : String
                         encoded =
                             updatedProject
-                                |> Elm.Project.encode
+                                |> Review.ElmProjectEncoder.encode
                                 |> Encode.encode 4
                     in
                     [ Fix.replaceRangeBy
