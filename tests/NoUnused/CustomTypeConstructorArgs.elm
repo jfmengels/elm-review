@@ -60,7 +60,7 @@ This rule attempts to detect when the custom type is used in comparisons, but it
 
 ## When not to enable this rule?
 
-If you like giving names to all arguments when pattern matching, then this rule will not found many problems.
+If you like giving names to all arguments when pattern matching, then this rule will not find many problems.
 This rule will work well when enabled along with [`NoUnused.Patterns`](./NoUnused-Patterns).
 
 Also, if you like comparing custom types in the way described above, you might pass on this rule, or want to be very careful when enabling it.
@@ -418,6 +418,21 @@ expressionVisitor node context =
                         Set.union
                             (findCustomTypes context.lookupTable left)
                             (findCustomTypes context.lookupTable right)
+                in
+                ( [], { context | customTypesNotToReport = Set.union customTypesNotToReport context.customTypesNotToReport } )
+
+            else
+                ( [], context )
+
+        Expression.Application ((Node _ (Expression.PrefixOperator operator)) :: restOfArgs) ->
+            if operator == "==" || operator == "/=" then
+                let
+                    customTypesNotToReport : Set ( ModuleName, String )
+                    customTypesNotToReport =
+                        List.foldl
+                            (findCustomTypes context.lookupTable >> Set.union)
+                            Set.empty
+                            restOfArgs
                 in
                 ( [], { context | customTypesNotToReport = Set.union customTypesNotToReport context.customTypesNotToReport } )
 

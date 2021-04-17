@@ -23,6 +23,7 @@ import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.Type as Type
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import NoUnused.RangeDict as RangeDict exposing (RangeDict)
+import Review.Fix as Fix exposing (Fix)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
@@ -165,17 +166,26 @@ type alias ConstructorName =
 type ExposedConstructors
     = ExposedConstructors
         { moduleKey : Rule.ModuleKey
-        , customTypes : Dict CustomTypeName (Dict ConstructorName (Node ConstructorName))
+        , customTypes : Dict CustomTypeName (Dict ConstructorName ConstructorInformation)
         }
+
+
+type alias ConstructorInformation =
+    { name : String
+    , rangeToReport : Range
+    , rangeToRemove : Maybe Range
+    }
 
 
 type alias ProjectContext =
     { exposedModules : Set ModuleNameAsString
-    , exposedConstructors : Dict ModuleNameAsString ExposedConstructors
+    , declaredConstructors : Dict ModuleNameAsString ExposedConstructors
     , usedConstructors : Dict ModuleNameAsString (Set ConstructorName)
     , phantomVariables : Dict ModuleName (List ( CustomTypeName, Int ))
     , wasUsedInLocationThatNeedsItself : Set ( ModuleNameAsString, ConstructorName )
     , wasUsedInComparisons : Set ( ModuleNameAsString, ConstructorName )
+    , wasUsedInOtherModules : Set ( ModuleNameAsString, ConstructorName )
+    , fixesForRemovingConstructor : Dict ( ModuleNameAsString, ConstructorName ) (List Fix)
     }
 
 
@@ -185,13 +195,15 @@ type alias ModuleContext =
     , isExposed : Bool
     , exposesEverything : Bool
     , exposedConstructors : Dict ModuleNameAsString ExposedConstructors
-    , declaredTypesWithConstructors : Dict CustomTypeName (Dict ConstructorName (Node ConstructorName))
+    , declaredTypesWithConstructors : Dict CustomTypeName (Dict ConstructorName ConstructorInformation)
     , usedFunctionsOrValues : Dict ModuleNameAsString (Set ConstructorName)
     , phantomVariables : Dict ModuleName (List ( CustomTypeName, Int ))
     , ignoreBlocks : List (RangeDict (Set ( ModuleName, String )))
     , constructorsToIgnore : List (Set ( ModuleName, String ))
     , wasUsedInLocationThatNeedsItself : Set ( ModuleNameAsString, ConstructorName )
     , wasUsedInComparisons : Set ( ModuleNameAsString, ConstructorName )
+    , fixesForRemovingConstructor : Dict ConstructorName (List Fix)
+    , wasUsedInOtherModules : Set ( ModuleNameAsString, ConstructorName )
     , ignoredComparisonRanges : List Range
     }
 
@@ -199,7 +211,7 @@ type alias ModuleContext =
 initialProjectContext : List { moduleName : String, typeName : String, index : Int } -> ProjectContext
 initialProjectContext phantomTypes =
     { exposedModules = Set.empty
-    , exposedConstructors = Dict.empty
+    , declaredConstructors = Dict.empty
     , usedConstructors = Dict.empty
     , phantomVariables =
         List.foldl
@@ -212,6 +224,8 @@ initialProjectContext phantomTypes =
             phantomTypes
     , wasUsedInLocationThatNeedsItself = Set.empty
     , wasUsedInComparisons = Set.empty
+    , wasUsedInOtherModules = Set.empty
+    , fixesForRemovingConstructor = Dict.empty
     }
 
 
@@ -220,7 +234,7 @@ fromProjectToModule lookupTable metadata projectContext =
     { lookupTable = lookupTable
     , exposedCustomTypesWithConstructors = Set.empty
     , isExposed = Set.member (Rule.moduleNameFromMetadata metadata |> String.join ".") projectContext.exposedModules
-    , exposedConstructors = projectContext.exposedConstructors
+    , exposedConstructors = projectContext.declaredConstructors
     , exposesEverything = False
     , declaredTypesWithConstructors = Dict.empty
     , usedFunctionsOrValues = Dict.empty
@@ -229,6 +243,8 @@ fromProjectToModule lookupTable metadata projectContext =
     , constructorsToIgnore = []
     , wasUsedInLocationThatNeedsItself = Set.empty
     , wasUsedInComparisons = Set.empty
+    , wasUsedInOtherModules = Set.empty
+    , fixesForRemovingConstructor = Dict.empty
     , ignoredComparisonRanges = []
     }
 
@@ -257,7 +273,7 @@ fromModuleToProject moduleKey metadata moduleContext =
             String.join "." moduleName
     in
     { exposedModules = Set.empty
-    , exposedConstructors =
+    , declaredConstructors =
         if moduleContext.isExposed then
             if moduleContext.exposesEverything then
                 Dict.empty
@@ -306,13 +322,29 @@ fromModuleToProject moduleKey metadata moduleContext =
                     untouched
             )
             moduleContext.wasUsedInComparisons
+    , wasUsedInOtherModules =
+        List.foldl
+            (\( moduleName_, constructors ) acc ->
+                Set.union
+                    (Set.map (Tuple.pair moduleName_) constructors)
+                    acc
+            )
+            moduleContext.wasUsedInOtherModules
+            -- TODO add test to make sure we don't fix something that is pattern matched in other modules
+            (Dict.toList <| Dict.remove "" moduleContext.usedFunctionsOrValues)
+    , fixesForRemovingConstructor =
+        mapDictKeys
+            (\constructorName ->
+                ( moduleNameAsString, constructorName )
+            )
+            moduleContext.fixesForRemovingConstructor
     }
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts newContext previousContext =
     { exposedModules = previousContext.exposedModules
-    , exposedConstructors = Dict.union newContext.exposedConstructors previousContext.exposedConstructors
+    , declaredConstructors = Dict.union newContext.declaredConstructors previousContext.declaredConstructors
     , usedConstructors =
         Dict.merge
             Dict.insert
@@ -324,7 +356,20 @@ foldProjectContexts newContext previousContext =
     , phantomVariables = Dict.union newContext.phantomVariables previousContext.phantomVariables
     , wasUsedInLocationThatNeedsItself = Set.union newContext.wasUsedInLocationThatNeedsItself previousContext.wasUsedInLocationThatNeedsItself
     , wasUsedInComparisons = Set.union newContext.wasUsedInComparisons previousContext.wasUsedInComparisons
+    , wasUsedInOtherModules = Set.union newContext.wasUsedInOtherModules previousContext.wasUsedInOtherModules
+    , fixesForRemovingConstructor = mergeDictsWithLists newContext.fixesForRemovingConstructor previousContext.fixesForRemovingConstructor
     }
+
+
+mergeDictsWithLists : Dict comparable appendable -> Dict comparable appendable -> Dict comparable appendable
+mergeDictsWithLists left right =
+    Dict.merge
+        (\key a dict -> Dict.insert key a dict)
+        (\key a b dict -> Dict.insert key (a ++ b) dict)
+        (\key b dict -> Dict.insert key b dict)
+        left
+        right
+        Dict.empty
 
 
 
@@ -455,22 +500,42 @@ declarationVisitor node context =
 
             else
                 let
-                    constructorsForCustomType : Dict String (Node String)
+                    constructorsAndNext : List ( Maybe (Node Type.ValueConstructor), Node Type.ValueConstructor )
+                    constructorsAndNext =
+                        List.map2 Tuple.pair
+                            (List.map Just (List.drop 1 constructors) ++ [ Nothing ])
+                            constructors
+
+                    constructorsForCustomType : Dict String ConstructorInformation
                     constructorsForCustomType =
                         List.foldl
-                            (\constructor dict ->
+                            (\( next, constructor ) ( prev, dict ) ->
                                 let
                                     nameNode : Node String
                                     nameNode =
                                         (Node.value constructor).name
+
+                                    constructorName : String
+                                    constructorName =
+                                        Node.value nameNode
+
+                                    constructorInformation : ConstructorInformation
+                                    constructorInformation =
+                                        { name = constructorName
+                                        , rangeToReport = Node.range nameNode
+                                        , rangeToRemove = findRangeToRemove prev constructor next
+                                        }
                                 in
-                                Dict.insert
-                                    (Node.value nameNode)
-                                    nameNode
+                                ( Just constructor
+                                , Dict.insert
+                                    constructorName
+                                    constructorInformation
                                     dict
+                                )
                             )
-                            Dict.empty
-                            constructors
+                            ( Nothing, Dict.empty )
+                            constructorsAndNext
+                            |> Tuple.second
                 in
                 ( []
                 , { context
@@ -494,6 +559,27 @@ declarationVisitor node context =
 
         _ ->
             ( [], context )
+
+
+findRangeToRemove : Maybe (Node a) -> Node Type.ValueConstructor -> Maybe (Node c) -> Maybe { start : Elm.Syntax.Range.Location, end : Elm.Syntax.Range.Location }
+findRangeToRemove previousConstructor constructor nextConstructor =
+    case previousConstructor of
+        Just prev ->
+            Just
+                { start = (Node.range prev).end
+                , end = (Node.range constructor).end
+                }
+
+        Nothing ->
+            case nextConstructor of
+                Just next ->
+                    Just
+                        { start = constructor |> Node.value |> .name |> Node.range |> .start
+                        , end = (Node.range next).start
+                        }
+
+                Nothing ->
+                    Nothing
 
 
 isPhantomCustomType : Node String -> List (Node Type.ValueConstructor) -> Bool
@@ -582,11 +668,86 @@ expressionVisitorHelp node moduleContext =
         Expression.OperatorApplication operator _ left right ->
             if operator == "==" || operator == "/=" then
                 let
-                    ranges : List Range
-                    ranges =
-                        List.concatMap staticRanges [ left, right ]
+                    constructors : Set ( ModuleNameAsString, ConstructorName )
+                    constructors =
+                        Set.union
+                            (findConstructors moduleContext.lookupTable left)
+                            (findConstructors moduleContext.lookupTable right)
+
+                    replacement : String
+                    replacement =
+                        if operator == "==" then
+                            "False"
+
+                        else
+                            "True"
+
+                    ( fromThisModule, fromOtherModules ) =
+                        constructors
+                            |> Set.toList
+                            |> List.partition (\( moduleName, _ ) -> moduleName == "")
+
+                    fixes : Dict ConstructorName (List Fix)
+                    fixes =
+                        fromThisModule
+                            |> List.map (\( _, constructor ) -> Dict.singleton constructor [ Fix.replaceRangeBy (Node.range node) replacement ])
+                            |> List.foldl mergeDictsWithLists Dict.empty
                 in
-                ( [], { moduleContext | ignoredComparisonRanges = ranges ++ moduleContext.ignoredComparisonRanges } )
+                ( []
+                , { moduleContext
+                    | ignoredComparisonRanges = staticRanges node ++ moduleContext.ignoredComparisonRanges
+                    , fixesForRemovingConstructor = mergeDictsWithLists fixes moduleContext.fixesForRemovingConstructor
+                    , wasUsedInOtherModules = Set.union (Set.fromList fromOtherModules) moduleContext.wasUsedInOtherModules
+                  }
+                )
+
+            else
+                ( [], moduleContext )
+
+        Expression.Application ((Node _ (Expression.PrefixOperator operator)) :: arguments) ->
+            if operator == "==" || operator == "/=" then
+                let
+                    constructors : Set ( ModuleNameAsString, ConstructorName )
+                    constructors =
+                        List.foldl
+                            (findConstructors moduleContext.lookupTable >> Set.union)
+                            Set.empty
+                            arguments
+
+                    replacementBoolean : String
+                    replacementBoolean =
+                        if operator == "==" then
+                            "False"
+
+                        else
+                            "True"
+
+                    replacement : String
+                    replacement =
+                        if List.length arguments == 2 then
+                            replacementBoolean
+
+                        else
+                            "always " ++ replacementBoolean
+
+                    ( fromThisModule, fromOtherModules ) =
+                        constructors
+                            |> Set.toList
+                            |> List.partition (\( moduleName, _ ) -> moduleName == "")
+
+                    fixes : Dict ConstructorName (List Fix)
+                    fixes =
+                        fromThisModule
+                            |> List.map (\( _, constructor ) -> Dict.singleton constructor [ Fix.replaceRangeBy (Node.range node) replacement ])
+                            |> List.foldl mergeDictsWithLists Dict.empty
+                in
+                ( []
+                , { moduleContext
+                    | ignoredComparisonRanges = staticRanges node ++ moduleContext.ignoredComparisonRanges
+                    , fixesForRemovingConstructor = mergeDictsWithLists fixes moduleContext.fixesForRemovingConstructor
+                    , wasUsedInOtherModules = Set.union (Set.fromList fromOtherModules) moduleContext.wasUsedInOtherModules
+                  }
+                )
 
             else
                 ( [], moduleContext )
@@ -608,18 +769,77 @@ expressionVisitorHelp node moduleContext =
 
         Expression.CaseExpression { cases } ->
             let
-                newCases : RangeDict (Set ( ModuleName, String ))
-                newCases =
-                    cases
-                        |> List.map (\( pattern, body ) -> ( Node.range body, constructorsInPattern moduleContext.lookupTable pattern ))
+                found : List { ignoreBlock : ( Range, Set ( ModuleName, ConstructorName ) ), fixes : Dict ConstructorName (List Fix) }
+                found =
+                    List.map2
+                        (forOne moduleContext.lookupTable)
+                        (Nothing :: List.map (Tuple.second >> Node.range >> .end >> Just) cases)
+                        cases
+
+                ignoredBlocks : RangeDict (Set ( ModuleName, String ))
+                ignoredBlocks =
+                    List.map .ignoreBlock found
                         |> RangeDict.fromList
+
+                wasUsedInOtherModules : Set ( ModuleNameAsString, ConstructorName )
+                wasUsedInOtherModules =
+                    found
+                        |> List.map (.ignoreBlock >> Tuple.second >> toSetOfModuleNameAsString)
+                        |> List.foldl Set.union moduleContext.wasUsedInOtherModules
             in
             ( []
-            , { moduleContext | ignoreBlocks = newCases :: moduleContext.ignoreBlocks }
+            , { moduleContext
+                | ignoreBlocks = ignoredBlocks :: moduleContext.ignoreBlocks
+                , wasUsedInOtherModules = wasUsedInOtherModules
+                , fixesForRemovingConstructor =
+                    List.foldl
+                        mergeDictsWithLists
+                        moduleContext.fixesForRemovingConstructor
+                        (List.map .fixes found)
+              }
             )
 
         _ ->
             ( [], moduleContext )
+
+
+toSetOfModuleNameAsString : Set ( ModuleName, ConstructorName ) -> Set ( ModuleNameAsString, ConstructorName )
+toSetOfModuleNameAsString set =
+    set
+        |> Set.map (Tuple.mapFirst (String.join "."))
+        |> Set.filter (\( moduleName, _ ) -> moduleName /= "")
+
+
+forOne : ModuleNameLookupTable -> Maybe Elm.Syntax.Range.Location -> ( Node Pattern, Node a ) -> { ignoreBlock : ( Range, Set ( ModuleName, String ) ), fixes : Dict ConstructorName (List Fix) }
+forOne lookupTable previousLocation ( pattern, body ) =
+    let
+        constructors : Set ( ModuleName, String )
+        constructors =
+            constructorsInPattern lookupTable pattern
+
+        fixes : Dict ConstructorName (List Fix)
+        fixes =
+            List.foldl
+                (\( moduleName, constructorName ) acc ->
+                    if moduleName == [] then
+                        Dict.insert
+                            constructorName
+                            [ Fix.removeRange
+                                { start = Maybe.withDefault (Node.range pattern).start previousLocation
+                                , end = (Node.range body).end
+                                }
+                            ]
+                            acc
+
+                    else
+                        acc
+                )
+                Dict.empty
+                (Set.toList constructors)
+    in
+    { ignoreBlock = ( Node.range body, constructors )
+    , fixes = fixes
+    }
 
 
 staticRanges : Node Expression -> List Range
@@ -631,6 +851,13 @@ staticRanges node =
         Expression.Application ((Node _ (Expression.FunctionOrValue _ name)) :: restOfArgs) ->
             if isCapitalized name then
                 Node.range node :: List.concatMap staticRanges restOfArgs
+
+            else
+                []
+
+        Expression.Application ((Node _ (Expression.PrefixOperator operator)) :: restOfArgs) ->
+            if List.member operator [ "+", "-", "==", "/=" ] then
+                List.concatMap staticRanges restOfArgs
 
             else
                 []
@@ -662,6 +889,66 @@ staticRanges node =
 
         _ ->
             []
+
+
+findConstructors : ModuleNameLookupTable -> Node Expression -> Set ( ModuleNameAsString, ConstructorName )
+findConstructors lookupTable node =
+    case Node.value node of
+        Expression.FunctionOrValue _ name ->
+            if isCapitalized name then
+                case ModuleNameLookupTable.moduleNameFor lookupTable node of
+                    Just realModuleName ->
+                        Set.singleton ( String.join "." realModuleName, name )
+
+                    Nothing ->
+                        Set.empty
+
+            else
+                Set.empty
+
+        Expression.Application ((Node _ (Expression.FunctionOrValue _ name)) :: restOfArgs) ->
+            if isCapitalized name then
+                List.foldl
+                    (findConstructors lookupTable >> Set.union)
+                    (case ModuleNameLookupTable.moduleNameFor lookupTable node of
+                        Just realModuleName ->
+                            Set.singleton ( String.join "." realModuleName, name )
+
+                        Nothing ->
+                            Set.empty
+                    )
+                    restOfArgs
+
+            else
+                Set.empty
+
+        Expression.OperatorApplication operator _ left right ->
+            if List.member operator [ "+", "-" ] then
+                List.foldl (findConstructors lookupTable >> Set.union) Set.empty [ left, right ]
+
+            else
+                Set.empty
+
+        Expression.ListExpr nodes ->
+            List.foldl (findConstructors lookupTable >> Set.union) Set.empty nodes
+
+        Expression.TupledExpression nodes ->
+            List.foldl (findConstructors lookupTable >> Set.union) Set.empty nodes
+
+        Expression.ParenthesizedExpression expr ->
+            findConstructors lookupTable expr
+
+        Expression.RecordExpr fields ->
+            List.foldl (Node.value >> Tuple.second >> findConstructors lookupTable >> Set.union) Set.empty fields
+
+        Expression.RecordUpdateExpression _ fields ->
+            List.foldl (Node.value >> Tuple.second >> findConstructors lookupTable >> Set.union) Set.empty fields
+
+        Expression.RecordAccess expr _ ->
+            findConstructors lookupTable expr
+
+        _ ->
+            Set.empty
 
 
 constructorsInPattern : ModuleNameLookupTable -> Node Pattern -> Set ( ModuleName, String )
@@ -715,12 +1002,7 @@ registerUsedFunctionOrValue range moduleName name moduleContext =
         }
 
     else if List.any (Set.member ( moduleName, name )) moduleContext.constructorsToIgnore then
-        { moduleContext
-            | wasUsedInLocationThatNeedsItself =
-                Set.insert
-                    ( String.join "." moduleName, name )
-                    moduleContext.wasUsedInLocationThatNeedsItself
-        }
+        { moduleContext | wasUsedInLocationThatNeedsItself = Set.insert ( String.join "." moduleName, name ) moduleContext.wasUsedInLocationThatNeedsItself }
 
     else
         { moduleContext
@@ -747,7 +1029,7 @@ isCapitalized name =
 
 finalProjectEvaluation : ProjectContext -> List (Error { useErrorForModule : () })
 finalProjectEvaluation projectContext =
-    projectContext.exposedConstructors
+    projectContext.declaredConstructors
         |> Dict.toList
         |> List.concatMap
             (\( moduleName, ExposedConstructors { moduleKey, customTypes } ) ->
@@ -765,13 +1047,15 @@ finalProjectEvaluation projectContext =
                                 |> Dict.filter (\constructorName _ -> not <| Set.member constructorName usedConstructors)
                                 |> Dict.values
                                 |> List.map
-                                    (\constructorName ->
+                                    (\constructorInformation ->
                                         errorForModule
                                             moduleKey
-                                            { wasUsedInLocationThatNeedsItself = Set.member ( moduleName, Node.value constructorName ) projectContext.wasUsedInLocationThatNeedsItself
-                                            , wasUsedInComparisons = Set.member ( moduleName, Node.value constructorName ) projectContext.wasUsedInComparisons
+                                            { wasUsedInLocationThatNeedsItself = Set.member ( moduleName, constructorInformation.name ) projectContext.wasUsedInLocationThatNeedsItself
+                                            , wasUsedInComparisons = Set.member ( moduleName, constructorInformation.name ) projectContext.wasUsedInComparisons
+                                            , isUsedInOtherModules = Set.member ( moduleName, constructorInformation.name ) projectContext.wasUsedInOtherModules
+                                            , fixesForRemovingConstructor = Dict.get ( moduleName, constructorInformation.name ) projectContext.fixesForRemovingConstructor |> Maybe.withDefault []
                                             }
-                                            constructorName
+                                            constructorInformation
                                     )
                         )
             )
@@ -799,12 +1083,37 @@ defaultDetails =
     "This type constructor is never used. It might be handled everywhere it might appear, but there is no location where this value actually gets created."
 
 
-errorForModule : Rule.ModuleKey -> { wasUsedInLocationThatNeedsItself : Bool, wasUsedInComparisons : Bool } -> Node String -> Error scope
-errorForModule moduleKey conditions node =
-    Rule.errorForModule
+errorForModule :
+    Rule.ModuleKey
+    ->
+        { wasUsedInLocationThatNeedsItself : Bool
+        , wasUsedInComparisons : Bool
+        , isUsedInOtherModules : Bool
+        , fixesForRemovingConstructor : List Fix
+        }
+    -> ConstructorInformation
+    -> Error scope
+errorForModule moduleKey params constructorInformation =
+    Rule.errorForModuleWithFix
         moduleKey
-        (errorInformation conditions (Node.value node))
-        (Node.range node)
+        (errorInformation
+            { wasUsedInLocationThatNeedsItself = params.wasUsedInLocationThatNeedsItself
+            , wasUsedInComparisons = params.wasUsedInComparisons
+            }
+            constructorInformation.name
+        )
+        constructorInformation.rangeToReport
+        (case constructorInformation.rangeToRemove of
+            Just rangeToRemove ->
+                if params.isUsedInOtherModules then
+                    []
+
+                else
+                    Fix.removeRange rangeToRemove :: params.fixesForRemovingConstructor
+
+            Nothing ->
+                []
+        )
 
 
 
@@ -942,3 +1251,11 @@ listAtIndex index list =
 
         ( n, _ :: rest ) ->
             listAtIndex (n - 1) rest
+
+
+mapDictKeys : (comparable -> comparable1) -> Dict comparable v -> Dict comparable1 v
+mapDictKeys keyMapper dict =
+    Dict.foldl
+        (\key value acc -> Dict.insert (keyMapper key) value acc)
+        Dict.empty
+        dict

@@ -460,6 +460,26 @@ b = B
                             , under = "Int"
                             }
                         ]
+        , test "should not report args for type constructors used as arguments to a prefixed equality operator (==)" <|
+            \() ->
+                """
+module MyModule exposing (a, b)
+type Foo = Unused Int | B
+a = (==) b (Unused 0)
+b = B
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report args for type constructors used as arguments to a prefixed inequality operator (/=)" <|
+            \() ->
+                """
+module MyModule exposing (a, b)
+type Foo = Unused Int | B
+a = (/=) Unused 0 b
+b = B
+"""
+                    |> Review.Test.runWithProjectData packageProject rule
+                    |> Review.Test.expectNoErrors
         , test "should not report args for type constructors used in an equality expression with parenthesized expressions" <|
             \() ->
                 """
