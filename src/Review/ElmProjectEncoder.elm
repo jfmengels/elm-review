@@ -1,11 +1,11 @@
 module Review.ElmProjectEncoder exposing (encode)
 
-import Elm.Constraint as Constraint exposing (Constraint)
-import Elm.License as License exposing (License)
+import Elm.Constraint as Constraint
+import Elm.License as License
 import Elm.Module as Module
 import Elm.Package as Package
 import Elm.Project exposing (Deps, Exposed(..), Project(..))
-import Elm.Version as Version exposing (Version)
+import Elm.Version as Version
 import Json.Encode as E
 
 
