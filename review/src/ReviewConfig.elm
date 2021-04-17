@@ -52,7 +52,8 @@ config =
     , NoUnused.Parameters.rule
     , NoUnused.Patterns.rule
     , NoSimpleLetBody.rule
-    , NoUnnecessaryTrailingUnderscore.rule
+
+    --, NoUnnecessaryTrailingUnderscore.rule
     , NoUnused.Variables.rule
     ]
         |> List.map (Rule.ignoreErrorsForDirectories [ "src/Vendor/", "tests/Vendor/" ])
