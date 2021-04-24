@@ -531,8 +531,7 @@ collectUsedCustomTypeArgs lookupTable (Node range pattern) =
             in
             case ModuleNameLookupTable.moduleNameAt lookupTable range of
                 Just moduleName ->
-                    [ ( ( moduleName, name ), usedPositions ) ]
-                        ++ subList
+                    ( ( moduleName, name ), usedPositions ) :: subList
 
                 Nothing ->
                     subList

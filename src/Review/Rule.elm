@@ -765,7 +765,7 @@ duplicateModulesGlobalError duplicate =
             duplicate.paths
                 |> List.sort
                 |> List.map (\s -> "\n  - " ++ s)
-                |> String.join ""
+                |> String.concat
     in
     elmReviewGlobalError
         { message = "Found several modules named `" ++ String.join "." duplicate.moduleName ++ "`"
@@ -3678,12 +3678,7 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
 
         errors : List (Error {})
         errors =
-            case projectVisitor.traversalAndFolder of
-                TraverseAllModulesInParallel _ ->
-                    Exceptions.apply exceptions (accessInternalError >> .filePath) (errorsFromCache newCache)
-
-                TraverseImportedModulesFirst _ ->
-                    Exceptions.apply exceptions (accessInternalError >> .filePath) (errorsFromCache newCache)
+            Exceptions.apply exceptions (accessInternalError >> .filePath) (errorsFromCache newCache)
     in
     { errors = List.map (setRuleName name) errors
     , rule =

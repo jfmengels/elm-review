@@ -90,7 +90,7 @@ The source code in question is the one at index """
                     ++ """ starting with:
 
   `"""
-                    ++ (String.join "" <| List.take 1 <| String.split "\n" <| String.trim source)
+                    ++ (String.concat <| List.take 1 <| String.split "\n" <| String.trim source)
                     ++ "`"
     in
     failureMessage "TEST SOURCE CODE PARSING ERROR" (details ++ "\n\n" ++ hint)
