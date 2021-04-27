@@ -109,12 +109,17 @@ addModule : { path : String, source : String } -> Project -> Project
 addModule { path, source } project =
     case parseSource source of
         Ok ast ->
+            let
+                osAgnosticPath : String
+                osAgnosticPath =
+                    makePathOSAgnostic path
+            in
             project
                 |> addModuleToProject
                     { path = path
                     , source = source
                     , ast = ast
-                    , isInSourceDirectories = List.any (\dir -> String.startsWith dir path) (Internal.sourceDirectories project)
+                    , isInSourceDirectories = List.any (\dir -> String.startsWith (makePathOSAgnostic dir) osAgnosticPath) (Internal.sourceDirectories project)
                     }
                 |> removeFileFromFilesThatFailedToParse path
                 |> recomputeModuleGraphIfNeeded
@@ -141,13 +146,18 @@ positionAsInt { row, column } =
 -}
 addParsedModule : { path : String, source : String, ast : Elm.Syntax.File.File } -> Project -> Project
 addParsedModule { path, source, ast } project =
+    let
+        osAgnosticPath : String
+        osAgnosticPath =
+            makePathOSAgnostic path
+    in
     project
         |> removeFileFromFilesThatFailedToParse path
         |> addModuleToProject
             { path = path
             , source = source
             , ast = ast
-            , isInSourceDirectories = List.any (\dir -> String.startsWith dir path) (Internal.sourceDirectories project)
+            , isInSourceDirectories = List.any (\dir -> String.startsWith (makePathOSAgnostic dir) osAgnosticPath) (Internal.sourceDirectories project)
             }
         |> recomputeModuleGraphIfNeeded
 
@@ -283,7 +293,12 @@ addElmJson elmJson_ (Internal.Project project) =
             else
                 Dict.map
                     (\_ value ->
-                        { value | isInSourceDirectories = List.any (\dir -> String.startsWith dir value.path) sourceDirectories }
+                        let
+                            osAgnosticPath : String
+                            osAgnosticPath =
+                                makePathOSAgnostic value.path
+                        in
+                        { value | isInSourceDirectories = List.any (\dir -> String.startsWith dir osAgnosticPath) sourceDirectories }
                     )
                     project.modules
     in
@@ -299,7 +314,7 @@ sourceDirectoriesForProject : Elm.Project.Project -> List String
 sourceDirectoriesForProject elmJson_ =
     case elmJson_ of
         Elm.Project.Application { dirs } ->
-            List.map (removeDotSlashAtBeginning >> endWithSlash) dirs
+            List.map (removeDotSlashAtBeginning >> makePathOSAgnostic >> endWithSlash) dirs
 
         Elm.Project.Package _ ->
             [ "src/" ]
@@ -401,6 +416,11 @@ removeDependencies (Internal.Project project) =
 dependencies : Project -> Dict String Dependency
 dependencies (Internal.Project project) =
     project.dependencies
+
+
+makePathOSAgnostic : String -> String
+makePathOSAgnostic path =
+    String.replace "\\" "/" path
 
 
 
