@@ -4136,8 +4136,19 @@ getStringAtRange lines range =
     lines
         |> List.drop (range.start.row - 1)
         |> List.take (range.end.row - range.start.row + 1)
+        |> mapLast (String.slice 0 (range.end.column - 1))
         |> String.join "\n"
         |> String.dropLeft (range.start.column - 1)
+
+
+mapLast : (a -> a) -> List a -> List a
+mapLast mapper lines =
+    case List.reverse lines of
+        [] ->
+            lines
+
+        first :: rest ->
+            List.reverse (mapper first :: rest)
 
 
 getRowAtLine : List String -> Int -> String
