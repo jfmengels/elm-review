@@ -261,6 +261,7 @@ reason or seemingly inappropriately.
 -}
 
 import Ansi
+import Array
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Project
@@ -1255,6 +1256,7 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
                             }
                     , moduleKey = ModuleKey "dummy"
                     , moduleNameLookupTable = ModuleNameLookupTableInternal.empty
+                    , getStringAtRange = always "dummy"
                     }
 
                 initialModuleContext : moduleContext
@@ -3962,6 +3964,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                     , moduleNameLookupTable =
                         Dict.get (Review.Project.Internal.getModuleName module_) moduleNameLookupTables
                             |> Maybe.withDefault ModuleNameLookupTableInternal.empty
+                    , getStringAtRange = getStringAtRange (String.lines module_.source)
                     }
 
                 initialModuleContext : moduleContext
@@ -4106,6 +4109,50 @@ visitModuleForProjectRule schema initialContext module_ =
             )
             module_.ast.declarations
         |> (\( errors, moduleContext ) -> ( makeFinalEvaluation schema.finalEvaluationFns ( errors, moduleContext ), moduleContext ))
+
+
+getStringAtRange : List String -> Range -> String
+getStringAtRange lines range =
+    let
+        linesBefore : List String
+        linesBefore =
+            List.drop (range.start.row - 1) lines
+
+        linesAfter : List String
+        linesAfter =
+            lines
+                |> List.drop range.end.row
+
+        startLine : String
+        startLine =
+            getRowAtLine lines (range.start.row - 1)
+                |> String.dropLeft (range.start.column - 1)
+
+        endLine : String
+        endLine =
+            getRowAtLine lines (range.end.row - 1)
+                |> String.dropLeft (range.end.column - 1)
+    in
+    --List.concat
+    --    [ linesBefore
+    --    , startLine ++ replacement ++ endLine |> String.lines
+    --    , linesAfter
+    --    ]
+    "dummy"
+
+
+getRowAtLine : List String -> Int -> String
+getRowAtLine lines rowIndex =
+    case lines |> Array.fromList |> Array.get rowIndex of
+        Just line ->
+            if String.trim line /= "" then
+                line
+
+            else
+                ""
+
+        Nothing ->
+            ""
 
 
 visitImport :
@@ -4527,7 +4574,7 @@ withModuleKey (ContextCreator fn (RequestedData requested)) =
 withGetStringAtRange : ContextCreator (Range -> String) (from -> to) -> ContextCreator from to
 withGetStringAtRange (ContextCreator fn (RequestedData requested)) =
     ContextCreator
-        (\data -> fn data (always "DUMMY"))
+        (\data -> fn data data.getStringAtRange)
         -- TODO?
         (RequestedData requested)
 
@@ -4536,6 +4583,7 @@ type alias AvailableData =
     { metadata : Metadata
     , moduleKey : ModuleKey
     , moduleNameLookupTable : ModuleNameLookupTable
+    , getStringAtRange : Range -> String
     }
 
 
