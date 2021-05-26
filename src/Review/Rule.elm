@@ -4133,12 +4133,11 @@ getStringAtRange lines range =
             getRowAtLine lines (range.end.row - 1)
                 |> String.dropLeft (range.end.column - 1)
     in
-    --List.concat
-    --    [ linesBefore
-    --    , startLine ++ replacement ++ endLine |> String.lines
-    --    , linesAfter
-    --    ]
-    "dummy"
+    lines
+        |> List.drop (range.start.row - 1)
+        |> List.take (range.end.row - range.start.row + 1)
+        |> String.join "\n"
+        |> String.dropLeft (range.start.column - 1)
 
 
 getRowAtLine : List String -> Int -> String
