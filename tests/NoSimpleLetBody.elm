@@ -95,7 +95,7 @@ expressionVisitor node =
                             { previousEnd : Maybe Location
                             , lastEnd : Maybe Location
                             , last : Maybe { name : String, declarationRange : Range, expressionRange : Range }
-                            , foundDeclaredWithName : Maybe { declarationRange : Range, expressionRange : Range }
+                            , foundDeclaredWithName : Maybe { declarationRange : Range, expressionRange : Range, takesArguments : Bool }
                             }
                         declarationData =
                             List.foldl
@@ -124,6 +124,7 @@ expressionVisitor node =
                                                     Just
                                                         { declarationRange = Node.range declaration
                                                         , expressionRange = Node.range functionDeclaration.expression
+                                                        , takesArguments = not (List.isEmpty functionDeclaration.arguments)
                                                         }
 
                                                 else
@@ -145,7 +146,7 @@ expressionVisitor node =
                                 declarations
                     in
                     case declarationData.foundDeclaredWithName of
-                        Just { declarationRange, expressionRange } ->
+                        Just { declarationRange, expressionRange, takesArguments } ->
                             [ Rule.errorWithFix
                                 { message = "The referenced value should be inlined."
                                 , details =
@@ -156,7 +157,7 @@ expressionVisitor node =
                                 (Node.range expression)
                                 (case declarationData.last of
                                     Just last ->
-                                        if last.name == name then
+                                        if last.name == name && not takesArguments then
                                             case declarationData.previousEnd of
                                                 Nothing ->
                                                     -- It's the only element in the destructuring, we should remove move of the let expression
@@ -179,9 +180,13 @@ expressionVisitor node =
                                             []
 
                                     Nothing ->
-                                        [ Fix.removeRange declarationRange
-                                        , Fix.replaceRangeBy (Node.range expression) (getStringAtRange expressionRange)
-                                        ]
+                                        if not takesArguments then
+                                            [ Fix.removeRange declarationRange
+                                            , Fix.replaceRangeBy (Node.range expression) (getStringAtRange expressionRange)
+                                            ]
+
+                                        else
+                                            []
                                 )
                             ]
 
