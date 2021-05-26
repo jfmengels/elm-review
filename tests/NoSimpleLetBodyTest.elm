@@ -25,6 +25,95 @@ a = let b = 1
                             , under = "b"
                             }
                             |> Review.Test.atExactly { start = { row = 3, column = 8 }, end = { row = 3, column = 9 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 1
+"""
+                        ]
+        , test "should report an error when let body is a simple function or value and is the last declaration" <|
+            \() ->
+                """module A exposing (..)
+a = let
+        c = 2
+        b = c
+    in b
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The referenced value should be inlined."
+                            , details =
+                                [ "The name of the value is redundant with the surrounding expression."
+                                , "If you believe that the expression needs a name because it is too complex, consider splitting the expression up more or extracting it to a new function."
+                                ]
+                            , under = "b"
+                            }
+                            |> Review.Test.atExactly { start = { row = 5, column = 8 }, end = { row = 5, column = 9 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = let
+        c = 2
+    in
+    c
+"""
+                        ]
+        , test "should report an error but not suggest a fix when value is not the last declaration" <|
+            \() ->
+                """module A exposing (..)
+a = let
+        b = c
+        c = 2
+    in b
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The referenced value should be inlined."
+                            , details =
+                                [ "The name of the value is redundant with the surrounding expression."
+                                , "If you believe that the expression needs a name because it is too complex, consider splitting the expression up more or extracting it to a new function."
+                                ]
+                            , under = "b"
+                            }
+                            |> Review.Test.atExactly { start = { row = 5, column = 8 }, end = { row = 5, column = 9 } }
+                        ]
+        , test "should report an error but not suggest a fix when value is not the last declaration (last is destructuring)" <|
+            \() ->
+                """module A exposing (..)
+a = let
+        b = c
+        {c} = 2
+    in b
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The referenced value should be inlined."
+                            , details =
+                                [ "The name of the value is redundant with the surrounding expression."
+                                , "If you believe that the expression needs a name because it is too complex, consider splitting the expression up more or extracting it to a new function."
+                                ]
+                            , under = "b"
+                            }
+                            |> Review.Test.atExactly { start = { row = 5, column = 8 }, end = { row = 5, column = 9 } }
+                        ]
+        , test "should report an error but not suggest a fix when value is a function that takes arguments" <|
+            \() ->
+                """module A exposing (..)
+a = let
+        c = 2
+        b n = c
+    in b
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The referenced value should be inlined."
+                            , details =
+                                [ "The name of the value is redundant with the surrounding expression."
+                                , "If you believe that the expression needs a name because it is too complex, consider splitting the expression up more or extracting it to a new function."
+                                ]
+                            , under = "b"
+                            }
+                            |> Review.Test.atExactly { start = { row = 5, column = 8 }, end = { row = 5, column = 9 } }
                         ]
         , test "should not report an error when let body is a function call" <|
             \() ->

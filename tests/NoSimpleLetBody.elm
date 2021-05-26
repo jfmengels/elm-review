@@ -8,6 +8,8 @@ module NoSimpleLetBody exposing (rule)
 
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.Range exposing (Location, Range)
+import Review.Fix as Fix
 import Review.Rule as Rule exposing (Rule)
 
 
@@ -89,25 +91,53 @@ expressionVisitor node =
             case Node.value expression of
                 Expression.FunctionOrValue [] name ->
                     let
-                        declared : List String
-                        declared =
-                            List.filterMap
-                                (\declaration ->
+                        declarationData :
+                            { previousEnd : Maybe Location
+                            , lastEnd : Maybe Location
+                            , last : Maybe { name : String, declarationRange : Range, expressionRange : Range }
+                            , foundDeclaredWithName : Bool
+                            }
+                        declarationData =
+                            List.foldl
+                                (\declaration { lastEnd, foundDeclaredWithName } ->
                                     case Node.value declaration of
                                         Expression.LetFunction function ->
-                                            function.declaration
-                                                |> Node.value
-                                                |> .name
-                                                |> Node.value
-                                                |> Just
+                                            let
+                                                functionDeclaration : Expression.FunctionImplementation
+                                                functionDeclaration =
+                                                    Node.value function.declaration
+                                            in
+                                            { previousEnd = lastEnd
+                                            , lastEnd = Just (Node.range functionDeclaration.expression).end
+                                            , last =
+                                                if List.isEmpty functionDeclaration.arguments then
+                                                    Just
+                                                        { name = Node.value functionDeclaration.name
+                                                        , declarationRange = Node.range declaration
+                                                        , expressionRange = Node.range functionDeclaration.expression
+                                                        }
+
+                                                else
+                                                    Nothing
+                                            , foundDeclaredWithName = foundDeclaredWithName || Node.value functionDeclaration.name == name
+                                            }
 
                                         Expression.LetDestructuring _ _ ->
-                                            Nothing
+                                            { previousEnd = lastEnd
+                                            , lastEnd = Just (Node.range declaration).end
+                                            , last = Nothing
+                                            , foundDeclaredWithName = foundDeclaredWithName
+                                            }
                                 )
+                                { previousEnd = Nothing
+                                , lastEnd = Nothing
+                                , last = Nothing
+                                , foundDeclaredWithName = False
+                                }
                                 declarations
                     in
-                    if List.member name declared then
-                        [ Rule.error
+                    if declarationData.foundDeclaredWithName then
+                        [ Rule.errorWithFix
                             { message = "The referenced value should be inlined."
                             , details =
                                 [ "The name of the value is redundant with the surrounding expression."
@@ -115,6 +145,33 @@ expressionVisitor node =
                                 ]
                             }
                             (Node.range expression)
+                            (case declarationData.last of
+                                Just last ->
+                                    if last.name == name then
+                                        case declarationData.previousEnd of
+                                            Nothing ->
+                                                -- It's the only element in the destructuring, we should remove move of the let expression
+                                                [ Fix.removeRange { start = (Node.range node).start, end = last.expressionRange.start }
+                                                , Fix.removeRange { start = last.expressionRange.end, end = (Node.range node).end }
+                                                ]
+
+                                            Just previousEnd ->
+                                                -- There are other elements in the let body that we need to keep
+                                                let
+                                                    indentation : String
+                                                    indentation =
+                                                        String.repeat ((Node.range node).start.column - 1) " "
+                                                in
+                                                [ Fix.replaceRangeBy { start = previousEnd, end = last.expressionRange.start } ("\n" ++ indentation ++ "in\n" ++ indentation)
+                                                , Fix.removeRange { start = last.expressionRange.end, end = (Node.range node).end }
+                                                ]
+
+                                    else
+                                        []
+
+                                Nothing ->
+                                    []
+                            )
                         ]
 
                     else
