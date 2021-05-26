@@ -95,7 +95,7 @@ expressionVisitor node =
                             { previousEnd : Maybe Location
                             , lastEnd : Maybe Location
                             , last : Maybe { name : String, declarationRange : Range, expressionRange : Range }
-                            , foundDeclaredWithName : Maybe ()
+                            , foundDeclaredWithName : Maybe { declarationRange : Range, expressionRange : Range }
                             }
                         declarationData =
                             List.foldl
@@ -121,7 +121,10 @@ expressionVisitor node =
                                                     Nothing
                                             , foundDeclaredWithName =
                                                 if Node.value functionDeclaration.name == name then
-                                                    Just ()
+                                                    Just
+                                                        { declarationRange = Node.range declaration
+                                                        , expressionRange = Node.range functionDeclaration.expression
+                                                        }
 
                                                 else
                                                     foundDeclaredWithName
