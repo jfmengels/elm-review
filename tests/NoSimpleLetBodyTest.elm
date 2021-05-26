@@ -97,8 +97,7 @@ a = let
                             |> Review.Test.whenFixed """module A exposing (..)
 a = let
         {c} = 2
-    in
-    c
+    in c
 """
                         ]
         , test "should report an error but not suggest a fix when value is a function that takes arguments" <|
