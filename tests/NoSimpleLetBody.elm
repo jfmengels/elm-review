@@ -79,13 +79,28 @@ elm-review --template jfmengels/elm-review-code-style/example --rules NoSimpleLe
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoSimpleLetBody" ()
-        |> Rule.withSimpleExpressionVisitor expressionVisitor
+    Rule.newModuleRuleSchemaUsingContextCreator "NoSimpleLetBody" initialContext
+        |> Rule.withExpressionEnterVisitor (\node context -> ( expressionVisitor node context, context ))
         |> Rule.fromModuleRuleSchema
 
 
-expressionVisitor : Node Expression -> List (Rule.Error {})
-expressionVisitor node =
+type alias Context =
+    { getStringAtRange : Range -> String
+    }
+
+
+initialContext : Rule.ContextCreator () Context
+initialContext =
+    Rule.initContextCreator
+        (\getStringAtRange () ->
+            { getStringAtRange = getStringAtRange
+            }
+        )
+        |> Rule.withGetStringAtRange
+
+
+expressionVisitor : Node Expression -> Context -> List (Rule.Error {})
+expressionVisitor node { getStringAtRange } =
     case Node.value node of
         Expression.LetExpression { declarations, expression } ->
             case Node.value expression of
@@ -198,8 +213,3 @@ expressionVisitor node =
 
         _ ->
             []
-
-
-getStringAtRange : Range -> String
-getStringAtRange range =
-    "hello"
