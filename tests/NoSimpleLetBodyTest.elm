@@ -94,6 +94,12 @@ a = let
                             , under = "b"
                             }
                             |> Review.Test.atExactly { start = { row = 5, column = 8 }, end = { row = 5, column = 9 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = let
+        {c} = 2
+    in
+    c
+"""
                         ]
         , test "should report an error but not suggest a fix when value is a function that takes arguments" <|
             \() ->
