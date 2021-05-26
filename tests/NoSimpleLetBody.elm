@@ -172,24 +172,30 @@ expressionVisitor node { getStringAtRange } =
                                 (Node.range expression)
                                 (case declarationData.last of
                                     Just last ->
-                                        if last.name == name && not takesArguments then
-                                            case declarationData.previousEnd of
-                                                Nothing ->
-                                                    -- It's the only element in the destructuring, we should remove move of the let expression
-                                                    [ Fix.removeRange { start = (Node.range node).start, end = last.expressionRange.start }
-                                                    , Fix.removeRange { start = last.expressionRange.end, end = (Node.range node).end }
-                                                    ]
+                                        if not takesArguments then
+                                            if last.name == name then
+                                                case declarationData.previousEnd of
+                                                    Nothing ->
+                                                        -- It's the only element in the destructuring, we should remove move of the let expression
+                                                        [ Fix.removeRange { start = (Node.range node).start, end = last.expressionRange.start }
+                                                        , Fix.removeRange { start = last.expressionRange.end, end = (Node.range node).end }
+                                                        ]
 
-                                                Just previousEnd ->
-                                                    -- There are other elements in the let body that we need to keep
-                                                    let
-                                                        indentation : String
-                                                        indentation =
-                                                            String.repeat ((Node.range node).start.column - 1) " "
-                                                    in
-                                                    [ Fix.replaceRangeBy { start = previousEnd, end = last.expressionRange.start } ("\n" ++ indentation ++ "in\n" ++ indentation)
-                                                    , Fix.removeRange { start = last.expressionRange.end, end = (Node.range node).end }
-                                                    ]
+                                                    Just previousEnd ->
+                                                        -- There are other elements in the let body that we need to keep
+                                                        let
+                                                            indentation : String
+                                                            indentation =
+                                                                String.repeat ((Node.range node).start.column - 1) " "
+                                                        in
+                                                        [ Fix.replaceRangeBy { start = previousEnd, end = last.expressionRange.start } ("\n" ++ indentation ++ "in\n" ++ indentation)
+                                                        , Fix.removeRange { start = last.expressionRange.end, end = (Node.range node).end }
+                                                        ]
+
+                                            else
+                                                [ Fix.removeRange declarationRange
+                                                , Fix.replaceRangeBy (Node.range expression) (getStringAtRange expressionRange)
+                                                ]
 
                                         else
                                             []
