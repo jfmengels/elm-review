@@ -1185,7 +1185,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     requestedData
 
                 Nothing ->
-                    RequestedData { metadata = False, moduleNameLookupTable = False }
+                    RequestedData { metadata = False, moduleNameLookupTable = False, getStringAtRange = False }
         , ruleImplementation =
             \exceptions project nodeContexts ->
                 let
@@ -1228,7 +1228,7 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
                 requestedData
 
             Nothing ->
-                RequestedData { metadata = False, moduleNameLookupTable = False }
+                RequestedData { metadata = False, moduleNameLookupTable = False, getStringAtRange = False }
     }
 
 
@@ -1392,7 +1392,7 @@ configurationError name configurationError_ =
     Rule
         { name = name
         , exceptions = Exceptions.init
-        , requestedData = RequestedData { metadata = False, moduleNameLookupTable = False }
+        , requestedData = RequestedData { metadata = False, moduleNameLookupTable = False, getStringAtRange = False }
         , ruleImplementation = \_ _ _ -> ( [], configurationError name configurationError_ )
         , configurationError = Just configurationError_
         }
@@ -3964,7 +3964,16 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                     , moduleNameLookupTable =
                         Dict.get (Review.Project.Internal.getModuleName module_) moduleNameLookupTables
                             |> Maybe.withDefault ModuleNameLookupTableInternal.empty
-                    , getStringAtRange = getStringAtRange (String.lines module_.source)
+                    , getStringAtRange =
+                        let
+                            (RequestedData requestedData) =
+                                projectVisitor.requestedData
+                        in
+                        if requestedData.getStringAtRange then
+                            getStringAtRange (String.lines module_.source)
+
+                        else
+                            always ""
                     }
 
                 initialModuleContext : moduleContext
@@ -4444,6 +4453,7 @@ type RequestedData
     = RequestedData
         { metadata : Bool
         , moduleNameLookupTable : Bool
+        , getStringAtRange : Bool
         }
 
 
@@ -4469,6 +4479,7 @@ initContextCreator fromProjectToModule =
         (RequestedData
             { metadata = False
             , moduleNameLookupTable = False
+            , getStringAtRange = False
             }
         )
 
@@ -4585,8 +4596,7 @@ withGetStringAtRange : ContextCreator (Range -> String) (from -> to) -> ContextC
 withGetStringAtRange (ContextCreator fn (RequestedData requested)) =
     ContextCreator
         (\data -> fn data data.getStringAtRange)
-        -- TODO?
-        (RequestedData requested)
+        (RequestedData { requested | getStringAtRange = True })
 
 
 type alias AvailableData =
