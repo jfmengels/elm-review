@@ -144,46 +144,47 @@ expressionVisitor node =
                                 }
                                 declarations
                     in
-                    if declarationData.foundDeclaredWithName /= Nothing then
-                        [ Rule.errorWithFix
-                            { message = "The referenced value should be inlined."
-                            , details =
-                                [ "The name of the value is redundant with the surrounding expression."
-                                , "If you believe that the expression needs a name because it is too complex, consider splitting the expression up more or extracting it to a new function."
-                                ]
-                            }
-                            (Node.range expression)
-                            (case declarationData.last of
-                                Just last ->
-                                    if last.name == name then
-                                        case declarationData.previousEnd of
-                                            Nothing ->
-                                                -- It's the only element in the destructuring, we should remove move of the let expression
-                                                [ Fix.removeRange { start = (Node.range node).start, end = last.expressionRange.start }
-                                                , Fix.removeRange { start = last.expressionRange.end, end = (Node.range node).end }
-                                                ]
+                    case declarationData.foundDeclaredWithName of
+                        Just { declarationRange, expressionRange } ->
+                            [ Rule.errorWithFix
+                                { message = "The referenced value should be inlined."
+                                , details =
+                                    [ "The name of the value is redundant with the surrounding expression."
+                                    , "If you believe that the expression needs a name because it is too complex, consider splitting the expression up more or extracting it to a new function."
+                                    ]
+                                }
+                                (Node.range expression)
+                                (case declarationData.last of
+                                    Just last ->
+                                        if last.name == name then
+                                            case declarationData.previousEnd of
+                                                Nothing ->
+                                                    -- It's the only element in the destructuring, we should remove move of the let expression
+                                                    [ Fix.removeRange { start = (Node.range node).start, end = last.expressionRange.start }
+                                                    , Fix.removeRange { start = last.expressionRange.end, end = (Node.range node).end }
+                                                    ]
 
-                                            Just previousEnd ->
-                                                -- There are other elements in the let body that we need to keep
-                                                let
-                                                    indentation : String
-                                                    indentation =
-                                                        String.repeat ((Node.range node).start.column - 1) " "
-                                                in
-                                                [ Fix.replaceRangeBy { start = previousEnd, end = last.expressionRange.start } ("\n" ++ indentation ++ "in\n" ++ indentation)
-                                                , Fix.removeRange { start = last.expressionRange.end, end = (Node.range node).end }
-                                                ]
+                                                Just previousEnd ->
+                                                    -- There are other elements in the let body that we need to keep
+                                                    let
+                                                        indentation : String
+                                                        indentation =
+                                                            String.repeat ((Node.range node).start.column - 1) " "
+                                                    in
+                                                    [ Fix.replaceRangeBy { start = previousEnd, end = last.expressionRange.start } ("\n" ++ indentation ++ "in\n" ++ indentation)
+                                                    , Fix.removeRange { start = last.expressionRange.end, end = (Node.range node).end }
+                                                    ]
 
-                                    else
+                                        else
+                                            []
+
+                                    Nothing ->
                                         []
+                                )
+                            ]
 
-                                Nothing ->
-                                    []
-                            )
-                        ]
-
-                    else
-                        []
+                        Nothing ->
+                            []
 
                 _ ->
                     []
