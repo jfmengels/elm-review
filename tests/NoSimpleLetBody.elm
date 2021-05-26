@@ -179,7 +179,9 @@ expressionVisitor node =
                                             []
 
                                     Nothing ->
-                                        []
+                                        [ Fix.removeRange declarationRange
+                                        , Fix.replaceRangeBy (Node.range expression) (getStringAtRange expressionRange)
+                                        ]
                                 )
                             ]
 
@@ -191,3 +193,8 @@ expressionVisitor node =
 
         _ ->
             []
+
+
+getStringAtRange : Range -> String
+getStringAtRange range =
+    "hello"
