@@ -95,7 +95,7 @@ expressionVisitor node =
                             { previousEnd : Maybe Location
                             , lastEnd : Maybe Location
                             , last : Maybe { name : String, declarationRange : Range, expressionRange : Range }
-                            , foundDeclaredWithName : Bool
+                            , foundDeclaredWithName : Maybe ()
                             }
                         declarationData =
                             List.foldl
@@ -119,7 +119,12 @@ expressionVisitor node =
 
                                                 else
                                                     Nothing
-                                            , foundDeclaredWithName = foundDeclaredWithName || Node.value functionDeclaration.name == name
+                                            , foundDeclaredWithName =
+                                                if Node.value functionDeclaration.name == name then
+                                                    Just ()
+
+                                                else
+                                                    foundDeclaredWithName
                                             }
 
                                         Expression.LetDestructuring _ _ ->
@@ -132,11 +137,11 @@ expressionVisitor node =
                                 { previousEnd = Nothing
                                 , lastEnd = Nothing
                                 , last = Nothing
-                                , foundDeclaredWithName = False
+                                , foundDeclaredWithName = Nothing
                                 }
                                 declarations
                     in
-                    if declarationData.foundDeclaredWithName then
+                    if declarationData.foundDeclaredWithName /= Nothing then
                         [ Rule.errorWithFix
                             { message = "The referenced value should be inlined."
                             , details =
