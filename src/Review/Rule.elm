@@ -1185,7 +1185,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     requestedData
 
                 Nothing ->
-                    RequestedData { metadata = False, moduleNameLookupTable = False, getStringAtRange = False }
+                    RequestedData { moduleNameLookupTable = False, getStringAtRange = False }
         , ruleImplementation =
             \exceptions project nodeContexts ->
                 let
@@ -1228,7 +1228,7 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
                 requestedData
 
             Nothing ->
-                RequestedData { metadata = False, moduleNameLookupTable = False, getStringAtRange = False }
+                RequestedData { moduleNameLookupTable = False, getStringAtRange = False }
     }
 
 
@@ -1392,7 +1392,7 @@ configurationError name configurationError_ =
     Rule
         { name = name
         , exceptions = Exceptions.init
-        , requestedData = RequestedData { metadata = False, moduleNameLookupTable = False, getStringAtRange = False }
+        , requestedData = RequestedData { moduleNameLookupTable = False, getStringAtRange = False }
         , ruleImplementation = \_ _ _ -> ( [], configurationError name configurationError_ )
         , configurationError = Just configurationError_
         }
@@ -4451,8 +4451,7 @@ type ContextCreator from to
 
 type RequestedData
     = RequestedData
-        { metadata : Bool
-        , moduleNameLookupTable : Bool
+        { moduleNameLookupTable : Bool
         , getStringAtRange : Bool
         }
 
@@ -4477,8 +4476,7 @@ initContextCreator fromProjectToModule =
     ContextCreator
         (always fromProjectToModule)
         (RequestedData
-            { metadata = False
-            , moduleNameLookupTable = False
+            { moduleNameLookupTable = False
             , getStringAtRange = False
             }
         )
@@ -4506,10 +4504,10 @@ applyContextCreator data (ContextCreator fn _) from =
 
 -}
 withMetadata : ContextCreator Metadata (from -> to) -> ContextCreator from to
-withMetadata (ContextCreator fn (RequestedData requested)) =
+withMetadata (ContextCreator fn requestedData) =
     ContextCreator
         (\data -> fn data data.metadata)
-        (RequestedData { requested | metadata = True })
+        requestedData
 
 
 {-| Requests the module name lookup table for the types and functions inside a module.
@@ -4586,10 +4584,10 @@ withModuleNameLookupTable (ContextCreator fn (RequestedData requested)) =
 
 -}
 withModuleKey : ContextCreator ModuleKey (from -> to) -> ContextCreator from to
-withModuleKey (ContextCreator fn (RequestedData requested)) =
+withModuleKey (ContextCreator fn requestedData) =
     ContextCreator
         (\data -> fn data data.moduleKey)
-        (RequestedData { requested | metadata = True })
+        requestedData
 
 
 withGetStringAtRange : ContextCreator (Range -> String) (from -> to) -> ContextCreator from to
