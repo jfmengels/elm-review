@@ -18,6 +18,7 @@ module Review.Rule exposing
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review, reviewV2, ProjectData, ruleName, getConfigurationError
     , Required, Forbidden
+    , withGetStringAtRange
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -4521,6 +4522,14 @@ withModuleKey (ContextCreator fn (RequestedData requested)) =
     ContextCreator
         (\data -> fn data data.moduleKey)
         (RequestedData { requested | metadata = True })
+
+
+withGetStringAtRange : ContextCreator (Range -> String) (from -> to) -> ContextCreator from to
+withGetStringAtRange (ContextCreator fn (RequestedData requested)) =
+    ContextCreator
+        (\data -> fn data (always "DUMMY"))
+        -- TODO?
+        (RequestedData requested)
 
 
 type alias AvailableData =
