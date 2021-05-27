@@ -260,7 +260,6 @@ reason or seemingly inappropriately.
 -}
 
 import Ansi
-import Array
 import Dict exposing (Dict)
 import Elm.Docs
 import Elm.Project
@@ -4121,26 +4120,6 @@ visitModuleForProjectRule schema initialContext module_ =
 
 extractSourceCode : List String -> Range -> String
 extractSourceCode lines range =
-    let
-        linesBefore : List String
-        linesBefore =
-            List.drop (range.start.row - 1) lines
-
-        linesAfter : List String
-        linesAfter =
-            lines
-                |> List.drop range.end.row
-
-        startLine : String
-        startLine =
-            getRowAtLine lines (range.start.row - 1)
-                |> String.dropLeft (range.start.column - 1)
-
-        endLine : String
-        endLine =
-            getRowAtLine lines (range.end.row - 1)
-                |> String.dropLeft (range.end.column - 1)
-    in
     lines
         |> List.drop (range.start.row - 1)
         |> List.take (range.end.row - range.start.row + 1)
@@ -4157,20 +4136,6 @@ mapLast mapper lines =
 
         first :: rest ->
             List.reverse (mapper first :: rest)
-
-
-getRowAtLine : List String -> Int -> String
-getRowAtLine lines rowIndex =
-    case lines |> Array.fromList |> Array.get rowIndex of
-        Just line ->
-            if String.trim line /= "" then
-                line
-
-            else
-                ""
-
-        Nothing ->
-            ""
 
 
 visitImport :
