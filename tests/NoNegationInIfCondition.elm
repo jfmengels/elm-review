@@ -79,6 +79,10 @@ expressionVisitor node context =
                             }
                             notRange
                             [ Fix.removeRange notRange
+                            , Fix.removeRange { start = (Node.range thenBranch).start, end = (Node.range elseBranch).start }
+                            , Fix.insertAt
+                                (Node.range elseBranch).end
+                                (" else " ++ context.extractSourceCode (Node.range thenBranch))
                             ]
                       ]
                     , context

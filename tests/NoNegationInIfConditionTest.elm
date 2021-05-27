@@ -28,7 +28,7 @@ a = if not condition then 1 else 2
                             , under = "not"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = if  condition then 1 else 2
+a = if  condition then 2 else 1
 """
                         ]
         ]
