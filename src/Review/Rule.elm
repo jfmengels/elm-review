@@ -18,7 +18,7 @@ module Review.Rule exposing
     , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review, reviewV2, ProjectData, ruleName, getConfigurationError
     , Required, Forbidden
-    , withGetStringAtRange
+    , withSourceCodeExtractor
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -1185,7 +1185,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     requestedData
 
                 Nothing ->
-                    RequestedData { moduleNameLookupTable = False, getStringAtRange = False }
+                    RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
         , ruleImplementation =
             \exceptions project nodeContexts ->
                 let
@@ -1228,7 +1228,7 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
                 requestedData
 
             Nothing ->
-                RequestedData { moduleNameLookupTable = False, getStringAtRange = False }
+                RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
     }
 
 
@@ -1392,7 +1392,7 @@ configurationError name configurationError_ =
     Rule
         { name = name
         , exceptions = Exceptions.init
-        , requestedData = RequestedData { moduleNameLookupTable = False, getStringAtRange = False }
+        , requestedData = RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
         , ruleImplementation = \_ _ _ -> ( [], configurationError name configurationError_ )
         , configurationError = Just configurationError_
         }
@@ -3969,7 +3969,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                             (RequestedData requestedData) =
                                 projectVisitor.requestedData
                         in
-                        if requestedData.getStringAtRange then
+                        if requestedData.sourceCodeExtractor then
                             getStringAtRange (String.lines module_.source)
 
                         else
@@ -4452,7 +4452,7 @@ type ContextCreator from to
 type RequestedData
     = RequestedData
         { moduleNameLookupTable : Bool
-        , getStringAtRange : Bool
+        , sourceCodeExtractor : Bool
         }
 
 
@@ -4477,7 +4477,7 @@ initContextCreator fromProjectToModule =
         (always fromProjectToModule)
         (RequestedData
             { moduleNameLookupTable = False
-            , getStringAtRange = False
+            , sourceCodeExtractor = False
             }
         )
 
@@ -4590,11 +4590,11 @@ withModuleKey (ContextCreator fn requestedData) =
         requestedData
 
 
-withGetStringAtRange : ContextCreator (Range -> String) (from -> to) -> ContextCreator from to
-withGetStringAtRange (ContextCreator fn (RequestedData requested)) =
+withSourceCodeExtractor : ContextCreator (Range -> String) (from -> to) -> ContextCreator from to
+withSourceCodeExtractor (ContextCreator fn (RequestedData requested)) =
     ContextCreator
         (\data -> fn data data.getStringAtRange)
-        (RequestedData { requested | getStringAtRange = True })
+        (RequestedData { requested | sourceCodeExtractor = True })
 
 
 type alias AvailableData =

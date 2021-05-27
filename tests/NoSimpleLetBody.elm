@@ -96,7 +96,7 @@ initialContext =
             { getStringAtRange = getStringAtRange
             }
         )
-        |> Rule.withGetStringAtRange
+        |> Rule.withSourceCodeExtractor
 
 
 expressionVisitor : Node Expression -> Context -> List (Rule.Error {})
