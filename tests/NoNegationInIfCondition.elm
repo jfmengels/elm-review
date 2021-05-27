@@ -52,7 +52,6 @@ rule =
     Rule.newModuleRuleSchemaUsingContextCreator "NoNegationInIfCondition" initialContext
         |> Rule.withExpressionEnterVisitor expressionVisitor
         |> Rule.fromModuleRuleSchema
-        |> Rule.ignoreErrorsForFiles [ "src/Colors.elm" ]
 
 
 type alias Context =
