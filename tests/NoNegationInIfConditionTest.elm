@@ -18,7 +18,7 @@ a = if condition then 1 else 2
         , test "should report if condition without a not call" <|
             \() ->
                 """module A exposing (..)
-a = if not condition then 1 else 2 
+a = if not condition then 1 else 2
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
@@ -27,5 +27,8 @@ a = if not condition then 1 else 2
                             , details = [ "REPLACEME" ]
                             , under = "not"
                             }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = if  condition then 1 else 2
+"""
                         ]
         ]
