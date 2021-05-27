@@ -73,6 +73,11 @@ expressionVisitor node context =
         Expression.IfBlock condition thenBranch elseBranch ->
             case Node.value condition of
                 Expression.Application ((Node notRange (Expression.FunctionOrValue [] "not")) :: _) ->
+                    let
+                        elseString : String
+                        elseString =
+                            context.extractSourceCode { start = (Node.range thenBranch).end, end = (Node.range elseBranch).start }
+                    in
                     ( [ Rule.errorWithFix
                             { message = "Don't use if expressions with negated conditions"
                             , details = [ "REPLACEME" ]
@@ -82,7 +87,7 @@ expressionVisitor node context =
                             , Fix.removeRange { start = (Node.range thenBranch).start, end = (Node.range elseBranch).start }
                             , Fix.insertAt
                                 (Node.range elseBranch).end
-                                (" else " ++ context.extractSourceCode (Node.range thenBranch))
+                                (elseString ++ context.extractSourceCode (Node.range thenBranch))
                             ]
                       ]
                     , context
