@@ -85,22 +85,22 @@ rule =
 
 
 type alias Context =
-    { getStringAtRange : Range -> String
+    { extractSourceCode : Range -> String
     }
 
 
 initialContext : Rule.ContextCreator () Context
 initialContext =
     Rule.initContextCreator
-        (\getStringAtRange () ->
-            { getStringAtRange = getStringAtRange
+        (\extractSourceCode () ->
+            { extractSourceCode = extractSourceCode
             }
         )
         |> Rule.withSourceCodeExtractor
 
 
 expressionVisitor : Node Expression -> Context -> List (Rule.Error {})
-expressionVisitor node { getStringAtRange } =
+expressionVisitor node { extractSourceCode } =
     case Node.value node of
         Expression.LetExpression { declarations, expression } ->
             case Node.value expression of
@@ -194,7 +194,7 @@ expressionVisitor node { getStringAtRange } =
 
                                             else
                                                 [ Fix.removeRange declarationRange
-                                                , Fix.replaceRangeBy (Node.range expression) (getStringAtRange expressionRange)
+                                                , Fix.replaceRangeBy (Node.range expression) (extractSourceCode expressionRange)
                                                 ]
 
                                         else
@@ -203,7 +203,7 @@ expressionVisitor node { getStringAtRange } =
                                     Nothing ->
                                         if not takesArguments then
                                             [ Fix.removeRange declarationRange
-                                            , Fix.replaceRangeBy (Node.range expression) (getStringAtRange expressionRange)
+                                            , Fix.replaceRangeBy (Node.range expression) (extractSourceCode expressionRange)
                                             ]
 
                                         else

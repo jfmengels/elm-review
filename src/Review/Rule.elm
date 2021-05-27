@@ -1256,7 +1256,7 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
                             }
                     , moduleKey = ModuleKey "dummy"
                     , moduleNameLookupTable = ModuleNameLookupTableInternal.empty
-                    , getStringAtRange = always "dummy"
+                    , extractSourceCode = always "dummy"
                     }
 
                 initialModuleContext : moduleContext
@@ -3964,13 +3964,13 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                     , moduleNameLookupTable =
                         Dict.get (Review.Project.Internal.getModuleName module_) moduleNameLookupTables
                             |> Maybe.withDefault ModuleNameLookupTableInternal.empty
-                    , getStringAtRange =
+                    , extractSourceCode =
                         let
                             (RequestedData requestedData) =
                                 projectVisitor.requestedData
                         in
                         if requestedData.sourceCodeExtractor then
-                            getStringAtRange (String.lines module_.source)
+                            extractSourceCode (String.lines module_.source)
 
                         else
                             always ""
@@ -4120,8 +4120,8 @@ visitModuleForProjectRule schema initialContext module_ =
         |> (\( errors, moduleContext ) -> ( makeFinalEvaluation schema.finalEvaluationFns ( errors, moduleContext ), moduleContext ))
 
 
-getStringAtRange : List String -> Range -> String
-getStringAtRange lines range =
+extractSourceCode : List String -> Range -> String
+extractSourceCode lines range =
     let
         linesBefore : List String
         linesBefore =
@@ -4593,7 +4593,7 @@ withModuleKey (ContextCreator fn requestedData) =
 withSourceCodeExtractor : ContextCreator (Range -> String) (from -> to) -> ContextCreator from to
 withSourceCodeExtractor (ContextCreator fn (RequestedData requested)) =
     ContextCreator
-        (\data -> fn data data.getStringAtRange)
+        (\data -> fn data data.extractSourceCode)
         (RequestedData { requested | sourceCodeExtractor = True })
 
 
@@ -4601,7 +4601,7 @@ type alias AvailableData =
     { metadata : Metadata
     , moduleKey : ModuleKey
     , moduleNameLookupTable : ModuleNameLookupTable
-    , getStringAtRange : Range -> String
+    , extractSourceCode : Range -> String
     }
 
 
