@@ -6,6 +6,9 @@ module NoNegationInIfCondition exposing (rule)
 
 -}
 
+import Elm.Syntax.Expression as Expression exposing (Expression)
+import Elm.Syntax.Node as Node exposing (Node(..))
+import Elm.Syntax.Range exposing (Range)
 import Review.Rule as Rule exposing (Rule)
 
 
@@ -45,6 +48,36 @@ elm-review --template jfmengels/elm-review/example --rules NoNegationInIfConditi
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoNegationInIfCondition" ()
-        -- Add your visitors
+    Rule.newModuleRuleSchemaUsingContextCreator "NoNegationInIfCondition" initialContext
+        |> Rule.withExpressionEnterVisitor expressionVisitor
         |> Rule.fromModuleRuleSchema
+        |> Rule.ignoreErrorsForFiles [ "src/Colors.elm" ]
+
+
+type alias Context =
+    { extractSourceCode : Range -> String
+    }
+
+
+initialContext : Rule.ContextCreator () Context
+initialContext =
+    Rule.initContextCreator
+        (\extractSourceCode () -> { extractSourceCode = extractSourceCode })
+        |> Rule.withSourceCodeExtractor
+
+
+expressionVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
+expressionVisitor node context =
+    case Node.value node of
+        Expression.IfBlock (Node _ (Expression.Application ((Node notRange (Expression.FunctionOrValue [] "not")) :: arguments))) thenBranch elseBranch ->
+            ( [ Rule.error
+                    { message = "Don't use if expressions with negated conditions"
+                    , details = [ "REPLACEME" ]
+                    }
+                    notRange
+              ]
+            , context
+            )
+
+        _ ->
+            ( [], context )

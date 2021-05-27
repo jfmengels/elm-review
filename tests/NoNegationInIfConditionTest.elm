@@ -8,17 +8,24 @@ import Test exposing (Test, describe, test)
 all : Test
 all =
     describe "NoNegationInIfCondition"
-        [ test "should report an error when REPLACEME" <|
+        [ test "should not report if condition without a not call" <|
             \() ->
                 """module A exposing (..)
-a = 1
+a = if condition then 1 else 2 
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectNoErrors
+        , test "should report if condition without a not call" <|
+            \() ->
+                """module A exposing (..)
+a = if not condition then 1 else 2 
 """
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "REPLACEME"
+                            { message = "Don't use if expressions with negated conditions"
                             , details = [ "REPLACEME" ]
-                            , under = "REPLACEME"
+                            , under = "not"
                             }
                         ]
         ]
