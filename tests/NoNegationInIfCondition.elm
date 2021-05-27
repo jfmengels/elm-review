@@ -73,28 +73,45 @@ expressionVisitor node context =
         Expression.IfBlock condition thenBranch elseBranch ->
             case Node.value condition of
                 Expression.Application ((Node notRange (Expression.FunctionOrValue [] "not")) :: _) ->
-                    let
-                        elseString : String
-                        elseString =
-                            context.extractSourceCode { start = (Node.range thenBranch).end, end = (Node.range elseBranch).start }
-                    in
-                    ( [ Rule.errorWithFix
-                            { message = "Don't use if expressions with negated conditions"
-                            , details = [ "REPLACEME" ]
-                            }
-                            notRange
-                            [ Fix.removeRange notRange
-                            , Fix.removeRange { start = (Node.range thenBranch).start, end = (Node.range elseBranch).start }
-                            , Fix.insertAt
-                                (Node.range elseBranch).end
-                                (elseString ++ context.extractSourceCode (Node.range thenBranch))
-                            ]
-                      ]
-                    , context
-                    )
+                    if isIfExpr elseBranch then
+                        ( [], context )
+
+                    else
+                        let
+                            elseString : String
+                            elseString =
+                                context.extractSourceCode { start = (Node.range thenBranch).end, end = (Node.range elseBranch).start }
+                        in
+                        ( [ Rule.errorWithFix
+                                { message = "Don't use if expressions with negated conditions"
+                                , details = [ "We at fruits.com think that if expressions are more readable when the condition is not negated." ]
+                                }
+                                notRange
+                                [ Fix.removeRange notRange
+                                , Fix.removeRange { start = (Node.range thenBranch).start, end = (Node.range elseBranch).start }
+                                , Fix.insertAt
+                                    (Node.range elseBranch).end
+                                    (elseString ++ context.extractSourceCode (Node.range thenBranch))
+                                ]
+                          ]
+                        , context
+                        )
 
                 _ ->
                     ( [], context )
 
         _ ->
             ( [], context )
+
+
+isIfExpr : Node Expression -> Bool
+isIfExpr node =
+    case Node.value node of
+        Expression.ParenthesizedExpression expr ->
+            isIfExpr expr
+
+        Expression.IfBlock _ _ _ ->
+            True
+
+        _ ->
+            False

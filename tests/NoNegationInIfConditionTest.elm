@@ -24,7 +24,7 @@ a = if not condition then 1 else 2
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Don't use if expressions with negated conditions"
-                            , details = [ "REPLACEME" ]
+                            , details = [ "We at fruits.com think that if expressions are more readable when the condition is not negated." ]
                             , under = "not"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
@@ -44,7 +44,7 @@ a =
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Don't use if expressions with negated conditions"
-                            , details = [ "REPLACEME" ]
+                            , details = [ "We at fruits.com think that if expressions are more readable when the condition is not negated." ]
                             , under = "not"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
