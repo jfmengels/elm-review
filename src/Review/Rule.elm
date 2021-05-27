@@ -4554,6 +4554,31 @@ withModuleKey (ContextCreator fn requestedData) =
         requestedData
 
 
+{-| Requests access to a function that gives you the source code at a given range.
+
+    rule : Rule
+    rule =
+        Rule.newModuleRuleSchemaUsingContextCreator YourRuleName initialContext
+            |> Rule.withExpressionEnterVisitor expressionVisitor
+            |> Rule.fromModuleRuleSchema
+
+    type alias Context =
+        { extractSourceCode : Range -> String
+        }
+
+    initialContext : Rule.ContextCreator () Context
+    initialContext =
+        Rule.initContextCreator
+            (\extractSourceCode () -> { extractSourceCode = extractSourceCode })
+            |> Rule.withSourceCodeExtractor
+
+The motivation for this capability was for allowing to provide higher-quality fixes, especially where you'd need to **move** or **copy**
+code from one place to another (example: [when switching the branches of an if expression](https://github.com/jfmengels/elm-review/blob/master/tests/NoNegationInIfCondition.elm)).
+
+I discourage using this functionality to explore the source code, as the different visitor functions make for a nicer
+experience.
+
+-}
 withSourceCodeExtractor : ContextCreator (Range -> String) (from -> to) -> ContextCreator from to
 withSourceCodeExtractor (ContextCreator fn (RequestedData requested)) =
     ContextCreator
