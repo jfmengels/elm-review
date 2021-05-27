@@ -2,7 +2,8 @@
   "name": "",
   "version": "1.0.0",
   "scripts": {
-    "test": "elm make --docs=docs.json && elm-format src/ --validate && elm-test && npm run phantom-tests && elm-review",
+    "test": "elm make --docs=docs.json && elm-format src/ --validate && elm-test && npm run phantom-tests && npm run elm-review",
+    "elm-review": "LOCAL_ELM_REVIEW_SRC=src elm-review",
     "phantom-tests": "node phantom-type-tests/run.js",
     "backport-rules": "cp -r ../elm-review-{common,debug,documentation,the-elm-architecture,unused,simplification,imports,noredundantconcat}/{src,tests}/* tests",
     "generate-dep": "node create-dependency",
