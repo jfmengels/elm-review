@@ -70,11 +70,12 @@ expressionVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Contex
 expressionVisitor node context =
     case Node.value node of
         Expression.IfBlock (Node _ (Expression.Application ((Node notRange (Expression.FunctionOrValue [] "not")) :: arguments))) thenBranch elseBranch ->
-            ( [ Rule.error
+            ( [ Rule.errorWithFix
                     { message = "Don't use if expressions with negated conditions"
                     , details = [ "REPLACEME" ]
                     }
                     notRange
+                    []
               ]
             , context
             )
