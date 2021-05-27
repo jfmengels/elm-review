@@ -4530,13 +4530,13 @@ type or value comes from.
 
     rule : Rule
     rule =
-        Rule.newModuleRuleSchemaUsingContextCreator "NoHtmlButton" contextCreator
+        Rule.newModuleRuleSchemaUsingContextCreator "NoHtmlButton" initialContext
             |> Rule.withExpressionEnterVisitor expressionVisitor
             |> Rule.fromModuleRuleSchema
             |> Rule.ignoreErrorsForFiles [ "src/Colors.elm" ]
 
-    contextCreator : Rule.ContextCreator () Context
-    contextCreator =
+    initialContext : Rule.ContextCreator () Context
+    initialContext =
         Rule.initContextCreator
             (\lookupTable () -> { lookupTable = lookupTable })
             |> Rule.withModuleNameLookupTable
