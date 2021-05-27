@@ -13,7 +13,7 @@ import Review.Fix as Fix
 import Review.Rule as Rule exposing (Rule)
 
 
-{-| Reports... REPLACEME
+{-| Reports when negations are used in
 
     config =
         [ NoNegationInIfCondition.rule
@@ -23,28 +23,31 @@ import Review.Rule as Rule exposing (Rule)
 ## Fail
 
     a =
-        "REPLACEME example to replace"
+        if not condition then
+            1
+
+        else
+            2
 
 
 ## Success
 
     a =
-        "REPLACEME example to replace"
+        if condition then
+            1
+
+        else
+            2
 
 
 ## When (not) to enable this rule
 
-This rule is useful when REPLACEME.
-This rule is not useful when REPLACEME.
+This rule is not meant to be published. It is primarily meant to be a test rule for `withSourceCodeExtractor` and
+an example for its usage.
 
-
-## Try it out
-
-You can try this rule out by running the following command:
-
-```bash
-elm-review --template jfmengels/elm-review/example --rules NoNegationInIfCondition
-```
+I don't think it's a good rule to enforce, and I personally like to put the "happy" path/branch first,
+instead of the non-negated one. As such, I have left this rule incomplete meaning there are more cases that should be
+handled for this rule to do what it is meant to do.
 
 -}
 rule : Rule
