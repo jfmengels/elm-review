@@ -31,4 +31,28 @@ a = if not condition then 1 else 2
 a = if  condition then 2 else 1
 """
                         ]
+        , test "should report multi-line if condition without a not call" <|
+            \() ->
+                """module A exposing (..)
+a =
+    if not condition then
+        1
+    else
+        2
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Don't use if expressions with negated conditions"
+                            , details = [ "REPLACEME" ]
+                            , under = "not"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+    if  condition then
+        2
+    else
+        1
+"""
+                        ]
         ]
