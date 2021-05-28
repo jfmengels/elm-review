@@ -79,13 +79,28 @@ elm-review --template jfmengels/elm-review-code-style/example --rules NoSimpleLe
 -}
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "NoSimpleLetBody" ()
-        |> Rule.withSimpleExpressionVisitor expressionVisitor
+    Rule.newModuleRuleSchemaUsingContextCreator "NoSimpleLetBody" initialContext
+        |> Rule.withExpressionEnterVisitor (\node context -> ( expressionVisitor node context, context ))
         |> Rule.fromModuleRuleSchema
 
 
-expressionVisitor : Node Expression -> List (Rule.Error {})
-expressionVisitor node =
+type alias Context =
+    { extractSourceCode : Range -> String
+    }
+
+
+initialContext : Rule.ContextCreator () Context
+initialContext =
+    Rule.initContextCreator
+        (\extractSourceCode () ->
+            { extractSourceCode = extractSourceCode
+            }
+        )
+        |> Rule.withSourceCodeExtractor
+
+
+expressionVisitor : Node Expression -> Context -> List (Rule.Error {})
+expressionVisitor node { extractSourceCode } =
     case Node.value node of
         Expression.LetExpression { declarations, expression } ->
             case Node.value expression of
@@ -95,7 +110,7 @@ expressionVisitor node =
                             { previousEnd : Maybe Location
                             , lastEnd : Maybe Location
                             , last : Maybe { name : String, declarationRange : Range, expressionRange : Range }
-                            , foundDeclaredWithName : Bool
+                            , foundDeclaredWithName : Maybe { declarationRange : Range, expressionRange : Range, takesArguments : Bool }
                             }
                         declarationData =
                             List.foldl
@@ -119,7 +134,16 @@ expressionVisitor node =
 
                                                 else
                                                     Nothing
-                                            , foundDeclaredWithName = foundDeclaredWithName || Node.value functionDeclaration.name == name
+                                            , foundDeclaredWithName =
+                                                if Node.value functionDeclaration.name == name then
+                                                    Just
+                                                        { declarationRange = Node.range declaration
+                                                        , expressionRange = Node.range functionDeclaration.expression
+                                                        , takesArguments = not (List.isEmpty functionDeclaration.arguments)
+                                                        }
+
+                                                else
+                                                    foundDeclaredWithName
                                             }
 
                                         Expression.LetDestructuring _ _ ->
@@ -132,50 +156,63 @@ expressionVisitor node =
                                 { previousEnd = Nothing
                                 , lastEnd = Nothing
                                 , last = Nothing
-                                , foundDeclaredWithName = False
+                                , foundDeclaredWithName = Nothing
                                 }
                                 declarations
                     in
-                    if declarationData.foundDeclaredWithName then
-                        [ Rule.errorWithFix
-                            { message = "The referenced value should be inlined."
-                            , details =
-                                [ "The name of the value is redundant with the surrounding expression."
-                                , "If you believe that the expression needs a name because it is too complex, consider splitting the expression up more or extracting it to a new function."
-                                ]
-                            }
-                            (Node.range expression)
-                            (case declarationData.last of
-                                Just last ->
-                                    if last.name == name then
-                                        case declarationData.previousEnd of
-                                            Nothing ->
-                                                -- It's the only element in the destructuring, we should remove move of the let expression
-                                                [ Fix.removeRange { start = (Node.range node).start, end = last.expressionRange.start }
-                                                , Fix.removeRange { start = last.expressionRange.end, end = (Node.range node).end }
+                    case declarationData.foundDeclaredWithName of
+                        Just { declarationRange, expressionRange, takesArguments } ->
+                            [ Rule.errorWithFix
+                                { message = "The referenced value should be inlined."
+                                , details =
+                                    [ "The name of the value is redundant with the surrounding expression."
+                                    , "If you believe that the expression needs a name because it is too complex, consider splitting the expression up more or extracting it to a new function."
+                                    ]
+                                }
+                                (Node.range expression)
+                                (case declarationData.last of
+                                    Just last ->
+                                        if not takesArguments then
+                                            if last.name == name then
+                                                case declarationData.previousEnd of
+                                                    Nothing ->
+                                                        -- It's the only element in the destructuring, we should remove move of the let expression
+                                                        [ Fix.removeRange { start = (Node.range node).start, end = last.expressionRange.start }
+                                                        , Fix.removeRange { start = last.expressionRange.end, end = (Node.range node).end }
+                                                        ]
+
+                                                    Just previousEnd ->
+                                                        -- There are other elements in the let body that we need to keep
+                                                        let
+                                                            indentation : String
+                                                            indentation =
+                                                                String.repeat ((Node.range node).start.column - 1) " "
+                                                        in
+                                                        [ Fix.replaceRangeBy { start = previousEnd, end = last.expressionRange.start } ("\n" ++ indentation ++ "in\n" ++ indentation)
+                                                        , Fix.removeRange { start = last.expressionRange.end, end = (Node.range node).end }
+                                                        ]
+
+                                            else
+                                                [ Fix.removeRange declarationRange
+                                                , Fix.replaceRangeBy (Node.range expression) (extractSourceCode expressionRange)
                                                 ]
 
-                                            Just previousEnd ->
-                                                -- There are other elements in the let body that we need to keep
-                                                let
-                                                    indentation : String
-                                                    indentation =
-                                                        String.repeat ((Node.range node).start.column - 1) " "
-                                                in
-                                                [ Fix.replaceRangeBy { start = previousEnd, end = last.expressionRange.start } ("\n" ++ indentation ++ "in\n" ++ indentation)
-                                                , Fix.removeRange { start = last.expressionRange.end, end = (Node.range node).end }
-                                                ]
+                                        else
+                                            []
 
-                                    else
-                                        []
+                                    Nothing ->
+                                        if not takesArguments then
+                                            [ Fix.removeRange declarationRange
+                                            , Fix.replaceRangeBy (Node.range expression) (extractSourceCode expressionRange)
+                                            ]
 
-                                Nothing ->
-                                    []
-                            )
-                        ]
+                                        else
+                                            []
+                                )
+                            ]
 
-                    else
-                        []
+                        Nothing ->
+                            []
 
                 _ ->
                     []

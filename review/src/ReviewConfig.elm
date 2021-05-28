@@ -55,6 +55,7 @@ config =
 
     --, NoUnnecessaryTrailingUnderscore.rule
     , NoUnused.Variables.rule
+    , NoSimpleLetBody.rule
     ]
         |> List.map (Rule.ignoreErrorsForDirectories [ "src/Vendor/", "tests/Vendor/" ])
         |> List.map (Rule.ignoreErrorsForFiles [ "tests/NoUnused/Patterns/NameVisitor.elm" ])

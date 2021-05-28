@@ -11,7 +11,7 @@ module Review.Rule exposing
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
-    , ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleNameLookupTable, withModuleKey
+    , ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , globalError, configurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
@@ -218,7 +218,7 @@ first, as they are in practice a simpler version of project rules.
 
 ## Requesting more information
 
-@docs ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleNameLookupTable, withModuleKey
+@docs ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
 
 
 ## Errors
@@ -1183,7 +1183,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     requestedData
 
                 Nothing ->
-                    RequestedData { metadata = False, moduleNameLookupTable = False }
+                    RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
         , ruleImplementation =
             \exceptions project nodeContexts ->
                 let
@@ -1226,7 +1226,7 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
                 requestedData
 
             Nothing ->
-                RequestedData { metadata = False, moduleNameLookupTable = False }
+                RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
     }
 
 
@@ -1254,6 +1254,7 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
                             }
                     , moduleKey = ModuleKey "dummy"
                     , moduleNameLookupTable = ModuleNameLookupTableInternal.empty
+                    , extractSourceCode = always "dummy"
                     }
 
                 initialModuleContext : moduleContext
@@ -1389,7 +1390,7 @@ configurationError name configurationError_ =
     Rule
         { name = name
         , exceptions = Exceptions.init
-        , requestedData = RequestedData { metadata = False, moduleNameLookupTable = False }
+        , requestedData = RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
         , ruleImplementation = \_ _ _ -> ( [], configurationError name configurationError_ )
         , configurationError = Just configurationError_
         }
@@ -3961,6 +3962,16 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                     , moduleNameLookupTable =
                         Dict.get (Review.Project.Internal.getModuleName module_) moduleNameLookupTables
                             |> Maybe.withDefault ModuleNameLookupTableInternal.empty
+                    , extractSourceCode =
+                        let
+                            (RequestedData requestedData) =
+                                projectVisitor.requestedData
+                        in
+                        if requestedData.sourceCodeExtractor then
+                            extractSourceCode (String.lines module_.source)
+
+                        else
+                            always ""
                     }
 
                 initialModuleContext : moduleContext
@@ -4105,6 +4116,26 @@ visitModuleForProjectRule schema initialContext module_ =
             )
             module_.ast.declarations
         |> (\( errors, moduleContext ) -> ( makeFinalEvaluation schema.finalEvaluationFns ( errors, moduleContext ), moduleContext ))
+
+
+extractSourceCode : List String -> Range -> String
+extractSourceCode lines range =
+    lines
+        |> List.drop (range.start.row - 1)
+        |> List.take (range.end.row - range.start.row + 1)
+        |> mapLast (String.slice 0 (range.end.column - 1))
+        |> String.join "\n"
+        |> String.dropLeft (range.start.column - 1)
+
+
+mapLast : (a -> a) -> List a -> List a
+mapLast mapper lines =
+    case List.reverse lines of
+        [] ->
+            lines
+
+        first :: rest ->
+            List.reverse (mapper first :: rest)
 
 
 visitImport :
@@ -4384,8 +4415,8 @@ type ContextCreator from to
 
 type RequestedData
     = RequestedData
-        { metadata : Bool
-        , moduleNameLookupTable : Bool
+        { moduleNameLookupTable : Bool
+        , sourceCodeExtractor : Bool
         }
 
 
@@ -4409,8 +4440,8 @@ initContextCreator fromProjectToModule =
     ContextCreator
         (always fromProjectToModule)
         (RequestedData
-            { metadata = False
-            , moduleNameLookupTable = False
+            { moduleNameLookupTable = False
+            , sourceCodeExtractor = False
             }
         )
 
@@ -4437,10 +4468,10 @@ applyContextCreator data (ContextCreator fn _) from =
 
 -}
 withMetadata : ContextCreator Metadata (from -> to) -> ContextCreator from to
-withMetadata (ContextCreator fn (RequestedData requested)) =
+withMetadata (ContextCreator fn requestedData) =
     ContextCreator
         (\data -> fn data data.metadata)
-        (RequestedData { requested | metadata = True })
+        requestedData
 
 
 {-| Requests the module name lookup table for the types and functions inside a module.
@@ -4463,13 +4494,13 @@ type or value comes from.
 
     rule : Rule
     rule =
-        Rule.newModuleRuleSchemaUsingContextCreator "NoHtmlButton" contextCreator
+        Rule.newModuleRuleSchemaUsingContextCreator "NoHtmlButton" initialContext
             |> Rule.withExpressionEnterVisitor expressionVisitor
             |> Rule.fromModuleRuleSchema
             |> Rule.ignoreErrorsForFiles [ "src/Colors.elm" ]
 
-    contextCreator : Rule.ContextCreator () Context
-    contextCreator =
+    initialContext : Rule.ContextCreator () Context
+    initialContext =
         Rule.initContextCreator
             (\lookupTable () -> { lookupTable = lookupTable })
             |> Rule.withModuleNameLookupTable
@@ -4517,16 +4548,49 @@ withModuleNameLookupTable (ContextCreator fn (RequestedData requested)) =
 
 -}
 withModuleKey : ContextCreator ModuleKey (from -> to) -> ContextCreator from to
-withModuleKey (ContextCreator fn (RequestedData requested)) =
+withModuleKey (ContextCreator fn requestedData) =
     ContextCreator
         (\data -> fn data data.moduleKey)
-        (RequestedData { requested | metadata = True })
+        requestedData
+
+
+{-| Requests access to a function that gives you the source code at a given range.
+
+    rule : Rule
+    rule =
+        Rule.newModuleRuleSchemaUsingContextCreator YourRuleName initialContext
+            |> Rule.withExpressionEnterVisitor expressionVisitor
+            |> Rule.fromModuleRuleSchema
+
+    type alias Context =
+        { extractSourceCode : Range -> String
+        }
+
+    initialContext : Rule.ContextCreator () Context
+    initialContext =
+        Rule.initContextCreator
+            (\extractSourceCode () -> { extractSourceCode = extractSourceCode })
+            |> Rule.withSourceCodeExtractor
+
+The motivation for this capability was for allowing to provide higher-quality fixes, especially where you'd need to **move** or **copy**
+code from one place to another (example: [when switching the branches of an if expression](https://github.com/jfmengels/elm-review/blob/master/tests/NoNegationInIfCondition.elm)).
+
+I discourage using this functionality to explore the source code, as the different visitor functions make for a nicer
+experience.
+
+-}
+withSourceCodeExtractor : ContextCreator (Range -> String) (from -> to) -> ContextCreator from to
+withSourceCodeExtractor (ContextCreator fn (RequestedData requested)) =
+    ContextCreator
+        (\data -> fn data data.extractSourceCode)
+        (RequestedData { requested | sourceCodeExtractor = True })
 
 
 type alias AvailableData =
     { metadata : Metadata
     , moduleKey : ModuleKey
     , moduleNameLookupTable : ModuleNameLookupTable
+    , extractSourceCode : Range -> String
     }
 
 
