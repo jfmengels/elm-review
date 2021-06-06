@@ -11,7 +11,7 @@ fix for the error using [`Review.Rule.errorWithFix`](./Review-Rule#errorWithFix)
 or other functions that end with "withFix" so that the user doesn't need to fix
 the problem themselves.
 
-In the [CLI], the user can ask to fix the errors automatically, and in doing so,
+In the [CLI](https://github.com/jfmengels/node-elm-review), the user can ask to fix the errors automatically, and in doing so,
 they will be presented by a fix which they can accept or refuse. If the fix gets
 refused, then the next fixable error will be presented. Otherwise, if the fix
 gets accepted, the file will be applied and the fixed file content get analyzed
@@ -75,7 +75,7 @@ confused when the error ends up not being enforced. The only way we have to
 prevent this is to write tests, as fixes are applied in tests.
 
 
-### The user should learn about problem and how to solve it
+### The user should learn about the problem and how to solve it
 
 Sometimes problems are learning opportunities, and it is worth having the user
 spend some time reading through the details of the error and trying several
@@ -89,7 +89,7 @@ The reasons to provide an automatic fix are basically the opposite of the
 reasons not to provide an automatic fix:
 
   - We know how to fix the problem completely and accurately
-  - The task is menial and the user will not learn anything by fixing the error
+  - The task is menial and the user will not learn much by fixing the error
     themselves
 
 
