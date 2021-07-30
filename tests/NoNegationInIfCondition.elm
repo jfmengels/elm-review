@@ -80,8 +80,8 @@ expressionVisitor node context =
 
                     else
                         let
-                            elseString : String
-                            elseString =
+                            elseKeywordString : String
+                            elseKeywordString =
                                 context.extractSourceCode { start = (Node.range thenBranch).end, end = (Node.range elseBranch).start }
                         in
                         ( [ Rule.errorWithFix
@@ -93,7 +93,7 @@ expressionVisitor node context =
                                 , Fix.removeRange { start = (Node.range thenBranch).start, end = (Node.range elseBranch).start }
                                 , Fix.insertAt
                                     (Node.range elseBranch).end
-                                    (elseString ++ context.extractSourceCode (Node.range thenBranch))
+                                    (elseKeywordString ++ context.extractSourceCode (Node.range thenBranch))
                                 ]
                           ]
                         , context
