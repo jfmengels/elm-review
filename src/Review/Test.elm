@@ -63,7 +63,7 @@ A good test title explains
   - what is tested - Probably the rule, but making it explicit
     in a [`describe`](https://package.elm-lang.org/packages/elm-explorations/test/latest/Test#describe)
     might improve your test report. Or maybe you are testing a sub-part of the rule,
-    and you can name it explictly.
+    and you can name it explicitly.
   - what should happen: (not) reporting an error, fix <something> by <doing something>, ...
   - when: what is the situation that this test sets up?
 

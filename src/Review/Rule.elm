@@ -4535,7 +4535,7 @@ withModuleNameLookupTable (ContextCreator fn (RequestedData requested)) =
         (RequestedData { requested | moduleNameLookupTable = True })
 
 
-{-| Request the [module key](ModuleKey) for this module.
+{-| Request the [module key](#ModuleKey) for this module.
 
     rule =
         Rule.newProjectRuleSchema "NoMissingSubscriptionsCall" initialProjectContext
