@@ -240,7 +240,7 @@ modulesThatFailedToParse (Internal.Project project) =
     project.modulesThatFailedToParse
 
 
-{-| Precomputes the module graph that you get using [`moduleGraph`](#moduleGraph).
+{-| Precomputes the module graph.
 
 This is to avoid a potentially long computation at every review run. Once the graph
 is precomputed, it will be recomputed every time a module is changed, meaning
