@@ -18,6 +18,8 @@ import Review.Rule as Rule exposing (Error, Rule)
 
 {-| Forbids exporting everything from a module.
 
+🔧 Running with `--fix` will automatically fix all the reported errors.
+
 Modules should have hidden implementation details with an explicit API so that the module is used in a proper and controlled way.
 The users of this module should not have to know about what is inside a module it is using, and they shouldn't need to access its internal details.
 Therefore, the API should be explicitly defined and ideally as small as possible.

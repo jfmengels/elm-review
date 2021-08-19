@@ -21,12 +21,15 @@ import Elm.Syntax.Signature exposing (Signature)
 import Elm.Syntax.Type as Type
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Review.Fix as Fix exposing (Fix)
+import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Rule as Rule exposing (Rule)
 import Set exposing (Set)
 
 
 {-| Reports types that should be exposed but are not.
+
+🔧 Running with `--fix` will automatically fix all the reported errors.
 
 If a type is not exposed then it can be impossible to annotate functions or values that use them outside of the module. Affected types may be used in exposed function signatures, type aliases or other custom types.
 
@@ -89,7 +92,7 @@ rule =
         |> Rule.withDependenciesProjectVisitor dependencyDictVisitor
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withContextFromImportedModules
-        |> Rule.withModuleContext
+        |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModuleContext
             , fromModuleToProject = fromModuleToProjectContext
             , foldProjectContexts = foldProjectContexts
@@ -166,17 +169,26 @@ moduleVisitor schema =
 
 moduleDefinitionVisitor : Node Module -> ModuleContext -> ( List nothing, ModuleContext )
 moduleDefinitionVisitor (Node _ mod) context =
-    case context of
+    case context.moduleType of
         InternalModule data ->
-            ( [], InternalModule { data | exposes = Module.exposingList mod } )
+            ( []
+            , { lookupTable = context.lookupTable
+              , modulesFromTheProject = context.modulesFromTheProject
+              , moduleType = InternalModule { data | exposes = Module.exposingList mod }
+              }
+            )
 
         ExposedModule data ->
             ( []
-            , ExposedModule
-                { data
-                    | exposes = Module.exposingList mod
-                    , exposingListStart = exposingListStartLocation (Module.exposingList mod)
-                }
+            , { lookupTable = context.lookupTable
+              , modulesFromTheProject = context.modulesFromTheProject
+              , moduleType =
+                    ExposedModule
+                        { data
+                            | exposes = Module.exposingList mod
+                            , exposingListStart = exposingListStartLocation (Module.exposingList mod)
+                        }
+              }
             )
 
 
@@ -191,20 +203,19 @@ exposingListStartLocation exposes =
 
 
 importVisitor : Node Import -> ModuleContext -> ( List nothing, ModuleContext )
-importVisitor (Node _ { moduleName, moduleAlias, exposingList }) context =
-    case context of
+importVisitor (Node _ { moduleName, moduleAlias }) context =
+    case context.moduleType of
         InternalModule _ ->
             ( [], context )
 
         ExposedModule data ->
             ( []
-            , ExposedModule
-                { data
-                    | exposedModules =
-                        exposedModulesForImportAlias (Node.value moduleName) moduleAlias data.exposedModules
-                    , importedTypes =
-                        importedTypesForImportExposing (Node.value moduleName) exposingList data.moduleTypes data.importedTypes
-                }
+            , { lookupTable = context.lookupTable
+              , modulesFromTheProject = context.modulesFromTheProject
+              , moduleType =
+                    ExposedModule
+                        { data | exposedModules = exposedModulesForImportAlias (Node.value moduleName) moduleAlias data.exposedModules }
+              }
             )
 
 
@@ -220,76 +231,31 @@ exposedModulesForImportAlias moduleName maybeModuleAlias exposedModules =
             exposedModules
 
 
-importedTypesForImportExposing :
-    ModuleName
-    -> Maybe (Node Exposing)
-    -> Dict ModuleName (Set String)
-    -> Dict String ModuleName
-    -> Dict String ModuleName
-importedTypesForImportExposing moduleName maybeExposing moduleTypes importedTypes =
-    case maybeExposing of
-        Just (Node _ (Exposing.Explicit list)) ->
-            List.foldl (importedTypesForImportExpose moduleName) importedTypes list
-
-        Just (Node _ (Exposing.All _)) ->
-            importedTypesForModule moduleName moduleTypes importedTypes
-
-        Nothing ->
-            importedTypes
-
-
-importedTypesForImportExpose : ModuleName -> Node Exposing.TopLevelExpose -> Dict String ModuleName -> Dict String ModuleName
-importedTypesForImportExpose moduleName (Node _ expose) importedTypes =
-    case expose of
-        Exposing.TypeExpose { name } ->
-            rememberImportedType moduleName name importedTypes
-
-        Exposing.TypeOrAliasExpose name ->
-            rememberImportedType moduleName name importedTypes
-
-        Exposing.FunctionExpose _ ->
-            importedTypes
-
-        Exposing.InfixExpose _ ->
-            importedTypes
-
-
-importedTypesForModule :
-    ModuleName
-    -> Dict ModuleName (Set String)
-    -> Dict String ModuleName
-    -> Dict String ModuleName
-importedTypesForModule moduleName moduleTypes importedTypes =
-    case Dict.get moduleName moduleTypes of
-        Just types ->
-            Set.foldl (rememberImportedType moduleName) importedTypes types
-
-        Nothing ->
-            importedTypes
-
-
-rememberImportedType : ModuleName -> String -> Dict String ModuleName -> Dict String ModuleName
-rememberImportedType moduleName typeName importedTypes =
-    Dict.insert typeName moduleName importedTypes
-
-
 declarationListVisitor : List (Node Declaration) -> ModuleContext -> ( List nothing, ModuleContext )
 declarationListVisitor nodes context =
     ( []
-    , case context of
+    , case context.moduleType of
         InternalModule data ->
-            InternalModule
-                { data
-                    | exposedTypes =
-                        exposedTypesForDeclarationList data.exposes nodes data.exposedTypes
-                }
+            { lookupTable = context.lookupTable
+            , modulesFromTheProject = context.modulesFromTheProject
+            , moduleType =
+                InternalModule
+                    { data
+                        | exposedTypes =
+                            exposedTypesForDeclarationList data.exposes nodes data.exposedTypes
+                    }
+            }
 
         ExposedModule data ->
-            ExposedModule
-                { data
-                    | declaredTypes = declaredTypesForDeclarationList nodes data.declaredTypes
-                    , exposedSignatureTypes = exposedSignatureTypesForDeclarationList data.exposes nodes data.exposedSignatureTypes
-                }
+            { lookupTable = context.lookupTable
+            , modulesFromTheProject = context.modulesFromTheProject
+            , moduleType =
+                ExposedModule
+                    { data
+                        | declaredTypes = declaredTypesForDeclarationList nodes data.declaredTypes
+                        , exposedSignatureTypes = exposedSignatureTypesForDeclarationList context.lookupTable data.exposes nodes data.exposedSignatureTypes
+                    }
+            }
     )
 
 
@@ -344,85 +310,91 @@ rememberDeclaredType (Node _ name) declaredTypes =
 
 
 exposedSignatureTypesForDeclarationList :
-    Exposing
+    ModuleNameLookupTable
+    -> Exposing
     -> List (Node Declaration)
     -> List (Node ( ModuleName, String ))
     -> List (Node ( ModuleName, String ))
-exposedSignatureTypesForDeclarationList exposes list exposedSignatureTypes =
-    List.foldl (exposedSignatureTypesForDeclaration exposes) exposedSignatureTypes list
+exposedSignatureTypesForDeclarationList lookupTable exposes list exposedSignatureTypes =
+    List.foldl (exposedSignatureTypesForDeclaration lookupTable exposes) exposedSignatureTypes list
 
 
 exposedSignatureTypesForDeclaration :
-    Exposing
+    ModuleNameLookupTable
+    -> Exposing
     -> Node Declaration
     -> List (Node ( ModuleName, String ))
     -> List (Node ( ModuleName, String ))
-exposedSignatureTypesForDeclaration exposes (Node _ declaration) exposedSignatureTypes =
+exposedSignatureTypesForDeclaration lookupTable exposes (Node _ declaration) exposedSignatureTypes =
     case declaration of
         Declaration.CustomTypeDeclaration { name, constructors } ->
-            exposedSignatureTypesForConstructorList exposes name constructors exposedSignatureTypes
+            exposedSignatureTypesForConstructorList lookupTable exposes name constructors exposedSignatureTypes
 
         Declaration.AliasDeclaration { name, typeAnnotation } ->
-            exposedSignatureTypesForAlias exposes name typeAnnotation exposedSignatureTypes
+            exposedSignatureTypesForAlias lookupTable exposes name typeAnnotation exposedSignatureTypes
 
         Declaration.FunctionDeclaration { signature } ->
-            exposedSignatureTypesForSignature exposes signature exposedSignatureTypes
+            exposedSignatureTypesForSignature lookupTable exposes signature exposedSignatureTypes
 
         _ ->
             exposedSignatureTypes
 
 
 exposedSignatureTypesForConstructorList :
-    Exposing
+    ModuleNameLookupTable
+    -> Exposing
     -> Node String
     -> List (Node Type.ValueConstructor)
     -> List (Node ( ModuleName, String ))
     -> List (Node ( ModuleName, String ))
-exposedSignatureTypesForConstructorList exposes (Node _ name) list exposedSignatureTypes =
+exposedSignatureTypesForConstructorList lookupTable exposes (Node _ name) list exposedSignatureTypes =
     if isTypeExposedOpen exposes name then
-        List.foldl exposedSignatureTypesForConstructor exposedSignatureTypes list
+        List.foldl (exposedSignatureTypesForConstructor lookupTable) exposedSignatureTypes list
 
     else
         exposedSignatureTypes
 
 
 exposedSignatureTypesForConstructor :
-    Node Type.ValueConstructor
+    ModuleNameLookupTable
+    -> Node Type.ValueConstructor
     -> List (Node ( ModuleName, String ))
     -> List (Node ( ModuleName, String ))
-exposedSignatureTypesForConstructor (Node _ { arguments }) exposedSignatureTypes =
-    exposedSignatureTypesForTypeAnnotationList arguments exposedSignatureTypes
+exposedSignatureTypesForConstructor lookupTable (Node _ { arguments }) exposedSignatureTypes =
+    exposedSignatureTypesForTypeAnnotationList lookupTable arguments exposedSignatureTypes
 
 
 exposedSignatureTypesForAlias :
-    Exposing
+    ModuleNameLookupTable
+    -> Exposing
     -> Node String
     -> Node TypeAnnotation
     -> List (Node ( ModuleName, String ))
     -> List (Node ( ModuleName, String ))
-exposedSignatureTypesForAlias exposes (Node _ name) typeAnnotation exposedSignatureTypes =
+exposedSignatureTypesForAlias lookupTable exposes (Node _ name) typeAnnotation exposedSignatureTypes =
     if isTypeExposed exposes name then
         case typeAnnotation of
             Node _ (TypeAnnotation.Typed _ list) ->
-                exposedSignatureTypesForTypeAnnotationList list exposedSignatureTypes
+                exposedSignatureTypesForTypeAnnotationList lookupTable list exposedSignatureTypes
 
             _ ->
-                exposedSignatureTypesForTypeAnnotation typeAnnotation exposedSignatureTypes
+                exposedSignatureTypesForTypeAnnotation lookupTable typeAnnotation exposedSignatureTypes
 
     else
         exposedSignatureTypes
 
 
 exposedSignatureTypesForSignature :
-    Exposing
+    ModuleNameLookupTable
+    -> Exposing
     -> Maybe (Node Signature)
     -> List (Node ( ModuleName, String ))
     -> List (Node ( ModuleName, String ))
-exposedSignatureTypesForSignature exposes maybeSignature exposedSignatureTypes =
+exposedSignatureTypesForSignature lookupTable exposes maybeSignature exposedSignatureTypes =
     case maybeSignature of
         Just (Node _ { name, typeAnnotation }) ->
             if Exposing.exposesFunction (Node.value name) exposes then
-                exposedSignatureTypesForTypeAnnotation typeAnnotation exposedSignatureTypes
+                exposedSignatureTypesForTypeAnnotation lookupTable typeAnnotation exposedSignatureTypes
 
             else
                 exposedSignatureTypes
@@ -432,55 +404,65 @@ exposedSignatureTypesForSignature exposes maybeSignature exposedSignatureTypes =
 
 
 exposedSignatureTypesForRecordFieldList :
-    List (Node TypeAnnotation.RecordField)
+    ModuleNameLookupTable
+    -> List (Node TypeAnnotation.RecordField)
     -> List (Node ( ModuleName, String ))
     -> List (Node ( ModuleName, String ))
-exposedSignatureTypesForRecordFieldList fields exposedSignatureTypes =
-    List.foldl exposedSignatureTypesForRecordField exposedSignatureTypes fields
+exposedSignatureTypesForRecordFieldList lookupTable fields exposedSignatureTypes =
+    List.foldl (exposedSignatureTypesForRecordField lookupTable) exposedSignatureTypes fields
 
 
 exposedSignatureTypesForRecordField :
-    Node TypeAnnotation.RecordField
+    ModuleNameLookupTable
+    -> Node TypeAnnotation.RecordField
     -> List (Node ( ModuleName, String ))
     -> List (Node ( ModuleName, String ))
-exposedSignatureTypesForRecordField (Node _ ( _, typeAnnotation )) exposedSignatureTypes =
-    exposedSignatureTypesForTypeAnnotation typeAnnotation exposedSignatureTypes
+exposedSignatureTypesForRecordField lookupTable (Node _ ( _, typeAnnotation )) exposedSignatureTypes =
+    exposedSignatureTypesForTypeAnnotation lookupTable typeAnnotation exposedSignatureTypes
 
 
 exposedSignatureTypesForTypeAnnotationList :
-    List (Node TypeAnnotation)
+    ModuleNameLookupTable
+    -> List (Node TypeAnnotation)
     -> List (Node ( ModuleName, String ))
     -> List (Node ( ModuleName, String ))
-exposedSignatureTypesForTypeAnnotationList list exposedSignatureTypes =
-    List.foldl exposedSignatureTypesForTypeAnnotation exposedSignatureTypes list
+exposedSignatureTypesForTypeAnnotationList lookupTable list exposedSignatureTypes =
+    List.foldl (exposedSignatureTypesForTypeAnnotation lookupTable) exposedSignatureTypes list
 
 
 exposedSignatureTypesForTypeAnnotation :
-    Node TypeAnnotation
+    ModuleNameLookupTable
+    -> Node TypeAnnotation
     -> List (Node ( ModuleName, String ))
     -> List (Node ( ModuleName, String ))
-exposedSignatureTypesForTypeAnnotation (Node _ typeAnnotation) exposedSignatureTypes =
+exposedSignatureTypesForTypeAnnotation lookupTable (Node _ typeAnnotation) exposedSignatureTypes =
     case typeAnnotation of
         TypeAnnotation.Typed name list ->
-            (name :: exposedSignatureTypes)
-                |> exposedSignatureTypesForTypeAnnotationList list
+            case ModuleNameLookupTable.moduleNameFor lookupTable name of
+                Just moduleName ->
+                    (Node.map (\( _, typeName ) -> ( moduleName, typeName )) name :: exposedSignatureTypes)
+                        |> exposedSignatureTypesForTypeAnnotationList lookupTable list
+
+                Nothing ->
+                    (name :: exposedSignatureTypes)
+                        |> exposedSignatureTypesForTypeAnnotationList lookupTable list
 
         TypeAnnotation.FunctionTypeAnnotation left right ->
             exposedSignatureTypes
-                |> exposedSignatureTypesForTypeAnnotation left
-                |> exposedSignatureTypesForTypeAnnotation right
+                |> exposedSignatureTypesForTypeAnnotation lookupTable left
+                |> exposedSignatureTypesForTypeAnnotation lookupTable right
 
         TypeAnnotation.Tupled list ->
             exposedSignatureTypes
-                |> exposedSignatureTypesForTypeAnnotationList list
+                |> exposedSignatureTypesForTypeAnnotationList lookupTable list
 
         TypeAnnotation.Record fields ->
             exposedSignatureTypes
-                |> exposedSignatureTypesForRecordFieldList fields
+                |> exposedSignatureTypesForRecordFieldList lookupTable fields
 
         TypeAnnotation.GenericRecord _ (Node _ fields) ->
             exposedSignatureTypes
-                |> exposedSignatureTypesForRecordFieldList fields
+                |> exposedSignatureTypesForRecordFieldList lookupTable fields
 
         TypeAnnotation.Unit ->
             exposedSignatureTypes
@@ -491,39 +473,26 @@ exposedSignatureTypesForTypeAnnotation (Node _ typeAnnotation) exposedSignatureT
 
 finalEvaluation : ModuleContext -> List (Rule.Error {})
 finalEvaluation context =
-    case context of
+    case context.moduleType of
         InternalModule _ ->
             []
 
         ExposedModule data ->
             data.exposedSignatureTypes
-                |> List.map (Node.map (moduleNameForType data.importedTypes))
-                |> List.filter (isTypePrivate data)
+                |> List.filter (isTypePrivate context.modulesFromTheProject data)
                 |> List.map (makeError data.exposingListStart)
 
 
-isTypePrivate : ExposedModuleData -> Node ( ModuleName, String ) -> Bool
-isTypePrivate data (Node _ typeCall) =
+isTypePrivate : Set ModuleName -> ExposedModuleData -> Node ( ModuleName, String ) -> Bool
+isTypePrivate modulesFromTheProject data (Node _ typeCall) =
     case typeCall of
         ( [], name ) ->
-            if Set.member name data.declaredTypes then
-                not (isTypeExposed data.exposes name)
-
-            else
-                False
+            Set.member name data.declaredTypes
+                && not (isTypeExposed data.exposes name)
 
         ( moduleName, _ ) ->
-            not (isModuleExposed data.exposedModules moduleName)
-
-
-moduleNameForType : Dict String ModuleName -> ( ModuleName, String ) -> ( ModuleName, String )
-moduleNameForType importedTypes ( moduleName, typeName ) =
-    case Dict.get typeName importedTypes of
-        Just typeModuleName ->
-            ( typeModuleName, typeName )
-
-        _ ->
-            ( moduleName, typeName )
+            Set.member moduleName modulesFromTheProject
+                && not (isModuleExposed data.exposedModules moduleName)
 
 
 isTypeExposed : Exposing -> String -> Bool
@@ -638,23 +607,40 @@ formatTypeName ( moduleName, name ) =
     String.join "." (moduleName ++ [ name ])
 
 
-fromProjectToModuleContext : Rule.ModuleKey -> Node ModuleName -> ProjectContext -> ModuleContext
-fromProjectToModuleContext _ (Node _ moduleName) { exposedModules, moduleTypes } =
-    if isModuleExposed exposedModules moduleName then
-        initialExposedModuleContext exposedModules moduleTypes
+fromProjectToModuleContext : Rule.ContextCreator ProjectContext ModuleContext
+fromProjectToModuleContext =
+    Rule.initContextCreator
+        (\lookupTable metadata { exposedModules, moduleTypes } ->
+            let
+                moduleType : ModuleType
+                moduleType =
+                    if isModuleExposed exposedModules (Rule.moduleNameFromMetadata metadata) then
+                        initialExposedModuleType exposedModules moduleTypes
 
-    else
-        initialInternalModuleContext
+                    else
+                        initialInternalModuleType
+            in
+            { lookupTable = lookupTable
+            , modulesFromTheProject = Dict.keys moduleTypes |> Set.fromList
+            , moduleType = moduleType
+            }
+        )
+        |> Rule.withModuleNameLookupTable
+        |> Rule.withMetadata
 
 
-fromModuleToProjectContext : Rule.ModuleKey -> Node ModuleName -> ModuleContext -> ProjectContext
-fromModuleToProjectContext _ (Node _ moduleName) context =
-    case context of
-        InternalModule { exposedTypes } ->
-            { initialProjectContext | moduleTypes = Dict.singleton moduleName exposedTypes }
+fromModuleToProjectContext : Rule.ContextCreator ModuleContext ProjectContext
+fromModuleToProjectContext =
+    Rule.initContextCreator
+        (\metadata context ->
+            case context.moduleType of
+                InternalModule { exposedTypes } ->
+                    { initialProjectContext | moduleTypes = Dict.singleton (Rule.moduleNameFromMetadata metadata) exposedTypes }
 
-        ExposedModule _ ->
-            initialProjectContext
+                ExposedModule _ ->
+                    initialProjectContext
+        )
+        |> Rule.withMetadata
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
@@ -702,29 +688,24 @@ initialProjectContext =
     }
 
 
-initialInternalModuleContext : ModuleContext
-initialInternalModuleContext =
-    InternalModule initialAnyModuleData
+initialInternalModuleType : ModuleType
+initialInternalModuleType =
+    InternalModule
+        { exposedTypes = Set.empty
+        , exposes = Exposing.Explicit []
+        }
 
 
-initialExposedModuleContext : ExposedModules -> Dict ModuleName (Set String) -> ModuleContext
-initialExposedModuleContext exposedModules moduleTypes =
+initialExposedModuleType : ExposedModules -> Dict ModuleName (Set String) -> ModuleType
+initialExposedModuleType exposedModules moduleTypes =
     ExposedModule
         { declaredTypes = Set.empty
         , exposedModules = exposedModules
         , exposedSignatureTypes = []
         , exposes = Exposing.Explicit []
         , exposingListStart = Nothing
-        , importedTypes = Dict.empty
         , moduleTypes = moduleTypes
         }
-
-
-initialAnyModuleData : InternalModuleData
-initialAnyModuleData =
-    { exposedTypes = Set.empty
-    , exposes = Exposing.Explicit []
-    }
 
 
 type alias ProjectContext =
@@ -733,7 +714,14 @@ type alias ProjectContext =
     }
 
 
-type ModuleContext
+type alias ModuleContext =
+    { lookupTable : ModuleNameLookupTable
+    , modulesFromTheProject : Set ModuleName
+    , moduleType : ModuleType
+    }
+
+
+type ModuleType
     = InternalModule InternalModuleData
     | ExposedModule ExposedModuleData
 
@@ -750,7 +738,6 @@ type alias ExposedModuleData =
     , exposedSignatureTypes : List (Node ( ModuleName, String ))
     , exposes : Exposing
     , exposingListStart : Maybe Range.Location
-    , importedTypes : Dict String ModuleName
     , moduleTypes : Dict ModuleName (Set String)
     }
 
