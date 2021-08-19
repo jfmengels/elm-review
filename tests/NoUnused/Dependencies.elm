@@ -17,12 +17,15 @@ import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Version
+import List.Extra
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
 
 {-| Forbid the use of dependencies that are never used in your project.
+
+🔧 Running with `--fix` will automatically remove all the reported errors.
 
 A dependency is considered unused if none of its modules are imported in the project.
 
@@ -36,7 +39,7 @@ A dependency is considered unused if none of its modules are imported in the pro
 You can try this rule out by running the following command:
 
 ```bash
-elm-review --template jfmengels/elm-elm-review-unused/example --rules NoUnused.Dependencies
+elm-review --template jfmengels/elm-review-unused/example --rules NoUnused.Dependencies
 ```
 
 -}
@@ -250,26 +253,32 @@ finalEvaluationForProject projectContext =
                 depsNotUsedInSrcButUsedInTests : Set String
                 depsNotUsedInSrcButUsedInTests =
                     Set.intersect depsNotUsedInSrc projectContext.usedDependenciesFromTest
-                        |> Set.remove "elm/core"
 
                 depsNotUsedInSrcErrors : List String
                 depsNotUsedInSrcErrors =
-                    Set.diff depsNotUsedInSrc depsNotUsedInSrcButUsedInTests
-                        |> Set.remove "elm/core"
+                    Set.diff
+                        depsNotUsedInSrc
+                        (Set.union packagesNotToReport depsNotUsedInSrcButUsedInTests)
                         |> Set.toList
 
-                testDepsNotUsedInTests : List String
-                testDepsNotUsedInTests =
-                    Set.diff projectContext.directTestDependencies projectContext.usedDependenciesFromTest
-                        |> Set.remove "elm/core"
+                testDepsNotUsed : List String
+                testDepsNotUsed =
+                    Set.diff
+                        projectContext.directTestDependencies
+                        (Set.union projectContext.usedDependenciesFromTest projectContext.usedDependencies)
                         |> Set.toList
             in
             List.map (unusedProjectDependencyError elmJsonKey projectContext.dependencies) depsNotUsedInSrcErrors
-                ++ List.map (unusedTestDependencyError elmJsonKey projectContext.dependencies) testDepsNotUsedInTests
+                ++ List.map (unusedTestDependencyError elmJsonKey projectContext.dependencies) testDepsNotUsed
                 ++ List.map (moveDependencyToTestError elmJsonKey projectContext.dependencies) (Set.toList depsNotUsedInSrcButUsedInTests)
 
         Nothing ->
             []
+
+
+packagesNotToReport : Set String
+packagesNotToReport =
+    Set.fromList [ "elm/core", "lamdera/core", "lamdera/codecs" ]
 
 
 
@@ -412,7 +421,7 @@ fromProject dependenciesDict dependencyLocation packageNameStr project =
                         Nothing ->
                             []
             in
-            case find (isPackageWithName packageNameStr) dependencies of
+            case List.Extra.find (isPackageWithName packageNameStr) dependencies of
                 Just ( packageName, version ) ->
                     Just
                         (ApplicationProject
@@ -437,7 +446,7 @@ fromProject dependenciesDict dependencyLocation packageNameStr project =
                         InTestDeps ->
                             packageInfo.testDeps
             in
-            case find (isPackageWithName packageNameStr) dependencies of
+            case List.Extra.find (isPackageWithName packageNameStr) dependencies of
                 Just ( packageName, constraint ) ->
                     Just (PackageProject { package = packageInfo, name = packageName, constraint = constraint })
 
@@ -592,23 +601,3 @@ removeTestDependency projectAndDependencyIdentifier =
 isPackageWithName : String -> ( Elm.Package.Name, a ) -> Bool
 isPackageWithName packageName ( packageName_, _ ) =
     packageName == Elm.Package.toString packageName_
-
-
-{-| Find the first element that satisfies a predicate and return
-Just that element. If none match, return Nothing.
-
-    find (\num -> num > 5) [ 2, 4, 6, 8 ] == Just 6
-
--}
-find : (a -> Bool) -> List a -> Maybe a
-find predicate list =
-    case list of
-        [] ->
-            Nothing
-
-        first :: rest ->
-            if predicate first then
-                Just first
-
-            else
-                find predicate rest

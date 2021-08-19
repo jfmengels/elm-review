@@ -17,7 +17,7 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range exposing (Range)
-import Elm.Syntax.TypeAnnotation as TypeAnnotation
+import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
@@ -309,34 +309,33 @@ collectCustomType lookupTable node =
                 customTypeConstructors : List ( String, List Range )
                 customTypeConstructors =
                     List.map
-                        (Node.value
-                            >> (\{ name, arguments } ->
-                                    ( Node.value name
-                                    , arguments
-                                        |> List.filter
-                                            (\arg ->
-                                                case Node.value arg of
-                                                    TypeAnnotation.Typed (Node _ ( _, "Never" )) [] ->
-                                                        case ModuleNameLookupTable.moduleNameFor lookupTable arg of
-                                                            Just [ "Basics" ] ->
-                                                                False
-
-                                                            _ ->
-                                                                True
-
-                                                    _ ->
-                                                        True
-                                            )
-                                        |> List.map Node.range
-                                    )
-                               )
+                        (\(Node _ { name, arguments }) ->
+                            ( Node.value name
+                            , arguments
+                                |> List.filter (isNever lookupTable >> not)
+                                |> List.map Node.range
+                            )
                         )
                         typeDeclaration.constructors
             in
-            Just ( Node.value typeDeclaration.name, Dict.fromList customTypeConstructors )
+            if List.isEmpty customTypeConstructors then
+                Nothing
+
+            else
+                Just ( Node.value typeDeclaration.name, Dict.fromList customTypeConstructors )
 
         _ ->
             Nothing
+
+
+isNever : ModuleNameLookupTable -> Node TypeAnnotation -> Bool
+isNever lookupTable node =
+    case Node.value node of
+        TypeAnnotation.Typed (Node neverRange ( _, "Never" )) [] ->
+            ModuleNameLookupTable.moduleNameAt lookupTable neverRange == Just [ "Basics" ]
+
+        _ ->
+            False
 
 
 

@@ -16,6 +16,8 @@ import Review.Rule as Rule exposing (Error, Rule)
 
 {-| Forbid the use of [`Debug.log`](https://package.elm-lang.org/packages/elm/core/latest/Debug) before it goes into production or fails in the CI.
 
+🔧 Running with `--fix` will automatically remove all the reported errors.
+
 `Debug.log` is useful to debug your code, but should not be pushed to production.
 
     config =

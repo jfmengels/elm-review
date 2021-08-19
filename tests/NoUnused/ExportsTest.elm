@@ -1,86 +1,9 @@
 module NoUnused.ExportsTest exposing (all)
 
-import Elm.Project
-import Elm.Version
-import Json.Decode as Decode
 import NoUnused.Exports exposing (rule)
-import Review.Project as Project exposing (Project)
 import Review.Test
 import Test exposing (Test, describe, test)
-
-
-application : Project
-application =
-    Project.new
-        |> Project.addElmJson applicationElmJson
-
-
-applicationElmJson : { path : String, raw : String, project : Elm.Project.Project }
-applicationElmJson =
-    { path = "elm.json"
-    , raw = """{
-    "type": "application",
-    "source-directories": [
-        "src"
-    ],
-    "elm-version": "0.19.1",
-    "dependencies": {
-        "direct": {
-            "elm/core": "1.0.2"
-        },
-        "indirect": {}
-    },
-    "test-dependencies": {
-        "direct": {},
-        "indirect": {}
-    }
-}"""
-    , project =
-        Elm.Project.Application
-            { elm = Elm.Version.one
-            , dirs = []
-            , depsDirect = []
-            , depsIndirect = []
-            , testDepsDirect = []
-            , testDepsIndirect = []
-            }
-    }
-
-
-package : Project
-package =
-    Project.new
-        |> Project.addElmJson (createPackageElmJson ())
-
-
-createPackageElmJson : () -> { path : String, raw : String, project : Elm.Project.Project }
-createPackageElmJson _ =
-    case Decode.decodeString Elm.Project.decoder rawPackageElmJson of
-        Ok elmJson ->
-            { path = "elm.json"
-            , raw = rawPackageElmJson
-            , project = elmJson
-            }
-
-        Err err ->
-            Debug.todo ("Invalid elm.json supplied to test: " ++ Debug.toString err)
-
-
-rawPackageElmJson : String
-rawPackageElmJson =
-    """{
-    "type": "package",
-    "name": "author/package",
-    "summary": "Summary",
-    "license": "BSD-3-Clause",
-    "version": "1.0.0",
-    "exposed-modules": [
-        "Exposed"
-    ],
-    "elm-version": "0.19.0 <= v < 0.20.0",
-    "dependencies": {},
-    "test-dependencies": {}
-}"""
+import TestProject exposing (application, lamderaApplication, package)
 
 
 details : List String
@@ -97,6 +20,7 @@ all =
         , typeAliasesTests
         , duplicateModuleNameTests
         , importsTests
+        , lamderaTests
 
         -- TODO Add tests that report exposing the type's variants if they are never used.
         ]
@@ -242,6 +166,72 @@ exposed2 = 2
 module A exposing (exposed1)
 exposed1 = 1
 exposed2 = 2
+"""
+                        ]
+        , test "should propose to remove the @docs entry in the module's documentation along with the removed export" <|
+            \() ->
+                """module A exposing (exposed1, exposed2, exposed3)
+{-|
+
+@docs exposed1, exposed2
+@docs exposed3
+-}
+
+exposed1 = 1
+exposed2 = 2
+exposed3 = 3
+"""
+                    |> Review.Test.runWithProjectData package rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Exposed function or value `exposed1` is never used outside this module."
+                            , details = details
+                            , under = "exposed1"
+                            }
+                            |> Review.Test.atExactly { start = { row = 1, column = 20 }, end = { row = 1, column = 28 } }
+                            |> Review.Test.whenFixed """module A exposing (exposed2, exposed3)
+{-|
+
+@docs exposed2
+@docs exposed3
+-}
+
+exposed1 = 1
+exposed2 = 2
+exposed3 = 3
+"""
+                        , Review.Test.error
+                            { message = "Exposed function or value `exposed2` is never used outside this module."
+                            , details = details
+                            , under = "exposed2"
+                            }
+                            |> Review.Test.atExactly { start = { row = 1, column = 30 }, end = { row = 1, column = 38 } }
+                            |> Review.Test.whenFixed """module A exposing (exposed1, exposed3)
+{-|
+
+@docs exposed1
+@docs exposed3
+-}
+
+exposed1 = 1
+exposed2 = 2
+exposed3 = 3
+"""
+                        , Review.Test.error
+                            { message = "Exposed function or value `exposed3` is never used outside this module."
+                            , details = details
+                            , under = "exposed3"
+                            }
+                            |> Review.Test.atExactly { start = { row = 1, column = 40 }, end = { row = 1, column = 48 } }
+                            |> Review.Test.whenFixed """module A exposing (exposed1, exposed2)
+{-|
+
+@docs exposed1, exposed2
+-}
+
+exposed1 = 1
+exposed2 = 2
+exposed3 = 3
 """
                         ]
         , test "should not report anything for modules that expose everything`" <|
@@ -514,6 +504,28 @@ main =
   type1
 """, """module B exposing (Type1)
 type Type1 = Type1
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report an exposed type if it is used in a port (input)" <|
+            \() ->
+                [ """module Main exposing (main)
+import B
+main = somePort
+port somePort : (B.Type1 -> msg) -> Sub msg
+""", """module B exposing (Type1)
+type alias Type1 = { user : String }
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report an exposed type if it is used in a port (output)" <|
+            \() ->
+                [ """module Main exposing (main)
+import B
+main = somePort
+port somePort : B.Type1 -> Cmd msg
+""", """module B exposing (Type1)
+type alias Type1 = { user : String }
 """ ]
                     |> Review.Test.runOnModulesWithProjectData application rule
                     |> Review.Test.expectNoErrors
@@ -804,5 +816,46 @@ type alias TypeAlias = {}
 b = 2
 """ ]
                     |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        ]
+
+
+lamderaTests : Test
+lamderaTests =
+    describe "Lamdera support"
+        [ test "should report an exposed `app` function in packages" <|
+            \() ->
+                """module Main exposing (app)
+app = foo
+"""
+                    |> Review.Test.runWithProjectData package rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Exposed function or value `app` is never used outside this module."
+                            , details = details
+                            , under = "app"
+                            }
+                            |> Review.Test.atExactly { start = { row = 1, column = 23 }, end = { row = 1, column = 26 } }
+                        ]
+        , test "should report an exposed `app` function in applications" <|
+            \() ->
+                """module Main exposing (app)
+app = foo
+"""
+                    |> Review.Test.runWithProjectData application rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Exposed function or value `app` is never used outside this module."
+                            , details = details
+                            , under = "app"
+                            }
+                            |> Review.Test.atExactly { start = { row = 1, column = 23 }, end = { row = 1, column = 26 } }
+                        ]
+        , test "should not report an exposed `app` function in Lamdera applications" <|
+            \() ->
+                """module Main exposing (app)
+app = foo
+"""
+                    |> Review.Test.runWithProjectData lamderaApplication rule
                     |> Review.Test.expectNoErrors
         ]

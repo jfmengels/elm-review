@@ -16,7 +16,7 @@ import Dict exposing (Dict)
 import Elm.Module
 import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
-import Elm.Syntax.Exposing as Exposing
+import Elm.Syntax.Exposing as Exposing exposing (TopLevelExpose)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Module as Module exposing (Module)
@@ -24,7 +24,9 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
-import Review.Fix as Fix exposing (Fix)
+import List.Extra
+import NoUnused.LamderaSupport as LamderaSupport
+import Review.Fix as Fix
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
@@ -32,6 +34,8 @@ import Set exposing (Set)
 
 {-| Report functions and types that are exposed from a module but that are never
 used in other modules.
+
+🔧 Running with `--fix` will automatically remove all the reported errors.
 
 If the project is a package and the module that declared the element is exposed,
 then nothing will be reported.
@@ -69,6 +73,7 @@ moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema 
 moduleVisitor schema =
     schema
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
+        |> Rule.withCommentsVisitor commentsVisitor
         |> Rule.withImportVisitor importVisitor
         |> Rule.withDeclarationListVisitor declarationListVisitor
         |> Rule.withExpressionEnterVisitor expressionVisitor
@@ -92,14 +97,19 @@ type alias ProjectContext =
 
 type alias ExposedElement =
     { range : Range
-    , rangeToRemove : Maybe Range
+    , rangesToRemove : List Range
     , elementType : ExposedElementType
     }
 
 
 type ProjectType
-    = IsApplication
+    = IsApplication ElmApplicationType
     | IsPackage (Set (List String))
+
+
+type ElmApplicationType
+    = ElmApplication
+    | LamderaApplication
 
 
 type ExposedElementType
@@ -111,6 +121,7 @@ type ExposedElementType
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
     , exposesEverything : Bool
+    , rawExposed : List (Node TopLevelExpose)
     , exposed : Dict String ExposedElement
     , used : Set ( ModuleName, String )
     , elementsNotToReport : Set String
@@ -119,7 +130,7 @@ type alias ModuleContext =
 
 initialProjectContext : ProjectContext
 initialProjectContext =
-    { projectType = IsApplication
+    { projectType = IsApplication ElmApplication
     , modules = Dict.empty
     , used = Set.empty
     }
@@ -130,6 +141,7 @@ fromProjectToModule lookupTable _ =
     { lookupTable = lookupTable
     , exposesEverything = False
     , exposed = Dict.empty
+    , rawExposed = []
     , used = Set.empty
     , elementsNotToReport = Set.empty
     }
@@ -137,7 +149,7 @@ fromProjectToModule lookupTable _ =
 
 fromModuleToProject : Rule.ModuleKey -> Rule.Metadata -> ModuleContext -> ProjectContext
 fromModuleToProject moduleKey metadata moduleContext =
-    { projectType = IsApplication
+    { projectType = IsApplication ElmApplication
     , modules =
         Dict.singleton
             (Rule.moduleNameFromMetadata metadata)
@@ -197,8 +209,20 @@ elmJsonVisitor maybeProject projectContext =
               }
             )
 
-        _ ->
-            ( [], { projectContext | projectType = IsApplication } )
+        Just (Elm.Project.Application { depsDirect }) ->
+            let
+                elmApplicationType : ElmApplicationType
+                elmApplicationType =
+                    if LamderaSupport.isLamderaApplication depsDirect then
+                        LamderaApplication
+
+                    else
+                        ElmApplication
+            in
+            ( [], { projectContext | projectType = IsApplication elmApplicationType } )
+
+        Nothing ->
+            ( [], { projectContext | projectType = IsApplication ElmApplication } )
 
 
 
@@ -210,52 +234,45 @@ finalEvaluationForProject projectContext =
     projectContext.modules
         |> removeExposedPackages projectContext
         |> Dict.toList
+        |> List.concatMap (errorsForModule projectContext)
+
+
+errorsForModule : ProjectContext -> ( ModuleName, { moduleKey : Rule.ModuleKey, exposed : Dict String ExposedElement } ) -> List (Error scope)
+errorsForModule projectContext ( moduleName, { moduleKey, exposed } ) =
+    exposed
+        |> removeApplicationExceptions projectContext
+        |> removeReviewConfig moduleName
+        |> Dict.filter (\name _ -> not <| Set.member ( moduleName, name ) projectContext.used)
+        |> Dict.toList
         |> List.concatMap
-            (\( moduleName, { moduleKey, exposed } ) ->
-                exposed
-                    |> removeApplicationExceptions projectContext
-                    |> removeReviewConfig moduleName
-                    |> Dict.filter (\name _ -> not <| Set.member ( moduleName, name ) projectContext.used)
-                    |> Dict.toList
-                    |> List.concatMap
-                        (\( name, element ) ->
-                            let
-                                what : String
-                                what =
-                                    case element.elementType of
-                                        Function ->
-                                            "Exposed function or value"
+            (\( name, element ) ->
+                let
+                    what : String
+                    what =
+                        case element.elementType of
+                            Function ->
+                                "Exposed function or value"
 
-                                        TypeOrTypeAlias ->
-                                            "Exposed type or type alias"
+                            TypeOrTypeAlias ->
+                                "Exposed type or type alias"
 
-                                        ExposedType ->
-                                            "Exposed type"
-
-                                fixes : List Fix
-                                fixes =
-                                    case element.rangeToRemove of
-                                        Just rangeToRemove ->
-                                            [ Fix.removeRange rangeToRemove ]
-
-                                        Nothing ->
-                                            []
-                            in
-                            [ Rule.errorForModuleWithFix moduleKey
-                                { message = what ++ " `" ++ name ++ "` is never used outside this module."
-                                , details = [ "This exposed element is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
-                                }
-                                element.range
-                                fixes
-                            ]
-                        )
+                            ExposedType ->
+                                "Exposed type"
+                in
+                [ Rule.errorForModuleWithFix moduleKey
+                    { message = what ++ " `" ++ name ++ "` is never used outside this module."
+                    , details = [ "This exposed element is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
+                    }
+                    element.range
+                    (List.map Fix.removeRange element.rangesToRemove)
+                ]
             )
 
 
 removeExposedPackages : ProjectContext -> Dict ModuleName a -> Dict ModuleName a
 removeExposedPackages projectContext dict =
     case projectContext.projectType of
-        IsApplication ->
+        IsApplication _ ->
             dict
 
         IsPackage exposedModuleNames ->
@@ -265,11 +282,16 @@ removeExposedPackages projectContext dict =
 removeApplicationExceptions : ProjectContext -> Dict String a -> Dict String a
 removeApplicationExceptions projectContext dict =
     case projectContext.projectType of
-        IsApplication ->
-            Dict.remove "main" dict
-
         IsPackage _ ->
             dict
+
+        IsApplication ElmApplication ->
+            Dict.remove "main" dict
+
+        IsApplication LamderaApplication ->
+            dict
+                |> Dict.remove "main"
+                |> Dict.remove "app"
 
 
 removeReviewConfig : ModuleName -> Dict String a -> Dict String a
@@ -292,11 +314,39 @@ moduleDefinitionVisitor moduleNode moduleContext =
             ( [], { moduleContext | exposesEverything = True } )
 
         Exposing.Explicit list ->
-            ( [], { moduleContext | exposed = collectExposedElements list } )
+            ( [], { moduleContext | rawExposed = list } )
 
 
-collectExposedElements : List (Node Exposing.TopLevelExpose) -> Dict String ExposedElement
-collectExposedElements nodes =
+commentsVisitor : List (Node String) -> ModuleContext -> ( List nothing, ModuleContext )
+commentsVisitor nodes moduleContext =
+    if List.isEmpty moduleContext.rawExposed then
+        ( [], moduleContext )
+
+    else
+        let
+            comments : List ( Int, String )
+            comments =
+                nodes
+                    |> List.Extra.find (Node.value >> String.startsWith "{-|")
+                    |> Maybe.map
+                        (\(Node range comment) ->
+                            comment
+                                |> String.lines
+                                |> List.drop 1
+                                |> List.indexedMap (\i line -> ( i + range.start.row + 1, line ))
+                                |> List.filter (Tuple.second >> String.startsWith "@docs ")
+                        )
+                    |> Maybe.withDefault []
+        in
+        ( []
+        , { moduleContext
+            | exposed = collectExposedElements comments moduleContext.rawExposed
+          }
+        )
+
+
+collectExposedElements : List ( Int, String ) -> List (Node Exposing.TopLevelExpose) -> Dict String ExposedElement
+collectExposedElements comments nodes =
     let
         listWithPreviousRange : List (Maybe Range)
         listWithPreviousRange =
@@ -318,29 +368,12 @@ collectExposedElements nodes =
         |> List.map3 (\prev next current -> ( prev, current, next )) listWithPreviousRange listWithNextRange
         |> List.indexedMap
             (\index ( maybePreviousRange, Node range value, nextRange ) ->
-                let
-                    rangeToRemove : Maybe Range
-                    rangeToRemove =
-                        if List.length nodes == 1 then
-                            Nothing
-
-                        else if index == 0 then
-                            Just { range | end = nextRange.start }
-
-                        else
-                            case maybePreviousRange of
-                                Nothing ->
-                                    Just range
-
-                                Just previousRange ->
-                                    Just { range | start = previousRange.end }
-                in
                 case value of
                     Exposing.FunctionExpose name ->
                         Just
                             ( name
                             , { range = untilEndOfVariable name range
-                              , rangeToRemove = rangeToRemove
+                              , rangesToRemove = getRangesToRemove comments nodes name index maybePreviousRange range nextRange
                               , elementType = Function
                               }
                             )
@@ -349,7 +382,7 @@ collectExposedElements nodes =
                         Just
                             ( name
                             , { range = untilEndOfVariable name range
-                              , rangeToRemove = rangeToRemove
+                              , rangesToRemove = getRangesToRemove comments nodes name index maybePreviousRange range nextRange
                               , elementType = TypeOrTypeAlias
                               }
                             )
@@ -358,7 +391,7 @@ collectExposedElements nodes =
                         Just
                             ( name
                             , { range = untilEndOfVariable name range
-                              , rangeToRemove = Nothing
+                              , rangesToRemove = []
                               , elementType = ExposedType
                               }
                             )
@@ -368,6 +401,88 @@ collectExposedElements nodes =
             )
         |> List.filterMap identity
         |> Dict.fromList
+
+
+getRangesToRemove : List ( Int, String ) -> List a -> String -> Int -> Maybe Range -> Range -> Range -> List Range
+getRangesToRemove comments nodes name index maybePreviousRange range nextRange =
+    if List.length nodes == 1 then
+        []
+
+    else
+        let
+            exposeRemoval : Range
+            exposeRemoval =
+                if index == 0 then
+                    { range | end = nextRange.start }
+
+                else
+                    case maybePreviousRange of
+                        Nothing ->
+                            range
+
+                        Just previousRange ->
+                            { range | start = previousRange.end }
+        in
+        List.filterMap identity
+            [ Just exposeRemoval
+            , findMap (findDocsRangeToRemove name) comments
+            ]
+
+
+findDocsRangeToRemove : String -> ( Int, String ) -> Maybe Range
+findDocsRangeToRemove name fullComment =
+    case findcommentInMiddle name fullComment of
+        Just range ->
+            Just range
+
+        Nothing ->
+            findCommentAtEnd name fullComment
+
+
+findcommentInMiddle : String -> ( Int, String ) -> Maybe Range
+findcommentInMiddle name ( row, comment ) =
+    String.indexes (" " ++ name ++ ", ") comment
+        |> List.head
+        |> Maybe.map
+            (\index ->
+                { start = { row = row, column = index + 2 }
+                , end = { row = row, column = index + String.length name + 4 }
+                }
+            )
+
+
+findCommentAtEnd : String -> ( Int, String ) -> Maybe Range
+findCommentAtEnd name ( row, comment ) =
+    if comment == "@docs " ++ name then
+        Just
+            { start = { row = row, column = 1 }
+            , end = { row = row + 1, column = 1 }
+            }
+
+    else
+        String.indexes (", " ++ name) comment
+            |> List.head
+            |> Maybe.map
+                (\index ->
+                    { start = { row = row, column = index + 1 }
+                    , end = { row = row, column = index + String.length name + 3 }
+                    }
+                )
+
+
+findMap : (a -> Maybe b) -> List a -> Maybe b
+findMap mapper list =
+    case list of
+        [] ->
+            Nothing
+
+        first :: rest ->
+            case mapper first of
+                Just value ->
+                    Just value
+
+                Nothing ->
+                    findMap mapper rest
 
 
 untilEndOfVariable : String -> Range -> Range
@@ -572,8 +687,8 @@ typesUsedInDeclaration moduleContext declaration =
         Declaration.AliasDeclaration alias_ ->
             ( collectTypesFromTypeAnnotation moduleContext alias_.typeAnnotation, False )
 
-        Declaration.PortDeclaration _ ->
-            ( [], False )
+        Declaration.PortDeclaration signature ->
+            ( collectTypesFromTypeAnnotation moduleContext signature.typeAnnotation, False )
 
         Declaration.InfixDeclaration _ ->
             ( [], False )

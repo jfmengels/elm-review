@@ -627,11 +627,35 @@ id = Id
                             }
                             |> Review.Test.atExactly { start = { row = 3, column = 13 }, end = { row = 3, column = 17 } }
                         ]
-        , test "should not report a custom type with one constructor that takes Never" <|
+        , test "should not report a custom type with one constructor that takes Never (constructor named like the type)" <|
             \() ->
                 """
 module MyModule exposing (id)
 type User = User Never
+type Id a = Id a
+
+id : Id User
+id = Id
+"""
+                    |> Review.Test.runWithProjectData project (rule [])
+                    |> Review.Test.expectNoErrors
+        , test "should not report a custom type with one constructor that takes Never (constructor named differently from the type)" <|
+            \() ->
+                """
+module MyModule exposing (id)
+type User = SomeConstructor Never
+type Id a = Id a
+
+id : Id User
+id = Id
+"""
+                    |> Review.Test.runWithProjectData project (rule [])
+                    |> Review.Test.expectNoErrors
+        , test "should not report a custom type with one constructor that takes itself" <|
+            \() ->
+                """
+module MyModule exposing (id)
+type User = SomeConstructor User
 type Id a = Id a
 
 id : Id User

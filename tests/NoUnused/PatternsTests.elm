@@ -409,7 +409,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Pattern `_` is not needed."
+                        { message = "Pattern `_` is not needed"
                         , details = [ "This pattern is redundant and should be removed." ]
                         , under = "_"
                         }
@@ -610,7 +610,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Pattern `_` is not needed."
+                        { message = "Pattern `_` is not needed"
                         , details = [ "This pattern is redundant and should be removed." ]
                         , under = "_"
                         }
@@ -786,7 +786,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Named pattern is not needed."
+                        { message = "Named pattern is not needed"
                         , details = redundantReplaceDetails
                         , under = "Singular _"
                         }
@@ -801,7 +801,7 @@ foo =
     bosh
 """
                     , Review.Test.error
-                        { message = "Named pattern is not needed."
+                        { message = "Named pattern is not needed"
                         , details = redundantReplaceDetails
                         , under = "Pair _ _"
                         }
@@ -829,7 +829,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Named pattern is not needed."
+                        { message = "Named pattern is not needed"
                         , details = redundantReplaceDetails
                         , under = "Singular _"
                         }
@@ -843,7 +843,7 @@ foo =
     bosh
 """
                     , Review.Test.error
-                        { message = "Named pattern is not needed."
+                        { message = "Named pattern is not needed"
                         , details = redundantReplaceDetails
                         , under = "Pair _ _"
                         }
@@ -915,6 +915,35 @@ module A exposing (..)
 foo =
     let
         {bash} =
+            bar
+    in
+    bash
+"""
+                    ]
+    , test "should report empty record values" <|
+        \() ->
+            """
+module A exposing (..)
+foo =
+    let
+        {} =
+            bar
+    in
+    bash
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Record pattern is not needed"
+                        , details = redundantReplaceDetails
+                        , under = "{}"
+                        }
+                        |> Review.Test.whenFixed
+                            """
+module A exposing (..)
+foo =
+    let
+        _ =
             bar
     in
     bash
@@ -1012,7 +1041,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Tuple pattern is not needed."
+                        { message = "Tuple pattern is not needed"
                         , details = redundantReplaceDetails
                         , under = "( _, _ )"
                         }
@@ -1041,7 +1070,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Tuple pattern is not needed."
+                        { message = "Tuple pattern is not needed"
                         , details = redundantReplaceDetails
                         , under = "( _, _, _ )"
                         }

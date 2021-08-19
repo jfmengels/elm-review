@@ -17,6 +17,7 @@ import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
+import NoUnused.LamderaSupport as LamderaSupport
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
@@ -80,22 +81,32 @@ type alias ProjectContext =
             , moduleNameLocation : Range
             }
     , usedModules : Set ModuleName
-    , isPackage : Bool
+    , projectType : ProjectType
     }
 
 
 type alias ModuleContext =
     { importedModules : Set ModuleName
     , containsMainFunction : Bool
-    , isPackage : Bool
+    , projectType : ProjectType
     }
+
+
+type ProjectType
+    = Package
+    | Application ElmApplicationType
+
+
+type ElmApplicationType
+    = ElmApplication
+    | LamderaApplication
 
 
 initialProjectContext : ProjectContext
 initialProjectContext =
     { modules = Dict.empty
     , usedModules = Set.singleton [ "ReviewConfig" ]
-    , isPackage = False
+    , projectType = Application ElmApplication
     }
 
 
@@ -103,7 +114,7 @@ fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> ProjectContext -> Mod
 fromProjectToModule _ _ projectContext =
     { importedModules = Set.empty
     , containsMainFunction = False
-    , isPackage = projectContext.isPackage
+    , projectType = projectContext.projectType
     }
 
 
@@ -119,7 +130,7 @@ fromModuleToProject moduleKey moduleName moduleContext =
 
         else
             moduleContext.importedModules
-    , isPackage = moduleContext.isPackage
+    , projectType = moduleContext.projectType
     }
 
 
@@ -127,7 +138,7 @@ foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts newContext previousContext =
     { modules = Dict.union previousContext.modules newContext.modules
     , usedModules = Set.union previousContext.usedModules newContext.usedModules
-    , isPackage = previousContext.isPackage
+    , projectType = previousContext.projectType
     }
 
 
@@ -138,18 +149,30 @@ foldProjectContexts newContext previousContext =
 elmJsonVisitor : Maybe { a | project : Project } -> ProjectContext -> ( List nothing, ProjectContext )
 elmJsonVisitor maybeProject projectContext =
     let
-        ( exposedModules, isPackage ) =
+        ( exposedModules, projectType ) =
             case maybeProject |> Maybe.map .project of
                 Just (Elm.Project.Package { exposed }) ->
                     case exposed of
                         Elm.Project.ExposedList names ->
-                            ( names, True )
+                            ( names, Package )
 
                         Elm.Project.ExposedDict fakeDict ->
-                            ( List.concatMap Tuple.second fakeDict, True )
+                            ( List.concatMap Tuple.second fakeDict, Package )
 
-                _ ->
-                    ( [], False )
+                Just (Elm.Project.Application { depsDirect }) ->
+                    let
+                        elmApplicationType : ElmApplicationType
+                        elmApplicationType =
+                            if LamderaSupport.isLamderaApplication depsDirect then
+                                LamderaApplication
+
+                            else
+                                ElmApplication
+                    in
+                    ( [], Application elmApplicationType )
+
+                Nothing ->
+                    ( [], Application ElmApplication )
     in
     ( []
     , { projectContext
@@ -158,7 +181,7 @@ elmJsonVisitor maybeProject projectContext =
                 |> List.map (Elm.Module.toString >> String.split ".")
                 |> Set.fromList
                 |> Set.union projectContext.usedModules
-        , isPackage = isPackage
+        , projectType = projectType
       }
     )
 
@@ -205,24 +228,39 @@ moduleNameForImport node =
 
 declarationListVisitor : List (Node Declaration) -> ModuleContext -> ( List nothing, ModuleContext )
 declarationListVisitor list context =
-    if context.isPackage then
-        ( [], context )
+    case context.projectType of
+        Package ->
+            ( [], context )
 
-    else
-        let
-            containsMainFunction : Bool
-            containsMainFunction =
-                List.any
-                    (\declaration ->
-                        case Node.value declaration of
-                            Declaration.FunctionDeclaration function ->
-                                (function.declaration |> Node.value |> .name |> Node.value) == "main"
+        Application elmApplicationType ->
+            let
+                mainName : String
+                mainName =
+                    mainFunctionName elmApplicationType
 
-                            _ ->
-                                False
-                    )
-                    list
-        in
-        ( []
-        , { context | containsMainFunction = containsMainFunction }
-        )
+                containsMainFunction : Bool
+                containsMainFunction =
+                    List.any
+                        (\declaration ->
+                            case Node.value declaration of
+                                Declaration.FunctionDeclaration function ->
+                                    (function.declaration |> Node.value |> .name |> Node.value) == mainName
+
+                                _ ->
+                                    False
+                        )
+                        list
+            in
+            ( []
+            , { context | containsMainFunction = containsMainFunction }
+            )
+
+
+mainFunctionName : ElmApplicationType -> String
+mainFunctionName elmApplicationType =
+    case elmApplicationType of
+        ElmApplication ->
+            "main"
+
+        LamderaApplication ->
+            "app"

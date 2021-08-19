@@ -353,15 +353,18 @@ letInTests =
     [ test "should report unused variables from let declarations" <|
         \() ->
             """module SomeModule exposing (a)
-a = let b = 1
+a = let
+        unused : number
+        unused = 1
     in 2"""
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "`let in` variable `b` is not used"
+                        { message = "`let in` variable `unused` is not used"
                         , details = details
-                        , under = "b"
+                        , under = "unused"
                         }
+                        |> Review.Test.atExactly { start = { row = 4, column = 9 }, end = { row = 4, column = 15 } }
                         |> Review.Test.whenFixed """module SomeModule exposing (a)
 a = 2"""
                     ]
@@ -468,6 +471,26 @@ a = let () = b
                         |> Review.Test.whenFixed """module SomeModule exposing (a)
 a = 2"""
                     ]
+    , test "should report () destructuring even if something comes afterwards" <|
+        \() ->
+            """module SomeModule exposing (a)
+a = let () = b
+        {c} = 1
+    in c"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Unit value is unused"
+                        , details =
+                            [ "This value has no data, which makes the value unusable. You should remove it at the location I pointed at."
+                            ]
+                        , under = "()"
+                        }
+                        |> Review.Test.whenFixed ("""module SomeModule exposing (a)
+a = let$
+        {c} = 1
+    in c""" |> String.replace "$" " ")
+                    ]
     , test "should report parenthesized wildcard assignments" <|
         \() ->
             """module SomeModule exposing (a)
@@ -483,6 +506,45 @@ a = let (_) = 1
                         , under = "_"
                         }
                         |> Review.Test.whenFixed """module SomeModule exposing (a)
+a = 2"""
+                    ]
+    , test "should report pattern match of data-less constructor" <|
+        \() ->
+            """module SomeModule exposing (a)
+type Foo = Foo
+a = let Foo = Foo
+    in 2"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Pattern doesn't introduce any variables"
+                        , details =
+                            [ "This value has been computed but isn't assigned to any variable, which makes the value unusable. You should remove it at the location I pointed at."
+                            ]
+                        , under = "Foo"
+                        }
+                        |> Review.Test.atExactly { start = { row = 3, column = 9 }, end = { row = 3, column = 12 } }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+type Foo = Foo
+a = 2"""
+                    ]
+    , test "should report pattern match that doesn't introduce any variables" <|
+        \() ->
+            """module SomeModule exposing (a)
+type Foo = Foo
+a = let ( Foo, (Bar _), _ ) = x
+    in 2"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Pattern doesn't introduce any variables"
+                        , details =
+                            [ "This value has been computed but isn't assigned to any variable, which makes the value unusable. You should remove it at the location I pointed at."
+                            ]
+                        , under = "( Foo, (Bar _), _ )"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+type Foo = Foo
 a = 2"""
                     ]
     ]
@@ -583,15 +645,6 @@ a =
         \() ->
             """module SomeModule exposing (a)
 type Baz = Baz String
-
-a =
-  \\(Baz value) -> []"""
-                |> Review.Test.run rule
-                |> Review.Test.expectNoErrors
-    , test "should not report type alias when it is deconstructed in a function call" <|
-        \() ->
-            """module SomeModule exposing (a)
-type alias Baz = { a : String}
 
 a =
   \\(Baz value) -> []"""
@@ -776,8 +829,8 @@ a = Html.Styled.Attributes.href"""
         \() ->
             [ """module SomeModule exposing (a)
 import B
-a = let (B.B ()) = x
-    in 1
+a = let (B.B y) = x
+    in y
 """
             , """module B exposing (B)
 type B = B ()"""
@@ -914,7 +967,7 @@ type C = C_Value
             ]
                 |> Review.Test.runOnModules rule
                 |> Review.Test.expectNoErrors
-    , test "should report open type import when the exposed constructor is shadowed by a local type alias" <|
+    , test "should report open type import when the exposed constructor is shadowed by a local type alias when it is a record" <|
         \() ->
             [ """module A exposing (a)
 import B exposing (C(..))
@@ -939,6 +992,71 @@ a = C_Value""" |> String.replace "$" " ")
                         ]
                       )
                     ]
+    , test "should report open type import when the exposed constructor is NOT shadowed by a local type alias when it is not a record" <|
+        \() ->
+            [ """module A exposing (a)
+import B exposing (C(..))
+type alias C = B.C
+a = C"""
+            , """module B exposing (C(..))
+type C = C
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectErrorsForModules
+                    [ ( "A"
+                      , [ Review.Test.error
+                            { message = "Type `C` is not used"
+                            , details = details
+                            , under = "C"
+                            }
+                            |> Review.Test.atExactly { start = { row = 3, column = 12 }, end = { row = 3, column = 13 } }
+                            |> Review.Test.whenFixed """module A exposing (a)
+import B exposing (C(..))
+a = C"""
+                        ]
+                      )
+                    ]
+    , test "should report open type import when the exposed constructor is shadowed by a custom type constructor" <|
+        \() ->
+            [ """module A exposing (a)
+import B exposing (C(..))
+type Type = C
+a = C"""
+            , """module B exposing (C(..))
+type C = C
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectErrorsForModules
+                    [ ( "A"
+                      , [ Review.Test.error
+                            { message = "Imported type `C` is not used"
+                            , details = details
+                            , under = "C(..)"
+                            }
+                            |> Review.Test.whenFixed ("""module A exposing (a)
+import B$
+type Type = C
+a = C""" |> String.replace "$" " ")
+                        ]
+                      )
+                    ]
+    , test "should not report open type import when a constructor is used but the type is locally shadowed" <|
+        \() ->
+            [ """module A exposing (a)
+import B exposing (C(..))
+type alias C = A.C
+
+a : C -> String
+a (C s) = s
+"""
+            , """module B exposing (C(..))
+type C = C String
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectNoErrors
     , test "should report open type import when none of its constructors is used (imported dependency)" <|
         \() ->
             """module A exposing (a)
@@ -969,7 +1087,7 @@ import UnknownDependency exposing (C(..))
 a = 1"""
                 |> Review.Test.runWithProjectData packageProject rule
                 |> Review.Test.expectNoErrors
-    , test "should not report open type import when at least one of the exposed constructors are used in a pattern" <|
+    , test "should not report open type import when at least one of the exposed constructors is used in a pattern" <|
         \() ->
             [ """module A exposing (a)
 import B exposing (C(..))
@@ -1570,7 +1688,7 @@ outer arg =
             []
     in
     inner arg
-    """
+"""
                 |> Review.Test.run rule
                 |> Review.Test.expectNoErrors
     ]
@@ -1940,7 +2058,7 @@ outer arg =
             []
     in
     inner arg
-    """
+"""
                 |> Review.Test.run rule
                 |> Review.Test.expectNoErrors
     , test "should not report unused type alias when it is used in a function call in a let expression" <|
@@ -1952,9 +2070,26 @@ outer arg =
         inner = Baz range
     in
     inner arg
-    """
+"""
                 |> Review.Test.run rule
                 |> Review.Test.expectNoErrors
+    , test "should report unused type alias when it aliases something else than a record" <|
+        \() ->
+            """module SomeModule exposing (a)
+type alias UnusedType = String
+a = 1
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Type `UnusedType` is not used"
+                        , details = details
+                        , under = "UnusedType"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+a = 1
+"""
+                    ]
     ]
 
 

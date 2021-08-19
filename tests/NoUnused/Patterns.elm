@@ -24,6 +24,8 @@ import Set exposing (Set)
 
 {-| Report useless patterns and pattern values that are not used.
 
+🔧 Running with `--fix` will automatically remove all the reported errors.
+
     config =
         [ NoUnused.Patterns.rule
         ]
@@ -201,7 +203,7 @@ report context =
                 errors =
                     List.concat
                         [ singleErrors
-                        , recordErrors
+                        , List.concatMap (recordErrors context) records
                         , simplifiablePatterns
                         ]
 
@@ -217,51 +219,6 @@ report context =
                                     pattern.range
                                     pattern.fix
                             )
-
-                recordErrors : List (Rule.Error {})
-                recordErrors =
-                    records
-                        |> List.concatMap
-                            (\{ fields, recordRange } ->
-                                let
-                                    ( unused, used ) =
-                                        List.partition (isNodeInContext context) fields
-                                in
-                                case unused of
-                                    [] ->
-                                        []
-
-                                    firstNode :: restNodes ->
-                                        let
-                                            first : String
-                                            first =
-                                                Node.value firstNode
-
-                                            rest : List String
-                                            rest =
-                                                List.map Node.value restNodes
-
-                                            ( errorRange, fix ) =
-                                                case used of
-                                                    [] ->
-                                                        ( recordRange, Fix.replaceRangeBy recordRange "_" )
-
-                                                    _ ->
-                                                        ( Range.combine (List.map Node.range unused)
-                                                        , Node Range.emptyRange (Pattern.RecordPattern used)
-                                                            |> Writer.writePattern
-                                                            |> Writer.write
-                                                            |> Fix.replaceRangeBy recordRange
-                                                        )
-                                        in
-                                        [ Rule.errorWithFix
-                                            { message = listToMessage first rest
-                                            , details = listToDetails first rest
-                                            }
-                                            errorRange
-                                            [ fix ]
-                                        ]
-                            )
             in
             ( errors
             , List.foldl
@@ -272,6 +229,58 @@ report context =
 
         _ ->
             ( [], context )
+
+
+recordErrors : Context -> { fields : List (Node String), recordRange : Range } -> List (Rule.Error {})
+recordErrors context { fields, recordRange } =
+    if List.isEmpty fields then
+        [ Rule.errorWithFix
+            { message = "Record pattern is not needed"
+            , details = [ "This pattern is redundant and should be replaced with '_'." ]
+            }
+            recordRange
+            [ Fix.replaceRangeBy recordRange "_" ]
+        ]
+
+    else
+        let
+            ( unused, used ) =
+                List.partition (isNodeInContext context) fields
+        in
+        case unused of
+            [] ->
+                []
+
+            firstNode :: restNodes ->
+                let
+                    first : String
+                    first =
+                        Node.value firstNode
+
+                    rest : List String
+                    rest =
+                        List.map Node.value restNodes
+
+                    ( errorRange, fix ) =
+                        case used of
+                            [] ->
+                                ( recordRange, Fix.replaceRangeBy recordRange "_" )
+
+                            _ ->
+                                ( Range.combine (List.map Node.range unused)
+                                , Node Range.emptyRange (Pattern.RecordPattern used)
+                                    |> Writer.writePattern
+                                    |> Writer.write
+                                    |> Fix.replaceRangeBy recordRange
+                                )
+                in
+                [ Rule.errorWithFix
+                    { message = listToMessage first rest
+                    , details = listToDetails first rest
+                    }
+                    errorRange
+                    [ fix ]
+                ]
 
 
 findDeclaredPatterns :
@@ -328,7 +337,7 @@ findPatterns use (Node range pattern) =
         Pattern.TuplePattern [ Node _ Pattern.AllPattern, Node _ Pattern.AllPattern ] ->
             [ SimplifiablePattern
                 (Rule.errorWithFix
-                    { message = "Tuple pattern is not needed."
+                    { message = "Tuple pattern is not needed"
                     , details = redundantDetails
                     }
                     range
@@ -339,7 +348,7 @@ findPatterns use (Node range pattern) =
         Pattern.TuplePattern [ Node _ Pattern.AllPattern, Node _ Pattern.AllPattern, Node _ Pattern.AllPattern ] ->
             [ SimplifiablePattern
                 (Rule.errorWithFix
-                    { message = "Tuple pattern is not needed."
+                    { message = "Tuple pattern is not needed"
                     , details = redundantDetails
                     }
                     range
@@ -367,7 +376,7 @@ findPatterns use (Node range pattern) =
             if use == Destructuring && List.all isAllPattern patterns then
                 [ SimplifiablePattern
                     (Rule.errorWithFix
-                        { message = "Named pattern is not needed."
+                        { message = "Named pattern is not needed"
                         , details = redundantDetails
                         }
                         range
@@ -489,7 +498,7 @@ errorsForPattern use (Node range pattern) context =
 errorsForUselessNamePattern : Range -> Context -> ( List (Rule.Error {}), Context )
 errorsForUselessNamePattern range context =
     ( [ Rule.errorWithFix
-            { message = "Named pattern is not needed."
+            { message = "Named pattern is not needed"
             , details = redundantDetails
             }
             range
@@ -502,7 +511,7 @@ errorsForUselessNamePattern range context =
 errorsForUselessTuple : Range -> Context -> ( List (Rule.Error {}), Context )
 errorsForUselessTuple range context =
     ( [ Rule.errorWithFix
-            { message = "Tuple pattern is not needed."
+            { message = "Tuple pattern is not needed"
             , details = redundantDetails
             }
             range
@@ -600,7 +609,7 @@ errorsForAsPattern patternRange inner (Node range name) context =
 
     else if isAllPattern inner then
         ( [ Rule.errorWithFix
-                { message = "Pattern `_` is not needed."
+                { message = "Pattern `_` is not needed"
                 , details = removeDetails
                 }
                 (Node.range inner)
@@ -618,7 +627,7 @@ findPatternForAsPattern patternRange inner (Node range name) =
     if isAllPattern inner then
         SimplifiablePattern
             (Rule.errorWithFix
-                { message = "Pattern `_` is not needed."
+                { message = "Pattern `_` is not needed"
                 , details = removeDetails
                 }
                 (Node.range inner)

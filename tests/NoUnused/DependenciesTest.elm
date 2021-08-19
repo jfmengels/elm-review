@@ -141,6 +141,33 @@ packageElmJson =
 }"""
 
 
+packageElmJsonWithLamdera : String
+packageElmJsonWithLamdera =
+    """
+{
+    "type": "package",
+    "name": "author/package",
+    "summary": "Summary",
+    "license": "BSD-3-Clause",
+    "version": "1.0.0",
+    "exposed-modules": [
+        "Exposed"
+    ],
+    "elm-version": "0.19.0 <= v < 0.20.0",
+    "dependencies": {
+        "elm/core": "1.0.0 <= v < 2.0.0",
+        "lamdera/core": "1.0.0 <= v < 2.0.0",
+        "lamdera/codecs": "1.0.0 <= v < 2.0.0",
+        "author/package-with-foo": "1.0.0 <= v < 2.0.0",
+        "author/package-with-bar": "1.0.0 <= v < 2.0.0"
+    },
+    "test-dependencies": {
+        "author/package-with-test-foo": "1.0.0 <= v < 2.0.0",
+        "author/package-with-test-bar": "1.0.0 <= v < 2.0.0"
+    }
+}"""
+
+
 packageWithFoo : Dependency
 packageWithFoo =
     let
@@ -754,6 +781,19 @@ a = 1
 }
 """
                         ]
+        , test "should not report test-dependencies used in source-directories" <|
+            \() ->
+                """
+module A exposing (a)
+import Foo
+import Bar
+import TestFoo
+import TestBar
+a = 1
+"""
+                    |> String.replace "\u{000D}" ""
+                    |> Review.Test.runWithProjectData (createProject Nothing packageElmJson) rule
+                    |> Review.Test.expectNoErrors
         , test "should re-organize the indirect dependencies when a dependency gets removed" <|
             \() ->
                 let
@@ -869,6 +909,19 @@ a = 1
                             }
                             |> Review.Test.whenFixed expected
                         ]
+        , test "should not report lamdera/core or lamdera/codecs" <|
+            \() ->
+                """
+module A exposing (a)
+import Foo
+import Bar
+import TestFoo
+import TestBar
+a = 1
+"""
+                    |> String.replace "\u{000D}" ""
+                    |> Review.Test.runWithProjectData (createProject Nothing packageElmJsonWithLamdera) rule
+                    |> Review.Test.expectNoErrors
         ]
 
 

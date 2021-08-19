@@ -9,20 +9,21 @@ module NoUnused.Parameters exposing (rule)
 
 -}
 
+import Dict exposing (Dict)
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
-import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
-import Elm.Writer as Writer
-import NoUnused.Patterns.NameVisitor as NameVisitor
+import NoUnused.RangeDict as RangeDict exposing (RangeDict)
 import Review.Fix as Fix exposing (Fix)
 import Review.Rule as Rule exposing (Rule)
 import Set exposing (Set)
 
 
 {-| Report parameters that are not used.
+
+🔧 Running with `--fix` will automatically remove some of the reported errors.
 
     config =
         [ NoUnused.Parameters.rule
@@ -43,6 +44,19 @@ Value `something` is not used:
     add1 number =
         1
 
+The rule will also report parameters that are only used to be passed again to the containing recursive function:
+
+    last list unused =
+        case list of
+            [] ->
+                Nothing
+
+            [ a ] ->
+                Just a
+
+            _ :: rest ->
+                last rest unused
+
 
 ## Success
 
@@ -62,437 +76,10 @@ elm-review --template jfmengels/elm-review-unused/example --rules NoUnused.Param
 rule : Rule
 rule =
     Rule.newModuleRuleSchema "NoUnused.Parameters" initialContext
-        |> Rule.withDeclarationEnterVisitor declarationEnterVisitor
-        |> Rule.withDeclarationExitVisitor declarationExitVisitor
+        |> Rule.withDeclarationEnterVisitor declarationVisitor
         |> Rule.withExpressionEnterVisitor expressionEnterVisitor
         |> Rule.withExpressionExitVisitor expressionExitVisitor
-        |> NameVisitor.withValueVisitor valueVisitor
         |> Rule.fromModuleRuleSchema
-
-
-declarationEnterVisitor : Node Declaration -> Context -> ( List (Rule.Error {}), Context )
-declarationEnterVisitor node context =
-    case Node.value node of
-        Declaration.FunctionDeclaration { declaration } ->
-            ( [], rememberFunctionImplementation declaration context )
-
-        _ ->
-            ( [], context )
-
-
-declarationExitVisitor : Node Declaration -> Context -> ( List (Rule.Error {}), Context )
-declarationExitVisitor node context =
-    case Node.value node of
-        Declaration.FunctionDeclaration { declaration } ->
-            errorsForFunctionImplementation declaration context
-
-        _ ->
-            ( [], context )
-
-
-expressionEnterVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
-expressionEnterVisitor node context =
-    case Node.value node of
-        Expression.LambdaExpression { args } ->
-            ( [], rememberPatternList args context )
-
-        Expression.LetExpression { declarations } ->
-            ( [], rememberLetDeclarationList declarations context )
-
-        _ ->
-            ( [], context )
-
-
-expressionExitVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
-expressionExitVisitor node context =
-    case Node.value node of
-        Expression.LambdaExpression { args } ->
-            errorsForPatternList Lambda args context
-
-        Expression.LetExpression { declarations } ->
-            errorsForLetDeclarationList declarations context
-
-        _ ->
-            ( [], context )
-
-
-valueVisitor : Node ( ModuleName, String ) -> Context -> ( List (Rule.Error {}), Context )
-valueVisitor (Node _ ( moduleName, value )) context =
-    case moduleName of
-        [] ->
-            ( [], useValue value context )
-
-        _ ->
-            ( [], context )
-
-
-
---- ON ENTER
-
-
-rememberFunctionImplementation : Node Expression.FunctionImplementation -> Context -> Context
-rememberFunctionImplementation (Node _ { arguments }) context =
-    rememberPatternList arguments context
-
-
-rememberLetDeclarationList : List (Node Expression.LetDeclaration) -> Context -> Context
-rememberLetDeclarationList list context =
-    List.foldl rememberLetDeclaration context list
-
-
-rememberLetDeclaration : Node Expression.LetDeclaration -> Context -> Context
-rememberLetDeclaration (Node _ letDeclaration) context =
-    case letDeclaration of
-        Expression.LetFunction { declaration } ->
-            rememberLetFunctionImplementation declaration context
-
-        Expression.LetDestructuring _ _ ->
-            context
-
-
-rememberLetFunctionImplementation : Node Expression.FunctionImplementation -> Context -> Context
-rememberLetFunctionImplementation (Node _ { arguments }) context =
-    rememberPatternList arguments context
-
-
-rememberPatternList : List (Node Pattern) -> Context -> Context
-rememberPatternList list context =
-    List.foldl rememberPattern context list
-
-
-rememberPattern : Node Pattern -> Context -> Context
-rememberPattern (Node _ pattern) context =
-    case pattern of
-        Pattern.AllPattern ->
-            context
-
-        Pattern.VarPattern value ->
-            rememberValue value context
-
-        Pattern.TuplePattern patterns ->
-            rememberPatternList patterns context
-
-        Pattern.RecordPattern values ->
-            rememberValueList values context
-
-        Pattern.UnConsPattern first second ->
-            context
-                |> rememberPattern first
-                |> rememberPattern second
-
-        Pattern.ListPattern patterns ->
-            rememberPatternList patterns context
-
-        Pattern.NamedPattern _ patterns ->
-            rememberPatternList patterns context
-
-        Pattern.AsPattern inner name ->
-            context
-                |> rememberPattern inner
-                |> rememberValue (Node.value name)
-
-        Pattern.ParenthesizedPattern inner ->
-            rememberPattern inner context
-
-        _ ->
-            context
-
-
-rememberValueList : List (Node String) -> Context -> Context
-rememberValueList list context =
-    List.foldl (Node.value >> rememberValue) context list
-
-
-
---- ON EXIT
-
-
-singularDetails : List String
-singularDetails =
-    [ "You should either use this parameter somewhere, or remove it at the location I pointed at." ]
-
-
-pluralDetails : List String
-pluralDetails =
-    [ "You should either use these parameters somewhere, or remove them at the location I pointed at." ]
-
-
-removeDetails : List String
-removeDetails =
-    [ "You should remove it at the location I pointed at." ]
-
-
-andThen :
-    (value -> Context -> ( List (Rule.Error {}), Context ))
-    -> value
-    -> ( List (Rule.Error {}), Context )
-    -> ( List (Rule.Error {}), Context )
-andThen function value ( errors, context ) =
-    let
-        ( newErrors, newContext ) =
-            function value context
-    in
-    ( newErrors ++ errors, newContext )
-
-
-errorsForFunctionImplementation : Node Expression.FunctionImplementation -> Context -> ( List (Rule.Error {}), Context )
-errorsForFunctionImplementation (Node _ { arguments }) context =
-    errorsForPatternList Function arguments context
-
-
-errorsForLetDeclarationList : List (Node Expression.LetDeclaration) -> Context -> ( List (Rule.Error {}), Context )
-errorsForLetDeclarationList list context =
-    List.foldl (andThen errorsForLetDeclaration) ( [], context ) list
-
-
-errorsForLetDeclaration : Node Expression.LetDeclaration -> Context -> ( List (Rule.Error {}), Context )
-errorsForLetDeclaration (Node _ letDeclaration) context =
-    case letDeclaration of
-        Expression.LetFunction { declaration } ->
-            errorsForLetFunctionImplementation declaration context
-
-        Expression.LetDestructuring _ _ ->
-            ( [], context )
-
-
-errorsForLetFunctionImplementation : Node Expression.FunctionImplementation -> Context -> ( List (Rule.Error {}), Context )
-errorsForLetFunctionImplementation (Node _ { arguments }) context =
-    errorsForPatternList Function arguments context
-
-
-type PatternUse
-    = Lambda
-    | Function
-
-
-errorsForPatternList : PatternUse -> List (Node Pattern) -> Context -> ( List (Rule.Error {}), Context )
-errorsForPatternList use list context =
-    List.foldl (andThen (errorsForPattern use)) ( [], context ) list
-
-
-errorsForPattern : PatternUse -> Node Pattern -> Context -> ( List (Rule.Error {}), Context )
-errorsForPattern use (Node range pattern) context =
-    case pattern of
-        Pattern.AllPattern ->
-            ( [], context )
-
-        Pattern.VarPattern value ->
-            errorsForValue use value range context
-
-        Pattern.RecordPattern values ->
-            errorsForRecordValueList use range values context
-
-        Pattern.TuplePattern [ Node _ Pattern.AllPattern, Node _ Pattern.AllPattern ] ->
-            errorsForUselessTuple use range context
-
-        Pattern.TuplePattern [ Node _ Pattern.AllPattern, Node _ Pattern.AllPattern, Node _ Pattern.AllPattern ] ->
-            errorsForUselessTuple use range context
-
-        Pattern.TuplePattern patterns ->
-            errorsForPatternList use patterns context
-
-        Pattern.UnConsPattern first second ->
-            errorsForPatternList use [ first, second ] context
-
-        Pattern.ListPattern patterns ->
-            errorsForPatternList use patterns context
-
-        Pattern.NamedPattern _ patterns ->
-            if List.all isAllPattern patterns then
-                errorsForUselessNamePattern use range context
-
-            else
-                errorsForPatternList use patterns context
-
-        Pattern.AsPattern inner name ->
-            context
-                |> errorsForAsPattern use range inner name
-                |> andThen (errorsForPattern use) inner
-
-        Pattern.ParenthesizedPattern inner ->
-            errorsForPattern use inner context
-
-        _ ->
-            ( [], context )
-
-
-errorsForUselessNamePattern : PatternUse -> Range -> Context -> ( List (Rule.Error {}), Context )
-errorsForUselessNamePattern use range context =
-    let
-        fix : List Fix
-        fix =
-            case use of
-                Lambda ->
-                    [ Fix.replaceRangeBy range "_" ]
-
-                Function ->
-                    []
-    in
-    ( [ Rule.errorWithFix
-            { message = "Named pattern is not needed."
-            , details = removeDetails
-            }
-            range
-            fix
-      ]
-    , context
-    )
-
-
-errorsForUselessTuple : PatternUse -> Range -> Context -> ( List (Rule.Error {}), Context )
-errorsForUselessTuple use range context =
-    let
-        fix : List Fix
-        fix =
-            case use of
-                Lambda ->
-                    [ Fix.replaceRangeBy range "_" ]
-
-                Function ->
-                    []
-    in
-    ( [ Rule.errorWithFix
-            { message = "Tuple pattern is not needed."
-            , details = removeDetails
-            }
-            range
-            fix
-      ]
-    , context
-    )
-
-
-errorsForRecordValueList : PatternUse -> Range -> List (Node String) -> Context -> ( List (Rule.Error {}), Context )
-errorsForRecordValueList use recordRange list context =
-    let
-        ( unused, used ) =
-            List.partition (isNodeInContext context) list
-    in
-    case unused of
-        [] ->
-            ( [], context )
-
-        firstNode :: restNodes ->
-            let
-                first : String
-                first =
-                    Node.value firstNode
-
-                rest : List String
-                rest =
-                    List.map Node.value restNodes
-
-                errorRange : Range
-                errorRange =
-                    Range.combine (List.map Node.range unused)
-
-                fix : List Fix
-                fix =
-                    case ( use, used ) of
-                        ( Lambda, [] ) ->
-                            [ Fix.replaceRangeBy recordRange "_" ]
-
-                        ( Lambda, _ ) ->
-                            [ Node Range.emptyRange (Pattern.RecordPattern used)
-                                |> Writer.writePattern
-                                |> Writer.write
-                                |> Fix.replaceRangeBy recordRange
-                            ]
-
-                        ( Function, _ ) ->
-                            []
-            in
-            ( [ Rule.errorWithFix
-                    { message = listToMessage first rest
-                    , details = listToDetails first rest
-                    }
-                    errorRange
-                    fix
-              ]
-            , List.foldl forgetNode context unused
-            )
-
-
-isNodeInContext : Context -> Node String -> Bool
-isNodeInContext context (Node _ value) =
-    Set.member value context
-
-
-listToMessage : String -> List String -> String
-listToMessage first rest =
-    case List.reverse rest of
-        [] ->
-            "Parameter `" ++ first ++ "` is not used."
-
-        last :: middle ->
-            "Parameters `" ++ String.join "`, `" (first :: middle) ++ "` and `" ++ last ++ "` are not used."
-
-
-listToDetails : String -> List String -> List String
-listToDetails _ rest =
-    case rest of
-        [] ->
-            singularDetails
-
-        _ ->
-            pluralDetails
-
-
-errorsForAsPattern : PatternUse -> Range -> Node Pattern -> Node String -> Context -> ( List (Rule.Error {}), Context )
-errorsForAsPattern use patternRange inner (Node range name) context =
-    if Set.member name context then
-        let
-            fix : List Fix
-            fix =
-                case use of
-                    Lambda ->
-                        [ inner
-                            |> Writer.writePattern
-                            |> Writer.write
-                            |> Fix.replaceRangeBy patternRange
-                        ]
-
-                    Function ->
-                        []
-        in
-        ( [ Rule.errorWithFix
-                { message = "Pattern alias `" ++ name ++ "` is not used."
-                , details = singularDetails
-                }
-                range
-                fix
-          ]
-        , Set.remove name context
-        )
-
-    else if isAllPattern inner then
-        ( [ Rule.errorWithFix
-                { message = "Pattern `_` is not needed."
-                , details = removeDetails
-                }
-                (Node.range inner)
-                [ Fix.replaceRangeBy patternRange name ]
-          ]
-        , Set.remove name context
-        )
-
-    else
-        ( [], context )
-
-
-isAllPattern : Node Pattern -> Bool
-isAllPattern (Node _ pattern) =
-    case pattern of
-        Pattern.AllPattern ->
-            True
-
-        _ ->
-            False
-
-
-forgetNode : Node String -> Context -> Context
-forgetNode (Node _ value) context =
-    Set.remove value context
 
 
 
@@ -500,46 +87,522 @@ forgetNode (Node _ value) context =
 
 
 type alias Context =
-    Set String
+    { scopes : List Scope
+    , scopesToCreate : RangeDict ScopeToCreate
+    , knownFunctions : Dict String FunctionArgs
+    , locationsToIgnoreForUsed : LocationsToIgnore
+    }
+
+
+type alias Scope =
+    { functionName : String
+    , declared : List Declared
+    , used : Set String
+    , usedRecursively : Set String
+    }
+
+
+type alias ScopeToCreate =
+    { declared : List Declared
+    , functionName : String
+    , functionArgs : FunctionArgs
+    }
+
+
+type alias Declared =
+    { name : String
+    , range : Range
+    , kind : Kind
+    , source : Source
+    , fix : List Fix
+    }
+
+
+type alias LocationsToIgnore =
+    Dict String (List Range)
+
+
+type alias FunctionArgs =
+    Dict Int String
+
+
+type Kind
+    = Parameter
+    | Alias
+    | AsWithoutVariables
+    | TupleWithoutVariables
+
+
+type Source
+    = NamedFunction
+    | Lambda
 
 
 initialContext : Context
 initialContext =
-    Set.empty
+    { scopes = []
+    , scopesToCreate = RangeDict.empty
+    , knownFunctions = Dict.empty
+    , locationsToIgnoreForUsed = Dict.empty
+    }
 
 
-errorsForValue : PatternUse -> String -> Range -> Context -> ( List (Rule.Error {}), Context )
-errorsForValue use value range context =
-    if Set.member value context then
-        let
-            fix : List Fix
-            fix =
-                case use of
-                    Lambda ->
-                        [ Fix.replaceRangeBy range "_" ]
 
-                    Function ->
-                        []
-        in
-        ( [ Rule.errorWithFix
-                { message = "Parameter `" ++ value ++ "` is not used."
-                , details = singularDetails
-                }
-                range
-                fix
-          ]
-        , Set.remove value context
-        )
-
-    else
-        ( [], context )
+-- DECLARATION VISITOR
 
 
-rememberValue : String -> Context -> Context
-rememberValue value context =
-    Set.insert value context
+declarationVisitor : Node Declaration -> Context -> ( List nothing, Context )
+declarationVisitor node context =
+    case Node.value node of
+        Declaration.FunctionDeclaration { declaration } ->
+            let
+                arguments : List (Node Pattern)
+                arguments =
+                    (Node.value declaration).arguments
+
+                declared : List (List Declared)
+                declared =
+                    List.map (getParametersFromPatterns NamedFunction) arguments
+            in
+            ( []
+            , { scopes = []
+              , scopesToCreate =
+                    RangeDict.singleton
+                        (declaration |> Node.value |> .expression |> Node.range)
+                        { declared = List.concat declared
+                        , functionName = Node.value declaration |> .name |> Node.value
+                        , functionArgs = getArgNames declared
+                        }
+              , knownFunctions = Dict.empty
+              , locationsToIgnoreForUsed = Dict.empty
+              }
+            )
+
+        _ ->
+            ( [], context )
 
 
-useValue : String -> Context -> Context
-useValue value context =
-    Set.remove value context
+getArgNames : List (List Declared) -> FunctionArgs
+getArgNames declared =
+    declared
+        |> List.indexedMap
+            (\index args ->
+                case args of
+                    [ arg ] ->
+                        Just ( index, arg.name )
+
+                    _ ->
+                        Nothing
+            )
+        |> List.filterMap identity
+        |> Dict.fromList
+
+
+getParametersFromPatterns : Source -> Node Pattern -> List Declared
+getParametersFromPatterns source node =
+    case Node.value node of
+        Pattern.ParenthesizedPattern pattern ->
+            getParametersFromPatterns source pattern
+
+        Pattern.VarPattern name ->
+            [ { name = name
+              , range = Node.range node
+              , kind = Parameter
+              , fix = [ Fix.replaceRangeBy (Node.range node) "_" ]
+              , source = source
+              }
+            ]
+
+        Pattern.AsPattern pattern asName ->
+            let
+                parametersFromPatterns : List Declared
+                parametersFromPatterns =
+                    getParametersFromPatterns source pattern
+
+                asParameter : Declared
+                asParameter =
+                    { name = Node.value asName
+                    , range = Node.range asName
+                    , kind = Alias
+                    , fix = [ Fix.removeRange { start = (Node.range pattern).end, end = (Node.range asName).end } ]
+                    , source = source
+                    }
+            in
+            if List.isEmpty parametersFromPatterns && isPatternWildCard pattern then
+                [ asParameter
+                , { name = ""
+                  , range = Node.range pattern
+                  , kind = AsWithoutVariables
+                  , fix = [ Fix.removeRange { start = (Node.range pattern).start, end = (Node.range asName).start } ]
+                  , source = source
+                  }
+                ]
+
+            else
+                asParameter :: parametersFromPatterns
+
+        Pattern.RecordPattern fields ->
+            case fields of
+                [ field ] ->
+                    [ { name = Node.value field
+                      , range = Node.range field
+                      , kind = Parameter
+                      , fix = [ Fix.replaceRangeBy (Node.range node) "_" ]
+                      , source = source
+                      }
+                    ]
+
+                _ ->
+                    let
+                        fieldNames : List String
+                        fieldNames =
+                            List.map Node.value fields
+                    in
+                    List.map
+                        (\field ->
+                            { name = Node.value field
+                            , range = Node.range field
+                            , kind = Parameter
+                            , fix =
+                                [ Fix.replaceRangeBy
+                                    (Node.range node)
+                                    (fieldNames |> List.filter (\f -> f /= Node.value field) |> formatRecord)
+                                ]
+                            , source = source
+                            }
+                        )
+                        fields
+
+        Pattern.TuplePattern patterns ->
+            let
+                parametersFromPatterns : List Declared
+                parametersFromPatterns =
+                    List.concatMap (getParametersFromPatterns source) patterns
+            in
+            if List.isEmpty parametersFromPatterns && List.all isPatternWildCard patterns then
+                [ { name = ""
+                  , range = Node.range node
+                  , kind = TupleWithoutVariables
+                  , fix = [ Fix.replaceRangeBy (Node.range node) "_" ]
+                  , source = source
+                  }
+                ]
+
+            else
+                parametersFromPatterns
+
+        Pattern.NamedPattern _ patterns ->
+            List.concatMap (getParametersFromPatterns source) patterns
+
+        _ ->
+            []
+
+
+isPatternWildCard : Node Pattern -> Bool
+isPatternWildCard node =
+    case Node.value node of
+        Pattern.ParenthesizedPattern pattern ->
+            isPatternWildCard pattern
+
+        Pattern.AllPattern ->
+            True
+
+        _ ->
+            False
+
+
+formatRecord : List String -> String
+formatRecord fields =
+    "{ " ++ String.join ", " fields ++ " }"
+
+
+
+-- EXPRESSION ENTER VISITOR
+
+
+expressionEnterVisitor : Node Expression -> Context -> ( List nothing, Context )
+expressionEnterVisitor node context =
+    let
+        newContext : Context
+        newContext =
+            case RangeDict.get (Node.range node) context.scopesToCreate of
+                Just { declared, functionName, functionArgs } ->
+                    { context
+                        | scopes =
+                            { functionName = functionName
+                            , declared = declared
+                            , used = Set.empty
+                            , usedRecursively = Set.singleton "unused"
+                            }
+                                :: context.scopes
+                        , knownFunctions =
+                            Dict.insert
+                                functionName
+                                functionArgs
+                                context.knownFunctions
+                    }
+
+                Nothing ->
+                    context
+    in
+    expressionEnterVisitorHelp node newContext
+
+
+expressionEnterVisitorHelp : Node Expression -> Context -> ( List nothing, Context )
+expressionEnterVisitorHelp node context =
+    case Node.value node of
+        Expression.FunctionOrValue [] name ->
+            ( [], markValueAsUsed (Node.range node) name context )
+
+        Expression.RecordUpdateExpression name _ ->
+            ( [], markValueAsUsed (Node.range name) (Node.value name) context )
+
+        Expression.LetExpression letBlock ->
+            let
+                declaredWithRange : List ( Range, ScopeToCreate )
+                declaredWithRange =
+                    List.filterMap
+                        (\letDeclaration ->
+                            case Node.value letDeclaration of
+                                Expression.LetFunction function ->
+                                    let
+                                        declaration : Expression.FunctionImplementation
+                                        declaration =
+                                            Node.value function.declaration
+
+                                        declared : List (List Declared)
+                                        declared =
+                                            List.map (getParametersFromPatterns NamedFunction) declaration.arguments
+                                    in
+                                    if List.isEmpty declared then
+                                        Nothing
+
+                                    else
+                                        Just
+                                            ( Node.range declaration.expression
+                                            , { declared = List.concat declared
+                                              , functionName = Node.value declaration.name
+                                              , functionArgs = getArgNames declared
+                                              }
+                                            )
+
+                                Expression.LetDestructuring _ _ ->
+                                    Nothing
+                        )
+                        letBlock.declarations
+
+                scopesToCreate : RangeDict ScopeToCreate
+                scopesToCreate =
+                    RangeDict.insertAll declaredWithRange context.scopesToCreate
+            in
+            ( [], { context | scopesToCreate = scopesToCreate } )
+
+        Expression.LambdaExpression { args, expression } ->
+            let
+                scopesToCreate : RangeDict ScopeToCreate
+                scopesToCreate =
+                    RangeDict.insert
+                        (Node.range expression)
+                        { declared = List.concatMap (getParametersFromPatterns Lambda) args
+                        , functionName = "dummy lambda"
+                        , functionArgs = Dict.empty
+                        }
+                        context.scopesToCreate
+            in
+            ( [], { context | scopesToCreate = scopesToCreate } )
+
+        Expression.Application ((Node _ (Expression.FunctionOrValue [] fnName)) :: arguments) ->
+            ( [], registerFunctionCall fnName 0 arguments context )
+
+        Expression.OperatorApplication "|>" _ lastArgument (Node _ (Expression.Application ((Node _ (Expression.FunctionOrValue [] fnName)) :: arguments))) ->
+            -- Ignoring "arguments" because they will be visited when the Application node will be visited anyway.
+            ( [], registerFunctionCall fnName (List.length arguments) [ lastArgument ] context )
+
+        Expression.OperatorApplication "<|" _ (Node _ (Expression.Application ((Node _ (Expression.FunctionOrValue [] fnName)) :: arguments))) lastArgument ->
+            -- Ignoring "arguments" because they will be visited when the Application node will be visited anyway.
+            ( [], registerFunctionCall fnName (List.length arguments) [ lastArgument ] context )
+
+        _ ->
+            ( [], context )
+
+
+registerFunctionCall : String -> Int -> List (Node a) -> Context -> Context
+registerFunctionCall fnName numberOfIgnoredArguments arguments context =
+    case Dict.get fnName context.knownFunctions of
+        Just fnArgs ->
+            let
+                locationsToIgnore : LocationsToIgnore
+                locationsToIgnore =
+                    arguments
+                        |> List.indexedMap Tuple.pair
+                        |> List.filterMap
+                            (\( index, arg ) ->
+                                Dict.get (numberOfIgnoredArguments + index) fnArgs
+                                    |> Maybe.map (\argName -> ( argName, [ Node.range arg ] ))
+                            )
+                        |> Dict.fromList
+            in
+            { context
+                | locationsToIgnoreForUsed =
+                    Dict.merge
+                        Dict.insert
+                        (\key new old -> Dict.insert key (new ++ old))
+                        Dict.insert
+                        locationsToIgnore
+                        context.locationsToIgnoreForUsed
+                        Dict.empty
+            }
+
+        Nothing ->
+            context
+
+
+markValueAsUsed : Range -> String -> Context -> Context
+markValueAsUsed range name context =
+    case context.scopes of
+        [] ->
+            context
+
+        headScope :: restOfScopes ->
+            let
+                newHeadScope : Scope
+                newHeadScope =
+                    if shouldBeIgnored range name context then
+                        { headScope | usedRecursively = Set.insert name headScope.usedRecursively }
+
+                    else
+                        { headScope | used = Set.insert name headScope.used }
+            in
+            { context | scopes = newHeadScope :: restOfScopes }
+
+
+shouldBeIgnored : Range -> String -> Context -> Bool
+shouldBeIgnored range name context =
+    case Dict.get name context.locationsToIgnoreForUsed of
+        Just ranges ->
+            List.any (isRangeIncluded range) ranges
+
+        Nothing ->
+            False
+
+
+isRangeIncluded : Range -> Range -> Bool
+isRangeIncluded inner outer =
+    (Range.compareLocations inner.start outer.start /= LT)
+        && (Range.compareLocations inner.end outer.end /= GT)
+
+
+markAllAsUsed : Set String -> List Scope -> List Scope
+markAllAsUsed names scopes =
+    case scopes of
+        [] ->
+            scopes
+
+        headScope :: restOfScopes ->
+            { headScope | used = Set.union names headScope.used } :: restOfScopes
+
+
+
+-- EXPRESSION EXIT VISITOR
+
+
+expressionExitVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
+expressionExitVisitor node context =
+    case RangeDict.get (Node.range node) context.scopesToCreate of
+        Just _ ->
+            report context
+
+        Nothing ->
+            ( [], context )
+
+
+report : Context -> ( List (Rule.Error {}), Context )
+report context =
+    case context.scopes of
+        headScope :: restOfScopes ->
+            let
+                ( errors, remainingUsed ) =
+                    List.foldl
+                        (\declared ( errors_, remainingUsed_ ) ->
+                            if Set.member declared.name headScope.usedRecursively then
+                                -- If variable was used as a recursive argument
+                                if Set.member declared.name remainingUsed_ then
+                                    -- If variable was used somewhere else as well
+                                    ( errors_, Set.remove declared.name remainingUsed_ )
+
+                                else
+                                    -- If variable was used ONLY as a recursive argument
+                                    ( recursiveParameterError headScope.functionName declared :: errors_, Set.remove declared.name remainingUsed_ )
+
+                            else if Set.member declared.name remainingUsed_ then
+                                ( errors_, Set.remove declared.name remainingUsed_ )
+
+                            else
+                                ( errorsForValue declared :: errors_, remainingUsed_ )
+                        )
+                        ( [], headScope.used )
+                        headScope.declared
+            in
+            ( errors
+            , { context
+                | scopes = markAllAsUsed remainingUsed restOfScopes
+                , knownFunctions = Dict.remove headScope.functionName context.knownFunctions
+              }
+            )
+
+        [] ->
+            ( [], context )
+
+
+errorsForValue : Declared -> Rule.Error {}
+errorsForValue { name, kind, range, source, fix } =
+    Rule.errorWithFix
+        (errorMessage kind name)
+        range
+        (applyFix source fix)
+
+
+errorMessage : Kind -> String -> { message : String, details : List String }
+errorMessage kind name =
+    case kind of
+        Parameter ->
+            { message = "Parameter `" ++ name ++ "` is not used"
+            , details = [ "You should either use this parameter somewhere, or remove it at the location I pointed at." ]
+            }
+
+        Alias ->
+            { message = "Pattern alias `" ++ name ++ "` is not used"
+            , details = [ "You should either use this parameter somewhere, or remove it at the location I pointed at." ]
+            }
+
+        AsWithoutVariables ->
+            { message = "Pattern does not introduce any variables"
+            , details = [ "You should remove this pattern." ]
+            }
+
+        TupleWithoutVariables ->
+            { message = "Tuple pattern is not needed"
+            , details = [ "You should remove this pattern." ]
+            }
+
+
+recursiveParameterError : String -> Declared -> Rule.Error {}
+recursiveParameterError functionName { name, range } =
+    Rule.error
+        { message = "Parameter `" ++ name ++ "` is only used in recursion"
+        , details =
+            [ "This parameter is only used to be passed as an argument to '" ++ functionName ++ "', but its value is never read or used."
+            , "You should either use this parameter somewhere, or remove it at the location I pointed at."
+            ]
+        }
+        range
+
+
+applyFix : Source -> List Fix -> List Fix
+applyFix source fix =
+    case source of
+        NamedFunction ->
+            []
+
+        Lambda ->
+            fix
