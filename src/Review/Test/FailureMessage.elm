@@ -27,7 +27,7 @@ import Vendor.Diff as Diff
 import Vendor.ListExtra as ListExtra
 
 
-{-| An expectation for an error. Use [`error`](#error) to create one.
+{-| An expectation for an error. Use [`error`](Review-Test#error) to create one.
 -}
 type alias ExpectedErrorData =
     { message : String
