@@ -4395,7 +4395,7 @@ accumulate visitor ( previousErrors, previousContext ) =
         ( newErrors, newContext ) =
             visitor previousContext
     in
-    ( newErrors ++ previousErrors, newContext )
+    ( List.append newErrors previousErrors, newContext )
 
 
 
