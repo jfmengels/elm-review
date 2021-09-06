@@ -37,10 +37,10 @@ type alias ModuleNameLookupTable =
 
 The function returns `Just []` if the type or value was defined in this module. It returns `Just moduleName` if the Node is among these kinds of AST nodes (and `Nothing` for all the others):
 
-  - Expression.FunctionOrValue
+  - `Expression.FunctionOrValue`
   - `nodeForTheName` in `Expression.RecordUpdateExpression nodeForTheName modifiers`
   - `nodeForTheName` in `TypeAnnotation.Typed nodeForTheName args`
-  - `nodeForTheName` in `Pattern.NamedPattern nodeForTheName subPatterns`
+  - `Pattern.NamedPattern`
 
 ```elm
 expressionVisitor : Node Expression -> Context -> ( List (Error {}), Context )
@@ -76,10 +76,10 @@ moduleNameFor (Internal.ModuleNameLookupTable dict) (Node range _) =
 
 The function returns `Just []` if the type or value was defined in this module. It returns `Just moduleName` if the Node is among these kinds of AST nodes (and `Nothing` for all the others):
 
-  - Expression.FunctionOrValue
+  - `Expression.FunctionOrValue`
   - `nodeForTheName` in `Expression.RecordUpdateExpression nodeForTheName modifiers`
   - `nodeForTheName` in `TypeAnnotation.Typed nodeForTheName args`
-  - `nodeForTheName` in `Pattern.NamedPattern nodeForTheName subPatterns`
+  - `Pattern.NamedPattern`
 
 ```elm
 expressionVisitor : Node Expression -> Context -> ( List (Error {}), Context )
