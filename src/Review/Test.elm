@@ -458,10 +458,10 @@ readmeRunResult errors project =
                 [] ->
                     []
 
-                errorsForElmJson ->
+                errorsForReadme ->
                     [ { moduleName = readme.path
                       , inspector = codeInspectorForSource False readme.content
-                      , errors = errorsForElmJson
+                      , errors = errorsForReadme
                       }
                     ]
 
