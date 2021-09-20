@@ -327,17 +327,15 @@ comparePosition a b =
 
 applyFix : Fix -> List String -> List String
 applyFix fix_ lines =
-    lines
-        |> (case fix_ of
-                Error.Replacement range replacement ->
-                    applyReplace range replacement
+    case fix_ of
+        Error.Replacement range replacement ->
+            applyReplace range replacement lines
 
-                Error.Removal range ->
-                    applyReplace range ""
+        Error.Removal range ->
+            applyReplace range "" lines
 
-                Error.InsertAt position insertion ->
-                    applyReplace { start = position, end = position } insertion
-           )
+        Error.InsertAt position insertion ->
+            applyReplace { start = position, end = position } insertion lines
 
 
 applyReplace : Range -> String -> List String -> List String
