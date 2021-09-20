@@ -118,6 +118,7 @@ import Review.Rule as Rule exposing (ReviewError, Rule)
 import Review.Test.Dependencies exposing (projectWithElmCore)
 import Review.Test.FailureMessage as FailureMessage
 import Set exposing (Set)
+import Unicode
 import Vendor.ListExtra as ListExtra
 
 
@@ -1075,7 +1076,7 @@ getCodeAtLocationInSourceCode sourceCode =
     \{ start, end } ->
         if start.row == end.row then
             Array.get (start.row - 1) lines
-                |> Maybe.map (unicodeFriendlyStringSlice start.column end.column)
+                |> Maybe.map (Unicode.slice (start.column - 1) (end.column - 1))
 
         else
             let
@@ -1083,7 +1084,7 @@ getCodeAtLocationInSourceCode sourceCode =
                 firstLine =
                     case Array.get (start.row - 1) lines of
                         Just str ->
-                            unicodeFriendlyStringDropLeft (start.column - 1) str
+                            Unicode.dropLeft (start.column - 1) str
 
                         Nothing ->
                             ""
@@ -1092,7 +1093,7 @@ getCodeAtLocationInSourceCode sourceCode =
                 lastLine =
                     case Array.get (end.row - 1) lines of
                         Just str ->
-                            unicodeFriendlyStringLeft end.column str
+                            Unicode.left end.column str
 
                         Nothing ->
                             ""
@@ -1115,31 +1116,6 @@ getCodeAtLocationInSourceCode sourceCode =
             resultingLines
                 |> String.join "\n"
                 |> Just
-
-
-unicodeFriendlyStringSlice : Int -> Int -> String -> String
-unicodeFriendlyStringSlice start end string =
-    string
-        |> String.toList
-        |> List.drop (start - 1)
-        |> List.take (end - start)
-        |> String.fromList
-
-
-unicodeFriendlyStringDropLeft : Int -> String -> String
-unicodeFriendlyStringDropLeft n string =
-    string
-        |> String.toList
-        |> List.drop n
-        |> String.fromList
-
-
-unicodeFriendlyStringLeft : Int -> String -> String
-unicodeFriendlyStringLeft n string =
-    string
-        |> String.toList
-        |> List.take n
-        |> String.fromList
 
 
 checkIfLocationIsAmbiguousInSourceCode : SourceCode -> ReviewError -> String -> Expectation
