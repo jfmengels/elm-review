@@ -1075,7 +1075,7 @@ getCodeAtLocationInSourceCode sourceCode =
     \{ start, end } ->
         if start.row == end.row then
             Array.get (start.row - 1) lines
-                |> Maybe.map (String.toList >> List.drop (start.column - 1) >> List.take (end.column - start.column) >> String.fromList)
+                |> Maybe.map (unicodeFriendlyStringSlice start.column end.column)
 
         else
             let
@@ -1083,7 +1083,7 @@ getCodeAtLocationInSourceCode sourceCode =
                 firstLine =
                     case Array.get (start.row - 1) lines of
                         Just str ->
-                            String.dropLeft (start.column - 1) str
+                            unicodeFriendlyStringDropLeft (start.column - 1) str
 
                         Nothing ->
                             ""
@@ -1092,7 +1092,7 @@ getCodeAtLocationInSourceCode sourceCode =
                 lastLine =
                     case Array.get (end.row - 1) lines of
                         Just str ->
-                            String.left end.column str
+                            unicodeFriendlyStringLeft end.column str
 
                         Nothing ->
                             ""
@@ -1117,12 +1117,28 @@ getCodeAtLocationInSourceCode sourceCode =
                 |> Just
 
 
-unicodeFriendStringSlice : Int -> Int -> String -> String
-unicodeFriendStringSlice start end string =
+unicodeFriendlyStringSlice : Int -> Int -> String -> String
+unicodeFriendlyStringSlice start end string =
     string
         |> String.toList
         |> List.drop (start - 1)
         |> List.take (end - start)
+        |> String.fromList
+
+
+unicodeFriendlyStringDropLeft : Int -> String -> String
+unicodeFriendlyStringDropLeft n string =
+    string
+        |> String.toList
+        |> List.drop n
+        |> String.fromList
+
+
+unicodeFriendlyStringLeft : Int -> String -> String
+unicodeFriendlyStringLeft n string =
+    string
+        |> String.toList
+        |> List.take n
         |> String.fromList
 
 
