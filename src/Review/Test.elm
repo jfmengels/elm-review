@@ -1075,7 +1075,7 @@ getCodeAtLocationInSourceCode sourceCode =
     \{ start, end } ->
         if start.row == end.row then
             Array.get (start.row - 1) lines
-                |> Maybe.map (String.slice (start.column - 1) (end.column - 1))
+                |> Maybe.map (String.toList >> List.drop (start.column - 1) >> List.take (end.column - start.column) >> String.fromList)
 
         else
             let
@@ -1115,6 +1115,15 @@ getCodeAtLocationInSourceCode sourceCode =
             resultingLines
                 |> String.join "\n"
                 |> Just
+
+
+unicodeFriendStringSlice : Int -> Int -> String -> String
+unicodeFriendStringSlice start end string =
+    string
+        |> String.toList
+        |> List.drop (start - 1)
+        |> List.take (end - start)
+        |> String.fromList
 
 
 checkIfLocationIsAmbiguousInSourceCode : SourceCode -> ReviewError -> String -> Expectation
