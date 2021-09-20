@@ -343,13 +343,11 @@ applyReplace range replacement lines =
     let
         linesBefore : List String
         linesBefore =
-            lines
-                |> List.take (range.start.row - 1)
+            List.take (range.start.row - 1) lines
 
         linesAfter : List String
         linesAfter =
-            lines
-                |> List.drop range.end.row
+            List.drop range.end.row lines
 
         startLine : String
         startLine =
