@@ -137,6 +137,7 @@ import Elm.Project
 import Elm.Syntax.Range exposing (Range)
 import Json.Decode as Decode
 import Review.Error as Error
+import Unicode
 import Vendor.ListExtra as ListExtra
 
 
@@ -352,12 +353,12 @@ applyReplace range replacement lines =
         startLine : String
         startLine =
             getRowAtLine lines (range.start.row - 1)
-                |> String.slice 0 (range.start.column - 1)
+                |> Unicode.left (range.start.column - 1)
 
         endLine : String
         endLine =
             getRowAtLine lines (range.end.row - 1)
-                |> String.dropLeft (range.end.column - 1)
+                |> Unicode.dropLeft (range.end.column - 1)
     in
     List.concat
         [ linesBefore
