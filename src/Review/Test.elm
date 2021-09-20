@@ -600,9 +600,9 @@ expectNoGlobalErrors globalErrors =
 
 expectNoModuleErrors : List SuccessfulRunResult -> Expectation
 expectNoModuleErrors runResults =
-    runResults
-        |> List.map (expectNoErrorForModuleRunResult >> always)
-        |> (\expectations -> Expect.all expectations ())
+    Expect.all
+        (List.map (expectNoErrorForModuleRunResult >> always) runResults)
+        ()
 
 
 expectNoErrorForModuleRunResult : SuccessfulRunResult -> Expectation
@@ -795,8 +795,9 @@ expectErrorsForModulesHelp expectedErrorsList runResults =
                 |> Expect.fail
 
         Nothing ->
-            expectErrorsForModuleFiles expectedErrorsList runResults
-                |> (\expectations -> Expect.all expectations ())
+            Expect.all
+                (expectErrorsForModuleFiles expectedErrorsList runResults)
+                ()
 
 
 expectErrorsForModuleFiles : List ( String, List ExpectedError ) -> List SuccessfulRunResult -> List (() -> Expectation)
@@ -1245,9 +1246,9 @@ checkAllErrorsMatch runResult unorderedExpectedErrors =
                 , expectedErrorsWithNoMatch = []
                 }
     in
-    checkErrorsMatch runResult expectedErrors (List.length expectedErrors) reviewErrors
-        |> List.reverse
-        |> (\expectations -> Expect.all expectations ())
+    Expect.all
+        (List.reverse (checkErrorsMatch runResult expectedErrors (List.length expectedErrors) reviewErrors))
+        ()
 
 
 checkGlobalErrorsMatch : Int -> { expected : List GlobalError, actual : List GlobalError, needSecondPass : List GlobalError } -> Expectation
