@@ -64,10 +64,10 @@ You could something like the following to create a test project in your tests.
     testProject : Project
     testProject =
         Project.new
-            |> Project.addDependency
+            |> Project.addDependency dependency
 
-    dependency : String -> Dependency
-    dependency license =
+    dependency : Dependency
+    dependency =
         Dependency.create
             "author/dependency"
             (createElmJson rawElmJson)
