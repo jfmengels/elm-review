@@ -87,29 +87,24 @@ b = case () of
 someFunction Something.B.Bar =
     let Something.B.Bar = ()
     in ()
-"""
-                , """module ExposesSomeThings exposing (SomeOtherTypeAlias, exposedElement)
+""", """module ExposesSomeThings exposing (SomeOtherTypeAlias, exposedElement)
 type NonExposedCustomType = Variant
 type alias SomeOtherTypeAlias = {}
 exposedElement = 1
 nonExposedElement = 2
-"""
-                , """module ExposesEverything exposing (..)
+""", """module ExposesEverything exposing (..)
 type SomeCustomType = VariantA | VariantB
 type alias SomeTypeAlias = {}
 type Msg = SomeMsgToBeShadowed | SomeOtherMsg
 elementFromExposesEverything = 1
 localValueValueToBeShadowed = 1
-"""
-                , """module Something.B exposing (..)
+""", """module Something.B exposing (..)
 b = 1
 type Foo = Bar
 type alias BAlias = {}
-"""
-                , """module Something.C exposing (..)
+""", """module Something.C exposing (..)
 c = 1
-"""
-                ]
+""" ]
                     |> Review.Test.runOnModulesWithProjectData project rule
                     |> Review.Test.expectErrorsForModules
                         [ ( "A"
