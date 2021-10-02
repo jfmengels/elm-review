@@ -5278,7 +5278,7 @@ registerImportExposed import_ innerContext =
                                 |> Dict.fromList
                     in
                     { innerContext
-                        | importedFunctions = Dict.union innerContext.importedFunctions exposedValues
+                        | importedFunctions = Dict.union exposedValues innerContext.importedFunctions
                         , importedTypes = Dict.union innerContext.importedTypes exposedTypes
                     }
 
@@ -5299,7 +5299,7 @@ registerImportExposed import_ innerContext =
                                 |> Dict.fromList
                     in
                     { innerContext
-                        | importedFunctions = Dict.union innerContext.importedFunctions exposedValues
+                        | importedFunctions = Dict.union exposedValues innerContext.importedFunctions
                         , importedTypes = Dict.union innerContext.importedTypes exposedTypes
                     }
 
@@ -5656,6 +5656,24 @@ scope_expressionEnterVisitor node context =
                 | lookupTable =
                     ModuleNameLookupTableInternal.addMultiple
                         (List.concatMap (collectModuleNamesFromPattern context) args)
+                        context.lookupTable
+            }
+
+        Expression.PrefixOperator op ->
+            { context
+                | lookupTable =
+                    ModuleNameLookupTableInternal.add
+                        (Node.range node)
+                        (moduleNameForValue context op [])
+                        context.lookupTable
+            }
+
+        Expression.OperatorApplication op _ _ _ ->
+            { context
+                | lookupTable =
+                    ModuleNameLookupTableInternal.add
+                        (Node.range node)
+                        (moduleNameForValue context op [])
                         context.lookupTable
             }
 
