@@ -11,7 +11,7 @@ when inside the directory containing this file.
 
 -}
 
-import Documentation.ReadmeLinksPointToCurrentVersion
+import Docs.UpToDateReadmeLinks
 import NoDebug.Log
 import NoDebug.TodoOrToString
 import NoExposingEverything
@@ -32,7 +32,7 @@ import Review.Rule as Rule exposing (Rule)
 
 config : List Rule
 config =
-    [ Documentation.ReadmeLinksPointToCurrentVersion.rule
+    [ Docs.UpToDateReadmeLinks.rule
     , NoDebug.Log.rule
     , NoDebug.TodoOrToString.rule
         |> Rule.ignoreErrorsForDirectories [ "tests/" ]

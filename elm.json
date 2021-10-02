@@ -22,6 +22,7 @@
         "stil4m/elm-syntax": "7.2.7 <= v < 8.0.0"
     },
     "test-dependencies": {
-        "elm/regex": "1.0.0 <= v < 2.0.0"
+        "elm/regex": "1.0.0 <= v < 2.0.0",
+        "elm/parser": "1.1.0 <= v < 2.0.0"
     }
 }
