@@ -22,7 +22,7 @@ does not look at the project's dependencies.
 @docs name, elmJson, modules
 
 
-# Create
+# Creation
 
 @docs create
 
