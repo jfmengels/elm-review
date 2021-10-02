@@ -907,7 +907,7 @@ recommend specifying `()`, and using functions from this module with names
 starting with "withSimple".
 
 **NOTE**: Do not store functions, JSON values or regular expressions in your contexts, as they will be
-compared internally, which [may cause Elm to crash](https://package.elm-lang.org/packages/elm/core/latest/Basics#(==)).
+compared internally, which [may cause Elm to crash](https://package.elm-lang.org/packages/elm/core/latest/Basics#==).
 
     module My.Rule.Name exposing (rule)
 
@@ -966,7 +966,7 @@ newModuleRuleSchema name initialModuleContext =
 
 
 {-| Same as [`newModuleRuleSchema`](#newModuleRuleSchema), except that you can request for data to help initialize the context.
-compared internally, which [may cause Elm to crash](https://package.elm-lang.org/packages/elm/core/latest/Basics#(==)).
+compared internally, which [may cause Elm to crash](https://package.elm-lang.org/packages/elm/core/latest/Basics#==).
 
     module My.Rule.Name exposing (rule)
 
@@ -1134,7 +1134,7 @@ accumulate as the project will be traversed, and allows the rule to know/remembe
 what happens in other parts of the project.
 
 **NOTE**: Do not store functions, JSON values or regular expressions in your contexts, as they will be
-compared internally, which [may cause Elm to crash](https://package.elm-lang.org/packages/elm/core/latest/Basics#(==)).
+compared internally, which [may cause Elm to crash](https://package.elm-lang.org/packages/elm/core/latest/Basics#==).
 
 Project rules traverse the project in the following order:
 
