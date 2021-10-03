@@ -2,9 +2,12 @@
   "name": "",
   "version": "1.0.0",
   "scripts": {
-    "test": "elm make --docs=docs.json && elm-format src/ --validate && elm-test && npm run phantom-tests && npm run elm-review",
-    "elm-review": "LOCAL_ELM_REVIEW_SRC=src elm-review",
-    "phantom-tests": "node phantom-type-tests/run.js",
+    "test": "npm-run-all --print-name --silent --sequential test:make test:format test:run test:review test:phantom",
+    "test:make": "elm make --docs=docs.json",
+    "test:format": "elm-format src/ --validate",
+    "test:run": "elm-test",
+    "test:review": "LOCAL_ELM_REVIEW_SRC=src elm-review",
+    "test:phantom": "node phantom-type-tests/run.js",
     "backport-rules": "cp -r ../elm-review-{common,debug,documentation,the-elm-architecture,unused,simplification,imports,noredundantconcat}/{src,tests}/* tests",
     "generate-dep": "node create-dependency",
     "postinstall": "elm-tooling install"
@@ -13,5 +16,8 @@
     "elm-review": "^2.5.2",
     "elm-test": "^0.19.1-revision6",
     "elm-tooling": "^1.2.0"
+  },
+  "devDependencies": {
+    "npm-run-all": "^4.1.5"
   }
 }
