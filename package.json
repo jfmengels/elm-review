@@ -8,6 +8,8 @@
     "test:run": "elm-test",
     "test:review": "LOCAL_ELM_REVIEW_SRC=src elm-review",
     "test:phantom": "node phantom-type-tests/run.js",
+    "elm-bump": "npm-run-all --print-name --silent --sequential test bump-version 'test:review -- --fix-all-without-prompt'",
+    "bump-version": "(yes | elm bump)",
     "backport-rules": "cp -r ../elm-review-{common,debug,documentation,the-elm-architecture,unused,simplification,imports,noredundantconcat}/{src,tests}/* tests",
     "generate-dep": "node create-dependency",
     "postinstall": "elm-tooling install"
