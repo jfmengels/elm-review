@@ -12,6 +12,7 @@ import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNam
 import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
+import Review.Test.Dependencies
 import Test exposing (Test, test)
 
 
@@ -38,6 +39,10 @@ import Html exposing (..)
 import Http exposing (get)
 import Something.B as Something
 import Something.C as Something
+import Url.Parser exposing (..)
+-- NOTE: The behavior of the compiler if duplicate infix operators are imported is for the second-imported one to overwrite the first.
+import Parser exposing ((|=))
+import Parser.Advanced exposing ((|=))
 
 localValue = 1
 localValueValueToBeShadowed = 1
@@ -68,6 +73,12 @@ a = localValue
  True
  Just
  Cmd.none
+ (+)
+ (117 + 3)
+ (<?>)
+ ("x" </> "y")
+ (|=)
+ ("pars" |= "er")
 b = case () of
   VariantA -> ()
   (ExposesEverything.VariantA as foo) -> foo
@@ -124,6 +135,12 @@ Http.get -> Http.get
 <nothing>.True -> Basics.True
 <nothing>.Just -> Maybe.Just
 Cmd.none -> Platform.Cmd.none
+<nothing>.+ -> Basics.+
+<nothing>.+ -> Basics.+
+<nothing>.<?> -> Url.Parser.<?>
+<nothing>.</> -> Url.Parser.</>
+<nothing>.|= -> Parser.Advanced.|=
+<nothing>.|= -> Parser.Advanced.|=
 <nothing>.VariantA -> ExposesEverything.VariantA
 ExposesEverything.VariantA -> ExposesEverything.VariantA
 ExposesEverythingAlias.VariantA -> ExposesEverything.VariantA
@@ -212,6 +229,8 @@ project =
     Project.new
         |> Project.addDependency Dependencies.elmCore
         |> Project.addDependency Dependencies.elmHtml
+        |> Project.addDependency Review.Test.Dependencies.elmParser
+        |> Project.addDependency Review.Test.Dependencies.elmUrl
 
 
 createRule : (Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext) -> Rule
@@ -241,6 +260,12 @@ expressionVisitor node context =
 
         Expression.RecordUpdateExpression (Node range name) _ ->
             ( [], { context | texts = context.texts ++ [ getRealName context [] range name ] } )
+
+        Expression.PrefixOperator op ->
+            ( [], { context | texts = context.texts ++ [ getRealName context [] (Node.range node) op ] } )
+
+        Expression.OperatorApplication op _ _ _ ->
+            ( [], { context | texts = context.texts ++ [ getRealName context [] (Node.range node) op ] } )
 
         Expression.CaseExpression { cases } ->
             let

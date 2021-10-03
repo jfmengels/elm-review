@@ -33,11 +33,13 @@ type alias ModuleNameLookupTable =
     Internal.ModuleNameLookupTable
 
 
-{-| Returns the name of the module the type or value referred to by this [`Node`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Node#Node).
+{-| Returns the name of the module the type, value, or operator referred to by this [`Node`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Node#Node) was defined in.
 
 The function returns `Just []` if the type or value was defined in this module. It returns `Just moduleName` if the Node is among these kinds of AST nodes (and `Nothing` for all the others):
 
   - `Expression.FunctionOrValue`
+  - `Expression.PrefixOperator`
+  - `Expression.OperatorApplication`
   - `nodeForTheName` in `Expression.RecordUpdateExpression nodeForTheName modifiers`
   - `nodeForTheName` in `TypeAnnotation.Typed nodeForTheName args`
   - `Pattern.NamedPattern`
