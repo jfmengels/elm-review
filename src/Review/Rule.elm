@@ -2168,7 +2168,7 @@ withReadmeModuleVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | readmeVisitors = visitor :: schema.readmeVisitors }
 
 
-{-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will visit the project's
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the project's
 [dependencies](./Review-Project-Dependency).
 
 You can use this look at the modules contained in dependencies, which can make the rule very precise when it targets
