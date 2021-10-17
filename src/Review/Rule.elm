@@ -5682,27 +5682,53 @@ scope_expressionEnterVisitor node context =
 
 
 collectModuleNamesFromTypeAnnotation : ScopeModuleContext -> Node TypeAnnotation -> List ( Range, ModuleName )
-collectModuleNamesFromTypeAnnotation context typeAnnotationNode =
-    case Node.value typeAnnotationNode of
-        TypeAnnotation.Typed (Node range ( moduleName, name )) args ->
-            ( range, moduleNameForType context name moduleName ) :: List.concatMap (collectModuleNamesFromTypeAnnotation context) args
+collectModuleNamesFromTypeAnnotation context typeAnnotationToVisit =
+    collectModuleNamesFromTypeAnnotationHelp context [ typeAnnotationToVisit ] []
 
-        TypeAnnotation.Tupled nodes ->
-            List.concatMap (collectModuleNamesFromTypeAnnotation context) nodes
 
-        TypeAnnotation.Record fields ->
-            List.concatMap (Node.value >> Tuple.second >> collectModuleNamesFromTypeAnnotation context) fields
+collectModuleNamesFromTypeAnnotationHelp : ScopeModuleContext -> List (Node TypeAnnotation) -> List ( Range, ModuleName ) -> List ( Range, ModuleName )
+collectModuleNamesFromTypeAnnotationHelp context typeAnnotationsToVisit acc =
+    case typeAnnotationsToVisit of
+        typeAnnotationNode :: remainingTypeAnnotationsToVisit ->
+            case Node.value typeAnnotationNode of
+                TypeAnnotation.Typed (Node range ( moduleName, name )) args ->
+                    collectModuleNamesFromTypeAnnotationHelp
+                        context
+                        (args ++ remainingTypeAnnotationsToVisit)
+                        (( range, moduleNameForType context name moduleName ) :: acc)
 
-        TypeAnnotation.GenericRecord _ fields ->
-            fields
-                |> Node.value
-                |> List.concatMap (Node.value >> Tuple.second >> collectModuleNamesFromTypeAnnotation context)
+                TypeAnnotation.Tupled nodes ->
+                    collectModuleNamesFromTypeAnnotationHelp
+                        context
+                        (nodes ++ remainingTypeAnnotationsToVisit)
+                        acc
 
-        TypeAnnotation.FunctionTypeAnnotation left right ->
-            collectModuleNamesFromTypeAnnotation context left ++ collectModuleNamesFromTypeAnnotation context right
+                TypeAnnotation.Record fields ->
+                    collectModuleNamesFromTypeAnnotationHelp
+                        context
+                        (List.map (Node.value >> Tuple.second) fields ++ remainingTypeAnnotationsToVisit)
+                        acc
 
-        _ ->
-            []
+                TypeAnnotation.GenericRecord _ fields ->
+                    collectModuleNamesFromTypeAnnotationHelp
+                        context
+                        (List.map (Node.value >> Tuple.second) (Node.value fields) ++ remainingTypeAnnotationsToVisit)
+                        acc
+
+                TypeAnnotation.FunctionTypeAnnotation left right ->
+                    collectModuleNamesFromTypeAnnotationHelp
+                        context
+                        (left :: right :: remainingTypeAnnotationsToVisit)
+                        acc
+
+                _ ->
+                    collectModuleNamesFromTypeAnnotationHelp
+                        context
+                        remainingTypeAnnotationsToVisit
+                        acc
+
+        [] ->
+            acc
 
 
 expressionExitVisitor : Node Expression -> ScopeModuleContext -> ScopeModuleContext
