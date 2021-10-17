@@ -5023,9 +5023,9 @@ registerExposedValue function name innerContext =
         | exposedValues =
             { name = name
             , comment =
-                case Maybe.map Node.value function.documentation of
-                    Just str ->
-                        str
+                case function.documentation of
+                    Just strNode ->
+                        Node.value strNode
 
                     Nothing ->
                         ""
@@ -5077,9 +5077,9 @@ registerIfExposed registerFn name innerContext =
 
 convertTypeSignatureToDocsType : ScopeModuleContext -> Maybe (Node Signature) -> Elm.Type.Type
 convertTypeSignatureToDocsType innerContext maybeSignature =
-    case maybeSignature |> Maybe.map (Node.value >> .typeAnnotation) of
-        Just typeAnnotation ->
-            syntaxTypeAnnotationToDocsType innerContext typeAnnotation
+    case maybeSignature of
+        Just signature ->
+            syntaxTypeAnnotationToDocsType innerContext (Node.value signature).typeAnnotation
 
         Nothing ->
             Elm.Type.Tuple []
