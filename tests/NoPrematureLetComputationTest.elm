@@ -503,19 +503,18 @@ a b c d =
                             }
                             |> Review.Test.atExactly { start = { row = 4, column = 5 }, end = { row = 4, column = 6 } }
                             |> Review.Test.whenFixed
-                                ("""module A exposing (..)
+                                """module A exposing (..)
 a b c d =
   case b of
     A y ->
       if b then
         let
             z = \\() _ -> 1
-         $
         in
         z
       else
         1
-""" |> String.replace "$" " ")
+"""
                         ]
         , test "should not suggest a fix for let declarations that introduce variables in their implementation (let block)" <|
             \() ->

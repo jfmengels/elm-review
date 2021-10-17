@@ -429,95 +429,14 @@ expressionEnterVisitorHelp node context =
             in
             { context | scope = branch }
 
-        Expression.LetExpression { declarations, expression } ->
-            let
-                isDeclarationAlone : Bool
-                isDeclarationAlone =
-                    List.length declarations == 1
-
-                letDeclarations : List Declared
-                letDeclarations =
-                    declarations
-                        |> List.concatMap collectDeclarations
-                        |> List.map
-                            (\( nameNode, expressionRange, declaration ) ->
-                                { name = Node.value nameNode
-                                , introducesVariablesInImplementation = False
-                                , reportRange = Node.range nameNode
-                                , declarationColumn = (Node.range declaration).start.column
-                                , declarationRange = fullLines { start = (Node.range declaration).start, end = expressionRange.end }
-                                , removeRange =
-                                    if isDeclarationAlone then
-                                        { start = (Node.range node).start
-                                        , end = (Node.range expression).start
-                                        }
-
-                                    else
-                                        { start = { row = (Node.range declaration).start.row, column = 1 }
-                                        , end = expressionRange.end
-                                        }
-                                }
-                            )
-
-                scopes : RangeDict Scope
-                scopes =
-                    declarations
-                        |> List.filterMap getLetFunctionRange
-                        |> List.map (\range -> ( range, functionScope ))
-                        |> RangeDict.fromList
-
-                newScope : Scope
-                newScope =
-                    Scope
-                        LetScope
-                        { letDeclarations = letDeclarations
-                        , used = Set.empty
-                        , insertionLocation = figureOutInsertionLocation node
-                        , scopes = scopes
-                        }
-
-                contextWithDeclarationsMarked : Context
-                contextWithDeclarationsMarked =
-                    { context | scope = markLetDeclarationsAsIntroducingVariables (Node.range node) context }
-
-                branch : Scope
-                branch =
-                    updateCurrentBranch
-                        (\b ->
-                            { b
-                                | scopes =
-                                    RangeDict.insert
-                                        (Node.range node)
-                                        newScope
-                                        b.scopes
-                            }
-                        )
-                        contextWithDeclarationsMarked.branching.full
-                        contextWithDeclarationsMarked.scope
-            in
-            { contextWithDeclarationsMarked
-                | scope = branch
-                , branching = addBranching (Node.range node) contextWithDeclarationsMarked.branching
-            }
+        Expression.LetExpression letBlock ->
+            registerLetExpression node letBlock context
 
         Expression.IfBlock _ then_ else_ ->
             addBranches [ then_, else_ ] context
 
         Expression.CaseExpression { cases } ->
-            let
-                contextWithDeclarationsMarked : Context
-                contextWithDeclarationsMarked =
-                    if List.any (Tuple.first >> patternIntroducesVariable) cases then
-                        { context | scope = markLetDeclarationsAsIntroducingVariables (Node.range node) context }
-
-                    else
-                        context
-
-                branchNodes : List (Node Expression)
-                branchNodes =
-                    List.map (\( _, exprNode ) -> exprNode) cases
-            in
-            addBranches branchNodes contextWithDeclarationsMarked
+            registerCaseExpression node cases context
 
         Expression.LambdaExpression { args, expression } ->
             let
@@ -592,6 +511,97 @@ expressionEnterVisitorHelp node context =
             context
 
 
+registerLetExpression : Node Expression -> Expression.LetBlock -> Context -> Context
+registerLetExpression node { declarations, expression } context =
+    let
+        isDeclarationAlone : Bool
+        isDeclarationAlone =
+            List.length declarations == 1
+
+        letDeclarations : List Declared
+        letDeclarations =
+            declarations
+                |> List.concatMap collectDeclarations
+                |> List.map
+                    (\( nameNode, expressionRange, declaration ) ->
+                        { name = Node.value nameNode
+                        , introducesVariablesInImplementation = False
+                        , reportRange = Node.range nameNode
+                        , declarationColumn = (Node.range declaration).start.column
+                        , declarationRange = fullLines { start = (Node.range declaration).start, end = expressionRange.end }
+                        , removeRange =
+                            if isDeclarationAlone then
+                                { start = (Node.range node).start
+                                , end = (Node.range expression).start
+                                }
+
+                            else
+                                { start = { row = (Node.range declaration).start.row, column = 1 }
+                                , end = expressionRange.end
+                                }
+                        }
+                    )
+
+        scopes : RangeDict Scope
+        scopes =
+            declarations
+                |> List.filterMap getLetFunctionRange
+                |> List.map (\range -> ( range, functionScope ))
+                |> RangeDict.fromList
+
+        newScope : Scope
+        newScope =
+            Scope
+                LetScope
+                { letDeclarations = letDeclarations
+                , used = Set.empty
+                , insertionLocation = figureOutInsertionLocation node
+                , scopes = scopes
+                }
+
+        contextWithDeclarationsMarked : Context
+        contextWithDeclarationsMarked =
+            { context | scope = markLetDeclarationsAsIntroducingVariables (Node.range node) context }
+
+        branch : Scope
+        branch =
+            updateCurrentBranch
+                (\b ->
+                    { b
+                        | scopes =
+                            RangeDict.insert
+                                (Node.range node)
+                                newScope
+                                b.scopes
+                    }
+                )
+                contextWithDeclarationsMarked.branching.full
+                contextWithDeclarationsMarked.scope
+    in
+    { contextWithDeclarationsMarked
+        | scope = branch
+        , branching = addBranching (Node.range node) contextWithDeclarationsMarked.branching
+    }
+
+
+registerCaseExpression : Node Expression -> List ( Node Pattern, Node Expression ) -> Context -> Context
+registerCaseExpression node cases context =
+    let
+        contextWithDeclarationsMarked : Context
+        contextWithDeclarationsMarked =
+            if List.any (Tuple.first >> patternIntroducesVariable) cases then
+                { context | scope = markLetDeclarationsAsIntroducingVariables (Node.range node) context }
+
+            else
+                context
+
+        branchNodes : List (Node Expression)
+        branchNodes =
+            List.map (\( _, exprNode ) -> exprNode) cases
+    in
+    addBranches branchNodes contextWithDeclarationsMarked
+
+
 registerApplicationCall : Range -> String -> Node Expression -> Int -> Context -> Context
 registerApplicationCall fnRange fnName argumentWithParens nbOfOtherArguments context =
     let
@@ -601,30 +611,33 @@ registerApplicationCall fnRange fnName argumentWithParens nbOfOtherArguments con
     in
     case Node.value argument of
         Expression.LambdaExpression _ ->
-            case Dict.get fnName knownFunctions of
-                Just knownModuleNames ->
-                    case
-                        ModuleNameLookupTable.moduleNameAt context.lookupTable fnRange
-                            |> Maybe.andThen (\moduleName -> Dict.get moduleName knownModuleNames)
-                    of
-                        Just expectedNumberOfArguments ->
-                            if nbOfOtherArguments == expectedNumberOfArguments - 1 then
-                                { context
-                                    | functionsThatWillOnlyBeComputedOnce =
-                                        RangeDict.insert (Node.range argument) () context.functionsThatWillOnlyBeComputedOnce
-                                }
+            case numberOfArgumentsForFunction context.lookupTable fnName fnRange of
+                Just expectedNumberOfArguments ->
+                    if nbOfOtherArguments == expectedNumberOfArguments - 1 then
+                        { context
+                            | functionsThatWillOnlyBeComputedOnce =
+                                RangeDict.insert (Node.range argument) () context.functionsThatWillOnlyBeComputedOnce
+                        }
 
-                            else
-                                context
+                    else
+                        context
 
-                        _ ->
-                            context
-
-                _ ->
+                Nothing ->
                     context
 
         _ ->
             context
+
+
+numberOfArgumentsForFunction : ModuleNameLookupTable -> String -> Range -> Maybe number
+numberOfArgumentsForFunction lookupTable fnName fnRange =
+    case Dict.get fnName knownFunctions of
+        Just knownModuleNames ->
+            ModuleNameLookupTable.moduleNameAt lookupTable fnRange
+                |> Maybe.andThen (\moduleName -> Dict.get moduleName knownModuleNames)
+
+        _ ->
+            Nothing
 
 
 knownFunctions : Dict String (Dict (List String) number)
