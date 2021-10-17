@@ -786,7 +786,9 @@ runRules rules project nodeContexts =
                 ( ruleErrors, ruleWithCache ) =
                     ruleImplementation exceptions project nodeContexts
             in
-            ( List.concat [ List.map removeErrorPhantomType ruleErrors, errors ], ruleWithCache :: previousRules )
+            ( List.append (List.map removeErrorPhantomType ruleErrors) errors
+            , ruleWithCache :: previousRules
+            )
         )
         ( [], [] )
         rules
@@ -4179,12 +4181,12 @@ visitExpression onEnter onExit node moduleContext =
 -}
 makeFinalEvaluation : List (context -> List (Error {})) -> ( List (Error {}), context ) -> List (Error {})
 makeFinalEvaluation finalEvaluationFns ( previousErrors, context ) =
-    List.concat
-        [ List.concatMap
+    List.append
+        (List.concatMap
             (\visitor -> visitor context)
             finalEvaluationFns
-        , previousErrors
-        ]
+        )
+        previousErrors
 
 
 expressionChildren : Node Expression -> List (Node Expression)
@@ -5271,10 +5273,9 @@ registerImportExposed import_ innerContext =
 
                         exposedTypes : Dict String (List String)
                         exposedTypes =
-                            List.concat
-                                [ List.map nameWithModuleName module_.unions
-                                , List.map nameWithModuleName module_.aliases
-                                ]
+                            List.append
+                                (List.map nameWithModuleName module_.unions)
+                                (List.map nameWithModuleName module_.aliases)
                                 |> Dict.fromList
                     in
                     { innerContext
