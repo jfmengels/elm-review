@@ -1,14 +1,12 @@
 module Review.Test.Dependencies.ElmCore exposing (dependency)
 
-import Elm.Constraint
 import Elm.Docs
 import Elm.License
-import Elm.Module
-import Elm.Package
 import Elm.Project
 import Elm.Type exposing (Type(..))
 import Elm.Version
 import Review.Project.Dependency as Dependency exposing (Dependency)
+import Review.Test.Dependencies.Unsafe as Unsafe
 
 
 dependency : Dependency
@@ -21,17 +19,17 @@ dependency =
 elmJson : Elm.Project.Project
 elmJson =
     Elm.Project.Package
-        { elm = unsafeConstraint "0.19.0 <= v < 0.20.0"
+        { elm = Unsafe.constraint "0.19.0 <= v < 0.20.0"
         , exposed =
             Elm.Project.ExposedDict
-                [ ( "Primitives", [ unsafeModuleName "Basics", unsafeModuleName "String", unsafeModuleName "Char", unsafeModuleName "Bitwise", unsafeModuleName "Tuple" ] )
-                , ( "Collections", [ unsafeModuleName "List", unsafeModuleName "Dict", unsafeModuleName "Set", unsafeModuleName "Array" ] )
-                , ( "Error Handling", [ unsafeModuleName "Maybe", unsafeModuleName "Result" ] )
-                , ( "Debug", [ unsafeModuleName "Debug" ] )
-                , ( "Effects", [ unsafeModuleName "Platform.Cmd", unsafeModuleName "Platform.Sub", unsafeModuleName "Platform", unsafeModuleName "Process", unsafeModuleName "Task" ] )
+                [ ( "Primitives", [ Unsafe.moduleName "Basics", Unsafe.moduleName "String", Unsafe.moduleName "Char", Unsafe.moduleName "Bitwise", Unsafe.moduleName "Tuple" ] )
+                , ( "Collections", [ Unsafe.moduleName "List", Unsafe.moduleName "Dict", Unsafe.moduleName "Set", Unsafe.moduleName "Array" ] )
+                , ( "Error Handling", [ Unsafe.moduleName "Maybe", Unsafe.moduleName "Result" ] )
+                , ( "Debug", [ Unsafe.moduleName "Debug" ] )
+                , ( "Effects", [ Unsafe.moduleName "Platform.Cmd", Unsafe.moduleName "Platform.Sub", Unsafe.moduleName "Platform", Unsafe.moduleName "Process", Unsafe.moduleName "Task" ] )
                 ]
         , license = Elm.License.fromString "BSD-3-Clause" |> Maybe.withDefault Elm.License.bsd3
-        , name = unsafePackageName "elm/core"
+        , name = Unsafe.packageName "elm/core"
         , summary = "Elm's standard libraries"
         , deps = []
         , testDeps = []
@@ -3521,42 +3519,3 @@ info on this. (Picking appropriate data structures is super important in Elm!)
             ]
       }
     ]
-
-
-unsafePackageName : String -> Elm.Package.Name
-unsafePackageName packageName =
-    case Elm.Package.fromString packageName of
-        Just name ->
-            name
-
-        Nothing ->
-            -- unsafe, but if the generation went well, it should all be good.
-            unsafePackageName packageName
-                -- Disables the tail-call optimization, so that the test crashes if we enter this case
-                |> identity
-
-
-unsafeModuleName : String -> Elm.Module.Name
-unsafeModuleName moduleName =
-    case Elm.Module.fromString moduleName of
-        Just name ->
-            name
-
-        Nothing ->
-            -- unsafe, but if the generation went well, it should all be good.
-            unsafeModuleName moduleName
-                -- Disables the tail-call optimization, so that the test crashes if we enter this case
-                |> identity
-
-
-unsafeConstraint : String -> Elm.Constraint.Constraint
-unsafeConstraint constraint =
-    case Elm.Constraint.fromString constraint of
-        Just constr ->
-            constr
-
-        Nothing ->
-            -- unsafe, but if the generation went well, it should all be good.
-            unsafeConstraint constraint
-                -- Disables the tail-call optimization, so that the test crashes if we enter this case
-                |> identity

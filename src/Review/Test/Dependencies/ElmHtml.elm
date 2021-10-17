@@ -1,14 +1,12 @@
 module Review.Test.Dependencies.ElmHtml exposing (dependency)
 
-import Elm.Constraint
 import Elm.Docs
 import Elm.License
-import Elm.Module
-import Elm.Package
 import Elm.Project
 import Elm.Type exposing (Type(..))
 import Elm.Version
 import Review.Project.Dependency as Dependency exposing (Dependency)
+import Review.Test.Dependencies.Unsafe as Unsafe
 
 
 dependency : Dependency
@@ -21,19 +19,19 @@ dependency =
 elmJson : Elm.Project.Project
 elmJson =
     Elm.Project.Package
-        { elm = unsafeConstraint "0.19.0 <= v < 0.20.0"
+        { elm = Unsafe.constraint "0.19.0 <= v < 0.20.0"
         , exposed =
             Elm.Project.ExposedDict
-                [ ( "HTML", [ unsafeModuleName "Html", unsafeModuleName "Html.Attributes", unsafeModuleName "Html.Events" ] )
-                , ( "Optimize", [ unsafeModuleName "Html.Keyed", unsafeModuleName "Html.Lazy" ] )
+                [ ( "HTML", [ Unsafe.moduleName "Html", Unsafe.moduleName "Html.Attributes", Unsafe.moduleName "Html.Events" ] )
+                , ( "Optimize", [ Unsafe.moduleName "Html.Keyed", Unsafe.moduleName "Html.Lazy" ] )
                 ]
         , license = Elm.License.fromString "BSD-3-Clause" |> Maybe.withDefault Elm.License.bsd3
-        , name = unsafePackageName "elm/html"
+        , name = Unsafe.packageName "elm/html"
         , summary = "Fast HTML, rendered with virtual DOM diffing"
         , deps =
-            [ ( unsafePackageName "elm/core", unsafeConstraint "1.0.0 <= v < 2.0.0" )
-            , ( unsafePackageName "elm/json", unsafeConstraint "1.0.0 <= v < 2.0.0" )
-            , ( unsafePackageName "elm/virtual-dom", unsafeConstraint "1.0.0 <= v < 2.0.0" )
+            [ ( Unsafe.packageName "elm/core", Unsafe.constraint "1.0.0 <= v < 2.0.0" )
+            , ( Unsafe.packageName "elm/json", Unsafe.constraint "1.0.0 <= v < 2.0.0" )
+            , ( Unsafe.packageName "elm/virtual-dom", Unsafe.constraint "1.0.0 <= v < 2.0.0" )
             ]
         , testDeps = []
         , version = Elm.Version.fromString "1.0.0" |> Maybe.withDefault Elm.Version.one
@@ -1590,42 +1588,3 @@ we know if the input to `view` is the same, the output must be the same!
             ]
       }
     ]
-
-
-unsafePackageName : String -> Elm.Package.Name
-unsafePackageName packageName =
-    case Elm.Package.fromString packageName of
-        Just name ->
-            name
-
-        Nothing ->
-            -- unsafe, but if the generation went well, it should all be good.
-            unsafePackageName packageName
-                -- Disables the tail-call optimization, so that the test crashes if we enter this case
-                |> identity
-
-
-unsafeModuleName : String -> Elm.Module.Name
-unsafeModuleName moduleName =
-    case Elm.Module.fromString moduleName of
-        Just name ->
-            name
-
-        Nothing ->
-            -- unsafe, but if the generation went well, it should all be good.
-            unsafeModuleName moduleName
-                -- Disables the tail-call optimization, so that the test crashes if we enter this case
-                |> identity
-
-
-unsafeConstraint : String -> Elm.Constraint.Constraint
-unsafeConstraint constraint =
-    case Elm.Constraint.fromString constraint of
-        Just constr ->
-            constr
-
-        Nothing ->
-            -- unsafe, but if the generation went well, it should all be good.
-            unsafeConstraint constraint
-                -- Disables the tail-call optimization, so that the test crashes if we enter this case
-                |> identity
