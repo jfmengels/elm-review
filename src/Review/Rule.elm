@@ -5491,27 +5491,40 @@ collectNamesFromPattern pattern =
 
 collectModuleNamesFromPattern : ScopeModuleContext -> Node Pattern -> List ( Range, ModuleName )
 collectModuleNamesFromPattern context pattern =
-    case Node.value pattern of
-        Pattern.TuplePattern subPatterns ->
-            List.concatMap (collectModuleNamesFromPattern context) subPatterns
+    collectModuleNamesFromPatternHelp context [ pattern ] []
 
-        Pattern.UnConsPattern left right ->
-            List.concatMap (collectModuleNamesFromPattern context) [ left, right ]
 
-        Pattern.ListPattern subPatterns ->
-            List.concatMap (collectModuleNamesFromPattern context) subPatterns
+collectModuleNamesFromPatternHelp : ScopeModuleContext -> List (Node Pattern) -> List ( Range, ModuleName ) -> List ( Range, ModuleName )
+collectModuleNamesFromPatternHelp context patternsToVisit acc =
+    case patternsToVisit of
+        pattern :: restOfPatternsToVisit ->
+            case Node.value pattern of
+                Pattern.NamedPattern { moduleName, name } subPatterns ->
+                    collectModuleNamesFromPatternHelp
+                        context
+                        (subPatterns ++ restOfPatternsToVisit)
+                        (( Node.range pattern, moduleNameForValue context name moduleName ) :: acc)
 
-        Pattern.NamedPattern { moduleName, name } subPatterns ->
-            ( Node.range pattern, moduleNameForValue context name moduleName ) :: List.concatMap (collectModuleNamesFromPattern context) subPatterns
+                Pattern.UnConsPattern left right ->
+                    collectModuleNamesFromPatternHelp context (left :: right :: restOfPatternsToVisit) acc
 
-        Pattern.AsPattern subPattern _ ->
-            collectModuleNamesFromPattern context subPattern
+                Pattern.TuplePattern subPatterns ->
+                    collectModuleNamesFromPatternHelp context (subPatterns ++ restOfPatternsToVisit) acc
 
-        Pattern.ParenthesizedPattern subPattern ->
-            collectModuleNamesFromPattern context subPattern
+                Pattern.ParenthesizedPattern subPattern ->
+                    collectModuleNamesFromPatternHelp context (subPattern :: restOfPatternsToVisit) acc
 
-        _ ->
-            []
+                Pattern.AsPattern subPattern _ ->
+                    collectModuleNamesFromPatternHelp context (subPattern :: restOfPatternsToVisit) acc
+
+                Pattern.ListPattern subPatterns ->
+                    collectModuleNamesFromPatternHelp context (subPatterns ++ restOfPatternsToVisit) acc
+
+                _ ->
+                    collectModuleNamesFromPatternHelp context restOfPatternsToVisit acc
+
+        [] ->
+            acc
 
 
 scope_popScopeEnter : Node Expression -> ScopeModuleContext -> ScopeModuleContext
