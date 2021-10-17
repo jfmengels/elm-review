@@ -5460,33 +5460,47 @@ parameters patterns =
 
 collectNamesFromPattern : Node Pattern -> List (Node String)
 collectNamesFromPattern pattern =
-    case Node.value pattern of
-        Pattern.TuplePattern subPatterns ->
-            List.concatMap collectNamesFromPattern subPatterns
+    collectNamesFromPatternHelp [ pattern ] []
 
-        Pattern.RecordPattern names ->
-            names
 
-        Pattern.UnConsPattern left right ->
-            List.concatMap collectNamesFromPattern [ left, right ]
+collectNamesFromPatternHelp : List (Node Pattern) -> List (Node String) -> List (Node String)
+collectNamesFromPatternHelp patternsToVisit acc =
+    case patternsToVisit of
+        pattern :: restOfPatternsToVisit ->
+            case Node.value pattern of
+                Pattern.VarPattern name ->
+                    collectNamesFromPatternHelp
+                        restOfPatternsToVisit
+                        (Node (Node.range pattern) name :: acc)
 
-        Pattern.ListPattern subPatterns ->
-            List.concatMap collectNamesFromPattern subPatterns
+                Pattern.NamedPattern _ subPatterns ->
+                    collectNamesFromPatternHelp (subPatterns ++ restOfPatternsToVisit) acc
 
-        Pattern.VarPattern name ->
-            [ Node (Node.range pattern) name ]
+                Pattern.RecordPattern names ->
+                    collectNamesFromPatternHelp
+                        restOfPatternsToVisit
+                        (names ++ acc)
 
-        Pattern.NamedPattern _ subPatterns ->
-            List.concatMap collectNamesFromPattern subPatterns
+                Pattern.ParenthesizedPattern subPattern ->
+                    collectNamesFromPatternHelp (subPattern :: restOfPatternsToVisit) acc
 
-        Pattern.AsPattern subPattern alias ->
-            alias :: collectNamesFromPattern subPattern
+                Pattern.AsPattern subPattern alias ->
+                    collectNamesFromPatternHelp (subPattern :: restOfPatternsToVisit) (alias :: acc)
 
-        Pattern.ParenthesizedPattern subPattern ->
-            collectNamesFromPattern subPattern
+                Pattern.TuplePattern subPatterns ->
+                    collectNamesFromPatternHelp (subPatterns ++ restOfPatternsToVisit) acc
 
-        _ ->
-            []
+                Pattern.UnConsPattern left right ->
+                    collectNamesFromPatternHelp (left :: right :: restOfPatternsToVisit) acc
+
+                Pattern.ListPattern subPatterns ->
+                    collectNamesFromPatternHelp (subPatterns ++ restOfPatternsToVisit) acc
+
+                _ ->
+                    collectNamesFromPatternHelp restOfPatternsToVisit acc
+
+        [] ->
+            acc
 
 
 collectModuleNamesFromPattern : ScopeModuleContext -> Node Pattern -> List ( Range, ModuleName )
