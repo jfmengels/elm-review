@@ -1389,6 +1389,7 @@ by the tests automatically.
 -}
 configurationError : String -> { message : String, details : List String } -> Rule
 configurationError name configurationError_ =
+    -- IGNORE TCO
     Rule
         { name = name
         , exceptions = Exceptions.init
@@ -3604,6 +3605,7 @@ runProjectVisitor :
     -> List (Graph.NodeContext ModuleName ())
     -> { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
 runProjectVisitor name projectVisitor maybePreviousCache exceptions project nodeContexts =
+    -- IGNORE TCO
     let
         ( cacheWithInitialContext, hasInitialContextChanged ) =
             computeProjectContext projectVisitor project maybePreviousCache
@@ -4171,6 +4173,8 @@ visitExpression :
     -> moduleContext
     -> ( List (Error {}), moduleContext )
 visitExpression onEnter onExit node moduleContext =
+    -- IGNORE TCO
+    --   Is there a way to make this function TCO?
     ( [], moduleContext )
         |> visitNodeWithListOfVisitors onEnter node
         |> accumulateList (visitExpression onEnter onExit) (expressionChildren node)
@@ -5089,6 +5093,7 @@ convertTypeSignatureToDocsType innerContext maybeSignature =
 
 syntaxTypeAnnotationToDocsType : ScopeModuleContext -> Node TypeAnnotation -> Elm.Type.Type
 syntaxTypeAnnotationToDocsType innerContext (Node _ typeAnnotation) =
+    -- IGNORE TCO
     case typeAnnotation of
         TypeAnnotation.GenericType name ->
             Elm.Type.Var name
