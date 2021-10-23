@@ -402,19 +402,17 @@ review rules project =
                         moduleGraph : Graph (List String) ()
                         moduleGraph =
                             Review.Project.Internal.moduleGraph project
-
-                        sortedModules : Result (Graph.Edge ()) (List (Graph.NodeContext ModuleName ()))
-                        sortedModules =
-                            moduleGraph
-                                |> Graph.checkAcyclic
-                                |> Result.map Graph.topologicalSort
                     in
-                    case sortedModules of
+                    case Graph.checkAcyclic moduleGraph of
                         Err edge ->
                             ( importCycleError moduleGraph edge, rules )
 
-                        Ok nodeContexts ->
+                        Ok nodesContexts ->
                             let
+                                sortedModules : List (Graph.NodeContext ModuleName ())
+                                sortedModules =
+                                    Graph.topologicalSort nodesContexts
+
                                 scopeResult :
                                     { errors : List (Error {})
                                     , rule : Rule
@@ -428,7 +426,7 @@ review rules project =
                                         Nothing
                                         Exceptions.init
                                         project
-                                        nodeContexts
+                                        sortedModules
 
                                 moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
                                 moduleNameLookupTables =
@@ -446,7 +444,7 @@ review rules project =
                                 ( List.map errorToReviewError scopeResult.errors, rules )
 
                             else
-                                runRules rules projectWithLookupTable nodeContexts
+                                runRules rules projectWithLookupTable sortedModules
                                     |> Tuple.mapFirst (List.map errorToReviewError)
 
         modulesThatFailedToParse ->
