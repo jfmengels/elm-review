@@ -2,9 +2,6 @@ module NoUnused.Parameters exposing (rule)
 
 {-| Report parameters that are not used.
 
-
-# Rule
-
 @docs rule
 
 -}
@@ -15,7 +12,6 @@ import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
-import NoUnused.RangeDict as RangeDict exposing (RangeDict)
 import Review.Fix as Fix exposing (Fix)
 import Review.Rule as Rule exposing (Rule)
 import Set exposing (Set)
@@ -76,9 +72,12 @@ elm-review --template jfmengels/elm-review-unused/example --rules NoUnused.Param
 rule : Rule
 rule =
     Rule.newModuleRuleSchema "NoUnused.Parameters" initialContext
-        |> Rule.withDeclarationEnterVisitor declarationVisitor
+        |> Rule.withDeclarationEnterVisitor declarationEnterVisitor
+        |> Rule.withDeclarationExitVisitor declarationExitVisitor
         |> Rule.withExpressionEnterVisitor expressionEnterVisitor
         |> Rule.withExpressionExitVisitor expressionExitVisitor
+        |> Rule.withLetDeclarationEnterVisitor letDeclarationEnterVisitor
+        |> Rule.withLetDeclarationExitVisitor letDeclarationExitVisitor
         |> Rule.fromModuleRuleSchema
 
 
@@ -88,7 +87,6 @@ rule =
 
 type alias Context =
     { scopes : List Scope
-    , scopesToCreate : RangeDict ScopeToCreate
     , knownFunctions : Dict String FunctionArgs
     , locationsToIgnoreForUsed : LocationsToIgnore
     }
@@ -99,13 +97,6 @@ type alias Scope =
     , declared : List Declared
     , used : Set String
     , usedRecursively : Set String
-    }
-
-
-type alias ScopeToCreate =
-    { declared : List Declared
-    , functionName : String
-    , functionArgs : FunctionArgs
     }
 
 
@@ -141,7 +132,6 @@ type Source
 initialContext : Context
 initialContext =
     { scopes = []
-    , scopesToCreate = RangeDict.empty
     , knownFunctions = Dict.empty
     , locationsToIgnoreForUsed = Dict.empty
     }
@@ -151,8 +141,8 @@ initialContext =
 -- DECLARATION VISITOR
 
 
-declarationVisitor : Node Declaration -> Context -> ( List nothing, Context )
-declarationVisitor node context =
+declarationEnterVisitor : Node Declaration -> Context -> ( List nothing, Context )
+declarationEnterVisitor node context =
     case Node.value node of
         Declaration.FunctionDeclaration { declaration } ->
             let
@@ -163,20 +153,33 @@ declarationVisitor node context =
                 declared : List (List Declared)
                 declared =
                     List.map (getParametersFromPatterns NamedFunction) arguments
+
+                functionName : String
+                functionName =
+                    Node.value declaration |> .name |> Node.value
             in
             ( []
-            , { scopes = []
-              , scopesToCreate =
-                    RangeDict.singleton
-                        (declaration |> Node.value |> .expression |> Node.range)
-                        { declared = List.concat declared
-                        , functionName = Node.value declaration |> .name |> Node.value
-                        , functionArgs = getArgNames declared
-                        }
-              , knownFunctions = Dict.empty
+            , { scopes =
+                    [ { functionName = functionName
+                      , declared = List.concat declared
+                      , used = Set.empty
+                      , usedRecursively = Set.empty
+                      }
+                    ]
+              , knownFunctions = Dict.singleton functionName (getArgNames declared)
               , locationsToIgnoreForUsed = Dict.empty
               }
             )
+
+        _ ->
+            ( [], context )
+
+
+declarationExitVisitor : Node Declaration -> Context -> ( List (Rule.Error {}), Context )
+declarationExitVisitor node context =
+    case Node.value node of
+        Declaration.FunctionDeclaration _ ->
+            report context
 
         _ ->
             ( [], context )
@@ -214,32 +217,7 @@ getParametersFromPatterns source node =
             ]
 
         Pattern.AsPattern pattern asName ->
-            let
-                parametersFromPatterns : List Declared
-                parametersFromPatterns =
-                    getParametersFromPatterns source pattern
-
-                asParameter : Declared
-                asParameter =
-                    { name = Node.value asName
-                    , range = Node.range asName
-                    , kind = Alias
-                    , fix = [ Fix.removeRange { start = (Node.range pattern).end, end = (Node.range asName).end } ]
-                    , source = source
-                    }
-            in
-            if List.isEmpty parametersFromPatterns && isPatternWildCard pattern then
-                [ asParameter
-                , { name = ""
-                  , range = Node.range pattern
-                  , kind = AsWithoutVariables
-                  , fix = [ Fix.removeRange { start = (Node.range pattern).start, end = (Node.range asName).start } ]
-                  , source = source
-                  }
-                ]
-
-            else
-                asParameter :: parametersFromPatterns
+            getParametersFromAsPattern source pattern asName
 
         Pattern.RecordPattern fields ->
             case fields of
@@ -298,6 +276,36 @@ getParametersFromPatterns source node =
             []
 
 
+getParametersFromAsPattern : Source -> Node Pattern -> Node String -> List Declared
+getParametersFromAsPattern source pattern asName =
+    let
+        parametersFromPatterns : List Declared
+        parametersFromPatterns =
+            getParametersFromPatterns source pattern
+
+        asParameter : Declared
+        asParameter =
+            { name = Node.value asName
+            , range = Node.range asName
+            , kind = Alias
+            , fix = [ Fix.removeRange { start = (Node.range pattern).end, end = (Node.range asName).end } ]
+            , source = source
+            }
+    in
+    if List.isEmpty parametersFromPatterns && isPatternWildCard pattern then
+        [ asParameter
+        , { name = ""
+          , range = Node.range pattern
+          , kind = AsWithoutVariables
+          , fix = [ Fix.removeRange { start = (Node.range pattern).start, end = (Node.range asName).start } ]
+          , source = source
+          }
+        ]
+
+    else
+        asParameter :: parametersFromPatterns
+
+
 isPatternWildCard : Node Pattern -> Bool
 isPatternWildCard node =
     case Node.value node of
@@ -322,107 +330,115 @@ formatRecord fields =
 
 expressionEnterVisitor : Node Expression -> Context -> ( List nothing, Context )
 expressionEnterVisitor node context =
-    let
-        newContext : Context
-        newContext =
-            case RangeDict.get (Node.range node) context.scopesToCreate of
-                Just { declared, functionName, functionArgs } ->
-                    { context
-                        | scopes =
-                            { functionName = functionName
-                            , declared = declared
-                            , used = Set.empty
-                            , usedRecursively = Set.singleton "unused"
-                            }
-                                :: context.scopes
-                        , knownFunctions =
-                            Dict.insert
-                                functionName
-                                functionArgs
-                                context.knownFunctions
-                    }
-
-                Nothing ->
-                    context
-    in
-    expressionEnterVisitorHelp node newContext
+    ( [], expressionEnterVisitorHelp node context )
 
 
-expressionEnterVisitorHelp : Node Expression -> Context -> ( List nothing, Context )
+expressionEnterVisitorHelp : Node Expression -> Context -> Context
 expressionEnterVisitorHelp node context =
     case Node.value node of
         Expression.FunctionOrValue [] name ->
-            ( [], markValueAsUsed (Node.range node) name context )
+            markValueAsUsed (Node.range node) name context
 
         Expression.RecordUpdateExpression name _ ->
-            ( [], markValueAsUsed (Node.range name) (Node.value name) context )
+            markValueAsUsed (Node.range name) (Node.value name) context
 
-        Expression.LetExpression letBlock ->
-            let
-                declaredWithRange : List ( Range, ScopeToCreate )
-                declaredWithRange =
-                    List.filterMap
-                        (\letDeclaration ->
-                            case Node.value letDeclaration of
-                                Expression.LetFunction function ->
-                                    let
-                                        declaration : Expression.FunctionImplementation
-                                        declaration =
-                                            Node.value function.declaration
-
-                                        declared : List (List Declared)
-                                        declared =
-                                            List.map (getParametersFromPatterns NamedFunction) declaration.arguments
-                                    in
-                                    if List.isEmpty declared then
-                                        Nothing
-
-                                    else
-                                        Just
-                                            ( Node.range declaration.expression
-                                            , { declared = List.concat declared
-                                              , functionName = Node.value declaration.name
-                                              , functionArgs = getArgNames declared
-                                              }
-                                            )
-
-                                Expression.LetDestructuring _ _ ->
-                                    Nothing
-                        )
-                        letBlock.declarations
-
-                scopesToCreate : RangeDict ScopeToCreate
-                scopesToCreate =
-                    RangeDict.insertAll declaredWithRange context.scopesToCreate
-            in
-            ( [], { context | scopesToCreate = scopesToCreate } )
-
-        Expression.LambdaExpression { args, expression } ->
-            let
-                scopesToCreate : RangeDict ScopeToCreate
-                scopesToCreate =
-                    RangeDict.insert
-                        (Node.range expression)
-                        { declared = List.concatMap (getParametersFromPatterns Lambda) args
-                        , functionName = "dummy lambda"
-                        , functionArgs = Dict.empty
-                        }
-                        context.scopesToCreate
-            in
-            ( [], { context | scopesToCreate = scopesToCreate } )
+        Expression.LambdaExpression { args } ->
+            { context
+                | scopes =
+                    { functionName = "dummy lambda"
+                    , declared = List.concatMap (getParametersFromPatterns Lambda) args
+                    , used = Set.empty
+                    , usedRecursively = Set.empty
+                    }
+                        :: context.scopes
+            }
 
         Expression.Application ((Node _ (Expression.FunctionOrValue [] fnName)) :: arguments) ->
-            ( [], registerFunctionCall fnName 0 arguments context )
+            registerFunctionCall fnName 0 arguments context
 
         Expression.OperatorApplication "|>" _ lastArgument (Node _ (Expression.Application ((Node _ (Expression.FunctionOrValue [] fnName)) :: arguments))) ->
             -- Ignoring "arguments" because they will be visited when the Application node will be visited anyway.
-            ( [], registerFunctionCall fnName (List.length arguments) [ lastArgument ] context )
+            registerFunctionCall fnName (List.length arguments) [ lastArgument ] context
 
         Expression.OperatorApplication "<|" _ (Node _ (Expression.Application ((Node _ (Expression.FunctionOrValue [] fnName)) :: arguments))) lastArgument ->
             -- Ignoring "arguments" because they will be visited when the Application node will be visited anyway.
-            ( [], registerFunctionCall fnName (List.length arguments) [ lastArgument ] context )
+            registerFunctionCall fnName (List.length arguments) [ lastArgument ] context
 
         _ ->
+            context
+
+
+
+-- EXPRESSION EXIT VISITOR
+
+
+expressionExitVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
+expressionExitVisitor (Node _ node) context =
+    case node of
+        Expression.LambdaExpression _ ->
+            report context
+
+        _ ->
+            ( [], context )
+
+
+letDeclarationEnterVisitor : a -> Node Expression.LetDeclaration -> Context -> ( List nothing, Context )
+letDeclarationEnterVisitor _ letDeclaration context =
+    case Node.value letDeclaration of
+        Expression.LetFunction function ->
+            let
+                declaration : Expression.FunctionImplementation
+                declaration =
+                    Node.value function.declaration
+            in
+            if List.isEmpty declaration.arguments then
+                ( [], context )
+
+            else
+                let
+                    functionName : String
+                    functionName =
+                        Node.value declaration.name
+
+                    declared : List (List Declared)
+                    declared =
+                        List.map (getParametersFromPatterns NamedFunction) declaration.arguments
+
+                    newScope : Scope
+                    newScope =
+                        { functionName = functionName
+                        , declared = List.concat declared
+                        , used = Set.empty
+                        , usedRecursively = Set.empty
+                        }
+                in
+                ( []
+                , { context
+                    | scopes = newScope :: context.scopes
+                    , knownFunctions = Dict.insert functionName (getArgNames declared) context.knownFunctions
+                  }
+                )
+
+        Expression.LetDestructuring _ _ ->
+            ( [], context )
+
+
+letDeclarationExitVisitor : a -> Node Expression.LetDeclaration -> Context -> ( List (Rule.Error {}), Context )
+letDeclarationExitVisitor _ letDeclaration context =
+    case Node.value letDeclaration of
+        Expression.LetFunction function ->
+            let
+                declaration : Expression.FunctionImplementation
+                declaration =
+                    Node.value function.declaration
+            in
+            if List.isEmpty declaration.arguments then
+                ( [], context )
+
+            else
+                report context
+
+        Expression.LetDestructuring _ _ ->
             ( [], context )
 
 
@@ -446,7 +462,7 @@ registerFunctionCall fnName numberOfIgnoredArguments arguments context =
                 | locationsToIgnoreForUsed =
                     Dict.merge
                         Dict.insert
-                        (\key new old -> Dict.insert key (new ++ old))
+                        (\key new old -> Dict.insert key (List.append new old))
                         Dict.insert
                         locationsToIgnore
                         context.locationsToIgnoreForUsed
@@ -502,20 +518,6 @@ markAllAsUsed names scopes =
             { headScope | used = Set.union names headScope.used } :: restOfScopes
 
 
-
--- EXPRESSION EXIT VISITOR
-
-
-expressionExitVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
-expressionExitVisitor node context =
-    case RangeDict.get (Node.range node) context.scopesToCreate of
-        Just _ ->
-            report context
-
-        Nothing ->
-            ( [], context )
-
-
 report : Context -> ( List (Rule.Error {}), Context )
 report context =
     case context.scopes of
@@ -523,23 +525,7 @@ report context =
             let
                 ( errors, remainingUsed ) =
                     List.foldl
-                        (\declared ( errors_, remainingUsed_ ) ->
-                            if Set.member declared.name headScope.usedRecursively then
-                                -- If variable was used as a recursive argument
-                                if Set.member declared.name remainingUsed_ then
-                                    -- If variable was used somewhere else as well
-                                    ( errors_, Set.remove declared.name remainingUsed_ )
-
-                                else
-                                    -- If variable was used ONLY as a recursive argument
-                                    ( recursiveParameterError headScope.functionName declared :: errors_, Set.remove declared.name remainingUsed_ )
-
-                            else if Set.member declared.name remainingUsed_ then
-                                ( errors_, Set.remove declared.name remainingUsed_ )
-
-                            else
-                                ( errorsForValue declared :: errors_, remainingUsed_ )
-                        )
+                        (findErrorsAndVariablesNotPartOfScope headScope)
                         ( [], headScope.used )
                         headScope.declared
             in
@@ -552,6 +538,25 @@ report context =
 
         [] ->
             ( [], context )
+
+
+findErrorsAndVariablesNotPartOfScope : Scope -> Declared -> ( List (Rule.Error {}), Set String ) -> ( List (Rule.Error {}), Set String )
+findErrorsAndVariablesNotPartOfScope scope declared ( errors_, remainingUsed_ ) =
+    if Set.member declared.name scope.usedRecursively then
+        -- If variable was used as a recursive argument
+        if Set.member declared.name remainingUsed_ then
+            -- If variable was used somewhere else as well
+            ( errors_, Set.remove declared.name remainingUsed_ )
+
+        else
+            -- If variable was used ONLY as a recursive argument
+            ( recursiveParameterError scope.functionName declared :: errors_, Set.remove declared.name remainingUsed_ )
+
+    else if Set.member declared.name remainingUsed_ then
+        ( errors_, Set.remove declared.name remainingUsed_ )
+
+    else
+        ( errorsForValue declared :: errors_, remainingUsed_ )
 
 
 errorsForValue : Declared -> Rule.Error {}

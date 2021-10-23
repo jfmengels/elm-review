@@ -116,6 +116,32 @@ applicationElmJsonWithoutTestDeps =
 }"""
 
 
+applicationElmJsonWithIndirectOtherFooWithoutTestDeps : String
+applicationElmJsonWithIndirectOtherFooWithoutTestDeps =
+    """
+{
+    "type": "application",
+    "source-directories": [
+        "src"
+    ],
+    "elm-version": "0.19.1",
+    "dependencies": {
+        "direct": {
+            "author/package-with-bar": "1.0.0",
+            "author/package-with-foo": "1.0.0",
+            "elm/core": "1.0.0"
+        },
+        "indirect": {
+            "author/package-with-other-foo": "1.0.0"
+        }
+    },
+    "test-dependencies": {
+        "direct": {},
+        "indirect": {}
+    }
+}"""
+
+
 packageElmJson : String
 packageElmJson =
     """
@@ -192,6 +218,34 @@ packageWithFoo =
     in
     Dependency.create
         "author/package-with-foo"
+        elmJson.project
+        (dummyModules "Foo")
+
+
+packageWithOtherFoo : Dependency
+packageWithOtherFoo =
+    let
+        elmJson : { path : String, raw : String, project : Elm.Project.Project }
+        elmJson =
+            createElmJson """
+  {
+      "type": "package",
+      "name": "author/package-with-other-foo",
+      "summary": "Summary",
+      "license": "BSD-3-Clause",
+      "version": "1.0.0",
+      "exposed-modules": [
+          "Foo"
+      ],
+      "elm-version": "0.19.0 <= v < 0.20.0",
+      "dependencies": {
+          "elm/core": "1.0.0 <= v < 2.0.0"
+      },
+      "test-dependencies": {}
+  }"""
+    in
+    Dependency.create
+        "author/package-with-other-foo"
         elmJson.project
         (dummyModules "Foo")
 
@@ -473,6 +527,33 @@ a = 1
 """
                     |> String.replace "\u{000D}" ""
                     |> Review.Test.runWithProjectData (createProject (Just testModule) applicationElmJson) rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report dependencies for an application whose modules are imported indirect name clash" <|
+            \() ->
+                let
+                    testModule : String
+                    testModule =
+                        """module TestModule exposing (suite)
+
+import TestFoo
+import TestBar
+
+suite = 0
+"""
+                            |> String.replace "\u{000D}" ""
+                in
+                """
+module A exposing (a)
+import Foo
+import Bar
+a = 1
+"""
+                    |> String.replace "\u{000D}" ""
+                    |> Review.Test.runWithProjectData
+                        (createProject (Just testModule) applicationElmJsonWithIndirectOtherFooWithoutTestDeps
+                            |> Project.addDependency packageWithOtherFoo
+                        )
+                        rule
                     |> Review.Test.expectNoErrors
         , test "should report unused dependencies for a package when none of their modules are imported" <|
             \() ->

@@ -1006,7 +1006,7 @@ type C = C
                 |> Review.Test.expectErrorsForModules
                     [ ( "A"
                       , [ Review.Test.error
-                            { message = "Type `C` is not used"
+                            { message = "Type alias `C` is not used"
                             , details = details
                             , under = "C"
                             }
@@ -1041,6 +1041,26 @@ type Type = C
 a = C""" |> String.replace "$" " ")
                         ]
                       )
+                    ]
+    , test "should report type alias that doesn't alias a record when it has the same name as a constructor defined in the same file" <|
+        \() ->
+            """module A exposing (a)
+type A = B | C
+type alias B = Int
+a = B
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Type alias `B` is not used"
+                        , details = details
+                        , under = "B"
+                        }
+                        |> Review.Test.atExactly { start = { row = 3, column = 12 }, end = { row = 3, column = 13 } }
+                        |> Review.Test.whenFixed """module A exposing (a)
+type A = B | C
+a = B
+"""
                     ]
     , test "should not report open type import when a constructor is used but the type is locally shadowed" <|
         \() ->
@@ -1302,7 +1322,7 @@ c = 1"""
             ]
                 |> Review.Test.runOnModules rule
                 |> Review.Test.expectNoErrors
-    , test "should report unused import even if a let in variable is named the same way" <|
+    , test "should report unused import even if a used let..in variable is named the same way" <|
         \() ->
             """module SomeModule exposing (a)
 import Html exposing (button, div)
@@ -1320,6 +1340,126 @@ a = let button = 1
 import Html exposing (div)
 a = let button = 1
     in button + div"""
+                    ]
+    , test "should report unused import even if a used function param is named in the same way" <|
+        \() ->
+            [ """module A exposing (identity)
+import Used exposing (shadowed)
+identity shadowed = shadowed
+"""
+            , """module Used exposing (shadowed)
+shadowed = ""
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectErrorsForModules
+                    [ ( "A"
+                      , [ Review.Test.error
+                            { message = "Imported variable `shadowed` is not used"
+                            , details = details
+                            , under = "shadowed"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 31 } }
+                            |> Review.Test.whenFixed ("""module A exposing (identity)
+import Used$
+identity shadowed = shadowed
+""" |> String.replace "$" " ")
+                        ]
+                      )
+                    ]
+    , test "should report unused import even if a used let..in function param is named in the same way" <|
+        \() ->
+            [ """module A exposing (identity)
+import Used exposing (shadowed)
+identity x = 
+    let
+        identityHelp shadowed = shadowed
+    in
+    identityHelp x
+"""
+            , """module Used exposing (shadowed)
+shadowed = ""
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectErrorsForModules
+                    [ ( "A"
+                      , [ Review.Test.error
+                            { message = "Imported variable `shadowed` is not used"
+                            , details = details
+                            , under = "shadowed"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 31 } }
+                            |> Review.Test.whenFixed ("""module A exposing (identity)
+import Used$
+identity x = 
+    let
+        identityHelp shadowed = shadowed
+    in
+    identityHelp x
+""" |> String.replace "$" " ")
+                        ]
+                      )
+                    ]
+    , test "should report unused import even if a used lambda param is named in the same way" <|
+        \() ->
+            [ """module A exposing (identity)
+import Used exposing (shadowed)
+identity x = 
+    (\\shadowed -> shadowed) x
+"""
+            , """module Used exposing (shadowed)
+shadowed = ""
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectErrorsForModules
+                    [ ( "A"
+                      , [ Review.Test.error
+                            { message = "Imported variable `shadowed` is not used"
+                            , details = details
+                            , under = "shadowed"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 31 } }
+                            |> Review.Test.whenFixed ("""module A exposing (identity)
+import Used$
+identity x = 
+    (\\shadowed -> shadowed) x
+""" |> String.replace "$" " ")
+                        ]
+                      )
+                    ]
+    , test "should report unused import even if a variant arg is named in the same way" <|
+        \() ->
+            [ """module A exposing (identity)
+import Used exposing (shadowed)
+identity x = 
+    case Just x of
+        Nothing -> x
+        Just shadowed -> shadowed
+"""
+            , """module Used exposing (shadowed)
+shadowed = ""
+"""
+            ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expectErrorsForModules
+                    [ ( "A"
+                      , [ Review.Test.error
+                            { message = "Imported variable `shadowed` is not used"
+                            , details = details
+                            , under = "shadowed"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 23 }, end = { row = 2, column = 31 } }
+                            |> Review.Test.whenFixed ("""module A exposing (identity)
+import Used$
+identity x = 
+    case Just x of
+        Nothing -> x
+        Just shadowed -> shadowed
+""" |> String.replace "$" " ")
+                        ]
+                      )
                     ]
     , test "should report unused import alias when two modules share the same alias" <|
         \() ->
@@ -2082,7 +2222,7 @@ a = 1
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Type `UnusedType` is not used"
+                        { message = "Type alias `UnusedType` is not used"
                         , details = details
                         , under = "UnusedType"
                         }

@@ -2,9 +2,6 @@ module NoUnused.Modules exposing (rule)
 
 {-| Forbid the use of modules that are never used in your project.
 
-
-# Rule
-
 @docs rule
 
 -}

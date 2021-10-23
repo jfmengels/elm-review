@@ -2,9 +2,6 @@ module NoUnused.Dependencies exposing (rule)
 
 {-| Forbid the use of dependencies that are never used in your project.
 
-
-# Rule
-
 @docs rule
 
 -}
@@ -70,6 +67,11 @@ dependenciesVisitor dependencies projectContext =
         moduleNameToDependency : Dict String String
         moduleNameToDependency =
             dependencies
+                |> Dict.filter
+                    (\packageName _ ->
+                        Set.member packageName projectContext.directProjectDependencies
+                            || Set.member packageName projectContext.directTestDependencies
+                    )
                 |> Dict.toList
                 |> List.concatMap
                     (\( packageName, dependency ) ->
@@ -384,56 +386,7 @@ fromProject : Dict String Dependency -> DependencyLocation -> String -> Project 
 fromProject dependenciesDict dependencyLocation packageNameStr project =
     case project of
         Elm.Project.Application application ->
-            let
-                dependencies : Elm.Project.Deps Elm.Version.Version
-                dependencies =
-                    case dependencyLocation of
-                        InProjectDeps ->
-                            application.depsDirect
-
-                        InTestDeps ->
-                            application.testDepsDirect
-
-                dependencyVersionDict : Dict String Elm.Version.Version
-                dependencyVersionDict =
-                    [ application.depsDirect
-                    , application.depsIndirect
-                    , application.testDepsDirect
-                    , application.testDepsIndirect
-                    ]
-                        |> List.concat
-                        |> List.map (\( name, version ) -> ( Elm.Package.toString name, version ))
-                        |> Dict.fromList
-
-                getDependenciesAndVersion : Elm.Package.Name -> Elm.Project.Deps Elm.Version.Version
-                getDependenciesAndVersion name =
-                    case Dict.get (Elm.Package.toString name) dependenciesDict of
-                        Just deps ->
-                            deps
-                                |> Dependency.elmJson
-                                |> packageDependencies
-                                |> List.filterMap
-                                    (\depName ->
-                                        Dict.get (Elm.Package.toString depName) dependencyVersionDict
-                                            |> Maybe.map (Tuple.pair depName)
-                                    )
-
-                        Nothing ->
-                            []
-            in
-            case List.Extra.find (isPackageWithName packageNameStr) dependencies of
-                Just ( packageName, version ) ->
-                    Just
-                        (ApplicationProject
-                            { application = application
-                            , name = packageName
-                            , version = version
-                            , getDependenciesAndVersion = getDependenciesAndVersion
-                            }
-                        )
-
-                Nothing ->
-                    Nothing
+            fromApplication dependenciesDict dependencyLocation packageNameStr application
 
         Elm.Project.Package packageInfo ->
             let
@@ -452,6 +405,60 @@ fromProject dependenciesDict dependencyLocation packageNameStr project =
 
                 Nothing ->
                     Nothing
+
+
+fromApplication : Dict String Dependency -> DependencyLocation -> String -> Elm.Project.ApplicationInfo -> Maybe ProjectAndDependencyIdentifier
+fromApplication dependenciesDict dependencyLocation packageNameStr application =
+    let
+        dependencies : Elm.Project.Deps Elm.Version.Version
+        dependencies =
+            case dependencyLocation of
+                InProjectDeps ->
+                    application.depsDirect
+
+                InTestDeps ->
+                    application.testDepsDirect
+
+        dependencyVersionDict : Dict String Elm.Version.Version
+        dependencyVersionDict =
+            [ application.depsDirect
+            , application.depsIndirect
+            , application.testDepsDirect
+            , application.testDepsIndirect
+            ]
+                |> List.concat
+                |> List.map (\( name, version ) -> ( Elm.Package.toString name, version ))
+                |> Dict.fromList
+
+        getDependenciesAndVersion : Elm.Package.Name -> Elm.Project.Deps Elm.Version.Version
+        getDependenciesAndVersion name =
+            case Dict.get (Elm.Package.toString name) dependenciesDict of
+                Just deps ->
+                    deps
+                        |> Dependency.elmJson
+                        |> packageDependencies
+                        |> List.filterMap
+                            (\depName ->
+                                Dict.get (Elm.Package.toString depName) dependencyVersionDict
+                                    |> Maybe.map (Tuple.pair depName)
+                            )
+
+                Nothing ->
+                    []
+    in
+    case List.Extra.find (isPackageWithName packageNameStr) dependencies of
+        Just ( packageName, version ) ->
+            Just
+                (ApplicationProject
+                    { application = application
+                    , name = packageName
+                    , version = version
+                    , getDependenciesAndVersion = getDependenciesAndVersion
+                    }
+                )
+
+        Nothing ->
+            Nothing
 
 
 toProject : ProjectAndDependencyIdentifier -> Elm.Project.Project

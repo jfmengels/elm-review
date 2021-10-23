@@ -516,20 +516,21 @@ collectUsedCustomTypeArgs lookupTable (Node range pattern) =
     case pattern of
         Pattern.NamedPattern { name } args ->
             let
-                usedPositions : Set Int
-                usedPositions =
-                    args
-                        |> List.indexedMap Tuple.pair
-                        |> List.filter (\( _, subPattern ) -> not <| isWildcard subPattern)
-                        |> List.map Tuple.first
-                        |> Set.fromList
-
                 subList : List ( ( ModuleName, String ), Set Int )
                 subList =
                     List.concatMap (collectUsedCustomTypeArgs lookupTable) args
             in
             case ModuleNameLookupTable.moduleNameAt lookupTable range of
                 Just moduleName ->
+                    let
+                        usedPositions : Set Int
+                        usedPositions =
+                            args
+                                |> List.indexedMap Tuple.pair
+                                |> List.filter (\( _, subPattern ) -> not <| isWildcard subPattern)
+                                |> List.map Tuple.first
+                                |> Set.fromList
+                    in
                     ( ( moduleName, name ), usedPositions ) :: subList
 
                 Nothing ->

@@ -26,7 +26,7 @@ available.
 
 # Access
 
-@docs head, sample
+@docs head
 
 
 # Convert
