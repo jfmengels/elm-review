@@ -638,7 +638,12 @@ findSmallerCycle graph currentBest nodesToVisit =
 
 reachedTarget : Graph.NodeId -> List (Graph.NodeContext n e) -> Bool
 reachedTarget targetNode path =
-    Maybe.map (.node >> .id) (List.head path) == Just targetNode
+    case List.head path of
+        Just node ->
+            node.node.id == targetNode
+
+        Nothing ->
+            False
 
 
 visitorDiscoverCycle : Graph.NodeId -> List (Graph.NodeContext n e) -> Int -> List (Graph.Node n) -> List (Graph.Node n)
