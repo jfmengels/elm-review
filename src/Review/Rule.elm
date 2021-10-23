@@ -495,19 +495,20 @@ to compare them or the model that holds them.
 -}
 reviewV2 : List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
 reviewV2 rules maybeProjectData project =
-    checkForConfigurationErrors rules
-        |> Result.andThen (\() -> checkForModulesThatFailedToParse project)
-        |> Result.andThen (\() -> checkForDuplicateModules project)
-        |> Result.andThen (\() -> getModulesSortedByImport project)
-        |> Result.map (runReview project rules maybeProjectData)
-        |> Result.mapError
-            (\errors ->
-                { errors = errors
-                , rules = rules
-                , projectData = maybeProjectData
-                }
-            )
-        |> extractResultValue
+    case
+        checkForConfigurationErrors rules
+            |> Result.andThen (\() -> checkForModulesThatFailedToParse project)
+            |> Result.andThen (\() -> checkForDuplicateModules project)
+            |> Result.andThen (\() -> getModulesSortedByImport project)
+    of
+        Ok nodeContexts ->
+            runReview project rules maybeProjectData nodeContexts
+
+        Err errors ->
+            { errors = errors
+            , rules = rules
+            , projectData = maybeProjectData
+            }
 
 
 checkForConfigurationErrors : List Rule -> Result (List ReviewError) ()
@@ -678,16 +679,6 @@ printCycle moduleNames =
 wrapInCycle : String -> String
 wrapInCycle string =
     "    ┌─────┐\n    │    " ++ string ++ "\n    └─────┘"
-
-
-extractResultValue : Result a a -> a
-extractResultValue result =
-    case result of
-        Ok a ->
-            a
-
-        Err a ->
-            a
 
 
 runReview : Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
