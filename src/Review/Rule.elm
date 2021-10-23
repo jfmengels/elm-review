@@ -570,10 +570,12 @@ getModulesSortedByImport project =
             project
                 |> Review.Project.Internal.moduleGraph
     in
-    moduleGraph
-        |> Graph.checkAcyclic
-        |> Result.map Graph.topologicalSort
-        |> Result.mapError (importCycleError moduleGraph)
+    case Graph.checkAcyclic moduleGraph of
+        Ok graph ->
+            Ok (Graph.topologicalSort graph)
+
+        Err edge ->
+            Err (importCycleError moduleGraph edge)
 
 
 importCycleError : Graph ModuleName e -> Graph.Edge e -> List ReviewError
