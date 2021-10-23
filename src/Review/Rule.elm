@@ -5476,12 +5476,12 @@ collectNamesFromPatternHelp patternsToVisit acc =
                         (Node (Node.range pattern) name :: acc)
 
                 Pattern.NamedPattern _ subPatterns ->
-                    collectNamesFromPatternHelp (subPatterns ++ restOfPatternsToVisit) acc
+                    collectNamesFromPatternHelp (List.append subPatterns restOfPatternsToVisit) acc
 
                 Pattern.RecordPattern names ->
                     collectNamesFromPatternHelp
                         restOfPatternsToVisit
-                        (names ++ acc)
+                        (List.append names acc)
 
                 Pattern.ParenthesizedPattern subPattern ->
                     collectNamesFromPatternHelp (subPattern :: restOfPatternsToVisit) acc
@@ -5490,13 +5490,13 @@ collectNamesFromPatternHelp patternsToVisit acc =
                     collectNamesFromPatternHelp (subPattern :: restOfPatternsToVisit) (alias :: acc)
 
                 Pattern.TuplePattern subPatterns ->
-                    collectNamesFromPatternHelp (subPatterns ++ restOfPatternsToVisit) acc
+                    collectNamesFromPatternHelp (List.append subPatterns restOfPatternsToVisit) acc
 
                 Pattern.UnConsPattern left right ->
                     collectNamesFromPatternHelp (left :: right :: restOfPatternsToVisit) acc
 
                 Pattern.ListPattern subPatterns ->
-                    collectNamesFromPatternHelp (subPatterns ++ restOfPatternsToVisit) acc
+                    collectNamesFromPatternHelp (List.append subPatterns restOfPatternsToVisit) acc
 
                 _ ->
                     collectNamesFromPatternHelp restOfPatternsToVisit acc
@@ -5518,14 +5518,14 @@ collectModuleNamesFromPatternHelp context patternsToVisit acc =
                 Pattern.NamedPattern { moduleName, name } subPatterns ->
                     collectModuleNamesFromPatternHelp
                         context
-                        (subPatterns ++ restOfPatternsToVisit)
+                        (List.append subPatterns restOfPatternsToVisit)
                         (( Node.range pattern, moduleNameForValue context name moduleName ) :: acc)
 
                 Pattern.UnConsPattern left right ->
                     collectModuleNamesFromPatternHelp context (left :: right :: restOfPatternsToVisit) acc
 
                 Pattern.TuplePattern subPatterns ->
-                    collectModuleNamesFromPatternHelp context (subPatterns ++ restOfPatternsToVisit) acc
+                    collectModuleNamesFromPatternHelp context (List.append subPatterns restOfPatternsToVisit) acc
 
                 Pattern.ParenthesizedPattern subPattern ->
                     collectModuleNamesFromPatternHelp context (subPattern :: restOfPatternsToVisit) acc
@@ -5534,7 +5534,7 @@ collectModuleNamesFromPatternHelp context patternsToVisit acc =
                     collectModuleNamesFromPatternHelp context (subPattern :: restOfPatternsToVisit) acc
 
                 Pattern.ListPattern subPatterns ->
-                    collectModuleNamesFromPatternHelp context (subPatterns ++ restOfPatternsToVisit) acc
+                    collectModuleNamesFromPatternHelp context (List.append subPatterns restOfPatternsToVisit) acc
 
                 _ ->
                     collectModuleNamesFromPatternHelp context restOfPatternsToVisit acc
