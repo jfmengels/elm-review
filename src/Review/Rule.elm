@@ -8,6 +8,8 @@ module Review.Rule exposing
     , withImportVisitor
     , Direction(..), withDeclarationEnterVisitor, withDeclarationExitVisitor, withDeclarationVisitor, withDeclarationListVisitor
     , withExpressionEnterVisitor, withExpressionExitVisitor, withExpressionVisitor
+    , withCaseBranchEnterVisitor, withCaseBranchExitVisitor
+    , withLetDeclarationEnterVisitor, withLetDeclarationExitVisitor
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
@@ -192,6 +194,8 @@ Evaluating/visiting a node means two things:
 @docs withImportVisitor
 @docs Direction, withDeclarationEnterVisitor, withDeclarationExitVisitor, withDeclarationVisitor, withDeclarationListVisitor
 @docs withExpressionEnterVisitor, withExpressionExitVisitor, withExpressionVisitor
+@docs withCaseBranchEnterVisitor, withCaseBranchExitVisitor
+@docs withLetDeclarationEnterVisitor, withLetDeclarationExitVisitor
 @docs withFinalModuleEvaluation
 
 
@@ -334,6 +338,10 @@ type ModuleRuleSchema schemaState moduleContext
         , declarationVisitorsOnExit : List (Visitor Declaration moduleContext)
         , expressionVisitorsOnEnter : List (Visitor Expression moduleContext)
         , expressionVisitorsOnExit : List (Visitor Expression moduleContext)
+        , letDeclarationVisitorsOnEnter : List (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
+        , letDeclarationVisitorsOnExit : List (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
+        , caseBranchVisitorsOnEnter : List (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
+        , caseBranchVisitorsOnExit : List (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
         , finalEvaluationFns : List (moduleContext -> List (Error {}))
 
         -- Project visitors
@@ -956,6 +964,10 @@ newModuleRuleSchema name initialModuleContext =
         , declarationVisitorsOnExit = []
         , expressionVisitorsOnEnter = []
         , expressionVisitorsOnExit = []
+        , letDeclarationVisitorsOnEnter = []
+        , letDeclarationVisitorsOnExit = []
+        , caseBranchVisitorsOnEnter = []
+        , caseBranchVisitorsOnExit = []
         , finalEvaluationFns = []
         , elmJsonVisitors = []
         , readmeVisitors = []
@@ -1016,6 +1028,10 @@ newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
         , declarationVisitorsOnExit = []
         , expressionVisitorsOnEnter = []
         , expressionVisitorsOnExit = []
+        , letDeclarationVisitorsOnEnter = []
+        , letDeclarationVisitorsOnExit = []
+        , caseBranchVisitorsOnEnter = []
+        , caseBranchVisitorsOnExit = []
         , finalEvaluationFns = []
         , elmJsonVisitors = []
         , readmeVisitors = []
@@ -1273,6 +1289,10 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
                         , declarationVisitorsOnExit = []
                         , expressionVisitorsOnEnter = []
                         , expressionVisitorsOnExit = []
+                        , letDeclarationVisitorsOnEnter = []
+                        , letDeclarationVisitorsOnExit = []
+                        , caseBranchVisitorsOnEnter = []
+                        , caseBranchVisitorsOnExit = []
                         , finalEvaluationFns = []
                         , elmJsonVisitors = []
                         , readmeVisitors = []
@@ -1301,6 +1321,10 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     , declarationVisitorsOnExit = schema.declarationVisitorsOnExit
     , expressionVisitorsOnEnter = List.reverse schema.expressionVisitorsOnEnter
     , expressionVisitorsOnExit = schema.expressionVisitorsOnExit
+    , letDeclarationVisitorsOnEnter = List.reverse schema.letDeclarationVisitorsOnEnter
+    , letDeclarationVisitorsOnExit = schema.letDeclarationVisitorsOnExit
+    , caseBranchVisitorsOnEnter = List.reverse schema.caseBranchVisitorsOnEnter
+    , caseBranchVisitorsOnExit = schema.caseBranchVisitorsOnExit
     , finalEvaluationFns = List.reverse schema.finalEvaluationFns
     }
 
@@ -2838,6 +2862,207 @@ withExpressionExitVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | expressionVisitorsOnExit = visitor :: schema.expressionVisitorsOnExit }
 
 
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
+case branches when entering the branch.
+
+The visitor can be very useful if you need to change the context when inside a case branch.
+
+The visitors would be called in the following order (ignore the expression visitor if you don't have one):
+
+    x =
+        case evaluated of
+            Pattern1 ->
+                expression1
+
+            Pattern2 ->
+                expression2
+
+1.  Expression visitor (enter) for the entire case expression.
+2.  Expression visitor (enter then exit) for `evaluated`
+3.  Case branch visitor (enter) for `( Pattern1, expression1 )`
+4.  Expression visitor (enter then exit) for `expression1`
+5.  Case branch visitor (exit) for `( Pattern1, expression1 )`
+6.  Case branch visitor (enter) for `( Pattern2, expression2 )`
+7.  Expression visitor (enter then exit) for `expression2`
+8.  Case branch visitor (exit) for `( Pattern2, expression2 )`
+9.  Expression visitor (exit) for the entire case expression.
+
+You can use [`withCaseBranchExitVisitor`](#withCaseBranchExitVisitor) to visit the node on exit.
+
+    import Elm.Syntax.Expression as Expression exposing (Expression)
+    import Elm.Syntax.Node as Node exposing (Node)
+    import Elm.Syntax.Pattern exposing (Pattern)
+    import Review.Rule as Rule exposing (Rule)
+
+    rule : Rule
+    rule =
+        Rule.newModuleRuleSchema "NoUnusedCaseVariables" ( [], [] )
+            |> Rule.withExpressionEnterVisitor expressionVisitor
+            |> Rule.withCaseBranchEnterVisitor caseBranchEnterVisitor
+            |> Rule.withCaseBranchExitVisitor caseBranchExitVisitor
+            |> Rule.fromModuleRuleSchema
+
+    type alias Context =
+        ( List String, List (List String) )
+
+    expressionVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
+    expressionVisitor node (( scope, parentScopes ) as context) =
+        case context of
+            Expression.FunctionOrValue [] name ->
+                ( [], ( name :: used, parentScopes ) )
+
+            _ ->
+                ( [], context )
+
+    caseBranchEnterVisitor : Node Expression.LetBlock -> ( Node Pattern, Node Expression ) -> Context -> List ( Rule.Error {}, Context )
+    caseBranchEnterVisitor _ _ ( scope, parentScopes ) =
+        -- Entering a new scope every time we enter a new branch
+        ( [], ( [], scope :: parentScopes ) )
+
+    caseBranchExitVisitor : Node Expression.LetBlock -> ( Node Pattern, Node Expression ) -> Context -> List ( Rule.Error {}, Context )
+    caseBranchExitVisitor _ ( pattern, _ ) ( scope, parentScopes ) =
+        -- Exiting the current scope every time we enter a new branch, and reporting the patterns that weren't used
+        let
+            namesFromPattern =
+                findNamesFromPattern pattern
+
+            ( unusedPatterns, unmatchedUsed ) =
+                findUnused namesFromPattern scope
+
+            newScopes =
+                case parentScopes of
+                    head :: tail ->
+                        ( unmatchedUsed ++ head, tail )
+
+                    [] ->
+                        ( unmatched, [] )
+        in
+        ( List.map errorForUnused unusedPatterns, newScopes )
+
+For convenience, the entire case expression is passed as the first argument.
+
+-}
+withCaseBranchEnterVisitor : (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withCaseBranchEnterVisitor visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | caseBranchVisitorsOnEnter = visitor :: schema.caseBranchVisitorsOnEnter }
+
+
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
+case branches when exiting the branch.
+
+See the documentation for [`withCaseBranchEnterVisitor`](#withCaseBranchEnterVisitor) for explanations and an example.
+
+-}
+withCaseBranchExitVisitor : (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withCaseBranchExitVisitor visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | caseBranchVisitorsOnExit = visitor :: schema.caseBranchVisitorsOnExit }
+
+
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
+let declarations branches when entering the declaration.
+
+The visitor can be very useful if you need to change the context when inside a let declaration.
+
+The visitors would be called in the following order (ignore the expression visitor if you don't have one):
+
+    x =
+        let
+            declaration1 =
+                expression1
+
+            declaration2 =
+                expression2
+        in
+        letInValue
+
+1.  Expression visitor (enter) for the entire let expression.
+2.  Let declaration visitor (enter) for `( declaration1, expression1 )`
+3.  Expression visitor (enter then exit) for `expression1`
+4.  Let declaration visitor (exit) for `( declaration1, expression1 )`
+5.  Let declaration visitor (enter) for `( declaration2, expression2 )`
+6.  Expression visitor (enter then exit) for `expression2`
+7.  Let declaration visitor (exit) for `( declaration2, expression2 )`
+8.  Expression visitor (enter then exit) for `letInValue`
+9.  Expression visitor (exit) for the entire let expression.
+
+You can use [`withLetDeclarationExitVisitor`](#withLetDeclarationExitVisitor) to visit the node on exit.
+
+    import Elm.Syntax.Expression as Expression exposing (Expression)
+    import Elm.Syntax.Node as Node exposing (Node)
+    import Review.Rule as Rule exposing (Rule)
+
+    rule : Rule
+    rule =
+        Rule.newModuleRuleSchema "NoUnusedLetFunctionParameters" ( [], [] )
+            |> Rule.withExpressionEnterVisitor expressionVisitor
+            |> Rule.withLetDeclarationEnterVisitor letDeclarationEnterVisitor
+            |> Rule.withLetDeclarationExitVisitor letDeclarationExitVisitor
+            |> Rule.fromModuleRuleSchema
+
+    type alias Context =
+        ( List String, List (List String) )
+
+    expressionVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
+    expressionVisitor node (( scope, parentScopes ) as context) =
+        case context of
+            Expression.FunctionOrValue [] name ->
+                ( [], ( name :: used, parentScopes ) )
+
+            _ ->
+                ( [], context )
+
+    letDeclarationEnterVisitor : Node Expression.LetBlock -> Node Expression.LetDeclaration -> Context -> List ( Rule.Error {}, Context )
+    letDeclarationEnterVisitor _ letDeclaration (( scope, parentScopes ) as context) =
+        case Node.value letDeclaration of
+            Expression.LetFunction _ ->
+                ( [], ( [], scope :: parentScopes ) )
+
+            Expression.LetDestructuring _ ->
+                ( [], context )
+
+    letDeclarationExitVisitor : Node Expression.LetBlock -> Node Expression.LetDeclaration -> Context -> List ( Rule.Error {}, Context )
+    letDeclarationExitVisitor _ letDeclaration (( scope, parentScopes ) as context) =
+        case Node.value letDeclaration of
+            Expression.LetFunction _ ->
+                let
+                    namesFromPattern =
+                        findNamesFromArguments letFunction
+
+                    ( unusedArguments, unmatchedUsed ) =
+                        findUnused namesFromPattern scope
+
+                    newScopes =
+                        case parentScopes of
+                            head :: tail ->
+                                ( unmatchedUsed ++ head, tail )
+
+                            [] ->
+                                ( unmatched, [] )
+                in
+                ( List.map errorForUnused unusedArguments, newScopes )
+
+            Expression.LetDestructuring _ ->
+                ( [], context )
+
+For convenience, the entire let expression is passed as the first argument.
+
+-}
+withLetDeclarationEnterVisitor : (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withLetDeclarationEnterVisitor visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | letDeclarationVisitorsOnEnter = visitor :: schema.letDeclarationVisitorsOnEnter }
+
+
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
+let declarations branches when entering the declaration.
+
+See the documentation for [`withLetDeclarationEnterVisitor`](#withLetDeclarationEnterVisitor) for explanations and an example.
+
+-}
+withLetDeclarationExitVisitor : (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withLetDeclarationExitVisitor visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | letDeclarationVisitorsOnExit = visitor :: schema.letDeclarationVisitorsOnExit }
+
+
 {-| Add a function that makes a final evaluation of the module based only on the
 data that was collected in the `moduleContext`. This can be useful if you can't or if
 it is hard to determine something as you traverse the module.
@@ -3550,6 +3775,10 @@ type alias RunnableModuleVisitor moduleContext =
     , declarationVisitorsOnExit : List (Visitor Declaration moduleContext)
     , expressionVisitorsOnEnter : List (Visitor Expression moduleContext)
     , expressionVisitorsOnExit : List (Visitor Expression moduleContext)
+    , letDeclarationVisitorsOnEnter : List (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
+    , letDeclarationVisitorsOnExit : List (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
+    , caseBranchVisitorsOnEnter : List (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
+    , caseBranchVisitorsOnExit : List (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
     , finalEvaluationFns : List (moduleContext -> List (Error {}))
     }
 
@@ -4111,11 +4340,26 @@ visitModuleForProjectRule schema initialContext module_ =
             (visitDeclaration
                 schema.declarationVisitorsOnEnter
                 schema.declarationVisitorsOnExit
-                schema.expressionVisitorsOnEnter
-                schema.expressionVisitorsOnExit
+                { expressionVisitorsOnEnter = schema.expressionVisitorsOnEnter
+                , expressionVisitorsOnExit = schema.expressionVisitorsOnExit
+                , letDeclarationVisitorsOnEnter = schema.letDeclarationVisitorsOnEnter
+                , letDeclarationVisitorsOnExit = schema.letDeclarationVisitorsOnExit
+                , caseBranchVisitorsOnEnter = schema.caseBranchVisitorsOnEnter
+                , caseBranchVisitorsOnExit = schema.caseBranchVisitorsOnExit
+                }
             )
             module_.ast.declarations
         |> (\( errors, moduleContext ) -> ( makeFinalEvaluation schema.finalEvaluationFns ( errors, moduleContext ), moduleContext ))
+
+
+type alias ExpressionRelatedVisitors moduleContext =
+    { expressionVisitorsOnEnter : List (Visitor Expression moduleContext)
+    , expressionVisitorsOnExit : List (Visitor Expression moduleContext)
+    , letDeclarationVisitorsOnEnter : List (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
+    , letDeclarationVisitorsOnExit : List (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
+    , caseBranchVisitorsOnEnter : List (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
+    , caseBranchVisitorsOnExit : List (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
+    }
 
 
 extractSourceCode : List String -> Range -> String
@@ -4144,37 +4388,87 @@ visitImport :
     -> moduleContext
     -> ( List (Error {}), moduleContext )
 visitImport importVisitors node moduleContext =
-    visitNodeWithListOfVisitors importVisitors node ( [], moduleContext )
+    visitWithListOfVisitors importVisitors node ( [], moduleContext )
 
 
 visitDeclaration :
     List (Visitor Declaration moduleContext)
     -> List (Visitor Declaration moduleContext)
-    -> List (Visitor Expression moduleContext)
-    -> List (Visitor Expression moduleContext)
+    -> ExpressionRelatedVisitors moduleContext
     -> Node Declaration
     -> moduleContext
     -> ( List (Error {}), moduleContext )
-visitDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit expressionVisitorsOnEnter expressionVisitorsOnExit node moduleContext =
+visitDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit expressionRelatedVisitors node moduleContext =
     ( [], moduleContext )
-        |> visitNodeWithListOfVisitors declarationVisitorsOnEnter node
-        |> accumulateList (visitExpression expressionVisitorsOnEnter expressionVisitorsOnExit) (expressionsInDeclaration node)
-        |> visitNodeWithListOfVisitors declarationVisitorsOnExit node
+        |> visitWithListOfVisitors declarationVisitorsOnEnter node
+        |> accumulateList (visitExpression expressionRelatedVisitors) (expressionsInDeclaration node)
+        |> visitWithListOfVisitors declarationVisitorsOnExit node
 
 
 visitExpression :
-    List (Visitor Expression moduleContext)
-    -> List (Visitor Expression moduleContext)
+    ExpressionRelatedVisitors moduleContext
     -> Node Expression
     -> moduleContext
     -> ( List (Error {}), moduleContext )
-visitExpression onEnter onExit node moduleContext =
+visitExpression expressionRelatedVisitors node moduleContext =
     -- IGNORE TCO
     --   Is there a way to make this function TCO?
+    case Node.value node of
+        Expression.LetExpression letBlock ->
+            ( [], moduleContext )
+                |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnEnter node
+                |> accumulateList (visitLetDeclaration expressionRelatedVisitors (Node (Node.range node) letBlock)) letBlock.declarations
+                |> accumulate (visitExpression expressionRelatedVisitors letBlock.expression)
+                |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
+
+        Expression.CaseExpression caseBlock ->
+            ( [], moduleContext )
+                |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnEnter node
+                |> accumulate (visitExpression expressionRelatedVisitors caseBlock.expression)
+                |> accumulateList (visitCaseBranch expressionRelatedVisitors (Node (Node.range node) caseBlock)) caseBlock.cases
+                |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
+
+        _ ->
+            ( [], moduleContext )
+                |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnEnter node
+                |> accumulateList (visitExpression expressionRelatedVisitors) (expressionChildren node)
+                |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
+
+
+visitLetDeclaration :
+    ExpressionRelatedVisitors moduleContext
+    -> Node Expression.LetBlock
+    -> Node Expression.LetDeclaration
+    -> moduleContext
+    -> ( List (Error {}), moduleContext )
+visitLetDeclaration expressionRelatedVisitors letBlockWithRange ((Node _ letDeclaration) as letDeclarationWithRange) moduleContext =
+    let
+        expressionNode : Node Expression
+        expressionNode =
+            case letDeclaration of
+                Expression.LetFunction function ->
+                    functionToExpression function
+
+                Expression.LetDestructuring _ expr ->
+                    expr
+    in
     ( [], moduleContext )
-        |> visitNodeWithListOfVisitors onEnter node
-        |> accumulateList (visitExpression onEnter onExit) (expressionChildren node)
-        |> visitNodeWithListOfVisitors onExit node
+        |> visitWithListOfVisitors2 expressionRelatedVisitors.letDeclarationVisitorsOnEnter letBlockWithRange letDeclarationWithRange
+        |> accumulate (visitExpression expressionRelatedVisitors expressionNode)
+        |> visitWithListOfVisitors2 expressionRelatedVisitors.letDeclarationVisitorsOnExit letBlockWithRange letDeclarationWithRange
+
+
+visitCaseBranch :
+    ExpressionRelatedVisitors moduleContext
+    -> Node Expression.CaseBlock
+    -> ( Node Pattern, Node Expression )
+    -> moduleContext
+    -> ( List (Error {}), moduleContext )
+visitCaseBranch expressionRelatedVisitors caseBlockWithRange (( _, caseExpression ) as caseBranch) moduleContext =
+    ( [], moduleContext )
+        |> visitWithListOfVisitors2 expressionRelatedVisitors.caseBranchVisitorsOnEnter caseBlockWithRange caseBranch
+        |> accumulate (visitExpression expressionRelatedVisitors caseExpression)
+        |> visitWithListOfVisitors2 expressionRelatedVisitors.caseBranchVisitorsOnExit caseBlockWithRange caseBranch
 
 
 {-| Concatenate the errors of the previous step and of the last step.
@@ -4306,14 +4600,18 @@ expressionsInDeclaration node =
             []
 
 
-visitNodeWithListOfVisitors :
-    List (Visitor nodeType moduleContext)
-    -> Node nodeType
-    -> ( List (Error {}), moduleContext )
-    -> ( List (Error {}), moduleContext )
-visitNodeWithListOfVisitors visitors node initialErrorsAndContext =
+visitWithListOfVisitors : List (a -> context -> ( List (Error {}), context )) -> a -> ( List (Error {}), context ) -> ( List (Error {}), context )
+visitWithListOfVisitors visitors a initialErrorsAndContext =
     List.foldl
-        (\visitor -> accumulate (visitor node))
+        (\visitor -> accumulate (visitor a))
+        initialErrorsAndContext
+        visitors
+
+
+visitWithListOfVisitors2 : List (a -> b -> context -> ( List (Error {}), context )) -> a -> b -> ( List (Error {}), context ) -> ( List (Error {}), context )
+visitWithListOfVisitors2 visitors a b initialErrorsAndContext =
+    List.foldl
+        (\visitor -> accumulate (visitor a b))
         initialErrorsAndContext
         visitors
 
@@ -4381,12 +4679,12 @@ accumulateWithListOfVisitors visitors element initialErrorsAndContext =
         visitors
 
 
-accumulateList : (Node a -> context -> ( List (Error {}), context )) -> List (Node a) -> ( List (Error {}), context ) -> ( List (Error {}), context )
-accumulateList visitor nodes initialErrorsAndContext =
+accumulateList : (a -> context -> ( List (Error {}), context )) -> List a -> ( List (Error {}), context ) -> ( List (Error {}), context )
+accumulateList visitor elements initialErrorsAndContext =
     List.foldl
-        (\node -> accumulate (visitor node))
+        (\element -> accumulate (visitor element))
         initialErrorsAndContext
-        nodes
+        elements
 
 
 {-| Concatenate the errors of the previous step and of the last step, and take the last step's context.
@@ -5579,7 +5877,7 @@ scope_popScopeExit node context =
 scope_expressionEnterVisitor : Node Expression -> ScopeModuleContext -> ScopeModuleContext
 scope_expressionEnterVisitor node context =
     case Node.value node of
-        Expression.LetExpression { declarations, expression } ->
+        Expression.LetExpression { declarations } ->
             let
                 newContext : ScopeModuleContext
                 newContext =
