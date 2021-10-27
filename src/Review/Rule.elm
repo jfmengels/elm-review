@@ -1326,12 +1326,15 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
             if shouldVisitDeclarationsAndExpressions schema then
                 case maybeExpressionVisitor of
                     Just expressionVisitor ->
-                        accumulateList
-                            (visitDeclaration
-                                (List.reverse schema.declarationVisitorsOnEnter)
-                                schema.declarationVisitorsOnExit
-                                expressionVisitor
-                            )
+                        \nodes initialErrorsAndContext ->
+                            List.foldl
+                                (visitDeclaration
+                                    (List.reverse schema.declarationVisitorsOnEnter)
+                                    schema.declarationVisitorsOnExit
+                                    expressionVisitor
+                                )
+                                initialErrorsAndContext
+                                nodes
 
                     Nothing ->
                         let
@@ -4448,18 +4451,18 @@ visitDeclaration :
     -> List (Visitor Declaration moduleContext)
     -> (Node Expression -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext ))
     -> Node Declaration
-    -> moduleContext
     -> ( List (Error {}), moduleContext )
-visitDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit expressionVisitor node moduleContext =
+    -> ( List (Error {}), moduleContext )
+visitDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit expressionVisitor node errorsAndContext =
     case Node.value node of
         Declaration.FunctionDeclaration function ->
-            ( [], moduleContext )
+            errorsAndContext
                 |> visitWithListOfVisitors declarationVisitorsOnEnter node
                 |> expressionVisitor (Node.value function.declaration).expression
                 |> visitWithListOfVisitors declarationVisitorsOnExit node
 
         _ ->
-            ( [], moduleContext )
+            errorsAndContext
                 |> visitWithListOfVisitors declarationVisitorsOnEnter node
                 |> visitWithListOfVisitors declarationVisitorsOnExit node
 
