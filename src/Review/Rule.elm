@@ -4577,6 +4577,129 @@ visitOnlyExpressionsOnlyOnEnter expressionVisitorsOnEnter nodeStack acc =
                 (visitWithListOfVisitors expressionVisitorsOnEnter node acc)
 
 
+expressionChildrenTCO : List (Node Expression) -> List (Node Expression) -> List (Node Expression)
+expressionChildrenTCO nodesToVisit acc =
+    case nodesToVisit of
+        [] ->
+            List.reverse acc
+
+        head :: rest ->
+            case Node.value head of
+                Expression.Application expressions ->
+                    expressionChildrenTCO (List.append expressions rest) (head :: acc)
+
+                Expression.Literal _ ->
+                    expressionChildrenTCO rest (head :: acc)
+
+                Expression.Integer _ ->
+                    expressionChildrenTCO rest (head :: acc)
+
+                Expression.Floatable _ ->
+                    expressionChildrenTCO rest (head :: acc)
+
+                Expression.UnitExpr ->
+                    expressionChildrenTCO rest (head :: acc)
+
+                Expression.ListExpr expressions ->
+                    expressionChildrenTCO (List.append expressions rest) (head :: acc)
+
+                Expression.FunctionOrValue _ _ ->
+                    expressionChildrenTCO rest (head :: acc)
+
+                Expression.RecordExpr fields ->
+                    expressionChildrenTCO
+                        (List.append
+                            (List.map (Node.value >> (\( _, expr ) -> expr)) fields)
+                            rest
+                        )
+                        (head :: acc)
+
+                Expression.RecordUpdateExpression _ setters ->
+                    expressionChildrenTCO
+                        (List.append
+                            (List.map (Node.value >> (\( _, expr ) -> expr)) setters)
+                            rest
+                        )
+                        (head :: acc)
+
+                Expression.ParenthesizedExpression expr ->
+                    expressionChildrenTCO (expr :: rest) (head :: acc)
+
+                Expression.Operator _ ->
+                    expressionChildrenTCO rest (head :: acc)
+
+                Expression.OperatorApplication _ direction left right ->
+                    let
+                        children : List (Node Expression)
+                        children =
+                            case direction of
+                                Infix.Left ->
+                                    [ left, right ]
+
+                                Infix.Right ->
+                                    [ right, left ]
+
+                                Infix.Non ->
+                                    [ left, right ]
+                    in
+                    expressionChildrenTCO (List.append children rest) (head :: acc)
+
+                Expression.IfBlock cond then_ else_ ->
+                    expressionChildrenTCO
+                        (cond :: then_ :: else_ :: rest)
+                        (head :: acc)
+
+                Expression.LetExpression { expression, declarations } ->
+                    expressionChildrenTCO
+                        (List.append
+                            (List.map
+                                (\declaration ->
+                                    case Node.value declaration of
+                                        Expression.LetFunction function ->
+                                            functionToExpression function
+
+                                        Expression.LetDestructuring _ expr ->
+                                            expr
+                                )
+                                declarations
+                            )
+                            (expression :: rest)
+                        )
+                        (head :: acc)
+
+                Expression.CaseExpression { expression, cases } ->
+                    expression
+                        :: List.map (\( _, caseExpression ) -> caseExpression) cases
+
+                Expression.LambdaExpression { expression } ->
+                    expressionChildrenTCO (expression :: rest) (head :: acc)
+
+                Expression.TupledExpression expressions ->
+                    -- TODO
+                    expressions
+
+                Expression.PrefixOperator _ ->
+                    expressionChildrenTCO rest (head :: acc)
+
+                Expression.Hex _ ->
+                    expressionChildrenTCO rest (head :: acc)
+
+                Expression.Negation expression ->
+                    expressionChildrenTCO (expression :: rest) (head :: acc)
+
+                Expression.CharLiteral _ ->
+                    expressionChildrenTCO rest (head :: acc)
+
+                Expression.RecordAccess expression _ ->
+                    expressionChildrenTCO (expression :: rest) (head :: acc)
+
+                Expression.RecordAccessFunction _ ->
+                    expressionChildrenTCO rest (head :: acc)
+
+                Expression.GLSLExpression _ ->
+                    expressionChildrenTCO rest (head :: acc)
+
+
 visitLetDeclaration :
     ExpressionRelatedVisitors moduleContext
     -> Node Expression.LetBlock
