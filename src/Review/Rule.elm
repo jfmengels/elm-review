@@ -1323,32 +1323,33 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
 
         declarationAndExpressionVisitor : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
         declarationAndExpressionVisitor =
-            if shouldVisitDeclarationsAndExpressions schema then
-                case maybeExpressionVisitor of
-                    Just expressionVisitor ->
-                        \nodes initialErrorsAndContext ->
-                            List.foldl
-                                (visitDeclaration
-                                    (List.reverse schema.declarationVisitorsOnEnter)
-                                    schema.declarationVisitorsOnExit
-                                    expressionVisitor
-                                )
-                                initialErrorsAndContext
-                                nodes
+            case shouldVisitDeclarationsAndExpressions schema of
+                True ->
+                    case maybeExpressionVisitor of
+                        Just expressionVisitor ->
+                            \nodes initialErrorsAndContext ->
+                                List.foldl
+                                    (visitDeclaration
+                                        (List.reverse schema.declarationVisitorsOnEnter)
+                                        schema.declarationVisitorsOnExit
+                                        expressionVisitor
+                                    )
+                                    initialErrorsAndContext
+                                    nodes
 
-                    Nothing ->
-                        let
-                            visitor : Node Declaration -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
-                            visitor =
-                                visitOnlyDeclaration
-                                    (List.reverse schema.declarationVisitorsOnEnter)
-                                    schema.declarationVisitorsOnExit
-                        in
-                        \nodes initialErrorsAndContext ->
-                            List.foldl visitor initialErrorsAndContext nodes
+                        Nothing ->
+                            let
+                                visitor : Node Declaration -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
+                                visitor =
+                                    visitOnlyDeclaration
+                                        (List.reverse schema.declarationVisitorsOnEnter)
+                                        schema.declarationVisitorsOnExit
+                            in
+                            \nodes initialErrorsAndContext ->
+                                List.foldl visitor initialErrorsAndContext nodes
 
-            else
-                \_ errorsAndContext -> errorsAndContext
+                False ->
+                    \_ errorsAndContext -> errorsAndContext
     in
     { moduleDefinitionVisitors = List.reverse schema.moduleDefinitionVisitors
     , commentsVisitors = List.reverse schema.commentsVisitors
