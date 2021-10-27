@@ -1317,10 +1317,11 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
 fromModuleRuleSchemaToRunnableModuleVisitor : ModuleRuleSchema schemaState moduleContext -> RunnableModuleVisitor moduleContext
 fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     let
-        expressionVisitor : List (Node Expression) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
+        expressionVisitor : Node Expression -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
         expressionVisitor =
             if shouldVisitExpressions schema then
-                accumulateList (visitExpression expressionVisitorRecord)
+                \node errorsAndContext ->
+                    accumulate (visitExpression expressionVisitorRecord node) errorsAndContext
 
             else
                 \_ errorsAndContext -> errorsAndContext
