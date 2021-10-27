@@ -4362,7 +4362,7 @@ visitModuleForProjectRule schema initialContext module_ =
     ( [], initialContext )
         |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors module_.ast.moduleDefinition
         |> accumulateWithListOfVisitors schema.commentsVisitors module_.ast.comments
-        |> accumulateList (visitImport schema.importVisitors) module_.ast.imports
+        |> (\errorAndContext -> List.foldl (visitWithListOfVisitors schema.importVisitors) errorAndContext module_.ast.imports)
         |> accumulateWithListOfVisitors schema.declarationListVisitors module_.ast.declarations
         |> schema.declarationAndExpressionVisitor module_.ast.declarations
         |> (\( errors, moduleContext ) -> ( makeFinalEvaluation schema.finalEvaluationFns ( errors, moduleContext ), moduleContext ))
@@ -4444,15 +4444,6 @@ mapLast mapper lines =
 
         first :: rest ->
             List.reverse (mapper first :: rest)
-
-
-visitImport :
-    List (Node Import -> moduleContext -> ( List (Error {}), moduleContext ))
-    -> Node Import
-    -> moduleContext
-    -> ( List (Error {}), moduleContext )
-visitImport importVisitors node moduleContext =
-    visitWithListOfVisitors importVisitors node ( [], moduleContext )
 
 
 visitDeclaration :
