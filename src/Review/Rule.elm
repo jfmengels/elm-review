@@ -1323,7 +1323,7 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
 
         declarationAndExpressionVisitor : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
         declarationAndExpressionVisitor =
-            case shouldVisitDeclarationsAndExpressions schema of
+            case shouldVisitDeclarations schema of
                 True ->
                     case maybeExpressionVisitor of
                         Just expressionVisitor ->
@@ -4373,8 +4373,8 @@ visitModuleForProjectRule schema initialContext module_ =
         |> (\( errors, moduleContext ) -> ( makeFinalEvaluation schema.finalEvaluationFns ( errors, moduleContext ), moduleContext ))
 
 
-shouldVisitDeclarationsAndExpressions : ModuleRuleSchemaData moduleContext -> Bool
-shouldVisitDeclarationsAndExpressions schema =
+shouldVisitDeclarations : ModuleRuleSchemaData moduleContext -> Bool
+shouldVisitDeclarations schema =
     not (List.isEmpty schema.declarationVisitorsOnEnter)
         || not (List.isEmpty schema.declarationVisitorsOnExit)
 
