@@ -1319,7 +1319,7 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     let
         declarationAndExpressionVisitor : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
         declarationAndExpressionVisitor =
-            if shouldVisitDeclarationsAndExpressions2 schema then
+            if shouldVisitDeclarationsAndExpressions schema then
                 accumulateList
                     (visitDeclaration
                         (List.reverse schema.declarationVisitorsOnEnter)
@@ -4365,20 +4365,8 @@ visitModuleForProjectRule schema initialContext module_ =
         |> (\( errors, moduleContext ) -> ( makeFinalEvaluation schema.finalEvaluationFns ( errors, moduleContext ), moduleContext ))
 
 
-shouldVisitDeclarationsAndExpressions : RunnableModuleVisitor moduleContext -> Bool
+shouldVisitDeclarationsAndExpressions : ModuleRuleSchemaData moduleContext -> Bool
 shouldVisitDeclarationsAndExpressions schema =
-    not (List.isEmpty schema.declarationVisitorsOnEnter)
-        || not (List.isEmpty schema.declarationVisitorsOnExit)
-        || not (List.isEmpty schema.expressionVisitorsOnEnter)
-        || not (List.isEmpty schema.expressionVisitorsOnExit)
-        || not (List.isEmpty schema.letDeclarationVisitorsOnEnter)
-        || not (List.isEmpty schema.letDeclarationVisitorsOnExit)
-        || not (List.isEmpty schema.caseBranchVisitorsOnEnter)
-        || not (List.isEmpty schema.caseBranchVisitorsOnExit)
-
-
-shouldVisitDeclarationsAndExpressions2 : ModuleRuleSchemaData moduleContext -> Bool
-shouldVisitDeclarationsAndExpressions2 schema =
     not (List.isEmpty schema.declarationVisitorsOnEnter)
         || not (List.isEmpty schema.declarationVisitorsOnExit)
         || not (List.isEmpty schema.expressionVisitorsOnEnter)
