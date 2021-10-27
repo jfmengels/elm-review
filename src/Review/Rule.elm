@@ -4708,7 +4708,7 @@ accumulateWithListOfVisitors :
     -> ( List (Error {}), context )
 accumulateWithListOfVisitors visitors element initialErrorsAndContext =
     List.foldl
-        (\visitor -> accumulate (visitor element))
+        (\visitor errorsAndContext -> accumulate (visitor element) errorsAndContext)
         initialErrorsAndContext
         visitors
 
@@ -4716,7 +4716,7 @@ accumulateWithListOfVisitors visitors element initialErrorsAndContext =
 accumulateList : (a -> context -> ( List (Error {}), context )) -> List a -> ( List (Error {}), context ) -> ( List (Error {}), context )
 accumulateList visitor elements initialErrorsAndContext =
     List.foldl
-        (\element -> accumulate (visitor element))
+        (\element errorsAndContext -> accumulate (visitor element) errorsAndContext)
         initialErrorsAndContext
         elements
 
