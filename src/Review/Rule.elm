@@ -4430,6 +4430,14 @@ visitDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit expression
         |> visitWithListOfVisitors declarationVisitorsOnExit node
 
 
+visitExpressions : ExpressionRelatedVisitors moduleContext -> Node Declaration -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
+visitExpressions expressionRelatedVisitors node initialErrorsAndContext =
+    accumulateList
+        (visitExpression expressionRelatedVisitors)
+        (expressionsInDeclaration node)
+        initialErrorsAndContext
+
+
 visitExpression :
     ExpressionRelatedVisitors moduleContext
     -> Node Expression
