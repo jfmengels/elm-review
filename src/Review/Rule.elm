@@ -4397,7 +4397,7 @@ createExpressionVisitor schema =
         in
         Just
             (\node errorsAndContext ->
-                accumulate (visitExpression expressionRelatedVisitors node) errorsAndContext
+                visitExpression expressionRelatedVisitors node errorsAndContext
             )
 
     else if
@@ -4509,30 +4509,30 @@ visitOnlyDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit node e
 visitExpression :
     ExpressionRelatedVisitors moduleContext
     -> Node Expression
-    -> moduleContext
     -> ( List (Error {}), moduleContext )
-visitExpression expressionRelatedVisitors node moduleContext =
+    -> ( List (Error {}), moduleContext )
+visitExpression expressionRelatedVisitors node errorsAndContext =
     -- IGNORE TCO
     --   Is there a way to make this function TCO?
     case Node.value node of
         Expression.LetExpression letBlock ->
-            ( [], moduleContext )
+            errorsAndContext
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnEnter node
                 |> accumulateList (visitLetDeclaration expressionRelatedVisitors (Node (Node.range node) letBlock)) letBlock.declarations
-                |> accumulate (visitExpression expressionRelatedVisitors letBlock.expression)
+                |> visitExpression expressionRelatedVisitors letBlock.expression
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
 
         Expression.CaseExpression caseBlock ->
-            ( [], moduleContext )
+            errorsAndContext
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnEnter node
-                |> accumulate (visitExpression expressionRelatedVisitors caseBlock.expression)
+                |> visitExpression expressionRelatedVisitors caseBlock.expression
                 |> accumulateList (visitCaseBranch expressionRelatedVisitors (Node (Node.range node) caseBlock)) caseBlock.cases
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
 
         _ ->
-            ( [], moduleContext )
+            errorsAndContext
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnEnter node
-                |> accumulateList (visitExpression expressionRelatedVisitors) (expressionChildren node)
+                |> (\errorsAndContext_ -> List.foldl (visitExpression expressionRelatedVisitors) errorsAndContext_ (expressionChildren node))
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
 
 
@@ -4586,7 +4586,7 @@ visitLetDeclaration expressionRelatedVisitors letBlockWithRange ((Node _ letDecl
     in
     ( [], moduleContext )
         |> visitWithListOfVisitors2 expressionRelatedVisitors.letDeclarationVisitorsOnEnter letBlockWithRange letDeclarationWithRange
-        |> accumulate (visitExpression expressionRelatedVisitors expressionNode)
+        |> visitExpression expressionRelatedVisitors expressionNode
         |> visitWithListOfVisitors2 expressionRelatedVisitors.letDeclarationVisitorsOnExit letBlockWithRange letDeclarationWithRange
 
 
@@ -4599,7 +4599,7 @@ visitCaseBranch :
 visitCaseBranch expressionRelatedVisitors caseBlockWithRange (( _, caseExpression ) as caseBranch) moduleContext =
     ( [], moduleContext )
         |> visitWithListOfVisitors2 expressionRelatedVisitors.caseBranchVisitorsOnEnter caseBlockWithRange caseBranch
-        |> accumulate (visitExpression expressionRelatedVisitors caseExpression)
+        |> visitExpression expressionRelatedVisitors caseExpression
         |> visitWithListOfVisitors2 expressionRelatedVisitors.caseBranchVisitorsOnExit caseBlockWithRange caseBranch
 
 
