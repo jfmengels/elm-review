@@ -1324,17 +1324,21 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
                     (visitDeclaration
                         (List.reverse schema.declarationVisitorsOnEnter)
                         schema.declarationVisitorsOnExit
-                        { expressionVisitorsOnEnter = List.reverse schema.expressionVisitorsOnEnter
-                        , expressionVisitorsOnExit = schema.expressionVisitorsOnExit
-                        , letDeclarationVisitorsOnEnter = List.reverse schema.letDeclarationVisitorsOnEnter
-                        , letDeclarationVisitorsOnExit = schema.letDeclarationVisitorsOnExit
-                        , caseBranchVisitorsOnEnter = List.reverse schema.caseBranchVisitorsOnEnter
-                        , caseBranchVisitorsOnExit = schema.caseBranchVisitorsOnExit
-                        }
+                        expressionVisitorRecord
                     )
 
             else
                 \_ errorsAndContext -> errorsAndContext
+
+        expressionVisitorRecord : ExpressionRelatedVisitors moduleContext
+        expressionVisitorRecord =
+            { expressionVisitorsOnEnter = List.reverse schema.expressionVisitorsOnEnter
+            , expressionVisitorsOnExit = schema.expressionVisitorsOnExit
+            , letDeclarationVisitorsOnEnter = List.reverse schema.letDeclarationVisitorsOnEnter
+            , letDeclarationVisitorsOnExit = schema.letDeclarationVisitorsOnExit
+            , caseBranchVisitorsOnEnter = List.reverse schema.caseBranchVisitorsOnEnter
+            , caseBranchVisitorsOnExit = schema.caseBranchVisitorsOnExit
+            }
     in
     { moduleDefinitionVisitors = List.reverse schema.moduleDefinitionVisitors
     , commentsVisitors = List.reverse schema.commentsVisitors
