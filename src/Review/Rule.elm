@@ -4836,16 +4836,6 @@ expressionChildren node =
             []
 
 
-expressionsInDeclaration : Node Declaration -> List (Node Expression)
-expressionsInDeclaration node =
-    case Node.value node of
-        Declaration.FunctionDeclaration function ->
-            [ functionToExpression function ]
-
-        _ ->
-            []
-
-
 visitWithListOfVisitors : List (a -> context -> ( List (Error {}), context )) -> a -> ( List (Error {}), context ) -> ( List (Error {}), context )
 visitWithListOfVisitors visitors a initialErrorsAndContext =
     List.foldl
