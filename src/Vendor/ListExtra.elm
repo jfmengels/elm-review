@@ -1,4 +1,7 @@
-module Vendor.ListExtra exposing (find, last, uniquePairs)
+module Vendor.ListExtra exposing
+    ( find, last, uniquePairs
+    , fastConcatMap
+    )
 
 {-| Functions taken from elm-community/list-extra.
 
@@ -52,3 +55,12 @@ uniquePairs xs =
 
         x :: xs_ ->
             List.map (\y -> ( x, y )) xs_ ++ uniquePairs xs_
+
+
+
+-- Not originally from elm-community/list-extra
+
+
+fastConcatMap : (a -> List b) -> List a -> List b
+fastConcatMap fn list =
+    List.foldr (fn >> (++)) [] list

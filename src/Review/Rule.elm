@@ -294,6 +294,7 @@ import Review.Project.Internal exposing (Project(..))
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
+import Vendor.ListExtra as ListExtra
 
 
 {-| Represents a construct able to analyze a project and report
@@ -3998,7 +3999,7 @@ errorsFromCache cache =
         , cache.dependencies.errors
         , cache.moduleContexts
             |> Dict.values
-            |> List.concatMap (\cacheEntry -> cacheEntry.errors)
+            |> ListExtra.fastConcatMap (\cacheEntry -> cacheEntry.errors)
         , cache.finalEvaluationErrors
         ]
 
@@ -4700,7 +4701,7 @@ visitCaseBranch expressionRelatedVisitors caseBlockWithRange (( _, caseExpressio
 makeFinalEvaluation : List (context -> List (Error {})) -> ( List (Error {}), context ) -> List (Error {})
 makeFinalEvaluation finalEvaluationFns ( previousErrors, context ) =
     List.append
-        (List.concatMap
+        (ListExtra.fastConcatMap
             (\visitor -> visitor context)
             finalEvaluationFns
         )
@@ -4814,7 +4815,7 @@ errorsFromFinalEvaluationForProject projectVisitor initialContext contextsPerMod
                     Nothing ->
                         initialContext
         in
-        List.concatMap
+        ListExtra.fastConcatMap
             (\finalEvaluationFn -> finalEvaluationFn finalContext)
             projectVisitor.finalEvaluationFns
 
@@ -5278,7 +5279,7 @@ scope_internalDependenciesVisitor dependencies innerContext =
         dependenciesModules =
             dependencies
                 |> Dict.values
-                |> List.concatMap Review.Project.Dependency.modules
+                |> ListExtra.fastConcatMap Review.Project.Dependency.modules
                 |> List.map (\dependencyModule -> ( dependencyModule.name, dependencyModule ))
                 |> Dict.fromList
     in
@@ -5728,7 +5729,7 @@ registerImportExposed import_ innerContext =
                         exposedValues : Dict String (List String)
                         exposedValues =
                             List.concat
-                                [ List.concatMap
+                                [ ListExtra.fastConcatMap
                                     (\union ->
                                         List.map (\( name, _ ) -> ( name, moduleName )) union.tags
                                     )
@@ -5756,7 +5757,7 @@ registerImportExposed import_ innerContext =
                         exposedValues : Dict String (List String)
                         exposedValues =
                             topLevelExposeList
-                                |> List.concatMap (valuesFromExposingList module_)
+                                |> ListExtra.fastConcatMap (valuesFromExposingList module_)
                                 |> List.map (\name -> ( name, moduleName ))
                                 |> Dict.fromList
 
@@ -5795,7 +5796,7 @@ valuesFromExposingList module_ topLevelExpose =
                 Just _ ->
                     module_.unions
                         |> List.filter (\union -> union.name == name)
-                        |> List.concatMap .tags
+                        |> ListExtra.fastConcatMap .tags
                         |> List.map Tuple.first
 
                 Nothing ->
@@ -5859,7 +5860,7 @@ scope_declarationEnterVisitor node context =
                     function.declaration
                         |> Node.value
                         |> .arguments
-                        |> List.concatMap (collectModuleNamesFromPattern newContext)
+                        |> ListExtra.fastConcatMap (collectModuleNamesFromPattern newContext)
 
                 lookupTable : ModuleNameLookupTable
                 lookupTable =
@@ -5873,7 +5874,7 @@ scope_declarationEnterVisitor node context =
             { context
                 | lookupTable =
                     ModuleNameLookupTableInternal.addMultiple
-                        (constructors |> List.concatMap (Node.value >> .arguments) |> List.concatMap (collectModuleNamesFromTypeAnnotation context))
+                        (constructors |> ListExtra.fastConcatMap (Node.value >> .arguments) |> ListExtra.fastConcatMap (collectModuleNamesFromTypeAnnotation context))
                         context.lookupTable
             }
 
@@ -5915,7 +5916,7 @@ scope_declarationExitVisitor node context =
 
 parameters : List (Node Pattern) -> Dict String VariableInfo
 parameters patterns =
-    List.concatMap collectNamesFromPattern patterns
+    ListExtra.fastConcatMap collectNamesFromPattern patterns
         |> List.map
             (\node ->
                 ( Node.value node
@@ -6077,7 +6078,7 @@ scope_expressionEnterVisitor node context =
                 moduleNames : List ( Range, ModuleName )
                 moduleNames =
                     declarations
-                        |> List.concatMap
+                        |> ListExtra.fastConcatMap
                             (\declaration ->
                                 case Node.value declaration of
                                     Expression.LetFunction function ->
@@ -6088,7 +6089,7 @@ scope_expressionEnterVisitor node context =
                                             ++ (function.declaration
                                                     |> Node.value
                                                     |> .arguments
-                                                    |> List.concatMap (collectModuleNamesFromPattern newContext)
+                                                    |> ListExtra.fastConcatMap (collectModuleNamesFromPattern newContext)
                                                )
 
                                     Expression.LetDestructuring pattern _ ->
@@ -6120,7 +6121,7 @@ scope_expressionEnterVisitor node context =
 
                 moduleNames : List ( Range, ModuleName )
                 moduleNames =
-                    List.concatMap
+                    ListExtra.fastConcatMap
                         (\( pattern, _ ) -> collectModuleNamesFromPattern context pattern)
                         caseBlock.cases
             in
@@ -6151,7 +6152,7 @@ scope_expressionEnterVisitor node context =
             { context
                 | lookupTable =
                     ModuleNameLookupTableInternal.addMultiple
-                        (List.concatMap (collectModuleNamesFromPattern context) args)
+                        (ListExtra.fastConcatMap (collectModuleNamesFromPattern context) args)
                         context.lookupTable
             }
 
