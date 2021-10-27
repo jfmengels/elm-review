@@ -4462,9 +4462,7 @@ visitDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit expression
                 |> visitWithListOfVisitors declarationVisitorsOnExit node
 
         _ ->
-            errorsAndContext
-                |> visitWithListOfVisitors declarationVisitorsOnEnter node
-                |> visitWithListOfVisitors declarationVisitorsOnExit node
+            visitOnlyDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit node errorsAndContext
 
 
 visitOnlyDeclaration :
