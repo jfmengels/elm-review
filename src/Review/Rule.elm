@@ -1334,6 +1334,7 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
                         (List.reverse schema.declarationVisitorsOnEnter)
                         schema.declarationVisitorsOnExit
                         expressionVisitorRecord
+                        expressionVisitor
                     )
 
             else
@@ -4427,10 +4428,11 @@ visitDeclaration :
     List (Visitor Declaration moduleContext)
     -> List (Visitor Declaration moduleContext)
     -> ExpressionRelatedVisitors moduleContext
+    -> (Node Expression -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext ))
     -> Node Declaration
     -> moduleContext
     -> ( List (Error {}), moduleContext )
-visitDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit expressionRelatedVisitors node moduleContext =
+visitDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit expressionRelatedVisitors expressionVisitor node moduleContext =
     case Node.value node of
         Declaration.FunctionDeclaration function ->
             ( [], moduleContext )
