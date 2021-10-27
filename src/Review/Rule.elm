@@ -4379,9 +4379,7 @@ createExpressionVisitor :
     -> Maybe (Node Expression -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext ))
 createExpressionVisitor schema =
     if
-        not (List.isEmpty schema.expressionVisitorsOnEnter)
-            || not (List.isEmpty schema.expressionVisitorsOnExit)
-            || not (List.isEmpty schema.letDeclarationVisitorsOnEnter)
+        not (List.isEmpty schema.letDeclarationVisitorsOnEnter)
             || not (List.isEmpty schema.letDeclarationVisitorsOnExit)
             || not (List.isEmpty schema.caseBranchVisitorsOnEnter)
             || not (List.isEmpty schema.caseBranchVisitorsOnExit)
@@ -4400,6 +4398,24 @@ createExpressionVisitor schema =
         Just
             (\node errorsAndContext ->
                 accumulate (visitExpression expressionRelatedVisitors node) errorsAndContext
+            )
+
+    else if
+        not (List.isEmpty schema.expressionVisitorsOnEnter)
+            || not (List.isEmpty schema.expressionVisitorsOnExit)
+    then
+        let
+            enterVisitors : List (Visitor Expression moduleContext)
+            enterVisitors =
+                List.reverse schema.expressionVisitorsOnEnter
+
+            exitVisitors : List (Visitor Expression moduleContext)
+            exitVisitors =
+                schema.expressionVisitorsOnExit
+        in
+        Just
+            (\node errorsAndContext ->
+                accumulate (visitOnlyExpressions enterVisitors exitVisitors node) errorsAndContext
             )
 
     else
