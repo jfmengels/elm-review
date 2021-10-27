@@ -1340,6 +1340,7 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     , commentsVisitors = List.reverse schema.commentsVisitors
     , importVisitors = List.reverse schema.importVisitors
     , declarationListVisitors = List.reverse schema.declarationListVisitors
+    , declarationAndExpressionVisitor = declarationAndExpressionVisits
     , declarationVisitorsOnEnter = List.reverse schema.declarationVisitorsOnEnter
     , declarationVisitorsOnExit = schema.declarationVisitorsOnExit
     , expressionVisitorsOnEnter = List.reverse schema.expressionVisitorsOnEnter
@@ -3794,6 +3795,7 @@ type alias RunnableModuleVisitor moduleContext =
     , commentsVisitors : List (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
     , importVisitors : List (Visitor Import moduleContext)
     , declarationListVisitors : List (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
+    , declarationAndExpressionVisitor : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
     , declarationVisitorsOnEnter : List (Visitor Declaration moduleContext)
     , declarationVisitorsOnExit : List (Visitor Declaration moduleContext)
     , expressionVisitorsOnEnter : List (Visitor Expression moduleContext)
