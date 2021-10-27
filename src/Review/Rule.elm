@@ -4356,32 +4356,12 @@ getFolderFromTraversal traversalAndFolder =
 
 visitModuleForProjectRule : RunnableModuleVisitor moduleContext -> moduleContext -> ProjectModule -> ( List (Error {}), moduleContext )
 visitModuleForProjectRule schema initialContext module_ =
-    let
-        declarationAndExpressionVisits : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
-        declarationAndExpressionVisits =
-            if shouldVisitDeclarationsAndExpressions schema then
-                accumulateList
-                    (visitDeclaration
-                        schema.declarationVisitorsOnEnter
-                        schema.declarationVisitorsOnExit
-                        { expressionVisitorsOnEnter = schema.expressionVisitorsOnEnter
-                        , expressionVisitorsOnExit = schema.expressionVisitorsOnExit
-                        , letDeclarationVisitorsOnEnter = schema.letDeclarationVisitorsOnEnter
-                        , letDeclarationVisitorsOnExit = schema.letDeclarationVisitorsOnExit
-                        , caseBranchVisitorsOnEnter = schema.caseBranchVisitorsOnEnter
-                        , caseBranchVisitorsOnExit = schema.caseBranchVisitorsOnExit
-                        }
-                    )
-
-            else
-                \_ errorsAndContext -> errorsAndContext
-    in
     ( [], initialContext )
         |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors module_.ast.moduleDefinition
         |> accumulateWithListOfVisitors schema.commentsVisitors module_.ast.comments
         |> accumulateList (visitImport schema.importVisitors) module_.ast.imports
         |> accumulateWithListOfVisitors schema.declarationListVisitors module_.ast.declarations
-        |> declarationAndExpressionVisits module_.ast.declarations
+        |> schema.declarationAndExpressionVisitor module_.ast.declarations
         |> (\( errors, moduleContext ) -> ( makeFinalEvaluation schema.finalEvaluationFns ( errors, moduleContext ), moduleContext ))
 
 
