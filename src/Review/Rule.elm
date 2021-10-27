@@ -1317,8 +1317,8 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
 fromModuleRuleSchemaToRunnableModuleVisitor : ModuleRuleSchema schemaState moduleContext -> RunnableModuleVisitor moduleContext
 fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     let
-        declarationAndExpressionVisits : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
-        declarationAndExpressionVisits =
+        declarationAndExpressionVisitor : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
+        declarationAndExpressionVisitor =
             if shouldVisitDeclarationsAndExpressions2 schema then
                 accumulateList
                     (visitDeclaration
@@ -1340,7 +1340,7 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     , commentsVisitors = List.reverse schema.commentsVisitors
     , importVisitors = List.reverse schema.importVisitors
     , declarationListVisitors = List.reverse schema.declarationListVisitors
-    , declarationAndExpressionVisitor = declarationAndExpressionVisits
+    , declarationAndExpressionVisitor = declarationAndExpressionVisitor
     , declarationVisitorsOnEnter = List.reverse schema.declarationVisitorsOnEnter
     , declarationVisitorsOnExit = schema.declarationVisitorsOnExit
     , expressionVisitorsOnEnter = List.reverse schema.expressionVisitorsOnEnter
