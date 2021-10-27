@@ -4503,7 +4503,12 @@ visitExpression expressionRelatedVisitors node errorsAndContext =
         Expression.LetExpression letBlock ->
             errorsAndContext
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnEnter node
-                |> (\errorsAndContext_ -> List.foldl (visitLetDeclaration expressionRelatedVisitors (Node (Node.range node) letBlock)) errorsAndContext_ letBlock.declarations)
+                |> (\errorsAndContext_ ->
+                        List.foldl
+                            (visitLetDeclaration expressionRelatedVisitors (Node (Node.range node) letBlock))
+                            errorsAndContext_
+                            letBlock.declarations
+                   )
                 |> visitExpression expressionRelatedVisitors letBlock.expression
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
 
