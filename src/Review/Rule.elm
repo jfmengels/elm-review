@@ -4520,7 +4520,7 @@ visitExpression expressionRelatedVisitors node errorsAndContext =
             errorsAndContext
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnEnter node
                 |> visitExpression expressionRelatedVisitors caseBlock.expression
-                |> accumulateList (visitCaseBranch expressionRelatedVisitors (Node (Node.range node) caseBlock)) caseBlock.cases
+                |> (\errorsAndContext_ -> List.foldl (visitCaseBranch expressionRelatedVisitors (Node (Node.range node) caseBlock)) errorsAndContext_ caseBlock.cases)
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
 
         _ ->
@@ -4720,10 +4720,10 @@ visitCaseBranch :
     ExpressionRelatedVisitors moduleContext
     -> Node Expression.CaseBlock
     -> ( Node Pattern, Node Expression )
-    -> moduleContext
     -> ( List (Error {}), moduleContext )
-visitCaseBranch expressionRelatedVisitors caseBlockWithRange (( _, caseExpression ) as caseBranch) moduleContext =
-    ( [], moduleContext )
+    -> ( List (Error {}), moduleContext )
+visitCaseBranch expressionRelatedVisitors caseBlockWithRange (( _, caseExpression ) as caseBranch) errorsAndContext =
+    errorsAndContext
         |> visitWithListOfVisitors2 expressionRelatedVisitors.caseBranchVisitorsOnEnter caseBlockWithRange caseBranch
         |> visitExpression expressionRelatedVisitors caseExpression
         |> visitWithListOfVisitors2 expressionRelatedVisitors.caseBranchVisitorsOnExit caseBlockWithRange caseBranch
