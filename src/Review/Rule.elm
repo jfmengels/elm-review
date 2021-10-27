@@ -4377,12 +4377,6 @@ shouldVisitDeclarationsAndExpressions : ModuleRuleSchemaData moduleContext -> Bo
 shouldVisitDeclarationsAndExpressions schema =
     not (List.isEmpty schema.declarationVisitorsOnEnter)
         || not (List.isEmpty schema.declarationVisitorsOnExit)
-        || not (List.isEmpty schema.expressionVisitorsOnEnter)
-        || not (List.isEmpty schema.expressionVisitorsOnExit)
-        || not (List.isEmpty schema.letDeclarationVisitorsOnEnter)
-        || not (List.isEmpty schema.letDeclarationVisitorsOnExit)
-        || not (List.isEmpty schema.caseBranchVisitorsOnEnter)
-        || not (List.isEmpty schema.caseBranchVisitorsOnExit)
 
 
 createExpressionVisitor :
