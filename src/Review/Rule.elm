@@ -1334,11 +1334,15 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
                             )
 
                     Nothing ->
-                        accumulateList
-                            (visitOnlyDeclaration
-                                (List.reverse schema.declarationVisitorsOnEnter)
-                                schema.declarationVisitorsOnExit
-                            )
+                        let
+                            visitor : Node Declaration -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
+                            visitor =
+                                visitOnlyDeclaration
+                                    (List.reverse schema.declarationVisitorsOnEnter)
+                                    schema.declarationVisitorsOnExit
+                        in
+                        \nodes initialErrorsAndContext ->
+                            List.foldl visitor initialErrorsAndContext nodes
 
             else
                 \_ errorsAndContext -> errorsAndContext
@@ -4464,10 +4468,10 @@ visitOnlyDeclaration :
     List (Visitor Declaration moduleContext)
     -> List (Visitor Declaration moduleContext)
     -> Node Declaration
-    -> moduleContext
     -> ( List (Error {}), moduleContext )
-visitOnlyDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit node moduleContext =
-    ( [], moduleContext )
+    -> ( List (Error {}), moduleContext )
+visitOnlyDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit node errorsAndContext =
+    errorsAndContext
         |> visitWithListOfVisitors declarationVisitorsOnEnter node
         |> visitWithListOfVisitors declarationVisitorsOnExit node
 
