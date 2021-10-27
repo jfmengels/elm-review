@@ -1317,6 +1317,14 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
 fromModuleRuleSchemaToRunnableModuleVisitor : ModuleRuleSchema schemaState moduleContext -> RunnableModuleVisitor moduleContext
 fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     let
+        expressionVisitor : List (Node Expression) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
+        expressionVisitor =
+            if shouldVisitExpressions schema then
+                accumulateList (visitExpression expressionVisitorRecord)
+
+            else
+                \_ errorsAndContext -> errorsAndContext
+
         declarationAndExpressionVisitor : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
         declarationAndExpressionVisitor =
             if shouldVisitDeclarationsAndExpressions schema then
@@ -4358,6 +4366,16 @@ shouldVisitDeclarationsAndExpressions schema =
     not (List.isEmpty schema.declarationVisitorsOnEnter)
         || not (List.isEmpty schema.declarationVisitorsOnExit)
         || not (List.isEmpty schema.expressionVisitorsOnEnter)
+        || not (List.isEmpty schema.expressionVisitorsOnExit)
+        || not (List.isEmpty schema.letDeclarationVisitorsOnEnter)
+        || not (List.isEmpty schema.letDeclarationVisitorsOnExit)
+        || not (List.isEmpty schema.caseBranchVisitorsOnEnter)
+        || not (List.isEmpty schema.caseBranchVisitorsOnExit)
+
+
+shouldVisitExpressions : ModuleRuleSchemaData moduleContext -> Bool
+shouldVisitExpressions schema =
+    not (List.isEmpty schema.expressionVisitorsOnEnter)
         || not (List.isEmpty schema.expressionVisitorsOnExit)
         || not (List.isEmpty schema.letDeclarationVisitorsOnEnter)
         || not (List.isEmpty schema.letDeclarationVisitorsOnExit)
