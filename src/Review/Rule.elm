@@ -4713,23 +4713,8 @@ expressionChildren node =
         Expression.Application expressions ->
             expressions
 
-        Expression.Literal _ ->
-            []
-
-        Expression.Integer _ ->
-            []
-
-        Expression.Floatable _ ->
-            []
-
-        Expression.UnitExpr ->
-            []
-
         Expression.ListExpr elements ->
             elements
-
-        Expression.FunctionOrValue _ _ ->
-            []
 
         Expression.RecordExpr fields ->
             List.map (Node.value >> (\( _, expr ) -> expr)) fields
@@ -4739,9 +4724,6 @@ expressionChildren node =
 
         Expression.ParenthesizedExpression expr ->
             [ expr ]
-
-        Expression.Operator _ ->
-            []
 
         Expression.OperatorApplication _ direction left right ->
             case direction of
@@ -4780,25 +4762,13 @@ expressionChildren node =
         Expression.TupledExpression expressions ->
             expressions
 
-        Expression.PrefixOperator _ ->
-            []
-
-        Expression.Hex _ ->
-            []
-
         Expression.Negation expr ->
             [ expr ]
-
-        Expression.CharLiteral _ ->
-            []
 
         Expression.RecordAccess expr _ ->
             [ expr ]
 
-        Expression.RecordAccessFunction _ ->
-            []
-
-        Expression.GLSLExpression _ ->
+        _ ->
             []
 
 
