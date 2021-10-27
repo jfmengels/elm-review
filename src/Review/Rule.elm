@@ -4526,7 +4526,12 @@ visitExpression expressionRelatedVisitors node errorsAndContext =
         _ ->
             errorsAndContext
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnEnter node
-                |> (\errorsAndContext_ -> List.foldl (visitExpression expressionRelatedVisitors) errorsAndContext_ (expressionChildren node))
+                |> (\errorsAndContext_ ->
+                        List.foldl
+                            (visitExpression expressionRelatedVisitors)
+                            errorsAndContext_
+                            (expressionChildren node)
+                   )
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
 
 
