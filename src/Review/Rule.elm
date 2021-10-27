@@ -4434,7 +4434,7 @@ visitDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit expression
         Declaration.FunctionDeclaration function ->
             ( [], moduleContext )
                 |> visitWithListOfVisitors declarationVisitorsOnEnter node
-                |> accumulateList (visitExpression expressionRelatedVisitors) [ functionToExpression function ]
+                |> accumulate (visitExpression expressionRelatedVisitors (functionToExpression function))
                 |> visitWithListOfVisitors declarationVisitorsOnExit node
 
         _ ->
