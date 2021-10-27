@@ -4490,6 +4490,23 @@ visitOnlyExpressions expressionRelatedVisitors node moduleContext =
         |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
 
 
+visitOnlyExpressionsOnlyOnEnter :
+    List (Visitor Expression moduleContext)
+    -> List (Node Expression)
+    -> ( List (Error {}), moduleContext )
+    -> ( List (Error {}), moduleContext )
+visitOnlyExpressionsOnlyOnEnter expressionVisitorsOnEnter nodes acc =
+    case nodes of
+        [] ->
+            acc
+
+        node :: restOfNodes ->
+            visitOnlyExpressionsOnlyOnEnter
+                expressionVisitorsOnEnter
+                (List.append (expressionChildren node) restOfNodes)
+                (visitWithListOfVisitors expressionVisitorsOnEnter node acc)
+
+
 visitLetDeclaration :
     ExpressionRelatedVisitors moduleContext
     -> Node Expression.LetBlock
