@@ -4539,15 +4539,15 @@ visitOnlyExpressionsOnlyOnEnter :
     -> List (Node Expression)
     -> ( List (Error {}), moduleContext )
     -> ( List (Error {}), moduleContext )
-visitOnlyExpressionsOnlyOnEnter expressionVisitorsOnEnter nodes acc =
-    case nodes of
+visitOnlyExpressionsOnlyOnEnter expressionVisitorsOnEnter nodeStack acc =
+    case nodeStack of
         [] ->
             acc
 
-        node :: restOfNodes ->
+        node :: restOfNodeStack ->
             visitOnlyExpressionsOnlyOnEnter
                 expressionVisitorsOnEnter
-                (List.append (expressionChildren node) restOfNodes)
+                (List.append (expressionChildren node) restOfNodeStack)
                 (visitWithListOfVisitors expressionVisitorsOnEnter node acc)
 
 
