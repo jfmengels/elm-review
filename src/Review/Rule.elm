@@ -1317,7 +1317,7 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
 fromModuleRuleSchemaToRunnableModuleVisitor : ModuleRuleSchema schemaState moduleContext -> RunnableModuleVisitor moduleContext
 fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     let
-        expressionVisitor : Node Expression -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
+        expressionVisitor : Maybe (Node Expression -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext ))
         expressionVisitor =
             createExpressionVisitor schema
 
@@ -1328,7 +1328,7 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
                     (visitDeclaration
                         (List.reverse schema.declarationVisitorsOnEnter)
                         schema.declarationVisitorsOnExit
-                        expressionVisitor
+                        (Maybe.withDefault (\_ errorsAndContext -> errorsAndContext) expressionVisitor)
                     )
 
             else
@@ -4359,7 +4359,9 @@ shouldVisitDeclarationsAndExpressions schema =
         || not (List.isEmpty schema.caseBranchVisitorsOnExit)
 
 
-createExpressionVisitor : ModuleRuleSchemaData moduleContext -> Node Expression -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
+createExpressionVisitor :
+    ModuleRuleSchemaData moduleContext
+    -> Maybe (Node Expression -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext ))
 createExpressionVisitor schema =
     if
         not (List.isEmpty schema.expressionVisitorsOnEnter)
@@ -4380,11 +4382,13 @@ createExpressionVisitor schema =
                 , caseBranchVisitorsOnExit = schema.caseBranchVisitorsOnExit
                 }
         in
-        \node errorsAndContext ->
-            accumulate (visitExpression expressionRelatedVisitors node) errorsAndContext
+        Just
+            (\node errorsAndContext ->
+                accumulate (visitExpression expressionRelatedVisitors node) errorsAndContext
+            )
 
     else
-        \_ errorsAndContext -> errorsAndContext
+        Nothing
 
 
 type alias ExpressionRelatedVisitors moduleContext =
