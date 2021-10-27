@@ -4430,10 +4430,17 @@ visitDeclaration :
     -> moduleContext
     -> ( List (Error {}), moduleContext )
 visitDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit expressionRelatedVisitors node moduleContext =
-    ( [], moduleContext )
-        |> visitWithListOfVisitors declarationVisitorsOnEnter node
-        |> accumulateList (visitExpression expressionRelatedVisitors) (expressionsInDeclaration node)
-        |> visitWithListOfVisitors declarationVisitorsOnExit node
+    case expressionsInDeclaration node of
+        [] ->
+            ( [], moduleContext )
+                |> visitWithListOfVisitors declarationVisitorsOnEnter node
+                |> visitWithListOfVisitors declarationVisitorsOnExit node
+
+        expressions ->
+            ( [], moduleContext )
+                |> visitWithListOfVisitors declarationVisitorsOnEnter node
+                |> accumulateList (visitExpression expressionRelatedVisitors) expressions
+                |> visitWithListOfVisitors declarationVisitorsOnExit node
 
 
 visitExpressions : ExpressionRelatedVisitors moduleContext -> Node Declaration -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
