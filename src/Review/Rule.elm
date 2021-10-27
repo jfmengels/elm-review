@@ -1341,14 +1341,6 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     , importVisitors = List.reverse schema.importVisitors
     , declarationListVisitors = List.reverse schema.declarationListVisitors
     , declarationAndExpressionVisitor = declarationAndExpressionVisitor
-    , declarationVisitorsOnEnter = List.reverse schema.declarationVisitorsOnEnter
-    , declarationVisitorsOnExit = schema.declarationVisitorsOnExit
-    , expressionVisitorsOnEnter = List.reverse schema.expressionVisitorsOnEnter
-    , expressionVisitorsOnExit = schema.expressionVisitorsOnExit
-    , letDeclarationVisitorsOnEnter = List.reverse schema.letDeclarationVisitorsOnEnter
-    , letDeclarationVisitorsOnExit = schema.letDeclarationVisitorsOnExit
-    , caseBranchVisitorsOnEnter = List.reverse schema.caseBranchVisitorsOnEnter
-    , caseBranchVisitorsOnExit = schema.caseBranchVisitorsOnExit
     , finalEvaluationFns = List.reverse schema.finalEvaluationFns
     }
 
@@ -3796,14 +3788,6 @@ type alias RunnableModuleVisitor moduleContext =
     , importVisitors : List (Visitor Import moduleContext)
     , declarationListVisitors : List (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
     , declarationAndExpressionVisitor : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
-    , declarationVisitorsOnEnter : List (Visitor Declaration moduleContext)
-    , declarationVisitorsOnExit : List (Visitor Declaration moduleContext)
-    , expressionVisitorsOnEnter : List (Visitor Expression moduleContext)
-    , expressionVisitorsOnExit : List (Visitor Expression moduleContext)
-    , letDeclarationVisitorsOnEnter : List (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
-    , letDeclarationVisitorsOnExit : List (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
-    , caseBranchVisitorsOnEnter : List (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
-    , caseBranchVisitorsOnExit : List (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
     , finalEvaluationFns : List (moduleContext -> List (Error {}))
     }
 
