@@ -1317,19 +1317,28 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
 fromModuleRuleSchemaToRunnableModuleVisitor : ModuleRuleSchema schemaState moduleContext -> RunnableModuleVisitor moduleContext
 fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     let
-        expressionVisitor : Maybe (Node Expression -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext ))
-        expressionVisitor =
+        maybeExpressionVisitor : Maybe (Node Expression -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext ))
+        maybeExpressionVisitor =
             createExpressionVisitor schema
 
         declarationAndExpressionVisitor : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
         declarationAndExpressionVisitor =
             if shouldVisitDeclarationsAndExpressions schema then
-                accumulateList
-                    (visitDeclaration
-                        (List.reverse schema.declarationVisitorsOnEnter)
-                        schema.declarationVisitorsOnExit
-                        (Maybe.withDefault (\_ errorsAndContext -> errorsAndContext) expressionVisitor)
-                    )
+                case maybeExpressionVisitor of
+                    Just expressionVisitor ->
+                        accumulateList
+                            (visitDeclaration
+                                (List.reverse schema.declarationVisitorsOnEnter)
+                                schema.declarationVisitorsOnExit
+                                expressionVisitor
+                            )
+
+                    Nothing ->
+                        accumulateList
+                            (visitOnlyDeclaration
+                                (List.reverse schema.declarationVisitorsOnEnter)
+                                schema.declarationVisitorsOnExit
+                            )
 
             else
                 \_ errorsAndContext -> errorsAndContext
@@ -4449,6 +4458,18 @@ visitDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit expression
             ( [], moduleContext )
                 |> visitWithListOfVisitors declarationVisitorsOnEnter node
                 |> visitWithListOfVisitors declarationVisitorsOnExit node
+
+
+visitOnlyDeclaration :
+    List (Visitor Declaration moduleContext)
+    -> List (Visitor Declaration moduleContext)
+    -> Node Declaration
+    -> moduleContext
+    -> ( List (Error {}), moduleContext )
+visitOnlyDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit node moduleContext =
+    ( [], moduleContext )
+        |> visitWithListOfVisitors declarationVisitorsOnEnter node
+        |> visitWithListOfVisitors declarationVisitorsOnExit node
 
 
 visitExpression :
