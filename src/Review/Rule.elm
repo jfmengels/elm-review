@@ -1319,13 +1319,7 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     let
         expressionVisitor : Node Expression -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
         expressionVisitor =
-            case createExpressionVisitor schema of
-                Just expressionRelatedVisitors ->
-                    \node errorsAndContext ->
-                        accumulate (visitExpression expressionRelatedVisitors node) errorsAndContext
-
-                Nothing ->
-                    \_ errorsAndContext -> errorsAndContext
+            createExpressionVisitor schema
 
         declarationAndExpressionVisitor : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
         declarationAndExpressionVisitor =
@@ -4365,7 +4359,7 @@ shouldVisitDeclarationsAndExpressions schema =
         || not (List.isEmpty schema.caseBranchVisitorsOnExit)
 
 
-createExpressionVisitor : ModuleRuleSchemaData moduleContext -> Maybe (ExpressionRelatedVisitors moduleContext)
+createExpressionVisitor : ModuleRuleSchemaData moduleContext -> Node Expression -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
 createExpressionVisitor schema =
     if
         not (List.isEmpty schema.expressionVisitorsOnEnter)
@@ -4375,17 +4369,22 @@ createExpressionVisitor schema =
             || not (List.isEmpty schema.caseBranchVisitorsOnEnter)
             || not (List.isEmpty schema.caseBranchVisitorsOnExit)
     then
-        Just
-            { expressionVisitorsOnEnter = List.reverse schema.expressionVisitorsOnEnter
-            , expressionVisitorsOnExit = schema.expressionVisitorsOnExit
-            , letDeclarationVisitorsOnEnter = List.reverse schema.letDeclarationVisitorsOnEnter
-            , letDeclarationVisitorsOnExit = schema.letDeclarationVisitorsOnExit
-            , caseBranchVisitorsOnEnter = List.reverse schema.caseBranchVisitorsOnEnter
-            , caseBranchVisitorsOnExit = schema.caseBranchVisitorsOnExit
-            }
+        let
+            expressionRelatedVisitors : ExpressionRelatedVisitors moduleContext
+            expressionRelatedVisitors =
+                { expressionVisitorsOnEnter = List.reverse schema.expressionVisitorsOnEnter
+                , expressionVisitorsOnExit = schema.expressionVisitorsOnExit
+                , letDeclarationVisitorsOnEnter = List.reverse schema.letDeclarationVisitorsOnEnter
+                , letDeclarationVisitorsOnExit = schema.letDeclarationVisitorsOnExit
+                , caseBranchVisitorsOnEnter = List.reverse schema.caseBranchVisitorsOnEnter
+                , caseBranchVisitorsOnExit = schema.caseBranchVisitorsOnExit
+                }
+        in
+        \node errorsAndContext ->
+            accumulate (visitExpression expressionRelatedVisitors node) errorsAndContext
 
     else
-        Nothing
+        \_ errorsAndContext -> errorsAndContext
 
 
 type alias ExpressionRelatedVisitors moduleContext =
