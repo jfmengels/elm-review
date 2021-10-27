@@ -4573,23 +4573,8 @@ expressionChildrenTCO nodesToVisit acc =
                 Expression.Application expressions ->
                     expressionChildrenTCO (List.append expressions rest) (head :: acc)
 
-                Expression.Literal _ ->
-                    expressionChildrenTCO rest (head :: acc)
-
-                Expression.Integer _ ->
-                    expressionChildrenTCO rest (head :: acc)
-
-                Expression.Floatable _ ->
-                    expressionChildrenTCO rest (head :: acc)
-
-                Expression.UnitExpr ->
-                    expressionChildrenTCO rest (head :: acc)
-
                 Expression.ListExpr expressions ->
                     expressionChildrenTCO (List.append expressions rest) (head :: acc)
-
-                Expression.FunctionOrValue _ _ ->
-                    expressionChildrenTCO rest (head :: acc)
 
                 Expression.RecordExpr fields ->
                     expressionChildrenTCO
@@ -4609,9 +4594,6 @@ expressionChildrenTCO nodesToVisit acc =
 
                 Expression.ParenthesizedExpression expr ->
                     expressionChildrenTCO (expr :: rest) (head :: acc)
-
-                Expression.Operator _ ->
-                    expressionChildrenTCO rest (head :: acc)
 
                 Expression.OperatorApplication _ direction left right ->
                     let
@@ -4667,25 +4649,13 @@ expressionChildrenTCO nodesToVisit acc =
                 Expression.TupledExpression expressions ->
                     expressionChildrenTCO (List.append expressions rest) (head :: acc)
 
-                Expression.PrefixOperator _ ->
-                    expressionChildrenTCO rest (head :: acc)
-
-                Expression.Hex _ ->
-                    expressionChildrenTCO rest (head :: acc)
-
                 Expression.Negation expression ->
                     expressionChildrenTCO (expression :: rest) (head :: acc)
-
-                Expression.CharLiteral _ ->
-                    expressionChildrenTCO rest (head :: acc)
 
                 Expression.RecordAccess expression _ ->
                     expressionChildrenTCO (expression :: rest) (head :: acc)
 
-                Expression.RecordAccessFunction _ ->
-                    expressionChildrenTCO rest (head :: acc)
-
-                Expression.GLSLExpression _ ->
+                _ ->
                     expressionChildrenTCO rest (head :: acc)
 
 
