@@ -4397,10 +4397,7 @@ createExpressionVisitor schema =
         in
         Just (visitExpression expressionRelatedVisitors)
 
-    else if
-        not (List.isEmpty schema.expressionVisitorsOnEnter)
-            || not (List.isEmpty schema.expressionVisitorsOnExit)
-    then
+    else if not (List.isEmpty schema.expressionVisitorsOnExit) then
         let
             enterVisitors : List (Visitor Expression moduleContext)
             enterVisitors =
@@ -4411,6 +4408,15 @@ createExpressionVisitor schema =
                 schema.expressionVisitorsOnExit
         in
         Just (visitOnlyExpressions enterVisitors exitVisitors)
+
+    else if not (List.isEmpty schema.expressionVisitorsOnEnter) then
+        Just
+            (\node errorsAndContext ->
+                visitOnlyExpressionsOnlyOnEnter
+                    (List.reverse schema.expressionVisitorsOnEnter)
+                    [ node ]
+                    errorsAndContext
+            )
 
     else
         Nothing
