@@ -4430,16 +4430,16 @@ visitDeclaration :
     -> moduleContext
     -> ( List (Error {}), moduleContext )
 visitDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit expressionRelatedVisitors node moduleContext =
-    case expressionsInDeclaration node of
-        [] ->
+    case Node.value node of
+        Declaration.FunctionDeclaration function ->
             ( [], moduleContext )
                 |> visitWithListOfVisitors declarationVisitorsOnEnter node
+                |> accumulateList (visitExpression expressionRelatedVisitors) [ functionToExpression function ]
                 |> visitWithListOfVisitors declarationVisitorsOnExit node
 
-        expressions ->
+        _ ->
             ( [], moduleContext )
                 |> visitWithListOfVisitors declarationVisitorsOnEnter node
-                |> accumulateList (visitExpression expressionRelatedVisitors) expressions
                 |> visitWithListOfVisitors declarationVisitorsOnExit node
 
 
