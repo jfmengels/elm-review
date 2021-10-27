@@ -4395,10 +4395,7 @@ createExpressionVisitor schema =
                 , caseBranchVisitorsOnExit = schema.caseBranchVisitorsOnExit
                 }
         in
-        Just
-            (\node errorsAndContext ->
-                visitExpression expressionRelatedVisitors node errorsAndContext
-            )
+        Just (visitExpression expressionRelatedVisitors)
 
     else if
         not (List.isEmpty schema.expressionVisitorsOnEnter)
