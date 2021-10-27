@@ -326,29 +326,32 @@ Start by using [`newModuleRuleSchema`](#newModuleRuleSchema), then add visitors 
 
 -}
 type ModuleRuleSchema schemaState moduleContext
-    = ModuleRuleSchema
-        { name : String
-        , initialModuleContext : Maybe moduleContext
-        , moduleContextCreator : ContextCreator () moduleContext
-        , moduleDefinitionVisitors : List (Visitor Module moduleContext)
-        , commentsVisitors : List (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
-        , importVisitors : List (Visitor Import moduleContext)
-        , declarationListVisitors : List (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
-        , declarationVisitorsOnEnter : List (Visitor Declaration moduleContext)
-        , declarationVisitorsOnExit : List (Visitor Declaration moduleContext)
-        , expressionVisitorsOnEnter : List (Visitor Expression moduleContext)
-        , expressionVisitorsOnExit : List (Visitor Expression moduleContext)
-        , letDeclarationVisitorsOnEnter : List (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
-        , letDeclarationVisitorsOnExit : List (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
-        , caseBranchVisitorsOnEnter : List (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
-        , caseBranchVisitorsOnExit : List (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
-        , finalEvaluationFns : List (moduleContext -> List (Error {}))
+    = ModuleRuleSchema (ModuleRuleSchemaData moduleContext)
 
-        -- Project visitors
-        , elmJsonVisitors : List (Maybe Elm.Project.Project -> moduleContext -> moduleContext)
-        , readmeVisitors : List (Maybe String -> moduleContext -> moduleContext)
-        , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
-        }
+
+type alias ModuleRuleSchemaData moduleContext =
+    { name : String
+    , initialModuleContext : Maybe moduleContext
+    , moduleContextCreator : ContextCreator () moduleContext
+    , moduleDefinitionVisitors : List (Visitor Module moduleContext)
+    , commentsVisitors : List (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
+    , importVisitors : List (Visitor Import moduleContext)
+    , declarationListVisitors : List (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
+    , declarationVisitorsOnEnter : List (Visitor Declaration moduleContext)
+    , declarationVisitorsOnExit : List (Visitor Declaration moduleContext)
+    , expressionVisitorsOnEnter : List (Visitor Expression moduleContext)
+    , expressionVisitorsOnExit : List (Visitor Expression moduleContext)
+    , letDeclarationVisitorsOnEnter : List (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
+    , letDeclarationVisitorsOnExit : List (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
+    , caseBranchVisitorsOnEnter : List (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
+    , caseBranchVisitorsOnExit : List (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
+    , finalEvaluationFns : List (moduleContext -> List (Error {}))
+
+    -- Project visitors
+    , elmJsonVisitors : List (Maybe Elm.Project.Project -> moduleContext -> moduleContext)
+    , readmeVisitors : List (Maybe String -> moduleContext -> moduleContext)
+    , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
+    }
 
 
 
