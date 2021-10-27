@@ -1349,7 +1349,13 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
                                 List.foldl visitor initialErrorsAndContext nodes
 
                 False ->
-                    \_ errorsAndContext -> errorsAndContext
+                    case maybeExpressionVisitor of
+                        Just expressionVisitor ->
+                            -- TODO
+                            \_ errorsAndContext -> errorsAndContext
+
+                        Nothing ->
+                            \_ errorsAndContext -> errorsAndContext
     in
     { moduleDefinitionVisitors = List.reverse schema.moduleDefinitionVisitors
     , commentsVisitors = List.reverse schema.commentsVisitors
