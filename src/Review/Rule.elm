@@ -4478,6 +4478,18 @@ visitExpression expressionRelatedVisitors node moduleContext =
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
 
 
+visitOnlyExpressions :
+    ExpressionRelatedVisitors moduleContext
+    -> Node Expression
+    -> moduleContext
+    -> ( List (Error {}), moduleContext )
+visitOnlyExpressions expressionRelatedVisitors node moduleContext =
+    ( [], moduleContext )
+        |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnEnter node
+        |> accumulateList (visitOnlyExpressions expressionRelatedVisitors) (expressionChildren node)
+        |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
+
+
 visitLetDeclaration :
     ExpressionRelatedVisitors moduleContext
     -> Node Expression.LetBlock
