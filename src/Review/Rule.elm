@@ -4331,25 +4331,45 @@ getFolderFromTraversal traversalAndFolder =
 
 visitModuleForProjectRule : RunnableModuleVisitor moduleContext -> moduleContext -> ProjectModule -> ( List (Error {}), moduleContext )
 visitModuleForProjectRule schema initialContext module_ =
+    let
+        declarationAndExpressionVisits : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
+        declarationAndExpressionVisits =
+            if shouldVisitDeclarationsAndExpressions schema then
+                accumulateList
+                    (visitDeclaration
+                        schema.declarationVisitorsOnEnter
+                        schema.declarationVisitorsOnExit
+                        { expressionVisitorsOnEnter = schema.expressionVisitorsOnEnter
+                        , expressionVisitorsOnExit = schema.expressionVisitorsOnExit
+                        , letDeclarationVisitorsOnEnter = schema.letDeclarationVisitorsOnEnter
+                        , letDeclarationVisitorsOnExit = schema.letDeclarationVisitorsOnExit
+                        , caseBranchVisitorsOnEnter = schema.caseBranchVisitorsOnEnter
+                        , caseBranchVisitorsOnExit = schema.caseBranchVisitorsOnExit
+                        }
+                    )
+
+            else
+                \_ errorsAndContext -> errorsAndContext
+    in
     ( [], initialContext )
         |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors module_.ast.moduleDefinition
         |> accumulateWithListOfVisitors schema.commentsVisitors module_.ast.comments
         |> accumulateList (visitImport schema.importVisitors) module_.ast.imports
         |> accumulateWithListOfVisitors schema.declarationListVisitors module_.ast.declarations
-        |> accumulateList
-            (visitDeclaration
-                schema.declarationVisitorsOnEnter
-                schema.declarationVisitorsOnExit
-                { expressionVisitorsOnEnter = schema.expressionVisitorsOnEnter
-                , expressionVisitorsOnExit = schema.expressionVisitorsOnExit
-                , letDeclarationVisitorsOnEnter = schema.letDeclarationVisitorsOnEnter
-                , letDeclarationVisitorsOnExit = schema.letDeclarationVisitorsOnExit
-                , caseBranchVisitorsOnEnter = schema.caseBranchVisitorsOnEnter
-                , caseBranchVisitorsOnExit = schema.caseBranchVisitorsOnExit
-                }
-            )
-            module_.ast.declarations
+        |> declarationAndExpressionVisits module_.ast.declarations
         |> (\( errors, moduleContext ) -> ( makeFinalEvaluation schema.finalEvaluationFns ( errors, moduleContext ), moduleContext ))
+
+
+shouldVisitDeclarationsAndExpressions : RunnableModuleVisitor moduleContext -> Bool
+shouldVisitDeclarationsAndExpressions schema =
+    not (List.isEmpty schema.declarationVisitorsOnEnter)
+        || not (List.isEmpty schema.declarationVisitorsOnExit)
+        || not (List.isEmpty schema.expressionVisitorsOnEnter)
+        || not (List.isEmpty schema.expressionVisitorsOnExit)
+        || not (List.isEmpty schema.letDeclarationVisitorsOnEnter)
+        || not (List.isEmpty schema.letDeclarationVisitorsOnExit)
+        || not (List.isEmpty schema.caseBranchVisitorsOnEnter)
+        || not (List.isEmpty schema.caseBranchVisitorsOnExit)
 
 
 type alias ExpressionRelatedVisitors moduleContext =
