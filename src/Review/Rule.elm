@@ -1316,56 +1316,52 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
 
 fromModuleRuleSchemaToRunnableModuleVisitor : ModuleRuleSchema schemaState moduleContext -> RunnableModuleVisitor moduleContext
 fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
-    let
-        maybeExpressionVisitor : Maybe (Node Expression -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext ))
-        maybeExpressionVisitor =
-            createExpressionVisitor schema
-
-        declarationAndExpressionVisitor : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
-        declarationAndExpressionVisitor =
-            if shouldVisitDeclarations schema then
-                case maybeExpressionVisitor of
-                    Just expressionVisitor ->
-                        \nodes initialErrorsAndContext ->
-                            List.foldl
-                                (visitDeclaration
-                                    (List.reverse schema.declarationVisitorsOnEnter)
-                                    schema.declarationVisitorsOnExit
-                                    expressionVisitor
-                                )
-                                initialErrorsAndContext
-                                nodes
-
-                    Nothing ->
-                        let
-                            visitor : Node Declaration -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
-                            visitor =
-                                visitOnlyDeclaration
-                                    (List.reverse schema.declarationVisitorsOnEnter)
-                                    schema.declarationVisitorsOnExit
-                        in
-                        \nodes initialErrorsAndContext ->
-                            List.foldl visitor initialErrorsAndContext nodes
-
-            else
-                case maybeExpressionVisitor of
-                    Just expressionVisitor ->
-                        \nodes initialErrorsAndContext ->
-                            List.foldl
-                                (visitDeclarationButOnlyExpressions expressionVisitor)
-                                initialErrorsAndContext
-                                nodes
-
-                    Nothing ->
-                        \_ errorsAndContext -> errorsAndContext
-    in
     { moduleDefinitionVisitors = List.reverse schema.moduleDefinitionVisitors
     , commentsVisitors = List.reverse schema.commentsVisitors
     , importVisitors = List.reverse schema.importVisitors
     , declarationListVisitors = List.reverse schema.declarationListVisitors
-    , declarationAndExpressionVisitor = declarationAndExpressionVisitor
+    , declarationAndExpressionVisitor = createDeclarationAndExpressionVisitor schema
     , finalEvaluationFns = List.reverse schema.finalEvaluationFns
     }
+
+
+createDeclarationAndExpressionVisitor : ModuleRuleSchemaData moduleContext -> List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
+createDeclarationAndExpressionVisitor schema =
+    if shouldVisitDeclarations schema then
+        case createExpressionVisitor schema of
+            Just expressionVisitor ->
+                \nodes initialErrorsAndContext ->
+                    List.foldl
+                        (visitDeclaration
+                            (List.reverse schema.declarationVisitorsOnEnter)
+                            schema.declarationVisitorsOnExit
+                            expressionVisitor
+                        )
+                        initialErrorsAndContext
+                        nodes
+
+            Nothing ->
+                let
+                    visitor : Node Declaration -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
+                    visitor =
+                        visitOnlyDeclaration
+                            (List.reverse schema.declarationVisitorsOnEnter)
+                            schema.declarationVisitorsOnExit
+                in
+                \nodes initialErrorsAndContext ->
+                    List.foldl visitor initialErrorsAndContext nodes
+
+    else
+        case createExpressionVisitor schema of
+            Just expressionVisitor ->
+                \nodes initialErrorsAndContext ->
+                    List.foldl
+                        (visitDeclarationButOnlyExpressions expressionVisitor)
+                        initialErrorsAndContext
+                        nodes
+
+            Nothing ->
+                \_ errorsAndContext -> errorsAndContext
 
 
 {-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will
