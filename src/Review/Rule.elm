@@ -1317,6 +1317,16 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
 fromModuleRuleSchemaToRunnableModuleVisitor : ModuleRuleSchema schemaState moduleContext -> RunnableModuleVisitor moduleContext
 fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     let
+        expressionVisitorRecord : ExpressionRelatedVisitors moduleContext
+        expressionVisitorRecord =
+            { expressionVisitorsOnEnter = List.reverse schema.expressionVisitorsOnEnter
+            , expressionVisitorsOnExit = schema.expressionVisitorsOnExit
+            , letDeclarationVisitorsOnEnter = List.reverse schema.letDeclarationVisitorsOnEnter
+            , letDeclarationVisitorsOnExit = schema.letDeclarationVisitorsOnExit
+            , caseBranchVisitorsOnEnter = List.reverse schema.caseBranchVisitorsOnEnter
+            , caseBranchVisitorsOnExit = schema.caseBranchVisitorsOnExit
+            }
+
         expressionVisitor : Node Expression -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
         expressionVisitor =
             if shouldVisitExpressions schema then
@@ -1338,16 +1348,6 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
 
             else
                 \_ errorsAndContext -> errorsAndContext
-
-        expressionVisitorRecord : ExpressionRelatedVisitors moduleContext
-        expressionVisitorRecord =
-            { expressionVisitorsOnEnter = List.reverse schema.expressionVisitorsOnEnter
-            , expressionVisitorsOnExit = schema.expressionVisitorsOnExit
-            , letDeclarationVisitorsOnEnter = List.reverse schema.letDeclarationVisitorsOnEnter
-            , letDeclarationVisitorsOnExit = schema.letDeclarationVisitorsOnExit
-            , caseBranchVisitorsOnEnter = List.reverse schema.caseBranchVisitorsOnEnter
-            , caseBranchVisitorsOnExit = schema.caseBranchVisitorsOnExit
-            }
     in
     { moduleDefinitionVisitors = List.reverse schema.moduleDefinitionVisitors
     , commentsVisitors = List.reverse schema.commentsVisitors
