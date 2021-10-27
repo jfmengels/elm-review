@@ -4362,7 +4362,7 @@ visitModuleForProjectRule schema initialContext module_ =
     ( [], initialContext )
         |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors module_.ast.moduleDefinition
         |> accumulateWithListOfVisitors schema.commentsVisitors module_.ast.comments
-        |> (\errorAndContext -> List.foldl (visitWithListOfVisitors schema.importVisitors) errorAndContext module_.ast.imports)
+        |> accumulateList schema.importVisitors module_.ast.imports
         |> accumulateWithListOfVisitors schema.declarationListVisitors module_.ast.declarations
         |> schema.declarationAndExpressionVisitor module_.ast.declarations
         |> (\( errors, moduleContext ) -> ( makeFinalEvaluation schema.finalEvaluationFns ( errors, moduleContext ), moduleContext ))
@@ -4906,12 +4906,9 @@ accumulateWithListOfVisitors visitors element initialErrorsAndContext =
         visitors
 
 
-accumulateList : (a -> context -> ( List (Error {}), context )) -> List a -> ( List (Error {}), context ) -> ( List (Error {}), context )
-accumulateList visitor elements initialErrorsAndContext =
-    List.foldl
-        (\element errorsAndContext -> accumulate (visitor element) errorsAndContext)
-        initialErrorsAndContext
-        elements
+accumulateList : List (a -> context -> ( List (Error {}), context )) -> List a -> ( List (Error {}), context ) -> ( List (Error {}), context )
+accumulateList visitor elements errorAndContext =
+    List.foldl (visitWithListOfVisitors visitor) errorAndContext elements
 
 
 {-| Concatenate the errors of the previous step and of the last step, and take the last step's context.
