@@ -4571,10 +4571,10 @@ visitOnlyExpressionsOnlyOnEnter expressionVisitorsOnEnter nodeStack errorsAndCon
             errorsAndContext
 
         node :: restOfNodeStack ->
-            visitOnlyExpressionsOnlyOnEnter
-                expressionVisitorsOnEnter
-                (List.append (expressionChildren node) restOfNodeStack)
-                (visitWithListOfVisitors expressionVisitorsOnEnter node errorsAndContext)
+            List.foldl
+                (visitWithListOfVisitors expressionVisitorsOnEnter)
+                errorsAndContext
+                (expressionChildrenTCO [ node ] [])
 
 
 expressionChildrenTCO : List (Node Expression) -> List (Node Expression) -> List (Node Expression)
