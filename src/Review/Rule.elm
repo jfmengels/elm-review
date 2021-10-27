@@ -4410,10 +4410,7 @@ createExpressionVisitor schema =
             exitVisitors =
                 schema.expressionVisitorsOnExit
         in
-        Just
-            (\node errorsAndContext ->
-                accumulate (visitOnlyExpressions enterVisitors exitVisitors node) errorsAndContext
-            )
+        Just (visitOnlyExpressions enterVisitors exitVisitors)
 
     else
         Nothing
@@ -4537,13 +4534,18 @@ visitOnlyExpressions :
     List (Visitor Expression moduleContext)
     -> List (Visitor Expression moduleContext)
     -> Node Expression
-    -> moduleContext
     -> ( List (Error {}), moduleContext )
-visitOnlyExpressions expressionVisitorsOnEnter expressionVisitorsOnExit node moduleContext =
+    -> ( List (Error {}), moduleContext )
+visitOnlyExpressions expressionVisitorsOnEnter expressionVisitorsOnExit node errorsAndContext =
     -- IGNORE TCO
-    ( [], moduleContext )
+    errorsAndContext
         |> visitWithListOfVisitors expressionVisitorsOnEnter node
-        |> accumulateList (visitOnlyExpressions expressionVisitorsOnEnter expressionVisitorsOnExit) (expressionChildren node)
+        |> (\errorsAndContext_ ->
+                List.foldl
+                    (visitOnlyExpressions expressionVisitorsOnEnter expressionVisitorsOnExit)
+                    errorsAndContext_
+                    (expressionChildren node)
+           )
         |> visitWithListOfVisitors expressionVisitorsOnExit node
 
 
