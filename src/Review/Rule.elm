@@ -4565,16 +4565,16 @@ visitOnlyExpressionsOnlyOnEnter :
     -> List (Node Expression)
     -> ( List (Error {}), moduleContext )
     -> ( List (Error {}), moduleContext )
-visitOnlyExpressionsOnlyOnEnter expressionVisitorsOnEnter nodeStack acc =
+visitOnlyExpressionsOnlyOnEnter expressionVisitorsOnEnter nodeStack errorsAndContext =
     case nodeStack of
         [] ->
-            acc
+            errorsAndContext
 
         node :: restOfNodeStack ->
             visitOnlyExpressionsOnlyOnEnter
                 expressionVisitorsOnEnter
                 (List.append (expressionChildren node) restOfNodeStack)
-                (visitWithListOfVisitors expressionVisitorsOnEnter node acc)
+                (visitWithListOfVisitors expressionVisitorsOnEnter node errorsAndContext)
 
 
 expressionChildrenTCO : List (Node Expression) -> List (Node Expression) -> List (Node Expression)
