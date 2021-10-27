@@ -1320,19 +1320,18 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
         declarationAndExpressionVisits : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
         declarationAndExpressionVisits =
             if shouldVisitDeclarationsAndExpressions2 schema then
-                --accumulateList
-                --    (visitDeclaration
-                --        schema.declarationVisitorsOnEnter
-                --        schema.declarationVisitorsOnExit
-                --        { expressionVisitorsOnEnter = schema.expressionVisitorsOnEnter
-                --        , expressionVisitorsOnExit = schema.expressionVisitorsOnExit
-                --        , letDeclarationVisitorsOnEnter = schema.letDeclarationVisitorsOnEnter
-                --        , letDeclarationVisitorsOnExit = schema.letDeclarationVisitorsOnExit
-                --        , caseBranchVisitorsOnEnter = schema.caseBranchVisitorsOnEnter
-                --        , caseBranchVisitorsOnExit = schema.caseBranchVisitorsOnExit
-                --        }
-                --    )
-                \_ errorsAndContext -> errorsAndContext
+                accumulateList
+                    (visitDeclaration
+                        schema.declarationVisitorsOnEnter
+                        schema.declarationVisitorsOnExit
+                        { expressionVisitorsOnEnter = schema.expressionVisitorsOnEnter
+                        , expressionVisitorsOnExit = schema.expressionVisitorsOnExit
+                        , letDeclarationVisitorsOnEnter = schema.letDeclarationVisitorsOnEnter
+                        , letDeclarationVisitorsOnExit = schema.letDeclarationVisitorsOnExit
+                        , caseBranchVisitorsOnEnter = schema.caseBranchVisitorsOnEnter
+                        , caseBranchVisitorsOnExit = schema.caseBranchVisitorsOnExit
+                        }
+                    )
 
             else
                 \_ errorsAndContext -> errorsAndContext
