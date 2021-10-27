@@ -4432,7 +4432,7 @@ visitDeclaration :
 visitDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit expressionRelatedVisitors node moduleContext =
     ( [], moduleContext )
         |> visitWithListOfVisitors declarationVisitorsOnEnter node
-        |> visitExpressions expressionRelatedVisitors node
+        |> accumulateList (visitExpression expressionRelatedVisitors) (expressionsInDeclaration node)
         |> visitWithListOfVisitors declarationVisitorsOnExit node
 
 
