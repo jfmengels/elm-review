@@ -1322,13 +1322,13 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
             if shouldVisitDeclarationsAndExpressions2 schema then
                 accumulateList
                     (visitDeclaration
-                        schema.declarationVisitorsOnEnter
+                        (List.reverse schema.declarationVisitorsOnEnter)
                         schema.declarationVisitorsOnExit
-                        { expressionVisitorsOnEnter = schema.expressionVisitorsOnEnter
+                        { expressionVisitorsOnEnter = List.reverse schema.expressionVisitorsOnEnter
                         , expressionVisitorsOnExit = schema.expressionVisitorsOnExit
-                        , letDeclarationVisitorsOnEnter = schema.letDeclarationVisitorsOnEnter
+                        , letDeclarationVisitorsOnEnter = List.reverse schema.letDeclarationVisitorsOnEnter
                         , letDeclarationVisitorsOnExit = schema.letDeclarationVisitorsOnExit
-                        , caseBranchVisitorsOnEnter = schema.caseBranchVisitorsOnEnter
+                        , caseBranchVisitorsOnEnter = List.reverse schema.caseBranchVisitorsOnEnter
                         , caseBranchVisitorsOnExit = schema.caseBranchVisitorsOnExit
                         }
                     )
