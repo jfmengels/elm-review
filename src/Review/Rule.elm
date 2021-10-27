@@ -4630,19 +4630,19 @@ expressionChildrenTCO nodesToVisit acc =
 
                 Expression.OperatorApplication _ direction left right ->
                     let
-                        children : List (Node Expression)
-                        children =
+                        nodeStack : List (Node Expression)
+                        nodeStack =
                             case direction of
                                 Infix.Left ->
-                                    [ left, right ]
+                                    left :: right :: rest
 
                                 Infix.Right ->
-                                    [ right, left ]
+                                    right :: left :: rest
 
                                 Infix.Non ->
-                                    [ left, right ]
+                                    left :: right :: rest
                     in
-                    expressionChildrenTCO (List.append children rest) (head :: acc)
+                    expressionChildrenTCO nodeStack (head :: acc)
 
                 Expression.IfBlock cond then_ else_ ->
                     expressionChildrenTCO
@@ -4668,15 +4668,19 @@ expressionChildrenTCO nodesToVisit acc =
                         (head :: acc)
 
                 Expression.CaseExpression { expression, cases } ->
-                    expression
-                        :: List.map (\( _, caseExpression ) -> caseExpression) cases
+                    expressionChildrenTCO
+                        (expression
+                            :: List.append
+                                (List.map (\( _, caseExpression ) -> caseExpression) cases)
+                                rest
+                        )
+                        (head :: acc)
 
                 Expression.LambdaExpression { expression } ->
                     expressionChildrenTCO (expression :: rest) (head :: acc)
 
                 Expression.TupledExpression expressions ->
-                    -- TODO
-                    expressions
+                    expressionChildrenTCO (List.append expressions rest) (head :: acc)
 
                 Expression.PrefixOperator _ ->
                     expressionChildrenTCO rest (head :: acc)
