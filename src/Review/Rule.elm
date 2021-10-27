@@ -4410,13 +4410,7 @@ createExpressionVisitor schema =
         Just (visitOnlyExpressions enterVisitors exitVisitors)
 
     else if not (List.isEmpty schema.expressionVisitorsOnEnter) then
-        Just
-            (\node errorsAndContext ->
-                visitOnlyExpressionsOnlyOnEnter
-                    (List.reverse schema.expressionVisitorsOnEnter)
-                    [ node ]
-                    errorsAndContext
-            )
+        Just (visitOnlyExpressionsOnlyOnEnter (List.reverse schema.expressionVisitorsOnEnter))
 
     else
         Nothing
@@ -4562,19 +4556,14 @@ visitOnlyExpressions expressionVisitorsOnEnter expressionVisitorsOnExit node err
 
 visitOnlyExpressionsOnlyOnEnter :
     List (Visitor Expression moduleContext)
-    -> List (Node Expression)
+    -> Node Expression
     -> ( List (Error {}), moduleContext )
     -> ( List (Error {}), moduleContext )
-visitOnlyExpressionsOnlyOnEnter expressionVisitorsOnEnter nodeStack errorsAndContext =
-    case nodeStack of
-        [] ->
-            errorsAndContext
-
-        node :: restOfNodeStack ->
-            List.foldl
-                (visitWithListOfVisitors expressionVisitorsOnEnter)
-                errorsAndContext
-                (expressionChildrenTCO [ node ] [])
+visitOnlyExpressionsOnlyOnEnter expressionVisitorsOnEnter node errorsAndContext =
+    List.foldl
+        (visitWithListOfVisitors expressionVisitorsOnEnter)
+        errorsAndContext
+        (expressionChildrenTCO [ node ] [])
 
 
 expressionChildrenTCO : List (Node Expression) -> List (Node Expression) -> List (Node Expression)
