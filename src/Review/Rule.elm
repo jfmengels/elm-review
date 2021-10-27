@@ -1317,24 +1317,15 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
 fromModuleRuleSchemaToRunnableModuleVisitor : ModuleRuleSchema schemaState moduleContext -> RunnableModuleVisitor moduleContext
 fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     let
-        expressionVisitorRecord : ExpressionRelatedVisitors moduleContext
-        expressionVisitorRecord =
-            { expressionVisitorsOnEnter = List.reverse schema.expressionVisitorsOnEnter
-            , expressionVisitorsOnExit = schema.expressionVisitorsOnExit
-            , letDeclarationVisitorsOnEnter = List.reverse schema.letDeclarationVisitorsOnEnter
-            , letDeclarationVisitorsOnExit = schema.letDeclarationVisitorsOnExit
-            , caseBranchVisitorsOnEnter = List.reverse schema.caseBranchVisitorsOnEnter
-            , caseBranchVisitorsOnExit = schema.caseBranchVisitorsOnExit
-            }
-
         expressionVisitor : Node Expression -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
         expressionVisitor =
-            if shouldVisitExpressions schema then
-                \node errorsAndContext ->
-                    accumulate (visitExpression expressionVisitorRecord node) errorsAndContext
+            case shouldVisitExpressions schema of
+                Just expressionRelatedVisitors ->
+                    \node errorsAndContext ->
+                        accumulate (visitExpression expressionRelatedVisitors node) errorsAndContext
 
-            else
-                \_ errorsAndContext -> errorsAndContext
+                Nothing ->
+                    \_ errorsAndContext -> errorsAndContext
 
         declarationAndExpressionVisitor : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
         declarationAndExpressionVisitor =
@@ -4374,14 +4365,27 @@ shouldVisitDeclarationsAndExpressions schema =
         || not (List.isEmpty schema.caseBranchVisitorsOnExit)
 
 
-shouldVisitExpressions : ModuleRuleSchemaData moduleContext -> Bool
+shouldVisitExpressions : ModuleRuleSchemaData moduleContext -> Maybe (ExpressionRelatedVisitors moduleContext)
 shouldVisitExpressions schema =
-    not (List.isEmpty schema.expressionVisitorsOnEnter)
-        || not (List.isEmpty schema.expressionVisitorsOnExit)
-        || not (List.isEmpty schema.letDeclarationVisitorsOnEnter)
-        || not (List.isEmpty schema.letDeclarationVisitorsOnExit)
-        || not (List.isEmpty schema.caseBranchVisitorsOnEnter)
-        || not (List.isEmpty schema.caseBranchVisitorsOnExit)
+    if
+        not (List.isEmpty schema.expressionVisitorsOnEnter)
+            || not (List.isEmpty schema.expressionVisitorsOnExit)
+            || not (List.isEmpty schema.letDeclarationVisitorsOnEnter)
+            || not (List.isEmpty schema.letDeclarationVisitorsOnExit)
+            || not (List.isEmpty schema.caseBranchVisitorsOnEnter)
+            || not (List.isEmpty schema.caseBranchVisitorsOnExit)
+    then
+        Just
+            { expressionVisitorsOnEnter = List.reverse schema.expressionVisitorsOnEnter
+            , expressionVisitorsOnExit = schema.expressionVisitorsOnExit
+            , letDeclarationVisitorsOnEnter = List.reverse schema.letDeclarationVisitorsOnEnter
+            , letDeclarationVisitorsOnExit = schema.letDeclarationVisitorsOnExit
+            , caseBranchVisitorsOnEnter = List.reverse schema.caseBranchVisitorsOnEnter
+            , caseBranchVisitorsOnExit = schema.caseBranchVisitorsOnExit
+            }
+
+    else
+        Nothing
 
 
 type alias ExpressionRelatedVisitors moduleContext =
