@@ -1351,8 +1351,11 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
                 False ->
                     case maybeExpressionVisitor of
                         Just expressionVisitor ->
-                            -- TODO
-                            \_ errorsAndContext -> errorsAndContext
+                            \nodes initialErrorsAndContext ->
+                                List.foldl
+                                    (visitDeclarationButOnlyExpressions expressionVisitor)
+                                    initialErrorsAndContext
+                                    nodes
 
                         Nothing ->
                             \_ errorsAndContext -> errorsAndContext
