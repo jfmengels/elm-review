@@ -4512,7 +4512,7 @@ visitExpression expressionRelatedVisitors node errorsAndContext =
         Expression.LetExpression letBlock ->
             errorsAndContext
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnEnter node
-                |> accumulateList (visitLetDeclaration expressionRelatedVisitors (Node (Node.range node) letBlock)) letBlock.declarations
+                |> (\errorsAndContext_ -> List.foldl (visitLetDeclaration expressionRelatedVisitors (Node (Node.range node) letBlock)) errorsAndContext_ letBlock.declarations)
                 |> visitExpression expressionRelatedVisitors letBlock.expression
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
 
@@ -4697,9 +4697,9 @@ visitLetDeclaration :
     ExpressionRelatedVisitors moduleContext
     -> Node Expression.LetBlock
     -> Node Expression.LetDeclaration
-    -> moduleContext
     -> ( List (Error {}), moduleContext )
-visitLetDeclaration expressionRelatedVisitors letBlockWithRange ((Node _ letDeclaration) as letDeclarationWithRange) moduleContext =
+    -> ( List (Error {}), moduleContext )
+visitLetDeclaration expressionRelatedVisitors letBlockWithRange ((Node _ letDeclaration) as letDeclarationWithRange) errorsAndContext =
     let
         expressionNode : Node Expression
         expressionNode =
@@ -4710,7 +4710,7 @@ visitLetDeclaration expressionRelatedVisitors letBlockWithRange ((Node _ letDecl
                 Expression.LetDestructuring _ expr ->
                     expr
     in
-    ( [], moduleContext )
+    errorsAndContext
         |> visitWithListOfVisitors2 expressionRelatedVisitors.letDeclarationVisitorsOnEnter letBlockWithRange letDeclarationWithRange
         |> visitExpression expressionRelatedVisitors expressionNode
         |> visitWithListOfVisitors2 expressionRelatedVisitors.letDeclarationVisitorsOnExit letBlockWithRange letDeclarationWithRange
