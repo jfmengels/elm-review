@@ -1319,7 +1319,7 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     let
         expressionVisitor : Node Expression -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
         expressionVisitor =
-            case shouldVisitExpressions schema of
+            case createExpressionVisitor schema of
                 Just expressionRelatedVisitors ->
                     \node errorsAndContext ->
                         accumulate (visitExpression expressionRelatedVisitors node) errorsAndContext
@@ -4365,8 +4365,8 @@ shouldVisitDeclarationsAndExpressions schema =
         || not (List.isEmpty schema.caseBranchVisitorsOnExit)
 
 
-shouldVisitExpressions : ModuleRuleSchemaData moduleContext -> Maybe (ExpressionRelatedVisitors moduleContext)
-shouldVisitExpressions schema =
+createExpressionVisitor : ModuleRuleSchemaData moduleContext -> Maybe (ExpressionRelatedVisitors moduleContext)
+createExpressionVisitor schema =
     if
         not (List.isEmpty schema.expressionVisitorsOnEnter)
             || not (List.isEmpty schema.expressionVisitorsOnExit)
