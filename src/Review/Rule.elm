@@ -4521,15 +4521,17 @@ visitExpression expressionRelatedVisitors node moduleContext =
 
 
 visitOnlyExpressions :
-    ExpressionRelatedVisitors moduleContext
+    List (Visitor Expression moduleContext)
+    -> List (Visitor Expression moduleContext)
     -> Node Expression
     -> moduleContext
     -> ( List (Error {}), moduleContext )
-visitOnlyExpressions expressionRelatedVisitors node moduleContext =
+visitOnlyExpressions expressionVisitorsOnEnter expressionVisitorsOnExit node moduleContext =
+    -- IGNORE TCO
     ( [], moduleContext )
-        |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnEnter node
-        |> accumulateList (visitOnlyExpressions expressionRelatedVisitors) (expressionChildren node)
-        |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
+        |> visitWithListOfVisitors expressionVisitorsOnEnter node
+        |> accumulateList (visitOnlyExpressions expressionVisitorsOnEnter expressionVisitorsOnExit) (expressionChildren node)
+        |> visitWithListOfVisitors expressionVisitorsOnExit node
 
 
 visitOnlyExpressionsOnlyOnEnter :
