@@ -4623,19 +4623,7 @@ expressionsInDeclaration node =
         Declaration.FunctionDeclaration function ->
             [ functionToExpression function ]
 
-        Declaration.CustomTypeDeclaration _ ->
-            []
-
-        Declaration.AliasDeclaration _ ->
-            []
-
-        Declaration.Destructuring _ expr ->
-            [ expr ]
-
-        Declaration.PortDeclaration _ ->
-            []
-
-        Declaration.InfixDeclaration _ ->
+        _ ->
             []
 
 
