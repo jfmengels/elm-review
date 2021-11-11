@@ -169,7 +169,7 @@ If a developer disagrees with a rule, they may try to circumvent it, resulting i
 So the value provided by the rule should be much greater than the trouble it causes, and if you find that a rule doesn't live up to this, consider disabling it.
 
 Review rules are most useful when some pattern must never appear in the code.
-It gets less useful when a pattern is allowed to appear in certain cases, as there is [no good solution for handling exceptions to rules](#is-there-a-way-to-ignore-an-error-or-disable-a-rule-only-in-some-locations-).
+It gets less useful when a pattern is allowed to appear in certain cases, as there is [no good solution for handling exceptions to rules](#is-there-a-way-to-ignore-errors-).
 If you really need to make exceptions, they must be written in the rule itself, or the rule should be configurable.
 
 For rules that enforce a certain **coding style**, or suggest simplifications to your code, I would ask you to raise the bar for inclusion even higher.
@@ -197,19 +197,51 @@ When wondering whether to enable a rule, I suggest using this checklist:
   - [ ] I have communicated with my teammates and they all agree to enforce the rule.
   - [ ] I am ready to disable the rule if it turns out to be more disturbing than helpful.
 
-## Is there a way to ignore an error or disable a rule only in some locations?
+## Is there a way to ignore errors?
 
-You can prevent errors from being reported by either changing the implementation of your rules or by [configuring exceptions](https://package.elm-lang.org/packages/jfmengels/elm-review/2.6.0/Review-Rule/#configuring-exceptions) for directories or for files.
+`elm-review` does not provide a way to disable errors on a case-by-case basis — by line or sections of code —
+like a lot of static analysis tools do. I've written about this in
+_[How disable comments make static analysis tools worse](https://jfmengels.net/disable-comments/)_.
 
-It is however not possible to ignore errors on a case-by-case basis, for several reasons:
+Because you can't ignore errors easily, `elm-review` puts more burden on the rules, requiring them to be of higher quality
+— less false positives — and better designed — avoiding rules that will inherently have lots of exceptions or false positives.
 
-  - The most practical way to locally disable a rule is likely through
-  comments, like [how `ESLint` does it](https://eslint.org/docs/user-guide/configuring#disabling-rules-with-inline-comments).
-  But since [elm-format](https://github.com/avh4/elm-format) moves comments around, this is not practical.
-  - If there are some rules that you really want to enforce because you want to
-  create additional guarantees in your codebase, and it is possible to ignore it,
-  then you will need a second system to ensure those rules are never ignored.
-  - When people encounter a review error, some will try to disable
-  it by default, maybe because they disagree with the rule, are annoyed by it, or
-  because they think they will fix the issue later or not at all. So make sure the rule provides real and obvious value!
-  - If you are looking to make exceptions to a rule, really consider if the rule should just be disabled.
+It does provide 2 systems that I think are better alternatives for the health of your project.
+
+### Configuring exceptions
+
+You can [configure exceptions ](https://package.elm-lang.org/packages/jfmengels/elm-review/2.6.0/Review-Rule/#configuring-exceptions),
+which consists of marking specific directories or files as not relevant to a rule or set of rules, preventing errors to be reported for those.
+
+It is a good fit if you wish for `elm-review` to not report errors in vendored or generated code,
+or in files and directories that by the nature of the rule should be exempted.
+
+### Temporarily suppressing errors
+
+**NOTE:** This is only available starting from v2.7.0 of the `elm-review` CLI onwards, which at the time of writing is in a beta version.
+Run `npm install elm-review@beta` to start using this. Please provide feedback on any of aspect of the feature, so that we can get this out of beta.
+
+`elm-review` supports temporarily 
+The second system is the **temporarily suppressed** errors system, which aims to help you gradually adopt rules that
+report many errors in your project without having you fix all the issues beforehand.
+
+Running `elm-review suppress` will generate one JSON file in `review/suppressed/` (in your review configuration) for
+every rule that currently reports errors, and records the number of suppressed errors per file in your project.
+
+As long as suppression files exist for your project, running `elm-review` will behave as usual but with these additional behaviors:
+- Suppressed errors won't be reported.
+- If there are outstanding errors for the ignored rules and files, the related
+  suppressed errors will be reported until you reduce the number of errors
+  back to the number in the JSON file. This is a good opportunity to fix more!
+- If no errors are being reported and there are less suppressed errors than
+  before, suppression files will be updated automatically, in order to make
+  sure no new errors get re-introduced unknowingly.
+
+While you can run the `suppress` command to ignore newly reported errors, please do so with moderation. The aim is to
+allow enabling rules while there are errors remaining and to have these fixed incrementally, not to make it easier to
+ignore errors.
+
+Use `elm-review suppress --help` to start using this.
+
+Note that to avoid uncommitted suppression files in your project's main branch, it is recommended to use
+`elm-review suppress --check-after-tests` at the end of your test suite.
