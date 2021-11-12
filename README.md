@@ -226,6 +226,7 @@ report many errors in your project without having you fix all the issues beforeh
 
 Running `elm-review suppress` will generate one JSON file in `review/suppressed/` (in your review configuration) for
 every rule that currently reports errors, and records the number of suppressed errors per file in your project.
+These files should be included in your versioning system.
 
 As long as suppression files exist for your project, running `elm-review` will behave as usual but with these additional behaviors:
 - Suppressed errors won't be reported.
