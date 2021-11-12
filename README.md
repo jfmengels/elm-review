@@ -221,8 +221,7 @@ or in files and directories that by the nature of the rule should be exempted.
 **NOTE:** This is only available starting from v2.7.0 of the `elm-review` CLI onwards, which at the time of writing is in a beta version.
 Run `npm install elm-review@beta` to start using this. Please provide feedback on any of aspect of the feature, so that we can get this out of beta.
 
-`elm-review` supports temporarily 
-The second system is the **temporarily suppressed** errors system, which aims to help you gradually adopt rules that
+`elm-review` has a system to temporarily suppressed errors which aims to help you gradually adopt rules that
 report many errors in your project without having you fix all the issues beforehand.
 
 Running `elm-review suppress` will generate one JSON file in `review/suppressed/` (in your review configuration) for
@@ -241,7 +240,9 @@ While you can run the `suppress` command to ignore newly reported errors, please
 allow enabling rules while there are errors remaining and to have these fixed incrementally, not to make it easier to
 ignore errors.
 
-Use `elm-review suppress --help` to start using this.
+Use `elm-review suppress --help` to start using this, and read more about the
+[design choices](https://github.com/jfmengels/elm-review/blob/master/documentation/design/suppress.md) that went into
+the feature.
 
 Note that to avoid uncommitted suppression files in your project's main branch, it is recommended to use
 `elm-review suppress --check-after-tests` at the end of your test suite.
