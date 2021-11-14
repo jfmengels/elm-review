@@ -1,13 +1,13 @@
 # elm-review suppress
 
-This feature comes from the frustration that it can be hard to a new rule. There are two choices when attempting to do so:
+This feature comes from the frustration that it can be hard to enable a new rule. There are two choices when attempting to do so:
 1. Fix all reported errors before enabling the rule. This means potentially a lot of work and/or delaying enabling the rule, which can cause new errors to be introduced in the meantime.
 2. Enable the rule, but ignore the errors for the files that are being reported.
 
 The suppression system aims to fix this problem.
 
 There are several ways to implement this, and different tools have chosen different strategies. This document outlines
-what I believed to be important in my opinion, and therefore why `suppress` works the way it does. There are a lot of
+what I believed to be important, and therefore why `suppress` works the way it does. There are a lot of
 trade-offs involved, so it does not get full marks everywhere, but overall I believe works pretty nicely.
 
 ### Make it easy to discern between purposefully ignored errors and temporarily suppressed errors.
