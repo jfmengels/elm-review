@@ -2666,7 +2666,8 @@ withDeclarationExitVisitor visitor (ModuleRuleSchema schema) =
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
 [declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Declaration)
 (`someVar = add 1 2`, `type Bool = True | False`, `port output : Json.Encode.Value -> Cmd msg`),
-collect data and/or report patterns.
+to collect data and/or report patterns. The declarations will be in the same
+order that they appear in the source code.
 
 It is similar to [withDeclarationVisitor](#withDeclarationVisitor), but the
 visitor used with this function is called before the visitor added with
