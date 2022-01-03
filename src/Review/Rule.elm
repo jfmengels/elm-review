@@ -1952,7 +1952,18 @@ withSimpleModuleDefinitionVisitor visitor schema =
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's comments.
 
-This visitor will give you access to the list of all comments in the module all at once.
+This visitor will give you access to the list of comments (in source order) in
+the module all at once. Note that comments that are parsed as doc comments by
+[`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/)
+are not included in this list.
+
+As such, the following comments are included (✅) / excluded (❌):
+
+  - ✅ Module doc comments (`{-| -}`)
+  - ✅ Port doc comments (`{-| -}`)
+  - ✅ Top-level comments not internal to a function/type/etc.
+  - ✅ Comments internal to a function/type/etc.
+  - ❌ Function/type/type alias doc comments (`{-| -}`)
 
 The following example forbids words like "TODO" appearing in a comment.
 
@@ -2311,7 +2322,18 @@ withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's comments, collect data in
 the `context` and/or report patterns.
 
-This visitor will give you access to the list of all comments in the module all at once.
+This visitor will give you access to the list of comments (in source order) in
+the module all at once. Note that comments that are parsed as doc comments by
+[`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/)
+are not included in this list.
+
+As such, the following comments are included (✅) / excluded (❌):
+
+  - ✅ Module doc comments (`{-| -}`)
+  - ✅ Port doc comments (`{-| -}`)
+  - ✅ Top-level comments not internal to a function/type/etc.
+  - ✅ Comments internal to a function/type/etc.
+  - ❌ Function/type/type alias doc comments (`{-| -}`)
 
 Tip: If you do not need to collect data in this visitor, you may wish to use the
 simpler [`withSimpleCommentsVisitor`](#withSimpleCommentsVisitor) function.
