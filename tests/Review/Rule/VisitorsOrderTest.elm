@@ -29,18 +29,20 @@ all =
                             |> Rule.withDependenciesModuleVisitor (\_ context -> context ++ "\n3.2 - withDependenciesModuleVisitor")
                             |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ++ "\n4.1 - withModuleDefinitionVisitor" ))
                             |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ++ "\n4.2 - withModuleDefinitionVisitor" ))
-                            |> Rule.withImportVisitor (\_ context -> ( [], context ++ "\n5.1 - withImportVisitor" ))
-                            |> Rule.withImportVisitor (\_ context -> ( [], context ++ "\n5.2 - withImportVisitor" ))
-                            |> Rule.withDeclarationListVisitor (\_ context -> ( [], context ++ "\n6.1 - withDeclarationListVisitor" ))
-                            |> Rule.withDeclarationListVisitor (\_ context -> ( [], context ++ "\n6.2 - withDeclarationListVisitor" ))
-                            |> Rule.withDeclarationEnterVisitor (\_ context -> ( [], context ++ "\n7.1 - withDeclarationEnterVisitor" ))
-                            |> Rule.withDeclarationEnterVisitor (\_ context -> ( [], context ++ "\n7.2 - withDeclarationEnterVisitor" ))
-                            |> Rule.withDeclarationExitVisitor (\_ context -> ( [], context ++ "\n10.2 - withDeclarationExitVisitor" ))
-                            |> Rule.withDeclarationExitVisitor (\_ context -> ( [], context ++ "\n10.1 - withDeclarationExitVisitor" ))
-                            |> Rule.withExpressionEnterVisitor (\_ context -> ( [], context ++ "\n8.1 - withExpressionEnterVisitor" ))
-                            |> Rule.withExpressionEnterVisitor (\_ context -> ( [], context ++ "\n8.2 - withExpressionEnterVisitor" ))
-                            |> Rule.withExpressionExitVisitor (\_ context -> ( [], context ++ "\n9.2 - withExpressionExitVisitor" ))
-                            |> Rule.withExpressionExitVisitor (\_ context -> ( [], context ++ "\n9.1 - withExpressionExitVisitor" ))
+                            |> Rule.withCommentsVisitor (\_ context -> ( [], context ++ "\n5.1 - withCommentsVisitor" ))
+                            |> Rule.withCommentsVisitor (\_ context -> ( [], context ++ "\n5.2 - withCommentsVisitor" ))
+                            |> Rule.withImportVisitor (\_ context -> ( [], context ++ "\n6.1 - withImportVisitor" ))
+                            |> Rule.withImportVisitor (\_ context -> ( [], context ++ "\n6.2 - withImportVisitor" ))
+                            |> Rule.withDeclarationListVisitor (\_ context -> ( [], context ++ "\n7.1 - withDeclarationListVisitor" ))
+                            |> Rule.withDeclarationListVisitor (\_ context -> ( [], context ++ "\n7.2 - withDeclarationListVisitor" ))
+                            |> Rule.withDeclarationEnterVisitor (\_ context -> ( [], context ++ "\n8.1 - withDeclarationEnterVisitor" ))
+                            |> Rule.withDeclarationEnterVisitor (\_ context -> ( [], context ++ "\n8.2 - withDeclarationEnterVisitor" ))
+                            |> Rule.withDeclarationExitVisitor (\_ context -> ( [], context ++ "\n11.2 - withDeclarationExitVisitor" ))
+                            |> Rule.withDeclarationExitVisitor (\_ context -> ( [], context ++ "\n11.1 - withDeclarationExitVisitor" ))
+                            |> Rule.withExpressionEnterVisitor (\_ context -> ( [], context ++ "\n9.1 - withExpressionEnterVisitor" ))
+                            |> Rule.withExpressionEnterVisitor (\_ context -> ( [], context ++ "\n9.2 - withExpressionEnterVisitor" ))
+                            |> Rule.withExpressionExitVisitor (\_ context -> ( [], context ++ "\n10.2 - withExpressionExitVisitor" ))
+                            |> Rule.withExpressionExitVisitor (\_ context -> ( [], context ++ "\n10.1 - withExpressionExitVisitor" ))
                             |> Rule.withFinalModuleEvaluation finalEvaluation
                             |> Rule.fromModuleRuleSchema
 
@@ -69,18 +71,20 @@ a = 1
 3.2 - withDependenciesModuleVisitor
 4.1 - withModuleDefinitionVisitor
 4.2 - withModuleDefinitionVisitor
-5.1 - withImportVisitor
-5.2 - withImportVisitor
-6.1 - withDeclarationListVisitor
-6.2 - withDeclarationListVisitor
-7.1 - withDeclarationEnterVisitor
-7.2 - withDeclarationEnterVisitor
-8.1 - withExpressionEnterVisitor
-8.2 - withExpressionEnterVisitor
-9.1 - withExpressionExitVisitor
-9.2 - withExpressionExitVisitor
-10.1 - withDeclarationExitVisitor
-10.2 - withDeclarationExitVisitor"""
+5.1 - withCommentsVisitor
+5.2 - withCommentsVisitor
+6.1 - withImportVisitor
+6.2 - withImportVisitor
+7.1 - withDeclarationListVisitor
+7.2 - withDeclarationListVisitor
+8.1 - withDeclarationEnterVisitor
+8.2 - withDeclarationEnterVisitor
+9.1 - withExpressionEnterVisitor
+9.2 - withExpressionEnterVisitor
+10.1 - withExpressionExitVisitor
+10.2 - withExpressionExitVisitor
+11.1 - withDeclarationExitVisitor
+11.2 - withDeclarationExitVisitor"""
                             , details = [ "details" ]
                             , under = "module"
                             }
