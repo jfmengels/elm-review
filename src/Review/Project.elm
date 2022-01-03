@@ -174,7 +174,7 @@ sanitizeModule module_ =
 
 reorderComments : Elm.Syntax.File.File -> Elm.Syntax.File.File
 reorderComments ast =
-    { ast | comments = List.sortBy (Node.range >> .start >> positionAsInt >> negate) ast.comments }
+    { ast | comments = List.sortBy (Node.range >> .start >> positionAsInt) ast.comments }
 
 
 addFileThatFailedToParse : { path : String, source : String } -> Project -> Project
