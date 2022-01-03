@@ -12,7 +12,7 @@ all =
     describe "Review.Rule.withDeclarationListVisitor"
         [ test "passes the list of declarations to the rule" <|
             \() ->
-                Review.Test.run rule """module ModuleName exposing (b)
+                Review.Test.run rule """port module ModuleName exposing (b)
 type A = Bar | Baz
 a_ = 1
 b_ = 2
@@ -20,29 +20,9 @@ port output : Json.Encode.Value -> Cmd msg
 port input : (Json.Decode.Value -> msg) -> Sub msg"""
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "A"
-                            , details = [ "some details" ]
-                            , under = "A"
-                            }
-                        , Review.Test.error
-                            { message = "a_"
-                            , details = [ "some details" ]
-                            , under = "a_"
-                            }
-                        , Review.Test.error
-                            { message = "b_"
-                            , details = [ "some details" ]
-                            , under = "b_"
-                            }
-                        , Review.Test.error
-                            { message = "output"
-                            , details = [ "some details" ]
-                            , under = "output"
-                            }
-                        , Review.Test.error
-                            { message = "input"
-                            , details = [ "some details" ]
-                            , under = "input"
+                            { message = "Declarations"
+                            , details = [ "A", "a_", "b_", "output", "input" ]
+                            , under = "port module"
                             }
                         ]
         ]
@@ -58,8 +38,8 @@ rule =
 declarationListVisitor : List (Node Declaration) -> () -> ( List (Error {}), () )
 declarationListVisitor declarations context =
     let
-        errors : List (Error {})
-        errors =
+        namesInOrder : List (Node String)
+        namesInOrder =
             List.concatMap
                 (\node ->
                     case Node.value node of
@@ -67,20 +47,16 @@ declarationListVisitor declarations context =
                             [ function.declaration
                                 |> Node.value
                                 |> .name
-                                |> errorFromNode
                             ]
 
                         Declaration.AliasDeclaration aliasDeclaration ->
-                            [ errorFromNode aliasDeclaration.name
-                            ]
+                            [ aliasDeclaration.name ]
 
                         Declaration.CustomTypeDeclaration type_ ->
-                            [ errorFromNode type_.name
-                            ]
+                            [ type_.name ]
 
                         Declaration.PortDeclaration signature ->
-                            [ errorFromNode signature.name
-                            ]
+                            [ signature.name ]
 
                         Declaration.InfixDeclaration _ ->
                             []
@@ -90,18 +66,13 @@ declarationListVisitor declarations context =
                 )
                 declarations
     in
-    ( errors, context )
-
-
-errorFromNode : Node String -> Error {}
-errorFromNode nameNode =
-    Rule.error
-        { message = Node.value nameNode
-        , details = details
-        }
-        (Node.range nameNode)
-
-
-details : List String
-details =
-    [ "some details" ]
+    ( [ Rule.error
+            { message = "Declarations"
+            , details = List.map Node.value namesInOrder
+            }
+            { start = { row = 1, column = 1 }
+            , end = { row = 1, column = 12 }
+            }
+      ]
+    , context
+    )
