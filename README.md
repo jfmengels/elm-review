@@ -90,7 +90,7 @@ Before you start adding rules though, I suggest reading the rest of this documen
 ## Write your own rule
 
 You can write your own rule using this package's API and [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/).
-Check out the [`Review.Rule`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.6.1/Review-Rule/) documentation for how to get started.
+Check out the [`Review.Rule`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.6.2/Review-Rule/) documentation for how to get started.
 
 **NOTE**: If you want to **create a package** containing `elm-review` rules, I highly recommend using the
 [CLI's](https://github.com/jfmengels/node-elm-review/) `elm-review new-package` subcommand. This will create a new package that will help you use the best practices and give you helpful tools like easy auto-publishing. More information is available in the maintenance file generated along with it.
@@ -210,7 +210,7 @@ It does provide 2 systems that I think are better alternatives for the health of
 
 ### Configuring exceptions
 
-You can [configure exceptions ](https://package.elm-lang.org/packages/jfmengels/elm-review/2.6.1/Review-Rule/#configuring-exceptions),
+You can [configure exceptions](https://package.elm-lang.org/packages/jfmengels/elm-review/2.6.2/Review-Rule/#configuring-exceptions),
 which consists of marking specific directories or files as not relevant to a rule or set of rules, preventing errors to be reported for those.
 
 It is a good fit if you wish for `elm-review` to not report errors in vendored or generated code,
