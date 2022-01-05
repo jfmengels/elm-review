@@ -169,7 +169,7 @@ The traversal of a module rule is the following:
       - Each declaration, visited in the following order:
           - [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) and [`withDeclarationEnterVisitor`](#withDeclarationEnterVisitor)
           - The expression contained in the declaration will be visited recursively by [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor), [`withExpressionEnterVisitor`](#withExpressionEnterVisitor) and [`withExpressionExitVisitor`](#withExpressionExitVisitor).
-          - [`withDeclarationExitVisitor`](#withDeclarationExitVisitor).
+          - [`withDeclarationExitVisitor`](#withDeclarationExitVisitor)
       - A final evaluation is made when the module has fully been visited, using [`withFinalModuleEvaluation`](#withFinalModuleEvaluation)
 
 Evaluating/visiting a node means two things:
