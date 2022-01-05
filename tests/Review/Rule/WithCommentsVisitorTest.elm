@@ -6,13 +6,9 @@ import Review.Test
 import Test exposing (Test, describe, test)
 
 
-type alias Context =
-    List String
-
-
 all : Test
 all =
-    describe "Review.Rule.withCommentsVisitorVisitor"
+    describe "Review.Rule.withCommentsVisitor"
         [ test "passes the list of comments in source order to the rule" <|
             \() ->
                 Review.Test.run rule """port module ModuleName exposing (a)
@@ -75,21 +71,15 @@ port output : Json.Encode.Value -> Cmd msg
 
 rule : Rule
 rule =
-    Rule.newModuleRuleSchema "WithCommentsVisitorTestRule" []
-        |> Rule.withCommentsVisitor commentsVisitor
-        |> Rule.withFinalModuleEvaluation finalEvaluation
+    Rule.newModuleRuleSchema "WithCommentsVisitorTestRule" ()
+        |> Rule.withSimpleCommentsVisitor commentsVisitor
         |> Rule.fromModuleRuleSchema
 
 
-finalEvaluation : Context -> List (Error {})
-finalEvaluation context =
-    [ Rule.error { message = "comments", details = context }
+commentsVisitor : List (Node String) -> List (Error {})
+commentsVisitor comments =
+    [ Rule.error { message = "comments", details = List.map Node.value comments }
         { start = { row = 1, column = 1 }
         , end = { row = 1, column = 12 }
         }
     ]
-
-
-commentsVisitor : List (Node String) -> Context -> ( List (Error {}), Context )
-commentsVisitor comments _ =
-    ( [], List.map Node.value comments )
