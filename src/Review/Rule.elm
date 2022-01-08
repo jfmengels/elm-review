@@ -1931,7 +1931,7 @@ The following example forbids having `_` in any part of a module name.
 
     moduleDefinitionVisitor : Node Module -> List (Error {})
     moduleDefinitionVisitor node =
-        if List.any (String.contains "") (Node.value node |> Module.moduleName) then
+        if List.any (String.contains "_") (Node.value node |> Module.moduleName) then
             [ Rule.error
                 { message = "Do not use `_` in a module name"
                 , details = [ "By convention, Elm modules names use Pascal case (like `MyModuleName`). Please rename your module using this format." ]
