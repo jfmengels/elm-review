@@ -212,6 +212,7 @@ It does provide 2 systems that I think are better alternatives for the health of
 
 You can [configure exceptions](https://package.elm-lang.org/packages/jfmengels/elm-review/2.6.2/Review-Rule/#configuring-exceptions),
 which consists of marking specific directories or files as not relevant to a rule or set of rules, preventing errors to be reported for those.
+You can also define rules that will only run on specific directories or files.
 
 It is a good fit if you wish for `elm-review` to not report errors in vendored or generated code,
 or in files and directories that by the nature of the rule should be exempted.
