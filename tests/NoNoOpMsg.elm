@@ -78,7 +78,7 @@ error node =
     Rule.error
         { message = "Don't use NoOp, give it a better name"
         , details =
-            [ "A Msg name should explain what happened. NoOp means tat nothing happened."
+            [ "A Msg name should explain what happened. NoOp means that nothing happened."
             , "Even if you don't care about handling the event, give it a name that describes what happened."
             , "@noahzgordon's talk on it: https://www.youtube.com/watch?v=w6OVDBqergc"
             ]

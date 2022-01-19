@@ -53,7 +53,7 @@ Development process loop, which is:
     implementation. You should not add support for new patterns, as you will
     want to write tests for those first.
 
-Then repeat for every pattern yoy wish to handle.
+Then repeat for every pattern you wish to handle.
 
 
 ## Have a good title
