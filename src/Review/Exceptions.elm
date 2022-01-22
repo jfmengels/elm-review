@@ -1,8 +1,7 @@
 module Review.Exceptions exposing
     ( Exceptions
     , init
-    , ignoreDirectories, ignoreFiles
-    , allowDirectories, allowFiles
+    , addDirectories, addFiles
     , apply
     )
 
@@ -10,8 +9,7 @@ module Review.Exceptions exposing
 
 @docs Exceptions
 @docs init
-@docs ignoreDirectories, ignoreFiles
-@docs allowDirectories, allowFiles
+@docs addDirectories, addFiles
 @docs apply
 
 -}
@@ -21,25 +19,21 @@ import Set exposing (Set)
 
 type Exceptions
     = Exceptions
-        { ignoredDirectories : List String
-        , ignoredFiles : Set String
-        , allowedDirectories : Maybe (List String)
-        , allowedFiles : Maybe (Set String)
+        { directories : List String
+        , files : Set String
         }
 
 
 init : Exceptions
 init =
     Exceptions
-        { ignoredDirectories = []
-        , ignoredFiles = Set.empty
-        , allowedDirectories = Nothing
-        , allowedFiles = Nothing
+        { directories = []
+        , files = Set.empty
         }
 
 
-ignoreDirectories : List String -> Exceptions -> Exceptions
-ignoreDirectories directories (Exceptions ({ ignoredDirectories } as exceptions)) =
+addDirectories : List String -> Exceptions -> Exceptions
+addDirectories directories (Exceptions exceptions) =
     let
         cleanedDirectories : List String
         cleanedDirectories =
@@ -55,11 +49,14 @@ ignoreDirectories directories (Exceptions ({ ignoredDirectories } as exceptions)
                            )
                     )
     in
-    Exceptions { exceptions | ignoredDirectories = cleanedDirectories ++ ignoredDirectories }
+    Exceptions
+        { directories = cleanedDirectories ++ exceptions.directories
+        , files = exceptions.files
+        }
 
 
-ignoreFiles : List String -> Exceptions -> Exceptions
-ignoreFiles files (Exceptions ({ ignoredFiles } as exceptions)) =
+addFiles : List String -> Exceptions -> Exceptions
+addFiles files (Exceptions exceptions) =
     let
         cleanedFiles : Set String
         cleanedFiles =
@@ -67,93 +64,34 @@ ignoreFiles files (Exceptions ({ ignoredFiles } as exceptions)) =
                 |> List.map makePathOSAgnostic
                 |> Set.fromList
     in
-    Exceptions { exceptions | ignoredFiles = Set.union cleanedFiles ignoredFiles }
-
-
-allowDirectories : List String -> Exceptions -> Exceptions
-allowDirectories directories (Exceptions ({ allowedDirectories } as exceptions)) =
-    let
-        cleanedDirectories : List String
-        cleanedDirectories =
-            directories
-                |> List.map
-                    (makePathOSAgnostic
-                        >> (\dir ->
-                                if String.endsWith "/" dir then
-                                    dir
-
-                                else
-                                    dir ++ "/"
-                           )
-                    )
-    in
-    case allowedDirectories of
-        Nothing ->
-            Exceptions { exceptions | allowedDirectories = Just cleanedDirectories }
-
-        Just existingDirectories ->
-            Exceptions { exceptions | allowedDirectories = Just (cleanedDirectories ++ existingDirectories) }
-
-
-allowFiles : List String -> Exceptions -> Exceptions
-allowFiles files (Exceptions ({ allowedFiles } as exceptions)) =
-    let
-        cleanedFiles : Set String
-        cleanedFiles =
-            files
-                |> List.map makePathOSAgnostic
-                |> Set.fromList
-    in
-    case allowedFiles of
-        Nothing ->
-            Exceptions { exceptions | allowedFiles = Just cleanedFiles }
-
-        Just existingFiles ->
-            Exceptions { exceptions | allowedFiles = Just (Set.union cleanedFiles existingFiles) }
+    Exceptions
+        { files = Set.union cleanedFiles exceptions.files
+        , directories = exceptions.directories
+        }
 
 
 apply : Exceptions -> (a -> String) -> List a -> List a
 apply (Exceptions exceptions) getPath items =
-    items
-        |> List.filter (getPath >> shouldBeConsidered exceptions)
-        |> List.filter (getPath >> shouldBeIgnored exceptions >> not)
+    if Set.isEmpty exceptions.files && List.isEmpty exceptions.directories then
+        items
+
+    else
+        List.filter (getPath >> shouldBeIgnored exceptions >> not) items
 
 
-shouldBeIgnored : { a | ignoredDirectories : List String, ignoredFiles : Set String } -> String -> Bool
+shouldBeIgnored : { directories : List String, files : Set String } -> String -> Bool
 shouldBeIgnored exceptions path =
     let
         cleanedPath : String
         cleanedPath =
             makePathOSAgnostic path
     in
-    Set.member cleanedPath exceptions.ignoredFiles
-        || isInOneDirectory exceptions.ignoredDirectories cleanedPath
+    Set.member cleanedPath exceptions.files
+        || isInAnIgnoredDirectory exceptions.directories cleanedPath
 
 
-shouldBeConsidered : { a | allowedDirectories : Maybe (List String), allowedFiles : Maybe (Set String) } -> String -> Bool
-shouldBeConsidered exceptions path =
-    let
-        cleanedPath : String
-        cleanedPath =
-            makePathOSAgnostic path
-    in
-    case ( exceptions.allowedDirectories, exceptions.allowedFiles ) of
-        ( Nothing, Nothing ) ->
-            True
-
-        ( Just allowedDirectories, Nothing ) ->
-            isInOneDirectory allowedDirectories cleanedPath
-
-        ( Nothing, Just allowedFiles ) ->
-            Set.member cleanedPath allowedFiles
-
-        ( Just allowedDirectories, Just allowedFiles ) ->
-            isInOneDirectory allowedDirectories cleanedPath
-                || Set.member cleanedPath allowedFiles
-
-
-isInOneDirectory : List String -> String -> Bool
-isInOneDirectory directories path =
+isInAnIgnoredDirectory : List String -> String -> Bool
+isInAnIgnoredDirectory directories path =
     List.any (\dir -> String.startsWith dir path) directories
 
 

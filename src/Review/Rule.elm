@@ -17,7 +17,7 @@ module Review.Rule exposing
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , globalError, configurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
-    , ignoreErrorsForDirectories, ignoreErrorsForFiles, onlyAllowErrorsForSpecifiedDirectories, onlyAllowErrorsForSpecifiedFiles
+    , ignoreErrorsForDirectories, ignoreErrorsForFiles
     , review, reviewV2, ProjectData, ruleName, getConfigurationError
     , Required, Forbidden
     )
@@ -240,10 +240,9 @@ There are situations where you don't want review rules to report errors:
 1.  You copied and updated over an external library because one of your needs wasn't met, and you don't want to modify it more than necessary.
 2.  Your project contains generated source code, over which you have no control or for which you do not care that some rules are enforced (like the reports of unused variables).
 3.  You want to introduce a rule progressively, because there are too many errors in the project for you to fix in one go. You can then ignore the parts of the project where the problem has not yet been solved, and fix them as you go.
-4.  You wrote a rule that is very specific and should only be applied to a portion of your code.
-5.  You wish to disable some rules for tests files (or enable some only for tests).
+4.  You wish to disable some rules for tests files (or enable some only for tests).
 
-You can use the following functions to ignore errors in directories or files, or only report errors found in specific locations.
+You can use the following functions to ignore errors in directories or files.
 
 **NOTE**: Even though they can be used to disable any errors, I **strongly recommend against**
 doing so if you are not in the situations listed above. I highly recommend you
@@ -251,7 +250,7 @@ leave a comment explaining the reason why you use these functions, or to
 communicate with your colleagues if you see them adding exceptions without
 reason or seemingly inappropriately.
 
-@docs ignoreErrorsForDirectories, ignoreErrorsForFiles, onlyAllowErrorsForSpecifiedDirectories, onlyAllowErrorsForSpecifiedFiles
+@docs ignoreErrorsForDirectories, ignoreErrorsForFiles
 
 
 # Running rules
@@ -3700,9 +3699,6 @@ The paths should be relative to the `elm.json` file, just like the ones for the
 You can apply `ignoreErrorsForDirectories`several times for a rule, to add more
 ignored directories.
 
-When "onlyAllowErrorsForSpecified" functions are used in combination, the rule will only be
-applied to the allowed directories but a subset of those files may be ignored.
-
 You can also use it when writing a rule. We can hardcode in the rule that a rule
 is not applicable to a folder, like `tests/` for instance. The following example
 forbids using `Debug.todo` anywhere in the code, except in tests.
@@ -3737,7 +3733,7 @@ ignoreErrorsForDirectories : List String -> Rule -> Rule
 ignoreErrorsForDirectories directories (Rule rule) =
     Rule
         { name = rule.name
-        , exceptions = Exceptions.ignoreDirectories directories rule.exceptions
+        , exceptions = Exceptions.addDirectories directories rule.exceptions
         , requestedData = rule.requestedData
         , ruleImplementation = rule.ruleImplementation
         , configurationError = rule.configurationError
@@ -3770,9 +3766,6 @@ The paths should be relative to the `elm.json` file, just like the ones for the
 
 You can apply `ignoreErrorsForFiles` several times for a rule, to add more
 ignored files.
-
-When "onlyAllowErrorsForSpecified" functions are used in combination, the rule will only be
-applied to the allowed directories but a subset of those files may be ignored.
 
 You can also use it when writing a rule. We can simplify the example from [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
 by hardcoding an exception into the rule (that forbids the use of `Html.button` except in the "Button" module).
@@ -3808,153 +3801,7 @@ ignoreErrorsForFiles : List String -> Rule -> Rule
 ignoreErrorsForFiles files (Rule rule) =
     Rule
         { name = rule.name
-        , exceptions = Exceptions.ignoreFiles files rule.exceptions
-        , requestedData = rule.requestedData
-        , ruleImplementation = rule.ruleImplementation
-        , configurationError = rule.configurationError
-        }
-
-
-{-| Ony allow the errors reported for modules in specific directories of the project.
-
-Use it for rules that are written specifically for a portion of your code.
-
-    config : List Rule
-    config =
-        [ Some.Rule.For.Tests.rule
-            |> Rule.onlyAllowErrorsForSpecifiedDirectories [ "tests/" ]
-        , Some.Other.Rule.rule
-        ]
-
-If you want to only allow some directories for all of your rules, you can apply
-`onlyAllowErrorsForSpecifiedDirectories` like this:
-
-    config : List Rule
-    config =
-        [ Some.Rule.For.Tests.rule
-        , Some.Other.Rule.rule
-        ]
-            |> List.map (Rule.onlyAllowErrorsForSpecifiedDirectories [ "tests/" ])
-
-The paths should be relative to the `elm.json` file, just like the ones for the
-`elm.json`'s `source-directories`.
-
-You can apply `onlyAllowErrorsForSpecifiedDirectories`several times for a rule, to
-allow more directories.
-
-When "ignoreErrors" functions are used in combination, the rule will only be applied
-to the allowed directories but a subset of those files may be ignored.
-
-You can also use it when writing a rule. We can hardcode in the rule that a rule
-is only applicable to a folder, like `src/api/` for instance. The following example
-forbids using strings with hardcoded URLs, but only in the `src/api/` folder.
-
-    import Elm.Syntax.Expression as Expression exposing (Expression)
-    import Elm.Syntax.Node as Node exposing (Node)
-    import Review.Rule as Rule exposing (Error, Rule)
-
-    rule : Rule
-    rule =
-        Rule.newModuleRuleSchema "NoHardcodedURLs" ()
-            |> Rule.withSimpleExpressionVisitor expressionVisitor
-            |> Rule.fromModuleRuleSchema
-            |> Rule.onlyAllowErrorsForSpecifiedDirectories [ "src/api/" ]
-
-    expressionVisitor : Node Expression -> List (Error {})
-    expressionVisitor node =
-        case Node.value node of
-            Expression.Literal string ->
-                if isUrl string then
-                    [ Rule.error
-                        { message = "Do not use hardcoded URLs in the API modules"
-                        , details = [ "Hardcoded URLs should never make it to production. Please refer to the documentation of the `Endpoint` module." ]
-                        }
-                        (Node.range node)
-                    ]
-
-                else
-                    []
-
-            _ ->
-                []
-
--}
-onlyAllowErrorsForSpecifiedDirectories : List String -> Rule -> Rule
-onlyAllowErrorsForSpecifiedDirectories directories (Rule rule) =
-    Rule
-        { name = rule.name
-        , exceptions = Exceptions.allowDirectories directories rule.exceptions
-        , requestedData = rule.requestedData
-        , ruleImplementation = rule.ruleImplementation
-        , configurationError = rule.configurationError
-        }
-
-
-{-| Only allow the errors reported for specific file paths.
-
-Use it for rules that are written specifically for a portion of your code.
-
-    config : List Rule
-    config =
-        [ Some.Rule.rule
-            |> Rule.onlyAllowErrorsForSpecifiedFiles [ "src/Some/File.elm" ]
-        , Some.Other.Rule.rule
-        ]
-
-If you want to ignore some files for all of your rules, you can apply
-`onlyAllowErrorsForSpecifiedFiles` like this:
-
-    config : List Rule
-    config =
-        [ Some.Rule.rule
-        , Some.Other.Rule.rule
-        ]
-            |> List.map (Rule.onlyAllowErrorsForSpecifiedFiles [ "src/Some/File.elm" ])
-
-The paths should be relative to the `elm.json` file, just like the ones for the
-`elm.json`'s `source-directories`.
-
-You can apply `onlyAllowErrorsForSpecifiedFiles` several times for a rule, to add more
-ignored files.
-
-When "ignoreErrors" functions are used in combination, the rule will only be
-applied to the allowed directories but a subset of those files may be ignored.
-
-You can also use it when writing a rule. In the following example, we want to avoid
-the use of endpoints to a deprecated API, but only in the "Endpoint" module.
-
-    import Elm.Syntax.Expression as Expression exposing (Expression)
-    import Elm.Syntax.Module as Module exposing (Module)
-    import Elm.Syntax.Node as Node exposing (Node)
-    import Review.Rule as Rule exposing (Direction, Error, Rule)
-
-    rule : Rule
-    rule =
-        Rule.newModuleRuleSchema "DoNotUseDeprecatedAPI"
-            |> Rule.withSimpleExpressionVisitor expressionVisitor
-            |> Rule.fromModuleRuleSchema
-            |> Rule.onlyAllowErrorsForSpecifiedFiles [ "src/Endpoint.elm" ]
-
-    expressionVisitor : Node Expression -> List (Error {})
-    expressionVisitor node context =
-        case Node.value node of
-            Expression.Literal "v1" ->
-                [ Rule.error
-                    { message = "Do not use version 1 of the API"
-                    , details = [ "Version 1 of the API has been deprecated. Prefer the use of version 2." ]
-                    }
-                    (Node.range node)
-                ]
-
-            _ ->
-                []
-
--}
-onlyAllowErrorsForSpecifiedFiles : List String -> Rule -> Rule
-onlyAllowErrorsForSpecifiedFiles files (Rule rule) =
-    Rule
-        { name = rule.name
-        , exceptions = Exceptions.allowFiles files rule.exceptions
+        , exceptions = Exceptions.addFiles files rule.exceptions
         , requestedData = rule.requestedData
         , ruleImplementation = rule.ruleImplementation
         , configurationError = rule.configurationError
