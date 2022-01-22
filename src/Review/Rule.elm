@@ -3840,8 +3840,8 @@ compounded, following exactly the behavior of `List.filter`.
 When "ignoreErrors" functions are used in combination, all constraints are observed.
 
 You can also use it when writing a rule. We can hardcode in the rule that a rule
-is only applicable to a folder, like `src/api/` for instance. The following example
-forbids using strings with hardcoded URLs, but only in the `src/api/` folder.
+is only applicable to a folder, like `src/Api/` for instance. The following example
+forbids using strings with hardcoded URLs, but only in the `src/Api/` folder.
 
      import Elm.Syntax.Expression as Expression exposing (Expression)
      import Elm.Syntax.Node as Node exposing (Node)
@@ -3852,7 +3852,7 @@ forbids using strings with hardcoded URLs, but only in the `src/api/` folder.
          Rule.newModuleRuleSchema "NoHardcodedURLs" ()
              |> Rule.withSimpleExpressionVisitor expressionVisitor
              |> Rule.fromModuleRuleSchema
-             |> Rule.filterErrors (String.startsWith "src/api/")
+             |> Rule.filterErrors (String.startsWith "src/Api/")
 
      expressionVisitor : Node Expression -> List (Error {})
      expressionVisitor node =
