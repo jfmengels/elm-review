@@ -12,7 +12,7 @@
             "elm/parser": "1.1.0",
             "elm/project-metadata-utils": "1.0.2",
             "elm/regex": "1.0.0",
-            "jfmengels/elm-review": "2.4.0",
+            "jfmengels/elm-review": "2.6.2",
             "stil4m/elm-syntax": "7.2.3"
         },
         "indirect": {
