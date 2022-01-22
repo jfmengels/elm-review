@@ -2,6 +2,7 @@ module Review.Exceptions exposing
     ( Exceptions
     , init
     , addDirectories, addFiles
+    , addFilter
     , apply
     )
 
@@ -10,6 +11,7 @@ module Review.Exceptions exposing
 @docs Exceptions
 @docs init
 @docs addDirectories, addFiles
+@docs addFilter
 @docs apply
 
 -}
@@ -17,23 +19,22 @@ module Review.Exceptions exposing
 import Set exposing (Set)
 
 
-type Exceptions
-    = Exceptions
-        { directories : List String
-        , files : Set String
-        }
+type alias Exceptions =
+    List (String -> Bool)
 
 
 init : Exceptions
 init =
-    Exceptions
-        { directories = []
-        , files = Set.empty
-        }
+    []
+
+
+addFilter : (String -> Bool) -> Exceptions -> Exceptions
+addFilter =
+    (::)
 
 
 addDirectories : List String -> Exceptions -> Exceptions
-addDirectories directories (Exceptions exceptions) =
+addDirectories directories =
     let
         cleanedDirectories : List String
         cleanedDirectories =
@@ -49,14 +50,11 @@ addDirectories directories (Exceptions exceptions) =
                            )
                     )
     in
-    Exceptions
-        { directories = cleanedDirectories ++ exceptions.directories
-        , files = exceptions.files
-        }
+    addFilter (isInAnIgnoredDirectory cleanedDirectories >> not)
 
 
 addFiles : List String -> Exceptions -> Exceptions
-addFiles files (Exceptions exceptions) =
+addFiles files =
     let
         cleanedFiles : Set String
         cleanedFiles =
@@ -64,30 +62,16 @@ addFiles files (Exceptions exceptions) =
                 |> List.map makePathOSAgnostic
                 |> Set.fromList
     in
-    Exceptions
-        { files = Set.union cleanedFiles exceptions.files
-        , directories = exceptions.directories
-        }
+    addFilter (\file -> Set.member file cleanedFiles |> not)
 
 
 apply : Exceptions -> (a -> String) -> List a -> List a
-apply (Exceptions exceptions) getPath items =
-    if Set.isEmpty exceptions.files && List.isEmpty exceptions.directories then
-        items
-
-    else
-        List.filter (getPath >> shouldBeIgnored exceptions >> not) items
-
-
-shouldBeIgnored : { directories : List String, files : Set String } -> String -> Bool
-shouldBeIgnored exceptions path =
+apply conditions getPath items =
     let
-        cleanedPath : String
-        cleanedPath =
-            makePathOSAgnostic path
+        allConditions path =
+            List.all (\condition -> condition path) conditions
     in
-    Set.member cleanedPath exceptions.files
-        || isInAnIgnoredDirectory exceptions.directories cleanedPath
+    List.filter (getPath >> makePathOSAgnostic >> allConditions) items
 
 
 isInAnIgnoredDirectory : List String -> String -> Bool
