@@ -19,18 +19,18 @@ module Review.Exceptions exposing
 import Set exposing (Set)
 
 
-type alias Exceptions =
-    List (String -> Bool)
+type Exceptions
+    = Exceptions (List (String -> Bool))
 
 
 init : Exceptions
 init =
-    []
+    Exceptions []
 
 
 addFilter : (String -> Bool) -> Exceptions -> Exceptions
-addFilter =
-    (::)
+addFilter condition (Exceptions conditions) =
+    Exceptions (condition :: conditions)
 
 
 addDirectories : List String -> Exceptions -> Exceptions
@@ -66,7 +66,7 @@ addFiles files =
 
 
 apply : Exceptions -> (a -> String) -> List a -> List a
-apply conditions getPath items =
+apply (Exceptions conditions) getPath items =
     let
         allConditions path =
             List.all (\condition -> condition path) conditions
