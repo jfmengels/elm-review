@@ -243,7 +243,7 @@ There are situations where you don't want review rules to report errors:
 4.  You wrote a rule that is very specific and should only be applied to a portion of your code.
 5.  You wish to disable some rules for tests files (or enable some only for tests).
 
-You can use the following functions to ignore errors in directories or files, or only report errors found in specific locations.
+You can use the following functions to ignore errors in directories or files, or only report errors found in specific directories or files.
 
 **NOTE**: Even though they can be used to disable any errors, I **strongly recommend against**
 doing so if you are not in the situations listed above. I highly recommend you
@@ -3832,7 +3832,7 @@ If you want to specify a condition for all of your rules, you can apply
              |> List.map (Rule.filterErrors (String.startsWith "tests/"))
 
 The received paths will be relative to the `elm.json` file, just like the ones for the
-`elm.json`'s `source-directories`, and will be formated in the Unix style `src/Some/File.elm`.
+`elm.json`'s `source-directories`, and will be formatted in the Unix style `src/Some/File.elm`.
 
 You can apply `filterErrors` several times for a rule, the conditions will get
 compounded, following exactly the behavior of `List.filter`.
