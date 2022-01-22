@@ -68,6 +68,7 @@ addFiles files =
 apply : Exceptions -> (a -> String) -> List a -> List a
 apply (Exceptions conditions) getPath items =
     let
+        allConditions : String -> Bool
         allConditions path =
             List.all (\condition -> condition path) conditions
     in
