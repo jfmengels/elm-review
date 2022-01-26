@@ -17,7 +17,7 @@ module Review.Rule exposing
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , globalError, configurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
-    , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrors
+    , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , review, reviewV2, ProjectData, ruleName, getConfigurationError
     , Required, Forbidden
     )
@@ -251,7 +251,7 @@ leave a comment explaining the reason why you use these functions, or to
 communicate with your colleagues if you see them adding exceptions without
 reason or seemingly inappropriately.
 
-@docs ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrors
+@docs ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
 
 
 # Running rules
@@ -3817,24 +3817,24 @@ might have written a rule that should only be applied to one specific file.
     config : List Rule
     config =
         [ Some.Rule.rule
-            |> Rule.filterErrors (\path -> path == "src/Some/File.elm")
+            |> Rule.filterErrorsForFiles (\path -> path == "src/Some/File.elm")
         , Some.Other.Rule.rule
         ]
 
 If you want to specify a condition for all of your rules, you can apply
-`filterErrors` like this:
+`filterErrorsForFiles` like this:
 
      config : List Rule
      config =
          [ Some.Rule.For.Tests.rule
          , Some.Other.Rule.rule
          ]
-             |> List.map (Rule.filterErrors (String.startsWith "tests/"))
+             |> List.map (Rule.filterErrorsForFiles (String.startsWith "tests/"))
 
 The received paths will be relative to the `elm.json` file, just like the ones for the
 `elm.json`'s `source-directories`, and will be formatted in the Unix style `src/Some/File.elm`.
 
-You can apply `filterErrors` several times for a rule, the conditions will get
+You can apply `filterErrorsForFiles` several times for a rule, the conditions will get
 compounded, following exactly the behavior of `List.filter`.
 
 When "ignoreErrors" functions are used in combination, all constraints are observed.
@@ -3852,7 +3852,7 @@ forbids using strings with hardcoded URLs, but only in the `src/Api/` folder.
          Rule.newModuleRuleSchema "NoHardcodedURLs" ()
              |> Rule.withSimpleExpressionVisitor expressionVisitor
              |> Rule.fromModuleRuleSchema
-             |> Rule.filterErrors (String.startsWith "src/Api/")
+             |> Rule.filterErrorsForFiles (String.startsWith "src/Api/")
 
      expressionVisitor : Node Expression -> List (Error {})
      expressionVisitor node =
@@ -3873,8 +3873,8 @@ forbids using strings with hardcoded URLs, but only in the `src/Api/` folder.
                  []
 
 -}
-filterErrors : (String -> Bool) -> Rule -> Rule
-filterErrors condition (Rule rule) =
+filterErrorsForFiles : (String -> Bool) -> Rule -> Rule
+filterErrorsForFiles condition (Rule rule) =
     Rule
         { name = rule.name
         , exceptions = Exceptions.addFilter condition rule.exceptions
