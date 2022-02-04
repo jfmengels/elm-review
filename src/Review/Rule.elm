@@ -17,7 +17,7 @@ module Review.Rule exposing
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , globalError, configurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
-    , ignoreErrorsForDirectories, ignoreErrorsForFiles
+    , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , review, reviewV2, ProjectData, ruleName, getConfigurationError
     , Required, Forbidden
     )
@@ -240,9 +240,10 @@ There are situations where you don't want review rules to report errors:
 1.  You copied and updated over an external library because one of your needs wasn't met, and you don't want to modify it more than necessary.
 2.  Your project contains generated source code, over which you have no control or for which you do not care that some rules are enforced (like the reports of unused variables).
 3.  You want to introduce a rule progressively, because there are too many errors in the project for you to fix in one go. You can then ignore the parts of the project where the problem has not yet been solved, and fix them as you go.
-4.  You wish to disable some rules for tests files (or enable some only for tests).
+4.  You wrote a rule that is very specific and should only be applied to a portion of your code.
+5.  You wish to disable some rules for tests files (or enable some only for tests).
 
-You can use the following functions to ignore errors in directories or files.
+You can use the following functions to ignore errors in directories or files, or only report errors found in specific directories or files.
 
 **NOTE**: Even though they can be used to disable any errors, I **strongly recommend against**
 doing so if you are not in the situations listed above. I highly recommend you
@@ -250,7 +251,7 @@ leave a comment explaining the reason why you use these functions, or to
 communicate with your colleagues if you see them adding exceptions without
 reason or seemingly inappropriately.
 
-@docs ignoreErrorsForDirectories, ignoreErrorsForFiles
+@docs ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
 
 
 # Running rules
@@ -3802,6 +3803,81 @@ ignoreErrorsForFiles files (Rule rule) =
     Rule
         { name = rule.name
         , exceptions = Exceptions.addFiles files rule.exceptions
+        , requestedData = rule.requestedData
+        , ruleImplementation = rule.ruleImplementation
+        , configurationError = rule.configurationError
+        }
+
+
+{-| Ignore the errors reported for file paths that fail a condition.
+
+Use it to control precisely which files the rule is applied to. For example, you
+might have written a rule that should only be applied to one specific file.
+
+    config : List Rule
+    config =
+        [ Some.Rule.rule
+            |> Rule.filterErrorsForFiles (\path -> path == "src/Some/File.elm")
+        , Some.Other.Rule.rule
+        ]
+
+If you want to specify a condition for all of your rules, you can apply
+`filterErrorsForFiles` like this:
+
+     config : List Rule
+     config =
+         [ Some.Rule.For.Tests.rule
+         , Some.Other.Rule.rule
+         ]
+             |> List.map (Rule.filterErrorsForFiles (String.startsWith "tests/"))
+
+The received paths will be relative to the `elm.json` file, just like the ones for the
+`elm.json`'s `source-directories`, and will be formatted in the Unix style `src/Some/File.elm`.
+
+You can apply `filterErrorsForFiles` several times for a rule, the conditions will get
+compounded, following exactly the behavior of `List.filter`.
+
+When "ignoreErrors" functions are used in combination, all constraints are observed.
+
+You can also use it when writing a rule. We can hardcode in the rule that a rule
+is only applicable to a folder, like `src/Api/` for instance. The following example
+forbids using strings with hardcoded URLs, but only in the `src/Api/` folder.
+
+     import Elm.Syntax.Expression as Expression exposing (Expression)
+     import Elm.Syntax.Node as Node exposing (Node)
+     import Review.Rule as Rule exposing (Error, Rule)
+
+     rule : Rule
+     rule =
+         Rule.newModuleRuleSchema "NoHardcodedURLs" ()
+             |> Rule.withSimpleExpressionVisitor expressionVisitor
+             |> Rule.fromModuleRuleSchema
+             |> Rule.filterErrorsForFiles (String.startsWith "src/Api/")
+
+     expressionVisitor : Node Expression -> List (Error {})
+     expressionVisitor node =
+         case Node.value node of
+             Expression.Literal string ->
+                 if isUrl string then
+                     [ Rule.error
+                         { message = "Do not use hardcoded URLs in the API modules"
+                         , details = [ "Hardcoded URLs should never make it to production. Please refer to the documentation of the `Endpoint` module." ]
+                         }
+                         (Node.range node)
+                     ]
+
+                 else
+                     []
+
+             _ ->
+                 []
+
+-}
+filterErrorsForFiles : (String -> Bool) -> Rule -> Rule
+filterErrorsForFiles condition (Rule rule) =
+    Rule
+        { name = rule.name
+        , exceptions = Exceptions.addFilter condition rule.exceptions
         , requestedData = rule.requestedData
         , ruleImplementation = rule.ruleImplementation
         , configurationError = rule.configurationError
