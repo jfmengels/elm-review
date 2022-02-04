@@ -3809,9 +3809,9 @@ ignoreErrorsForFiles files (Rule rule) =
         }
 
 
-{-| Ignore the errors reported for file paths that fail a condition.
+{-| Filter the files to report errors for.
 
-Use it to control precisely which files the rule is applied to. For example, you
+Use it to control precisely which files the rule applies or does not apply to. For example, you
 might have written a rule that should only be applied to one specific file.
 
     config : List Rule
@@ -3835,9 +3835,10 @@ The received paths will be relative to the `elm.json` file, just like the ones f
 `elm.json`'s `source-directories`, and will be formatted in the Unix style `src/Some/File.elm`.
 
 You can apply `filterErrorsForFiles` several times for a rule, the conditions will get
-compounded, following exactly the behavior of `List.filter`.
+compounded, following the behavior of `List.filter`.
 
-When "ignoreErrors" functions are used in combination, all constraints are observed.
+When [`ignoreErrorsForFiles`](#ignoreErrorsForFiles) or [`ignoreErrorsForDirectories`](#ignoreErrorsForDirectories)
+are used in combination with this function, all constraints are observed.
 
 You can also use it when writing a rule. We can hardcode in the rule that a rule
 is only applicable to a folder, like `src/Api/` for instance. The following example
