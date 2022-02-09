@@ -3522,7 +3522,7 @@ globalError { message, details } =
         }
 
 
-parsingError : { path : String, source : String } -> ReviewError
+parsingError : { a | path : String } -> ReviewError
 parsingError rawFile =
     Review.Error.ReviewError
         { filePath = rawFile.path
