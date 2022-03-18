@@ -122,7 +122,7 @@ addModule { path, source } project =
                     , isInSourceDirectories = List.any (\dir -> String.startsWith (makePathOSAgnostic dir) osAgnosticPath) (Internal.sourceDirectories project)
                     }
                 |> removeFileFromFilesThatFailedToParse path
-                |> recomputeModuleGraphIfNeeded
+                |> forceModuleGraphRecomputation
 
         Err _ ->
             project
@@ -131,7 +131,7 @@ addModule { path, source } project =
                     { path = path
                     , source = source
                     }
-                |> recomputeModuleGraphIfNeeded
+                |> forceModuleGraphRecomputation
 
 
 positionAsInt : { row : Int, column : Int } -> Int
@@ -159,7 +159,7 @@ addParsedModule { path, source, ast } project =
             , ast = ast
             , isInSourceDirectories = List.any (\dir -> String.startsWith (makePathOSAgnostic dir) osAgnosticPath) (Internal.sourceDirectories project)
             }
-        |> recomputeModuleGraphIfNeeded
+        |> forceModuleGraphRecomputation
 
 
 addModuleToProject : ProjectModule -> Project -> Project
@@ -191,7 +191,7 @@ removeModule : String -> Project -> Project
 removeModule path project =
     project
         |> removeFileFromProject path
-        |> recomputeModuleGraphIfNeeded
+        |> forceModuleGraphRecomputation
 
 
 removeFileFromProject : String -> Project -> Project
@@ -427,11 +427,6 @@ makePathOSAgnostic path =
 -- GRAPH CREATION
 
 
-recomputeModuleGraphIfNeeded : Project -> Project
-recomputeModuleGraphIfNeeded ((Internal.Project p) as project) =
-    case p.moduleGraph of
-        Just _ ->
-            precomputeModuleGraph project
-
-        Nothing ->
-            project
+forceModuleGraphRecomputation : Project -> Project
+forceModuleGraphRecomputation (Internal.Project project) =
+    Internal.Project { project | moduleGraph = Nothing }
