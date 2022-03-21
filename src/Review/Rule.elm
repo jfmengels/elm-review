@@ -19,6 +19,7 @@ module Review.Rule exposing
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , globalError, configurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
+    , withDataExtractor
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , review, reviewV2, ProjectData, ruleName, getConfigurationError
     , Required, Forbidden
@@ -240,6 +241,11 @@ first, as they are in practice a simpler version of project rules.
 @docs Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
 @docs globalError, configurationError
 @docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
+
+
+## Extract information
+
+@docs withDataExtractor
 
 
 ## Configuring exceptions
@@ -2029,11 +2035,11 @@ type Extract
 
 
 withDataExtractor :
-    (projectContext -> Extract)
+    (projectContext -> Encode.Value)
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema schemaState projectContext moduleContext
 withDataExtractor dataExtractor (ProjectRuleSchema schema) =
-    ProjectRuleSchema { schema | dataExtractor = Just dataExtractor }
+    ProjectRuleSchema { schema | dataExtractor = Just (\context -> JsonExtract (dataExtractor context)) }
 
 
 withModuleNameLookupExtractor :
