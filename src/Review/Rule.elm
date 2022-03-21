@@ -19,6 +19,7 @@ module Review.Rule exposing
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , globalError, configurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
+    , withDataExtractor
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , reviewV3, reviewV2, review, ProjectData, ruleName, getConfigurationError
     , Required, Forbidden
@@ -240,6 +241,11 @@ first, as they are in practice a simpler version of project rules.
 @docs Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
 @docs globalError, configurationError
 @docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
+
+
+## Extract information
+
+@docs withDataExtractor
 
 
 ## Configuring exceptions
@@ -2033,11 +2039,19 @@ type Extract
 
 
 withDataExtractor :
-    (projectContext -> Extract)
+    (projectContext -> Encode.Value)
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema schemaState projectContext moduleContext
 withDataExtractor dataExtractor (ProjectRuleSchema schema) =
-    ProjectRuleSchema { schema | dataExtractor = Just dataExtractor }
+    ProjectRuleSchema { schema | dataExtractor = Just (\context -> JsonExtract (dataExtractor context)) }
+
+
+withModuleNameLookupExtractor :
+    (projectContext -> Dict ModuleName ModuleNameLookupTable)
+    -> ProjectRuleSchema schemaState projectContext moduleContext
+    -> ProjectRuleSchema schemaState projectContext moduleContext
+withModuleNameLookupExtractor dataExtractor (ProjectRuleSchema schema) =
+    ProjectRuleSchema { schema | dataExtractor = Just (\context -> ModuleNameLookupTableExtract (dataExtractor context)) }
 
 
 removeErrorPhantomTypeFromVisitor : (element -> projectContext -> ( List (Error b), projectContext )) -> (element -> projectContext -> ( List (Error {}), projectContext ))
@@ -5702,7 +5716,7 @@ scopeRule =
             , fromModuleToProject = scope_fromModuleToProject
             , foldProjectContexts = scope_foldProjectContexts
             }
-        |> withDataExtractor (\projectContext -> ModuleNameLookupTableExtract projectContext.lookupTables)
+        |> withModuleNameLookupExtractor .lookupTables
         |> fromProjectRuleSchemaToRunnableProjectVisitor
 
 
