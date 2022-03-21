@@ -20,7 +20,7 @@ module Review.Rule exposing
     , globalError, configurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
-    , review, reviewV2, ProjectData, ruleName, getConfigurationError
+    , reviewV3, reviewV2, review, ProjectData, ruleName, getConfigurationError
     , Required, Forbidden
     )
 
@@ -265,7 +265,7 @@ reason or seemingly inappropriately.
 
 # Running rules
 
-@docs review, reviewV2, ProjectData, ruleName, getConfigurationError
+@docs reviewV3, reviewV2, review, ProjectData, ruleName, getConfigurationError
 
 
 # Internals
@@ -414,7 +414,7 @@ to compare them or the model that holds them.
 
 -}
 review : List Rule -> Project -> ( List ReviewError, List Rule )
-review rules project =
+review rules ((Project p) as project) =
     case Review.Project.modulesThatFailedToParse project of
         [] ->
             case Review.Project.modules project |> duplicateModuleNames Dict.empty of
@@ -467,18 +467,18 @@ review rules project =
 
                                 projectWithLookupTable : Project
                                 projectWithLookupTable =
-                                    let
-                                        (Project p) =
-                                            project
-                                    in
                                     Project { p | moduleNameLookupTables = moduleNameLookupTables }
                             in
                             if not (List.isEmpty scopeResult.errors) then
                                 ( ListExtra.orderIndependentMap errorToReviewError scopeResult.errors, rules )
 
                             else
-                                runRules rules projectWithLookupTable sortedModules
-                                    |> Tuple.mapFirst (ListExtra.orderIndependentMap errorToReviewError)
+                                let
+                                    runRulesResult : { errors : List (Error {}), rules : List Rule, extracts : Dict String Encode.Value }
+                                    runRulesResult =
+                                        runRules rules projectWithLookupTable sortedModules
+                                in
+                                ( ListExtra.orderIndependentMap errorToReviewError runRulesResult.errors, runRulesResult.rules )
 
         modulesThatFailedToParse ->
             ( ListExtra.orderIndependentMap parsingError modulesThatFailedToParse, rules )
@@ -533,12 +533,79 @@ reviewV2 rules maybeProjectData project =
             |> Result.andThen (\() -> getModulesSortedByImport project)
     of
         Ok nodeContexts ->
+            let
+                runResult : { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
+                runResult =
+                    runReview project rules maybeProjectData nodeContexts
+            in
+            { errors = runResult.errors
+            , rules = runResult.rules
+            , projectData = runResult.projectData
+            }
+
+        Err errors ->
+            { errors = errors
+            , rules = rules
+            , projectData = maybeProjectData
+            }
+
+
+{-| Review a project and gives back the errors raised by the given rules.
+
+Note that you won't need to use this function when writing a rule. You should
+only need it if you try to make `elm-review` run in a new environment.
+
+    import Review.Project as Project exposing (Project)
+    import Review.Rule as Rule exposing (Rule)
+
+    config : List Rule
+    config =
+        [ Some.Rule.rule
+        , Some.Other.Rule.rule
+        ]
+
+    project : Project
+    project =
+        Project.new
+            |> Project.addModule { path = "src/A.elm", source = "module A exposing (a)\na = 1" }
+            |> Project.addModule { path = "src/B.elm", source = "module B exposing (b)\nb = 1" }
+
+    doReview =
+        let
+            { errors, rules, projectData, extracts } =
+                -- Replace `config` by `rules` next time you call reviewV2
+                -- Replace `Nothing` by `projectData` next time you call reviewV2
+                Rule.reviewV3 config Nothing project
+        in
+        doSomethingWithTheseValues
+
+The resulting `List Rule` is the same list of rules given as input, but with an
+updated internal cache to make it faster to re-run the rules on the same project.
+If you plan on re-reviewing with the same rules and project, for instance to
+review the project after a file has changed, you may want to store the rules in
+your `Model`.
+
+The rules are functions, so doing so will make your model unable to be
+exported/imported with `elm/browser`'s debugger, and may cause a crash if you try
+to compare them or the model that holds them.
+
+-}
+reviewV3 : List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
+reviewV3 rules maybeProjectData project =
+    case
+        checkForConfigurationErrors rules
+            |> Result.andThen (\() -> checkForModulesThatFailedToParse project)
+            |> Result.andThen (\() -> checkForDuplicateModules project)
+            |> Result.andThen (\() -> getModulesSortedByImport project)
+    of
+        Ok nodeContexts ->
             runReview project rules maybeProjectData nodeContexts
 
         Err errors ->
             { errors = errors
             , rules = rules
             , projectData = maybeProjectData
+            , extracts = Dict.empty
             }
 
 
@@ -570,53 +637,6 @@ checkForConfigurationErrors rules =
 
     else
         Err errors
-
-
-runReview : Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
-runReview ((Project p) as project) rules maybeProjectData nodeContexts =
-    let
-        scopeResult : { projectData : Maybe ProjectData, lookupTables : Maybe (Dict ModuleName ModuleNameLookupTable) }
-        scopeResult =
-            if needsToComputeScope rules then
-                let
-                    { cache, extract } =
-                        runProjectVisitor
-                            scopeRule
-                            (Maybe.map extractProjectData maybeProjectData)
-                            Exceptions.init
-                            project
-                            nodeContexts
-                in
-                { projectData = Just (ProjectData cache)
-                , lookupTables =
-                    case extract of
-                        Just (ModuleNameLookupTableExtract lookupTable) ->
-                            Just lookupTable
-
-                        Just (JsonExtract _) ->
-                            Nothing
-
-                        Nothing ->
-                            Nothing
-                }
-
-            else
-                { projectData = Nothing
-                , lookupTables = Nothing
-                }
-
-        projectWithLookupTables : Project
-        projectWithLookupTables =
-            Project { p | moduleNameLookupTables = scopeResult.lookupTables }
-    in
-    let
-        ( errors, newRules ) =
-            runRules rules projectWithLookupTables nodeContexts
-    in
-    { errors = ListExtra.orderIndependentMap errorToReviewError errors
-    , rules = newRules
-    , projectData = scopeResult.projectData
-    }
 
 
 checkForModulesThatFailedToParse : Project -> Result (List ReviewError) ()
@@ -768,6 +788,55 @@ wrapInCycle string =
     "    ┌─────┐\n    │    " ++ string ++ "\n    └─────┘"
 
 
+runReview : Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
+runReview ((Project p) as project) rules maybeProjectData nodeContexts =
+    let
+        scopeResult : { projectData : Maybe ProjectData, lookupTables : Maybe (Dict ModuleName ModuleNameLookupTable) }
+        scopeResult =
+            if needsToComputeScope rules then
+                let
+                    { cache, extract } =
+                        runProjectVisitor
+                            scopeRule
+                            (Maybe.map extractProjectData maybeProjectData)
+                            Exceptions.init
+                            project
+                            nodeContexts
+                in
+                { projectData = Just (ProjectData cache)
+                , lookupTables =
+                    case extract of
+                        Just (ModuleNameLookupTableExtract lookupTable) ->
+                            Just lookupTable
+
+                        Just (JsonExtract _) ->
+                            Nothing
+
+                        Nothing ->
+                            Nothing
+                }
+
+            else
+                { projectData = Nothing
+                , lookupTables = Nothing
+                }
+
+        projectWithLookupTables : Project
+        projectWithLookupTables =
+            Project { p | moduleNameLookupTables = scopeResult.lookupTables }
+    in
+    let
+        runResult : { errors : List (Error {}), rules : List Rule, extracts : Dict String Encode.Value }
+        runResult =
+            runRules rules projectWithLookupTables nodeContexts
+    in
+    { errors = ListExtra.orderIndependentMap errorToReviewError runResult.errors
+    , rules = runResult.rules
+    , projectData = scopeResult.projectData
+    , extracts = runResult.extracts
+    }
+
+
 
 -- PROJECT DATA
 
@@ -817,20 +886,28 @@ duplicateModulesGlobalError duplicate =
         |> errorToReviewError
 
 
-runRules : List Rule -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), List Rule )
-runRules rules project nodeContexts =
+runRules :
+    List Rule
+    -> Project
+    -> List (Graph.NodeContext ModuleName ())
+    -> { errors : List (Error {}), rules : List Rule, extracts : Dict String Encode.Value }
+runRules initialRules project nodeContexts =
     List.foldl
-        (\(Rule { exceptions, ruleImplementation }) ( errors, previousRules ) ->
+        (\(Rule { exceptions, ruleImplementation }) { errors, rules, extracts } ->
             let
                 ( ruleErrors, ruleWithCache ) =
                     ruleImplementation exceptions project nodeContexts
             in
-            ( ListExtra.orderIndependentMapAppend removeErrorPhantomType ruleErrors errors
-            , ruleWithCache :: previousRules
-            )
+            { errors = ListExtra.orderIndependentMapAppend removeErrorPhantomType ruleErrors errors
+            , rules = ruleWithCache :: rules
+            , extracts = extracts
+            }
         )
-        ( [], [] )
-        rules
+        { errors = []
+        , rules = []
+        , extracts = Dict.empty
+        }
+        initialRules
 
 
 duplicateModuleNames : Dict ModuleName String -> List ProjectModule -> Maybe { moduleName : ModuleName, paths : List String }
