@@ -414,7 +414,7 @@ to compare them or the model that holds them.
 
 -}
 review : List Rule -> Project -> ( List ReviewError, List Rule )
-review rules project =
+review rules ((Project p) as project) =
     case Review.Project.modulesThatFailedToParse project of
         [] ->
             case Review.Project.modules project |> duplicateModuleNames Dict.empty of
@@ -468,10 +468,6 @@ review rules project =
 
                                 projectWithLookupTable : Project
                                 projectWithLookupTable =
-                                    let
-                                        (Project p) =
-                                            project
-                                    in
                                     Project { p | moduleNameLookupTables = moduleNameLookupTables }
                             in
                             if not (List.isEmpty scopeResult.errors) then
