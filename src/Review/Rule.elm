@@ -21,7 +21,7 @@ module Review.Rule exposing
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , withDataExtractor
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
-    , review, reviewV2, ProjectData, ruleName, getConfigurationError
+    , reviewV3, reviewV2, review, ProjectData, ruleName, getConfigurationError
     , Required, Forbidden
     )
 
@@ -271,7 +271,7 @@ reason or seemingly inappropriately.
 
 # Running rules
 
-@docs review, reviewV2, ProjectData, ruleName, getConfigurationError
+@docs reviewV3, reviewV2, review, ProjectData, ruleName, getConfigurationError
 
 
 # Internals
