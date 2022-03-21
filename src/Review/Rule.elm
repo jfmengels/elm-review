@@ -2036,6 +2036,14 @@ withDataExtractor dataExtractor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | dataExtractor = Just dataExtractor }
 
 
+withModuleNameLookupExtractor :
+    (projectContext -> Dict ModuleName ModuleNameLookupTable)
+    -> ProjectRuleSchema schemaState projectContext moduleContext
+    -> ProjectRuleSchema schemaState projectContext moduleContext
+withModuleNameLookupExtractor dataExtractor (ProjectRuleSchema schema) =
+    ProjectRuleSchema { schema | dataExtractor = Just (\context -> ModuleNameLookupTableExtract (dataExtractor context)) }
+
+
 removeErrorPhantomTypeFromVisitor : (element -> projectContext -> ( List (Error b), projectContext )) -> (element -> projectContext -> ( List (Error {}), projectContext ))
 removeErrorPhantomTypeFromVisitor function element projectContext =
     function element projectContext
@@ -5669,7 +5677,7 @@ scopeRule =
             , fromModuleToProject = scope_fromModuleToProject
             , foldProjectContexts = scope_foldProjectContexts
             }
-        |> withDataExtractor (\projectContext -> ModuleNameLookupTableExtract projectContext.lookupTables)
+        |> withModuleNameLookupExtractor .lookupTables
         |> fromProjectRuleSchemaToRunnableProjectVisitor
 
 
