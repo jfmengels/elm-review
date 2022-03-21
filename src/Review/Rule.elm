@@ -320,7 +320,7 @@ type Rule
         { name : String
         , exceptions : Exceptions
         , requestedData : RequestedData
-        , ruleImplementation : Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
+        , ruleImplementation : Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
         , configurationError : Maybe { message : String, details : List String }
         }
 
@@ -896,14 +896,24 @@ runRules :
     -> { errors : List (Error {}), rules : List Rule, extracts : Dict String Encode.Value }
 runRules initialRules project nodeContexts =
     List.foldl
-        (\(Rule { exceptions, ruleImplementation }) { errors, rules, extracts } ->
+        (\(Rule { name, exceptions, ruleImplementation }) { errors, rules, extracts } ->
             let
-                ( ruleErrors, ruleWithCache ) =
+                result : { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
+                result =
                     ruleImplementation exceptions project nodeContexts
             in
-            { errors = List.append (List.map removeErrorPhantomType ruleErrors) errors
-            , rules = ruleWithCache :: rules
-            , extracts = extracts
+            { errors = List.append (List.map removeErrorPhantomType result.errors) errors
+            , rules = result.rule :: rules
+            , extracts =
+                case result.extract of
+                    Just (JsonExtract extract) ->
+                        Dict.insert name extract extracts
+
+                    Just (ModuleNameLookupTableExtract _) ->
+                        extracts
+
+                    Nothing ->
+                        extracts
             }
         )
         { errors = []
@@ -1333,7 +1343,10 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                             project
                             nodeContexts
                 in
-                ( result.errors, result.rule )
+                { errors = result.errors
+                , rule = result.rule
+                , extract = result.extract
+                }
         , configurationError = Nothing
         }
 
@@ -1594,7 +1607,7 @@ configurationError name configurationError_ =
         { name = name
         , exceptions = Exceptions.init
         , requestedData = RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
-        , ruleImplementation = \_ _ _ -> ( [], configurationError name configurationError_ )
+        , ruleImplementation = \_ _ _ -> { errors = [], rule = configurationError name configurationError_, extract = Nothing }
         , configurationError = Just configurationError_
         }
 
@@ -4258,7 +4271,10 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
                                 newProject
                                 newNodeContexts
                     in
-                    ( result.errors, result.rule )
+                    { errors = result.errors
+                    , rule = result.rule
+                    , extract = result.extract
+                    }
             , configurationError = Nothing
             }
     , cache = newCache
