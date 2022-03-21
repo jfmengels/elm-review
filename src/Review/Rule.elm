@@ -460,6 +460,9 @@ review rules project =
                                         Just (ModuleNameLookupTableExtract lookupTables) ->
                                             Just lookupTables
 
+                                        Just (JsonExtract _) ->
+                                            Nothing
+
                                         Nothing ->
                                             Nothing
 
@@ -592,6 +595,9 @@ runReview ((Project p) as project) rules maybeProjectData nodeContexts =
                     case extract of
                         Just (ModuleNameLookupTableExtract lookupTable) ->
                             Just lookupTable
+
+                        Just (JsonExtract _) ->
+                            Nothing
 
                         Nothing ->
                             Nothing
@@ -1929,6 +1935,7 @@ withFinalProjectEvaluation visitor (ProjectRuleSchema schema) =
 
 type Extract
     = ModuleNameLookupTableExtract (Dict ModuleName ModuleNameLookupTable)
+    | JsonExtract Encode.Value
 
 
 withDataExtractor :
