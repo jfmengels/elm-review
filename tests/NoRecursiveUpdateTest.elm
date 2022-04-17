@@ -23,7 +23,7 @@ update msg model =
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "`update` shouldn't call itself"
-                            , details = [ "If you wish to have the same behavior for different messages, move that behavior into a new function and call have it called in the handling of both messages." ]
+                            , details = [ "If you wish to have the same behavior for different messages, move that behavior into a new function and have it called in the handling of both messages." ]
                             , under = "update"
                             }
                             |> Review.Test.atExactly { start = { row = 8, column = 7 }, end = { row = 8, column = 13 } }

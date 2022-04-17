@@ -283,7 +283,7 @@ a = Test.describe "thing" []
 """
                     |> Review.Test.runWithProjectData package rule
                     |> Review.Test.expectNoErrors
-        , test "should not ReviewConfig.config" <|
+        , test "should not report ReviewConfig.config" <|
             \() ->
                 """
 module ReviewConfig exposing (config)
@@ -328,13 +328,94 @@ type Exposed = VariantA | VariantB
         , test "should not report a used exposed custom type (type signature)" <|
             \() ->
                 [ """
-module A exposing (Exposed)
+module A exposing (Exposed, variantA)
 type Exposed = VariantA | VariantB
+variantA = VariantA
 """, """
 module B exposing (main)
 import A
 main : A.Exposed
-main = VariantA
+main = A.variantA
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report a used exposed custom type (value usage)" <|
+            \() ->
+                [ """
+module A exposing (Exposed(..))
+type Exposed = VariantA | VariantB
+""", """
+module B exposing (main)
+import A
+main = A.VariantA
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report a used exposed custom type (case expression usage)" <|
+            \() ->
+                [ """
+module A exposing (main)
+import Variant
+import Html
+
+main =
+    case config of
+        Variant.A -> Html.text "a"
+""", """
+module Variant exposing (Variant(..))
+
+type Variant = A
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report a used exposed custom type (argument destructuring usage)" <|
+            \() ->
+                [ """
+module A exposing (main)
+import Variant
+import Html
+
+main a =
+    let
+        fn (Variant.A str) = value
+    in
+    fn a
+""", """
+module Variant exposing (Variant(..))
+
+type Variant = A String
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report a used exposed custom type (function declaration destructuring)" <|
+            \() ->
+                [ """
+module A exposing (fn)
+import Variant
+import Html
+
+n (Variant.A str) = value
+""", """
+module Variant exposing (Variant(..))
+
+type Variant = A String
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report a used exposed custom type (let destructuring usage)" <|
+            \() ->
+                [ """
+module A exposing (main)
+import Variant
+import Html
+
+main =
+    let (Variant.A str) = value
+    in str
+""", """
+module Variant exposing (Variant(..))
+
+type Variant = A String
 """ ]
                     |> Review.Test.runOnModulesWithProjectData application rule
                     |> Review.Test.expectNoErrors
@@ -499,33 +580,12 @@ main =
   let
     type1 : B.Type1
     type1 =
-      1
+      B.type1
   in
   type1
-""", """module B exposing (Type1)
+""", """module B exposing (Type1, type1)
 type Type1 = Type1
-""" ]
-                    |> Review.Test.runOnModulesWithProjectData application rule
-                    |> Review.Test.expectNoErrors
-        , test "should not report an exposed type if it is used in a port (input)" <|
-            \() ->
-                [ """module Main exposing (main)
-import B
-main = somePort
-port somePort : (B.Type1 -> msg) -> Sub msg
-""", """module B exposing (Type1)
-type alias Type1 = { user : String }
-""" ]
-                    |> Review.Test.runOnModulesWithProjectData application rule
-                    |> Review.Test.expectNoErrors
-        , test "should not report an exposed type if it is used in a port (output)" <|
-            \() ->
-                [ """module Main exposing (main)
-import B
-main = somePort
-port somePort : B.Type1 -> Cmd msg
-""", """module B exposing (Type1)
-type alias Type1 = { user : String }
+type1 = Type1
 """ ]
                     |> Review.Test.runOnModulesWithProjectData application rule
                     |> Review.Test.expectNoErrors
@@ -779,6 +839,28 @@ init = 1
                             ]
                           )
                         ]
+        , test "should not report an exposed type if it is used in a port (input)" <|
+            \() ->
+                [ """module Main exposing (main)
+import B
+main = somePort
+port somePort : (B.Type1 -> msg) -> Sub msg
+""", """module B exposing (Type1)
+type alias Type1 = { user : String }
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report an exposed type if it is used in a port (output)" <|
+            \() ->
+                [ """module Main exposing (main)
+import B
+main = somePort
+port somePort : B.Type1 -> Cmd msg
+""", """module B exposing (Type1)
+type alias Type1 = { user : String }
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData application rule
+                    |> Review.Test.expectNoErrors
         ]
 
 

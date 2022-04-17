@@ -1,4 +1,4 @@
-module List.Extra exposing (find)
+module List.Extra exposing (find, indexedFilterMap)
 
 {-| Some utilities.
 -}
@@ -22,3 +22,18 @@ find predicate list =
 
             else
                 find predicate rest
+
+
+indexedFilterMap : (Int -> a -> Maybe b) -> Int -> List a -> List b -> List b
+indexedFilterMap predicate index list acc =
+    case list of
+        [] ->
+            acc
+
+        x :: xs ->
+            case predicate index x of
+                Just b ->
+                    indexedFilterMap predicate (index + 1) xs (b :: acc)
+
+                Nothing ->
+                    indexedFilterMap predicate (index + 1) xs acc

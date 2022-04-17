@@ -100,7 +100,7 @@ expressionVisitor node context =
             Expression.FunctionOrValue [] "update" ->
                 ( [ Rule.error
                         { message = "`update` shouldn't call itself"
-                        , details = [ "If you wish to have the same behavior for different messages, move that behavior into a new function and call have it called in the handling of both messages." ]
+                        , details = [ "If you wish to have the same behavior for different messages, move that behavior into a new function and have it called in the handling of both messages." ]
                         }
                         (Node.range node)
                   ]

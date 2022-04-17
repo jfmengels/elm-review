@@ -170,31 +170,41 @@ expressionVisitor : Node Expression -> ModuleContext -> ( List (Error {}), Modul
 expressionVisitor node moduleContext =
     case Node.value node of
         Expression.FunctionOrValue _ "update" ->
-            case ModuleNameLookupTable.moduleNameFor moduleContext.lookupTable node of
-                Just moduleName ->
-                    if Set.member moduleName moduleContext.modulesThatExposeSubscriptionsAndUpdate then
-                        ( [], { moduleContext | usesUpdateOfModule = Dict.insert moduleName (Node.range node) moduleContext.usesUpdateOfModule } )
-
-                    else
-                        ( [], moduleContext )
-
-                Nothing ->
-                    ( [], moduleContext )
+            ( [], registerUpdateFunction node moduleContext )
 
         Expression.FunctionOrValue _ "subscriptions" ->
-            case ModuleNameLookupTable.moduleNameFor moduleContext.lookupTable node of
-                Just moduleName ->
-                    if Set.member moduleName moduleContext.modulesThatExposeSubscriptionsAndUpdate then
-                        ( [], { moduleContext | usesSubscriptionsOfModule = Set.insert moduleName moduleContext.usesSubscriptionsOfModule } )
-
-                    else
-                        ( [], moduleContext )
-
-                Nothing ->
-                    ( [], moduleContext )
+            ( [], registerSubscriptionsFunction node moduleContext )
 
         _ ->
             ( [], moduleContext )
+
+
+registerUpdateFunction : Node a -> ModuleContext -> ModuleContext
+registerUpdateFunction node moduleContext =
+    case ModuleNameLookupTable.moduleNameFor moduleContext.lookupTable node of
+        Just moduleName ->
+            if Set.member moduleName moduleContext.modulesThatExposeSubscriptionsAndUpdate then
+                { moduleContext | usesUpdateOfModule = Dict.insert moduleName (Node.range node) moduleContext.usesUpdateOfModule }
+
+            else
+                moduleContext
+
+        Nothing ->
+            moduleContext
+
+
+registerSubscriptionsFunction : Node a -> ModuleContext -> ModuleContext
+registerSubscriptionsFunction node moduleContext =
+    case ModuleNameLookupTable.moduleNameFor moduleContext.lookupTable node of
+        Just moduleName ->
+            if Set.member moduleName moduleContext.modulesThatExposeSubscriptionsAndUpdate then
+                { moduleContext | usesSubscriptionsOfModule = Set.insert moduleName moduleContext.usesSubscriptionsOfModule }
+
+            else
+                moduleContext
+
+        Nothing ->
+            moduleContext
 
 
 finalEvaluation : ModuleContext -> List (Error {})

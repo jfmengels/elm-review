@@ -808,6 +808,18 @@ type alias Thing = { id : Id ThingType }
                             ]
                         )
                     |> Review.Test.expectNoErrors
+        , test "should not report a custom type constructor that uses extensible records on the type variable" <|
+            \() ->
+                """
+module MyModule exposing (id)
+type alias User = { id : String, age : Int }
+type Id a = Id { a | id : String }
+
+id : Id User
+id = Id { id = "ok", age = 10 }
+"""
+                    |> Review.Test.runWithProjectData project (rule [])
+                    |> Review.Test.expectNoErrors
         ]
 
 

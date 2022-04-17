@@ -28,6 +28,8 @@ all =
         , dictSimplificationTests
         , cmdTests
         , subTests
+        , parserTests
+        , jsonDecodeTests
         ]
 
 
@@ -3183,6 +3185,13 @@ a = "a" ++ ""
 a = "a"
 """
                         ]
+        , test """should not report x ++ "" (because this can lead to better performance)""" <|
+            \() ->
+                """module A exposing (..)
+a = x ++ ""
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectNoErrors
         , test """should replace "" ++ "a" by "a\"""" <|
             \() ->
                 """module A exposing (..)
@@ -3307,6 +3316,7 @@ stringSimplificationTests =
         , concatTests
         , joinTests
         , stringRepeatTests
+        , stringReplaceTests
         , stringWordsTests
         , stringLinesTests
         , stringReverseTests
@@ -3559,6 +3569,91 @@ a =  str
         ]
 
 
+stringReplaceTests : Test
+stringReplaceTests =
+    describe "String.replace"
+        [ test "should not report String.replace that contains a variable or expression" <|
+            \() ->
+                """module A exposing (..)
+a = String.replace n str
+b = String.replace 5 str
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectNoErrors
+        , test "should replace String.replace n n by identity" <|
+            \() ->
+                """module A exposing (..)
+a = String.replace n n
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The result of String.replace will be the original string"
+                            , details = [ "The pattern to replace and the replacement are equal, therefore the result of the String.replace call will be the original string." ]
+                            , under = "String.replace"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = identity
+"""
+                        ]
+        , test "should replace String.replace n n x by x" <|
+            \() ->
+                """module A exposing (..)
+a = String.replace n n x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The result of String.replace will be the original string"
+                            , details = [ "The pattern to replace and the replacement are equal, therefore the result of the String.replace call will be the original string." ]
+                            , under = "String.replace"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = x
+"""
+                        ]
+        , test "should replace String.replace x y \"\" by \"\"" <|
+            \() ->
+                """module A exposing (..)
+a = String.replace x y ""
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The result of String.replace will be the empty string"
+                            , details = [ "Replacing anything on an empty string results in an empty string." ]
+                            , under = "String.replace"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = ""
+"""
+                        ]
+        , test "should replace String.replace x y z by z when we know what the value will be and that it is unchanged" <|
+            \() ->
+                """module A exposing (..)
+a = String.replace "x" "y" "z"
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The result of String.replace will be the original string"
+                            , details = [ "The replacement doesn't haven't any noticeable impact. You can remove the call to String.replace." ]
+                            , under = "String.replace"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = "z"
+"""
+                        ]
+        , test "should not replace String.replace x y z by z when we know what the value will be but it will be different" <|
+            \() ->
+                """module A exposing (..)
+a = String.replace "x" "y" "xz"
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectNoErrors
+        ]
+
+
 stringWordsTests : Test
 stringWordsTests =
     describe "String.words"
@@ -3678,6 +3773,7 @@ listSimplificationTests =
         , listMapTests
         , listFilterTests
         , listFilterMapTests
+        , listIndexedMapTests
         , listIsEmptyTests
         , listAllTests
         , listAnyTests
@@ -3686,6 +3782,8 @@ listSimplificationTests =
         , listRepeatTests
         , listPartitionTests
         , listReverseTests
+        , listTakeTests
+        , listDropTests
         ]
 
 
@@ -3843,6 +3941,54 @@ a = List.concat [ a, [ 0 ], b, [ 1, 2, 3 ], [ 4, 5, 6], [7], c, [8], [9 ] ]
 a = List.concat [ a, [ 0 ], b, [ 1, 2, 3 ,  4, 5, 6, 7], c, [8, 9 ] ]
 """
                         ]
+        , test "should replace List.concat (List.map f x) by List.concatMap f x" <|
+            \() ->
+                """module A exposing (..)
+a = List.concat (List.map f x)
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map and List.concat can be combined using List.concatMap"
+                            , details = [ "List.concatMap is meant for this exact purpose and will also be faster." ]
+                            , under = "List.concat"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (List.concatMap f x)
+"""
+                        ]
+        , test "should replace List.concat <| List.map f <| x by List.concatMap f <| x" <|
+            \() ->
+                """module A exposing (..)
+a = List.concat <| List.map f <| x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map and List.concat can be combined using List.concatMap"
+                            , details = [ "List.concatMap is meant for this exact purpose and will also be faster." ]
+                            , under = "List.concat"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.concatMap f <| x
+"""
+                        ]
+        , test "should replace x |> List.map f |> List.concat by x |> List.concatMap f" <|
+            \() ->
+                """module A exposing (..)
+a = x |> List.map f |> List.concat
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map and List.concat can be combined using List.concatMap"
+                            , details = [ "List.concatMap is meant for this exact purpose and will also be faster." ]
+                            , under = "List.concat"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = x |> List.concatMap f
+"""
+                        ]
         ]
 
 
@@ -3959,6 +4105,80 @@ a = List.concatMap (always [])
 a = (always [])
 """
                         ]
+        , test "should replace List.concatMap (\\_ -> [a]) x by List.map (\\_ -> a) x" <|
+            \() ->
+                """module A exposing (..)
+a = List.concatMap (\\_ -> [a]) x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use List.map instead"
+                            , details = [ "The function passed to List.concatMap always returns a list with a single element." ]
+                            , under = "List.concatMap"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.map (\\_ -> (a)) x
+"""
+                        ]
+        , test "should replace List.concatMap (\\_ -> List.singleton a) x by List.map (\\_ -> a) x" <|
+            \() ->
+                """module A exposing (..)
+a = List.concatMap (\\_ -> List.singleton a) x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use List.map instead"
+                            , details = [ "The function passed to List.concatMap always returns a list with a single element." ]
+                            , under = "List.concatMap"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.map (\\_ ->  a) x
+"""
+                        ]
+        , test "should replace List.concatMap (\\_ -> if cond then [a] else [b]) x by List.map (\\_ -> if cond then a else b) x" <|
+            \() ->
+                """module A exposing (..)
+a = List.concatMap (\\_ -> if cond then [a] else [b]) x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use List.map instead"
+                            , details = [ "The function passed to List.concatMap always returns a list with a single element." ]
+                            , under = "List.concatMap"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.map (\\_ -> if cond then (a) else (b)) x
+"""
+                        ]
+        , test "should replace List.concatMap (\\_ -> case y of A -> [a] ; B -> [b]) x by List.map (\\_ -> case y of A -> a ; B -> b) x" <|
+            \() ->
+                """module A exposing (..)
+a = List.concatMap
+    (\\_ ->
+        case y of
+            A -> [a]
+            B -> [b]
+    ) x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use List.map instead"
+                            , details = [ "The function passed to List.concatMap always returns a list with a single element." ]
+                            , under = "List.concatMap"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.map
+    (\\_ ->
+        case y of
+            A -> (a)
+            B -> (b)
+    ) x
+"""
+                        ]
         , test "should replace List.concatMap f [ a ] by f a" <|
             \() ->
                 """module A exposing (..)
@@ -4005,6 +4225,38 @@ a = [ b c ] |> List.concatMap f
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = (b c) |>  f
+"""
+                        ]
+        , test "should replace List.map f >> List.concat by List.concatMap f" <|
+            \() ->
+                """module A exposing (..)
+a = List.map f >> List.concat
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map and List.concat can be combined using List.concatMap"
+                            , details = [ "List.concatMap is meant for this exact purpose and will also be faster." ]
+                            , under = "List.concat"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.concatMap f
+"""
+                        ]
+        , test "should replace List.concat << List.map f by List.concatMap f" <|
+            \() ->
+                """module A exposing (..)
+a = List.concat << List.map f
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map and List.concat can be combined using List.concatMap"
+                            , details = [ "List.concatMap is meant for this exact purpose and will also be faster." ]
+                            , under = "List.concat"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.concatMap f
 """
                         ]
         ]
@@ -4582,7 +4834,7 @@ a = List.filterMap Just x
                     |> Review.Test.run (rule defaults)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using List.filterMap with a function that will always return Just is the same as not using List.filter"
+                            { message = "Using List.filterMap with a function that will always return Just is the same as not using List.filterMap"
                             , details = [ "You can remove this call and replace it by the list itself." ]
                             , under = "List.filterMap"
                             }
@@ -4598,7 +4850,7 @@ a = List.filterMap Just <| x
                     |> Review.Test.run (rule defaults)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using List.filterMap with a function that will always return Just is the same as not using List.filter"
+                            { message = "Using List.filterMap with a function that will always return Just is the same as not using List.filterMap"
                             , details = [ "You can remove this call and replace it by the list itself." ]
                             , under = "List.filterMap"
                             }
@@ -4614,7 +4866,7 @@ a = x |> List.filterMap Just
                     |> Review.Test.run (rule defaults)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using List.filterMap with a function that will always return Just is the same as not using List.filter"
+                            { message = "Using List.filterMap with a function that will always return Just is the same as not using List.filterMap"
                             , details = [ "You can remove this call and replace it by the list itself." ]
                             , under = "List.filterMap"
                             }
@@ -4630,7 +4882,7 @@ a = List.filterMap Just
                     |> Review.Test.run (rule defaults)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using List.filterMap with a function that will always return Just is the same as not using List.filter"
+                            { message = "Using List.filterMap with a function that will always return Just is the same as not using List.filterMap"
                             , details = [ "You can remove this call and replace it by the list itself." ]
                             , under = "List.filterMap"
                             }
@@ -4662,12 +4914,12 @@ a = List.filterMap (\\a -> Just a) x
                     |> Review.Test.run (rule defaults)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using List.filterMap with a function that will always return Just is the same as not using List.filter"
-                            , details = [ "You can remove this call and replace it by the list itself." ]
+                            { message = "Using List.filterMap with a function that will always return Just is the same as using List.map"
+                            , details = [ "You can remove the `Just`s and replace the call by List.map." ]
                             , under = "List.filterMap"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = x
+a = List.map (\\a -> a) x
 """
                         ]
         , test "should replace List.filterMap (\\a -> Just a) by identity" <|
@@ -4678,28 +4930,257 @@ a = List.filterMap (\\a -> Just a)
                     |> Review.Test.run (rule defaults)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using List.filterMap with a function that will always return Just is the same as not using List.filter"
-                            , details = [ "You can remove this call and replace it by the list itself." ]
+                            { message = "Using List.filterMap with a function that will always return Just is the same as using List.map"
+                            , details = [ "You can remove the `Just`s and replace the call by List.map." ]
                             , under = "List.filterMap"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = identity
+a = List.map (\\a -> a)
 """
                         ]
-        , test "should not report List.filterMap (\\a -> Just b) x" <|
+        , test "should replace List.map (\\a -> Just b) x by List.filterMap (\\a -> b) x" <|
             \() ->
                 """module A exposing (..)
 a = List.filterMap (\\a -> Just b) x
 """
                     |> Review.Test.run (rule defaults)
-                    |> Review.Test.expectNoErrors
-        , test "should not report List.filterMap (\\a b -> Just a) x" <|
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Using List.filterMap with a function that will always return Just is the same as using List.map"
+                            , details = [ "You can remove the `Just`s and replace the call by List.map." ]
+                            , under = "List.filterMap"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.map (\\a -> b) x
+"""
+                        ]
+        , test "should replace List.filterMap identity (List.map f x) by List.filterMap f x" <|
             \() ->
                 """module A exposing (..)
-a = List.filterMap (\\a b -> Just a) x
+a = List.filterMap identity (List.map f x)
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map and List.filterMap identity can be combined using List.filterMap"
+                            , details = [ "List.filterMap is meant for this exact purpose and will also be faster." ]
+                            , under = "List.filterMap identity"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (List.filterMap f x)
+"""
+                        ]
+        , test "should replace List.filterMap identity <| List.map f <| x by List.filterMap f <| x" <|
+            \() ->
+                """module A exposing (..)
+a = List.filterMap identity <| List.map f <| x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map and List.filterMap identity can be combined using List.filterMap"
+                            , details = [ "List.filterMap is meant for this exact purpose and will also be faster." ]
+                            , under = "List.filterMap identity"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.filterMap f <| x
+"""
+                        ]
+        , test "should replace x |> List.map f |> List.filterMap identity by x |> List.filterMap f" <|
+            \() ->
+                """module A exposing (..)
+a = x |> List.map f |> List.filterMap identity
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map and List.filterMap identity can be combined using List.filterMap"
+                            , details = [ "List.filterMap is meant for this exact purpose and will also be faster." ]
+                            , under = "List.filterMap identity"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = x |> List.filterMap f
+"""
+                        ]
+        , test "should replace List.map f >> List.filterMap identity by List.filterMap f" <|
+            \() ->
+                """module A exposing (..)
+a = List.map f >> List.filterMap identity
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map and List.filterMap identity can be combined using List.filterMap"
+                            , details = [ "List.filterMap is meant for this exact purpose and will also be faster." ]
+                            , under = "List.filterMap identity"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.filterMap f
+"""
+                        ]
+        , test "should replace List.filterMap identity << List.map f by List.filterMap f" <|
+            \() ->
+                """module A exposing (..)
+a = List.filterMap identity << List.map f
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "List.map and List.filterMap identity can be combined using List.filterMap"
+                            , details = [ "List.filterMap is meant for this exact purpose and will also be faster." ]
+                            , under = "List.filterMap identity"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.filterMap f
+"""
+                        ]
+        , test "should replace List.filterMap identity [ Just x, Just y ] by [ x, y ]" <|
+            \() ->
+                """module A exposing (..)
+a = List.filterMap identity [ Just x, Just y ]
+b = List.filterMap f [ Just x, Just y ]
+c = List.filterMap identity [ Just x, y ]
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary use of List.filterMap identity"
+                            , details = [ "All of the elements in the list are `Just`s, which can be simplified by removing all of the `Just`s." ]
+                            , under = "List.filterMap identity"
+                            }
+                            |> Review.Test.atExactly { start = { row = 2, column = 5 }, end = { row = 2, column = 28 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = [ x, y ]
+b = List.filterMap f [ Just x, Just y ]
+c = List.filterMap identity [ Just x, y ]
+"""
+                        ]
+        , test "should replace [ Just x, Just y ] |> List.filterMap identity by [ x, y ]" <|
+            \() ->
+                """module A exposing (..)
+a = [ Just x, Just y ] |> List.filterMap identity
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary use of List.filterMap identity"
+                            , details = [ "All of the elements in the list are `Just`s, which can be simplified by removing all of the `Just`s." ]
+                            , under = "List.filterMap identity"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = [ x, y ]
+"""
+                        ]
+        ]
+
+
+listIndexedMapTests : Test
+listIndexedMapTests =
+    describe "List.indexedMap"
+        [ test "should not report List.indexedMap used with okay arguments" <|
+            \() ->
+                """module A exposing (..)
+a = List.indexedMap f x
+b = List.indexedMap (\\i value -> i + value) x
 """
                     |> Review.Test.run (rule defaults)
                     |> Review.Test.expectNoErrors
+        , test "should replace List.indexedMap f [] by []" <|
+            \() ->
+                """module A exposing (..)
+a = List.indexedMap f []
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Using List.indexedMap on an empty list will result in a empty list"
+                            , details = [ "You can replace this call by an empty list." ]
+                            , under = "List.indexedMap"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = []
+"""
+                        ]
+        , test "should replace List.indexedMap (\\_ y -> y) x by List.map (\\y -> y) x" <|
+            \() ->
+                """module A exposing (..)
+a = List.indexedMap (\\_ y -> y) x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use List.map instead"
+                            , details = [ "Using List.indexedMap while ignoring the first argument is the same thing as calling List.map." ]
+                            , under = "_"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.map (\\y -> y) x
+"""
+                        ]
+        , test "should replace List.indexedMap (\\_ -> f) x by List.map f x" <|
+            \() ->
+                """module A exposing (..)
+a = List.indexedMap (\\_ -> f) x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use List.map instead"
+                            , details = [ "Using List.indexedMap while ignoring the first argument is the same thing as calling List.map." ]
+                            , under = "_"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.map (f) x
+"""
+                        ]
+        , test "should replace List.indexedMap (always f) x by List.map f x" <|
+            \() ->
+                """module A exposing (..)
+a = List.indexedMap (always f) x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use List.map instead"
+                            , details = [ "Using List.indexedMap while ignoring the first argument is the same thing as calling List.map." ]
+                            , under = "always"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.map (f) x
+"""
+                        ]
+        , test "should replace List.indexedMap (always <| f y) x by List.map (f y) x" <|
+            \() ->
+                """module A exposing (..)
+a = List.indexedMap (always <| f y) x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use List.map instead"
+                            , details = [ "Using List.indexedMap while ignoring the first argument is the same thing as calling List.map." ]
+                            , under = "always"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.map (f y) x
+"""
+                        ]
+        , test "should replace List.indexedMap (f y |> always) x by List.map (f y) x" <|
+            \() ->
+                """module A exposing (..)
+a = List.indexedMap (f y |> always) x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use List.map instead"
+                            , details = [ "Using List.indexedMap while ignoring the first argument is the same thing as calling List.map." ]
+                            , under = "always"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = List.map (f y) x
+"""
+                        ]
         ]
 
 
@@ -5161,6 +5642,146 @@ a = List.reverse <| List.reverse <| x
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = x
+"""
+                        ]
+        ]
+
+
+listTakeTests : Test
+listTakeTests =
+    describe "List.take"
+        [ test "should not report List.take that contains a variable or expression" <|
+            \() ->
+                """module A exposing (..)
+a = List.take 2 x
+b = List.take y [ 1, 2, 3 ]
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectNoErrors
+        , test "should replace List.take n [] by []" <|
+            \() ->
+                """module A exposing (..)
+a = List.take n []
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Using List.take on [] will result in []"
+                            , details = [ "You can replace this call by []." ]
+                            , under = "List.take"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = []
+"""
+                        ]
+        , test "should replace List.take 0 x by []" <|
+            \() ->
+                """module A exposing (..)
+a = List.take 0 x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Taking 0 items from a list will result in []"
+                            , details = [ "You can replace this call by []." ]
+                            , under = "List.take"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = []
+"""
+                        ]
+        , test "should replace List.take 0 by (always [])" <|
+            \() ->
+                """module A exposing (..)
+a = List.take 0
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Taking 0 items from a list will result in []"
+                            , details = [ "You can replace this call by []." ]
+                            , under = "List.take"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (always [])
+"""
+                        ]
+        ]
+
+
+listDropTests : Test
+listDropTests =
+    describe "List.drop"
+        [ test "should not report List.drop that contains a variable or expression" <|
+            \() ->
+                """module A exposing (..)
+a = List.drop 2 x
+b = List.drop y [ 1, 2, 3 ]
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectNoErrors
+        , test "should replace List.drop n [] by []" <|
+            \() ->
+                """module A exposing (..)
+a = List.drop n []
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Using List.drop on [] will result in []"
+                            , details = [ "You can replace this call by []." ]
+                            , under = "List.drop"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = []
+"""
+                        ]
+        , test "should replace List.drop 0 x by x" <|
+            \() ->
+                """module A exposing (..)
+a = List.drop 0 x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Dropping 0 items from a list will result in the list itself"
+                            , details = [ "You can replace this call by the list itself." ]
+                            , under = "List.drop"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = x
+"""
+                        ]
+        , test "should replace x |> List.drop 0 by x" <|
+            \() ->
+                """module A exposing (..)
+a = x |> List.drop 0
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Dropping 0 items from a list will result in the list itself"
+                            , details = [ "You can replace this call by the list itself." ]
+                            , under = "List.drop"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = x
+"""
+                        ]
+        , test "should replace List.drop 0 by identity" <|
+            \() ->
+                """module A exposing (..)
+a = List.drop 0
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Dropping 0 items from a list will result in the list itself"
+                            , details = [ "You can replace this function by identity." ]
+                            , under = "List.drop"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = identity
 """
                         ]
         ]
@@ -5673,6 +6294,22 @@ a = Maybe.andThen f Nothing
 a = Nothing
 """
                         ]
+        , test "should replace Maybe.andThen Just x by x" <|
+            \() ->
+                """module A exposing (..)
+a = Maybe.andThen Just x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Using Maybe.andThen with a function that will always return Just is the same as not using Maybe.andThen"
+                            , details = [ "You can remove this call and replace it by the value itself." ]
+                            , under = "Maybe.andThen"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = x
+"""
+                        ]
         , test "should replace Maybe.andThen (always Nothing) x by Nothing" <|
             \() ->
                 """module A exposing (..)
@@ -5705,6 +6342,95 @@ a = Maybe.andThen (\\b -> Just b) x
 a = Maybe.map (\\b -> b) x
 """
                         ]
+        , test "should replace Maybe.andThen (\\b -> if cond then Just b else Just c) x by Maybe.map (\\b -> if cond then b else c) x" <|
+            \() ->
+                """module A exposing (..)
+a = Maybe.andThen (\\b -> if cond then Just b else Just c) x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use Maybe.map instead"
+                            , details = [ "Using Maybe.andThen with a function that always returns Just is the same thing as using Maybe.map." ]
+                            , under = "Maybe.andThen"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Maybe.map (\\b -> if cond then b else c) x
+"""
+                        ]
+        , test "should not report Maybe.andThen (\\b -> if cond then Just b else Nothing) x" <|
+            \() ->
+                """module A exposing (..)
+a = Maybe.andThen (\\b -> if cond then Just b else Nothing) x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectNoErrors
+        , test "should replace Maybe.andThen (\\b -> case b of C -> Just b ; D -> Just c) x by Maybe.map (\\b -> case b of C -> b ; D -> c) x" <|
+            \() ->
+                """module A exposing (..)
+a = Maybe.andThen (
+    \\b ->
+        case b of
+            C -> Just b
+            D -> Just c
+    ) x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use Maybe.map instead"
+                            , details = [ "Using Maybe.andThen with a function that always returns Just is the same thing as using Maybe.map." ]
+                            , under = "Maybe.andThen"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Maybe.map (
+    \\b ->
+        case b of
+            C -> b
+            D -> c
+    ) x
+"""
+                        ]
+        , test "should replace Maybe.andThen (\\b -> let y = 1 in Just y) x by Maybe.map (\\b -> let y = 1 in y) x" <|
+            \() ->
+                """module A exposing (..)
+a = Maybe.andThen (
+    \\b ->
+        let
+            y = 1
+        in
+        Just y
+    ) x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use Maybe.map instead"
+                            , details = [ "Using Maybe.andThen with a function that always returns Just is the same thing as using Maybe.map." ]
+                            , under = "Maybe.andThen"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Maybe.map (
+    \\b ->
+        let
+            y = 1
+        in
+        y
+    ) x
+"""
+                        ]
+        , test "should not report Maybe.andThen (\\b -> case b of C -> Just b ; D -> Nothing) x" <|
+            \() ->
+                """module A exposing (..)
+a = Maybe.andThen (
+    \\b ->
+        case b of
+            C -> Just b
+            D -> Nothing
+    ) x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectNoErrors
         , test "should replace Maybe.andThen f (Just x) by f (x)" <|
             \() ->
                 """module A exposing (..)
@@ -6196,6 +6922,22 @@ a = Result.andThen (always (Err z)) x
 """
                     |> Review.Test.run (rule defaults)
                     |> Review.Test.expectNoErrors
+        , test "should replace Result.andThen Ok x by Result.map identity x" <|
+            \() ->
+                """module A exposing (..)
+a = Result.andThen Ok x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Using Result.andThen with a function that will always return Just is the same as not using Result.andThen"
+                            , details = [ "You can remove this call and replace it by the value itself." ]
+                            , under = "Result.andThen"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = x
+"""
+                        ]
         , test "should replace Result.andThen (\\b -> Ok b) x by Result.map (\\b -> b) x" <|
             \() ->
                 """module A exposing (..)
@@ -6212,6 +6954,45 @@ a = Result.andThen (\\b -> Ok b) x
 a = Result.map (\\b -> b) x
 """
                         ]
+        , test "should replace Result.andThen (\\b -> let y = 1 in Ok y) x by Result.map (\\b -> let y = 1 in y) x" <|
+            \() ->
+                """module A exposing (..)
+a = Result.andThen (\\b -> let y = 1 in Ok y) x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use Result.map instead"
+                            , details = [ "Using Result.andThen with a function that always returns Ok is the same thing as using Result.map." ]
+                            , under = "Result.andThen"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Result.map (\\b -> let y = 1 in y) x
+"""
+                        ]
+        , test "should replace Result.andThen (\\b -> if cond then Ok b else Ok c) x by Result.map (\\b -> if cond then b else c) x" <|
+            \() ->
+                """module A exposing (..)
+a = Result.andThen (\\b -> if cond then Ok b else Ok c) x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use Result.map instead"
+                            , details = [ "Using Result.andThen with a function that always returns Ok is the same thing as using Result.map." ]
+                            , under = "Result.andThen"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Result.map (\\b -> if cond then b else c) x
+"""
+                        ]
+        , test "should not report Result.andThen (\\b -> if cond then Ok b else Err c) x" <|
+            \() ->
+                """module A exposing (..)
+a = Result.andThen (\\b -> if cond then Ok b else Err c) x
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectNoErrors
         , test "should replace Result.andThen f (Ok x) by f (x)" <|
             \() ->
                 """module A exposing (..)
@@ -6800,10 +7581,57 @@ a = Set.size Set.empty
 a = 0
 """
                         ]
-        , test "should replace Set.size (Set.fromList [b, c, d]) by 3" <|
+        , test "should not replace Set.size (Set.fromList [b, c, d])" <|
             \() ->
                 """module A exposing (..)
 a = Set.size (Set.fromList [b, c, d])
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectNoErrors
+        , test "should replace Set.size (Set.fromList []) by 0" <|
+            \() ->
+                """module A exposing (..)
+a = Set.size (Set.fromList [])
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The call to Set.fromList will result in Set.empty"
+                            , details = [ "You can replace this call by Set.empty." ]
+                            , under = "Set.fromList"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = Set.size (Set.empty)
+"""
+                        , Review.Test.error
+                            { message = "The size of the set is 0"
+                            , details = [ "The size of the set can be determined by looking at the code." ]
+                            , under = "Set.size"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 0
+"""
+                        ]
+        , test "should replace Set.size (Set.fromList [a]) by 1" <|
+            \() ->
+                """module A exposing (..)
+a = Set.size (Set.fromList [a])
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The size of the set is 1"
+                            , details = [ "The size of the set can be determined by looking at the code." ]
+                            , under = "Set.size"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 1
+"""
+                        ]
+        , test "should replace Set.size (Set.fromList [1, 2, 3]) by 3" <|
+            \() ->
+                """module A exposing (..)
+a = Set.size (Set.fromList [1, 2, 3])
 """
                     |> Review.Test.run (rule defaults)
                     |> Review.Test.expectErrors
@@ -6814,6 +7642,102 @@ a = Set.size (Set.fromList [b, c, d])
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = 3
+"""
+                        ]
+        , test "should replace Set.size (Set.fromList [1, 2, 3, 3, 0x3]) by 3" <|
+            \() ->
+                """module A exposing (..)
+a = Set.size (Set.fromList [1, 2, 3, 3, 0x3])
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The size of the set is 3"
+                            , details = [ "The size of the set can be determined by looking at the code." ]
+                            , under = "Set.size"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 3
+"""
+                        ]
+        , test "should replace Set.size (Set.fromList [2, -2, -(-2)]) by 2" <|
+            \() ->
+                """module A exposing (..)
+a = Set.size (Set.fromList [2, -2, -2])
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The size of the set is 2"
+                            , details = [ "The size of the set can be determined by looking at the code." ]
+                            , under = "Set.size"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 2
+"""
+                        ]
+        , test "should replace Set.size (Set.fromList [1.3, -1.3, 2.1, 2.1]) by 3" <|
+            \() ->
+                """module A exposing (..)
+a = Set.size (Set.fromList [1.3, -1.3, 2.1, 2.1])
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The size of the set is 3"
+                            , details = [ "The size of the set can be determined by looking at the code." ]
+                            , under = "Set.size"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 3
+"""
+                        ]
+        , test "should replace Set.size (Set.fromList [\"foo\", \"bar\", \"foo\"]) by 2" <|
+            \() ->
+                """module A exposing (..)
+a = Set.size (Set.fromList ["foo", "bar", "foo"])
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The size of the set is 2"
+                            , details = [ "The size of the set can be determined by looking at the code." ]
+                            , under = "Set.size"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 2
+"""
+                        ]
+        , test "should replace Set.size (Set.fromList ['a', 'b', ('a')]) by 2" <|
+            \() ->
+                """module A exposing (..)
+a = Set.size (Set.fromList ['a', 'b', ('a')])
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The size of the set is 2"
+                            , details = [ "The size of the set can be determined by looking at the code." ]
+                            , under = "Set.size"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 2
+"""
+                        ]
+        , test "should replace Set.size (Set.fromList [([1, 2], [3, 4]), ([1, 2], [3, 4]), ([], [1])]) by 2" <|
+            \() ->
+                """module A exposing (..)
+a = Set.size (Set.fromList [([1, 2], [3, 4]), ([1, 2], [3, 4]), ([], [1])])
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The size of the set is 2"
+                            , details = [ "The size of the set can be determined by looking at the code." ]
+                            , under = "Set.size"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = 2
 """
                         ]
         , test "should replace Set.empty |> Set.size by 0" <|
@@ -7999,6 +8923,101 @@ a = Sub.map f Sub.none
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = Sub.none
+"""
+                        ]
+        ]
+
+
+
+-- Parser
+
+
+parserTests : Test
+parserTests =
+    describe "Parser.oneOf"
+        [ test "should not report Parser.oneOf used with okay arguments" <|
+            \() ->
+                """module A exposing (..)
+import Parser
+import Parser.Advanced
+a = Parser.oneOf x
+b = Parser.oneOf [ y, z ]
+c = Parser.Advanced.oneOf x
+d = Parser.Advanced.oneOf [ y, z ]
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectNoErrors
+        , test "should replace Parser.oneOf [ x ] by ( x )" <|
+            \() ->
+                """module A exposing (..)
+import Parser
+a = Parser.oneOf [ x ]
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary oneOf"
+                            , details = [ "There is only a single element in the list of elements to try out." ]
+                            , under = "Parser.oneOf"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Parser
+a = (x)
+"""
+                        ]
+        , test "should replace Parser.Advanced.oneOf [ x ] by ( x )" <|
+            \() ->
+                """module A exposing (..)
+import Parser.Advanced
+a = Parser.Advanced.oneOf [ x ]
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary oneOf"
+                            , details = [ "There is only a single element in the list of elements to try out." ]
+                            , under = "Parser.Advanced.oneOf"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Parser.Advanced
+a = (x)
+"""
+                        ]
+        ]
+
+
+
+-- Json.Decode
+
+
+jsonDecodeTests : Test
+jsonDecodeTests =
+    describe "Json.Decode.oneOf"
+        [ test "should not report Json.Decode.oneOf used with okay arguments" <|
+            \() ->
+                """module A exposing (..)
+import Json.Decode
+a = Json.Decode.oneOf x
+b = Json.Decode.oneOf [ y, z ]
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectNoErrors
+        , test "should replace Json.Decode.oneOf [ x ] by ( x )" <|
+            \() ->
+                """module A exposing (..)
+import Json.Decode
+a = Json.Decode.oneOf [ x ]
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary oneOf"
+                            , details = [ "There is only a single element in the list of elements to try out." ]
+                            , under = "Json.Decode.oneOf"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+import Json.Decode
+a = (x)
 """
                         ]
         ]

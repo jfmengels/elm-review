@@ -185,21 +185,13 @@ elmJsonVisitor maybeProject projectContext =
                 ( directProjectDependencies, directTestDependencies ) =
                     case project of
                         Elm.Project.Package { deps, testDeps } ->
-                            ( deps
-                                |> List.map (Tuple.first >> Elm.Package.toString)
-                                |> Set.fromList
-                            , testDeps
-                                |> List.map (Tuple.first >> Elm.Package.toString)
-                                |> Set.fromList
+                            ( listDependencies deps
+                            , listDependencies testDeps
                             )
 
                         Elm.Project.Application { depsDirect, testDepsDirect } ->
-                            ( depsDirect
-                                |> List.map (Tuple.first >> Elm.Package.toString)
-                                |> Set.fromList
-                            , testDepsDirect
-                                |> List.map (Tuple.first >> Elm.Package.toString)
-                                |> Set.fromList
+                            ( listDependencies depsDirect
+                            , listDependencies testDepsDirect
                             )
             in
             ( []
@@ -212,6 +204,14 @@ elmJsonVisitor maybeProject projectContext =
 
         Nothing ->
             ( [], projectContext )
+
+
+listDependencies : List ( Elm.Package.Name, a ) -> Set String
+listDependencies deps =
+    List.foldl
+        (\( name, _ ) acc -> Set.insert (Elm.Package.toString name) acc)
+        Set.empty
+        deps
 
 
 
@@ -329,7 +329,14 @@ unusedTestDependencyError elmJsonKey dependencies packageName =
             , range = findPackageNameInElmJson packageName elmJson
             }
         )
-        (fromProject dependencies InTestDeps packageName >> Maybe.map (removeTestDependency >> toProject))
+        (\project ->
+            case fromProject dependencies InTestDeps packageName project of
+                Just projectAndDependencyIdentifier ->
+                    Just (toProject (removeTestDependency projectAndDependencyIdentifier))
+
+                Nothing ->
+                    Nothing
+        )
 
 
 findPackageNameInElmJson : String -> String -> Range
@@ -478,7 +485,7 @@ removeProjectDependency projectAndDependencyIdentifier =
             let
                 directDependencies : List ( Elm.Package.Name, Elm.Version.Version )
                 directDependencies =
-                    List.filter (isPackageWithName (Elm.Package.toString project.name) >> not) application.depsDirect
+                    List.filter (\pkg -> pkg |> isPackageWithName (Elm.Package.toString project.name) |> not) application.depsDirect
 
                 depsIndirect : Elm.Project.Deps Elm.Version.Version
                 depsIndirect =
@@ -506,7 +513,7 @@ removeProjectDependency projectAndDependencyIdentifier =
                 { project
                     | package =
                         { package
-                            | deps = List.filter (isPackageWithName (Elm.Package.toString project.name) >> not) package.deps
+                            | deps = List.filter (\pkg -> pkg |> isPackageWithName (Elm.Package.toString project.name) |> not) package.deps
                         }
                 }
 
@@ -580,7 +587,7 @@ removeTestDependency projectAndDependencyIdentifier =
             let
                 testDepsDirect : List ( Elm.Package.Name, Elm.Version.Version )
                 testDepsDirect =
-                    List.filter (isPackageWithName (Elm.Package.toString project.name) >> not) application.testDepsDirect
+                    List.filter (\pkg -> pkg |> isPackageWithName (Elm.Package.toString project.name) |> not) application.testDepsDirect
             in
             ApplicationProject
                 { project
@@ -600,7 +607,7 @@ removeTestDependency projectAndDependencyIdentifier =
                 { project
                     | package =
                         { package
-                            | testDeps = List.filter (isPackageWithName (Elm.Package.toString project.name) >> not) package.testDeps
+                            | testDeps = List.filter (\pkg -> pkg |> isPackageWithName (Elm.Package.toString project.name) |> not) package.testDeps
                         }
                 }
 

@@ -231,9 +231,9 @@ declarationListVisitor list context =
 
         Application elmApplicationType ->
             let
-                mainName : String
-                mainName =
-                    mainFunctionName elmApplicationType
+                isMain : String -> Bool
+                isMain =
+                    isMainFunction elmApplicationType
 
                 containsMainFunction : Bool
                 containsMainFunction =
@@ -241,7 +241,7 @@ declarationListVisitor list context =
                         (\declaration ->
                             case Node.value declaration of
                                 Declaration.FunctionDeclaration function ->
-                                    (function.declaration |> Node.value |> .name |> Node.value) == mainName
+                                    isMain (function.declaration |> Node.value |> .name |> Node.value)
 
                                 _ ->
                                     False
@@ -253,11 +253,11 @@ declarationListVisitor list context =
             )
 
 
-mainFunctionName : ElmApplicationType -> String
-mainFunctionName elmApplicationType =
+isMainFunction : ElmApplicationType -> String -> Bool
+isMainFunction elmApplicationType =
     case elmApplicationType of
         ElmApplication ->
-            "main"
+            \name -> name == "main"
 
         LamderaApplication ->
-            "app"
+            \name -> name == "main" || name == "app"

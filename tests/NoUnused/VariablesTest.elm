@@ -8,6 +8,7 @@ import NoUnused.Variables exposing (rule)
 import Review.Project as Project exposing (Project)
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Test
+import Review.Test.Dependencies
 import Test exposing (Test, describe, test)
 
 
@@ -382,7 +383,36 @@ a = let b = 1
                         , under = "b"
                         }
                         |> Review.Test.atExactly { start = { row = 2, column = 9 }, end = { row = 2, column = 10 } }
-                        |> Review.Test.whenFixed "module SomeModule exposing (a, b)\na = let \n        c = 2\n    in c"
+                        |> Review.Test.whenFixed ("""module SomeModule exposing (a, b)
+a = let$
+        c = 2
+    in c""" |> String.replace "$" " ")
+                    ]
+    , test "should report unused variables from let even if they are exposed by name (multiple ones with type annotations)" <|
+        \() ->
+            """module SomeModule exposing (a, b)
+a = let
+        b : number
+        b = 1
+
+        c : number
+        c = 2
+    in c"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "`let in` variable `b` is not used"
+                        , details = details
+                        , under = "b"
+                        }
+                        |> Review.Test.atExactly { start = { row = 4, column = 9 }, end = { row = 4, column = 10 } }
+                        |> Review.Test.whenFixed ("""module SomeModule exposing (a, b)
+a = let
+       $
+
+        c : number
+        c = 2
+    in c""" |> String.replace "$" " ")
                     ]
     , test "should report unused function from let even if they are exposed by name" <|
         \() ->
@@ -450,6 +480,61 @@ a = let _ = 1
                             [ "This value has been assigned to a wildcard, which makes the value unusable. You should remove it at the location I pointed at."
                             ]
                         , under = "_"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+a = 2"""
+                    ]
+    , test "should not report a wildcard assignment used for a Debug.log call with all arguments (simple call)" <|
+        \() ->
+            """module SomeModule exposing (a)
+a = let _ = Debug.log "ok" ()
+    in 2"""
+                |> Review.Test.run rule
+                |> Review.Test.expectNoErrors
+    , test "should not report a wildcard assignment used for a Debug.log call with all arguments (using <|)" <|
+        \() ->
+            """module SomeModule exposing (a)
+a = let _ = Debug.log "ok" <| ()
+    in 2"""
+                |> Review.Test.run rule
+                |> Review.Test.expectNoErrors
+    , test "should not report a wildcard assignment used for a Debug.log call with all arguments (using |>)" <|
+        \() ->
+            """module SomeModule exposing (a)
+a = let _ = () |> Debug.log "ok"
+    in 2"""
+                |> Review.Test.run rule
+                |> Review.Test.expectNoErrors
+    , test "should report a wildcard assignment when used for a Debug.log call without all the arguments" <|
+        \() ->
+            """module SomeModule exposing (a)
+a = let _ = Debug.log "ok"
+    in 2"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Value assigned to `_` is unused"
+                        , details =
+                            [ "This value has been assigned to a wildcard, which makes the value unusable. You should remove it at the location I pointed at."
+                            ]
+                        , under = "_"
+                        }
+                        |> Review.Test.whenFixed """module SomeModule exposing (a)
+a = 2"""
+                    ]
+    , test "should report an unused named declaration even if it uses Debug.log" <|
+        \() ->
+            """module SomeModule exposing (a)
+a = let xyz = Debug.log "ok" ()
+    in 2"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "`let in` variable `xyz` is not used"
+                        , details =
+                            [ "You should either use this value somewhere, or remove it at the location I pointed at."
+                            ]
+                        , under = "xyz"
                         }
                         |> Review.Test.whenFixed """module SomeModule exposing (a)
 a = 2"""
@@ -1429,6 +1514,49 @@ identity x =
                         ]
                       )
                     ]
+    , test "should not report used import even if a used lambda param is named in the same way elsewhere" <|
+        \() ->
+            """module A exposing (list)
+import Html exposing (Html, label, text)
+
+list : List (Html msg)
+list =
+    [ label [] []
+    , Maybe.map
+        (\\label ->
+            text label
+        )
+        (Just "string")
+        |> Maybe.withDefault (text "")
+    ]
+"""
+                |> Review.Test.runWithProjectData
+                    (Review.Test.Dependencies.projectWithElmCore
+                        |> Project.addDependency Review.Test.Dependencies.elmHtml
+                    )
+                    rule
+                |> Review.Test.expectNoErrors
+    , test "should not report used import even if a used let variable is named in the same way elsewhere" <|
+        \() ->
+            """module A exposing (list)
+import Html exposing (Html, label, text)
+
+list : List (Html msg)
+list =
+    [ label [] []
+    , let
+        label =
+            "string"
+      in
+      text label
+    ]
+"""
+                |> Review.Test.runWithProjectData
+                    (Review.Test.Dependencies.projectWithElmCore
+                        |> Project.addDependency Review.Test.Dependencies.elmHtml
+                    )
+                    rule
+                |> Review.Test.expectNoErrors
     , test "should report unused import even if a variant arg is named in the same way" <|
         \() ->
             [ """module A exposing (identity)

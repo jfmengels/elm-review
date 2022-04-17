@@ -19,6 +19,7 @@ import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.Type as Type
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
+import List.Extra
 import Review.Fix as Fix exposing (Fix)
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
@@ -141,12 +142,12 @@ rule phantomTypes =
 moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor schema =
     schema
-        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-        |> Rule.withDeclarationListVisitor declarationListVisitor
-        |> Rule.withDeclarationEnterVisitor declarationVisitor
-        |> Rule.withExpressionEnterVisitor expressionVisitor
-        |> Rule.withCaseBranchEnterVisitor caseBranchEnterVisitor
-        |> Rule.withCaseBranchExitVisitor caseBranchExitVisitor
+        |> Rule.withModuleDefinitionVisitor (\node context -> ( [], moduleDefinitionVisitor node context ))
+        |> Rule.withDeclarationListVisitor (\node context -> ( [], declarationListVisitor node context ))
+        |> Rule.withDeclarationEnterVisitor (\node context -> ( [], declarationVisitor node context ))
+        |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionVisitor node context ))
+        |> Rule.withCaseBranchEnterVisitor (\caseBlock casePattern context -> ( [], caseBranchEnterVisitor caseBlock casePattern context ))
+        |> Rule.withCaseBranchExitVisitor (\caseBlock casePattern context -> ( [], caseBranchExitVisitor caseBlock casePattern context ))
 
 
 
@@ -200,7 +201,7 @@ type alias ModuleContext =
     , declaredTypesWithConstructors : Dict CustomTypeName (Dict ConstructorName ConstructorInformation)
     , usedFunctionsOrValues : Dict ModuleNameAsString (Set ConstructorName)
     , phantomVariables : Dict ModuleName (List ( CustomTypeName, Int ))
-    , constructorsToIgnore : List (Set ( ModuleName, String ))
+    , constructorsToIgnore : List (Set ( ModuleName, ConstructorName ))
     , wasUsedInLocationThatNeedsItself : Set ( ModuleNameAsString, ConstructorName )
     , wasUsedInComparisons : Set ( ModuleNameAsString, ConstructorName )
     , fixesForRemovingConstructor : Dict ConstructorName (List Fix)
@@ -217,9 +218,7 @@ initialProjectContext phantomTypes =
     , phantomVariables =
         List.foldl
             (\{ moduleName, typeName, index } dict ->
-                Dict.update (String.split "." moduleName)
-                    (Maybe.withDefault [] >> (::) ( typeName, index ) >> Just)
-                    dict
+                updateToAdd (String.split "." moduleName) ( typeName, index ) dict
             )
             Dict.empty
             phantomTypes
@@ -365,11 +364,41 @@ mergeDictsWithLists : Dict comparable (List a) -> Dict comparable (List a) -> Di
 mergeDictsWithLists left right =
     Dict.merge
         Dict.insert
-        (\key a b dict -> Dict.insert key (List.append a b) dict)
+        (\key a b dict -> Dict.insert key (a ++ b) dict)
         Dict.insert
         left
         right
         Dict.empty
+
+
+updateToAdd : comparable -> a -> Dict comparable (List a) -> Dict comparable (List a)
+updateToAdd key value dict =
+    Dict.update
+        key
+        (\existingValues ->
+            case existingValues of
+                Just values ->
+                    Just (value :: values)
+
+                Nothing ->
+                    Just [ value ]
+        )
+        dict
+
+
+updateToInsert : comparable1 -> comparable2 -> Dict comparable1 (Set comparable2) -> Dict comparable1 (Set comparable2)
+updateToInsert key value dict =
+    Dict.update
+        key
+        (\existingValues ->
+            case existingValues of
+                Just values ->
+                    Just (Set.insert value values)
+
+                Nothing ->
+                    Just (Set.singleton value)
+        )
+        dict
 
 
 
@@ -409,42 +438,38 @@ elmJsonVisitor maybeElmJson projectContext =
 -- MODULE DEFINITION VISITOR
 
 
-moduleDefinitionVisitor : Node Module -> ModuleContext -> ( List nothing, ModuleContext )
+moduleDefinitionVisitor : Node Module -> ModuleContext -> ModuleContext
 moduleDefinitionVisitor moduleNode context =
     case Module.exposingList (Node.value moduleNode) of
         Exposing.All _ ->
-            ( [], { context | exposesEverything = True } )
+            { context | exposesEverything = True }
 
         Exposing.Explicit list ->
             let
-                names : List String
-                names =
-                    List.filterMap
-                        (\node ->
+                exposedCustomTypesWithConstructors : Set String
+                exposedCustomTypesWithConstructors =
+                    List.foldl
+                        (\node acc ->
                             case Node.value node of
                                 Exposing.TypeExpose { name } ->
-                                    Just name
+                                    Set.insert name acc
 
                                 _ ->
-                                    Nothing
+                                    acc
                         )
+                        context.exposedCustomTypesWithConstructors
                         list
             in
-            ( []
-            , { context
-                | exposedCustomTypesWithConstructors =
-                    Set.union (Set.fromList names) context.exposedCustomTypesWithConstructors
-              }
-            )
+            { context | exposedCustomTypesWithConstructors = exposedCustomTypesWithConstructors }
 
 
 
 -- DECLARATION LIST VISITOR
 
 
-declarationListVisitor : List (Node Declaration) -> ModuleContext -> ( List nothing, ModuleContext )
+declarationListVisitor : List (Node Declaration) -> ModuleContext -> ModuleContext
 declarationListVisitor nodes context =
-    ( [], List.foldl register context nodes )
+    List.foldl register context nodes
 
 
 register : Node Declaration -> ModuleContext -> ModuleContext
@@ -452,32 +477,41 @@ register node context =
     case Node.value node of
         Declaration.CustomTypeDeclaration { name, generics, constructors } ->
             let
+                arguments : List (Node TypeAnnotation)
+                arguments =
+                    List.concatMap (\(Node _ value) -> value.arguments) constructors
+
                 nonPhantomVariables : Set String
                 nonPhantomVariables =
-                    constructors
-                        |> List.concatMap (Node.value >> .arguments)
-                        |> List.concatMap collectGenericsFromTypeAnnotation
-                        |> Set.fromList
-
-                phantomVariables : List ( String, Int )
-                phantomVariables =
-                    generics
-                        |> List.map Node.value
-                        |> List.indexedMap Tuple.pair
-                        |> List.filter (\( _, genericName ) -> not <| Set.member genericName nonPhantomVariables)
-                        |> List.map (\( indexOfPhantomVariable, _ ) -> ( Node.value name, indexOfPhantomVariable ))
+                    collectGenericsFromTypeAnnotation arguments Set.empty
 
                 newPhantomVariables : Dict (List String) (List ( String, Int ))
                 newPhantomVariables =
                     Dict.update
                         []
                         (\maybeSet ->
-                            case maybeSet of
-                                Just old ->
-                                    Just (phantomVariables ++ old)
+                            let
+                                previousPhantomVariables : List ( String, Int )
+                                previousPhantomVariables =
+                                    case maybeSet of
+                                        Just old ->
+                                            old
 
-                                Nothing ->
-                                    Just phantomVariables
+                                        Nothing ->
+                                            []
+                            in
+                            List.Extra.indexedFilterMap
+                                (\indexOfPhantomVariable (Node _ genericName) ->
+                                    if Set.member genericName nonPhantomVariables then
+                                        Nothing
+
+                                    else
+                                        Just ( Node.value name, indexOfPhantomVariable )
+                                )
+                                0
+                                generics
+                                previousPhantomVariables
+                                |> Just
                         )
                         context.phantomVariables
             in
@@ -491,36 +525,32 @@ register node context =
 -- DECLARATION VISITOR
 
 
-declarationVisitor : Node Declaration -> ModuleContext -> ( List nothing, ModuleContext )
+declarationVisitor : Node Declaration -> ModuleContext -> ModuleContext
 declarationVisitor node context =
     case Node.value node of
         Declaration.CustomTypeDeclaration { name, constructors } ->
             if isPhantomCustomType context.lookupTable (Node.value name) constructors then
-                ( [], context )
+                context
 
             else
-                ( []
-                , { context
+                { context
                     | declaredTypesWithConstructors =
                         Dict.insert
                             (Node.value name)
                             (constructorsForCustomType constructors)
                             context.declaredTypesWithConstructors
-                  }
-                )
+                }
 
         Declaration.FunctionDeclaration function ->
-            ( []
-            , markPhantomTypesFromTypeAnnotationAsUsed
-                (Maybe.map (Node.value >> .typeAnnotation) function.signature)
+            markPhantomTypesFromTypeAnnotationAsUsed
+                (Maybe.map (\(Node _ value) -> value.typeAnnotation) function.signature)
                 { context | ignoredComparisonRanges = [] }
-            )
 
         Declaration.AliasDeclaration { typeAnnotation } ->
-            ( [], markPhantomTypesFromTypeAnnotationAsUsed (Just typeAnnotation) context )
+            markPhantomTypesFromTypeAnnotationAsUsed (Just typeAnnotation) context
 
         _ ->
-            ( [], context )
+            context
 
 
 constructorsForCustomType : List (Node Type.ValueConstructor) -> Dict String ConstructorInformation
@@ -615,25 +645,22 @@ isNeverOrItself lookupTable typeName node =
 -- EXPRESSION VISITOR
 
 
-expressionVisitor : Node Expression -> ModuleContext -> ( List nothing, ModuleContext )
+expressionVisitor : Node Expression -> ModuleContext -> ModuleContext
 expressionVisitor node moduleContext =
     case Node.value node of
         Expression.FunctionOrValue _ name ->
             case ModuleNameLookupTable.moduleNameFor moduleContext.lookupTable node of
                 Just moduleName ->
-                    ( [], registerUsedFunctionOrValue (Node.range node) moduleName name moduleContext )
+                    registerUsedFunctionOrValue (Node.range node) moduleName name moduleContext
 
                 Nothing ->
-                    ( [], moduleContext )
+                    moduleContext
 
         Expression.OperatorApplication operator _ left right ->
             if operator == "==" || operator == "/=" then
                 let
-                    constructors : Set ( ModuleNameAsString, ConstructorName )
-                    constructors =
-                        Set.union
-                            (findConstructors moduleContext.lookupTable left)
-                            (findConstructors moduleContext.lookupTable right)
+                    { fromThisModule, fromOtherModules } =
+                        findConstructors moduleContext.lookupTable [ left, right ] moduleContext.wasUsedInOtherModules
 
                     replacement : String
                     replacement =
@@ -643,37 +670,29 @@ expressionVisitor node moduleContext =
                         else
                             "True"
 
-                    ( fromThisModule, fromOtherModules ) =
-                        constructors
-                            |> Set.toList
-                            |> List.partition (\( moduleName, _ ) -> moduleName == "")
-
                     fixes : Dict ConstructorName (List Fix)
                     fixes =
-                        fromThisModule
-                            |> List.map (\( _, constructor ) -> Dict.singleton constructor [ Fix.replaceRangeBy (Node.range node) replacement ])
-                            |> List.foldl mergeDictsWithLists Dict.empty
+                        List.foldl
+                            (\( _, constructor ) dict ->
+                                updateToAdd constructor (Fix.replaceRangeBy (Node.range node) replacement) dict
+                            )
+                            moduleContext.fixesForRemovingConstructor
+                            fromThisModule
                 in
-                ( []
-                , { moduleContext
-                    | ignoredComparisonRanges = staticRanges node ++ moduleContext.ignoredComparisonRanges
-                    , fixesForRemovingConstructor = mergeDictsWithLists fixes moduleContext.fixesForRemovingConstructor
-                    , wasUsedInOtherModules = Set.union (Set.fromList fromOtherModules) moduleContext.wasUsedInOtherModules
-                  }
-                )
+                { moduleContext
+                    | ignoredComparisonRanges = staticRanges [ node ] moduleContext.ignoredComparisonRanges
+                    , fixesForRemovingConstructor = fixes
+                    , wasUsedInOtherModules = fromOtherModules
+                }
 
             else
-                ( [], moduleContext )
+                moduleContext
 
         Expression.Application ((Node _ (Expression.PrefixOperator operator)) :: arguments) ->
             if operator == "==" || operator == "/=" then
                 let
-                    constructors : Set ( ModuleNameAsString, ConstructorName )
-                    constructors =
-                        List.foldl
-                            (findConstructors moduleContext.lookupTable >> Set.union)
-                            Set.empty
-                            arguments
+                    { fromThisModule, fromOtherModules } =
+                        findConstructors moduleContext.lookupTable arguments moduleContext.wasUsedInOtherModules
 
                     replacementBoolean : String
                     replacementBoolean =
@@ -691,107 +710,87 @@ expressionVisitor node moduleContext =
                         else
                             "always " ++ replacementBoolean
 
-                    ( fromThisModule, fromOtherModules ) =
-                        constructors
-                            |> Set.toList
-                            |> List.partition (\( moduleName, _ ) -> moduleName == "")
-
                     fixes : Dict ConstructorName (List Fix)
                     fixes =
-                        fromThisModule
-                            |> List.map (\( _, constructor ) -> Dict.singleton constructor [ Fix.replaceRangeBy (Node.range node) replacement ])
-                            |> List.foldl mergeDictsWithLists Dict.empty
+                        List.foldl
+                            (\( _, constructor ) dict ->
+                                updateToAdd constructor (Fix.replaceRangeBy (Node.range node) replacement) dict
+                            )
+                            moduleContext.fixesForRemovingConstructor
+                            fromThisModule
                 in
-                ( []
-                , { moduleContext
-                    | ignoredComparisonRanges = staticRanges node ++ moduleContext.ignoredComparisonRanges
-                    , fixesForRemovingConstructor = mergeDictsWithLists fixes moduleContext.fixesForRemovingConstructor
-                    , wasUsedInOtherModules = Set.union (Set.fromList fromOtherModules) moduleContext.wasUsedInOtherModules
-                  }
-                )
+                { moduleContext
+                    | ignoredComparisonRanges = staticRanges [ node ] moduleContext.ignoredComparisonRanges
+                    , fixesForRemovingConstructor = fixes
+                    , wasUsedInOtherModules = fromOtherModules
+                }
 
             else
-                ( [], moduleContext )
+                moduleContext
 
         Expression.LetExpression { declarations } ->
-            ( []
-            , declarations
-                |> List.filterMap
-                    (\declaration ->
-                        case Node.value declaration of
-                            Expression.LetFunction function ->
-                                Just (Maybe.map (Node.value >> .typeAnnotation) function.signature)
+            List.foldl
+                (\declaration ctx ->
+                    case Node.value declaration of
+                        Expression.LetFunction function ->
+                            markPhantomTypesFromTypeAnnotationAsUsed
+                                (Maybe.map (\(Node _ value) -> value.typeAnnotation) function.signature)
+                                ctx
 
-                            Expression.LetDestructuring _ _ ->
-                                Nothing
-                    )
-                |> List.foldl markPhantomTypesFromTypeAnnotationAsUsed moduleContext
-            )
+                        Expression.LetDestructuring _ _ ->
+                            ctx
+                )
+                moduleContext
+                declarations
 
         _ ->
-            ( [], moduleContext )
+            moduleContext
 
 
-caseBranchEnterVisitor : Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> ModuleContext -> ( List nothing, ModuleContext )
+caseBranchEnterVisitor : Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> ModuleContext -> ModuleContext
 caseBranchEnterVisitor caseExpression ( casePattern, body ) moduleContext =
     let
         previousLocation : Maybe Elm.Syntax.Range.Location
         previousLocation =
             findEndLocationOfPreviousElement (Node.value caseExpression).cases (Node.range casePattern) Nothing
 
-        constructors : Set ( ModuleName, String )
+        constructors : { fromThisModule : Set ConstructorName, fromOtherModules : Set ( ModuleNameAsString, ConstructorName ) }
         constructors =
-            constructorsInPattern moduleContext.lookupTable casePattern
+            constructorsInPattern moduleContext.lookupTable [ casePattern ] { fromThisModule = Set.empty, fromOtherModules = Set.empty }
 
         fixes : Dict ConstructorName (List Fix)
         fixes =
             List.foldl
-                (\( moduleName, constructorName ) acc ->
-                    if moduleName == [] then
-                        let
-                            fix : Fix
-                            fix =
-                                Fix.removeRange
-                                    { start = Maybe.withDefault (Node.range casePattern).start previousLocation
-                                    , end = (Node.range body).end
-                                    }
-                        in
-                        Dict.update
-                            constructorName
-                            (\existing ->
-                                case existing of
-                                    Just list ->
-                                        Just (fix :: list)
-
-                                    Nothing ->
-                                        Just [ fix ]
-                            )
-                            acc
-
-                    else
-                        acc
+                (\constructorName acc ->
+                    let
+                        fix : Fix
+                        fix =
+                            Fix.removeRange
+                                { start = Maybe.withDefault (Node.range casePattern).start previousLocation
+                                , end = (Node.range body).end
+                                }
+                    in
+                    updateToAdd constructorName fix acc
                 )
                 moduleContext.fixesForRemovingConstructor
-                (Set.toList constructors)
+                (Set.toList constructors.fromThisModule)
 
-        wasUsedInOtherModules : Set ( ModuleNameAsString, ConstructorName )
-        wasUsedInOtherModules =
-            toSetOfModuleNameAsString constructors
+        constructorsToIgnore : Set ( ModuleName, ConstructorName )
+        constructorsToIgnore =
+            Set.union
+                (Set.map (\( moduleName, constructorName ) -> ( String.split "." moduleName, constructorName )) constructors.fromOtherModules)
+                (Set.map (\constructorName -> ( [], constructorName )) constructors.fromThisModule)
     in
-    ( []
-    , { moduleContext
-        | wasUsedInOtherModules = Set.union wasUsedInOtherModules moduleContext.wasUsedInOtherModules
-        , constructorsToIgnore = constructors :: moduleContext.constructorsToIgnore
+    { moduleContext
+        | wasUsedInOtherModules = Set.union constructors.fromOtherModules moduleContext.wasUsedInOtherModules
+        , constructorsToIgnore = constructorsToIgnore :: moduleContext.constructorsToIgnore
         , fixesForRemovingConstructor = fixes
-      }
-    )
+    }
 
 
-caseBranchExitVisitor : Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> ModuleContext -> ( List nothing, ModuleContext )
+caseBranchExitVisitor : Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> ModuleContext -> ModuleContext
 caseBranchExitVisitor _ _ moduleContext =
-    ( []
-    , { moduleContext | constructorsToIgnore = List.drop 1 moduleContext.constructorsToIgnore }
-    )
+    { moduleContext | constructorsToIgnore = List.drop 1 moduleContext.constructorsToIgnore }
 
 
 findEndLocationOfPreviousElement : List ( Node a, Node b ) -> Range -> Maybe Elm.Syntax.Range.Location -> Maybe Elm.Syntax.Range.Location
@@ -808,157 +807,227 @@ findEndLocationOfPreviousElement nodes nodeRange previousRangeEnd =
             Nothing
 
 
-toSetOfModuleNameAsString : Set ( ModuleName, ConstructorName ) -> Set ( ModuleNameAsString, ConstructorName )
-toSetOfModuleNameAsString set =
-    set
-        |> Set.map (Tuple.mapFirst (String.join "."))
-        |> Set.filter (\( moduleName, _ ) -> moduleName /= "")
+staticRanges : List (Node Expression) -> List Range -> List Range
+staticRanges nodes acc =
+    case nodes of
+        [] ->
+            acc
+
+        node :: restOfNodes ->
+            case Node.value node of
+                Expression.FunctionOrValue _ _ ->
+                    staticRanges restOfNodes (Node.range node :: acc)
+
+                Expression.Application ((Node _ (Expression.FunctionOrValue _ name)) :: restOfArgs) ->
+                    if isCapitalized name then
+                        staticRanges (restOfArgs ++ restOfNodes) (Node.range node :: acc)
+
+                    else
+                        staticRanges restOfNodes acc
+
+                Expression.Application ((Node _ (Expression.PrefixOperator operator)) :: restOfArgs) ->
+                    if List.member operator [ "+", "-", "==", "/=" ] then
+                        staticRanges (restOfArgs ++ restOfNodes) acc
+
+                    else
+                        staticRanges restOfNodes acc
+
+                Expression.OperatorApplication operator _ left right ->
+                    if List.member operator [ "+", "-", "==", "/=" ] then
+                        staticRanges (left :: right :: restOfNodes) acc
+
+                    else
+                        staticRanges restOfNodes acc
+
+                Expression.ListExpr subNodes ->
+                    staticRanges (subNodes ++ restOfNodes) acc
+
+                Expression.TupledExpression subNodes ->
+                    staticRanges (subNodes ++ restOfNodes) acc
+
+                Expression.ParenthesizedExpression expr ->
+                    staticRanges (expr :: restOfNodes) acc
+
+                Expression.RecordExpr fields ->
+                    let
+                        newNodes : List (Node Expression)
+                        newNodes =
+                            List.map (\(Node _ ( _, value )) -> value) fields
+                    in
+                    staticRanges (newNodes ++ restOfNodes) acc
+
+                Expression.RecordUpdateExpression _ fields ->
+                    let
+                        newNodes : List (Node Expression)
+                        newNodes =
+                            List.map (\(Node _ ( _, value )) -> value) fields
+                    in
+                    staticRanges (newNodes ++ restOfNodes) acc
+
+                Expression.RecordAccess expr _ ->
+                    staticRanges (expr :: restOfNodes) acc
+
+                _ ->
+                    staticRanges restOfNodes acc
 
 
-staticRanges : Node Expression -> List Range
-staticRanges node =
-    case Node.value node of
-        Expression.FunctionOrValue _ _ ->
-            [ Node.range node ]
-
-        Expression.Application ((Node _ (Expression.FunctionOrValue _ name)) :: restOfArgs) ->
-            if isCapitalized name then
-                Node.range node :: List.concatMap staticRanges restOfArgs
-
-            else
-                []
-
-        Expression.Application ((Node _ (Expression.PrefixOperator operator)) :: restOfArgs) ->
-            if List.member operator [ "+", "-", "==", "/=" ] then
-                List.concatMap staticRanges restOfArgs
-
-            else
-                []
-
-        Expression.OperatorApplication operator _ left right ->
-            if List.member operator [ "+", "-", "==", "/=" ] then
-                List.concatMap staticRanges [ left, right ]
-
-            else
-                []
-
-        Expression.ListExpr nodes ->
-            List.concatMap staticRanges nodes
-
-        Expression.TupledExpression nodes ->
-            List.concatMap staticRanges nodes
-
-        Expression.ParenthesizedExpression expr ->
-            staticRanges expr
-
-        Expression.RecordExpr fields ->
-            List.concatMap (Node.value >> Tuple.second >> staticRanges) fields
-
-        Expression.RecordUpdateExpression _ fields ->
-            List.concatMap (Node.value >> Tuple.second >> staticRanges) fields
-
-        Expression.RecordAccess expr _ ->
-            staticRanges expr
-
-        _ ->
-            []
+findConstructors : ModuleNameLookupTable -> List (Node Expression) -> Set ( ModuleNameAsString, ConstructorName ) -> { fromThisModule : List ( ModuleNameAsString, ConstructorName ), fromOtherModules : Set ( ModuleNameAsString, ConstructorName ) }
+findConstructors lookupTable nodes fromOtherModulesBase =
+    findConstructorsHelp lookupTable nodes { fromThisModule = [], fromOtherModules = fromOtherModulesBase }
 
 
-findConstructors : ModuleNameLookupTable -> Node Expression -> Set ( ModuleNameAsString, ConstructorName )
-findConstructors lookupTable node =
-    case Node.value node of
-        Expression.FunctionOrValue _ name ->
-            if isCapitalized name then
-                case ModuleNameLookupTable.moduleNameFor lookupTable node of
-                    Just realModuleName ->
-                        Set.singleton ( String.join "." realModuleName, name )
+findConstructorsHelp :
+    ModuleNameLookupTable
+    -> List (Node Expression)
+    -> { fromThisModule : List ( ModuleNameAsString, ConstructorName ), fromOtherModules : Set ( ModuleNameAsString, ConstructorName ) }
+    -> { fromThisModule : List ( ModuleNameAsString, ConstructorName ), fromOtherModules : Set ( ModuleNameAsString, ConstructorName ) }
+findConstructorsHelp lookupTable nodes acc =
+    case nodes of
+        [] ->
+            acc
 
-                    Nothing ->
-                        Set.empty
+        node :: restOfNodes ->
+            case Node.value node of
+                Expression.FunctionOrValue _ name ->
+                    if isCapitalized name then
+                        findConstructorsHelp
+                            lookupTable
+                            restOfNodes
+                            (addElementToUniqueList lookupTable node name acc)
 
-            else
-                Set.empty
+                    else
+                        findConstructorsHelp lookupTable restOfNodes acc
 
-        Expression.Application ((Node _ (Expression.FunctionOrValue _ name)) :: restOfArgs) ->
-            if isCapitalized name then
-                List.foldl
-                    (findConstructors lookupTable >> Set.union)
-                    (case ModuleNameLookupTable.moduleNameFor lookupTable node of
-                        Just realModuleName ->
-                            Set.singleton ( String.join "." realModuleName, name )
+                Expression.Application ((Node _ (Expression.FunctionOrValue _ name)) :: restOfArgs) ->
+                    if isCapitalized name then
+                        findConstructorsHelp
+                            lookupTable
+                            (restOfArgs ++ restOfNodes)
+                            (addElementToUniqueList lookupTable node name acc)
 
-                        Nothing ->
-                            Set.empty
-                    )
-                    restOfArgs
+                    else
+                        findConstructorsHelp lookupTable restOfNodes acc
 
-            else
-                Set.empty
+                Expression.OperatorApplication operator _ left right ->
+                    if List.member operator [ "+", "-" ] then
+                        findConstructorsHelp lookupTable (left :: right :: restOfNodes) acc
 
-        Expression.OperatorApplication operator _ left right ->
-            if List.member operator [ "+", "-" ] then
-                List.foldl (findConstructors lookupTable >> Set.union) Set.empty [ left, right ]
+                    else
+                        findConstructorsHelp lookupTable restOfNodes acc
 
-            else
-                Set.empty
+                Expression.ListExpr subNodes ->
+                    findConstructorsHelp lookupTable (subNodes ++ restOfNodes) acc
 
-        Expression.ListExpr nodes ->
-            List.foldl (findConstructors lookupTable >> Set.union) Set.empty nodes
+                Expression.TupledExpression subNodes ->
+                    findConstructorsHelp lookupTable (subNodes ++ restOfNodes) acc
 
-        Expression.TupledExpression nodes ->
-            List.foldl (findConstructors lookupTable >> Set.union) Set.empty nodes
+                Expression.ParenthesizedExpression expr ->
+                    findConstructorsHelp lookupTable (expr :: restOfNodes) acc
 
-        Expression.ParenthesizedExpression expr ->
-            findConstructors lookupTable expr
+                Expression.RecordExpr fields ->
+                    let
+                        expressions : List (Node Expression)
+                        expressions =
+                            List.map (\(Node _ ( _, value )) -> value) fields
+                    in
+                    findConstructorsHelp lookupTable (expressions ++ restOfNodes) acc
 
-        Expression.RecordExpr fields ->
-            List.foldl (Node.value >> Tuple.second >> findConstructors lookupTable >> Set.union) Set.empty fields
+                Expression.RecordUpdateExpression _ fields ->
+                    let
+                        expressions : List (Node Expression)
+                        expressions =
+                            List.map (\(Node _ ( _, value )) -> value) fields
+                    in
+                    findConstructorsHelp lookupTable (expressions ++ restOfNodes) acc
 
-        Expression.RecordUpdateExpression _ fields ->
-            List.foldl (Node.value >> Tuple.second >> findConstructors lookupTable >> Set.union) Set.empty fields
+                Expression.RecordAccess expr _ ->
+                    findConstructorsHelp lookupTable (expr :: restOfNodes) acc
 
-        Expression.RecordAccess expr _ ->
-            findConstructors lookupTable expr
-
-        _ ->
-            Set.empty
+                _ ->
+                    findConstructorsHelp lookupTable restOfNodes acc
 
 
-constructorsInPattern : ModuleNameLookupTable -> Node Pattern -> Set ( ModuleName, String )
-constructorsInPattern lookupTable node =
-    case Node.value node of
-        Pattern.NamedPattern qualifiedNameRef patterns ->
+addElementToUniqueList :
+    ModuleNameLookupTable
+    -> Node Expression
+    -> ConstructorName
+    -> { fromThisModule : List ( ModuleNameAsString, ConstructorName ), fromOtherModules : Set ( ModuleNameAsString, ConstructorName ) }
+    -> { fromThisModule : List ( ModuleNameAsString, ConstructorName ), fromOtherModules : Set ( ModuleNameAsString, ConstructorName ) }
+addElementToUniqueList lookupTable node name acc =
+    case ModuleNameLookupTable.moduleNameFor lookupTable node of
+        Just realModuleName ->
             let
-                initialSet : Set ( ModuleName, String )
-                initialSet =
-                    case ModuleNameLookupTable.moduleNameFor lookupTable node of
-                        Just realModuleName ->
-                            Set.fromList [ ( realModuleName, qualifiedNameRef.name ) ]
+                moduleName : ModuleNameAsString
+                moduleName =
+                    String.join "." realModuleName
 
-                        Nothing ->
-                            Set.empty
+                key : ( ModuleNameAsString, ConstructorName )
+                key =
+                    ( moduleName, name )
             in
-            List.foldl (\pattern acc -> Set.union (constructorsInPattern lookupTable pattern) acc) initialSet patterns
+            if moduleName == "" then
+                if List.member key acc.fromThisModule then
+                    acc
 
-        Pattern.TuplePattern patterns ->
-            List.foldl (\pattern acc -> Set.union (constructorsInPattern lookupTable pattern) acc) Set.empty patterns
+                else
+                    { fromThisModule = key :: acc.fromThisModule
+                    , fromOtherModules = acc.fromOtherModules
+                    }
 
-        Pattern.UnConsPattern left right ->
-            Set.union
-                (constructorsInPattern lookupTable left)
-                (constructorsInPattern lookupTable right)
+            else
+                { fromThisModule = acc.fromThisModule
+                , fromOtherModules = Set.insert key acc.fromOtherModules
+                }
 
-        Pattern.ListPattern patterns ->
-            List.foldl (\pattern acc -> Set.union (constructorsInPattern lookupTable pattern) acc) Set.empty patterns
+        Nothing ->
+            acc
 
-        Pattern.AsPattern pattern _ ->
-            constructorsInPattern lookupTable pattern
 
-        Pattern.ParenthesizedPattern pattern ->
-            constructorsInPattern lookupTable pattern
+constructorsInPattern : ModuleNameLookupTable -> List (Node Pattern) -> { fromThisModule : Set ConstructorName, fromOtherModules : Set ( ModuleNameAsString, ConstructorName ) } -> { fromThisModule : Set ConstructorName, fromOtherModules : Set ( ModuleNameAsString, ConstructorName ) }
+constructorsInPattern lookupTable nodes acc =
+    case nodes of
+        [] ->
+            acc
 
-        _ ->
-            Set.empty
+        node :: restOfNodes ->
+            case Node.value node of
+                Pattern.NamedPattern qualifiedNameRef patterns ->
+                    let
+                        newAcc : { fromThisModule : Set ConstructorName, fromOtherModules : Set ( ModuleNameAsString, ConstructorName ) }
+                        newAcc =
+                            case ModuleNameLookupTable.moduleNameFor lookupTable node of
+                                Just [] ->
+                                    { fromThisModule = Set.insert qualifiedNameRef.name acc.fromThisModule
+                                    , fromOtherModules = acc.fromOtherModules
+                                    }
+
+                                Just realModuleName ->
+                                    { fromThisModule = acc.fromThisModule
+                                    , fromOtherModules = Set.insert ( String.join "." realModuleName, qualifiedNameRef.name ) acc.fromOtherModules
+                                    }
+
+                                Nothing ->
+                                    acc
+                    in
+                    constructorsInPattern lookupTable (patterns ++ restOfNodes) newAcc
+
+                Pattern.TuplePattern patterns ->
+                    constructorsInPattern lookupTable (patterns ++ restOfNodes) acc
+
+                Pattern.UnConsPattern left right ->
+                    constructorsInPattern lookupTable (left :: right :: restOfNodes) acc
+
+                Pattern.ListPattern patterns ->
+                    constructorsInPattern lookupTable (patterns ++ restOfNodes) acc
+
+                Pattern.AsPattern pattern _ ->
+                    constructorsInPattern lookupTable (pattern :: restOfNodes) acc
+
+                Pattern.ParenthesizedPattern pattern ->
+                    constructorsInPattern lookupTable (pattern :: restOfNodes) acc
+
+                _ ->
+                    constructorsInPattern lookupTable restOfNodes acc
 
 
 registerUsedFunctionOrValue : Range -> ModuleName -> ConstructorName -> ModuleContext -> ModuleContext
@@ -978,12 +1047,7 @@ registerUsedFunctionOrValue range moduleName name moduleContext =
         { moduleContext | wasUsedInLocationThatNeedsItself = Set.insert ( String.join "." moduleName, name ) moduleContext.wasUsedInLocationThatNeedsItself }
 
     else
-        { moduleContext
-            | usedFunctionsOrValues =
-                insertIntoUsedFunctionsOrValues
-                    ( moduleName, name )
-                    moduleContext.usedFunctionsOrValues
-        }
+        { moduleContext | usedFunctionsOrValues = updateToInsert (String.join "." moduleName) name moduleContext.usedFunctionsOrValues }
 
 
 isCapitalized : String -> Bool
@@ -1095,122 +1159,141 @@ errorForModule moduleKey params constructorInformation =
 
 markPhantomTypesFromTypeAnnotationAsUsed : Maybe (Node TypeAnnotation) -> ModuleContext -> ModuleContext
 markPhantomTypesFromTypeAnnotationAsUsed maybeTypeAnnotation moduleContext =
-    let
-        used : List ( ModuleName, CustomTypeName )
-        used =
-            case maybeTypeAnnotation of
-                Just typeAnnotation ->
+    case maybeTypeAnnotation of
+        Just typeAnnotation ->
+            let
+                usedFunctionsOrValues : Dict ModuleNameAsString (Set ConstructorName)
+                usedFunctionsOrValues =
                     collectTypesUsedAsPhantomVariables
                         moduleContext
                         moduleContext.phantomVariables
-                        typeAnnotation
-
-                Nothing ->
-                    []
-
-        usedFunctionsOrValues : Dict ModuleNameAsString (Set ConstructorName)
-        usedFunctionsOrValues =
-            List.foldl
-                insertIntoUsedFunctionsOrValues
-                moduleContext.usedFunctionsOrValues
-                used
-    in
-    { moduleContext | usedFunctionsOrValues = usedFunctionsOrValues }
-
-
-insertIntoUsedFunctionsOrValues : ( ModuleName, ConstructorName ) -> Dict ModuleNameAsString (Set ConstructorName) -> Dict ModuleNameAsString (Set ConstructorName)
-insertIntoUsedFunctionsOrValues ( moduleName, constructorName ) dict =
-    Dict.update
-        (String.join "." moduleName)
-        (\maybeSet ->
-            case maybeSet of
-                Just set ->
-                    Just (Set.insert constructorName set)
-
-                Nothing ->
-                    Just (Set.singleton constructorName)
-        )
-        dict
-
-
-collectGenericsFromTypeAnnotation : Node TypeAnnotation -> List String
-collectGenericsFromTypeAnnotation node =
-    case Node.value node of
-        TypeAnnotation.FunctionTypeAnnotation a b ->
-            collectGenericsFromTypeAnnotation a ++ collectGenericsFromTypeAnnotation b
-
-        TypeAnnotation.Typed _ params ->
-            List.concatMap collectGenericsFromTypeAnnotation params
-
-        TypeAnnotation.Record list ->
-            list
-                |> List.concatMap (Node.value >> Tuple.second >> collectGenericsFromTypeAnnotation)
-
-        TypeAnnotation.GenericRecord _ list ->
-            Node.value list
-                |> List.concatMap (Node.value >> Tuple.second >> collectGenericsFromTypeAnnotation)
-
-        TypeAnnotation.Tupled list ->
-            List.concatMap collectGenericsFromTypeAnnotation list
-
-        TypeAnnotation.GenericType var ->
-            [ var ]
-
-        TypeAnnotation.Unit ->
-            []
-
-
-collectTypesUsedAsPhantomVariables : ModuleContext -> Dict ModuleName (List ( CustomTypeName, Int )) -> Node TypeAnnotation -> List ( ModuleName, CustomTypeName )
-collectTypesUsedAsPhantomVariables moduleContext phantomVariables node =
-    case Node.value node of
-        TypeAnnotation.FunctionTypeAnnotation a b ->
-            collectTypesUsedAsPhantomVariables moduleContext phantomVariables a
-                ++ collectTypesUsedAsPhantomVariables moduleContext phantomVariables b
-
-        TypeAnnotation.Typed (Node.Node typeRange ( _, name )) params ->
-            let
-                moduleNameOfPhantomContainer : ModuleName
-                moduleNameOfPhantomContainer =
-                    ModuleNameLookupTable.moduleNameAt moduleContext.lookupTable typeRange
-                        |> Maybe.withDefault []
-
-                typesUsedInThePhantomVariablePosition : List ( ModuleName, CustomTypeName )
-                typesUsedInThePhantomVariablePosition =
-                    Dict.get moduleNameOfPhantomContainer phantomVariables
-                        |> Maybe.withDefault []
-                        |> List.filter (\( type_, _ ) -> type_ == name)
-                        |> List.filterMap
-                            (\( _, index ) ->
-                                case listAtIndex index params |> Maybe.map Node.value of
-                                    Just (TypeAnnotation.Typed (Node.Node subTypeRange ( _, typeName )) _) ->
-                                        ModuleNameLookupTable.moduleNameAt moduleContext.lookupTable subTypeRange
-                                            |> Maybe.map (\moduleNameOfPhantomVariable -> ( moduleNameOfPhantomVariable, typeName ))
-
-                                    _ ->
-                                        Nothing
-                            )
+                        [ typeAnnotation ]
+                        moduleContext.usedFunctionsOrValues
             in
-            List.concat
-                [ typesUsedInThePhantomVariablePosition
-                , List.concatMap (collectTypesUsedAsPhantomVariables moduleContext phantomVariables) params
-                ]
+            { moduleContext | usedFunctionsOrValues = usedFunctionsOrValues }
 
-        TypeAnnotation.Record list ->
-            list
-                |> List.concatMap (Node.value >> Tuple.second >> collectTypesUsedAsPhantomVariables moduleContext phantomVariables)
+        Nothing ->
+            moduleContext
 
-        TypeAnnotation.GenericRecord _ list ->
-            Node.value list
-                |> List.concatMap (Node.value >> Tuple.second >> collectTypesUsedAsPhantomVariables moduleContext phantomVariables)
 
-        TypeAnnotation.Tupled list ->
-            List.concatMap (collectTypesUsedAsPhantomVariables moduleContext phantomVariables) list
+collectGenericsFromTypeAnnotation : List (Node TypeAnnotation) -> Set String -> Set String
+collectGenericsFromTypeAnnotation nodes acc =
+    case nodes of
+        [] ->
+            acc
 
-        TypeAnnotation.GenericType _ ->
-            []
+        (Node _ node) :: restOfNodes ->
+            case node of
+                TypeAnnotation.FunctionTypeAnnotation a b ->
+                    collectGenericsFromTypeAnnotation (a :: b :: restOfNodes) acc
 
-        TypeAnnotation.Unit ->
-            []
+                TypeAnnotation.Typed _ params ->
+                    collectGenericsFromTypeAnnotation (params ++ restOfNodes) acc
+
+                TypeAnnotation.Record fields ->
+                    let
+                        subNodes : List (Node TypeAnnotation)
+                        subNodes =
+                            List.map (\(Node _ ( _, value )) -> value) fields
+                    in
+                    collectGenericsFromTypeAnnotation (subNodes ++ restOfNodes) acc
+
+                TypeAnnotation.GenericRecord (Node _ var) (Node _ fields) ->
+                    let
+                        subNodes : List (Node TypeAnnotation)
+                        subNodes =
+                            List.map (\(Node _ ( _, value )) -> value) fields
+                    in
+                    collectGenericsFromTypeAnnotation (subNodes ++ restOfNodes) (Set.insert var acc)
+
+                TypeAnnotation.Tupled list ->
+                    collectGenericsFromTypeAnnotation (list ++ restOfNodes) acc
+
+                TypeAnnotation.GenericType var ->
+                    collectGenericsFromTypeAnnotation restOfNodes (Set.insert var acc)
+
+                TypeAnnotation.Unit ->
+                    collectGenericsFromTypeAnnotation restOfNodes acc
+
+
+collectTypesUsedAsPhantomVariables : ModuleContext -> Dict ModuleName (List ( CustomTypeName, Int )) -> List (Node TypeAnnotation) -> Dict ModuleNameAsString (Set ConstructorName) -> Dict ModuleNameAsString (Set ConstructorName)
+collectTypesUsedAsPhantomVariables moduleContext phantomVariables nodes used =
+    case nodes of
+        [] ->
+            used
+
+        node :: restOfNodes ->
+            case Node.value node of
+                TypeAnnotation.FunctionTypeAnnotation a b ->
+                    collectTypesUsedAsPhantomVariables moduleContext phantomVariables (a :: b :: restOfNodes) used
+
+                TypeAnnotation.Typed (Node.Node typeRange ( _, name )) params ->
+                    case
+                        ModuleNameLookupTable.moduleNameAt moduleContext.lookupTable typeRange
+                            |> Maybe.andThen (\moduleNameOfPhantomContainer -> Dict.get moduleNameOfPhantomContainer phantomVariables)
+                    of
+                        Just things ->
+                            let
+                                newUsed : Dict ModuleNameAsString (Set ConstructorName)
+                                newUsed =
+                                    List.foldl
+                                        (\( type_, index ) acc ->
+                                            if type_ /= name then
+                                                acc
+
+                                            else
+                                                case listAtIndex index params |> Maybe.map Node.value of
+                                                    Just (TypeAnnotation.Typed (Node.Node subTypeRange ( _, typeName )) _) ->
+                                                        case ModuleNameLookupTable.moduleNameAt moduleContext.lookupTable subTypeRange of
+                                                            Just moduleNameOfPhantomVariable ->
+                                                                updateToInsert (String.join "." moduleNameOfPhantomVariable) typeName acc
+
+                                                            Nothing ->
+                                                                acc
+
+                                                    _ ->
+                                                        acc
+                                        )
+                                        used
+                                        things
+                            in
+                            collectTypesUsedAsPhantomVariables
+                                moduleContext
+                                phantomVariables
+                                (params ++ restOfNodes)
+                                newUsed
+
+                        Nothing ->
+                            collectTypesUsedAsPhantomVariables
+                                moduleContext
+                                phantomVariables
+                                (params ++ restOfNodes)
+                                used
+
+                TypeAnnotation.Record fields ->
+                    let
+                        subNodes : List (Node TypeAnnotation)
+                        subNodes =
+                            List.map (\(Node _ ( _, value )) -> value) fields
+                    in
+                    collectTypesUsedAsPhantomVariables moduleContext phantomVariables (subNodes ++ restOfNodes) used
+
+                TypeAnnotation.GenericRecord _ (Node _ fields) ->
+                    let
+                        subNodes : List (Node TypeAnnotation)
+                        subNodes =
+                            List.map (\(Node _ ( _, value )) -> value) fields
+                    in
+                    collectTypesUsedAsPhantomVariables moduleContext phantomVariables (subNodes ++ restOfNodes) used
+
+                TypeAnnotation.Tupled list ->
+                    collectTypesUsedAsPhantomVariables moduleContext phantomVariables (list ++ restOfNodes) used
+
+                TypeAnnotation.GenericType _ ->
+                    collectTypesUsedAsPhantomVariables moduleContext phantomVariables restOfNodes used
+
+                TypeAnnotation.Unit ->
+                    collectTypesUsedAsPhantomVariables moduleContext phantomVariables restOfNodes used
 
 
 listAtIndex : Int -> List a -> Maybe a

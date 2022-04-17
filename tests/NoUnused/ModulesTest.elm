@@ -200,11 +200,19 @@ app = text ""
                             , under = "Reported"
                             }
                         ]
-        , test "should report modules that contain a top-level `app` function in Lamdera applications" <|
+        , test "should not report modules that contain a top-level `app` function in Lamdera applications" <|
             \() ->
                 """
 module Reported exposing (app)
 app = text ""
+"""
+                    |> Review.Test.runWithProjectData lamderaApplication rule
+                    |> Review.Test.expectNoErrors
+        , test "should not report modules that contain a top-level `main` function in Lamdera applications" <|
+            \() ->
+                """
+module Reported exposing (main)
+main = text ""
 """
                     |> Review.Test.runWithProjectData lamderaApplication rule
                     |> Review.Test.expectNoErrors

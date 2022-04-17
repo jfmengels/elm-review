@@ -211,6 +211,15 @@ Below is the list of all kinds of simplifications this rule applies.
     String.repeat 1 str
     --> str
 
+    String.replace x y ""
+    --> ""
+
+    String.replace x x z
+    --> z
+
+    String.replace "x" "y" "z"
+    --> "z" -- only when resulting string is unchanged
+
     String.words ""
     --> []
 
@@ -243,6 +252,9 @@ Below is the list of all kinds of simplifications this rule applies.
 
     Maybe.andThen (\a -> Just b) x
     --> Maybe.map (\a -> b) x
+
+    Maybe.andThen (\a -> if condition a then Just b else Just c) x
+    --> Maybe.map (\a -> if condition a then b else c) x
 
     Maybe.andThen f (Just x)
     --> f x
@@ -301,31 +313,7 @@ Below is the list of all kinds of simplifications this rule applies.
     [ a, b ] ++ [ c ]
     --> [ a, b, c ]
 
-    List.concat []
-    --> []
-
-    List.concat [ [ a, b ], [ c ] ]
-    --> [ a, b, c ]
-
-    List.concat [ a, [ 1 ], [ 2 ] ]
-    --> List.concat [ a, [ 1, 2 ] ]
-
-    List.concatMap identity x
-    --> List.concat list
-
-    List.concatMap identity
-    --> List.concat
-
-    List.concatMap (\a -> a) list
-    --> List.concat list
-
-    List.concatMap fn [ x ]
-    --> fn x
-
-    List.concatMap (always []) list
-    --> []
-
-    List.map fn [] -- same for List.filter, List.filterMap, ...
+    List.map fn [] -- same for most List functions like List.filter, List.filterMap, ...
     --> []
 
     List.map identity list
@@ -358,11 +346,51 @@ Below is the list of all kinds of simplifications this rule applies.
     List.filterMap Just
     --> identity
 
+    List.filterMap (\a -> if condition a then Just b else Just c) list
+    --> List.map (\a -> if condition a then b else c) list
+
     List.filterMap (always Nothing) list
     --> []
 
     List.filterMap (always Nothing)
     --> (always [])
+
+    List.filterMap identity (List.map f x)
+    --> List.filterMap f x
+
+    List.filterMap identity [ Just x, Just y ]
+    --> [ x, y ]
+
+
+    List.concat [ [ a, b ], [ c ] ]
+    --> [ a, b, c ]
+
+    List.concat [ a, [ 1 ], [ 2 ] ]
+    --> List.concat [ a, [ 1, 2 ] ]
+
+    List.concatMap identity x
+    --> List.concat list
+
+    List.concatMap identity
+    --> List.concat
+
+    List.concatMap (\a -> a) list
+    --> List.concat list
+
+    List.concatMap (\a -> [ b ]) list
+    --> List.map (\a -> b) list
+
+    List.concatMap fn [ x ]
+    --> fn x
+
+    List.concatMap (always []) list
+    --> []
+
+    List.concat (List.map f x)
+    --> List.concatMap f x
+
+    List.indexedMap (\_ value -> f value) list
+    --> List.map (\value -> f value) list
 
     List.isEmpty []
     --> True
@@ -400,8 +428,14 @@ Below is the list of all kinds of simplifications this rule applies.
     List.partition (always True) list
     --> ( list, [] )
 
-    List.reverse []
+
+    List.take 0 x
     --> []
+
+
+    List.drop 0 x
+    --> x
+
 
     List.reverse <| List.reverse x
     --> x
@@ -489,6 +523,18 @@ All of these also apply for `Sub`.
     Cmd.map fn Cmd.none
     --> Cmd.none
 
+
+### Json.Decode
+
+    Json.Decode.oneOf [a]
+    --> a
+
+
+### Parser
+
+    Parser.oneOf [a]
+    --> a
+
 -}
 
 import Dict exposing (Dict)
@@ -505,6 +551,7 @@ import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNam
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
+import Simplify.Match as Match exposing (Match(..))
 import Simplify.Normalize as Normalize
 
 
@@ -940,6 +987,7 @@ expressionVisitorHelp node context =
                             , fnRange = fnRange
                             , firstArg = firstArg
                             , secondArg = List.head restOfArguments
+                            , thirdArg = List.head (List.drop 1 restOfArguments)
                             , usingRightPizza = False
                             }
                         )
@@ -952,7 +1000,7 @@ expressionVisitorHelp node context =
         -------------------
         Expression.IfBlock cond trueBranch falseBranch ->
             case getBoolean context.lookupTable cond of
-                Just True ->
+                Determined True ->
                     onlyErrors
                         [ Rule.errorWithFix
                             { message = "The condition will always evaluate to True"
@@ -970,7 +1018,7 @@ expressionVisitorHelp node context =
                             ]
                         ]
 
-                Just False ->
+                Determined False ->
                     onlyErrors
                         [ Rule.errorWithFix
                             { message = "The condition will always evaluate to False"
@@ -984,9 +1032,9 @@ expressionVisitorHelp node context =
                             ]
                         ]
 
-                Nothing ->
+                Undetermined ->
                     case ( getBoolean context.lookupTable trueBranch, getBoolean context.lookupTable falseBranch ) of
-                        ( Just True, Just False ) ->
+                        ( Determined True, Determined False ) ->
                             onlyErrors
                                 [ Rule.errorWithFix
                                     { message = "The if expression's value is the same as the condition"
@@ -1004,7 +1052,7 @@ expressionVisitorHelp node context =
                                     ]
                                 ]
 
-                        ( Just False, Just True ) ->
+                        ( Determined False, Determined True ) ->
                             onlyErrors
                                 [ Rule.errorWithFix
                                     { message = "The if expression's value is the inverse of the condition"
@@ -1147,6 +1195,7 @@ expressionVisitorHelp node context =
                             , fnRange = fnRange
                             , firstArg = firstArg
                             , secondArg = Nothing
+                            , thirdArg = Nothing
                             , usingRightPizza = False
                             }
                         )
@@ -1167,6 +1216,7 @@ expressionVisitorHelp node context =
                             , fnRange = fnRange
                             , firstArg = firstArg
                             , secondArg = Just secondArgument
+                            , thirdArg = Nothing
                             , usingRightPizza = False
                             }
                         )
@@ -1191,6 +1241,7 @@ expressionVisitorHelp node context =
                             , fnRange = fnRange
                             , firstArg = firstArg
                             , secondArg = Nothing
+                            , thirdArg = Nothing
                             , usingRightPizza = True
                             }
                         )
@@ -1211,6 +1262,7 @@ expressionVisitorHelp node context =
                             , fnRange = fnRange
                             , firstArg = firstArg
                             , secondArg = Just secondArgument
+                            , thirdArg = Nothing
                             , usingRightPizza = True
                             }
                         )
@@ -1329,6 +1381,7 @@ type alias CheckInfo =
     , fnRange : Range
     , firstArg : Node Expression
     , secondArg : Maybe (Node Expression)
+    , thirdArg : Maybe (Node Expression)
     , usingRightPizza : Bool
     }
 
@@ -1351,6 +1404,7 @@ functionCallChecks =
         , reportEmptyListSecondArgument ( ( [ "List" ], "filterMap" ), listFilterMapChecks )
         , reportEmptyListFirstArgument ( ( [ "List" ], "concat" ), listConcatChecks )
         , reportEmptyListSecondArgument ( ( [ "List" ], "concatMap" ), listConcatMapChecks )
+        , reportEmptyListSecondArgument ( ( [ "List" ], "indexedMap" ), listIndexedMapChecks )
         , ( ( [ "List" ], "all" ), listAllChecks )
         , ( ( [ "List" ], "any" ), listAnyChecks )
         , ( ( [ "List" ], "range" ), listRangeChecks )
@@ -1359,6 +1413,8 @@ functionCallChecks =
         , ( ( [ "List" ], "isEmpty" ), collectionIsEmptyChecks listCollection )
         , ( ( [ "List" ], "partition" ), collectionPartitionChecks listCollection )
         , ( ( [ "List" ], "reverse" ), listReverseChecks )
+        , ( ( [ "List" ], "take" ), listTakeChecks )
+        , ( ( [ "List" ], "drop" ), listDropChecks )
         , ( ( [ "Set" ], "map" ), collectionMapChecks setCollection )
         , ( ( [ "Set" ], "filter" ), collectionFilterChecks setCollection )
         , ( ( [ "Set" ], "remove" ), collectionRemoveChecks setCollection )
@@ -1381,6 +1437,7 @@ functionCallChecks =
         , ( ( [ "String" ], "join" ), stringJoinChecks )
         , ( ( [ "String" ], "length" ), stringLengthChecks )
         , ( ( [ "String" ], "repeat" ), stringRepeatChecks )
+        , ( ( [ "String" ], "replace" ), stringReplaceChecks )
         , ( ( [ "String" ], "words" ), stringWordsChecks )
         , ( ( [ "String" ], "lines" ), stringLinesChecks )
         , ( ( [ "String" ], "reverse" ), stringReverseChecks )
@@ -1388,6 +1445,9 @@ functionCallChecks =
         , ( ( [ "Platform", "Cmd" ], "map" ), collectionMapChecks cmdCollection )
         , ( ( [ "Platform", "Sub" ], "batch" ), subAndCmdBatchChecks "Sub" )
         , ( ( [ "Platform", "Sub" ], "map" ), collectionMapChecks subCollection )
+        , ( ( [ "Json", "Decode" ], "oneOf" ), oneOfChecks )
+        , ( ( [ "Parser" ], "oneOf" ), oneOfChecks )
+        , ( ( [ "Parser", "Advanced" ], "oneOf" ), oneOfChecks )
         ]
 
 
@@ -1457,6 +1517,8 @@ compositionChecks =
     , alwaysCompositionCheck
     , maybeMapCompositionChecks
     , resultMapCompositionChecks
+    , filterAndMapCompositionCheck
+    , concatAndMapCompositionCheck
     ]
 
 
@@ -1672,14 +1734,14 @@ findMap mapper nodes =
 plusplusChecks : OperatorCheckInfo -> List (Error {})
 plusplusChecks { parentRange, leftRange, rightRange, left, right, isOnTheRightSideOfPlusPlus } =
     case ( Node.value left, Node.value right ) of
-        ( Expression.Literal "", _ ) ->
+        ( Expression.Literal "", Expression.Literal _ ) ->
             [ errorForAddingEmptyStrings leftRange
                 { start = leftRange.start
                 , end = rightRange.start
                 }
             ]
 
-        ( _, Expression.Literal "" ) ->
+        ( Expression.Literal _, Expression.Literal "" ) ->
             [ errorForAddingEmptyStrings rightRange
                 { start = leftRange.end
                 , end = rightRange.end
@@ -1907,7 +1969,7 @@ getNegateFunction lookupTable baseNode =
 basicsNotChecks : CheckInfo -> List (Error {})
 basicsNotChecks checkInfo =
     case getBoolean checkInfo.lookupTable checkInfo.firstArg of
-        Just bool ->
+        Determined bool ->
             [ Rule.errorWithFix
                 { message = "Expression is equal to " ++ boolToString (not bool)
                 , details = [ "You can replace the call to `not` by the boolean value directly." ]
@@ -1916,54 +1978,59 @@ basicsNotChecks checkInfo =
                 [ Fix.replaceRangeBy checkInfo.parentRange (boolToString (not bool)) ]
             ]
 
-        Nothing ->
+        Undetermined ->
             removeAlongWithOtherFunctionCheck notNotCompositionErrorMessage getNotFunction checkInfo
 
 
 notNotCompositionCheck : CompositionCheckInfo -> List (Error {})
 notNotCompositionCheck { lookupTable, fromLeftToRight, parentRange, left, right, leftRange, rightRange } =
-    case Maybe.map2 Tuple.pair (getNotFunction lookupTable left) (getNotFunction lookupTable right) of
-        Just _ ->
+    let
+        notOnLeft : Maybe Range
+        notOnLeft =
+            getNotFunction lookupTable left
+
+        notOnRight : Maybe Range
+        notOnRight =
+            getNotFunction lookupTable right
+    in
+    case ( notOnLeft, notOnRight ) of
+        ( Just _, Just _ ) ->
             [ Rule.errorWithFix
                 notNotCompositionErrorMessage
                 parentRange
                 [ Fix.replaceRangeBy parentRange "identity" ]
             ]
 
-        _ ->
-            case getNotFunction lookupTable left of
-                Just leftNotRange ->
-                    case getNotComposition lookupTable fromLeftToRight right of
-                        Just rightNotRange ->
-                            [ Rule.errorWithFix
-                                notNotCompositionErrorMessage
-                                { start = leftNotRange.start, end = rightNotRange.end }
-                                [ Fix.removeRange { start = leftNotRange.start, end = rightRange.start }
-                                , Fix.removeRange rightNotRange
-                                ]
-                            ]
-
-                        Nothing ->
-                            []
+        ( Just leftNotRange, _ ) ->
+            case getNotComposition lookupTable fromLeftToRight right of
+                Just rightNotRange ->
+                    [ Rule.errorWithFix
+                        notNotCompositionErrorMessage
+                        { start = leftNotRange.start, end = rightNotRange.end }
+                        [ Fix.removeRange { start = leftNotRange.start, end = rightRange.start }
+                        , Fix.removeRange rightNotRange
+                        ]
+                    ]
 
                 Nothing ->
-                    case getNotFunction lookupTable right of
-                        Just rightNotRange ->
-                            case getNotComposition lookupTable (not fromLeftToRight) left of
-                                Just leftNotRange ->
-                                    [ Rule.errorWithFix
-                                        notNotCompositionErrorMessage
-                                        { start = leftNotRange.start, end = rightNotRange.end }
-                                        [ Fix.removeRange leftNotRange
-                                        , Fix.removeRange { start = leftRange.end, end = rightNotRange.end }
-                                        ]
-                                    ]
+                    []
 
-                                Nothing ->
-                                    []
+        ( _, Just rightNotRange ) ->
+            case getNotComposition lookupTable (not fromLeftToRight) left of
+                Just leftNotRange ->
+                    [ Rule.errorWithFix
+                        notNotCompositionErrorMessage
+                        { start = leftNotRange.start, end = rightNotRange.end }
+                        [ Fix.removeRange leftNotRange
+                        , Fix.removeRange { start = leftRange.end, end = rightNotRange.end }
+                        ]
+                    ]
 
-                        Nothing ->
-                            []
+                Nothing ->
+                    []
+
+        _ ->
+            []
 
 
 notNotCompositionErrorMessage : { message : String, details : List String }
@@ -2123,7 +2190,7 @@ listConditions operatorToLookFor redundantConditionResolution node =
 or_isLeftSimplifiableError : OperatorCheckInfo -> List (Error {})
 or_isLeftSimplifiableError { lookupTable, parentRange, left, leftRange, rightRange } =
     case getBoolean lookupTable left of
-        Just True ->
+        Determined True ->
             [ Rule.errorWithFix
                 { message = "Condition is always True"
                 , details = alwaysSameDetails
@@ -2136,7 +2203,7 @@ or_isLeftSimplifiableError { lookupTable, parentRange, left, leftRange, rightRan
                 ]
             ]
 
-        Just False ->
+        Determined False ->
             [ Rule.errorWithFix
                 { message = unnecessaryMessage
                 , details = unnecessaryDetails
@@ -2149,14 +2216,14 @@ or_isLeftSimplifiableError { lookupTable, parentRange, left, leftRange, rightRan
                 ]
             ]
 
-        Nothing ->
+        Undetermined ->
             []
 
 
 or_isRightSimplifiableError : OperatorCheckInfo -> List (Error {})
 or_isRightSimplifiableError { lookupTable, parentRange, right, leftRange, rightRange } =
     case getBoolean lookupTable right of
-        Just True ->
+        Determined True ->
             [ Rule.errorWithFix
                 { message = unnecessaryMessage
                 , details = unnecessaryDetails
@@ -2169,7 +2236,7 @@ or_isRightSimplifiableError { lookupTable, parentRange, right, leftRange, rightR
                 ]
             ]
 
-        Just False ->
+        Determined False ->
             [ Rule.errorWithFix
                 { message = unnecessaryMessage
                 , details = unnecessaryDetails
@@ -2182,7 +2249,7 @@ or_isRightSimplifiableError { lookupTable, parentRange, right, leftRange, rightR
                 ]
             ]
 
-        Nothing ->
+        Undetermined ->
             []
 
 
@@ -2202,7 +2269,7 @@ andChecks operatorCheckInfo =
 and_isLeftSimplifiableError : OperatorCheckInfo -> List (Rule.Error {})
 and_isLeftSimplifiableError { lookupTable, parentRange, left, leftRange, rightRange } =
     case getBoolean lookupTable left of
-        Just True ->
+        Determined True ->
             [ Rule.errorWithFix
                 { message = unnecessaryMessage
                 , details = unnecessaryDetails
@@ -2215,7 +2282,7 @@ and_isLeftSimplifiableError { lookupTable, parentRange, left, leftRange, rightRa
                 ]
             ]
 
-        Just False ->
+        Determined False ->
             [ Rule.errorWithFix
                 { message = "Condition is always False"
                 , details = alwaysSameDetails
@@ -2228,14 +2295,14 @@ and_isLeftSimplifiableError { lookupTable, parentRange, left, leftRange, rightRa
                 ]
             ]
 
-        Nothing ->
+        Undetermined ->
             []
 
 
 and_isRightSimplifiableError : OperatorCheckInfo -> List (Rule.Error {})
 and_isRightSimplifiableError { lookupTable, parentRange, leftRange, right, rightRange } =
     case getBoolean lookupTable right of
-        Just True ->
+        Determined True ->
             [ Rule.errorWithFix
                 { message = unnecessaryMessage
                 , details = unnecessaryDetails
@@ -2248,7 +2315,7 @@ and_isRightSimplifiableError { lookupTable, parentRange, leftRange, right, right
                 ]
             ]
 
-        Just False ->
+        Determined False ->
             [ Rule.errorWithFix
                 { message = "Condition is always False"
                 , details = alwaysSameDetails
@@ -2261,7 +2328,7 @@ and_isRightSimplifiableError { lookupTable, parentRange, leftRange, right, right
                 ]
             ]
 
-        Nothing ->
+        Undetermined ->
             []
 
 
@@ -2271,7 +2338,7 @@ and_isRightSimplifiableError { lookupTable, parentRange, leftRange, right, right
 
 equalityChecks : Bool -> OperatorCheckInfo -> List (Error {})
 equalityChecks isEqual { lookupTable, parentRange, left, right, leftRange, rightRange } =
-    if getBoolean lookupTable right == Just isEqual then
+    if getBoolean lookupTable right == Determined isEqual then
         [ Rule.errorWithFix
             { message = "Unnecessary comparison with boolean"
             , details = [ "The result of the expression will be the same with or without the comparison." ]
@@ -2280,7 +2347,7 @@ equalityChecks isEqual { lookupTable, parentRange, left, right, leftRange, right
             [ Fix.removeRange { start = leftRange.end, end = rightRange.end } ]
         ]
 
-    else if getBoolean lookupTable left == Just isEqual then
+    else if getBoolean lookupTable left == Determined isEqual then
         [ Rule.errorWithFix
             { message = "Unnecessary comparison with boolean"
             , details = [ "The result of the expression will be the same with or without the comparison." ]
@@ -2359,17 +2426,50 @@ getNotFunction lookupTable baseNode =
 getSpecificFunction : ( ModuleName, String ) -> ModuleNameLookupTable -> Node Expression -> Maybe Range
 getSpecificFunction ( moduleName, name ) lookupTable baseNode =
     case removeParens baseNode of
-        Node notRange (Expression.FunctionOrValue _ foundName) ->
+        Node fnRange (Expression.FunctionOrValue _ foundName) ->
             if
                 (foundName == name)
-                    && (ModuleNameLookupTable.moduleNameAt lookupTable notRange == Just moduleName)
+                    && (ModuleNameLookupTable.moduleNameAt lookupTable fnRange == Just moduleName)
             then
-                Just notRange
+                Just fnRange
 
             else
                 Nothing
 
         _ ->
+            Nothing
+
+
+getSpecificFunctionCall : ( ModuleName, String ) -> ModuleNameLookupTable -> Node Expression -> Maybe { nodeRange : Range, fnRange : Range }
+getSpecificFunctionCall ( moduleName, name ) lookupTable baseNode =
+    let
+        match : Maybe ( Range, String )
+        match =
+            case Node.value (removeParens baseNode) of
+                Expression.Application ((Node fnRange (Expression.FunctionOrValue _ foundName)) :: _ :: _) ->
+                    Just ( fnRange, foundName )
+
+                Expression.OperatorApplication "|>" _ _ (Node _ (Expression.Application ((Node fnRange (Expression.FunctionOrValue _ foundName)) :: _))) ->
+                    Just ( fnRange, foundName )
+
+                Expression.OperatorApplication "<|" _ (Node _ (Expression.Application ((Node fnRange (Expression.FunctionOrValue _ foundName)) :: _))) _ ->
+                    Just ( fnRange, foundName )
+
+                _ ->
+                    Nothing
+    in
+    case match of
+        Just ( fnRange, foundName ) ->
+            if
+                (foundName == name)
+                    && (ModuleNameLookupTable.moduleNameAt lookupTable fnRange == Just moduleName)
+            then
+                Just { nodeRange = Node.range baseNode, fnRange = fnRange }
+
+            else
+                Nothing
+
+        Nothing ->
             Nothing
 
 
@@ -2550,6 +2650,43 @@ isAlwaysCall lookupTable node =
 
         _ ->
             False
+
+
+getAlwaysArgument : ModuleNameLookupTable -> Node Expression -> Maybe { alwaysRange : Range, rangeToRemove : Range }
+getAlwaysArgument lookupTable node =
+    case Node.value (removeParens node) of
+        Expression.Application ((Node alwaysRange (Expression.FunctionOrValue _ "always")) :: arg :: []) ->
+            if ModuleNameLookupTable.moduleNameAt lookupTable alwaysRange == Just [ "Basics" ] then
+                Just
+                    { alwaysRange = alwaysRange
+                    , rangeToRemove = { start = alwaysRange.start, end = (Node.range arg).start }
+                    }
+
+            else
+                Nothing
+
+        Expression.OperatorApplication "<|" _ (Node alwaysRange (Expression.FunctionOrValue _ "always")) arg ->
+            if ModuleNameLookupTable.moduleNameAt lookupTable alwaysRange == Just [ "Basics" ] then
+                Just
+                    { alwaysRange = alwaysRange
+                    , rangeToRemove = { start = alwaysRange.start, end = (Node.range arg).start }
+                    }
+
+            else
+                Nothing
+
+        Expression.OperatorApplication "|>" _ arg (Node alwaysRange (Expression.FunctionOrValue _ "always")) ->
+            if ModuleNameLookupTable.moduleNameAt lookupTable alwaysRange == Just [ "Basics" ] then
+                Just
+                    { alwaysRange = alwaysRange
+                    , rangeToRemove = { start = (Node.range arg).end, end = alwaysRange.end }
+                    }
+
+            else
+                Nothing
+
+        _ ->
+            Nothing
 
 
 reportEmptyListSecondArgument : ( ( ModuleName, String ), CheckInfo -> List (Error {}) ) -> ( ( ModuleName, String ), CheckInfo -> List (Error {}) )
@@ -2772,6 +2909,74 @@ stringRepeatChecks { parentRange, fnRange, firstArg, secondArg } =
                     []
 
 
+stringReplaceChecks : CheckInfo -> List (Error {})
+stringReplaceChecks { lookupTable, fnRange, firstArg, secondArg, thirdArg } =
+    case secondArg of
+        Just secondArg_ ->
+            case Normalize.compare lookupTable firstArg secondArg_ of
+                Normalize.ConfirmedEquality ->
+                    [ Rule.errorWithFix
+                        { message = "The result of String.replace will be the original string"
+                        , details = [ "The pattern to replace and the replacement are equal, therefore the result of the String.replace call will be the original string." ]
+                        }
+                        fnRange
+                        (case thirdArg of
+                            Just thirdArg_ ->
+                                [ Fix.removeRange
+                                    { start = fnRange.start
+                                    , end = (Node.range thirdArg_).start
+                                    }
+                                ]
+
+                            Nothing ->
+                                [ Fix.replaceRangeBy
+                                    { start = fnRange.start
+                                    , end = (Node.range secondArg_).end
+                                    }
+                                    "identity"
+                                ]
+                        )
+                    ]
+
+                _ ->
+                    case ( Node.value firstArg, Node.value secondArg_, thirdArg ) of
+                        ( _, _, Just (Node thirdRange (Expression.Literal "")) ) ->
+                            [ Rule.errorWithFix
+                                { message = "The result of String.replace will be the empty string"
+                                , details = [ "Replacing anything on an empty string results in an empty string." ]
+                                }
+                                fnRange
+                                [ Fix.removeRange
+                                    { start = fnRange.start
+                                    , end = thirdRange.start
+                                    }
+                                ]
+                            ]
+
+                        ( Expression.Literal first, Expression.Literal second, Just (Node thirdRange (Expression.Literal third)) ) ->
+                            if String.replace first second third == third then
+                                [ Rule.errorWithFix
+                                    { message = "The result of String.replace will be the original string"
+                                    , details = [ "The replacement doesn't haven't any noticeable impact. You can remove the call to String.replace." ]
+                                    }
+                                    fnRange
+                                    [ Fix.removeRange
+                                        { start = fnRange.start
+                                        , end = thirdRange.start
+                                        }
+                                    ]
+                                ]
+
+                            else
+                                []
+
+                        _ ->
+                            []
+
+        Nothing ->
+            []
+
+
 
 -- MAYBE FUNCTIONS
 
@@ -2781,24 +2986,24 @@ maybeMapChecks checkInfo =
     firstThatReportsError
         [ \() -> collectionMapChecks maybeCollection checkInfo
         , \() ->
-            case Maybe.andThen (getMaybeValue checkInfo.lookupTable) checkInfo.secondArg of
-                Just (Just justRange) ->
+            case Match.maybeAndThen (getMaybeValues checkInfo.lookupTable) checkInfo.secondArg of
+                Determined (Just justRanges) ->
                     [ Rule.errorWithFix
                         { message = "Calling Maybe.map on a value that is Just"
                         , details = [ "The function can be called without Maybe.map." ]
                         }
                         checkInfo.fnRange
                         (if checkInfo.usingRightPizza then
-                            [ Fix.removeRange justRange
-                            , Fix.removeRange { start = checkInfo.fnRange.start, end = (Node.range checkInfo.firstArg).start }
+                            [ Fix.removeRange { start = checkInfo.fnRange.start, end = (Node.range checkInfo.firstArg).start }
                             , Fix.insertAt (Node.range checkInfo.firstArg).end " |> Just"
                             ]
+                                ++ List.map Fix.removeRange justRanges
 
                          else
                             [ Fix.replaceRangeBy { start = checkInfo.parentRange.start, end = (Node.range checkInfo.firstArg).start } "Just ("
-                            , Fix.removeRange justRange
                             , Fix.insertAt checkInfo.parentRange.end ")"
                             ]
+                                ++ List.map Fix.removeRange justRanges
                         )
                     ]
 
@@ -2909,24 +3114,24 @@ resultMapChecks checkInfo =
     firstThatReportsError
         [ \() -> collectionMapChecks resultCollection checkInfo
         , \() ->
-            case Maybe.andThen (getResultValue checkInfo.lookupTable) checkInfo.secondArg of
-                Just (Ok okRange) ->
+            case Maybe.andThen (getResultValues checkInfo.lookupTable) checkInfo.secondArg of
+                Just (Ok okRanges) ->
                     [ Rule.errorWithFix
                         { message = "Calling Result.map on a value that is Ok"
                         , details = [ "The function can be called without Result.map." ]
                         }
                         checkInfo.fnRange
                         (if checkInfo.usingRightPizza then
-                            [ Fix.removeRange okRange
-                            , Fix.removeRange { start = checkInfo.fnRange.start, end = (Node.range checkInfo.firstArg).start }
+                            [ Fix.removeRange { start = checkInfo.fnRange.start, end = (Node.range checkInfo.firstArg).start }
                             , Fix.insertAt (Node.range checkInfo.firstArg).end " |> Ok"
                             ]
+                                ++ List.map Fix.removeRange okRanges
 
                          else
                             [ Fix.replaceRangeBy { start = checkInfo.parentRange.start, end = (Node.range checkInfo.firstArg).start } "Ok ("
-                            , Fix.removeRange okRange
                             , Fix.insertAt checkInfo.parentRange.end ")"
                             ]
+                                ++ List.map Fix.removeRange okRanges
                         )
                     ]
 
@@ -2941,7 +3146,7 @@ resultMapChecks checkInfo =
 
 
 listConcatChecks : CheckInfo -> List (Error {})
-listConcatChecks { parentRange, fnRange, firstArg } =
+listConcatChecks ({ lookupTable, parentRange, fnRange, firstArg } as checkInfo) =
     case Node.value firstArg of
         Expression.ListExpr list ->
             case list of
@@ -2986,7 +3191,20 @@ listConcatChecks { parentRange, fnRange, firstArg } =
                     []
 
         _ ->
-            []
+            case getSpecificFunctionCall ( [ "List" ], "map" ) lookupTable firstArg of
+                Just match ->
+                    [ Rule.errorWithFix
+                        { message = "List.map and List.concat can be combined using List.concatMap"
+                        , details = [ "List.concatMap is meant for this exact purpose and will also be faster." ]
+                        }
+                        fnRange
+                        [ removeFunctionFromFunctionCall checkInfo
+                        , Fix.replaceRangeBy match.fnRange "List.concatMap"
+                        ]
+                    ]
+
+                Nothing ->
+                    []
 
 
 findConsecutiveListLiterals : Node Expression -> List (Node Expression) -> List Fix
@@ -3028,29 +3246,134 @@ listConcatMapChecks { lookupTable, parentRange, fnRange, firstArg, secondArg, us
         ]
 
     else
-        case secondArg of
-            Just (Node listRange (Expression.ListExpr [ Node singleElementRange _ ])) ->
-                [ Rule.errorWithFix
-                    { message = "Using List.concatMap on an element with a single item is the same as calling the function directly on that lone element."
-                    , details = [ "You can replace this call by a call to the function directly." ]
-                    }
-                    fnRange
-                    (if usingRightPizza then
-                        [ Fix.replaceRangeBy { start = listRange.start, end = singleElementRange.start } "("
-                        , Fix.replaceRangeBy { start = singleElementRange.end, end = listRange.end } ")"
-                        , Fix.removeRange fnRange
+        case replaceSingleElementListBySingleValue_RENAME lookupTable fnRange firstArg of
+            Just errors ->
+                errors
+
+            Nothing ->
+                case secondArg of
+                    Just (Node listRange (Expression.ListExpr [ Node singleElementRange _ ])) ->
+                        [ Rule.errorWithFix
+                            { message = "Using List.concatMap on an element with a single item is the same as calling the function directly on that lone element."
+                            , details = [ "You can replace this call by a call to the function directly." ]
+                            }
+                            fnRange
+                            (if usingRightPizza then
+                                [ Fix.replaceRangeBy { start = listRange.start, end = singleElementRange.start } "("
+                                , Fix.replaceRangeBy { start = singleElementRange.end, end = listRange.end } ")"
+                                , Fix.removeRange fnRange
+                                ]
+
+                             else
+                                [ Fix.removeRange fnRange
+                                , Fix.replaceRangeBy { start = listRange.start, end = singleElementRange.start } "("
+                                , Fix.replaceRangeBy { start = singleElementRange.end, end = listRange.end } ")"
+                                ]
+                            )
                         ]
 
-                     else
-                        [ Fix.removeRange fnRange
-                        , Fix.replaceRangeBy { start = listRange.start, end = singleElementRange.start } "("
-                        , Fix.replaceRangeBy { start = singleElementRange.end, end = listRange.end } ")"
+                    _ ->
+                        []
+
+
+concatAndMapCompositionCheck : CompositionCheckInfo -> List (Error {})
+concatAndMapCompositionCheck { lookupTable, fromLeftToRight, left, right } =
+    if fromLeftToRight then
+        if isSpecificFunction [ "List" ] "concat" lookupTable right then
+            case Node.value (removeParens left) of
+                Expression.Application [ leftFunction, _ ] ->
+                    if isSpecificFunction [ "List" ] "map" lookupTable leftFunction then
+                        [ Rule.errorWithFix
+                            { message = "List.map and List.concat can be combined using List.concatMap"
+                            , details = [ "List.concatMap is meant for this exact purpose and will also be faster." ]
+                            }
+                            (Node.range right)
+                            [ Fix.removeRange { start = (Node.range left).end, end = (Node.range right).end }
+                            , Fix.replaceRangeBy (Node.range leftFunction) "List.concatMap"
+                            ]
                         ]
-                    )
-                ]
+
+                    else
+                        []
+
+                _ ->
+                    []
+
+        else
+            []
+
+    else if isSpecificFunction [ "List" ] "concat" lookupTable left then
+        case Node.value (removeParens right) of
+            Expression.Application [ rightFunction, _ ] ->
+                if isSpecificFunction [ "List" ] "map" lookupTable rightFunction then
+                    [ Rule.errorWithFix
+                        { message = "List.map and List.concat can be combined using List.concatMap"
+                        , details = [ "List.concatMap is meant for this exact purpose and will also be faster." ]
+                        }
+                        (Node.range left)
+                        [ Fix.removeRange { start = (Node.range left).start, end = (Node.range right).start }
+                        , Fix.replaceRangeBy (Node.range rightFunction) "List.concatMap"
+                        ]
+                    ]
+
+                else
+                    []
 
             _ ->
                 []
+
+    else
+        []
+
+
+listIndexedMapChecks : CheckInfo -> List (Error {})
+listIndexedMapChecks { lookupTable, fnRange, firstArg } =
+    case removeParens firstArg of
+        Node lambdaRange (Expression.LambdaExpression { args, expression }) ->
+            case Maybe.map removeParensFromPattern (List.head args) of
+                Just (Node patternRange Pattern.AllPattern) ->
+                    let
+                        rangeToRemove : Range
+                        rangeToRemove =
+                            case args of
+                                [] ->
+                                    Range.emptyRange
+
+                                [ _ ] ->
+                                    -- Only one argument, remove the entire lambda except the expression
+                                    { start = lambdaRange.start, end = (Node.range expression).start }
+
+                                first :: second :: _ ->
+                                    { start = (Node.range first).start, end = (Node.range second).start }
+                    in
+                    [ Rule.errorWithFix
+                        { message = "Use List.map instead"
+                        , details = [ "Using List.indexedMap while ignoring the first argument is the same thing as calling List.map." ]
+                        }
+                        patternRange
+                        [ Fix.replaceRangeBy fnRange "List.map"
+                        , Fix.removeRange rangeToRemove
+                        ]
+                    ]
+
+                _ ->
+                    []
+
+        _ ->
+            case getAlwaysArgument lookupTable firstArg of
+                Just { alwaysRange, rangeToRemove } ->
+                    [ Rule.errorWithFix
+                        { message = "Use List.map instead"
+                        , details = [ "Using List.indexedMap while ignoring the first argument is the same thing as calling List.map." ]
+                        }
+                        alwaysRange
+                        [ Fix.replaceRangeBy fnRange "List.map"
+                        , Fix.removeRange rangeToRemove
+                        ]
+                    ]
+
+                Nothing ->
+                    []
 
 
 listAllChecks : CheckInfo -> List (Error {})
@@ -3067,7 +3390,7 @@ listAllChecks { lookupTable, parentRange, fnRange, firstArg, secondArg } =
 
         _ ->
             case isAlwaysBoolean lookupTable firstArg of
-                Just True ->
+                Determined True ->
                     [ Rule.errorWithFix
                         { message = "The call to List.all will result in True"
                         , details = [ "You can replace this call by True." ]
@@ -3094,7 +3417,7 @@ listAnyChecks { lookupTable, parentRange, fnRange, firstArg, secondArg } =
 
         _ ->
             case isAlwaysBoolean lookupTable firstArg of
-                Just False ->
+                Determined False ->
                     [ Rule.errorWithFix
                         { message = "The call to List.any will result in False"
                         , details = [ "You can replace this call by False." ]
@@ -3108,28 +3431,161 @@ listAnyChecks { lookupTable, parentRange, fnRange, firstArg, secondArg } =
 
 
 listFilterMapChecks : CheckInfo -> List (Error {})
-listFilterMapChecks ({ lookupTable, parentRange, fnRange, firstArg, secondArg } as checkInfo) =
+listFilterMapChecks ({ lookupTable, parentRange, fnRange, firstArg } as checkInfo) =
     case isAlwaysMaybe lookupTable firstArg of
-        Just (Just _) ->
-            [ Rule.errorWithFix
-                { message = "Using List.filterMap with a function that will always return Just is the same as not using List.filter"
-                , details = [ "You can remove this call and replace it by the list itself." ]
-                }
-                fnRange
-                (noopFix checkInfo)
-            ]
+        Determined (Just { ranges, throughLambdaFunction }) ->
+            if throughLambdaFunction then
+                [ Rule.errorWithFix
+                    { message = "Using List.filterMap with a function that will always return Just is the same as using List.map"
+                    , details = [ "You can remove the `Just`s and replace the call by List.map." ]
+                    }
+                    fnRange
+                    (Fix.replaceRangeBy fnRange "List.map"
+                        :: List.map Fix.removeRange ranges
+                    )
+                ]
 
-        Just Nothing ->
+            else
+                [ Rule.errorWithFix
+                    { message = "Using List.filterMap with a function that will always return Just is the same as not using List.filterMap"
+                    , details = [ "You can remove this call and replace it by the list itself." ]
+                    }
+                    fnRange
+                    (noopFix checkInfo)
+                ]
+
+        Determined Nothing ->
             [ Rule.errorWithFix
                 { message = "Using List.filterMap with a function that will always return Nothing will result in an empty list"
                 , details = [ "You can remove this call and replace it by an empty list." ]
                 }
                 fnRange
-                (replaceByEmptyFix "[]" parentRange secondArg)
+                (replaceByEmptyFix "[]" parentRange checkInfo.secondArg)
             ]
 
-        Nothing ->
-            []
+        Undetermined ->
+            if isIdentity lookupTable firstArg then
+                case Maybe.andThen (getSpecificFunctionCall ( [ "List" ], "map" ) lookupTable) checkInfo.secondArg of
+                    Just secondArg ->
+                        [ Rule.errorWithFix
+                            { message = "List.map and List.filterMap identity can be combined using List.filterMap"
+                            , details = [ "List.filterMap is meant for this exact purpose and will also be faster." ]
+                            }
+                            { start = fnRange.start, end = (Node.range firstArg).end }
+                            [ removeFunctionAndFirstArg checkInfo secondArg.nodeRange
+                            , Fix.replaceRangeBy secondArg.fnRange "List.filterMap"
+                            ]
+                        ]
+
+                    Nothing ->
+                        case checkInfo.secondArg of
+                            Just (Node listRange (Expression.ListExpr list)) ->
+                                case collectJusts lookupTable list [] of
+                                    Just justRanges ->
+                                        [ Rule.errorWithFix
+                                            { message = "Unnecessary use of List.filterMap identity"
+                                            , details = [ "All of the elements in the list are `Just`s, which can be simplified by removing all of the `Just`s." ]
+                                            }
+                                            { start = fnRange.start, end = (Node.range firstArg).end }
+                                            ((if checkInfo.usingRightPizza then
+                                                Fix.removeRange { start = listRange.end, end = (Node.range firstArg).end }
+
+                                              else
+                                                Fix.removeRange { start = fnRange.start, end = listRange.start }
+                                             )
+                                                :: List.map Fix.removeRange justRanges
+                                            )
+                                        ]
+
+                                    Nothing ->
+                                        []
+
+                            _ ->
+                                []
+
+            else
+                []
+
+
+collectJusts : ModuleNameLookupTable -> List (Node Expression) -> List Range -> Maybe (List Range)
+collectJusts lookupTable list acc =
+    case list of
+        [] ->
+            Just acc
+
+        element :: restOfList ->
+            case Node.value element of
+                Expression.Application ((Node justRange (Expression.FunctionOrValue _ "Just")) :: justArg :: []) ->
+                    case ModuleNameLookupTable.moduleNameAt lookupTable justRange of
+                        Just [ "Maybe" ] ->
+                            collectJusts lookupTable restOfList ({ start = justRange.start, end = (Node.range justArg).start } :: acc)
+
+                        _ ->
+                            Nothing
+
+                _ ->
+                    Nothing
+
+
+filterAndMapCompositionCheck : CompositionCheckInfo -> List (Error {})
+filterAndMapCompositionCheck { lookupTable, fromLeftToRight, left, right } =
+    if fromLeftToRight then
+        case Node.value (removeParens right) of
+            Expression.Application [ rightFunction, arg ] ->
+                if isSpecificFunction [ "List" ] "filterMap" lookupTable rightFunction && isIdentity lookupTable arg then
+                    case Node.value (removeParens left) of
+                        Expression.Application [ leftFunction, _ ] ->
+                            if isSpecificFunction [ "List" ] "map" lookupTable leftFunction then
+                                [ Rule.errorWithFix
+                                    { message = "List.map and List.filterMap identity can be combined using List.filterMap"
+                                    , details = [ "List.filterMap is meant for this exact purpose and will also be faster." ]
+                                    }
+                                    (Node.range right)
+                                    [ Fix.removeRange { start = (Node.range left).end, end = (Node.range right).end }
+                                    , Fix.replaceRangeBy (Node.range leftFunction) "List.filterMap"
+                                    ]
+                                ]
+
+                            else
+                                []
+
+                        _ ->
+                            []
+
+                else
+                    []
+
+            _ ->
+                []
+
+    else
+        case Node.value (removeParens left) of
+            Expression.Application [ leftFunction, arg ] ->
+                if isSpecificFunction [ "List" ] "filterMap" lookupTable leftFunction && isIdentity lookupTable arg then
+                    case Node.value (removeParens right) of
+                        Expression.Application [ rightFunction, _ ] ->
+                            if isSpecificFunction [ "List" ] "map" lookupTable rightFunction then
+                                [ Rule.errorWithFix
+                                    { message = "List.map and List.filterMap identity can be combined using List.filterMap"
+                                    , details = [ "List.filterMap is meant for this exact purpose and will also be faster." ]
+                                    }
+                                    (Node.range left)
+                                    [ Fix.removeRange { start = (Node.range left).start, end = (Node.range right).start }
+                                    , Fix.replaceRangeBy (Node.range rightFunction) "List.filterMap"
+                                    ]
+                                ]
+
+                            else
+                                []
+
+                        _ ->
+                            []
+
+                else
+                    []
+
+            _ ->
+                []
 
 
 listRangeChecks : CheckInfo -> List (Error {})
@@ -3191,6 +3647,80 @@ listReverseChecks ({ parentRange, fnRange, firstArg } as checkInfo) =
                 checkInfo
 
 
+listTakeChecks : CheckInfo -> List (Error {})
+listTakeChecks { lookupTable, parentRange, fnRange, firstArg, secondArg } =
+    if getUncomputedNumberValue firstArg == Just 0 then
+        [ Rule.errorWithFix
+            { message = "Taking 0 items from a list will result in []"
+            , details = [ "You can replace this call by []." ]
+            }
+            fnRange
+            (case secondArg of
+                Just _ ->
+                    [ Fix.replaceRangeBy parentRange "[]" ]
+
+                Nothing ->
+                    [ Fix.replaceRangeBy parentRange "(always [])" ]
+            )
+        ]
+
+    else
+        case Maybe.andThen (determineListLength lookupTable) secondArg of
+            Just (Exactly 0) ->
+                [ Rule.errorWithFix
+                    { message = "Using List.take on [] will result in []"
+                    , details = [ "You can replace this call by []." ]
+                    }
+                    fnRange
+                    [ Fix.replaceRangeBy parentRange "[]" ]
+                ]
+
+            _ ->
+                []
+
+
+listDropChecks : CheckInfo -> List (Error {})
+listDropChecks { lookupTable, parentRange, fnRange, firstArg, secondArg, usingRightPizza } =
+    if getUncomputedNumberValue firstArg == Just 0 then
+        case secondArg of
+            Just (Node secondArgRange _) ->
+                [ Rule.errorWithFix
+                    { message = "Dropping 0 items from a list will result in the list itself"
+                    , details = [ "You can replace this call by the list itself." ]
+                    }
+                    fnRange
+                    [ if usingRightPizza then
+                        Fix.removeRange { start = secondArgRange.end, end = parentRange.end }
+
+                      else
+                        Fix.removeRange { start = parentRange.start, end = secondArgRange.start }
+                    ]
+                ]
+
+            Nothing ->
+                [ Rule.errorWithFix
+                    { message = "Dropping 0 items from a list will result in the list itself"
+                    , details = [ "You can replace this function by identity." ]
+                    }
+                    fnRange
+                    [ Fix.replaceRangeBy parentRange "identity" ]
+                ]
+
+    else
+        case Maybe.andThen (determineListLength lookupTable) secondArg of
+            Just (Exactly 0) ->
+                [ Rule.errorWithFix
+                    { message = "Using List.drop on [] will result in []"
+                    , details = [ "You can replace this call by []." ]
+                    }
+                    fnRange
+                    [ Fix.replaceRangeBy parentRange "[]" ]
+                ]
+
+            _ ->
+                []
+
+
 subAndCmdBatchChecks : String -> CheckInfo -> List (Error {})
 subAndCmdBatchChecks moduleName { lookupTable, parentRange, fnRange, firstArg } =
     case Node.value firstArg of
@@ -3250,6 +3780,28 @@ subAndCmdBatchChecks moduleName { lookupTable, parentRange, fnRange, firstArg } 
                             _ ->
                                 Nothing
                     )
+
+        _ ->
+            []
+
+
+
+-- PARSER
+
+
+oneOfChecks : CheckInfo -> List (Error {})
+oneOfChecks { fnRange, firstArg } =
+    case removeParens firstArg of
+        Node listRange (Expression.ListExpr [ Node singleElementRange _ ]) ->
+            [ Rule.errorWithFix
+                { message = "Unnecessary oneOf"
+                , details = [ "There is only a single element in the list of elements to try out." ]
+                }
+                fnRange
+                [ Fix.replaceRangeBy { start = fnRange.start, end = singleElementRange.start } "("
+                , Fix.replaceRangeBy { start = singleElementRange.end, end = listRange.end } ")"
+                ]
+            ]
 
         _ ->
             []
@@ -3402,19 +3954,19 @@ maybeAndThenChecks : CheckInfo -> List (Error {})
 maybeAndThenChecks checkInfo =
     firstThatReportsError
         [ \() ->
-            case Maybe.andThen (getMaybeValue checkInfo.lookupTable) checkInfo.secondArg of
-                Just (Just justRange) ->
+            case Match.maybeAndThen (getMaybeValues checkInfo.lookupTable) checkInfo.secondArg of
+                Determined (Just justRanges) ->
                     [ Rule.errorWithFix
                         { message = "Calling " ++ maybeCollection.moduleName ++ ".andThen on a value that is known to be Just"
                         , details = [ "You can remove the Just and just call the function directly." ]
                         }
                         checkInfo.fnRange
-                        [ Fix.removeRange { start = checkInfo.fnRange.start, end = (Node.range checkInfo.firstArg).start }
-                        , Fix.removeRange justRange
-                        ]
+                        (Fix.removeRange { start = checkInfo.fnRange.start, end = (Node.range checkInfo.firstArg).start }
+                            :: List.map Fix.removeRange justRanges
+                        )
                     ]
 
-                Just Nothing ->
+                Determined Nothing ->
                     [ Rule.errorWithFix
                         { message = "Using " ++ maybeCollection.moduleName ++ ".andThen on " ++ maybeCollection.emptyAsString ++ " will result in " ++ maybeCollection.emptyAsString
                         , details = [ "You can replace this call by " ++ maybeCollection.emptyAsString ++ "." ]
@@ -3427,18 +3979,28 @@ maybeAndThenChecks checkInfo =
                     []
         , \() ->
             case isAlwaysMaybe checkInfo.lookupTable checkInfo.firstArg of
-                Just (Just justRange) ->
-                    [ Rule.errorWithFix
-                        { message = "Use " ++ maybeCollection.moduleName ++ ".map instead"
-                        , details = [ "Using " ++ maybeCollection.moduleName ++ ".andThen with a function that always returns Just is the same thing as using Maybe.map." ]
-                        }
-                        checkInfo.fnRange
-                        [ Fix.replaceRangeBy checkInfo.fnRange (maybeCollection.moduleName ++ ".map")
-                        , Fix.removeRange justRange
+                Determined (Just { ranges, throughLambdaFunction }) ->
+                    if throughLambdaFunction then
+                        [ Rule.errorWithFix
+                            { message = "Use " ++ maybeCollection.moduleName ++ ".map instead"
+                            , details = [ "Using " ++ maybeCollection.moduleName ++ ".andThen with a function that always returns Just is the same thing as using Maybe.map." ]
+                            }
+                            checkInfo.fnRange
+                            (Fix.replaceRangeBy checkInfo.fnRange (maybeCollection.moduleName ++ ".map")
+                                :: List.map Fix.removeRange ranges
+                            )
                         ]
-                    ]
 
-                Just Nothing ->
+                    else
+                        [ Rule.errorWithFix
+                            { message = "Using Maybe.andThen with a function that will always return Just is the same as not using Maybe.andThen"
+                            , details = [ "You can remove this call and replace it by the value itself." ]
+                            }
+                            checkInfo.fnRange
+                            (noopFix checkInfo)
+                        ]
+
+                Determined Nothing ->
                     [ Rule.errorWithFix
                         { message = "Using " ++ maybeCollection.moduleName ++ ".andThen with a function that will always return Nothing will result in Nothing"
                         , details = [ "You can remove this call and replace it by Nothing." ]
@@ -3447,7 +4009,7 @@ maybeAndThenChecks checkInfo =
                         (replaceByEmptyFix maybeCollection.emptyAsString checkInfo.parentRange checkInfo.secondArg)
                     ]
 
-                Nothing ->
+                Undetermined ->
                     []
         ]
         ()
@@ -3457,16 +4019,16 @@ resultAndThenChecks : CheckInfo -> List (Error {})
 resultAndThenChecks checkInfo =
     firstThatReportsError
         [ \() ->
-            case Maybe.andThen (getResultValue checkInfo.lookupTable) checkInfo.secondArg of
-                Just (Ok okRange) ->
+            case Maybe.andThen (getResultValues checkInfo.lookupTable) checkInfo.secondArg of
+                Just (Ok okRanges) ->
                     [ Rule.errorWithFix
                         { message = "Calling " ++ resultCollection.moduleName ++ ".andThen on a value that is known to be Ok"
                         , details = [ "You can remove the Ok and just call the function directly." ]
                         }
                         checkInfo.fnRange
-                        [ Fix.removeRange { start = checkInfo.fnRange.start, end = (Node.range checkInfo.firstArg).start }
-                        , Fix.removeRange okRange
-                        ]
+                        (Fix.removeRange { start = checkInfo.fnRange.start, end = (Node.range checkInfo.firstArg).start }
+                            :: List.map Fix.removeRange okRanges
+                        )
                     ]
 
                 Just (Err _) ->
@@ -3482,16 +4044,26 @@ resultAndThenChecks checkInfo =
                     []
         , \() ->
             case isAlwaysResult checkInfo.lookupTable checkInfo.firstArg of
-                Just (Ok okRange) ->
-                    [ Rule.errorWithFix
-                        { message = "Use " ++ resultCollection.moduleName ++ ".map instead"
-                        , details = [ "Using " ++ resultCollection.moduleName ++ ".andThen with a function that always returns Ok is the same thing as using Result.map." ]
-                        }
-                        checkInfo.fnRange
-                        [ Fix.replaceRangeBy checkInfo.fnRange (resultCollection.moduleName ++ ".map")
-                        , Fix.removeRange okRange
+                Just (Ok { ranges, throughLambdaFunction }) ->
+                    if throughLambdaFunction then
+                        [ Rule.errorWithFix
+                            { message = "Use Result.map instead"
+                            , details = [ "Using Result.andThen with a function that always returns Ok is the same thing as using Result.map." ]
+                            }
+                            checkInfo.fnRange
+                            (Fix.replaceRangeBy checkInfo.fnRange (resultCollection.moduleName ++ ".map")
+                                :: List.map Fix.removeRange ranges
+                            )
                         ]
-                    ]
+
+                    else
+                        [ Rule.errorWithFix
+                            { message = "Using Result.andThen with a function that will always return Just is the same as not using Result.andThen"
+                            , details = [ "You can remove this call and replace it by the value itself." ]
+                            }
+                            checkInfo.fnRange
+                            (noopFix checkInfo)
+                        ]
 
                 _ ->
                     []
@@ -3501,14 +4073,14 @@ resultAndThenChecks checkInfo =
 
 resultWithDefaultChecks : CheckInfo -> List (Error {})
 resultWithDefaultChecks checkInfo =
-    case Maybe.andThen (getResultValue checkInfo.lookupTable) checkInfo.secondArg of
-        Just (Ok okRange) ->
+    case Maybe.andThen (getResultValues checkInfo.lookupTable) checkInfo.secondArg of
+        Just (Ok okRanges) ->
             [ Rule.errorWithFix
                 { message = "Using Result.withDefault on a value that is Ok will result in that value"
                 , details = [ "You can replace this call by the value wrapped in Ok." ]
                 }
                 checkInfo.fnRange
-                (Fix.removeRange okRange :: noopFix checkInfo)
+                (List.map Fix.removeRange okRanges ++ noopFix checkInfo)
             ]
 
         Just (Err _) ->
@@ -3540,7 +4112,7 @@ collectionFilterChecks collection ({ lookupTable, parentRange, fnRange, firstArg
 
         _ ->
             case isAlwaysBoolean lookupTable firstArg of
-                Just True ->
+                Determined True ->
                     [ Rule.errorWithFix
                         { message = "Using " ++ collection.moduleName ++ ".filter with a function that will always return True is the same as not using " ++ collection.moduleName ++ ".filter"
                         , details = [ "You can remove this call and replace it by the " ++ collection.represents ++ " itself." ]
@@ -3549,7 +4121,7 @@ collectionFilterChecks collection ({ lookupTable, parentRange, fnRange, firstArg
                         (noopFix checkInfo)
                     ]
 
-                Just False ->
+                Determined False ->
                     [ Rule.errorWithFix
                         { message = "Using " ++ collection.moduleName ++ ".filter with a function that will always return False will result in " ++ collection.emptyAsString
                         , details = [ "You can remove this call and replace it by " ++ collection.emptyAsString ++ "." ]
@@ -3558,7 +4130,7 @@ collectionFilterChecks collection ({ lookupTable, parentRange, fnRange, firstArg
                         (replaceByEmptyFix collection.emptyAsString parentRange secondArg)
                     ]
 
-                Nothing ->
+                Undetermined ->
                     []
 
 
@@ -3806,7 +4378,7 @@ collectionPartitionChecks collection checkInfo =
 
         _ ->
             case isAlwaysBoolean checkInfo.lookupTable checkInfo.firstArg of
-                Just True ->
+                Determined True ->
                     case checkInfo.secondArg of
                         Just listArg ->
                             [ Rule.errorWithFix
@@ -3822,7 +4394,7 @@ collectionPartitionChecks collection checkInfo =
                         Nothing ->
                             []
 
-                Just False ->
+                Determined False ->
                     [ Rule.errorWithFix
                         { message = "All elements will go to the second " ++ collection.represents
                         , details = [ "Since the predicate function always returns False, the first " ++ collection.represents ++ " will always be " ++ collection.emptyAsString ++ "." ]
@@ -3839,23 +4411,23 @@ collectionPartitionChecks collection checkInfo =
                         )
                     ]
 
-                Nothing ->
+                Undetermined ->
                     []
 
 
 maybeWithDefaultChecks : CheckInfo -> List (Error {})
 maybeWithDefaultChecks checkInfo =
-    case Maybe.andThen (getMaybeValue checkInfo.lookupTable) checkInfo.secondArg of
-        Just (Just justRange) ->
+    case Match.maybeAndThen (getMaybeValues checkInfo.lookupTable) checkInfo.secondArg of
+        Determined (Just justRanges) ->
             [ Rule.errorWithFix
                 { message = "Using Maybe.withDefault on a value that is Just will result in that value"
                 , details = [ "You can replace this call by the value wrapped in Just." ]
                 }
                 checkInfo.fnRange
-                (Fix.removeRange justRange :: noopFix checkInfo)
+                (List.map Fix.removeRange justRanges ++ noopFix checkInfo)
             ]
 
-        Just Nothing ->
+        Determined Nothing ->
             [ Rule.errorWithFix
                 { message = "Using Maybe.withDefault on Nothing will result in the default value"
                 , details = [ "You can replace this call by the default value." ]
@@ -3866,7 +4438,7 @@ maybeWithDefaultChecks checkInfo =
                 ]
             ]
 
-        Nothing ->
+        Undetermined ->
             []
 
 
@@ -3881,9 +4453,13 @@ determineListLength lookupTable node =
         Expression.ListExpr list ->
             Just (Exactly (List.length list))
 
-        Expression.OperatorApplication "::" _ _ _ ->
-            -- TODO Try to determine the size of the right hand size
-            Just NotEmpty
+        Expression.OperatorApplication "::" _ _ right ->
+            case determineListLength lookupTable right of
+                Just (Exactly n) ->
+                    Just (Exactly (n + 1))
+
+                _ ->
+                    Just NotEmpty
 
         Expression.Application ((Node fnRange (Expression.FunctionOrValue _ "singleton")) :: _ :: []) ->
             if ModuleNameLookupTable.moduleNameAt lookupTable fnRange == Just [ "List" ] then
@@ -3894,6 +4470,73 @@ determineListLength lookupTable node =
 
         _ ->
             Nothing
+
+
+replaceSingleElementListBySingleValue_RENAME : ModuleNameLookupTable -> Range -> Node Expression -> Maybe (List (Error {}))
+replaceSingleElementListBySingleValue_RENAME lookupTable fnRange node =
+    case Node.value (removeParens node) of
+        Expression.LambdaExpression { expression } ->
+            case replaceSingleElementListBySingleValue lookupTable expression of
+                Just fixes ->
+                    Just
+                        [ Rule.errorWithFix
+                            { message = "Use List.map instead"
+                            , details = [ "The function passed to List.concatMap always returns a list with a single element." ]
+                            }
+                            fnRange
+                            (Fix.replaceRangeBy fnRange "List.map" :: fixes)
+                        ]
+
+                Nothing ->
+                    Nothing
+
+        _ ->
+            Nothing
+
+
+replaceSingleElementListBySingleValue : ModuleNameLookupTable -> Node Expression -> Maybe (List Fix)
+replaceSingleElementListBySingleValue lookupTable rawNode =
+    let
+        (Node { start, end } nodeValue) =
+            removeParens rawNode
+    in
+    case nodeValue of
+        Expression.ListExpr [ _ ] ->
+            Just
+                [ Fix.replaceRangeBy { start = start, end = { start | column = start.column + 1 } } "("
+                , Fix.replaceRangeBy { start = { end | column = end.column - 1 }, end = end } ")"
+                ]
+
+        Expression.Application ((Node fnRange (Expression.FunctionOrValue _ "singleton")) :: _ :: []) ->
+            if ModuleNameLookupTable.moduleNameAt lookupTable fnRange == Just [ "List" ] then
+                Just [ Fix.removeRange fnRange ]
+
+            else
+                Nothing
+
+        Expression.IfBlock _ thenBranch elseBranch ->
+            combineSingleElementFixes lookupTable [ thenBranch, elseBranch ] []
+
+        Expression.CaseExpression { cases } ->
+            combineSingleElementFixes lookupTable (List.map Tuple.second cases) []
+
+        _ ->
+            Nothing
+
+
+combineSingleElementFixes : ModuleNameLookupTable -> List (Node Expression) -> List Fix -> Maybe (List Fix)
+combineSingleElementFixes lookupTable nodes soFar =
+    case nodes of
+        [] ->
+            Just soFar
+
+        node :: restOfNodes ->
+            case replaceSingleElementListBySingleValue lookupTable node of
+                Nothing ->
+                    Nothing
+
+                Just fixes ->
+                    combineSingleElementFixes lookupTable restOfNodes (fixes ++ soFar)
 
 
 determineIfCollectionIsEmpty : ModuleName -> Int -> ModuleNameLookupTable -> Node Expression -> Maybe CollectionSize
@@ -3912,13 +4555,112 @@ determineIfCollectionIsEmpty moduleName singletonNumberOfArgs lookupTable node =
 
             Expression.Application ((Node fnRange (Expression.FunctionOrValue _ "fromList")) :: (Node _ (Expression.ListExpr list)) :: []) ->
                 if ModuleNameLookupTable.moduleNameAt lookupTable fnRange == Just moduleName then
-                    Just (Exactly (List.length list))
+                    if moduleName == [ "Set" ] then
+                        case list of
+                            [] ->
+                                Just (Exactly 0)
+
+                            [ _ ] ->
+                                Just (Exactly 1)
+
+                            _ ->
+                                case traverse getComparableExpression list of
+                                    Nothing ->
+                                        Just NotEmpty
+
+                                    Just comparableExpressions ->
+                                        comparableExpressions |> unique |> List.length |> Exactly |> Just
+
+                    else
+                        Just (Exactly (List.length list))
 
                 else
                     Nothing
 
             _ ->
                 Nothing
+
+
+getComparableExpression : Node Expression -> Maybe (List Expression)
+getComparableExpression =
+    getComparableExpressionHelper 1
+
+
+getComparableExpressionHelper : Int -> Node Expression -> Maybe (List Expression)
+getComparableExpressionHelper sign (Node _ expression) =
+    case expression of
+        Expression.Integer int ->
+            Just [ Expression.Integer (sign * int) ]
+
+        Expression.Hex hex ->
+            Just [ Expression.Integer (sign * hex) ]
+
+        Expression.Floatable float ->
+            Just [ Expression.Floatable (toFloat sign * float) ]
+
+        Expression.Negation expr ->
+            getComparableExpressionHelper (-1 * sign) expr
+
+        Expression.Literal string ->
+            Just [ Expression.Literal string ]
+
+        Expression.CharLiteral char ->
+            Just [ Expression.CharLiteral char ]
+
+        Expression.ParenthesizedExpression expr ->
+            getComparableExpressionHelper 1 expr
+
+        Expression.TupledExpression exprs ->
+            exprs
+                |> traverse (getComparableExpressionHelper 1)
+                |> Maybe.map List.concat
+
+        Expression.ListExpr exprs ->
+            exprs
+                |> traverse (getComparableExpressionHelper 1)
+                |> Maybe.map List.concat
+
+        _ ->
+            Nothing
+
+
+traverse : (a -> Maybe b) -> List a -> Maybe (List b)
+traverse f list =
+    traverseHelp f list []
+
+
+traverseHelp : (a -> Maybe b) -> List a -> List b -> Maybe (List b)
+traverseHelp f list acc =
+    case list of
+        head :: tail ->
+            case f head of
+                Just a ->
+                    traverseHelp f tail (a :: acc)
+
+                Nothing ->
+                    Nothing
+
+        [] ->
+            Just (List.reverse acc)
+
+
+unique : List a -> List a
+unique list =
+    uniqueHelp [] list []
+
+
+uniqueHelp : List a -> List a -> List a -> List a
+uniqueHelp existing remaining accumulator =
+    case remaining of
+        [] ->
+            List.reverse accumulator
+
+        first :: rest ->
+            if List.member first existing then
+                uniqueHelp existing rest accumulator
+
+            else
+                uniqueHelp (first :: existing) rest (first :: accumulator)
 
 
 
@@ -4259,6 +5001,15 @@ removeFunctionFromFunctionCall { fnRange, firstArg, usingRightPizza } =
         Fix.removeRange { start = fnRange.start, end = (Node.range firstArg).start }
 
 
+removeFunctionAndFirstArg : { a | fnRange : Range, firstArg : Node b, usingRightPizza : Bool } -> Range -> Fix
+removeFunctionAndFirstArg { fnRange, firstArg, usingRightPizza } secondArgRange =
+    if usingRightPizza then
+        Fix.removeRange { start = secondArgRange.end, end = (Node.range firstArg).end }
+
+    else
+        Fix.removeRange { start = fnRange.start, end = secondArgRange.start }
+
+
 removeBoundariesFix : Node a -> List Fix
 removeBoundariesFix node =
     let
@@ -4402,7 +5153,17 @@ removeParens node =
             node
 
 
-isAlwaysBoolean : ModuleNameLookupTable -> Node Expression -> Maybe Bool
+removeParensFromPattern : Node Pattern -> Node Pattern
+removeParensFromPattern node =
+    case Node.value node of
+        Pattern.ParenthesizedPattern pattern ->
+            removeParensFromPattern pattern
+
+        _ ->
+            node
+
+
+isAlwaysBoolean : ModuleNameLookupTable -> Node Expression -> Match Bool
 isAlwaysBoolean lookupTable node =
     case Node.value (removeParens node) of
         Expression.Application ((Node alwaysRange (Expression.FunctionOrValue _ "always")) :: boolean :: []) ->
@@ -4411,16 +5172,16 @@ isAlwaysBoolean lookupTable node =
                     getBoolean lookupTable boolean
 
                 _ ->
-                    Nothing
+                    Undetermined
 
         Expression.LambdaExpression { expression } ->
             getBoolean lookupTable expression
 
         _ ->
-            Nothing
+            Undetermined
 
 
-getBoolean : ModuleNameLookupTable -> Node Expression -> Maybe Bool
+getBoolean : ModuleNameLookupTable -> Node Expression -> Match Bool
 getBoolean lookupTable baseNode =
     let
         node : Node Expression
@@ -4431,21 +5192,21 @@ getBoolean lookupTable baseNode =
         Expression.FunctionOrValue _ "True" ->
             case ModuleNameLookupTable.moduleNameFor lookupTable node of
                 Just [ "Basics" ] ->
-                    Just True
+                    Determined True
 
                 _ ->
-                    Nothing
+                    Undetermined
 
         Expression.FunctionOrValue _ "False" ->
             case ModuleNameLookupTable.moduleNameFor lookupTable node of
                 Just [ "Basics" ] ->
-                    Just False
+                    Determined False
 
                 _ ->
-                    Nothing
+                    Undetermined
 
         _ ->
-            Nothing
+            Undetermined
 
 
 getBooleanPattern : ModuleNameLookupTable -> Node Pattern -> Maybe Bool
@@ -4477,7 +5238,7 @@ getBooleanPattern lookupTable node =
             Nothing
 
 
-isAlwaysMaybe : ModuleNameLookupTable -> Node Expression -> Maybe (Maybe Range)
+isAlwaysMaybe : ModuleNameLookupTable -> Node Expression -> Match (Maybe { ranges : List Range, throughLambdaFunction : Bool })
 isAlwaysMaybe lookupTable baseNode =
     let
         node : Node Expression
@@ -4488,55 +5249,30 @@ isAlwaysMaybe lookupTable baseNode =
         Expression.FunctionOrValue _ "Just" ->
             case ModuleNameLookupTable.moduleNameFor lookupTable node of
                 Just [ "Maybe" ] ->
-                    Just (Just (Node.range node))
+                    Determined (Just { ranges = [ Node.range node ], throughLambdaFunction = False })
 
                 _ ->
-                    Nothing
+                    Undetermined
 
         Expression.Application ((Node alwaysRange (Expression.FunctionOrValue _ "always")) :: value :: []) ->
             case ModuleNameLookupTable.moduleNameAt lookupTable alwaysRange of
                 Just [ "Basics" ] ->
-                    getMaybeValue lookupTable value
+                    getMaybeValues lookupTable value
+                        |> Match.map (Maybe.map (\ranges -> { ranges = ranges, throughLambdaFunction = False }))
 
                 _ ->
-                    Nothing
+                    Undetermined
 
-        Expression.LambdaExpression { args, expression } ->
-            case Node.value expression of
-                Expression.Application ((Node justRange (Expression.FunctionOrValue _ "Just")) :: (Node argRange (Expression.FunctionOrValue [] justArgName)) :: []) ->
-                    case ModuleNameLookupTable.moduleNameAt lookupTable justRange of
-                        Just [ "Maybe" ] ->
-                            case args of
-                                (Node _ (Pattern.VarPattern lambdaArgName)) :: [] ->
-                                    if lambdaArgName == justArgName then
-                                        Just (Just { start = justRange.start, end = argRange.start })
-
-                                    else
-                                        Nothing
-
-                                _ ->
-                                    Nothing
-
-                        _ ->
-                            Nothing
-
-                Expression.FunctionOrValue _ "Nothing" ->
-                    case ModuleNameLookupTable.moduleNameFor lookupTable expression of
-                        Just [ "Maybe" ] ->
-                            Just Nothing
-
-                        _ ->
-                            Nothing
-
-                _ ->
-                    Nothing
+        Expression.LambdaExpression { expression } ->
+            getMaybeValues lookupTable expression
+                |> Match.map (Maybe.map (\ranges -> { ranges = ranges, throughLambdaFunction = True }))
 
         _ ->
-            Nothing
+            Undetermined
 
 
-getMaybeValue : ModuleNameLookupTable -> Node Expression -> Maybe (Maybe Range)
-getMaybeValue lookupTable baseNode =
+getMaybeValues : ModuleNameLookupTable -> Node Expression -> Match (Maybe (List Range))
+getMaybeValues lookupTable baseNode =
     let
         node : Node Expression
         node =
@@ -4546,41 +5282,135 @@ getMaybeValue lookupTable baseNode =
         Expression.Application ((Node justRange (Expression.FunctionOrValue _ "Just")) :: arg :: []) ->
             case ModuleNameLookupTable.moduleNameAt lookupTable justRange of
                 Just [ "Maybe" ] ->
-                    Just (Just { start = justRange.start, end = (Node.range arg).start })
+                    Determined (Just [ { start = justRange.start, end = (Node.range arg).start } ])
 
                 _ ->
-                    Nothing
+                    Undetermined
 
         Expression.OperatorApplication "|>" _ arg (Node justRange (Expression.FunctionOrValue _ "Just")) ->
             case ModuleNameLookupTable.moduleNameAt lookupTable justRange of
                 Just [ "Maybe" ] ->
-                    Just (Just { start = (Node.range arg).end, end = justRange.end })
+                    Determined (Just [ { start = (Node.range arg).end, end = justRange.end } ])
 
                 _ ->
-                    Nothing
+                    Undetermined
 
         Expression.OperatorApplication "<|" _ (Node justRange (Expression.FunctionOrValue _ "Just")) arg ->
             case ModuleNameLookupTable.moduleNameAt lookupTable justRange of
                 Just [ "Maybe" ] ->
-                    Just (Just { start = justRange.start, end = (Node.range arg).start })
+                    Determined (Just [ { start = justRange.start, end = (Node.range arg).start } ])
 
                 _ ->
-                    Nothing
+                    Undetermined
 
         Expression.FunctionOrValue _ "Nothing" ->
             case ModuleNameLookupTable.moduleNameFor lookupTable node of
                 Just [ "Maybe" ] ->
-                    Just Nothing
+                    Determined Nothing
+
+                _ ->
+                    Undetermined
+
+        Expression.LetExpression { expression } ->
+            getMaybeValues lookupTable expression
+
+        Expression.ParenthesizedExpression expression ->
+            getMaybeValues lookupTable expression
+
+        Expression.IfBlock _ thenBranch elseBranch ->
+            combineMaybeValues lookupTable [ thenBranch, elseBranch ]
+
+        Expression.CaseExpression { cases } ->
+            combineMaybeValues lookupTable (List.map Tuple.second cases)
+
+        _ ->
+            Undetermined
+
+
+combineMaybeValues : ModuleNameLookupTable -> List (Node Expression) -> Match (Maybe (List Range))
+combineMaybeValues lookupTable nodes =
+    case nodes of
+        node :: restOfNodes ->
+            case getMaybeValues lookupTable node of
+                Undetermined ->
+                    Undetermined
+
+                Determined nodeValue ->
+                    combineMaybeValuesHelp lookupTable restOfNodes nodeValue
+
+        [] ->
+            Undetermined
+
+
+combineMaybeValuesHelp : ModuleNameLookupTable -> List (Node Expression) -> Maybe (List Range) -> Match (Maybe (List Range))
+combineMaybeValuesHelp lookupTable nodes soFar =
+    case nodes of
+        node :: restOfNodes ->
+            case getMaybeValues lookupTable node of
+                Undetermined ->
+                    Undetermined
+
+                Determined nodeValue ->
+                    case ( nodeValue, soFar ) of
+                        ( Just _, Nothing ) ->
+                            Undetermined
+
+                        ( Nothing, Just _ ) ->
+                            Undetermined
+
+                        ( Nothing, Nothing ) ->
+                            combineMaybeValuesHelp lookupTable restOfNodes Nothing
+
+                        ( Just a, Just b ) ->
+                            combineMaybeValuesHelp lookupTable restOfNodes (Just (a ++ b))
+
+        [] ->
+            Determined soFar
+
+
+isAlwaysResult : ModuleNameLookupTable -> Node Expression -> Maybe (Result Range { ranges : List Range, throughLambdaFunction : Bool })
+isAlwaysResult lookupTable baseNode =
+    let
+        node : Node Expression
+        node =
+            removeParens baseNode
+    in
+    case Node.value node of
+        Expression.FunctionOrValue _ "Ok" ->
+            case ModuleNameLookupTable.moduleNameFor lookupTable node of
+                Just [ "Result" ] ->
+                    Just (Ok { ranges = [ Node.range node ], throughLambdaFunction = False })
 
                 _ ->
                     Nothing
+
+        Expression.FunctionOrValue _ "Err" ->
+            case ModuleNameLookupTable.moduleNameFor lookupTable node of
+                Just [ "Result" ] ->
+                    Just (Err (Node.range node))
+
+                _ ->
+                    Nothing
+
+        Expression.Application ((Node alwaysRange (Expression.FunctionOrValue _ "always")) :: value :: []) ->
+            case ModuleNameLookupTable.moduleNameAt lookupTable alwaysRange of
+                Just [ "Basics" ] ->
+                    getResultValues lookupTable value
+                        |> Maybe.map (Result.map (\ranges -> { ranges = ranges, throughLambdaFunction = False }))
+
+                _ ->
+                    Nothing
+
+        Expression.LambdaExpression { expression } ->
+            getResultValues lookupTable expression
+                |> Maybe.map (Result.map (\ranges -> { ranges = ranges, throughLambdaFunction = True }))
 
         _ ->
             Nothing
 
 
-getResultValue : ModuleNameLookupTable -> Node Expression -> Maybe (Result Range Range)
-getResultValue lookupTable baseNode =
+getResultValues : ModuleNameLookupTable -> Node Expression -> Maybe (Result Range (List Range))
+getResultValues lookupTable baseNode =
     let
         node : Node Expression
         node =
@@ -4590,7 +5420,7 @@ getResultValue lookupTable baseNode =
         Expression.Application ((Node justRange (Expression.FunctionOrValue _ "Ok")) :: arg :: []) ->
             case ModuleNameLookupTable.moduleNameAt lookupTable justRange of
                 Just [ "Result" ] ->
-                    Just (Ok { start = justRange.start, end = (Node.range arg).start })
+                    Just (Ok [ { start = justRange.start, end = (Node.range arg).start } ])
 
                 _ ->
                     Nothing
@@ -4598,7 +5428,7 @@ getResultValue lookupTable baseNode =
         Expression.OperatorApplication "|>" _ arg (Node justRange (Expression.FunctionOrValue _ "Ok")) ->
             case ModuleNameLookupTable.moduleNameAt lookupTable justRange of
                 Just [ "Result" ] ->
-                    Just (Ok { start = (Node.range arg).end, end = justRange.end })
+                    Just (Ok [ { start = (Node.range arg).end, end = justRange.end } ])
 
                 _ ->
                     Nothing
@@ -4606,7 +5436,7 @@ getResultValue lookupTable baseNode =
         Expression.OperatorApplication "<|" _ (Node justRange (Expression.FunctionOrValue _ "Ok")) arg ->
             case ModuleNameLookupTable.moduleNameAt lookupTable justRange of
                 Just [ "Result" ] ->
-                    Just (Ok { start = justRange.start, end = (Node.range arg).start })
+                    Just (Ok [ { start = justRange.start, end = (Node.range arg).start } ])
 
                 _ ->
                     Nothing
@@ -4635,83 +5465,61 @@ getResultValue lookupTable baseNode =
                 _ ->
                     Nothing
 
-        _ ->
-            Nothing
+        Expression.LetExpression { expression } ->
+            getResultValues lookupTable expression
 
+        Expression.ParenthesizedExpression expression ->
+            getResultValues lookupTable expression
 
-isAlwaysResult : ModuleNameLookupTable -> Node Expression -> Maybe (Result Range Range)
-isAlwaysResult lookupTable baseNode =
-    let
-        node : Node Expression
-        node =
-            removeParens baseNode
-    in
-    case Node.value node of
-        Expression.FunctionOrValue _ "Ok" ->
-            case ModuleNameLookupTable.moduleNameFor lookupTable node of
-                Just [ "Result" ] ->
-                    Just (Ok (Node.range node))
+        Expression.IfBlock _ thenBranch elseBranch ->
+            combineResultValues lookupTable [ thenBranch, elseBranch ]
 
-                _ ->
-                    Nothing
-
-        Expression.FunctionOrValue _ "Err" ->
-            case ModuleNameLookupTable.moduleNameFor lookupTable node of
-                Just [ "Result" ] ->
-                    Just (Err (Node.range node))
-
-                _ ->
-                    Nothing
-
-        Expression.Application ((Node alwaysRange (Expression.FunctionOrValue _ "always")) :: value :: []) ->
-            case ModuleNameLookupTable.moduleNameAt lookupTable alwaysRange of
-                Just [ "Basics" ] ->
-                    getResultValue lookupTable value
-
-                _ ->
-                    Nothing
-
-        Expression.LambdaExpression { args, expression } ->
-            case Node.value expression of
-                Expression.Application ((Node okRange (Expression.FunctionOrValue _ "Ok")) :: (Node argRange (Expression.FunctionOrValue [] justArgName)) :: []) ->
-                    case ModuleNameLookupTable.moduleNameAt lookupTable okRange of
-                        Just [ "Result" ] ->
-                            case args of
-                                (Node _ (Pattern.VarPattern lambdaArgName)) :: [] ->
-                                    if lambdaArgName == justArgName then
-                                        Just (Ok { start = okRange.start, end = argRange.start })
-
-                                    else
-                                        Nothing
-
-                                _ ->
-                                    Nothing
-
-                        _ ->
-                            Nothing
-
-                Expression.Application ((Node errRange (Expression.FunctionOrValue _ "Err")) :: (Node argRange (Expression.FunctionOrValue [] justArgName)) :: []) ->
-                    case ModuleNameLookupTable.moduleNameAt lookupTable errRange of
-                        Just [ "Result" ] ->
-                            case args of
-                                (Node _ (Pattern.VarPattern lambdaArgName)) :: [] ->
-                                    if lambdaArgName == justArgName then
-                                        Just (Ok { start = errRange.start, end = argRange.start })
-
-                                    else
-                                        Nothing
-
-                                _ ->
-                                    Nothing
-
-                        _ ->
-                            Nothing
-
-                _ ->
-                    Nothing
+        Expression.CaseExpression { cases } ->
+            combineResultValues lookupTable (List.map Tuple.second cases)
 
         _ ->
             Nothing
+
+
+combineResultValues : ModuleNameLookupTable -> List (Node Expression) -> Maybe (Result Range (List Range))
+combineResultValues lookupTable nodes =
+    case nodes of
+        node :: restOfNodes ->
+            case getResultValues lookupTable node of
+                Nothing ->
+                    Nothing
+
+                Just nodeValue ->
+                    combineResultValuesHelp lookupTable restOfNodes nodeValue
+
+        [] ->
+            Nothing
+
+
+combineResultValuesHelp : ModuleNameLookupTable -> List (Node Expression) -> Result Range (List Range) -> Maybe (Result Range (List Range))
+combineResultValuesHelp lookupTable nodes soFar =
+    case nodes of
+        node :: restOfNodes ->
+            case getResultValues lookupTable node of
+                Nothing ->
+                    Nothing
+
+                Just nodeValue ->
+                    case ( nodeValue, soFar ) of
+                        ( Ok _, Err _ ) ->
+                            Nothing
+
+                        ( Err _, Ok _ ) ->
+                            Nothing
+
+                        ( Err _, Err soFarRange ) ->
+                            combineResultValuesHelp lookupTable restOfNodes (Err soFarRange)
+
+                        ( Ok a, Ok b ) ->
+                            combineResultValuesHelp lookupTable restOfNodes (Ok (a ++ b))
+
+        [] ->
+            Just soFar
 
 
 isAlwaysEmptyList : ModuleNameLookupTable -> Node Expression -> Bool

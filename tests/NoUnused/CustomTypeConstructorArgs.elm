@@ -18,6 +18,7 @@ import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
+import List.Extra
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
@@ -106,7 +107,7 @@ type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
     , isModuleExposed : Bool
     , exposed : Exposing
-    , customTypeArgs : Dict String (Dict String (List Range))
+    , customTypeArgs : List ( String, Dict String (List Range) )
     , usedArguments : Dict ( ModuleName, String ) (Set Int)
     , customTypesNotToReport : Set ( ModuleName, String )
     }
@@ -115,10 +116,9 @@ type alias ModuleContext =
 moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor schema =
     schema
-        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-        |> Rule.withDeclarationListVisitor declarationListVisitor
-        |> Rule.withDeclarationEnterVisitor declarationVisitor
-        |> Rule.withExpressionEnterVisitor expressionVisitor
+        |> Rule.withModuleDefinitionVisitor (\node context -> ( [], moduleDefinitionVisitor node context ))
+        |> Rule.withDeclarationEnterVisitor (\node context -> ( [], declarationVisitor node context ))
+        |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionVisitor node context ))
 
 
 elmJsonVisitor : Maybe { a | project : Elm.Project.Project } -> ProjectContext -> ( List nothing, ProjectContext )
@@ -163,7 +163,7 @@ fromProjectToModule =
             { lookupTable = lookupTable
             , isModuleExposed = Set.member (Rule.moduleNameFromMetadata metadata) projectContext.exposedModules
             , exposed = Exposing.Explicit []
-            , customTypeArgs = Dict.empty
+            , customTypeArgs = []
             , usedArguments = Dict.empty
             , customTypesNotToReport = Set.empty
             }
@@ -248,15 +248,22 @@ getNonExposedCustomTypes moduleContext =
                                 )
                             |> Set.fromList
                 in
-                moduleContext.customTypeArgs
-                    |> Dict.filter (\typeName _ -> not <| Set.member typeName exposedCustomTypes)
-                    |> Dict.values
-                    |> List.foldl Dict.union Dict.empty
+                List.foldl
+                    (\( typeName, args ) acc ->
+                        if Set.member typeName exposedCustomTypes then
+                            acc
+
+                        else
+                            Dict.union args acc
+                    )
+                    Dict.empty
+                    moduleContext.customTypeArgs
 
     else
-        moduleContext.customTypeArgs
-            |> Dict.values
-            |> List.foldl Dict.union Dict.empty
+        List.foldl
+            (\( _, args ) acc -> Dict.union args acc)
+            Dict.empty
+            moduleContext.customTypeArgs
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
@@ -282,105 +289,95 @@ foldProjectContexts newContext previousContext =
 -- MODULE DEFINITION VISITOR
 
 
-moduleDefinitionVisitor : Node Module -> ModuleContext -> ( List nothing, ModuleContext )
+moduleDefinitionVisitor : Node Module -> ModuleContext -> ModuleContext
 moduleDefinitionVisitor node moduleContext =
-    ( [], { moduleContext | exposed = Module.exposingList (Node.value node) } )
+    { moduleContext | exposed = Module.exposingList (Node.value node) }
 
 
-
--- DECLARATION LIST VISITOR
-
-
-declarationListVisitor : List (Node Declaration) -> ModuleContext -> ( List nothing, ModuleContext )
-declarationListVisitor nodes context =
-    let
-        customTypeArgs : List ( String, Dict String (List Range) )
-        customTypeArgs =
-            List.filterMap (collectCustomType context.lookupTable) nodes
-    in
-    ( [], { context | customTypeArgs = Dict.fromList customTypeArgs } )
-
-
-collectCustomType : ModuleNameLookupTable -> Node Declaration -> Maybe ( String, Dict String (List Range) )
-collectCustomType lookupTable node =
-    case Node.value node of
-        Declaration.CustomTypeDeclaration typeDeclaration ->
-            let
-                customTypeConstructors : List ( String, List Range )
-                customTypeConstructors =
-                    List.map
-                        (\(Node _ { name, arguments }) ->
-                            ( Node.value name
-                            , arguments
-                                |> List.filter (isNever lookupTable >> not)
-                                |> List.map Node.range
-                            )
-                        )
-                        typeDeclaration.constructors
-            in
-            if List.isEmpty customTypeConstructors then
-                Nothing
-
-            else
-                Just ( Node.value typeDeclaration.name, Dict.fromList customTypeConstructors )
-
-        _ ->
-            Nothing
-
-
-isNever : ModuleNameLookupTable -> Node TypeAnnotation -> Bool
-isNever lookupTable node =
+isNotNever : ModuleNameLookupTable -> Node TypeAnnotation -> Bool
+isNotNever lookupTable node =
     case Node.value node of
         TypeAnnotation.Typed (Node neverRange ( _, "Never" )) [] ->
-            ModuleNameLookupTable.moduleNameAt lookupTable neverRange == Just [ "Basics" ]
+            ModuleNameLookupTable.moduleNameAt lookupTable neverRange /= Just [ "Basics" ]
 
         _ ->
-            False
+            True
 
 
 
 -- DECLARATION VISITOR
 
 
-declarationVisitor : Node Declaration -> ModuleContext -> ( List nothing, ModuleContext )
+declarationVisitor : Node Declaration -> ModuleContext -> ModuleContext
 declarationVisitor node context =
-    -- TODO Move to declaration list visitor, or the other way around
     case Node.value node of
         Declaration.FunctionDeclaration function ->
-            ( []
-            , { context
+            { context
                 | usedArguments =
                     registerUsedPatterns
                         (collectUsedPatternsFromFunctionDeclaration context function)
                         context.usedArguments
-              }
-            )
+            }
+
+        Declaration.CustomTypeDeclaration typeDeclaration ->
+            if List.isEmpty typeDeclaration.constructors then
+                context
+
+            else
+                let
+                    customTypeConstructors : Dict String (List Range)
+                    customTypeConstructors =
+                        List.foldl
+                            (\(Node _ { name, arguments }) acc ->
+                                Dict.insert
+                                    (Node.value name)
+                                    (createArguments context.lookupTable arguments)
+                                    acc
+                            )
+                            Dict.empty
+                            typeDeclaration.constructors
+                in
+                { context
+                    | customTypeArgs = ( Node.value typeDeclaration.name, customTypeConstructors ) :: context.customTypeArgs
+                }
 
         _ ->
-            ( [], context )
+            context
+
+
+createArguments : ModuleNameLookupTable -> List (Node TypeAnnotation) -> List Range
+createArguments lookupTable arguments =
+    List.foldr
+        (\argument acc ->
+            if isNotNever lookupTable argument then
+                Node.range argument :: acc
+
+            else
+                acc
+        )
+        []
+        arguments
 
 
 collectUsedPatternsFromFunctionDeclaration : ModuleContext -> Expression.Function -> List ( ( ModuleName, String ), Set Int )
 collectUsedPatternsFromFunctionDeclaration context { declaration } =
-    (Node.value declaration).arguments
-        |> List.concatMap (collectUsedCustomTypeArgs context.lookupTable)
+    collectUsedCustomTypeArgs context.lookupTable (Node.value declaration).arguments
 
 
 
 -- EXPRESSION VISITOR
 
 
-expressionVisitor : Node Expression -> ModuleContext -> ( List nothing, ModuleContext )
+expressionVisitor : Node Expression -> ModuleContext -> ModuleContext
 expressionVisitor node context =
     case Node.value node of
         Expression.CaseExpression { cases } ->
             let
                 usedArguments : List ( ( ModuleName, String ), Set Int )
                 usedArguments =
-                    cases
-                        |> List.concatMap (Tuple.first >> collectUsedCustomTypeArgs context.lookupTable)
+                    collectUsedCustomTypeArgs context.lookupTable (List.map Tuple.first cases)
             in
-            ( [], { context | usedArguments = registerUsedPatterns usedArguments context.usedArguments } )
+            { context | usedArguments = registerUsedPatterns usedArguments context.usedArguments }
 
         Expression.LetExpression { declarations } ->
             let
@@ -390,109 +387,107 @@ expressionVisitor node context =
                         (\declaration ->
                             case Node.value declaration of
                                 Expression.LetDestructuring pattern _ ->
-                                    collectUsedCustomTypeArgs context.lookupTable pattern
+                                    collectUsedCustomTypeArgs context.lookupTable [ pattern ]
 
                                 Expression.LetFunction function ->
                                     collectUsedPatternsFromFunctionDeclaration context function
                         )
                         declarations
             in
-            ( [], { context | usedArguments = registerUsedPatterns usedArguments context.usedArguments } )
+            { context | usedArguments = registerUsedPatterns usedArguments context.usedArguments }
 
         Expression.LambdaExpression { args } ->
-            ( []
-            , { context
+            { context
                 | usedArguments =
                     registerUsedPatterns
-                        (List.concatMap (collectUsedCustomTypeArgs context.lookupTable) args)
+                        (collectUsedCustomTypeArgs context.lookupTable args)
                         context.usedArguments
-              }
-            )
+            }
 
         Expression.OperatorApplication operator _ left right ->
             if operator == "==" || operator == "/=" then
                 let
                     customTypesNotToReport : Set ( ModuleName, String )
                     customTypesNotToReport =
-                        Set.union
-                            (findCustomTypes context.lookupTable left)
-                            (findCustomTypes context.lookupTable right)
+                        findCustomTypes context.lookupTable [ left, right ]
                 in
-                ( [], { context | customTypesNotToReport = Set.union customTypesNotToReport context.customTypesNotToReport } )
+                { context | customTypesNotToReport = Set.union customTypesNotToReport context.customTypesNotToReport }
 
             else
-                ( [], context )
+                context
 
         Expression.Application ((Node _ (Expression.PrefixOperator operator)) :: restOfArgs) ->
             if operator == "==" || operator == "/=" then
                 let
                     customTypesNotToReport : Set ( ModuleName, String )
                     customTypesNotToReport =
-                        List.foldl
-                            (findCustomTypes context.lookupTable >> Set.union)
-                            Set.empty
-                            restOfArgs
+                        findCustomTypes context.lookupTable restOfArgs
                 in
-                ( [], { context | customTypesNotToReport = Set.union customTypesNotToReport context.customTypesNotToReport } )
+                { context | customTypesNotToReport = Set.union customTypesNotToReport context.customTypesNotToReport }
 
             else
-                ( [], context )
+                context
 
         _ ->
-            ( [], context )
+            context
 
 
-findCustomTypes : ModuleNameLookupTable -> Node Expression -> Set ( ModuleName, String )
-findCustomTypes lookupTable node =
-    case Node.value node of
-        Expression.FunctionOrValue rawModuleName functionName ->
-            if isCustomTypeConstructor functionName then
-                case ModuleNameLookupTable.moduleNameFor lookupTable node of
-                    Just moduleName ->
-                        Set.singleton ( moduleName, functionName )
+findCustomTypes : ModuleNameLookupTable -> List (Node Expression) -> Set ( ModuleName, String )
+findCustomTypes lookupTable nodes =
+    findCustomTypesHelp lookupTable nodes []
+        |> Set.fromList
 
-                    Nothing ->
-                        Set.singleton ( rawModuleName, functionName )
 
-            else
-                Set.empty
+findCustomTypesHelp : ModuleNameLookupTable -> List (Node Expression) -> List ( ModuleName, String ) -> List ( ModuleName, String )
+findCustomTypesHelp lookupTable nodes acc =
+    case nodes of
+        [] ->
+            acc
 
-        Expression.TupledExpression expressions ->
-            List.foldl (findCustomTypes lookupTable >> Set.union) Set.empty expressions
+        node :: restOfNodes ->
+            case Node.value node of
+                Expression.FunctionOrValue rawModuleName functionName ->
+                    if isCustomTypeConstructor functionName then
+                        case ModuleNameLookupTable.moduleNameFor lookupTable node of
+                            Just moduleName ->
+                                findCustomTypesHelp lookupTable restOfNodes (( moduleName, functionName ) :: acc)
 
-        Expression.ParenthesizedExpression expression ->
-            findCustomTypes lookupTable expression
+                            Nothing ->
+                                findCustomTypesHelp lookupTable restOfNodes (( rawModuleName, functionName ) :: acc)
 
-        Expression.Application [] ->
-            Set.empty
+                    else
+                        findCustomTypesHelp lookupTable restOfNodes acc
 
-        Expression.Application (((Node _ (Expression.FunctionOrValue _ functionName)) as first) :: expressions) ->
-            if isCustomTypeConstructor functionName then
-                List.foldl (findCustomTypes lookupTable >> Set.union) Set.empty (first :: expressions)
+                Expression.TupledExpression expressions ->
+                    findCustomTypesHelp lookupTable (expressions ++ restOfNodes) acc
 
-            else
-                Set.empty
+                Expression.ParenthesizedExpression expression ->
+                    findCustomTypesHelp lookupTable (expression :: restOfNodes) acc
 
-        Expression.OperatorApplication _ _ left right ->
-            Set.union
-                (findCustomTypes lookupTable left)
-                (findCustomTypes lookupTable right)
+                Expression.Application (((Node _ (Expression.FunctionOrValue _ functionName)) as first) :: expressions) ->
+                    if isCustomTypeConstructor functionName then
+                        findCustomTypesHelp lookupTable (first :: (expressions ++ restOfNodes)) acc
 
-        Expression.Negation expression ->
-            findCustomTypes lookupTable expression
+                    else
+                        findCustomTypesHelp lookupTable restOfNodes acc
 
-        Expression.ListExpr expressions ->
-            List.foldl (findCustomTypes lookupTable >> Set.union) Set.empty expressions
+                Expression.OperatorApplication _ _ left right ->
+                    findCustomTypesHelp lookupTable (left :: right :: restOfNodes) acc
 
-        _ ->
-            Set.empty
+                Expression.Negation expression ->
+                    findCustomTypesHelp lookupTable (expression :: restOfNodes) acc
+
+                Expression.ListExpr expressions ->
+                    findCustomTypesHelp lookupTable (expressions ++ restOfNodes) acc
+
+                _ ->
+                    findCustomTypesHelp lookupTable restOfNodes acc
 
 
 isCustomTypeConstructor : String -> Bool
 isCustomTypeConstructor functionName =
-    String.toList functionName
-        |> List.take 1
-        |> List.all Char.isUpper
+    String.slice 0 1 functionName
+        |> String.all Char.isUpper
 
 
 registerUsedPatterns : List ( ( ModuleName, String ), Set Int ) -> Dict ( ModuleName, String ) (Set Int) -> Dict ( ModuleName, String ) (Set Int)
@@ -511,48 +506,68 @@ registerUsedPatterns newUsedArguments previouslyUsedArguments =
         newUsedArguments
 
 
-collectUsedCustomTypeArgs : ModuleNameLookupTable -> Node Pattern -> List ( ( ModuleName, String ), Set Int )
-collectUsedCustomTypeArgs lookupTable (Node range pattern) =
-    case pattern of
-        Pattern.NamedPattern { name } args ->
-            let
-                subList : List ( ( ModuleName, String ), Set Int )
-                subList =
-                    List.concatMap (collectUsedCustomTypeArgs lookupTable) args
-            in
-            case ModuleNameLookupTable.moduleNameAt lookupTable range of
-                Just moduleName ->
+collectUsedCustomTypeArgs : ModuleNameLookupTable -> List (Node Pattern) -> List ( ( ModuleName, String ), Set Int )
+collectUsedCustomTypeArgs lookupTable nodes =
+    collectUsedCustomTypeArgsHelp lookupTable nodes []
+
+
+collectUsedCustomTypeArgsHelp : ModuleNameLookupTable -> List (Node Pattern) -> List ( ( ModuleName, String ), Set Int ) -> List ( ( ModuleName, String ), Set Int )
+collectUsedCustomTypeArgsHelp lookupTable nodes acc =
+    case nodes of
+        [] ->
+            acc
+
+        (Node range pattern) :: restOfNodes ->
+            case pattern of
+                Pattern.NamedPattern { name } args ->
                     let
-                        usedPositions : Set Int
-                        usedPositions =
-                            args
-                                |> List.indexedMap Tuple.pair
-                                |> List.filter (\( _, subPattern ) -> not <| isWildcard subPattern)
-                                |> List.map Tuple.first
-                                |> Set.fromList
+                        newAcc : List ( ( ModuleName, String ), Set Int )
+                        newAcc =
+                            case ModuleNameLookupTable.moduleNameAt lookupTable range of
+                                Just moduleName ->
+                                    ( ( moduleName, name ), computeUsedPositions 0 args Set.empty ) :: acc
+
+                                Nothing ->
+                                    acc
                     in
-                    ( ( moduleName, name ), usedPositions ) :: subList
+                    collectUsedCustomTypeArgsHelp lookupTable (args ++ restOfNodes) newAcc
 
-                Nothing ->
-                    subList
+                Pattern.TuplePattern patterns ->
+                    collectUsedCustomTypeArgsHelp lookupTable (patterns ++ restOfNodes) acc
 
-        Pattern.TuplePattern patterns ->
-            List.concatMap (collectUsedCustomTypeArgs lookupTable) patterns
+                Pattern.ListPattern patterns ->
+                    collectUsedCustomTypeArgsHelp lookupTable (patterns ++ restOfNodes) acc
 
-        Pattern.ListPattern patterns ->
-            List.concatMap (collectUsedCustomTypeArgs lookupTable) patterns
+                Pattern.UnConsPattern left right ->
+                    collectUsedCustomTypeArgsHelp lookupTable (left :: right :: restOfNodes) acc
 
-        Pattern.UnConsPattern left right ->
-            List.concatMap (collectUsedCustomTypeArgs lookupTable) [ left, right ]
+                Pattern.ParenthesizedPattern subPattern ->
+                    collectUsedCustomTypeArgsHelp lookupTable (subPattern :: restOfNodes) acc
 
-        Pattern.ParenthesizedPattern subPattern ->
-            collectUsedCustomTypeArgs lookupTable subPattern
+                Pattern.AsPattern subPattern _ ->
+                    collectUsedCustomTypeArgsHelp lookupTable (subPattern :: restOfNodes) acc
 
-        Pattern.AsPattern subPattern _ ->
-            collectUsedCustomTypeArgs lookupTable subPattern
+                _ ->
+                    collectUsedCustomTypeArgsHelp lookupTable restOfNodes acc
 
-        _ ->
-            []
+
+computeUsedPositions : Int -> List (Node Pattern) -> Set Int -> Set Int
+computeUsedPositions index arguments acc =
+    case arguments of
+        [] ->
+            acc
+
+        arg :: restOfArgs ->
+            let
+                newAcc : Set Int
+                newAcc =
+                    if isWildcard arg then
+                        acc
+
+                    else
+                        Set.insert index acc
+            in
+            computeUsedPositions (index + 1) restOfArgs newAcc
 
 
 isWildcard : Node Pattern -> Bool
@@ -574,35 +589,46 @@ isWildcard node =
 
 finalEvaluation : ProjectContext -> List (Error { useErrorForModule : () })
 finalEvaluation context =
-    context.customTypeArgs
-        |> Dict.toList
-        |> List.concatMap
-            (\( moduleName, { moduleKey, args } ) ->
-                args
-                    |> Dict.toList
-                    |> List.concatMap
-                        (\( name, ranges ) ->
-                            if Set.member ( moduleName, name ) context.customTypesNotToReport then
-                                []
+    Dict.foldl (finalEvaluationForSingleModule context) [] context.customTypeArgs
 
-                            else
-                                case Dict.get ( moduleName, name ) context.usedArguments of
-                                    Just usedArgumentPositions ->
-                                        ranges
-                                            |> List.indexedMap Tuple.pair
-                                            |> List.filterMap
-                                                (\( index, range ) ->
-                                                    if Set.member index usedArgumentPositions then
-                                                        Nothing
 
-                                                    else
-                                                        Just (error moduleKey range)
-                                                )
+finalEvaluationForSingleModule : ProjectContext -> ModuleName -> { moduleKey : Rule.ModuleKey, args : Dict String (List Range) } -> List (Error { useErrorForModule : () }) -> List (Error { useErrorForModule : () })
+finalEvaluationForSingleModule context moduleName { moduleKey, args } previousErrors =
+    Dict.foldl
+        (\name ranges acc ->
+            let
+                constructor : ( ModuleName, String )
+                constructor =
+                    ( moduleName, name )
+            in
+            if Set.member constructor context.customTypesNotToReport then
+                acc
 
-                                    Nothing ->
-                                        List.map (error moduleKey) ranges
-                        )
-            )
+            else
+                errorsForUnusedArguments context.usedArguments moduleKey constructor ranges acc
+        )
+        previousErrors
+        args
+
+
+errorsForUnusedArguments : Dict ( ModuleName, String ) (Set Int) -> Rule.ModuleKey -> ( ModuleName, String ) -> List Range -> List (Error anywhere) -> List (Error anywhere)
+errorsForUnusedArguments usedArguments moduleKey constructor ranges acc =
+    case Dict.get constructor usedArguments of
+        Just usedArgumentPositions ->
+            List.Extra.indexedFilterMap
+                (\index range ->
+                    if Set.member index usedArgumentPositions then
+                        Nothing
+
+                    else
+                        Just (error moduleKey range)
+                )
+                0
+                ranges
+                acc
+
+        Nothing ->
+            List.map (error moduleKey) ranges ++ acc
 
 
 error : Rule.ModuleKey -> Range -> Error anywhere
