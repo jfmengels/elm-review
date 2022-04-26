@@ -9,7 +9,7 @@
 ## What does `elm-review` do?
 
 `elm-review` analyzes your source code, trying to recognize code that is known to cause problems.
-All the rules describing problematic code are written in Elm, and `elm-review` does not come with any built-in rules;
+All the rules describing problematic code are written in Elm, and `elm-review` does not come with built-in rules;
 instead users are encouraged to write rules themselves and publish them as Elm packages, for everyone to benefit.
 [Search the package registry](https://klaftertief.github.io/elm-search/?q=Review.Rule.Rule) to find what's out there!
 
@@ -57,7 +57,10 @@ More information on that in [the CLI documentation](https://github.com/jfmengels
 
 ## Configuration
 
-Rules are configured in the `ReviewConfig.elm` file:
+`elm-review` is configured through a `review/` folder in your project. It is a self-contained Elm project where you can
+specify your dependencies, and write, import, and configure review rules.
+
+Rules are configured in the `review/ReviewConfig.elm` file:
 
 ```elm
 module ReviewConfig exposing (config)
@@ -76,16 +79,41 @@ config =
     ]
 ```
 
-You can get started with a fresh configuration by running the `elm-review init` command with the command line tool installed.
-This will add a `review` folder to your project, which is a self-contained Elm project where you can write, import, and configure review rules.
-As `elm-review` does not [come with any built-in rules](https://github.com/jfmengels/elm-review/blob/master/documentation/design/no-built-in-rules.md), you can find existing rules [using `elm-search` and searching for `Review.Rule.Rule`](https://klaftertief.github.io/elm-search/?q=Review.Rule.Rule), and install them with the `elm install` command, just like any other Elm project dependency.
+
+## Get started
+
+You can get started with a fresh configuration by running the `elm-review init` command with the command line tool installed,
+which will add a `review` folder to your project.
+
+You can also use an existing configuration using `elm-review init --template <some configuration>`.
+I created [some configurations](https://github.com/jfmengels/elm-review-config) that I believe can be good **starting** points.
+
+```bash
+# Start with an empty configuration
+elm-review init
+
+# Starter configuration for an Elm application
+elm-review init --template jfmengels/elm-review-config/application
+
+# Starter configuration for an Elm package
+elm-review init --template jfmengels/elm-review-config/package
+```
+
+Once you have set up an initial configuration, you can add new rules. As `elm-review` does not
+[come with built-in rules](https://github.com/jfmengels/elm-review/blob/master/documentation/design/no-built-in-rules.md),
+you can look for packages with rules on the [Elm package registry](https://package.elm-lang.org/) by searching for packages named `elm-review-`.
+
+Once you've found a package that you like, you can install it with the `elm install` command, just like any other Elm project dependency.
 
 ```bash
 cd review/ # Go inside your review configuration directory
 elm install authorName/packageName
+# then update your `review/ReviewConfiguration` to add the rule
+# as explained in the package's documentation
 ```
 
-Before you start adding rules though, I suggest reading the rest of this document, especially the section on [when to enable a rule](#when-to-write-or-enable-a-rule).
+Before you start adding rules or an unfamiliar existing configuration, I suggest reading the rest of this document, especially the section on [when to enable a rule](#when-to-write-or-enable-a-rule).
+
 
 ## Write your own rule
 
