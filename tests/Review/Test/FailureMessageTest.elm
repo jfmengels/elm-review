@@ -2,6 +2,7 @@ module Review.Test.FailureMessageTest exposing (all)
 
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
+import Json.Decode as Decode
 import Json.Encode as Encode
 import Review.Error exposing (ReviewError)
 import Review.Fix as Fix
@@ -41,6 +42,7 @@ all =
         , invalidSourceAfterFixTest
         , hasCollisionsInFixRangesTest
         , unexpectedExtractTest
+        , invalidJsonForExpectedDataExtractTest
         ]
 
 
@@ -1188,6 +1190,28 @@ You should use `REPLACEME` to assert that the extract fits what you had.
   ],
   "null": null
 }"""
+
+
+invalidJsonForExpectedDataExtractTest : Test
+invalidJsonForExpectedDataExtractTest =
+    test "invalidJsonForExpectedDataExtract" <|
+        \() ->
+            case Decode.decodeString Decode.value "not JSON" of
+                Ok _ ->
+                    Expect.fail "Incorrect test setup, should have been incorrect JSON"
+
+                Err parsingError ->
+                    FailureMessage.invalidJsonForExpectedDataExtract parsingError
+                        |> expectMessageEqual """
+\u{001B}[31m\u{001B}[1mINVALID JSON FOR EXPECTED DATA EXTRACT\u{001B}[22m\u{001B}[39m
+
+The string you passed to `expectDataExtract` can't be parsed as valid JSON.
+
+Problem with the given value:
+
+"not JSON"
+
+This is not valid JSON! Unexpected token o in JSON at position 1"""
 
 
 dummyRange : Range

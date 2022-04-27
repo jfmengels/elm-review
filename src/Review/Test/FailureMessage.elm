@@ -7,7 +7,7 @@ module Review.Test.FailureMessage exposing
     , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
     , messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors
     , unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
-    , unexpectedExtract, missingExtract
+    , unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -23,12 +23,13 @@ module Review.Test.FailureMessage exposing
 @docs didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
 @docs messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors
 @docs unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
-@docs unexpectedExtract, missingExtract
+@docs unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract
 
 -}
 
 import Ansi
 import Elm.Syntax.Range exposing (Range)
+import Json.Decode as Decode
 import Json.Encode as Encode
 import Review.Rule as Rule exposing (ReviewError)
 import Vendor.Diff as Diff
@@ -655,6 +656,14 @@ missingExtract =
     failureMessage "MISSING EXTRACT"
         """I expected that the rule would extract information using
 `Rule.withDataExtractor`, but it doesn't seem that that function was used."""
+
+
+invalidJsonForExpectedDataExtract : Decode.Error -> String
+invalidJsonForExpectedDataExtract parsingError =
+    failureMessage "INVALID JSON FOR EXPECTED DATA EXTRACT"
+        ("""The string you passed to `expectDataExtract` can't be parsed as valid JSON.
+
+""" ++ Decode.errorToString parsingError)
 
 
 
