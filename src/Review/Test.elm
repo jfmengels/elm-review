@@ -114,6 +114,7 @@ import Elm.Syntax.Module as Module
 import Elm.Syntax.Node as Node
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
+import Json.Decode as Decode
 import Json.Encode as Encode
 import Review.Error as Error
 import Review.FileParser as FileParser
@@ -1549,7 +1550,7 @@ expectNoExtract maybeExtract =
 
 
 expectDataExtract : String -> ReviewResult -> Expectation
-expectDataExtract expectedOutput reviewResult =
+expectDataExtract expectedExtract reviewResult =
     case reviewResult of
         ConfigurationError configurationError ->
             Expect.fail (FailureMessage.unexpectedConfigurationError configurationError)
@@ -1561,16 +1562,21 @@ expectDataExtract expectedOutput reviewResult =
             Expect.all
                 [ \() -> expectNoGlobalErrors globalErrors
                 , \() -> expectNoModuleErrors runResults
-                , \() -> expectDataExtractContent expectedOutput extract
+                , \() -> expectDataExtractContent expectedExtract extract
                 ]
                 ()
 
 
 expectDataExtractContent : String -> Maybe Encode.Value -> Expectation
-expectDataExtractContent expectedOutput maybeExtract =
+expectDataExtractContent expectedExtract maybeExtract =
     case maybeExtract of
         Nothing ->
             Expect.fail FailureMessage.missingExtract
 
         Just extract ->
-            Expect.pass
+            case Decode.decodeString Decode.value expectedExtract of
+                Ok validExpectedExtract ->
+                    Expect.pass
+
+                Err parsingError ->
+                    Expect.fail (FailureMessage.invalidJsonForExpectedDataExtract parsingError)
