@@ -1568,14 +1568,14 @@ expectDataExtract expectedExtract reviewResult =
 
 
 expectDataExtractContent : String -> Maybe Encode.Value -> Expectation
-expectDataExtractContent expectedExtract maybeExtract =
-    case maybeExtract of
+expectDataExtractContent rawExpected maybeActualExtract =
+    case maybeActualExtract of
         Nothing ->
             Expect.fail FailureMessage.missingExtract
 
-        Just extract ->
-            case Decode.decodeString Decode.value expectedExtract of
-                Ok validExpectedExtract ->
+        Just actual ->
+            case Decode.decodeString Decode.value rawExpected of
+                Ok expected ->
                     Expect.pass
 
                 Err parsingError ->
