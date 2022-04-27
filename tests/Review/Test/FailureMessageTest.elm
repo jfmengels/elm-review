@@ -8,6 +8,7 @@ import Review.Error exposing (ReviewError)
 import Review.Fix as Fix
 import Review.Test.FailureMessage as FailureMessage exposing (ExpectedErrorData)
 import Test exposing (Test, describe, test)
+import Vendor.Diff as Diff
 
 
 all : Test
@@ -43,6 +44,7 @@ all =
         , hasCollisionsInFixRangesTest
         , unexpectedExtractTest
         , invalidJsonForExpectedDataExtractTest
+        , extractMismatchTest
         ]
 
 
@@ -1212,6 +1214,73 @@ Problem with the given value:
 "not JSON"
 
 This is not valid JSON! Unexpected token o in JSON at position 1"""
+
+
+extractMismatchTest : Test
+extractMismatchTest =
+    test "extractMismatch" <|
+        \() ->
+            let
+                extractActual : Encode.Value
+                extractActual =
+                    Encode.object
+                        [ ( "foo", Encode.string "bar" )
+                        , ( "other", Encode.list Encode.int [ 1, 2, 3 ] )
+                        , ( "actual", Encode.null )
+                        ]
+
+                extractExpected : Encode.Value
+                extractExpected =
+                    Encode.object
+                        [ ( "foo", Encode.string "bar" )
+                        , ( "other", Encode.list Encode.int [ 1, 20, 3 ] )
+                        , ( "expected", Encode.object [] )
+                        ]
+            in
+            FailureMessage.extractMismatch
+                extractActual
+                extractExpected
+                (Diff.diff (String.lines (Encode.encode 2 extractActual)) (String.lines (Encode.encode 2 extractExpected)))
+                |> expectMessageEqual """
+\u{001B}[31m\u{001B}[1mDATA EXTRACT MISMATCH\u{001B}[22m\u{001B}[39m
+
+I found a different extract than expected. I got the following:
+
+{
+  "foo": "bar",
+  "other": [
+    1,
+    2,
+    3
+  ],
+  "actual": null
+}
+
+when I was expecting the following:
+
+{
+  "foo": "bar",
+  "other": [
+    1,
+    20,
+    3
+  ],
+  "expected": {}
+}
+
+Here are the differences:
+
+{
+  "foo": "bar",
+  "other": [
+    1,
+[31m    2,[39m
+[32m    20,[39m
+    3
+  ],
+[31m  "actual": null[39m
+[32m  "expected": {}[39m
+}"""
 
 
 dummyRange : Range

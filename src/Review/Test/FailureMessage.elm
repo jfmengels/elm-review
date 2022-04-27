@@ -7,7 +7,7 @@ module Review.Test.FailureMessage exposing
     , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
     , messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors
     , unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
-    , unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract
+    , unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -23,7 +23,7 @@ module Review.Test.FailureMessage exposing
 @docs didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
 @docs messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors
 @docs unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
-@docs unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract
+@docs unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch
 
 -}
 
@@ -664,6 +664,40 @@ invalidJsonForExpectedDataExtract parsingError =
         ("""The string you passed to `expectDataExtract` can't be parsed as valid JSON.
 
 """ ++ Decode.errorToString parsingError)
+
+
+extractMismatch : Encode.Value -> Encode.Value -> List (Diff.Change String) -> String
+extractMismatch actual expected differences =
+    failureMessage "DATA EXTRACT MISMATCH"
+        ("""I found a different extract than expected. I got the following:
+
+""" ++ formatJson actual ++ """
+
+when I was expecting the following:
+
+""" ++ formatJson expected ++ """
+
+Here are the differences:
+
+""" ++ formatJsonDiff differences)
+
+
+formatJsonDiff : List (Diff.Change String) -> String
+formatJsonDiff differences =
+    List.map
+        (\difference ->
+            case difference of
+                Diff.NoChange str ->
+                    str
+
+                Diff.Added str ->
+                    Ansi.green str
+
+                Diff.Removed str ->
+                    Ansi.red str
+        )
+        differences
+        |> String.join "\n"
 
 
 

@@ -125,6 +125,7 @@ import Review.Test.Dependencies exposing (projectWithElmCore)
 import Review.Test.FailureMessage as FailureMessage
 import Set exposing (Set)
 import Unicode
+import Vendor.Diff as Diff
 import Vendor.ListExtra as ListExtra
 
 
@@ -1576,7 +1577,17 @@ expectDataExtractContent rawExpected maybeActualExtract =
         Just actual ->
             case Decode.decodeString Decode.value rawExpected of
                 Ok expected ->
-                    Expect.pass
+                    let
+                        diff : List (Diff.Change String)
+                        diff =
+                            Diff.diff (String.lines (Encode.encode 2 expected)) (String.lines (Encode.encode 2 actual))
+                    in
+                    case diff of
+                        [] ->
+                            Expect.pass
+
+                        differences ->
+                            Expect.fail (FailureMessage.extractMismatch actual expected differences)
 
                 Err parsingError ->
                     Expect.fail (FailureMessage.invalidJsonForExpectedDataExtract parsingError)
