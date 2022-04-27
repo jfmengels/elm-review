@@ -3,6 +3,7 @@ module Review.Test exposing
     , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme
     , expectGlobalErrors, expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
     , expectConfigurationError
+    , expectDataExtract
     )
 
 {-| Module that helps you test your rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/).
@@ -103,14 +104,18 @@ for this module.
 @docs ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme
 @docs expectGlobalErrors, expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
 @docs expectConfigurationError
+@docs expectDataExtract
 
 -}
 
 import Array exposing (Array)
+import Dict exposing (Dict)
 import Elm.Syntax.Module as Module
 import Elm.Syntax.Node as Node
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
+import Json.Decode as Decode
+import Json.Encode as Encode
 import Review.Error as Error
 import Review.FileParser as FileParser
 import Review.Fix as Fix
@@ -120,6 +125,7 @@ import Review.Test.Dependencies exposing (projectWithElmCore)
 import Review.Test.FailureMessage as FailureMessage
 import Set exposing (Set)
 import Unicode
+import Vendor.Diff as Diff
 import Vendor.ListExtra as ListExtra
 
 
@@ -132,7 +138,7 @@ import Vendor.ListExtra as ListExtra
 type ReviewResult
     = ConfigurationError { message : String, details : List String }
     | FailedRun String
-    | SuccessfulRun (List GlobalError) (List SuccessfulRunResult)
+    | SuccessfulRun (List GlobalError) (List SuccessfulRunResult) ExtractResult
 
 
 type alias GlobalError =
@@ -154,6 +160,11 @@ type alias CodeInspector =
     , getCodeAtLocation : Range -> Maybe String
     , checkIfLocationIsAmbiguous : ReviewError -> String -> Expectation
     }
+
+
+type ExtractResult
+    = RuleHasNoExtractor
+    | Extracted (Maybe Encode.Value)
 
 
 {-| An expectation for an error. Use [`error`](#error) to create one.
@@ -399,11 +410,21 @@ runOnModulesWithProjectDataHelp project rule sources =
 
                     Nothing ->
                         let
+                            runResult : { errors : List ReviewError, rules : List Rule, projectData : Maybe Rule.ProjectData, extracts : Dict String Encode.Value }
+                            runResult =
+                                Rule.reviewV3 [ rule ] Nothing projectWithModules
+
                             errors : List ReviewError
                             errors =
-                                projectWithModules
-                                    |> Rule.reviewV2 [ rule ] Nothing
-                                    |> .errors
+                                runResult.errors
+
+                            extract : ExtractResult
+                            extract =
+                                if Rule.ruleExtractsData rule then
+                                    Extracted (Dict.get (Rule.ruleName rule) runResult.extracts)
+
+                                else
+                                    RuleHasNoExtractor
                         in
                         case ListExtra.find (\err -> Rule.errorTarget err == Error.Global) errors of
                             Just globalError ->
@@ -425,7 +446,7 @@ runOnModulesWithProjectDataHelp project rule sources =
                                             |> List.filter (\error_ -> Rule.errorTarget error_ == Error.UserGlobal)
                                             |> List.map (\error_ -> { message = Rule.errorMessage error_, details = Rule.errorDetails error_ })
                                 in
-                                SuccessfulRun globalErrors fileErrors
+                                SuccessfulRun globalErrors fileErrors extract
 
 
 hasOneElement : List a -> Bool
@@ -749,7 +770,7 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun globalErrors runResults ->
+        SuccessfulRun globalErrors runResults extract ->
             Expect.all
                 [ \() ->
                     if List.isEmpty global then
@@ -768,6 +789,7 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
 
                             _ ->
                                 Expect.fail FailureMessage.needToUsedExpectErrorsForModules
+                , \() -> expectNoExtract extract
                 ]
                 ()
 
@@ -791,7 +813,7 @@ expectGlobalAndModuleErrors { global, modules } reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun globalErrors runResults ->
+        SuccessfulRun globalErrors runResults extract ->
             Expect.all
                 [ \() ->
                     if List.isEmpty global then
@@ -800,6 +822,7 @@ expectGlobalAndModuleErrors { global, modules } reviewResult =
                     else
                         checkAllGlobalErrorsMatch (List.length global) { expected = global, actual = globalErrors }
                 , \() -> expectErrorsForModulesHelp modules runResults
+                , \() -> expectNoExtract extract
                 ]
                 ()
 
@@ -1541,3 +1564,97 @@ expectConfigurationErrorDetailsMatch expectedError configurationError =
 
     else
         Expect.pass
+
+
+expectNoExtract : ExtractResult -> Expectation
+expectNoExtract maybeExtract =
+    case maybeExtract of
+        Extracted (Just _) ->
+            Expect.fail FailureMessage.needToUsedExpectErrorsForModules
+
+        Extracted Nothing ->
+            Expect.pass
+
+        RuleHasNoExtractor ->
+            Expect.pass
+
+
+{-| Expect the rule to produce a specific data extract.
+
+Note: You do not need to match the exact formatting of the JSON object, though the order of fields does need to match.
+
+    import Review.Test
+    import Test exposing (Test, describe, test)
+    import The.Rule.You.Want.To.Test exposing (rule)
+
+    tests : Test
+    tests =
+        test "should extract the list of fields" <|
+            \() ->
+                """module A exposing (..)
+    a = 1
+    b = 2
+    """
+                    |> Review.Test.run rule
+                    |> Review.Test.expectDataExtract """
+    {
+        "fields": [ "a", "b" ]
+    }"""
+
+-}
+expectDataExtract : String -> ReviewResult -> Expectation
+expectDataExtract expectedExtract reviewResult =
+    case reviewResult of
+        ConfigurationError configurationError ->
+            Expect.fail (FailureMessage.unexpectedConfigurationError configurationError)
+
+        FailedRun errorMessage ->
+            Expect.fail errorMessage
+
+        SuccessfulRun globalErrors runResults extract ->
+            Expect.all
+                [ \() -> expectNoGlobalErrors globalErrors
+                , \() -> expectNoModuleErrors runResults
+                , \() -> expectDataExtractContent expectedExtract extract
+                ]
+                ()
+
+
+expectDataExtractContent : String -> ExtractResult -> Expectation
+expectDataExtractContent rawExpected maybeActualExtract =
+    case maybeActualExtract of
+        RuleHasNoExtractor ->
+            Expect.fail FailureMessage.missingExtract
+
+        Extracted Nothing ->
+            Expect.fail FailureMessage.missingExtract
+
+        Extracted (Just actual) ->
+            case Decode.decodeString Decode.value rawExpected of
+                Err parsingError ->
+                    Expect.fail (FailureMessage.invalidJsonForExpectedDataExtract parsingError)
+
+                Ok expected ->
+                    let
+                        differences : List (Diff.Change String)
+                        differences =
+                            Diff.diffLines (Encode.encode 2 actual) (Encode.encode 2 expected)
+                    in
+                    if containsDifferences differences then
+                        Expect.fail (FailureMessage.extractMismatch actual expected differences)
+
+                    else
+                        Expect.pass
+
+
+containsDifferences : List (Diff.Change a) -> Bool
+containsDifferences changes =
+    case changes of
+        [] ->
+            False
+
+        (Diff.NoChange _) :: restOfChanges ->
+            containsDifferences restOfChanges
+
+        _ ->
+            True

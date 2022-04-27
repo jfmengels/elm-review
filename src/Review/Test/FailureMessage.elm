@@ -7,6 +7,7 @@ module Review.Test.FailureMessage exposing
     , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
     , messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors
     , unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
+    , unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -22,11 +23,14 @@ module Review.Test.FailureMessage exposing
 @docs didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
 @docs messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors
 @docs unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
+@docs unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch
 
 -}
 
 import Ansi
 import Elm.Syntax.Range exposing (Range)
+import Json.Decode as Decode
+import Json.Encode as Encode
 import Review.Rule as Rule exposing (ReviewError)
 import Vendor.Diff as Diff
 import Vendor.ListExtra as ListExtra
@@ -637,6 +641,65 @@ missingConfigurationError errorMessage =
 but I could not find it.""")
 
 
+unexpectedExtract : Encode.Value -> String
+unexpectedExtract value =
+    failureMessage "UNEXPECTED EXTRACT"
+        ("""This rule returned an extract which I did not expect.
+
+You should use `REPLACEME` to assert that the extract fits what you had.
+
+""" ++ formatJson value)
+
+
+missingExtract : String
+missingExtract =
+    failureMessage "MISSING EXTRACT"
+        """I expected that the rule would extract information using
+`Rule.withDataExtractor`, but it doesn't seem that that function was used."""
+
+
+invalidJsonForExpectedDataExtract : Decode.Error -> String
+invalidJsonForExpectedDataExtract parsingError =
+    failureMessage "INVALID JSON FOR EXPECTED DATA EXTRACT"
+        ("""The string you passed to `expectDataExtract` can't be parsed as valid JSON.
+
+""" ++ Decode.errorToString parsingError)
+
+
+extractMismatch : Encode.Value -> Encode.Value -> List (Diff.Change String) -> String
+extractMismatch actual expected differences =
+    failureMessage "DATA EXTRACT MISMATCH"
+        ("""I found a different extract than expected. I got the following:
+
+""" ++ formatJson actual ++ """
+
+when I was expecting the following:
+
+""" ++ formatJson expected ++ """
+
+Here are the differences:
+
+""" ++ formatJsonDiff differences)
+
+
+formatJsonDiff : List (Diff.Change String) -> String
+formatJsonDiff differences =
+    List.map
+        (\difference ->
+            case difference of
+                Diff.NoChange str ->
+                    str
+
+                Diff.Added str ->
+                    Ansi.green str
+
+                Diff.Removed str ->
+                    Ansi.red str
+        )
+        differences
+        |> String.join "\n"
+
+
 
 -- STYLIZING AND FORMATTING
 
@@ -776,3 +839,8 @@ pluralizeErrors n =
 
     else
         "errors"
+
+
+formatJson : Encode.Value -> String
+formatJson value =
+    Encode.encode 2 value
