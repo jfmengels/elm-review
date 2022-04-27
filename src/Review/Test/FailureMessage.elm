@@ -648,7 +648,7 @@ unexpectedExtract value =
 
 You should use `REPLACEME` to assert that the extract fits what you had.
 
-""" ++ Encode.encode 2 value)
+""" ++ formatJson value)
 
 
 missingExtract : String
@@ -805,3 +805,8 @@ pluralizeErrors n =
 
     else
         "errors"
+
+
+formatJson : Encode.Value -> String
+formatJson value =
+    Encode.encode 2 value
