@@ -7,7 +7,7 @@ module Review.Test.FailureMessage exposing
     , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
     , messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors
     , unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
-    , unexpectedExtract
+    , unexpectedExtract, missingExtract
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -23,7 +23,7 @@ module Review.Test.FailureMessage exposing
 @docs didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
 @docs messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors
 @docs unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
-@docs unexpectedExtract
+@docs unexpectedExtract, missingExtract
 
 -}
 
@@ -643,11 +643,18 @@ but I could not find it.""")
 unexpectedExtract : Encode.Value -> String
 unexpectedExtract value =
     failureMessage "UNEXPECTED EXTRACT"
-        ("""This rule returned an extract, which I did not expect.
+        ("""This rule returned an extract which I did not expect.
 
 You should use `REPLACEME` to assert that the extract fits what you had.
 
 """ ++ Encode.encode 2 value)
+
+
+missingExtract : String
+missingExtract =
+    failureMessage "MISSING EXTRACT"
+        """I expected that the rule would extract information using
+`Rule.withDataExtractor`, but it doesn't seem that that function was used."""
 
 
 

@@ -1544,3 +1544,31 @@ expectNoExtract maybeExtract =
 
         Nothing ->
             Expect.pass
+
+
+expectExtract : String -> ReviewResult -> Expectation
+expectExtract expectedOutput reviewResult =
+    case reviewResult of
+        ConfigurationError configurationError ->
+            Expect.fail (FailureMessage.unexpectedConfigurationError configurationError)
+
+        FailedRun errorMessage ->
+            Expect.fail errorMessage
+
+        SuccessfulRun globalErrors runResults extract ->
+            Expect.all
+                [ \() -> expectNoGlobalErrors globalErrors
+                , \() -> expectNoModuleErrors runResults
+                , \() -> expectExtractContent expectedOutput extract
+                ]
+                ()
+
+
+expectExtractContent : String -> Maybe Encode.Value -> Expectation
+expectExtractContent expectedOutput maybeExtract =
+    case maybeExtract of
+        Nothing ->
+            Expect.fail FailureMessage.missingExtract
+
+        Just extract ->
+            Expect.pass
