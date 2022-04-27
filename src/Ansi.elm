@@ -1,4 +1,4 @@
-module Ansi exposing (backgroundRed, bold, cyan, red, yellow)
+module Ansi exposing (backgroundRed, bold, cyan, green, red, yellow)
 
 -- FONTS
 
@@ -20,6 +20,11 @@ applyColor color string =
 red : String -> String
 red =
     applyColor "31"
+
+
+green : String -> String
+green =
+    applyColor "32"
 
 
 yellow : String -> String

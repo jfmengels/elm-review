@@ -2,10 +2,13 @@ module Review.Test.FailureMessageTest exposing (all)
 
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
+import Json.Decode as Decode
+import Json.Encode as Encode
 import Review.Error exposing (ReviewError)
 import Review.Fix as Fix
 import Review.Test.FailureMessage as FailureMessage exposing (ExpectedErrorData)
 import Test exposing (Test, describe, test)
+import Vendor.Diff as Diff
 
 
 all : Test
@@ -39,6 +42,9 @@ all =
         , unchangedSourceAfterFixTest
         , invalidSourceAfterFixTest
         , hasCollisionsInFixRangesTest
+        , unexpectedExtractTest
+        , invalidJsonForExpectedDataExtractTest
+        , extractMismatchTest
         ]
 
 
@@ -1154,6 +1160,127 @@ the positions (for inserting) of every fix to be mutually exclusive.
 
 Hint: Maybe you duplicated a fix, or you targeted the wrong node for one
 of your fixes."""
+
+
+unexpectedExtractTest : Test
+unexpectedExtractTest =
+    test "unexpectedExtract" <|
+        \() ->
+            let
+                extract : Encode.Value
+                extract =
+                    Encode.object
+                        [ ( "foo", Encode.string "bar" )
+                        , ( "other", Encode.list Encode.int [ 1, 2, 3 ] )
+                        , ( "null", Encode.null )
+                        ]
+            in
+            FailureMessage.unexpectedExtract extract
+                |> expectMessageEqual """
+\u{001B}[31m\u{001B}[1mUNEXPECTED EXTRACT\u{001B}[22m\u{001B}[39m
+
+This rule returned an extract which I did not expect.
+
+You should use `REPLACEME` to assert that the extract fits what you had.
+
+{
+  "foo": "bar",
+  "other": [
+    1,
+    2,
+    3
+  ],
+  "null": null
+}"""
+
+
+invalidJsonForExpectedDataExtractTest : Test
+invalidJsonForExpectedDataExtractTest =
+    test "invalidJsonForExpectedDataExtract" <|
+        \() ->
+            case Decode.decodeString Decode.value "not JSON" of
+                Ok _ ->
+                    Expect.fail "Incorrect test setup, should have been incorrect JSON"
+
+                Err parsingError ->
+                    FailureMessage.invalidJsonForExpectedDataExtract parsingError
+                        |> expectMessageEqual """
+\u{001B}[31m\u{001B}[1mINVALID JSON FOR EXPECTED DATA EXTRACT\u{001B}[22m\u{001B}[39m
+
+The string you passed to `expectDataExtract` can't be parsed as valid JSON.
+
+Problem with the given value:
+
+"not JSON"
+
+This is not valid JSON! Unexpected token o in JSON at position 1"""
+
+
+extractMismatchTest : Test
+extractMismatchTest =
+    test "extractMismatch" <|
+        \() ->
+            let
+                extractActual : Encode.Value
+                extractActual =
+                    Encode.object
+                        [ ( "foo", Encode.string "bar" )
+                        , ( "other", Encode.list Encode.int [ 1, 2, 3 ] )
+                        , ( "actual", Encode.null )
+                        ]
+
+                extractExpected : Encode.Value
+                extractExpected =
+                    Encode.object
+                        [ ( "foo", Encode.string "bar" )
+                        , ( "other", Encode.list Encode.int [ 1, 20, 3 ] )
+                        , ( "expected", Encode.object [] )
+                        ]
+            in
+            FailureMessage.extractMismatch
+                extractActual
+                extractExpected
+                (Diff.diffLines (Encode.encode 2 extractActual) (Encode.encode 2 extractExpected))
+                |> expectMessageEqual """
+\u{001B}[31m\u{001B}[1mDATA EXTRACT MISMATCH\u{001B}[22m\u{001B}[39m
+
+I found a different extract than expected. I got the following:
+
+{
+  "foo": "bar",
+  "other": [
+    1,
+    2,
+    3
+  ],
+  "actual": null
+}
+
+when I was expecting the following:
+
+{
+  "foo": "bar",
+  "other": [
+    1,
+    20,
+    3
+  ],
+  "expected": {}
+}
+
+Here are the differences:
+
+{
+  "foo": "bar",
+  "other": [
+    1,
+\u{001B}[31m    2,\u{001B}[39m
+\u{001B}[32m    20,\u{001B}[39m
+    3
+  ],
+\u{001B}[31m  "actual": null\u{001B}[39m
+\u{001B}[32m  "expected": {}\u{001B}[39m
+}"""
 
 
 dummyRange : Range
