@@ -2,6 +2,7 @@ module Review.Test.FailureMessageTest exposing (all)
 
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
+import Json.Encode as Encode
 import Review.Error exposing (ReviewError)
 import Review.Fix as Fix
 import Review.Test.FailureMessage as FailureMessage exposing (ExpectedErrorData)
@@ -39,6 +40,7 @@ all =
         , unchangedSourceAfterFixTest
         , invalidSourceAfterFixTest
         , hasCollisionsInFixRangesTest
+        , unexpectedExtractTest
         ]
 
 
@@ -1154,6 +1156,38 @@ the positions (for inserting) of every fix to be mutually exclusive.
 
 Hint: Maybe you duplicated a fix, or you targeted the wrong node for one
 of your fixes."""
+
+
+unexpectedExtractTest : Test
+unexpectedExtractTest =
+    test "unexpectedExtract" <|
+        \() ->
+            let
+                extract : Encode.Value
+                extract =
+                    Encode.object
+                        [ ( "foo", Encode.string "bar" )
+                        , ( "other", Encode.list Encode.int [ 1, 2, 3 ] )
+                        , ( "null", Encode.null )
+                        ]
+            in
+            FailureMessage.unexpectedExtract extract
+                |> expectMessageEqual """
+\u{001B}[31m\u{001B}[1mUNEXPECTED EXTRACT\u{001B}[22m\u{001B}[39m
+
+This rule returned an extract, which I did not expect.
+
+You should use `REPLACEME` to assert that the extract fits what you had.
+
+{
+  "foo": "bar",
+  "other": [
+    1,
+    2,
+    3
+  ],
+  "null": null
+}"""
 
 
 dummyRange : Range

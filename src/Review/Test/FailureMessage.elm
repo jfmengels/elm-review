@@ -23,6 +23,7 @@ module Review.Test.FailureMessage exposing
 @docs didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
 @docs messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors
 @docs unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
+@docs unexpectedExtract
 
 -}
 
