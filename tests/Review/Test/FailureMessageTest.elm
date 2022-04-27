@@ -1240,7 +1240,7 @@ extractMismatchTest =
             FailureMessage.extractMismatch
                 extractActual
                 extractExpected
-                (Diff.diff (String.lines (Encode.encode 2 extractActual)) (String.lines (Encode.encode 2 extractExpected)))
+                (Diff.diffLines (Encode.encode 2 extractActual) (Encode.encode 2 extractExpected))
                 |> expectMessageEqual """
 \u{001B}[31m\u{001B}[1mDATA EXTRACT MISMATCH\u{001B}[22m\u{001B}[39m
 

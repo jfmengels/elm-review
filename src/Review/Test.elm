@@ -1580,7 +1580,7 @@ expectDataExtractContent rawExpected maybeActualExtract =
                     let
                         diff : List (Diff.Change String)
                         diff =
-                            Diff.diff (String.lines (Encode.encode 2 expected)) (String.lines (Encode.encode 2 actual))
+                            Diff.diffLines (Encode.encode 2 expected) (Encode.encode 2 actual)
                     in
                     case diff of
                         [] ->
