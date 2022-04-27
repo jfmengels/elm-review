@@ -134,7 +134,7 @@ import Vendor.ListExtra as ListExtra
 type ReviewResult
     = ConfigurationError { message : String, details : List String }
     | FailedRun String
-    | SuccessfulRun (List GlobalError) (List SuccessfulRunResult)
+    | SuccessfulRun (List GlobalError) (List SuccessfulRunResult) (Maybe Encode.Value)
 
 
 type alias GlobalError =
@@ -433,7 +433,7 @@ runOnModulesWithProjectDataHelp project rule sources =
                                             |> List.filter (\error_ -> Rule.errorTarget error_ == Error.UserGlobal)
                                             |> List.map (\error_ -> { message = Rule.errorMessage error_, details = Rule.errorDetails error_ })
                                 in
-                                SuccessfulRun globalErrors fileErrors
+                                SuccessfulRun globalErrors fileErrors extract
 
 
 moduleToRunResult : List ReviewError -> ProjectModule -> SuccessfulRunResult
@@ -747,7 +747,7 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun globalErrors runResults ->
+        SuccessfulRun globalErrors runResults extract ->
             Expect.all
                 [ \() ->
                     if List.isEmpty global then
@@ -766,6 +766,7 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
 
                             _ ->
                                 Expect.fail FailureMessage.needToUsedExpectErrorsForModules
+                , \() -> expectNoExtract extract
                 ]
                 ()
 
@@ -789,7 +790,7 @@ expectGlobalAndModuleErrors { global, modules } reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun globalErrors runResults ->
+        SuccessfulRun globalErrors runResults extract ->
             Expect.all
                 [ \() ->
                     if List.isEmpty global then
@@ -798,6 +799,7 @@ expectGlobalAndModuleErrors { global, modules } reviewResult =
                     else
                         checkAllGlobalErrorsMatch (List.length global) { expected = global, actual = globalErrors }
                 , \() -> expectErrorsForModulesHelp modules runResults
+                , \() -> expectNoExtract extract
                 ]
                 ()
 
@@ -1532,3 +1534,13 @@ expectConfigurationErrorDetailsMatch expectedError configurationError =
 
     else
         Expect.pass
+
+
+expectNoExtract : Maybe a -> Expectation
+expectNoExtract maybeExtract =
+    case maybeExtract of
+        Just _ ->
+            Expect.fail FailureMessage.needToUsedExpectErrorsForModules
+
+        Nothing ->
+            Expect.pass

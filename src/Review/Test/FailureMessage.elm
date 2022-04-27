@@ -7,6 +7,7 @@ module Review.Test.FailureMessage exposing
     , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
     , messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors
     , unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
+    , unexpectedExtract
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -27,6 +28,7 @@ module Review.Test.FailureMessage exposing
 
 import Ansi
 import Elm.Syntax.Range exposing (Range)
+import Json.Encode as Encode
 import Review.Rule as Rule exposing (ReviewError)
 import Vendor.Diff as Diff
 import Vendor.ListExtra as ListExtra
@@ -635,6 +637,16 @@ missingConfigurationError errorMessage =
   """ ++ wrapInQuotes errorMessage ++ """
 
 but I could not find it.""")
+
+
+unexpectedExtract : Encode.Value -> String
+unexpectedExtract value =
+    failureMessage "UNEXPECTED EXTRACT"
+        ("""This rule returned an extract, which I did not expect.
+
+You should use `REPLACEME` to assert that the extract fits what you had.
+
+""" ++ Encode.encode 2 value)
 
 
 
