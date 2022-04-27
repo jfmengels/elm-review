@@ -46,5 +46,6 @@ all =
             \() ->
                 sourceCode
                     |> Review.Test.run rule
-                    |> Review.Test.expectDataExtract "ok"
+                    |> Review.Test.expectDataExtract """{
+}"""
         ]
