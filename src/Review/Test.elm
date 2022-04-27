@@ -3,7 +3,7 @@ module Review.Test exposing
     , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme
     , expectGlobalErrors, expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
     , expectConfigurationError
-    , expectExtract
+    , expectDataExtract
     )
 
 {-| Module that helps you test your rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/).
@@ -104,7 +104,7 @@ for this module.
 @docs ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme
 @docs expectGlobalErrors, expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
 @docs expectConfigurationError
-@docs expectExtract
+@docs expectDataExtract
 
 -}
 
@@ -1548,8 +1548,8 @@ expectNoExtract maybeExtract =
             Expect.pass
 
 
-expectExtract : String -> ReviewResult -> Expectation
-expectExtract expectedOutput reviewResult =
+expectDataExtract : String -> ReviewResult -> Expectation
+expectDataExtract expectedOutput reviewResult =
     case reviewResult of
         ConfigurationError configurationError ->
             Expect.fail (FailureMessage.unexpectedConfigurationError configurationError)
@@ -1561,13 +1561,13 @@ expectExtract expectedOutput reviewResult =
             Expect.all
                 [ \() -> expectNoGlobalErrors globalErrors
                 , \() -> expectNoModuleErrors runResults
-                , \() -> expectExtractContent expectedOutput extract
+                , \() -> expectDataExtractContent expectedOutput extract
                 ]
                 ()
 
 
-expectExtractContent : String -> Maybe Encode.Value -> Expectation
-expectExtractContent expectedOutput maybeExtract =
+expectDataExtractContent : String -> Maybe Encode.Value -> Expectation
+expectDataExtractContent expectedOutput maybeExtract =
     case maybeExtract of
         Nothing ->
             Expect.fail FailureMessage.missingExtract
