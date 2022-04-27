@@ -1274,12 +1274,12 @@ Here are the differences:
   "foo": "bar",
   "other": [
     1,
-[31m    2,[39m
-[32m    20,[39m
+\u{001B}[31m    2,\u{001B}[39m
+\u{001B}[32m    20,\u{001B}[39m
     3
   ],
-[31m  "actual": null[39m
-[32m  "expected": {}[39m
+\u{001B}[31m  "actual": null\u{001B}[39m
+\u{001B}[32m  "expected": {}\u{001B}[39m
 }"""
 
 

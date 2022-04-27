@@ -1581,13 +1581,25 @@ expectDataExtractContent rawExpected maybeActualExtract =
 
                 Ok expected ->
                     let
-                        diff : List (Diff.Change String)
-                        diff =
-                            Diff.diffLines (Encode.encode 2 expected) (Encode.encode 2 actual)
+                        differences : List (Diff.Change String)
+                        differences =
+                            Diff.diffLines (Encode.encode 2 actual) (Encode.encode 2 expected)
                     in
-                    case diff of
-                        [] ->
-                            Expect.pass
+                    if containsDifferences differences then
+                        Expect.fail (FailureMessage.extractMismatch actual expected differences)
 
-                        differences ->
-                            Expect.fail (FailureMessage.extractMismatch actual expected differences)
+                    else
+                        Expect.pass
+
+
+containsDifferences : List (Diff.Change a) -> Bool
+containsDifferences changes =
+    case changes of
+        [] ->
+            False
+
+        (Diff.NoChange _) :: restOfChanges ->
+            containsDifferences restOfChanges
+
+        _ ->
+            True
