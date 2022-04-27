@@ -408,6 +408,10 @@ runOnModulesWithProjectDataHelp project rule sources =
                             errors : List ReviewError
                             errors =
                                 runResult.errors
+
+                            extract : Maybe Encode.Value
+                            extract =
+                                Dict.get (Rule.ruleName rule) runResult.extracts
                         in
                         case ListExtra.find (\err -> Rule.errorTarget err == Error.Global) errors of
                             Just globalError ->
