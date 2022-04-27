@@ -3,6 +3,7 @@ module Review.Test exposing
     , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme
     , expectGlobalErrors, expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
     , expectConfigurationError
+    , expectExtract
     )
 
 {-| Module that helps you test your rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/).
@@ -103,6 +104,7 @@ for this module.
 @docs ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme
 @docs expectGlobalErrors, expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
 @docs expectConfigurationError
+@docs expectExtract
 
 -}
 
