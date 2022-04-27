@@ -107,10 +107,12 @@ for this module.
 -}
 
 import Array exposing (Array)
+import Dict exposing (Dict)
 import Elm.Syntax.Module as Module
 import Elm.Syntax.Node as Node
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
+import Json.Encode as Encode
 import Review.Error as Error
 import Review.FileParser as FileParser
 import Review.Fix as Fix
@@ -399,11 +401,13 @@ runOnModulesWithProjectDataHelp project rule sources =
 
                     Nothing ->
                         let
+                            runResult : { errors : List ReviewError, rules : List Rule, projectData : Maybe Rule.ProjectData, extracts : Dict String Encode.Value }
+                            runResult =
+                                Rule.reviewV3 [ rule ] Nothing projectWithModules
+
                             errors : List ReviewError
                             errors =
-                                projectWithModules
-                                    |> Rule.reviewV2 [ rule ] Nothing
-                                    |> .errors
+                                runResult.errors
                         in
                         case ListExtra.find (\err -> Rule.errorTarget err == Error.Global) errors of
                             Just globalError ->
