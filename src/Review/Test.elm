@@ -1576,6 +1576,9 @@ expectDataExtractContent rawExpected maybeActualExtract =
 
         Just actual ->
             case Decode.decodeString Decode.value rawExpected of
+                Err parsingError ->
+                    Expect.fail (FailureMessage.invalidJsonForExpectedDataExtract parsingError)
+
                 Ok expected ->
                     let
                         diff : List (Diff.Change String)
@@ -1588,6 +1591,3 @@ expectDataExtractContent rawExpected maybeActualExtract =
 
                         differences ->
                             Expect.fail (FailureMessage.extractMismatch actual expected differences)
-
-                Err parsingError ->
-                    Expect.fail (FailureMessage.invalidJsonForExpectedDataExtract parsingError)
