@@ -46,6 +46,9 @@ all =
             \() ->
                 sourceCode
                     |> Review.Test.run rule
+                    -- Bad formatting is on purpose
                     |> Review.Test.expectDataExtract """{
+        "foo": "bar",
+                    "other": [ 1, 2, 3 ],"null": null
 }"""
         ]
