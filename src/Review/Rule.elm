@@ -13,7 +13,7 @@ module Review.Rule exposing
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
-    , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
+    , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
     , Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , globalError, configurationError
@@ -224,7 +224,7 @@ first, as they are in practice a simpler version of project rules.
 
 ## Requesting more information
 
-@docs ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
+@docs ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
 @docs Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
 
 
@@ -5088,6 +5088,28 @@ withModuleNameNode : ContextCreator (Node ModuleName) (from -> to) -> ContextCre
 withModuleNameNode (ContextCreator fn requestedData) =
     ContextCreator
         (\data -> fn data (moduleNameNodeFromMetadata data.metadata))
+        requestedData
+
+
+{-| Request to know whether the current module is in the "source-directories" of the project. You can use this information to
+know whether the module is part of the tests or of the production code.
+
+    contextCreator : Rule.ContextCreator () Context
+    contextCreator =
+        Rule.initContextCreator
+            (\isInSourceDirectories () ->
+                { isInSourceDirectories = isInSourceDirectories
+
+                -- ...other fields
+                }
+            )
+            |> Rule.withIsInSourceDirectories
+
+-}
+withIsInSourceDirectories : ContextCreator Bool (from -> to) -> ContextCreator from to
+withIsInSourceDirectories (ContextCreator fn requestedData) =
+    ContextCreator
+        (\data -> fn data (isInSourceDirectories data.metadata))
         requestedData
 
 
