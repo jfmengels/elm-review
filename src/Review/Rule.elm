@@ -13,7 +13,7 @@ module Review.Rule exposing
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
-    , ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
+    , ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , globalError, configurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
@@ -223,7 +223,7 @@ first, as they are in practice a simpler version of project rules.
 
 ## Requesting more information
 
-@docs ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
+@docs ContextCreator, Metadata, initContextCreator, isInSourceDirectories, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
 
 
 ## Errors
@@ -1275,6 +1275,7 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
                     , moduleKey = ModuleKey "dummy"
                     , moduleNameLookupTable = ModuleNameLookupTableInternal.empty
                     , extractSourceCode = always "dummy"
+                    , filePath = "dummy file path"
                     }
 
                 initialModuleContext : moduleContext
@@ -4331,6 +4332,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
 
                         else
                             always ""
+                    , filePath = module_.path
                     }
 
                 initialModuleContext : moduleContext
@@ -5125,11 +5127,52 @@ withModuleKey (ContextCreator fn requestedData) =
         requestedData
 
 
+{-| Request the file path for this module, relative to the project's `elm.json`.
+
+Using [`newModuleRuleSchemaUsingContextCreator`](#newModuleRuleSchemaUsingContextCreator):
+
+    rule : Rule
+    rule =
+        Rule.newModuleRuleSchemaUsingContextCreator "YourRuleName" initialContext
+            |> Rule.withExpressionEnterVisitor expressionVisitor
+            |> Rule.fromModuleRuleSchema
+
+    initialContext : Rule.ContextCreator () Context
+    initialContext =
+        Rule.initContextCreator
+            (\filePath () -> { filePath = filePath })
+            |> Rule.withFilePath
+
+Using [`withModuleContextUsingContextCreator`](#withModuleContextUsingContextCreator) in a project rule:
+
+    rule =
+        Rule.newProjectRuleSchema "YourRuleName" initialProjectContext
+            |> Rule.withModuleVisitor moduleVisitor
+            |> Rule.withModuleContextUsingContextCreator
+                { fromProjectToModule = fromProjectToModule
+                , fromModuleToProject = fromModuleToProject
+                , foldProjectContexts = foldProjectContexts
+                }
+
+    fromModuleToProject : Rule.ContextCreator () Context
+    fromModuleToProject =
+        Rule.initContextCreator
+            (\filePath () -> { filePath = filePath })
+            |> Rule.withFilePath
+
+-}
+withFilePath : ContextCreator String (from -> to) -> ContextCreator from to
+withFilePath (ContextCreator fn requestedData) =
+    ContextCreator
+        (\data -> fn data data.filePath)
+        requestedData
+
+
 {-| Requests access to a function that gives you the source code at a given range.
 
     rule : Rule
     rule =
-        Rule.newModuleRuleSchemaUsingContextCreator YourRuleName initialContext
+        Rule.newModuleRuleSchemaUsingContextCreator "YourRuleName" initialContext
             |> Rule.withExpressionEnterVisitor expressionVisitor
             |> Rule.fromModuleRuleSchema
 
@@ -5162,6 +5205,7 @@ type alias AvailableData =
     , moduleKey : ModuleKey
     , moduleNameLookupTable : ModuleNameLookupTable
     , extractSourceCode : Range -> String
+    , filePath : String
     }
 
 
