@@ -13,7 +13,7 @@ module Review.Rule exposing
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
-    , ContextCreator, initContextCreator, isInSourceDirectories, withModuleName, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
+    , ContextCreator, initContextCreator, isInSourceDirectories, withModuleName, withModuleNameNode, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
     , Metadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , globalError, configurationError
@@ -224,7 +224,7 @@ first, as they are in practice a simpler version of project rules.
 
 ## Requesting more information
 
-@docs ContextCreator, initContextCreator, isInSourceDirectories, withModuleName, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
+@docs ContextCreator, initContextCreator, isInSourceDirectories, withModuleName, withModuleNameNode, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
 @docs Metadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata
 
 
@@ -5067,6 +5067,27 @@ withModuleName : ContextCreator ModuleName (from -> to) -> ContextCreator from t
 withModuleName (ContextCreator fn requestedData) =
     ContextCreator
         (\data -> fn data (moduleNameFromMetadata data.metadata))
+        requestedData
+
+
+{-| Request the node corresponding to the name of the module.
+
+    contextCreator : Rule.ContextCreator () Context
+    contextCreator =
+        Rule.initContextCreator
+            (\moduleNameNode () ->
+                { moduleNameNode = moduleNameNode
+
+                -- ...other fields
+                }
+            )
+            |> Rule.withModuleNameNode
+
+-}
+withModuleNameNode : ContextCreator (Node ModuleName) (from -> to) -> ContextCreator from to
+withModuleNameNode (ContextCreator fn requestedData) =
+    ContextCreator
+        (\data -> fn data (moduleNameNodeFromMetadata data.metadata))
         requestedData
 
 
