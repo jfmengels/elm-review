@@ -159,9 +159,9 @@ initialProjectContext =
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable metadata projectContext ->
+        (\lookupTable moduleName projectContext ->
             { lookupTable = lookupTable
-            , isModuleExposed = Set.member (Rule.moduleNameFromMetadata metadata) projectContext.exposedModules
+            , isModuleExposed = Set.member moduleName projectContext.exposedModules
             , exposed = Exposing.Explicit []
             , customTypeArgs = []
             , usedArguments = Dict.empty
@@ -169,26 +169,26 @@ fromProjectToModule =
             }
         )
         |> Rule.withModuleNameLookupTable
-        |> Rule.withMetadata
+        |> Rule.withModuleName
 
 
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
     Rule.initContextCreator
-        (\moduleKey metadata moduleContext ->
+        (\moduleKey moduleName moduleContext ->
             { exposedModules = Set.empty
             , customTypeArgs =
                 Dict.singleton
-                    (Rule.moduleNameFromMetadata metadata)
+                    moduleName
                     { moduleKey = moduleKey
                     , args = getNonExposedCustomTypes moduleContext
                     }
-            , usedArguments = replaceLocalModuleNameForDict (Rule.moduleNameFromMetadata metadata) moduleContext.usedArguments
-            , customTypesNotToReport = replaceLocalModuleNameForSet (Rule.moduleNameFromMetadata metadata) moduleContext.customTypesNotToReport
+            , usedArguments = replaceLocalModuleNameForDict moduleName moduleContext.usedArguments
+            , customTypesNotToReport = replaceLocalModuleNameForSet moduleName moduleContext.customTypesNotToReport
             }
         )
         |> Rule.withModuleKey
-        |> Rule.withMetadata
+        |> Rule.withModuleName
 
 
 replaceLocalModuleNameForSet : ModuleName -> Set ( ModuleName, comparable ) -> Set ( ModuleName, comparable )

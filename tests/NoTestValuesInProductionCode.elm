@@ -130,12 +130,12 @@ type alias Context =
 initialContext : Rule.ContextCreator () Context
 initialContext =
     Rule.initContextCreator
-        (\metadata () ->
+        (\isInSourceDirectories () ->
             { inDeclarationOfNonTestValue = False
-            , isInSourceDirectories = Rule.isInSourceDirectories metadata
+            , isInSourceDirectories = isInSourceDirectories
             }
         )
-        |> Rule.withMetadata
+        |> Rule.withIsInSourceDirectories
 
 
 

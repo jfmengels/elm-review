@@ -252,17 +252,17 @@ fromProjectToModule =
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
     Rule.initContextCreator
-        (\metadata moduleContext ->
+        (\moduleName moduleContext ->
             { customTypes =
                 moduleContext.localTypes
                     |> Dict.map (\_ customType -> customType.variants)
-                    |> Dict.singleton (Rule.moduleNameFromMetadata metadata)
+                    |> Dict.singleton moduleName
 
             -- Will be ignored in foldProjectContexts
             , isApplication = True
             }
         )
-        |> Rule.withMetadata
+        |> Rule.withModuleName
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext

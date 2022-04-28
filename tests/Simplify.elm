@@ -770,9 +770,9 @@ fromModuleToProject =
 initialModuleContext : Rule.ContextCreator () ModuleContext
 initialModuleContext =
     Rule.initContextCreator
-        (\lookupTable metadata () ->
+        (\lookupTable moduleName () ->
             { lookupTable = lookupTable
-            , moduleName = Rule.moduleNameFromMetadata metadata
+            , moduleName = moduleName
             , rangesToIgnore = []
             , rightSidesOfPlusPlus = []
             , localIgnoredCustomTypes = []
@@ -781,15 +781,15 @@ initialModuleContext =
             }
         )
         |> Rule.withModuleNameLookupTable
-        |> Rule.withMetadata
+        |> Rule.withModuleName
 
 
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable metadata projectContext ->
+        (\lookupTable moduleName projectContext ->
             { lookupTable = lookupTable
-            , moduleName = Rule.moduleNameFromMetadata metadata
+            , moduleName = moduleName
             , rangesToIgnore = []
             , rightSidesOfPlusPlus = []
             , localIgnoredCustomTypes = []
@@ -798,7 +798,7 @@ fromProjectToModule =
             }
         )
         |> Rule.withModuleNameLookupTable
-        |> Rule.withMetadata
+        |> Rule.withModuleName
 
 
 buildConstructorsToIgnore : List Constructor -> Set ( ModuleName, String )

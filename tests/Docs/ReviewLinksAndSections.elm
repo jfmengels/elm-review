@@ -192,12 +192,7 @@ type alias MaybeExposedLinkData =
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\metadata projectContext ->
-            let
-                moduleName : ModuleName
-                moduleName =
-                    Rule.moduleNameFromMetadata metadata
-            in
+        (\moduleName projectContext ->
             { isModuleExposed = Set.member moduleName projectContext.exposedModules
             , exposedElements = Set.empty
             , moduleName = moduleName
@@ -206,7 +201,7 @@ fromProjectToModule =
             , links = []
             }
         )
-        |> Rule.withMetadata
+        |> Rule.withModuleName
 
 
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext

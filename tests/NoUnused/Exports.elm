@@ -57,8 +57,8 @@ rule =
     Rule.newProjectRuleSchema "NoUnused.Exports" initialProjectContext
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContextUsingContextCreator
-            { fromProjectToModule = Rule.initContextCreator fromProjectToModule |> Rule.withModuleNameLookupTable
-            , fromModuleToProject = Rule.initContextCreator fromModuleToProject |> Rule.withModuleKey |> Rule.withMetadata
+            { fromProjectToModule = fromProjectToModule
+            , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
             }
         |> Rule.withContextFromImportedModules
@@ -136,51 +136,55 @@ initialProjectContext =
     }
 
 
-fromProjectToModule : ModuleNameLookupTable -> ProjectContext -> ModuleContext
-fromProjectToModule lookupTable _ =
-    { lookupTable = lookupTable
-    , exposesEverything = False
-    , exposed = Dict.empty
-    , rawExposed = []
-    , used = Set.empty
-    , elementsNotToReport = Set.empty
-    }
-
-
-fromModuleToProject : Rule.ModuleKey -> Rule.Metadata -> ModuleContext -> ProjectContext
-fromModuleToProject moduleKey metadata moduleContext =
-    let
-        moduleName : ModuleName
-        moduleName =
-            Rule.moduleNameFromMetadata metadata
-    in
-    { projectType = IsApplication ElmApplication
-    , modules =
-        Dict.singleton
-            moduleName
-            { moduleKey = moduleKey
-            , exposed = moduleContext.exposed
+fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
+fromProjectToModule =
+    Rule.initContextCreator
+        (\lookupTable _ ->
+            { lookupTable = lookupTable
+            , exposesEverything = False
+            , exposed = Dict.empty
+            , rawExposed = []
+            , used = Set.empty
+            , elementsNotToReport = Set.empty
             }
-    , used =
-        moduleContext.elementsNotToReport
-            |> Set.map (Tuple.pair moduleName)
-            |> Set.union moduleContext.used
-    , constructors =
-        Dict.foldl
-            (\name element acc ->
-                case element.elementType of
-                    ExposedType constructorNames ->
-                        List.foldl
-                            (\constructorName listAcc -> Dict.insert ( moduleName, constructorName ) name listAcc)
-                            acc
-                            constructorNames
+        )
+        |> Rule.withModuleNameLookupTable
 
-                    _ ->
-                        acc
-            )
-            Dict.empty
-            moduleContext.exposed
-    }
+
+fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
+fromModuleToProject =
+    Rule.initContextCreator
+        (\moduleKey moduleName moduleContext ->
+            { projectType = IsApplication ElmApplication
+            , modules =
+                Dict.singleton
+                    moduleName
+                    { moduleKey = moduleKey
+                    , exposed = moduleContext.exposed
+                    }
+            , used =
+                moduleContext.elementsNotToReport
+                    |> Set.map (Tuple.pair moduleName)
+                    |> Set.union moduleContext.used
+            , constructors =
+                Dict.foldl
+                    (\name element acc ->
+                        case element.elementType of
+                            ExposedType constructorNames ->
+                                List.foldl
+                                    (\constructorName listAcc -> Dict.insert ( moduleName, constructorName ) name listAcc)
+                                    acc
+                                    constructorNames
+
+                            _ ->
+                                acc
+                    )
+                    Dict.empty
+                    moduleContext.exposed
+            }
+        )
+        |> Rule.withModuleKey
+        |> Rule.withModuleName
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext

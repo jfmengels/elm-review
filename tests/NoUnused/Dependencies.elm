@@ -133,24 +133,19 @@ fromProjectToModule =
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
     Rule.initContextCreator
-        (\metadata { usedDependencies } ->
-            let
-                isSourceDir : Bool
-                isSourceDir =
-                    Rule.isInSourceDirectories metadata
-            in
+        (\isInSourceDirectories { usedDependencies } ->
             { moduleNameToDependency = Dict.empty
             , dependencies = Dict.empty
             , directProjectDependencies = Set.empty
             , directTestDependencies = Set.empty
             , usedDependencies =
-                if isSourceDir then
+                if isInSourceDirectories then
                     usedDependencies
 
                 else
                     Set.empty
             , usedDependenciesFromTest =
-                if isSourceDir then
+                if isInSourceDirectories then
                     Set.empty
 
                 else
@@ -158,7 +153,7 @@ fromModuleToProject =
             , elmJsonKey = Nothing
             }
         )
-        |> Rule.withMetadata
+        |> Rule.withIsInSourceDirectories
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext

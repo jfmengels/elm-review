@@ -122,16 +122,16 @@ fromProjectToModule =
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
     Rule.initContextCreator
-        (\metadata moduleContext ->
+        (\moduleName moduleContext ->
             { modulesThatExposeSubscriptionsAndUpdate =
                 if moduleContext.definesSubscriptions && moduleContext.definesUpdate then
-                    Set.singleton (Rule.moduleNameFromMetadata metadata)
+                    Set.singleton moduleName
 
                 else
                     Set.empty
             }
         )
-        |> Rule.withMetadata
+        |> Rule.withModuleName
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext

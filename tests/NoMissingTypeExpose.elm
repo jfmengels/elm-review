@@ -610,11 +610,11 @@ formatTypeName ( moduleName, name ) =
 fromProjectToModuleContext : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModuleContext =
     Rule.initContextCreator
-        (\lookupTable metadata { exposedModules, moduleTypes } ->
+        (\lookupTable moduleName { exposedModules, moduleTypes } ->
             let
                 moduleType : ModuleType
                 moduleType =
-                    if isModuleExposed exposedModules (Rule.moduleNameFromMetadata metadata) then
+                    if isModuleExposed exposedModules moduleName then
                         initialExposedModuleType exposedModules moduleTypes
 
                     else
@@ -626,21 +626,21 @@ fromProjectToModuleContext =
             }
         )
         |> Rule.withModuleNameLookupTable
-        |> Rule.withMetadata
+        |> Rule.withModuleName
 
 
 fromModuleToProjectContext : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProjectContext =
     Rule.initContextCreator
-        (\metadata context ->
+        (\moduleName context ->
             case context.moduleType of
                 InternalModule { exposedTypes } ->
-                    { initialProjectContext | moduleTypes = Dict.singleton (Rule.moduleNameFromMetadata metadata) exposedTypes }
+                    { initialProjectContext | moduleTypes = Dict.singleton moduleName exposedTypes }
 
                 ExposedModule _ ->
                     initialProjectContext
         )
-        |> Rule.withMetadata
+        |> Rule.withModuleName
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext

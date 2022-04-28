@@ -195,11 +195,11 @@ fromProjectToModule =
 fromModuleToProject : Target -> Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject target =
     Rule.initContextCreator
-        (\metadata moduleContext ->
-            { foundTargetFunction = moduleContext.foundTargetFunction && (Rule.moduleNameFromMetadata metadata == target.moduleName)
+        (\moduleName moduleContext ->
+            { foundTargetFunction = moduleContext.foundTargetFunction && (moduleName == target.moduleName)
             }
         )
-        |> Rule.withMetadata
+        |> Rule.withModuleName
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
