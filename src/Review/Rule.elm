@@ -225,6 +225,10 @@ first, as they are in practice a simpler version of project rules.
 ## Requesting more information
 
 @docs ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
+
+
+### Requesting more information (DEPRECATED)
+
 @docs Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
 
 
@@ -5028,18 +5032,11 @@ applyContextCreator data (ContextCreator fn _) from =
 
 {-| Request metadata about the module.
 
-    contextCreator : Rule.ContextCreator () Context
-    contextCreator =
-        Rule.initContextCreator
-            (\metadata () ->
-                { moduleName = Rule.moduleNameFromMetadata metadata
-                , moduleNameNode = Rule.moduleNameNodeFromMetadata metadata
-                , isInSourceDirectories = Rule.isInSourceDirectories metadata
+**DEPRECATED**: Use more practical functions like
 
-                -- ...other fields
-                }
-            )
-            |> Rule.withMetadata
+  - [`withModuleName`](#withModuleName)
+  - [`withModuleNameNode`](#withModuleNameNode)
+  - [`withIsInSourceDirectories`](#withIsInSourceDirectories)
 
 -}
 withMetadata : ContextCreator Metadata (from -> to) -> ContextCreator from to
@@ -5281,6 +5278,8 @@ type alias AvailableData =
 
 {-| Metadata for the module being visited.
 
+**DEPRECATED**: More practical functions have been made available since the introduction of this type.
+
 Do not store the metadata directly in your context. Prefer storing the individual pieces of information.
 
 -}
@@ -5297,6 +5296,9 @@ createMetadata data =
 
 
 {-| Get the module name of the current module.
+
+**DEPRECATED**: Use the more practical [`withModuleName`](#withModuleName) instead.
+
 -}
 moduleNameFromMetadata : Metadata -> ModuleName
 moduleNameFromMetadata (Metadata metadata) =
@@ -5304,6 +5306,9 @@ moduleNameFromMetadata (Metadata metadata) =
 
 
 {-| Get the [`Node`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Node#Node) to the module name of the current module.
+
+**DEPRECATED**: Use the more practical [`withModuleNameNode`](#withModuleNameNode) instead.
+
 -}
 moduleNameNodeFromMetadata : Metadata -> Node ModuleName
 moduleNameNodeFromMetadata (Metadata metadata) =
@@ -5312,6 +5317,9 @@ moduleNameNodeFromMetadata (Metadata metadata) =
 
 {-| Learn whether the current module is in the "source-directories" of the project. You can use this information to
 know whether the module is part of the tests or of the production code.
+
+**DEPRECATED**: Use the more practical [`withIsInSourceDirectories`](#withIsInSourceDirectories) instead.
+
 -}
 isInSourceDirectories : Metadata -> Bool
 isInSourceDirectories (Metadata metadata) =
