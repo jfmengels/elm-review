@@ -1713,14 +1713,14 @@ withModuleContext functions (ProjectRuleSchema schema) =
         moduleContextCreator : ContextCreator projectContext moduleContext
         moduleContextCreator =
             initContextCreator
-                (\moduleKey metadata projectContext ->
+                (\moduleKey moduleNameNode_ projectContext ->
                     functions.fromProjectToModule
                         moduleKey
-                        (moduleNameNodeFromMetadata metadata)
+                        moduleNameNode_
                         projectContext
                 )
                 |> withModuleKey
-                |> withMetadata
+                |> withModuleNameNode
     in
     ProjectRuleSchema
         { schema
@@ -1728,9 +1728,9 @@ withModuleContext functions (ProjectRuleSchema schema) =
             , folder =
                 Just
                     { fromModuleToProject =
-                        initContextCreator (\moduleKey metadata moduleContext -> functions.fromModuleToProject moduleKey (moduleNameNodeFromMetadata metadata) moduleContext)
+                        initContextCreator (\moduleKey moduleNameNode_ moduleContext -> functions.fromModuleToProject moduleKey moduleNameNode_ moduleContext)
                             |> withModuleKey
-                            |> withMetadata
+                            |> withModuleNameNode
                     , foldProjectContexts = functions.foldProjectContexts
                     }
         }

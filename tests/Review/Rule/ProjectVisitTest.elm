@@ -34,13 +34,13 @@ baseRule =
 fromModuleToProject : Rule.ContextCreator a ProjectContext
 fromModuleToProject =
     Rule.initContextCreator
-        (\moduleKey metadata _ ->
+        (\moduleKey moduleName _ ->
             { aModuleKey = Just moduleKey
-            , moduleNames = Set.singleton (Rule.moduleNameFromMetadata metadata |> String.join ".")
+            , moduleNames = Set.singleton (String.join "." moduleName)
             }
         )
         |> Rule.withModuleKey
-        |> Rule.withMetadata
+        |> Rule.withModuleName
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
