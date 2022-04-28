@@ -13,8 +13,8 @@ module Review.Rule exposing
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
-    , ContextCreator, initContextCreator, isInSourceDirectories, withModuleName, withModuleNameNode, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
-    , Metadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata
+    , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
+    , Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , globalError, configurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
@@ -224,8 +224,8 @@ first, as they are in practice a simpler version of project rules.
 
 ## Requesting more information
 
-@docs ContextCreator, initContextCreator, isInSourceDirectories, withModuleName, withModuleNameNode, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
-@docs Metadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, withMetadata
+@docs ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
+@docs Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
 
 
 ## Errors
