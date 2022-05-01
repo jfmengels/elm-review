@@ -13,20 +13,32 @@ import Review.Project as Project exposing (Project)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
 import Review.Test.Dependencies
-import Test exposing (Test, test)
+import Test exposing (Test, describe, test)
 
 
 all : Test
 all =
-    Test.describe "ModuleNameLookupTable.moduleNameFor"
+    describe "ModuleNameLookupTable"
+        [ moduleNameAtTest
+        , fullModuleNameAtest
+        ]
+
+
+moduleNameAtTest : Test
+moduleNameAtTest =
+    describe "ModuleNameLookupTable.moduleNameAt"
         [ test "should return the module that defined the value" <|
             \() ->
                 let
+                    lookupFunction : ModuleNameLookupTable -> Range -> Maybe ModuleName
+                    lookupFunction =
+                        ModuleNameLookupTable.moduleNameAt
+
                     rule : Rule
                     rule =
                         createRule
-                            (Rule.withExpressionEnterVisitor expressionVisitor
-                                >> Rule.withDeclarationEnterVisitor declarationVisitor
+                            (Rule.withExpressionEnterVisitor (expressionVisitor lookupFunction)
+                                >> Rule.withDeclarationEnterVisitor (declarationVisitor lookupFunction)
                             )
                 in
                 [ """module A exposing (..)
@@ -157,9 +169,14 @@ Something.B.Bar -> Something.B.Bar
         , test "should return the module that defined the type" <|
             \() ->
                 let
+                    lookupFunction : ModuleNameLookupTable -> Range -> Maybe ModuleName
+                    lookupFunction =
+                        ModuleNameLookupTable.moduleNameAt
+
                     rule : Rule
                     rule =
-                        createRule (Rule.withDeclarationEnterVisitor declarationVisitor)
+                        createRule
+                            (Rule.withDeclarationEnterVisitor (declarationVisitor lookupFunction))
                 in
                 [ """module A exposing (..)
 import Bar as Baz exposing (baz)
@@ -218,6 +235,217 @@ type alias BAlias = {}
         ]
 
 
+fullModuleNameAtest : Test
+fullModuleNameAtest =
+    describe "ModuleNameLookupTable.fullModuleNameAt"
+        [ test "should return the module that defined the value" <|
+            \() ->
+                let
+                    lookupFunction : ModuleNameLookupTable -> Range -> Maybe ModuleName
+                    lookupFunction =
+                        ModuleNameLookupTable.fullModuleNameAt
+
+                    rule : Rule
+                    rule =
+                        createRule
+                            (Rule.withExpressionEnterVisitor (expressionVisitor lookupFunction)
+                                >> Rule.withDeclarationEnterVisitor (declarationVisitor lookupFunction)
+                            )
+                in
+                [ """module Abc.Xyz exposing (..)
+import Bar as Baz exposing (baz)
+import ExposesSomeThings exposing (..)
+import ExposesEverything exposing (..)
+import ExposesEverything as ExposesEverythingAlias
+import Foo.Bar
+import Html exposing (..)
+import Http exposing (get)
+import Something.B as Something
+import Something.C as Something
+import Url.Parser exposing (..)
+-- NOTE: The behavior of the compiler if duplicate infix operators are imported is for the second-imported one to overwrite the first.
+import Parser exposing ((|=))
+import Parser.Advanced exposing ((|=))
+
+localValue = 1
+localValueValueToBeShadowed = 1
+type Msg = SomeMsgToBeShadowed
+
+a = localValue
+ localValueValueToBeShadowed
+ SomeMsgToBeShadowed
+ SomeOtherMsg
+ Something.b
+ Something.c
+ Something.BAlias
+ Something.Bar
+ unknownValue
+ exposedElement
+ nonExposedElement
+ elementFromExposesEverything
+ VariantA
+ Foo.bar
+ Foo.Bar
+ Baz.foo
+ baz
+ { baz | a = 1 }
+ button
+ Http.get
+ get
+ always
+ True
+ Just
+ Cmd.none
+ (+)
+ (117 + 3)
+ (<?>)
+ ("x" </> "y")
+ (|=)
+ ("pars" |= "er")
+b = case () of
+  VariantA -> ()
+  (ExposesEverything.VariantA as foo) -> foo
+  ExposesEverythingAlias.VariantA -> ()
+
+someFunction Something.B.Bar =
+    let Something.B.Bar = ()
+    in ()
+""", """module ExposesSomeThings exposing (SomeOtherTypeAlias, exposedElement)
+type NonExposedCustomType = Variant
+type alias SomeOtherTypeAlias = {}
+exposedElement = 1
+nonExposedElement = 2
+""", """module ExposesEverything exposing (..)
+type SomeCustomType = VariantA | VariantB
+type alias SomeTypeAlias = {}
+type Msg = SomeMsgToBeShadowed | SomeOtherMsg
+elementFromExposesEverything = 1
+localValueValueToBeShadowed = 1
+""", """module Something.B exposing (..)
+b = 1
+type Foo = Bar
+type alias BAlias = {}
+""", """module Something.C exposing (..)
+c = 1
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData project rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Abc.Xyz"
+                          , [ Review.Test.error
+                                { message = """
+<nothing>.localValue -> Abc.Xyz.localValue
+<nothing>.localValueValueToBeShadowed -> Abc.Xyz.localValueValueToBeShadowed
+<nothing>.SomeMsgToBeShadowed -> Abc.Xyz.SomeMsgToBeShadowed
+<nothing>.SomeOtherMsg -> ExposesEverything.SomeOtherMsg
+Something.b -> Something.B.b
+Something.c -> Something.C.c
+Something.BAlias -> Something.B.BAlias
+Something.Bar -> Something.B.Bar
+<nothing>.unknownValue -> Abc.Xyz.unknownValue
+<nothing>.exposedElement -> ExposesSomeThings.exposedElement
+<nothing>.nonExposedElement -> Abc.Xyz.nonExposedElement
+<nothing>.elementFromExposesEverything -> ExposesEverything.elementFromExposesEverything
+<nothing>.VariantA -> ExposesEverything.VariantA
+Foo.bar -> Foo.bar
+Foo.Bar -> Foo.Bar
+Baz.foo -> Bar.foo
+<nothing>.baz -> Bar.baz
+<nothing>.baz -> Bar.baz
+<nothing>.button -> Html.button
+Http.get -> Http.get
+<nothing>.get -> Http.get
+<nothing>.always -> Basics.always
+<nothing>.True -> Basics.True
+<nothing>.Just -> Maybe.Just
+Cmd.none -> Platform.Cmd.none
+<nothing>.+ -> Basics.+
+<nothing>.+ -> Basics.+
+<nothing>.<?> -> Url.Parser.<?>
+<nothing>.</> -> Url.Parser.</>
+<nothing>.|= -> Parser.Advanced.|=
+<nothing>.|= -> Parser.Advanced.|=
+<nothing>.VariantA -> ExposesEverything.VariantA
+ExposesEverything.VariantA -> ExposesEverything.VariantA
+ExposesEverythingAlias.VariantA -> ExposesEverything.VariantA
+<nothing>.foo -> Abc.Xyz.foo
+Something.B.Bar -> Something.B.Bar
+Something.B.Bar -> Something.B.Bar
+"""
+                                , details = [ "details" ]
+                                , under = "module"
+                                }
+                            ]
+                          )
+                        ]
+        , test "should return the module that defined the type" <|
+            \() ->
+                let
+                    lookupFunction : ModuleNameLookupTable -> Range -> Maybe ModuleName
+                    lookupFunction =
+                        ModuleNameLookupTable.fullModuleNameAt
+
+                    rule : Rule
+                    rule =
+                        createRule
+                            (Rule.withDeclarationEnterVisitor (declarationVisitor lookupFunction))
+                in
+                [ """module Abc.Xyz exposing (..)
+import Bar as Baz exposing (baz)
+import ExposesSomeThings exposing (..)
+import ExposesEverything exposing (..)
+import Foo.Bar
+import Html exposing (..)
+import Http exposing (get)
+import Something.B as Something
+
+type A = B | C
+type Role = NormalUser Bool | Admin (Maybe A)
+type alias User =
+  { role : Role
+  , age : ( Msg, Unknown )
+  }
+type alias GenericRecord generic = { generic | foo : A }
+
+a : SomeCustomType -> SomeTypeAlias -> SomeOtherTypeAlias -> NonExposedCustomType
+a = 1
+""", """module ExposesSomeThings exposing (SomeOtherTypeAlias)
+type NonExposedCustomType = Variant
+type alias SomeOtherTypeAlias = {}
+""", """module ExposesEverything exposing (..)
+type SomeCustomType = VariantA | VariantB
+type alias SomeTypeAlias = {}
+type Msg = SomeMsgToBeShadowed | SomeOtherMsg
+""", """module Something.B exposing (..)
+b = 1
+type Foo = Bar
+type alias BAlias = {}
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData project rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "Abc.Xyz"
+                          , [ Review.Test.error
+                                { message = """
+<nothing>.Bool -> Basics.Bool
+<nothing>.Maybe -> Maybe.Maybe
+<nothing>.A -> Abc.Xyz.A
+<nothing>.Role -> Abc.Xyz.Role
+<nothing>.Msg -> ExposesEverything.Msg
+<nothing>.Unknown -> Abc.Xyz.Unknown
+<nothing>.A -> Abc.Xyz.A
+<nothing>.SomeCustomType -> ExposesEverything.SomeCustomType
+<nothing>.SomeTypeAlias -> ExposesEverything.SomeTypeAlias
+<nothing>.SomeOtherTypeAlias -> ExposesSomeThings.SomeOtherTypeAlias
+<nothing>.NonExposedCustomType -> Abc.Xyz.NonExposedCustomType
+"""
+                                , details = [ "details" ]
+                                , under = "module"
+                                }
+                            ]
+                          )
+                        ]
+        ]
+
+
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
     , texts : List String
@@ -252,26 +480,26 @@ contextCreator =
         |> Rule.withModuleNameLookupTable
 
 
-expressionVisitor : Node Expression -> ModuleContext -> ( List nothing, ModuleContext )
-expressionVisitor node context =
+expressionVisitor : (ModuleNameLookupTable -> Range -> Maybe ModuleName) -> Node Expression -> ModuleContext -> ( List nothing, ModuleContext )
+expressionVisitor lookupFunction node context =
     case Node.value node of
         Expression.FunctionOrValue moduleName name ->
-            ( [], { context | texts = context.texts ++ [ getRealName context moduleName (Node.range node) name ] } )
+            ( [], { context | texts = context.texts ++ [ getRealName lookupFunction context moduleName (Node.range node) name ] } )
 
         Expression.RecordUpdateExpression (Node range name) _ ->
-            ( [], { context | texts = context.texts ++ [ getRealName context [] range name ] } )
+            ( [], { context | texts = context.texts ++ [ getRealName lookupFunction context [] range name ] } )
 
         Expression.PrefixOperator op ->
-            ( [], { context | texts = context.texts ++ [ getRealName context [] (Node.range node) op ] } )
+            ( [], { context | texts = context.texts ++ [ getRealName lookupFunction context [] (Node.range node) op ] } )
 
         Expression.OperatorApplication op _ _ _ ->
-            ( [], { context | texts = context.texts ++ [ getRealName context [] (Node.range node) op ] } )
+            ( [], { context | texts = context.texts ++ [ getRealName lookupFunction context [] (Node.range node) op ] } )
 
         Expression.CaseExpression { cases } ->
             let
                 texts : List String
                 texts =
-                    List.concatMap (Tuple.first >> collectPatterns context) cases
+                    List.concatMap (Tuple.first >> collectPatterns lookupFunction context) cases
             in
             ( [], { context | texts = context.texts ++ texts } )
 
@@ -291,19 +519,19 @@ expressionVisitor node context =
                                                     []
 
                                                 Just typeAnnotation ->
-                                                    typeAnnotationNames context typeAnnotation
+                                                    typeAnnotationNames lookupFunction context typeAnnotation
 
                                         signatureTexts : List String
                                         signatureTexts =
                                             function.declaration
                                                 |> Node.value
                                                 |> .arguments
-                                                |> List.concatMap (collectPatterns context)
+                                                |> List.concatMap (collectPatterns lookupFunction context)
                                     in
                                     typeAnnotationTexts ++ signatureTexts
 
                                 Expression.LetDestructuring pattern _ ->
-                                    collectPatterns context pattern
+                                    collectPatterns lookupFunction context pattern
                         )
                         declarations
             in
@@ -313,24 +541,24 @@ expressionVisitor node context =
             ( [], context )
 
 
-collectPatterns : ModuleContext -> Node Pattern.Pattern -> List String
-collectPatterns context node =
+collectPatterns : (ModuleNameLookupTable -> Range -> Maybe ModuleName) -> ModuleContext -> Node Pattern.Pattern -> List String
+collectPatterns lookupFunction context node =
     case Node.value node of
         Pattern.NamedPattern { moduleName, name } _ ->
-            [ getRealName context moduleName (Node.range node) name ]
+            [ getRealName lookupFunction context moduleName (Node.range node) name ]
 
         Pattern.ParenthesizedPattern subPattern ->
-            collectPatterns context subPattern
+            collectPatterns lookupFunction context subPattern
 
         Pattern.AsPattern subPattern _ ->
-            collectPatterns context subPattern
+            collectPatterns lookupFunction context subPattern
 
         _ ->
             Debug.todo "Other patterns in case expressions are not handled"
 
 
-getRealName : ModuleContext -> ModuleName -> Range -> String -> String
-getRealName context moduleName range name =
+getRealName : (ModuleNameLookupTable -> Range -> Maybe ModuleName) -> ModuleContext -> ModuleName -> Range -> String -> String
+getRealName lookupFunction context moduleName range name =
     let
         nameInCode : String
         nameInCode =
@@ -343,7 +571,7 @@ getRealName context moduleName range name =
 
         resultingName : String
         resultingName =
-            case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
+            case lookupFunction context.lookupTable range of
                 Just [] ->
                     "<nothing>." ++ name
 
@@ -356,8 +584,8 @@ getRealName context moduleName range name =
     nameInCode ++ " -> " ++ resultingName
 
 
-declarationVisitor : Node Declaration -> ModuleContext -> ( List nothing, ModuleContext )
-declarationVisitor node context =
+declarationVisitor : (ModuleNameLookupTable -> Range -> Maybe ModuleName) -> Node Declaration -> ModuleContext -> ( List nothing, ModuleContext )
+declarationVisitor lookupFunction node context =
     case Node.value node of
         Declaration.CustomTypeDeclaration { constructors } ->
             let
@@ -365,12 +593,12 @@ declarationVisitor node context =
                 types =
                     constructors
                         |> List.concatMap (Node.value >> .arguments)
-                        |> List.concatMap (typeAnnotationNames context)
+                        |> List.concatMap (typeAnnotationNames lookupFunction context)
             in
             ( [], { context | texts = context.texts ++ types } )
 
         Declaration.AliasDeclaration { typeAnnotation } ->
-            ( [], { context | texts = context.texts ++ typeAnnotationNames context typeAnnotation } )
+            ( [], { context | texts = context.texts ++ typeAnnotationNames lookupFunction context typeAnnotation } )
 
         Declaration.FunctionDeclaration function ->
             let
@@ -381,14 +609,14 @@ declarationVisitor node context =
                             []
 
                         Just typeAnnotation ->
-                            typeAnnotationNames context typeAnnotation
+                            typeAnnotationNames lookupFunction context typeAnnotation
 
                 signatureTexts : List String
                 signatureTexts =
                     function.declaration
                         |> Node.value
                         |> .arguments
-                        |> List.concatMap (collectPatterns context)
+                        |> List.concatMap (collectPatterns lookupFunction context)
             in
             ( [], { context | texts = context.texts ++ typeAnnotationTexts ++ signatureTexts } )
 
@@ -396,30 +624,30 @@ declarationVisitor node context =
             ( [], context )
 
 
-typeAnnotationNames : ModuleContext -> Node TypeAnnotation -> List String
-typeAnnotationNames moduleContext typeAnnotation =
+typeAnnotationNames : (ModuleNameLookupTable -> Range -> Maybe ModuleName) -> ModuleContext -> Node TypeAnnotation -> List String
+typeAnnotationNames lookupFunction moduleContext typeAnnotation =
     case Node.value typeAnnotation of
         TypeAnnotation.GenericType name ->
             [ "<nothing>." ++ name ++ " -> <generic>" ]
 
         TypeAnnotation.Typed (Node typeRange ( moduleName, typeName )) typeParameters ->
-            getRealName moduleContext moduleName typeRange typeName
-                :: List.concatMap (typeAnnotationNames moduleContext) typeParameters
+            getRealName lookupFunction moduleContext moduleName typeRange typeName
+                :: List.concatMap (typeAnnotationNames lookupFunction moduleContext) typeParameters
 
         TypeAnnotation.Unit ->
             []
 
         TypeAnnotation.Tupled typeAnnotations ->
-            List.concatMap (typeAnnotationNames moduleContext) typeAnnotations
+            List.concatMap (typeAnnotationNames lookupFunction moduleContext) typeAnnotations
 
         TypeAnnotation.Record typeAnnotations ->
-            List.concatMap (Node.value >> Tuple.second >> typeAnnotationNames moduleContext) typeAnnotations
+            List.concatMap (Node.value >> Tuple.second >> typeAnnotationNames lookupFunction moduleContext) typeAnnotations
 
         TypeAnnotation.GenericRecord _ typeAnnotations ->
-            List.concatMap (Node.value >> Tuple.second >> typeAnnotationNames moduleContext) (Node.value typeAnnotations)
+            List.concatMap (Node.value >> Tuple.second >> typeAnnotationNames lookupFunction moduleContext) (Node.value typeAnnotations)
 
         TypeAnnotation.FunctionTypeAnnotation arg returnType ->
-            typeAnnotationNames moduleContext arg ++ typeAnnotationNames moduleContext returnType
+            typeAnnotationNames lookupFunction moduleContext arg ++ typeAnnotationNames lookupFunction moduleContext returnType
 
 
 finalEvaluation : ModuleContext -> List (Error {})

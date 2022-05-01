@@ -1,4 +1,7 @@
-module Review.ModuleNameLookupTable exposing (ModuleNameLookupTable, moduleNameFor, moduleNameAt)
+module Review.ModuleNameLookupTable exposing
+    ( ModuleNameLookupTable, moduleNameFor, moduleNameAt
+    , fullModuleNameFor, fullModuleNameAt
+    )
 
 {-| Looks up the name of the module a function or type comes from based on the position of the element in the module's AST.
 
@@ -14,6 +17,7 @@ doing it yourself.
 type or value comes from.
 
 @docs ModuleNameLookupTable, moduleNameFor, moduleNameAt
+@docs fullModuleNameFor, fullModuleNameAt
 
 Note: If you have been using [`elm-review-scope`](https://github.com/jfmengels/elm-review-scope) before, you should use this instead.
 
@@ -70,8 +74,21 @@ Note: If using a `Range` is easier in your situation than using a `Node`, use [`
 
 -}
 moduleNameFor : ModuleNameLookupTable -> Node a -> Maybe ModuleName
-moduleNameFor (Internal.ModuleNameLookupTable dict) (Node range _) =
+moduleNameFor (Internal.ModuleNameLookupTable _ dict) (Node range _) =
     Dict.get (Internal.toRangeLike range) dict
+
+
+{-| This is the same as [`moduleNameFor`](#moduleNameFor), except that the function will return the current module name
+if the type or value was defined in this module, instead of `Just []`.
+-}
+fullModuleNameFor : ModuleNameLookupTable -> Node a -> Maybe ModuleName
+fullModuleNameFor (Internal.ModuleNameLookupTable currentModuleName dict) (Node range _) =
+    case Dict.get (Internal.toRangeLike range) dict of
+        Just [] ->
+            Just currentModuleName
+
+        res ->
+            res
 
 
 {-| Returns the name of the module the type, value, or operator referred to by this [`Range`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Range#Range).
@@ -105,5 +122,18 @@ Note: If using a `Node` is easier in your situation than using a `Range`, use [`
 
 -}
 moduleNameAt : ModuleNameLookupTable -> Range -> Maybe ModuleName
-moduleNameAt (Internal.ModuleNameLookupTable dict) range =
+moduleNameAt (Internal.ModuleNameLookupTable _ dict) range =
     Dict.get (Internal.toRangeLike range) dict
+
+
+{-| This is the same as [`moduleNameAt`](#moduleNameAt), except that the function will return the current module name
+if the type or value was defined in this module, instead of `Just []`.
+-}
+fullModuleNameAt : ModuleNameLookupTable -> Range -> Maybe ModuleName
+fullModuleNameAt (Internal.ModuleNameLookupTable currentModuleName dict) range =
+    case Dict.get (Internal.toRangeLike range) dict of
+        Just [] ->
+            Just currentModuleName
+
+        res ->
+            res

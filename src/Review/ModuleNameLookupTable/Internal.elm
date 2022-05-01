@@ -6,17 +6,17 @@ import Elm.Syntax.Range exposing (Range)
 
 
 type ModuleNameLookupTable
-    = ModuleNameLookupTable (Dict RangeLike ModuleName)
+    = ModuleNameLookupTable ModuleName (Dict RangeLike ModuleName)
 
 
-empty : ModuleNameLookupTable
-empty =
-    ModuleNameLookupTable Dict.empty
+empty : ModuleName -> ModuleNameLookupTable
+empty currentModuleName =
+    ModuleNameLookupTable currentModuleName Dict.empty
 
 
 add : Range -> ModuleName -> ModuleNameLookupTable -> ModuleNameLookupTable
-add range moduleName (ModuleNameLookupTable moduleNameLookupTable) =
-    ModuleNameLookupTable (Dict.insert (toRangeLike range) moduleName moduleNameLookupTable)
+add range moduleName (ModuleNameLookupTable currentModuleName moduleNameLookupTable) =
+    ModuleNameLookupTable currentModuleName (Dict.insert (toRangeLike range) moduleName moduleNameLookupTable)
 
 
 addMultiple : List ( Range, ModuleName ) -> ModuleNameLookupTable -> ModuleNameLookupTable

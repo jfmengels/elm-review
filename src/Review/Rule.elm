@@ -1279,7 +1279,7 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
                             , isInSourceDirectories = True
                             }
                     , moduleKey = ModuleKey "dummy"
-                    , moduleNameLookupTable = ModuleNameLookupTableInternal.empty
+                    , moduleNameLookupTable = ModuleNameLookupTableInternal.empty []
                     , extractSourceCode = always "dummy"
                     , filePath = "dummy file path"
                     }
@@ -4327,7 +4327,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                     , moduleKey = moduleKey
                     , moduleNameLookupTable =
                         Dict.get (Review.Project.Internal.getModuleName module_) moduleNameLookupTables
-                            |> Maybe.withDefault ModuleNameLookupTableInternal.empty
+                            |> Maybe.withDefault (ModuleNameLookupTableInternal.empty (Node.value (moduleNameNode module_.ast.moduleDefinition)))
                     , extractSourceCode =
                         let
                             (RequestedData requestedData) =
@@ -5393,8 +5393,8 @@ scope_initialProjectContext =
         }
 
 -}
-scope_fromProjectToModule : a -> b -> ScopeProjectContext -> ScopeModuleContext
-scope_fromProjectToModule _ _ projectContext =
+scope_fromProjectToModule : a -> Node ModuleName -> ScopeProjectContext -> ScopeModuleContext
+scope_fromProjectToModule _ moduleName projectContext =
     { scopes = nonemptyList_fromElement emptyScope
     , localTypes = Set.empty
     , importAliases = Dict.empty
@@ -5408,7 +5408,7 @@ scope_fromProjectToModule _ _ projectContext =
     , exposedAliases = []
     , exposedValues = []
     , exposedBinops = []
-    , lookupTable = ModuleNameLookupTableInternal.empty
+    , lookupTable = ModuleNameLookupTableInternal.empty (Node.value moduleName)
     }
         |> registerPrelude
 
