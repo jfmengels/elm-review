@@ -373,6 +373,9 @@ type alias ModuleRuleSchemaData moduleContext =
     , readmeVisitors : List (Maybe String -> moduleContext -> moduleContext)
     , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
     , directDependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
+
+    -- TODO REPLACEME
+    , extraDataVisitors : List (Encode.Value -> moduleContext -> moduleContext)
     }
 
 
@@ -1128,6 +1131,7 @@ newModuleRuleSchema name initialModuleContext =
         , readmeVisitors = []
         , dependenciesVisitors = []
         , directDependenciesVisitors = []
+        , extraDataVisitors = []
         }
 
 
@@ -1194,6 +1198,7 @@ newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
         , readmeVisitors = []
         , dependenciesVisitors = []
         , directDependenciesVisitors = []
+        , extraDataVisitors = []
         }
 
 
@@ -1490,6 +1495,7 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
                 , readmeVisitors = []
                 , dependenciesVisitors = []
                 , directDependenciesVisitors = []
+                , extraDataVisitors = []
                 }
     in
     ( List.foldl
@@ -2487,6 +2493,14 @@ withDirectDependenciesModuleVisitor :
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
 withDirectDependenciesModuleVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | directDependenciesVisitors = visitor :: schema.directDependenciesVisitors }
+
+
+withExtraDataVisitor :
+    (Encode.Value -> moduleContext -> moduleContext)
+    -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
+    -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
+withExtraDataVisitor visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | extraDataVisitors = visitor :: schema.extraDataVisitors }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
