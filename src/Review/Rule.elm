@@ -1399,6 +1399,7 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
     , readmeVisitors = List.reverse schema.readmeVisitors
     , directDependenciesVisitors = List.reverse schema.directDependenciesVisitors
     , dependenciesVisitors = List.reverse schema.dependenciesVisitors
+    , extraDataVisitors = List.reverse schema.extraDataVisitors
     , moduleVisitor = mergeModuleVisitors schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors
     , traversalAndFolder =
         case ( schema.traversalType, schema.folder ) of
@@ -4166,6 +4167,7 @@ type alias RunnableProjectVisitor projectContext moduleContext =
     , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
     , directDependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
+    , extraDataVisitors : List (Encode.Value -> projectContext -> ( List (Error {}), projectContext ))
     , moduleVisitor : Maybe ( RunnableModuleVisitor moduleContext, ContextCreator projectContext moduleContext )
     , traversalAndFolder : TraversalAndFolder projectContext moduleContext
     , finalEvaluationFns : List (projectContext -> List (Error {}))
