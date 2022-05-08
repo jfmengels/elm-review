@@ -1216,6 +1216,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 , readmeVisitors = compactProjectDataVisitors (Maybe.map .content) schema.readmeVisitors
                 , directDependenciesVisitors = compactProjectDataVisitors identity schema.directDependenciesVisitors
                 , dependenciesVisitors = compactProjectDataVisitors identity schema.dependenciesVisitors
+                , extraDataVisitors = compactProjectDataVisitors identity schema.extraDataVisitors
                 , moduleVisitors = [ removeExtensibleRecordTypeVariable (always moduleVisitor) ]
                 , moduleContextCreator = Just (initContextCreator identity)
                 , folder = Nothing
@@ -1233,6 +1234,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 , readmeVisitors = []
                 , directDependenciesVisitors = []
                 , dependenciesVisitors = []
+                , extraDataVisitors = []
                 , moduleVisitors = [ removeExtensibleRecordTypeVariable (always moduleVisitor) ]
                 , moduleContextCreator = Just schema.moduleContextCreator
                 , folder = Nothing
@@ -1282,6 +1284,7 @@ type ProjectRuleSchema schemaState projectContext moduleContext
         , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
         , directDependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
         , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
+        , extraDataVisitors : List (Encode.Value -> projectContext -> ( List (Error {}), projectContext ))
         , moduleVisitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
         , moduleContextCreator : Maybe (ContextCreator projectContext moduleContext)
         , folder : Maybe (Folder projectContext moduleContext)
@@ -1342,6 +1345,7 @@ newProjectRuleSchema name initialProjectContext =
         , readmeVisitors = []
         , directDependenciesVisitors = []
         , dependenciesVisitors = []
+        , extraDataVisitors = []
         , moduleVisitors = []
         , moduleContextCreator = Nothing
         , folder = Nothing
