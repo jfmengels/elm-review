@@ -491,7 +491,7 @@ review rules ((Project p) as project) =
                                 let
                                     runRulesResult : { errors : List (Error {}), rules : List Rule, extracts : Dict String Encode.Value }
                                     runRulesResult =
-                                        runRules { extract = False } rules projectWithLookupTable sortedModules
+                                        runRules { extract = False } rules projectWithLookupTable Encode.null sortedModules
                                 in
                                 ( List.map errorToReviewError runRulesResult.errors, runRulesResult.rules )
 
@@ -824,7 +824,7 @@ runReview reviewOptions ((Project p) as project) rules maybeProjectData extraDat
                             (Maybe.map extractProjectData maybeProjectData)
                             Exceptions.init
                             project
-                            extraData
+                            Encode.null
                             nodeContexts
                 in
                 { projectData = Just (ProjectData cache)
@@ -852,7 +852,7 @@ runReview reviewOptions ((Project p) as project) rules maybeProjectData extraDat
     let
         runResult : { errors : List (Error {}), rules : List Rule, extracts : Dict String Encode.Value }
         runResult =
-            runRules reviewOptions rules projectWithLookupTables nodeContexts
+            runRules reviewOptions rules projectWithLookupTables extraData nodeContexts
     in
     { errors = List.map errorToReviewError runResult.errors
     , rules = runResult.rules
@@ -914,15 +914,16 @@ runRules :
     ReviewV3Options
     -> List Rule
     -> Project
+    -> Decode.Value
     -> List (Graph.NodeContext ModuleName ())
     -> { errors : List (Error {}), rules : List Rule, extracts : Dict String Encode.Value }
-runRules reviewOptions initialRules project nodeContexts =
+runRules reviewOptions initialRules project extraData nodeContexts =
     List.foldl
         (\(Rule { name, exceptions, ruleImplementation }) { errors, rules, extracts } ->
             let
                 result : { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
                 result =
-                    ruleImplementation reviewOptions exceptions project Encode.null nodeContexts
+                    ruleImplementation reviewOptions exceptions project extraData nodeContexts
             in
             { errors = List.append (List.map removeErrorPhantomType result.errors) errors
             , rules = result.rule :: rules
