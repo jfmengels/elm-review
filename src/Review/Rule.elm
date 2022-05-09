@@ -603,8 +603,8 @@ exported/imported with `elm/browser`'s debugger, and may cause a crash if you tr
 to compare them or the model that holds them.
 
 -}
-reviewV3 : ReviewV3Options -> List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
-reviewV3 reviewOptions rules maybeProjectData project =
+reviewV3 : ReviewV3Options -> List Rule -> Maybe ProjectData -> Encode.Value -> Project -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
+reviewV3 reviewOptions rules maybeProjectData extraData project =
     case
         checkForConfigurationErrors rules
             |> Result.andThen (\() -> checkForModulesThatFailedToParse project)
