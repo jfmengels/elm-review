@@ -300,6 +300,7 @@ import Elm.Syntax.Signature exposing (Signature)
 import Elm.Syntax.Type
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
+import Json.Decode as Decode
 import Json.Encode as Encode
 import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
@@ -328,7 +329,7 @@ type Rule
         , exceptions : Exceptions
         , requestedData : RequestedData
         , extractsData : Bool
-        , ruleImplementation : ReviewV3Options -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
+        , ruleImplementation : ReviewV3Options -> Exceptions -> Project -> Decode.Value -> List (Graph.NodeContext ModuleName ()) -> { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
         , configurationError : Maybe { message : String, details : List String }
         }
 
@@ -376,7 +377,7 @@ type alias ModuleRuleSchemaData moduleContext =
     , directDependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
 
     -- TODO REPLACEME
-    , extraDataVisitors : List (Encode.Value -> moduleContext -> moduleContext)
+    , extraDataVisitors : List (Decode.Value -> moduleContext -> moduleContext)
     }
 
 
@@ -464,6 +465,7 @@ review rules ((Project p) as project) =
                                         Nothing
                                         Exceptions.init
                                         project
+                                        Encode.null
                                         sortedModules
 
                                 moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
@@ -549,7 +551,7 @@ reviewV2 rules maybeProjectData project =
             let
                 runResult : { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
                 runResult =
-                    runReview { extract = False } project rules maybeProjectData nodeContexts
+                    runReview { extract = False } project rules maybeProjectData Encode.null nodeContexts
             in
             { errors = runResult.errors
             , rules = runResult.rules
@@ -603,7 +605,7 @@ exported/imported with `elm/browser`'s debugger, and may cause a crash if you tr
 to compare them or the model that holds them.
 
 -}
-reviewV3 : ReviewV3Options -> List Rule -> Maybe ProjectData -> Encode.Value -> Project -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
+reviewV3 : ReviewV3Options -> List Rule -> Maybe ProjectData -> Decode.Value -> Project -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
 reviewV3 reviewOptions rules maybeProjectData extraData project =
     case
         checkForConfigurationErrors rules
@@ -612,7 +614,7 @@ reviewV3 reviewOptions rules maybeProjectData extraData project =
             |> Result.andThen (\() -> getModulesSortedByImport project)
     of
         Ok nodeContexts ->
-            runReview reviewOptions project rules maybeProjectData nodeContexts
+            runReview reviewOptions project rules maybeProjectData extraData nodeContexts
 
         Err errors ->
             { errors = errors
@@ -804,11 +806,11 @@ printCycle moduleNames =
 
 wrapInCycle : String -> String
 wrapInCycle string =
-    "    ┌─────┐\n    │    " ++ string ++ "\n    └─────┘"
+    "    ┌─────┐\n    │    " ++ string ++ "\n    └   ─ ────┘"
 
 
-runReview : ReviewV3Options -> Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
-runReview reviewOptions ((Project p) as project) rules maybeProjectData nodeContexts =
+runReview : ReviewV3Options -> Project -> List Rule -> Maybe ProjectData -> Decode.Value -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
+runReview reviewOptions ((Project p) as project) rules maybeProjectData extraData nodeContexts =
     let
         scopeResult : { projectData : Maybe ProjectData, lookupTables : Maybe (Dict ModuleName ModuleNameLookupTable) }
         scopeResult =
@@ -822,6 +824,7 @@ runReview reviewOptions ((Project p) as project) rules maybeProjectData nodeCont
                             (Maybe.map extractProjectData maybeProjectData)
                             Exceptions.init
                             project
+                            extraData
                             nodeContexts
                 in
                 { projectData = Just (ProjectData cache)
@@ -919,7 +922,7 @@ runRules reviewOptions initialRules project nodeContexts =
             let
                 result : { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
                 result =
-                    ruleImplementation reviewOptions exceptions project nodeContexts
+                    ruleImplementation reviewOptions exceptions project Encode.null nodeContexts
             in
             { errors = List.append (List.map removeErrorPhantomType result.errors) errors
             , rules = result.rule :: rules
@@ -1285,7 +1288,7 @@ type ProjectRuleSchema schemaState projectContext moduleContext
         , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
         , directDependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
         , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
-        , extraDataVisitors : List (Encode.Value -> projectContext -> ( List (Error {}), projectContext ))
+        , extraDataVisitors : List (Decode.Value -> projectContext -> ( List (Error {}), projectContext ))
         , moduleVisitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
         , moduleContextCreator : Maybe (ContextCreator projectContext moduleContext)
         , folder : Maybe (Folder projectContext moduleContext)
@@ -1372,7 +1375,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
         , extractsData = schema.dataExtractor /= Nothing
         , ruleImplementation =
-            \reviewOptions exceptions project nodeContexts ->
+            \reviewOptions exceptions project extraData nodeContexts ->
                 let
                     result : { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
                     result =
@@ -1383,6 +1386,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                             Nothing
                             exceptions
                             project
+                            extraData
                             nodeContexts
                 in
                 { errors = result.errors
@@ -1652,7 +1656,7 @@ configurationError name configurationError_ =
         , exceptions = Exceptions.init
         , requestedData = RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
         , extractsData = False
-        , ruleImplementation = \_ _ _ _ -> { errors = [], rule = configurationError name configurationError_, extract = Nothing }
+        , ruleImplementation = \_ _ _ _ _ -> { errors = [], rule = configurationError name configurationError_, extract = Nothing }
         , configurationError = Just configurationError_
         }
 
@@ -2044,7 +2048,7 @@ withDirectDependenciesProjectVisitor visitor (ProjectRuleSchema schema) =
 
 
 withExtraDataProjectVisitor :
-    (Encode.Value -> projectContext -> ( List (Error { useErrorForModule : () }), projectContext ))
+    (Decode.Value -> projectContext -> ( List (Error { useErrorForModule : () }), projectContext ))
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema schemaState projectContext moduleContext
 withExtraDataProjectVisitor visitor (ProjectRuleSchema schema) =
@@ -2510,7 +2514,7 @@ withDirectDependenciesModuleVisitor visitor (ModuleRuleSchema schema) =
 
 
 withExtraDataModuleVisitor :
-    (Encode.Value -> moduleContext -> moduleContext)
+    (Decode.Value -> moduleContext -> moduleContext)
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
 withExtraDataModuleVisitor visitor (ModuleRuleSchema schema) =
@@ -4176,7 +4180,7 @@ type alias RunnableProjectVisitor projectContext moduleContext =
     , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
     , directDependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
-    , extraDataVisitors : List (Encode.Value -> projectContext -> ( List (Error {}), projectContext ))
+    , extraDataVisitors : List (Decode.Value -> projectContext -> ( List (Error {}), projectContext ))
     , moduleVisitor : Maybe ( RunnableModuleVisitor moduleContext, ContextCreator projectContext moduleContext )
     , traversalAndFolder : TraversalAndFolder projectContext moduleContext
     , finalEvaluationFns : List (projectContext -> List (Error {}))
@@ -4241,13 +4245,14 @@ runProjectVisitor :
     -> Maybe (ProjectRuleCache projectContext)
     -> Exceptions
     -> Project
+    -> Encode.Value
     -> List (Graph.NodeContext ModuleName ())
     -> { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
-runProjectVisitor reviewOptions name projectVisitor maybePreviousCache exceptions project nodeContexts =
+runProjectVisitor reviewOptions name projectVisitor maybePreviousCache exceptions project extraData nodeContexts =
     -- IGNORE TCO
     let
         ( cacheWithInitialContext, hasInitialContextChanged ) =
-            computeProjectContext projectVisitor project maybePreviousCache
+            computeProjectContext projectVisitor project extraData maybePreviousCache
 
         initialContext : projectContext
         initialContext =
@@ -4336,7 +4341,7 @@ runProjectVisitor reviewOptions name projectVisitor maybePreviousCache exception
             , requestedData = projectVisitor.requestedData
             , extractsData = projectVisitor.dataExtractor /= Nothing
             , ruleImplementation =
-                \newReviewOptions newExceptions newProject newNodeContexts ->
+                \newReviewOptions newExceptions newProject extraData_ newNodeContexts ->
                     let
                         result : { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
                         result =
@@ -4347,6 +4352,7 @@ runProjectVisitor reviewOptions name projectVisitor maybePreviousCache exception
                                 (Just newCache)
                                 newExceptions
                                 newProject
+                                extraData_
                                 newNodeContexts
                     in
                     { errors = result.errors
@@ -4409,8 +4415,8 @@ errorsFromCache cache =
 -- VISIT PROJECT
 
 
-computeProjectContext : RunnableProjectVisitor projectContext moduleContext -> Project -> Maybe (ProjectRuleCache projectContext) -> ( ProjectRuleCache projectContext, Bool )
-computeProjectContext projectVisitor project maybePreviousCache =
+computeProjectContext : RunnableProjectVisitor projectContext moduleContext -> Project -> Decode.Value -> Maybe (ProjectRuleCache projectContext) -> ( ProjectRuleCache projectContext, Bool )
+computeProjectContext projectVisitor project extraData maybePreviousCache =
     let
         projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
         projectElmJson =
@@ -4445,7 +4451,7 @@ computeProjectContext projectVisitor project maybePreviousCache =
                         ( errorsForVisitor, contextForVisitor ) =
                             ( [], projectVisitor.initialProjectContext )
                                 -- TODO Don't recompute even if elm.json has changed
-                                |> accumulateWithListOfVisitors projectVisitor.extraDataVisitors Encode.null
+                                |> accumulateWithListOfVisitors projectVisitor.extraDataVisitors extraData
                                 |> accumulateWithListOfVisitors projectVisitor.elmJsonVisitors elmJsonData
                     in
                     { value = projectElmJson
