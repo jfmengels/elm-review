@@ -412,7 +412,7 @@ runOnModulesWithProjectDataHelp project rule sources =
                         let
                             runResult : { errors : List ReviewError, rules : List Rule, projectData : Maybe Rule.ProjectData, extracts : Dict String Encode.Value }
                             runResult =
-                                Rule.reviewV3 { extract = True } [ rule ] Nothing Encode.null projectWithModules
+                                Rule.reviewV3 { extract = True } [ rule ] Nothing Nothing projectWithModules
 
                             errors : List ReviewError
                             errors =

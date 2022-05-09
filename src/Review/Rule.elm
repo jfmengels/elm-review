@@ -377,7 +377,7 @@ type alias ModuleRuleSchemaData moduleContext =
     , directDependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
 
     -- TODO REPLACEME
-    , extraDataVisitors : List (Decode.Value -> moduleContext -> moduleContext)
+    , extraDataVisitors : List (Maybe String -> moduleContext -> moduleContext)
     }
 
 
@@ -465,7 +465,7 @@ review rules ((Project p) as project) =
                                         Nothing
                                         Exceptions.init
                                         project
-                                        (ExtraData Encode.null)
+                                        (ExtraData Nothing)
                                         sortedModules
 
                                 moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
@@ -491,7 +491,7 @@ review rules ((Project p) as project) =
                                 let
                                     runRulesResult : { errors : List (Error {}), rules : List Rule, extracts : Dict String Encode.Value }
                                     runRulesResult =
-                                        runRules { extract = False } rules projectWithLookupTable (ExtraData Encode.null) sortedModules
+                                        runRules { extract = False } rules projectWithLookupTable (ExtraData Nothing) sortedModules
                                 in
                                 ( List.map errorToReviewError runRulesResult.errors, runRulesResult.rules )
 
@@ -551,7 +551,7 @@ reviewV2 rules maybeProjectData project =
             let
                 runResult : { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
                 runResult =
-                    runReview { extract = False } project rules maybeProjectData (ExtraData Encode.null) nodeContexts
+                    runReview { extract = False } project rules maybeProjectData (ExtraData Nothing) nodeContexts
             in
             { errors = runResult.errors
             , rules = runResult.rules
@@ -605,7 +605,7 @@ exported/imported with `elm/browser`'s debugger, and may cause a crash if you tr
 to compare them or the model that holds them.
 
 -}
-reviewV3 : ReviewV3Options -> List Rule -> Maybe ProjectData -> Decode.Value -> Project -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
+reviewV3 : ReviewV3Options -> List Rule -> Maybe ProjectData -> Maybe String -> Project -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
 reviewV3 reviewOptions rules maybeProjectData extraData project =
     case
         checkForConfigurationErrors rules
@@ -824,7 +824,7 @@ runReview reviewOptions ((Project p) as project) rules maybeProjectData extraDat
                             (Maybe.map extractProjectData maybeProjectData)
                             Exceptions.init
                             project
-                            (ExtraData Encode.null)
+                            (ExtraData Nothing)
                             nodeContexts
                 in
                 { projectData = Just (ProjectData cache)
@@ -1289,7 +1289,7 @@ type ProjectRuleSchema schemaState projectContext moduleContext
         , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
         , directDependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
         , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
-        , extraDataVisitors : List (Decode.Value -> projectContext -> ( List (Error {}), projectContext ))
+        , extraDataVisitors : List (Maybe String -> projectContext -> ( List (Error {}), projectContext ))
         , moduleVisitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
         , moduleContextCreator : Maybe (ContextCreator projectContext moduleContext)
         , folder : Maybe (Folder projectContext moduleContext)
@@ -1306,7 +1306,7 @@ type ProjectRuleSchema schemaState projectContext moduleContext
 
 
 type ExtraData
-    = ExtraData Decode.Value
+    = ExtraData (Maybe String)
 
 
 type TraversalType
@@ -2053,7 +2053,7 @@ withDirectDependenciesProjectVisitor visitor (ProjectRuleSchema schema) =
 
 
 withExtraDataProjectVisitor :
-    (Decode.Value -> projectContext -> ( List (Error { useErrorForModule : () }), projectContext ))
+    (Maybe String -> projectContext -> ( List (Error { useErrorForModule : () }), projectContext ))
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema schemaState projectContext moduleContext
 withExtraDataProjectVisitor visitor (ProjectRuleSchema schema) =
@@ -2519,7 +2519,7 @@ withDirectDependenciesModuleVisitor visitor (ModuleRuleSchema schema) =
 
 
 withExtraDataModuleVisitor :
-    (Decode.Value -> moduleContext -> moduleContext)
+    (Maybe String -> moduleContext -> moduleContext)
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
 withExtraDataModuleVisitor visitor (ModuleRuleSchema schema) =
@@ -4185,7 +4185,7 @@ type alias RunnableProjectVisitor projectContext moduleContext =
     , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
     , directDependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
-    , extraDataVisitors : List (Decode.Value -> projectContext -> ( List (Error {}), projectContext ))
+    , extraDataVisitors : List (Maybe String -> projectContext -> ( List (Error {}), projectContext ))
     , moduleVisitor : Maybe ( RunnableModuleVisitor moduleContext, ContextCreator projectContext moduleContext )
     , traversalAndFolder : TraversalAndFolder projectContext moduleContext
     , finalEvaluationFns : List (projectContext -> List (Error {}))
