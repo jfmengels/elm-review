@@ -4444,6 +4444,7 @@ computeProjectContext projectVisitor project maybePreviousCache =
                     let
                         ( errorsForVisitor, contextForVisitor ) =
                             ( [], projectVisitor.initialProjectContext )
+                                -- TODO Don't recompute even if elm.json has changed
                                 |> accumulateWithListOfVisitors projectVisitor.extraDataVisitors Encode.null
                                 |> accumulateWithListOfVisitors projectVisitor.elmJsonVisitors elmJsonData
                     in
