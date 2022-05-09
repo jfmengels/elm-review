@@ -329,7 +329,7 @@ type Rule
         , exceptions : Exceptions
         , requestedData : RequestedData
         , extractsData : Bool
-        , ruleImplementation : ReviewV3Options -> Exceptions -> Project -> Decode.Value -> List (Graph.NodeContext ModuleName ()) -> { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
+        , ruleImplementation : ReviewV3Options -> Exceptions -> Project -> ExtraData -> List (Graph.NodeContext ModuleName ()) -> { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
         , configurationError : Maybe { message : String, details : List String }
         }
 
@@ -465,7 +465,7 @@ review rules ((Project p) as project) =
                                         Nothing
                                         Exceptions.init
                                         project
-                                        Encode.null
+                                        (ExtraData Encode.null)
                                         sortedModules
 
                                 moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
@@ -491,7 +491,7 @@ review rules ((Project p) as project) =
                                 let
                                     runRulesResult : { errors : List (Error {}), rules : List Rule, extracts : Dict String Encode.Value }
                                     runRulesResult =
-                                        runRules { extract = False } rules projectWithLookupTable Encode.null sortedModules
+                                        runRules { extract = False } rules projectWithLookupTable (ExtraData Encode.null) sortedModules
                                 in
                                 ( List.map errorToReviewError runRulesResult.errors, runRulesResult.rules )
 
@@ -551,7 +551,7 @@ reviewV2 rules maybeProjectData project =
             let
                 runResult : { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
                 runResult =
-                    runReview { extract = False } project rules maybeProjectData Encode.null nodeContexts
+                    runReview { extract = False } project rules maybeProjectData (ExtraData Encode.null) nodeContexts
             in
             { errors = runResult.errors
             , rules = runResult.rules
@@ -614,7 +614,7 @@ reviewV3 reviewOptions rules maybeProjectData extraData project =
             |> Result.andThen (\() -> getModulesSortedByImport project)
     of
         Ok nodeContexts ->
-            runReview reviewOptions project rules maybeProjectData extraData nodeContexts
+            runReview reviewOptions project rules maybeProjectData (ExtraData extraData) nodeContexts
 
         Err errors ->
             { errors = errors
@@ -809,7 +809,7 @@ wrapInCycle string =
     "    ┌─────┐\n    │    " ++ string ++ "\n    └   ─ ────┘"
 
 
-runReview : ReviewV3Options -> Project -> List Rule -> Maybe ProjectData -> Decode.Value -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
+runReview : ReviewV3Options -> Project -> List Rule -> Maybe ProjectData -> ExtraData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
 runReview reviewOptions ((Project p) as project) rules maybeProjectData extraData nodeContexts =
     let
         scopeResult : { projectData : Maybe ProjectData, lookupTables : Maybe (Dict ModuleName ModuleNameLookupTable) }
@@ -824,7 +824,7 @@ runReview reviewOptions ((Project p) as project) rules maybeProjectData extraDat
                             (Maybe.map extractProjectData maybeProjectData)
                             Exceptions.init
                             project
-                            Encode.null
+                            (ExtraData Encode.null)
                             nodeContexts
                 in
                 { projectData = Just (ProjectData cache)
@@ -914,7 +914,7 @@ runRules :
     ReviewV3Options
     -> List Rule
     -> Project
-    -> Decode.Value
+    -> ExtraData
     -> List (Graph.NodeContext ModuleName ())
     -> { errors : List (Error {}), rules : List Rule, extracts : Dict String Encode.Value }
 runRules reviewOptions initialRules project extraData nodeContexts =
@@ -1303,6 +1303,10 @@ type ProjectRuleSchema schemaState projectContext moduleContext
         -- TODO Breaking change only allow a single data extractor, and only for project rules
         , dataExtractor : Maybe (projectContext -> Extract)
         }
+
+
+type ExtraData
+    = ExtraData Decode.Value
 
 
 type TraversalType
@@ -4246,7 +4250,7 @@ runProjectVisitor :
     -> Maybe (ProjectRuleCache projectContext)
     -> Exceptions
     -> Project
-    -> Encode.Value
+    -> ExtraData
     -> List (Graph.NodeContext ModuleName ())
     -> { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
 runProjectVisitor reviewOptions name projectVisitor maybePreviousCache exceptions project extraData nodeContexts =
@@ -4416,8 +4420,8 @@ errorsFromCache cache =
 -- VISIT PROJECT
 
 
-computeProjectContext : RunnableProjectVisitor projectContext moduleContext -> Project -> Decode.Value -> Maybe (ProjectRuleCache projectContext) -> ( ProjectRuleCache projectContext, Bool )
-computeProjectContext projectVisitor project extraData maybePreviousCache =
+computeProjectContext : RunnableProjectVisitor projectContext moduleContext -> Project -> ExtraData -> Maybe (ProjectRuleCache projectContext) -> ( ProjectRuleCache projectContext, Bool )
+computeProjectContext projectVisitor project (ExtraData extraData) maybePreviousCache =
     let
         projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
         projectElmJson =
