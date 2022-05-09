@@ -23,7 +23,7 @@ module Review.Rule exposing
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , reviewV3, reviewV2, review, ProjectData, ruleName, ruleExtractsData, getConfigurationError
     , Required, Forbidden
-    , withExtraDataProjectVisitor
+    , withExtraDataModuleVisitor, withExtraDataProjectVisitor
     )
 
 {-| This module contains functions that are used for writing rules.
