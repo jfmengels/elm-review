@@ -2500,11 +2500,11 @@ withDirectDependenciesModuleVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | directDependenciesVisitors = visitor :: schema.directDependenciesVisitors }
 
 
-withExtraDataVisitor :
+withExtraDataModuleVisitor :
     (Encode.Value -> moduleContext -> moduleContext)
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
-withExtraDataVisitor visitor (ModuleRuleSchema schema) =
+withExtraDataModuleVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | extraDataVisitors = visitor :: schema.extraDataVisitors }
 
 
