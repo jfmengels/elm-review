@@ -23,6 +23,7 @@ module Review.Rule exposing
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , reviewV3, reviewV2, review, ProjectData, ruleName, ruleExtractsData, getConfigurationError
     , Required, Forbidden
+    , withExtraDataProjectVisitor
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -2040,6 +2041,14 @@ withDirectDependenciesProjectVisitor :
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
 withDirectDependenciesProjectVisitor visitor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | directDependenciesVisitors = removeErrorPhantomTypeFromVisitor visitor :: schema.directDependenciesVisitors }
+
+
+withExtraDataProjectVisitor :
+    (Encode.Value -> projectContext -> ( List (Error { useErrorForModule : () }), projectContext ))
+    -> ProjectRuleSchema schemaState projectContext moduleContext
+    -> ProjectRuleSchema schemaState projectContext moduleContext
+withExtraDataProjectVisitor visitor (ProjectRuleSchema schema) =
+    ProjectRuleSchema { schema | extraDataVisitors = removeErrorPhantomTypeFromVisitor visitor :: schema.extraDataVisitors }
 
 
 {-| Add a function that makes a final evaluation of the project based only on the
