@@ -42,13 +42,11 @@ does not look at project information (like the `elm.json`, dependencies, ...).
 -}
 
 import Dict exposing (Dict)
-import Elm.Parser as Parser
-import Elm.Processing
 import Elm.Project
-import Elm.Syntax.File exposing (File)
+import Elm.Syntax.File
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
-import Review.Dependencies
+import Review.FileParser as FileParser
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal as Internal exposing (Project)
 import Vendor.Graph exposing (Graph)
@@ -107,7 +105,7 @@ and for which a parsing error will be reported when running [`the review functio
 -}
 addModule : { path : String, source : String } -> Project -> Project
 addModule { path, source } project =
-    case parseSource source of
+    case FileParser.parse source of
         Ok ast ->
             let
                 osAgnosticPath : String
@@ -206,24 +204,6 @@ removeFileFromFilesThatFailedToParse path (Internal.Project project) =
         { project
             | modulesThatFailedToParse = List.filter (\file -> file.path /= path) project.modulesThatFailedToParse
         }
-
-
-{-| Parse source code into a AST
--}
-parseSource : String -> Result () File
-parseSource source =
-    source
-        |> Parser.parse
-        |> Result.mapError (always ())
-        |> Result.map (Elm.Processing.process elmProcessContext)
-
-
-elmProcessContext : Elm.Processing.ProcessContext
-elmProcessContext =
-    Elm.Processing.init
-        |> Elm.Processing.addDependency Review.Dependencies.elmCore
-        |> Elm.Processing.addDependency Review.Dependencies.elmUrl
-        |> Elm.Processing.addDependency Review.Dependencies.elmParser
 
 
 {-| Get the list of modules in the project.

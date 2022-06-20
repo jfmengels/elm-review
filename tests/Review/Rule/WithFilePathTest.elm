@@ -41,7 +41,7 @@ initContext =
 all : Test
 all =
     Test.describe "withFilePath"
-        [ test "should not pass the elmJsonKey if the `elm.json` file does not exist" <|
+        [ test "should get the file path of a single module" <|
             \() ->
                 """module A exposing (..)
 a = 1
@@ -49,9 +49,35 @@ a = 1
                     |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "File path: src/File_0.elm"
+                            { message = "File path: src/A.elm"
                             , details = [ "No details" ]
                             , under = "module A exposing (..)"
                             }
+                        ]
+        , test "should get the file paths of multiple modules" <|
+            \() ->
+                [ """module A exposing (..)
+a = 1
+""", """module A.B.C exposing (..)
+a = 1
+""" ]
+                    |> Review.Test.runOnModules rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "A"
+                          , [ Review.Test.error
+                                { message = "File path: src/A.elm"
+                                , details = [ "No details" ]
+                                , under = "module A exposing (..)"
+                                }
+                            ]
+                          )
+                        , ( "A.B.C"
+                          , [ Review.Test.error
+                                { message = "File path: src/A/B/C.elm"
+                                , details = [ "No details" ]
+                                , under = "module A.B.C exposing (..)"
+                                }
+                            ]
+                          )
                         ]
         ]

@@ -112,6 +112,7 @@ import Elm.Syntax.Node as Node
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
 import Review.Error as Error
+import Review.FileParser as FileParser
 import Review.Fix as Fix
 import Review.Project as Project exposing (Project, ProjectModule)
 import Review.Rule as Rule exposing (ReviewError, Rule)
@@ -349,18 +350,29 @@ runOnModulesWithProjectData project rule sources =
 runOnModulesWithProjectDataHelp : Project -> Rule -> List String -> ReviewResult
 runOnModulesWithProjectDataHelp project rule sources =
     let
-        projectWithModules : Project
-        projectWithModules =
-            sources
-                |> List.indexedMap
-                    (\index source ->
-                        { path = "src/File_" ++ String.fromInt index ++ ".elm"
-                        , source = source
-                        }
-                    )
-                |> List.foldl Project.addModule project
+        ( projectWithModules, modulesThatFailedToParse ) =
+            List.foldl
+                (\source ( accProject, accModulesThatFailedToParse ) ->
+                    case FileParser.parse source of
+                        Ok ast ->
+                            ( Project.addParsedModule
+                                { path = "src/" ++ String.join "/" (Module.moduleName (Node.value ast.moduleDefinition)) ++ ".elm"
+                                , source = source
+                                , ast = ast
+                                }
+                                accProject
+                            , accModulesThatFailedToParse
+                            )
+
+                        Err _ ->
+                            ( accProject
+                            , { source = source, path = "test/DummyFilePath.elm" } :: accModulesThatFailedToParse
+                            )
+                )
+                ( project, [] )
+                sources
     in
-    case Project.modulesThatFailedToParse projectWithModules of
+    case modulesThatFailedToParse ++ Project.modulesThatFailedToParse projectWithModules of
         { source } :: _ ->
             let
                 fileAndIndex : { source : String, index : Int }
