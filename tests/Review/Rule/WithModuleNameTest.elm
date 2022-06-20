@@ -42,7 +42,7 @@ initContext =
 all : Test
 all =
     Test.describe "withModuleNameTest"
-        [ test "should not pass the elmJsonKey if the `elm.json` file does not exist" <|
+        [ test "should get the module name" <|
             \() ->
                 """module A.B exposing (..)
 a = 1
