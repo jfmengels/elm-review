@@ -58,7 +58,7 @@ More information on that in [the CLI documentation](https://github.com/jfmengels
 `elm-review` is configured through a `review/` folder in your project. It is a self-contained Elm project where you can
 specify your dependencies, and write, import, and configure review rules.
 
-Rules are configured in the `review/ReviewConfig.elm` file:
+Rules are configured in the `review/src/ReviewConfig.elm` file:
 
 ```elm
 module ReviewConfig exposing (config)
@@ -106,7 +106,7 @@ Once you've found a package that you like, you can install it with the `elm inst
 ```bash
 cd review/ # Go inside your review configuration directory
 elm install authorName/packageName
-# then update your `review/ReviewConfiguration` to add the rule
+# then update your `review/src/ReviewConfig.elm` to add the rule
 # as explained in the package's documentation
 ```
 
