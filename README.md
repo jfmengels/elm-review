@@ -244,9 +244,6 @@ or in files and directories that by the nature of the rule should be exempted.
 
 ### Temporarily suppressing errors
 
-**NOTE:** This is only available starting from v2.7.0 of the `elm-review` CLI onwards, which at the time of writing is in a beta version.
-Run `npm install elm-review@beta` to start using this. Please provide feedback on any of aspect of the feature, so that we can get this out of beta.
-
 `elm-review` has a system to temporarily suppressed errors which aims to help you gradually adopt rules that
 report many errors in your project without having you fix all the issues beforehand.
 
