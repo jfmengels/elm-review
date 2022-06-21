@@ -10,7 +10,7 @@ import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Fixtures.Dependencies as Dependencies
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Project as Project exposing (Project)
-import Review.Rule as Rule exposing (Error, Rule)
+import Review.Rule as Rule exposing (Rule)
 import Review.Test
 import Review.Test.Dependencies
 import Test exposing (Test, describe, test)
@@ -650,7 +650,7 @@ typeAnnotationNames lookupFunction moduleContext typeAnnotation =
             typeAnnotationNames lookupFunction moduleContext arg ++ typeAnnotationNames lookupFunction moduleContext returnType
 
 
-finalEvaluation : ModuleContext -> List (Error {})
+finalEvaluation : ModuleContext -> List (Rule.Error {})
 finalEvaluation context =
     if List.isEmpty context.texts then
         []

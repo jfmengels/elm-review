@@ -2,7 +2,7 @@ module Review.Test.ExpectedErrorOrderTest exposing (all)
 
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)
-import Review.Rule as Rule exposing (Error, Rule)
+import Review.Rule as Rule exposing (Rule)
 import Review.Test
 import Test exposing (Test, describe, test)
 
@@ -276,7 +276,7 @@ ruleWithSameMessage =
         |> Rule.fromModuleRuleSchema
 
 
-expressionVisitor : (String -> String) -> Node Expression -> List (Error {})
+expressionVisitor : (String -> String) -> Node Expression -> List (Rule.Error {})
 expressionVisitor messageFn node =
     case Node.value node of
         Expression.FunctionOrValue _ fnName ->

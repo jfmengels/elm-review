@@ -886,7 +886,7 @@ For instance, if you are trying to detect the unused variables defined inside
 of a let expression, you will want to collect the declaration of variables,
 note which ones are used, and at the end of the block report the ones that weren't used.
 
-    expressionVisitor : Node Expression -> Direction -> Context -> ( List (Error {}), Context )
+    expressionVisitor : Node Expression -> Direction -> Context -> ( List (Rule.Error {}), Context )
     expressionVisitor node direction context =
         case ( direction, Node.value node ) of
             ( Rule.OnEnter, Expression.FunctionOrValue moduleName name ) ->
@@ -1678,7 +1678,7 @@ but are unused in the rest of the project.
         , used = Set.union newContext.used previousContext.used
         }
 
-    finalEvaluationForProject : ProjectContext -> List (Error { useErrorForModule : () })
+    finalEvaluationForProject : ProjectContext -> List (Rule.Error { useErrorForModule : () })
     finalEvaluationForProject projectContext =
         -- Implementation of `unusedFunctions` omitted, but it returns the list
         -- of unused functions, along with the associated module key and range
@@ -1929,7 +1929,7 @@ The following example forbids having `_` in any part of a module name.
 
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Review.Rule as Rule exposing (Error, Rule)
+    import Review.Rule as Rule exposing (Rule)
 
     rule : Rule
     rule =
@@ -1937,7 +1937,7 @@ The following example forbids having `_` in any part of a module name.
             |> Rule.withSimpleModuleDefinitionVisitor moduleDefinitionVisitor
             |> Rule.fromModuleRuleSchema
 
-    moduleDefinitionVisitor : Node Module -> List (Error {})
+    moduleDefinitionVisitor : Node Module -> List (Rule.Error {})
     moduleDefinitionVisitor node =
         if List.any (String.contains "_") (Node.value node |> Module.moduleName) then
             [ Rule.error
@@ -1978,7 +1978,7 @@ The following example forbids words like "TODO" appearing in a comment.
 
     import Elm.Syntax.Node as Node exposing (Node)
     import Elm.Syntax.Range exposing (Range)
-    import Review.Rule as Rule exposing (Error, Rule)
+    import Review.Rule as Rule exposing (Rule)
 
     rule : Rule
     rule =
@@ -1986,7 +1986,7 @@ The following example forbids words like "TODO" appearing in a comment.
             |> Rule.withSimpleCommentsVisitor commentsVisitor
             |> Rule.fromModuleRuleSchema
 
-    commentsVisitor : List (Node String) -> List (Error {})
+    commentsVisitor : List (Node String) -> List (Rule.Error {})
     commentsVisitor comments =
         comments
             |> List.concatMap
@@ -2022,7 +2022,7 @@ The following example forbids using the core Html package and suggests using
 
     import Elm.Syntax.Import exposing (Import)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Review.Rule as Rule exposing (Error, Rule)
+    import Review.Rule as Rule exposing (Rule)
 
     rule : Rule
     rule =
@@ -2030,7 +2030,7 @@ The following example forbids using the core Html package and suggests using
             |> Rule.withSimpleImportVisitor importVisitor
             |> Rule.fromModuleRuleSchema
 
-    importVisitor : Node Import -> List (Error {})
+    importVisitor : Node Import -> List (Rule.Error {})
     importVisitor node =
         let
             moduleName : List String
@@ -2074,7 +2074,7 @@ annotation.
 
     import Elm.Syntax.Declaration as Declaration exposing (Declaration)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Review.Rule as Rule exposing (Error, Rule)
+    import Review.Rule as Rule exposing (Rule)
 
     rule : Rule
     rule =
@@ -2082,7 +2082,7 @@ annotation.
             |> Rule.withSimpleDeclarationVisitor declarationVisitor
             |> Rule.fromModuleRuleSchema
 
-    declarationVisitor : Node Declaration -> List (Error {})
+    declarationVisitor : Node Declaration -> List (Rule.Error {})
     declarationVisitor node =
         case Node.value node of
             Declaration.FunctionDeclaration { signature, declaration } ->
@@ -2130,7 +2130,7 @@ The following example forbids using the Debug module.
 
     import Elm.Syntax.Expression as Expression exposing (Expression)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Review.Rule as Rule exposing (Error, Rule)
+    import Review.Rule as Rule exposing (Rule)
 
     rule : Rule
     rule =
@@ -2138,7 +2138,7 @@ The following example forbids using the Debug module.
             |> Rule.withSimpleExpressionVisitor expressionVisitor
             |> Rule.fromModuleRuleSchema
 
-    expressionVisitor : Node Expression -> List (Error {})
+    expressionVisitor : Node Expression -> List (Rule.Error {})
     expressionVisitor node =
         case Node.value node of
             Expression.FunctionOrValue moduleName fnName ->
@@ -2176,7 +2176,7 @@ The following example forbids exposing a module in an "Internal" directory in yo
     import Elm.Project
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Review.Rule as Rule exposing (Error, Rule)
+    import Review.Rule as Rule exposing (Rule)
 
     type alias Context =
         Maybe Elm.Project.Project
@@ -2192,7 +2192,7 @@ The following example forbids exposing a module in an "Internal" directory in yo
     elmJsonVisitor elmJson context =
         elmJson
 
-    moduleDefinitionVisitor : Node Module -> Context -> ( List (Error {}), Context )
+    moduleDefinitionVisitor : Node Module -> Context -> ( List (Rule.Error {}), Context )
     moduleDefinitionVisitor node context =
         let
             moduleName : List String
@@ -2271,7 +2271,7 @@ The example is simplified to only forbid the use of the `Html.button` expression
     import Elm.Syntax.Expression as Expression exposing (Expression)
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Review.Rule as Rule exposing (Direction, Error, Rule)
+    import Review.Rule as Rule exposing (Rule)
 
     type Context
         = HtmlButtonIsAllowed
@@ -2284,7 +2284,7 @@ The example is simplified to only forbid the use of the `Html.button` expression
             |> Rule.withExpressionEnterVisitor expressionVisitor
             |> Rule.fromModuleRuleSchema
 
-    moduleDefinitionVisitor : Node Module -> Context -> ( List (Error {}), Context )
+    moduleDefinitionVisitor : Node Module -> Context -> ( List (Rule.Error {}), Context )
     moduleDefinitionVisitor node context =
         if (Node.value node |> Module.moduleName) == [ "Button" ] then
             ( [], HtmlButtonIsAllowed )
@@ -2292,7 +2292,7 @@ The example is simplified to only forbid the use of the `Html.button` expression
         else
             ( [], HtmlButtonIsForbidden )
 
-    expressionVisitor : Node Expression -> Context -> ( List (Error {}), Context )
+    expressionVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
     expressionVisitor node context =
         case context of
             HtmlButtonIsAllowed ->
@@ -2363,7 +2363,7 @@ The following example forbids importing both `Element` (`elm-ui`) and
 
     import Elm.Syntax.Import exposing (Import)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Review.Rule as Rule exposing (Error, Rule)
+    import Review.Rule as Rule exposing (Rule)
 
     type alias Context =
         { elmUiWasImported : Bool
@@ -2390,7 +2390,7 @@ The following example forbids importing both `Element` (`elm-ui`) and
             }
             (Node.range node)
 
-    importVisitor : Node Import -> Context -> ( List (Error {}), Context )
+    importVisitor : Node Import -> Context -> ( List (Rule.Error {}), Context )
     importVisitor node context =
         case Node.value node |> .moduleName |> Node.value of
             [ "Element" ] ->
@@ -2455,7 +2455,7 @@ type annotation.
     import Elm.Syntax.Exposing as Exposing
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Review.Rule as Rule exposing (Direction, Error, Rule)
+    import Review.Rule as Rule exposing (Rule)
 
     type ExposedFunctions
         = All
@@ -2468,7 +2468,7 @@ type annotation.
             |> Rule.withDeclarationVisitor declarationVisitor
             |> Rule.fromModuleRuleSchema
 
-    moduleDefinitionVisitor : Node Module -> ExposedFunctions -> ( List (Error {}), ExposedFunctions )
+    moduleDefinitionVisitor : Node Module -> ExposedFunctions -> ( List (Rule.Error {}), ExposedFunctions )
     moduleDefinitionVisitor node context =
         case Node.value node |> Module.exposingList of
             Exposing.All _ ->
@@ -2486,7 +2486,7 @@ type annotation.
             _ ->
                 Nothing
 
-    declarationVisitor : Node Declaration -> Direction -> ExposedFunctions -> ( List (Error {}), ExposedFunctions )
+    declarationVisitor : Node Declaration -> Rule.Direction -> ExposedFunctions -> ( List (Rule.Error {}), ExposedFunctions )
     declarationVisitor node direction context =
         case ( direction, Node.value node ) of
             ( Rule.OnEnter, Declaration.FunctionDeclaration { documentation, declaration } ) ->
@@ -2548,7 +2548,7 @@ type annotation.
     import Elm.Syntax.Exposing as Exposing
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Review.Rule as Rule exposing (Error, Rule)
+    import Review.Rule as Rule exposing (Rule)
 
     type ExposedFunctions
         = All
@@ -2561,7 +2561,7 @@ type annotation.
             |> Rule.withDeclarationEnterVisitor declarationVisitor
             |> Rule.fromModuleRuleSchema
 
-    moduleDefinitionVisitor : Node Module -> ExposedFunctions -> ( List (Error {}), ExposedFunctions )
+    moduleDefinitionVisitor : Node Module -> ExposedFunctions -> ( List (Rule.Error {}), ExposedFunctions )
     moduleDefinitionVisitor node context =
         case Node.value node |> Module.exposingList of
             Exposing.All _ ->
@@ -2579,7 +2579,7 @@ type annotation.
             _ ->
                 Nothing
 
-    declarationVisitor : Node Declaration -> ExposedFunctions -> ( List (Error {}), ExposedFunctions )
+    declarationVisitor : Node Declaration -> ExposedFunctions -> ( List (Rule.Error {}), ExposedFunctions )
     declarationVisitor node direction context =
         case Node.value node of
             Declaration.FunctionDeclaration { documentation, declaration } ->
@@ -2635,7 +2635,7 @@ The following example reports unused parameters from top-level declarations.
     import Elm.Syntax.Declaration as Declaration exposing (Declaration)
     import Elm.Syntax.Expression as Expression exposing (Expression)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Review.Rule as Rule exposing (Direction, Error, Rule)
+    import Review.Rule as Rule exposing (Rule)
 
     rule : Rule
     rule =
@@ -2646,7 +2646,7 @@ The following example reports unused parameters from top-level declarations.
             |> Rule.withExpressionEnterVisitor expressionVisitor
             |> Rule.fromModuleRuleSchema
 
-    declarationEnterVisitor : Node Declaration -> fContext -> ( List (Error {}), Context )
+    declarationEnterVisitor : Node Declaration -> Context -> ( List (Rule.Error {}), Context )
     declarationEnterVisitor node context =
         case Node.value node of
             Declaration.FunctionDeclaration function ->
@@ -2655,7 +2655,7 @@ The following example reports unused parameters from top-level declarations.
             _ ->
                 ( [], context )
 
-    declarationExitVisitor : Node Declaration -> Context -> ( List (Error {}), Context )
+    declarationExitVisitor : Node Declaration -> Context -> ( List (Rule.Error {}), Context )
     declarationExitVisitor node context =
         case Node.value node of
             -- When exiting the function expression, report the parameters that were not used.
@@ -2719,7 +2719,7 @@ The following example forbids the use of `Debug.log` even when it is imported li
     import Elm.Syntax.Expression as Expression exposing (Expression)
     import Elm.Syntax.Import exposing (Import)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Review.Rule as Rule exposing (Direction, Error, Rule)
+    import Review.Rule as Rule exposing (Rule)
 
     type Context
         = DebugLogWasNotImported
@@ -2732,7 +2732,7 @@ The following example forbids the use of `Debug.log` even when it is imported li
             |> Rule.withExpressionVisitor expressionVisitor
             |> Rule.fromModuleRuleSchema
 
-    importVisitor : Node Import -> Context -> ( List (Error {}), Context )
+    importVisitor : Node Import -> Context -> ( List (Rule.Error {}), Context )
     importVisitor node context =
         case ( Node.value node |> .moduleName |> Node.value, (Node.value node).exposingList |> Maybe.map Node.value ) of
             ( [ "Debug" ], Just (Exposing.All _) ) ->
@@ -2758,7 +2758,7 @@ The following example forbids the use of `Debug.log` even when it is imported li
             _ ->
                 ( [], DebugLogWasNotImported )
 
-    expressionVisitor : Node Expression -> Direction -> Context -> ( List (Error {}), Context )
+    expressionVisitor : Node Expression -> Rule.Direction -> Context -> ( List (Error {}), Context )
     expressionVisitor node direction context =
         case context of
             DebugLogWasNotImported ->
@@ -2810,7 +2810,7 @@ The following example forbids the use of `Debug.log` even when it is imported li
     import Elm.Syntax.Expression as Expression exposing (Expression)
     import Elm.Syntax.Import exposing (Import)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Review.Rule as Rule exposing (Direction, Error, Rule)
+    import Review.Rule as Rule exposing (Rule)
 
     type Context
         = DebugLogWasNotImported
@@ -2823,7 +2823,7 @@ The following example forbids the use of `Debug.log` even when it is imported li
             |> Rule.withExpressionEnterVisitor expressionVisitor
             |> Rule.fromModuleRuleSchema
 
-    importVisitor : Node Import -> Context -> ( List (Error {}), Context )
+    importVisitor : Node Import -> Context -> ( List (Rule.Error {}), Context )
     importVisitor node context =
         case ( Node.value node |> .moduleName |> Node.value, (Node.value node).exposingList |> Maybe.map Node.value ) of
             ( [ "Debug" ], Just (Exposing.All _) ) ->
@@ -2849,7 +2849,7 @@ The following example forbids the use of `Debug.log` even when it is imported li
             _ ->
                 ( [], DebugLogWasNotImported )
 
-    expressionVisitor : Node Expression -> Context -> ( List (Error {}), Context )
+    expressionVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
     expressionVisitor node context =
         case context of
             DebugLogWasNotImported ->
@@ -2892,7 +2892,7 @@ meaning after its children are visited.
 
     import Elm.Syntax.Expression as Expression exposing (Expression)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Review.Rule as Rule exposing (Direction, Error, Rule)
+    import Review.Rule as Rule exposing (Rule)
 
     rule : Rule
     rule =
@@ -2901,7 +2901,7 @@ meaning after its children are visited.
             |> Rule.withExpressionExitVisitor expressionExitVisitor
             |> Rule.fromModuleRuleSchema
 
-    expressionEnterVisitor : Node Expression -> fContext -> ( List (Error {}), Context )
+    expressionEnterVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
     expressionEnterVisitor node context =
         case Node.value node of
             Expression.FunctionOrValue moduleName name ->
@@ -2914,7 +2914,7 @@ meaning after its children are visited.
             _ ->
                 ( [], context )
 
-    expressionExitVisitor : Node Expression -> Context -> ( List (Error {}), Context )
+    expressionExitVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
     expressionExitVisitor node context =
         case Node.value node of
             -- When exiting the let expression, report the variables that were not used.
@@ -3143,7 +3143,7 @@ for [`withImportVisitor`](#withImportVisitor), but using [`withFinalModuleEvalua
     import Elm.Syntax.Import exposing (Import)
     import Elm.Syntax.Node as Node exposing (Node)
     import Elm.Syntax.Range exposing (Range)
-    import Review.Rule as Rule exposing (Error, Rule)
+    import Review.Rule as Rule exposing (Rule)
 
     type alias Context =
         Dict (List String) Range
@@ -3155,11 +3155,11 @@ for [`withImportVisitor`](#withImportVisitor), but using [`withFinalModuleEvalua
             |> Rule.withFinalModuleEvaluation finalEvaluation
             |> Rule.fromModuleRuleSchema
 
-    importVisitor : Node Import -> Context -> ( List (Error {}), Context )
+    importVisitor : Node Import -> Context -> ( List (Rule.Error {}), Context )
     importVisitor node context =
         ( [], Dict.insert (Node.value node |> .moduleName |> Node.value) (Node.range node) context )
 
-    finalEvaluation : Context -> List (Error {})
+    finalEvaluation : Context -> List (Rule.Error {})
     finalEvaluation context =
         case ( Dict.get [ "Element" ] context, Dict.get [ "Html", "Styled" ] context ) of
             ( Just elmUiRange, Just _ ) ->
@@ -3713,7 +3713,7 @@ forbids using `Debug.todo` anywhere in the code, except in tests.
 
     import Elm.Syntax.Expression as Expression exposing (Expression)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Review.Rule as Rule exposing (Error, Rule)
+    import Review.Rule as Rule exposing (Rule)
 
     rule : Rule
     rule =
@@ -3722,7 +3722,7 @@ forbids using `Debug.todo` anywhere in the code, except in tests.
             |> Rule.fromModuleRuleSchema
             |> Rule.ignoreErrorsForDirectories [ "tests/" ]
 
-    expressionVisitor : Node Expression -> List (Error {})
+    expressionVisitor : Node Expression -> List (Rule.Error {})
     expressionVisitor node =
         case Node.value node of
             Expression.FunctionOrValue [ "Debug" ] "todo" ->
@@ -3781,7 +3781,7 @@ by hardcoding an exception into the rule (that forbids the use of `Html.button` 
     import Elm.Syntax.Expression as Expression exposing (Expression)
     import Elm.Syntax.Module as Module exposing (Module)
     import Elm.Syntax.Node as Node exposing (Node)
-    import Review.Rule as Rule exposing (Direction, Error, Rule)
+    import Review.Rule as Rule exposing (Rule)
 
     rule : Rule
     rule =
@@ -3790,7 +3790,7 @@ by hardcoding an exception into the rule (that forbids the use of `Html.button` 
             |> Rule.fromModuleRuleSchema
             |> Rule.ignoreErrorsForFiles [ "src/Button.elm" ]
 
-    expressionVisitor : Node Expression -> List (Error {})
+    expressionVisitor : Node Expression -> List (Rule.Error {})
     expressionVisitor node context =
         case Node.value node of
             Expression.FunctionOrValue [ "Html" ] "button" ->
@@ -3851,34 +3851,34 @@ You can also use it when writing a rule. We can hardcode in the rule that a rule
 is only applicable to a folder, like `src/Api/` for instance. The following example
 forbids using strings with hardcoded URLs, but only in the `src/Api/` folder.
 
-     import Elm.Syntax.Expression as Expression exposing (Expression)
-     import Elm.Syntax.Node as Node exposing (Node)
-     import Review.Rule as Rule exposing (Error, Rule)
+    import Elm.Syntax.Expression as Expression exposing (Expression)
+    import Elm.Syntax.Node as Node exposing (Node)
+    import Review.Rule as Rule exposing (Rule)
 
-     rule : Rule
-     rule =
-         Rule.newModuleRuleSchema "NoHardcodedURLs" ()
-             |> Rule.withSimpleExpressionVisitor expressionVisitor
-             |> Rule.fromModuleRuleSchema
-             |> Rule.filterErrorsForFiles (String.startsWith "src/Api/")
+    rule : Rule
+    rule =
+        Rule.newModuleRuleSchema "NoHardcodedURLs" ()
+            |> Rule.withSimpleExpressionVisitor expressionVisitor
+            |> Rule.fromModuleRuleSchema
+            |> Rule.filterErrorsForFiles (String.startsWith "src/Api/")
 
-     expressionVisitor : Node Expression -> List (Error {})
-     expressionVisitor node =
-         case Node.value node of
-             Expression.Literal string ->
-                 if isUrl string then
-                     [ Rule.error
-                         { message = "Do not use hardcoded URLs in the API modules"
-                         , details = [ "Hardcoded URLs should never make it to production. Please refer to the documentation of the `Endpoint` module." ]
-                         }
-                         (Node.range node)
-                     ]
+    expressionVisitor : Node Expression -> List (Rule.Error {})
+    expressionVisitor node =
+        case Node.value node of
+            Expression.Literal string ->
+                if isUrl string then
+                    [ Rule.error
+                        { message = "Do not use hardcoded URLs in the API modules"
+                        , details = [ "Hardcoded URLs should never make it to production. Please refer to the documentation of the `Endpoint` module." ]
+                        }
+                        (Node.range node)
+                    ]
 
-                 else
-                     []
+                else
+                    []
 
-             _ ->
-                 []
+            _ ->
+                []
 
 -}
 filterErrorsForFiles : (String -> Bool) -> Rule -> Rule
@@ -6486,7 +6486,7 @@ A value can be either a function, a constant, a custom type constructor or a typ
 
 If the element was defined in the current module, then the result will be `[]`.
 
-    expressionVisitor : Node Expression -> Context -> ( List (Error {}), Context )
+    expressionVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
     expressionVisitor node context =
         case Node.value node of
             Expression.FunctionOrValue moduleName "button" ->
