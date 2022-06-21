@@ -1746,24 +1746,29 @@ you to request more information
         Rule.newProjectRuleSchema "NoMissingSubscriptionsCall" initialProjectContext
             |> Rule.withModuleVisitor moduleVisitor
             |> Rule.withModuleContextUsingContextCreator
-                { fromProjectToModule = Rule.initContextCreator fromProjectToModule
-                , fromModuleToProject =
-                    Rule.initContextCreator fromModuleToProject
-                        |> Rule.withModuleKey
-                        |> Rule.withMetadata
+                { fromProjectToModule = fromProjectToModule
+                , fromModuleToProject = fromModuleToProject
                 , foldProjectContexts = foldProjectContexts
                 }
             |> Rule.fromProjectRuleSchema
 
     fromProjectToModule : ProjectContext -> ModuleContext
-    fromProjectToModule projectContext =
-        { -- something
-        }
+    fromProjectToModule =
+        Rule.initContextCreator
+            (\projectContext ->
+                { -- something
+                }
+            )
 
-    fromModuleToProject : Rule.ModuleKey -> Metadata -> ModuleContext -> ProjectContext
-    fromModuleToProject moduleKey metadata moduleContext =
-        { moduleKeys = Dict.singleton (Rule.moduleNameFromMetadata metadata) moduleKey
-        }
+    fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
+    fromModuleToProject =
+        Rule.initContextCreator
+            (\moduleKey metadata moduleContext ->
+                { moduleKeys = Dict.singleton (Rule.moduleNameFromMetadata metadata) moduleKey
+                }
+            )
+            |> Rule.withModuleKey
+            |> Rule.withMetadata
 
 -}
 withModuleContextUsingContextCreator :
@@ -5173,14 +5178,21 @@ withModuleNameLookupTable (ContextCreator fn (RequestedData requested)) =
 
 {-| Request the [module key](#ModuleKey) for this module.
 
+    rule : Rule
     rule =
         Rule.newProjectRuleSchema "NoMissingSubscriptionsCall" initialProjectContext
             |> Rule.withModuleVisitor moduleVisitor
             |> Rule.withModuleContextUsingContextCreator
-                { fromProjectToModule = Rule.initContextCreator fromProjectToModule
-                , fromModuleToProject = Rule.initContextCreator fromModuleToProject |> Rule.withModuleKey
+                { fromProjectToModule = fromProjectToModule
+                , fromModuleToProject = fromModuleToProject
                 , foldProjectContexts = foldProjectContexts
                 }
+
+    fromModuleToProject : Rule.ContextCreator () Context
+    fromModuleToProject =
+        Rule.initContextCreator
+            (\moduleKey () -> { moduleKey = moduleKey })
+            |> Rule.withModuleKey
 
 -}
 withModuleKey : ContextCreator ModuleKey (from -> to) -> ContextCreator from to
@@ -5208,6 +5220,7 @@ Using [`newModuleRuleSchemaUsingContextCreator`](#newModuleRuleSchemaUsingContex
 
 Using [`withModuleContextUsingContextCreator`](#withModuleContextUsingContextCreator) in a project rule:
 
+    rule : Rule
     rule =
         Rule.newProjectRuleSchema "YourRuleName" initialProjectContext
             |> Rule.withModuleVisitor moduleVisitor
