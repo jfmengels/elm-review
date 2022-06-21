@@ -1017,13 +1017,13 @@ their name, like [`withExpressionEnterVisitor`](#withExpressionEnterVisitor),
     contextCreator : Rule.ContextCreator () Context
     contextCreator =
         Rule.initContextCreator
-            (\metadata () ->
+            (\isInSourceDirectories () ->
                 { hasTodoBeenImported = False
                 , hasToStringBeenImported = False
-                , isInSourceDirectories = Rule.isInSourceDirectories metadata
+                , isInSourceDirectories = isInSourceDirectories
                 }
             )
-            |> Rule.withMetadata
+            |> Rule.withIsInSourceDirectories
 
 -}
 newModuleRuleSchemaUsingContextCreator : String -> ContextCreator () moduleContext -> ModuleRuleSchema {} moduleContext
@@ -1763,12 +1763,12 @@ you to request more information
     fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
     fromModuleToProject =
         Rule.initContextCreator
-            (\moduleKey metadata moduleContext ->
-                { moduleKeys = Dict.singleton (Rule.moduleNameFromMetadata metadata) moduleKey
+            (\moduleKey moduleName moduleContext ->
+                { moduleKeys = Dict.singleton moduleName moduleKey
                 }
             )
             |> Rule.withModuleKey
-            |> Rule.withMetadata
+            |> Rule.withModuleName
 
 -}
 withModuleContextUsingContextCreator :
@@ -4987,11 +4987,8 @@ accumulate visitor ( previousErrors, previousContext ) =
 -- TODO Move this to a different module later on
 
 
-{-| Create a context based on some other context.
-Use functions like [`withMetadata`](#withMetadata) to request more information.
-
-`from` will usually be a `projectContext` and `to` a `moduleContext`.
-
+{-| Create a module context from a project context or the other way around.
+Use functions like [`withModuleName`](#withModuleName) to request more information.
 -}
 type ContextCreator from to
     = ContextCreator (AvailableData -> from -> to) RequestedData
@@ -5009,13 +5006,13 @@ type RequestedData
     contextCreator : Rule.ContextCreator () Context
     contextCreator =
         Rule.initContextCreator
-            (\metadata () ->
-                { moduleName = Rule.moduleNameFromMetadata metadata
+            (\moduleName () ->
+                { moduleName = moduleName
 
                 -- ...other fields
                 }
             )
-            |> Rule.withMetadata
+            |> Rule.withModuleName
 
 -}
 initContextCreator : (from -> to) -> ContextCreator from to
