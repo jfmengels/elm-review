@@ -158,13 +158,13 @@ underMismatch error { under, codeAtLocation } =
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
-which I was expecting, but I found it under:
-
-  """ ++ formatSourceCode codeAtLocation ++ """
-
-when I was expecting it under:
+and I was expecting it to be under:
 
   """ ++ formatSourceCode under ++ """
+
+but I found it under:
+
+  """ ++ formatSourceCode codeAtLocation ++ """
 
 Hint: Maybe you're passing the `Range` of a wrong node when
 calling `Rule.error`.""")
@@ -177,13 +177,13 @@ unexpectedDetails expectedDetails error =
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
-which I was expecting, but its details were:
+and I was expecting its details to be:
 
-  """ ++ formatDetails (Rule.errorDetails error) ++ """
+  """ ++ formatDetails expectedDetails ++ """
 
-when I was expecting them to be:
+but I found these details:
 
-  """ ++ formatDetails expectedDetails)
+  """ ++ formatDetails (Rule.errorDetails error))
 
 
 unexpectedGlobalErrorDetails : List String -> { message : String, details : List String } -> String
@@ -193,11 +193,11 @@ unexpectedGlobalErrorDetails expectedDetails error =
 
   """ ++ wrapInQuotes error.message ++ """
 
-which I was expecting, but its details were:
+and I was expecting its details to be:
 
   """ ++ formatDetails error.details ++ """
 
-when I was expecting them to be:
+but I found these details:
 
   """ ++ formatDetails expectedDetails)
 
@@ -209,11 +209,11 @@ unexpectedConfigurationErrorDetails expectedDetails error =
 
   """ ++ wrapInQuotes error.message ++ """
 
-which I was expecting, but its details were:
+and I was expecting its details to be:
 
   """ ++ formatDetails error.details ++ """
 
-when I was expecting them to be:
+but I found these details:
 
   """ ++ formatDetails expectedDetails)
 
@@ -484,13 +484,13 @@ following message:
 
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
-I found the following result after the fixes have been applied:
+I expected the following result after the fixes have been applied:
 
-  """ ++ formatSourceCode resultingSourceCode ++ """
+  """ ++ formatSourceCode expectedSourceCode ++ """
 
-but I was expecting:
+but I found:
 
-  """ ++ formatSourceCode expectedSourceCode)
+  """ ++ formatSourceCode resultingSourceCode)
 
 
 fixedCodeWhitespaceMismatch : SourceCode -> SourceCode -> ReviewError -> String
@@ -506,13 +506,13 @@ following message:
   """ ++ wrapInQuotes (Rule.errorMessage error) ++ """
 
 The problem is related to """ ++ (Ansi.bold >> Ansi.yellow) "WHITESPACE!" ++ """
-I found the following result after the fixes have been applied:
+I expected the following result after the fixes have been applied:
 
-  """ ++ resulting ++ """
+  """ ++ expected ++ """
 
-but I was expecting:
+but I found:
 
-  """ ++ expected)
+  """ ++ resulting)
 
 
 highlightDifferencesInSourceCodes : SourceCode -> SourceCode -> ( String, String )

@@ -232,13 +232,13 @@ I found an error with the following message:
 
   `Some error`
 
-which I was expecting, but I found it under:
-
-  `abcd = 1`
-
-when I was expecting it under:
+and I was expecting it to be under:
 
   `abcd`
+
+but I found it under:
+
+  `abcd = 1`
 
 Hint: Maybe you're passing the `Range` of a wrong node when
 calling `Rule.error`."""
@@ -265,19 +265,19 @@ I found an error with the following message:
 
   `Some other error`
 
-which I was expecting, but I found it under:
-
-  ```
-    abcd =
-      1
-  ```
-
-when I was expecting it under:
+and I was expecting it to be under:
 
   ```
     abcd =
       1
       + 2
+  ```
+
+but I found it under:
+
+  ```
+    abcd =
+      1
   ```
 
 Hint: Maybe you're passing the `Range` of a wrong node when
@@ -293,7 +293,7 @@ unexpectedDetailsTest =
                 let
                     expectedDetails : List String
                     expectedDetails =
-                        [ "Some details" ]
+                        [ "Expected details" ]
 
                     error : ReviewError
                     error =
@@ -313,19 +313,19 @@ I found an error for a file with the following message:
 
   `Some error`
 
-which I was expecting, but its details were:
+and I was expecting its details to be:
 
-  `Some other details`
+  `Expected details`
 
-when I was expecting them to be:
+but I found these details:
 
-  `Some details`"""
+  `Some other details`"""
         , test "with multi-line details" <|
             \() ->
                 let
                     expectedDetails : List String
                     expectedDetails =
-                        [ "Some"
+                        [ "Expected"
                         , "details"
                         ]
 
@@ -351,20 +351,20 @@ I found an error for a file with the following message:
 
   `Some other error`
 
-which I was expecting, but its details were:
+and I was expecting its details to be:
+
+  ```
+  Expected
+
+  details
+  ```
+
+but I found these details:
 
   ```
   Some
 
   other
-
-  details
-  ```
-
-when I was expecting them to be:
-
-  ```
-  Some
 
   details
   ```
@@ -395,11 +395,11 @@ I found a global error with the following message:
 
   `Some error`
 
-which I was expecting, but its details were:
+and I was expecting its details to be:
 
   `Some other details`
 
-when I was expecting them to be:
+but I found these details:
 
   `Some details`"""
 
@@ -993,20 +993,20 @@ following message:
 
   `Some error`
 
-I found the following result after the fixes have been applied:
-
-  ```
-    module A exposing (b)
-    abcd =
-      1
-  ```
-
-but I was expecting:
+I expected the following result after the fixes have been applied:
 
   ```
     module A exposing (b)
     abcd =
       2
+  ```
+
+but I found:
+
+  ```
+    module A exposing (b)
+    abcd =
+      1
   ```"""
 
 
