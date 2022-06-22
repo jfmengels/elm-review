@@ -455,6 +455,7 @@ help the user who encounters the problem.
 
 The details could:
 - explain what the problem is
+- explain the reasoning behind the problem
 - give suggestions on how to solve the problem or alternatives"""
         ]
 
