@@ -19,6 +19,7 @@ all =
         , underMismatchTest
         , unexpectedDetailsTest
         , unexpectedGlobalErrorDetailsTest
+        , unexpectedConfigurationErrorDetailsTest
         , emptyDetailsTest
         , wrongLocationTest
         , underMayNotBeEmptyTest
@@ -392,6 +393,38 @@ unexpectedGlobalErrorDetailsTest =
 \u{001B}[31m\u{001B}[1mUNEXPECTED GLOBAL ERROR DETAILS\u{001B}[22m\u{001B}[39m
 
 I found a global error with the following message:
+
+  `Some error`
+
+and I was expecting its details to be:
+
+  `Some other details`
+
+but I found these details:
+
+  `Some details`"""
+
+
+unexpectedConfigurationErrorDetailsTest : Test
+unexpectedConfigurationErrorDetailsTest =
+    test "unexpectedConfigurationErrorDetails" <|
+        \() ->
+            let
+                expectedDetails : List String
+                expectedDetails =
+                    [ "Some details" ]
+
+                error : { message : String, details : List String }
+                error =
+                    { message = "Some error"
+                    , details = [ "Some other details" ]
+                    }
+            in
+            FailureMessage.unexpectedConfigurationErrorDetails expectedDetails error
+                |> expectMessageEqual """
+\u{001B}[31m\u{001B}[1mUNEXPECTED CONFIGURATION ERROR DETAILS\u{001B}[22m\u{001B}[39m
+
+I found a configuration error with the following message:
 
   `Some error`
 
