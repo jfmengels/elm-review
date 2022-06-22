@@ -784,7 +784,7 @@ and expecting to see it under:
   `abcd`
 
 I found 2 locations where that code appeared. Please use
-`Review.Test.atExactly` to make the part you were targetting unambiguous.
+`Review.Test.atExactly` to make the part you were targeting unambiguous.
 
 Tip: I found them at:
   - { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
@@ -831,7 +831,7 @@ and expecting to see it under:
   ```
 
 I found 3 locations where that code appeared. Please use
-`Review.Test.atExactly` to make the part you were targetting unambiguous.
+`Review.Test.atExactly` to make the part you were targeting unambiguous.
 
 Tip: I found them at:
   - { start = { row = 2, column = 1 }, end = { row = 3, column = 4 } }
