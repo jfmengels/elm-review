@@ -861,7 +861,7 @@ getConfigurationError (Rule rule) =
     rule.configurationError
 
 
-{-| **DEPRECATED**
+{-| **@deprecated**
 
 This is used in [`withDeclarationVisitor`](#withDeclarationVisitor) and [`withDeclarationVisitor`](#withDeclarationVisitor),
 which are deprecated and will be removed in the next major version. This type will be removed along with them.
@@ -871,7 +871,7 @@ To replicate the same behavior, take a look at
   - [`withDeclarationEnterVisitor`](#withDeclarationEnterVisitor) and [`withDeclarationExitVisitor`](#withDeclarationExitVisitor).
   - [`withExpressionEnterVisitor`](#withExpressionEnterVisitor) and [`withExpressionExitVisitor`](#withExpressionExitVisitor).
 
-**/DEPRECATED**
+**/@deprecated**
 
 Represents whether a node is being traversed before having seen its children (`OnEnter`ing the node), or after (`OnExit`ing the node).
 
@@ -2434,12 +2434,12 @@ withImportVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | importVisitors = visitor :: schema.importVisitors }
 
 
-{-| **DEPRECATED**
+{-| **@deprecated**
 
 Use [`withDeclarationEnterVisitor`](#withDeclarationEnterVisitor) and [`withDeclarationExitVisitor`](#withDeclarationExitVisitor) instead.
 In the next major version, this function will be removed and [`withDeclarationEnterVisitor`](#withDeclarationEnterVisitor) will be renamed to `withDeclarationVisitor`.
 
-**/DEPRECATED**
+**/@deprecated**
 
 Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
 [declaration statements](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Declaration)
@@ -2696,12 +2696,12 @@ withDeclarationListVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | declarationListVisitors = visitor :: schema.declarationListVisitors }
 
 
-{-| **DEPRECATED**
+{-| **@deprecated**
 
 Use [`withExpressionEnterVisitor`](#withExpressionEnterVisitor) and [`withExpressionExitVisitor`](#withExpressionExitVisitor) instead.
 In the next major version, this function will be removed and [`withExpressionEnterVisitor`](#withExpressionEnterVisitor) will be renamed to `withExpressionVisitor`.
 
-**/DEPRECATED**
+**/@deprecated**
 
 Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
 [expressions](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Expression)
@@ -5034,7 +5034,7 @@ applyContextCreator data (ContextCreator fn _) from =
 
 {-| Request metadata about the module.
 
-**DEPRECATED**: Use more practical functions like
+**@deprecated**: Use more practical functions like
 
   - [`withModuleName`](#withModuleName)
   - [`withModuleNameNode`](#withModuleNameNode)
@@ -5288,7 +5288,7 @@ type alias AvailableData =
 
 {-| Metadata for the module being visited.
 
-**DEPRECATED**: More practical functions have been made available since the introduction of this type.
+**@deprecated**: More practical functions have been made available since the introduction of this type.
 
 Do not store the metadata directly in your context. Prefer storing the individual pieces of information.
 
@@ -5307,7 +5307,7 @@ createMetadata data =
 
 {-| Get the module name of the current module.
 
-**DEPRECATED**: Use the more practical [`withModuleName`](#withModuleName) instead.
+**@deprecated**: Use the more practical [`withModuleName`](#withModuleName) instead.
 
 -}
 moduleNameFromMetadata : Metadata -> ModuleName
@@ -5317,7 +5317,7 @@ moduleNameFromMetadata (Metadata metadata) =
 
 {-| Get the [`Node`](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Node#Node) to the module name of the current module.
 
-**DEPRECATED**: Use the more practical [`withModuleNameNode`](#withModuleNameNode) instead.
+**@deprecated**: Use the more practical [`withModuleNameNode`](#withModuleNameNode) instead.
 
 -}
 moduleNameNodeFromMetadata : Metadata -> Node ModuleName
@@ -5328,7 +5328,7 @@ moduleNameNodeFromMetadata (Metadata metadata) =
 {-| Learn whether the current module is in the "source-directories" of the project. You can use this information to
 know whether the module is part of the tests or of the production code.
 
-**DEPRECATED**: Use the more practical [`withIsInSourceDirectories`](#withIsInSourceDirectories) instead.
+**@deprecated**: Use the more practical [`withIsInSourceDirectories`](#withIsInSourceDirectories) instead.
 
 -}
 isInSourceDirectories : Metadata -> Bool
