@@ -158,7 +158,12 @@ type DeprecationReason
 fromProjectToModule : StableConfiguration -> Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule (StableConfiguration configuration) =
     Rule.initContextCreator
-        (\moduleName lookupTable projectContext ->
+        (\metadata lookupTable projectContext ->
+            let
+                moduleName : ModuleName
+                moduleName =
+                    Rule.moduleNameFromMetadata metadata
+            in
             { lookupTable = lookupTable
             , currentModuleName = moduleName
             , deprecatedModules = Dict.fromList projectContext.deprecatedModules
@@ -167,24 +172,24 @@ fromProjectToModule (StableConfiguration configuration) =
             , localDeprecatedElements = []
             }
         )
-        |> Rule.withModuleName
+        |> Rule.withMetadata
         |> Rule.withModuleNameLookupTable
 
 
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
     Rule.initContextCreator
-        (\moduleName moduleContext ->
+        (\metadata moduleContext ->
             { deprecatedModules =
                 if moduleContext.isModuleDeprecated then
-                    [ ( moduleName, DeprecatedModule ) ]
+                    [ ( Rule.moduleNameFromMetadata metadata, DeprecatedModule ) ]
 
                 else
                     []
             , deprecatedElements = moduleContext.localDeprecatedElements
             }
         )
-        |> Rule.withModuleName
+        |> Rule.withMetadata
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
@@ -310,7 +315,7 @@ isValidName name =
 By default are considered as deprecated:
 
   - Values / types / modules that contain "deprecated" (case insensitive) in their name.
-  - Values / types / modules whose documentation comment has a line starting with "@deprecated"
+  - Values / types / modules whose documentation comment has a line starting with "@deprecated" or (for better visibility) "\*\*@deprecated"
   - Values / types from modules that are considered as deprecated
 
 Configure this further using functions like [`dependencies`](#dependencies) and
@@ -329,8 +334,18 @@ defaults =
         documentationPredicate : String -> Bool
         documentationPredicate doc =
             doc
+                |> String.dropLeft 3
                 |> String.lines
-                |> List.any (String.startsWith "@deprecated")
+                |> List.any
+                    (\rawLine ->
+                        let
+                            line : String
+                            line =
+                                String.trimLeft rawLine
+                        in
+                        String.startsWith "@deprecated" line
+                            || String.startsWith "**@deprecated" line
+                    )
     in
     Configuration
         { moduleNamePredicate = \moduleName -> containsDeprecated (String.join "." moduleName)
@@ -379,8 +394,8 @@ dependenciesVisitor (StableConfiguration configuration) dict projectContext =
     let
         newContext : ProjectContext
         newContext =
-            List.foldl
-                (\( packageName, dependency ) acc ->
+            Dict.foldl
+                (\packageName dependency acc ->
                     let
                         modules : List Elm.Docs.Module
                         modules =
@@ -402,7 +417,7 @@ dependenciesVisitor (StableConfiguration configuration) dict projectContext =
                             modules
                 )
                 projectContext
-                (Dict.toList dict)
+                dict
 
         unknownDependenciesErrors : List (Rule.Error global)
         unknownDependenciesErrors =
@@ -813,9 +828,12 @@ rangeForNamedPattern (Node parentRange _) { moduleName, name } =
     let
         lengthForName : Int
         lengthForName =
-            (moduleName ++ [ name ])
-                |> String.join "."
-                |> String.length
+            if List.isEmpty moduleName then
+                String.length name
+
+            else
+                (String.join "." moduleName ++ "." ++ name)
+                    |> String.length
 
         patternStart : Range.Location
         patternStart =
