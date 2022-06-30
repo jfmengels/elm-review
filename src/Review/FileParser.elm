@@ -10,10 +10,12 @@ import Review.Dependencies
 -}
 parse : String -> Result () File
 parse source =
-    source
-        |> Parser.parse
-        |> Result.mapError (always ())
-        |> Result.map (Elm.Processing.process elmProcessContext)
+    case Parser.parse source of
+        Ok file ->
+            Ok (Elm.Processing.process elmProcessContext file)
+
+        Err _ ->
+            Err ()
 
 
 elmProcessContext : Elm.Processing.ProcessContext
