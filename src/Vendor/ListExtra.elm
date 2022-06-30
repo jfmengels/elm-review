@@ -63,4 +63,4 @@ uniquePairs xs =
 
 fastConcatMap : (a -> List b) -> List a -> List b
 fastConcatMap fn list =
-    List.foldr (fn >> (++)) [] list
+    List.foldr (\item acc -> fn item ++ acc) [] list
