@@ -2,6 +2,7 @@ module Review.Fix exposing
     ( Fix, removeRange, replaceRangeBy, insertAt
     , FixResult(..), Problem(..), fix
     , toRecord
+    , FixResultV2(..), fixV2
     )
 
 {-| Tools to write automatic error fixes.
@@ -134,9 +135,11 @@ in the context of your rule.
 import Array
 import Elm.Parser
 import Elm.Project
+import Elm.Syntax.File
 import Elm.Syntax.Range exposing (Range)
 import Json.Decode as Decode
 import Review.Error as Error
+import Review.FileParser
 import Unicode
 import Vendor.ListExtra as ListExtra
 
@@ -188,6 +191,15 @@ type FixResult
     | Errored Problem
 
 
+{-| Represents the result of having applied a list of fixes to a source code.
+-}
+type FixResultV2
+    = SuccessfulElmFile String Elm.Syntax.File.File
+    | SuccessfulElmJsonFile String Elm.Project.Project
+    | SuccessfulReadme String
+    | ErroredV2 Problem
+
+
 {-| Represents a problem that may have occurred when attempting to apply a list
 of fixes.
 -}
@@ -227,6 +239,39 @@ fix target fixes sourceCode =
             Errored Unchanged
 
 
+{-| Apply the changes on the source code.
+-}
+fixV2 : Error.Target -> List Fix -> String -> FixResultV2
+fixV2 target fixes sourceCode =
+    case target of
+        Error.Module ->
+            tryToApplyFixV2
+                fixes
+                sourceCode
+                (\resultAfterFix -> Review.FileParser.parse resultAfterFix)
+                SuccessfulElmFile
+
+        Error.Readme ->
+            tryToApplyFixV2
+                fixes
+                sourceCode
+                (always (Ok ()))
+                (\readme () -> SuccessfulReadme readme)
+
+        Error.ElmJson ->
+            tryToApplyFixV2
+                fixes
+                sourceCode
+                (\resultAfterFix -> Decode.decodeString Elm.Project.decoder resultAfterFix)
+                SuccessfulElmJsonFile
+
+        Error.Global ->
+            ErroredV2 Unchanged
+
+        Error.UserGlobal ->
+            ErroredV2 Unchanged
+
+
 tryToApplyFix : List Fix -> String -> (String -> Bool) -> FixResult
 tryToApplyFix fixes sourceCode isValidSourceCode =
     if containRangeCollisions fixes then
@@ -249,6 +294,32 @@ tryToApplyFix fixes sourceCode isValidSourceCode =
 
         else
             Errored (SourceCodeIsNotValid resultAfterFix)
+
+
+tryToApplyFixV2 : List Fix -> String -> (String -> Result error a) -> (String -> a -> FixResultV2) -> FixResultV2
+tryToApplyFixV2 fixes sourceCode parseSourceCode onSuccess =
+    if containRangeCollisions fixes then
+        ErroredV2 HasCollisionsInFixRanges
+
+    else
+        let
+            resultAfterFix : String
+            resultAfterFix =
+                fixes
+                    |> List.sortBy (rangePosition >> negate)
+                    |> List.foldl applyFix (String.lines sourceCode)
+                    |> String.join "\n"
+        in
+        if sourceCode == resultAfterFix then
+            ErroredV2 Unchanged
+
+        else
+            case parseSourceCode resultAfterFix of
+                Ok ast ->
+                    onSuccess resultAfterFix ast
+
+                Err _ ->
+                    ErroredV2 (SourceCodeIsNotValid resultAfterFix)
 
 
 containRangeCollisions : List Fix -> Bool
