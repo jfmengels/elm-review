@@ -4028,16 +4028,20 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
 
         errorsFromFinalEvaluation : List (Error {})
         errorsFromFinalEvaluation =
-            case maybePreviousCache of
-                Just previousCache ->
-                    if allModulesContext == previousAllModulesContext then
-                        previousCache.finalEvaluationErrors
+            if List.isEmpty projectVisitor.finalEvaluationFns then
+                []
 
-                    else
+            else
+                case maybePreviousCache of
+                    Just previousCache ->
+                        if allModulesContext == previousAllModulesContext then
+                            previousCache.finalEvaluationErrors
+
+                        else
+                            errorsFromFinalEvaluationForProject projectVisitor initialContext allModulesContext
+
+                    Nothing ->
                         errorsFromFinalEvaluationForProject projectVisitor initialContext allModulesContext
-
-                Nothing ->
-                    errorsFromFinalEvaluationForProject projectVisitor initialContext allModulesContext
 
         newCache : ProjectRuleCache projectContext
         newCache =
@@ -4915,23 +4919,19 @@ functionToExpression function =
 
 errorsFromFinalEvaluationForProject : RunnableProjectVisitor projectContext moduleContext -> projectContext -> List projectContext -> List (Error {})
 errorsFromFinalEvaluationForProject projectVisitor initialContext contextsPerModule =
-    if List.isEmpty projectVisitor.finalEvaluationFns then
-        []
+    let
+        finalContext : projectContext
+        finalContext =
+            case getFolderFromTraversal projectVisitor.traversalAndFolder of
+                Just { foldProjectContexts } ->
+                    List.foldl foldProjectContexts initialContext contextsPerModule
 
-    else
-        let
-            finalContext : projectContext
-            finalContext =
-                case getFolderFromTraversal projectVisitor.traversalAndFolder of
-                    Just { foldProjectContexts } ->
-                        List.foldl foldProjectContexts initialContext contextsPerModule
-
-                    Nothing ->
-                        initialContext
-        in
-        ListExtra.fastConcatMap
-            (\finalEvaluationFn -> finalEvaluationFn finalContext)
-            projectVisitor.finalEvaluationFns
+                Nothing ->
+                    initialContext
+    in
+    ListExtra.fastConcatMap
+        (\finalEvaluationFn -> finalEvaluationFn finalContext)
+        projectVisitor.finalEvaluationFns
 
 
 moduleNameNode : Node Module -> Node ModuleName
