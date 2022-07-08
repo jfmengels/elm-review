@@ -1,8 +1,10 @@
 module Tests.NoModuleOnExposedNames exposing (all)
 
+import Expect
 import NoModuleOnExposedNames exposing (rule)
 import Review.Test
 import Test exposing (Test, describe, test)
+import Test.Runner
 
 
 all : Test
@@ -24,9 +26,51 @@ view children =
 module Page exposing (view)
 import Html.Attributes as Attr exposing (class)
 view children =
-    div [ class "container" ] children
+    div [ class "container" ] childre
 """
                         ]
+                    |> (\expectation ->
+                            case Test.Runner.getFailureReason expectation of
+                                Nothing ->
+                                    Expect.fail "Should have failed"
+
+                                Just { description } ->
+                                    let
+                                        _ =
+                                            Debug.log "description" description
+
+                                        expected =
+                                            """[31m[1mFIXED CODE MISMATCH[22m[39m
+
+I found a different fixed source code than expected for the error with the
+following message:
+
+  `Module used on exposed value `class`.`
+
+I expected the following result after the fixes have been applied:
+
+  ```
+
+    module Page exposing (view)
+    import Html.Attributes as Attr exposing (class)
+    view children =
+        div [ class "container" ] childre
+
+  ```
+
+but I found:
+
+  ```
+
+    module Page exposing (view)
+    import Html.Attributes as Attr exposing (class)
+    view children =
+        div [ class "container" ] children
+
+  ```"""
+                                    in
+                                    Expect.equal expected description
+                       )
         , test "reports modules used on exposed types" <|
             \_ ->
                 """
