@@ -195,11 +195,11 @@ unexpectedGlobalErrorDetails expectedDetails error =
 
 and I was expecting its details to be:
 
-  """ ++ formatDetails error.details ++ """
+  """ ++ formatDetails expectedDetails ++ """
 
 but I found these details:
 
-  """ ++ formatDetails expectedDetails)
+  """ ++ formatDetails error.details)
 
 
 unexpectedConfigurationErrorDetails : List String -> { message : String, details : List String } -> String
@@ -211,11 +211,11 @@ unexpectedConfigurationErrorDetails expectedDetails error =
 
 and I was expecting its details to be:
 
-  """ ++ formatDetails error.details ++ """
+  """ ++ formatDetails expectedDetails ++ """
 
 but I found these details:
 
-  """ ++ formatDetails expectedDetails)
+  """ ++ formatDetails error.details)
 
 
 emptyDetails : String -> String
