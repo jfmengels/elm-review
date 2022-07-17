@@ -398,11 +398,11 @@ I found a global error with the following message:
 
 and I was expecting its details to be:
 
-  `Some other details`
+  `Some details`
 
 but I found these details:
 
-  `Some details`"""
+  `Some other details`"""
 
 
 unexpectedConfigurationErrorDetailsTest : Test
@@ -430,11 +430,11 @@ I found a configuration error with the following message:
 
 and I was expecting its details to be:
 
-  `Some other details`
+  `Some details`
 
 but I found these details:
 
-  `Some details`"""
+  `Some other details`"""
 
 
 emptyDetailsTest : Test
