@@ -122,11 +122,11 @@ moduleVisitor schema =
         |> Rule.withDeclarationEnterVisitor (\project context -> declarationEnterVisitor project context |> Rule.visitResultToTuple context)
         |> Rule.withDeclarationExitVisitor (\project context -> declarationExitVisitor project context |> Rule.visitResultToTuple context)
         |> Rule.withExpressionEnterVisitor (\node context -> expressionEnterVisitor node context |> Rule.updateContext |> Rule.visitResultToTuple context)
-        |> Rule.withExpressionExitVisitor expressionExitVisitor
+        |> Rule.withExpressionExitVisitor (\project context -> expressionExitVisitor project context |> Rule.visitResultToTuple context)
         |> Rule.withLetDeclarationEnterVisitor letDeclarationEnterVisitor
-        |> Rule.withLetDeclarationExitVisitor letDeclarationExitVisitor
+        |> Rule.withLetDeclarationExitVisitor (\_ project context -> letDeclarationExitVisitor project context |> Rule.visitResultToTuple context)
         |> Rule.withCaseBranchEnterVisitor (\_ casePattern context -> caseBranchEnterVisitor casePattern context |> Rule.updateContext |> Rule.visitResultToTuple context)
-        |> Rule.withCaseBranchExitVisitor caseBranchExitVisitor
+        |> Rule.withCaseBranchExitVisitor (\_ _ context -> caseBranchExitVisitor context |> Rule.visitResultToTuple context)
         |> Rule.withFinalModuleEvaluation finalEvaluation
 
 
@@ -671,7 +671,7 @@ expressionEnterVisitor (Node range value) context =
             context
 
 
-expressionExitVisitor : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
+expressionExitVisitor : Node Expression -> ModuleContext -> Rule.VisitResult {} ModuleContext
 expressionExitVisitor node context =
     case Node.value node of
         Expression.LetExpression _ ->
@@ -681,7 +681,7 @@ expressionExitVisitor node context =
             makeReport context
 
         _ ->
-            ( [], context )
+            Rule.noChange
 
 
 letDeclarationEnterVisitor : Node Expression.LetBlock -> Node Expression.LetDeclaration -> ModuleContext -> ( List (Error {}), ModuleContext )
@@ -824,14 +824,14 @@ isDebugLog lookupTable node =
             False
 
 
-letDeclarationExitVisitor : a -> Node Expression.LetDeclaration -> ModuleContext -> ( List (Error {}), ModuleContext )
-letDeclarationExitVisitor _ declaration context =
+letDeclarationExitVisitor : Node Expression.LetDeclaration -> ModuleContext -> Rule.VisitResult {} ModuleContext
+letDeclarationExitVisitor declaration context =
     case Node.value declaration of
         Expression.LetFunction _ ->
             makeReport { context | inTheDeclarationOf = List.drop 1 context.inTheDeclarationOf }
 
         Expression.LetDestructuring _ _ ->
-            ( [], context )
+            Rule.noChange
 
 
 caseBranchEnterVisitor : ( Node Pattern, b ) -> ModuleContext -> ModuleContext
@@ -847,8 +847,8 @@ caseBranchEnterVisitor ( pattern, _ ) context =
     }
 
 
-caseBranchExitVisitor : a -> ( Node Pattern, b ) -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
-caseBranchExitVisitor _ _ context =
+caseBranchExitVisitor : ModuleContext -> Rule.VisitResult {} ModuleContext
+caseBranchExitVisitor context =
     makeReport context
 
 
@@ -1261,7 +1261,6 @@ declarationExitVisitor node context =
     case Node.value node of
         Declaration.FunctionDeclaration _ ->
             makeReport context
-                |> Rule.errorsAndUpdateContext
 
         _ ->
             Rule.noChange
@@ -1670,7 +1669,7 @@ getModuleName name =
     String.join "." name
 
 
-makeReport : ModuleContext -> ( List (Error {}), ModuleContext )
+makeReport : ModuleContext -> Rule.VisitResult {} ModuleContext
 makeReport context =
     let
         ( errors, remainingUsed ) =
@@ -1680,9 +1679,9 @@ makeReport context =
         contextWithPoppedScope =
             { context | scopes = NonemptyList.pop context.scopes }
     in
-    ( errors
-    , markAllAsUsed remainingUsed contextWithPoppedScope
-    )
+    Rule.reportErrorsAndUpdateContext
+        errors
+        (markAllAsUsed remainingUsed contextWithPoppedScope)
 
 
 makeReportHelp : Scope -> ( List (Error {}), List String )
