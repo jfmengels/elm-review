@@ -116,16 +116,16 @@ rule =
 moduleVisitor : Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor schema =
     schema
-        |> Rule.withModuleDefinitionVisitor (\module_ context -> ( [], moduleDefinitionVisitor module_ context ))
+        |> Rule.withModuleDefinitionVisitor (\module_ context -> moduleDefinitionVisitor module_ context |> Rule.updateContext |> Rule.visitResultToTuple context)
         |> Rule.withImportVisitor importVisitor
-        |> Rule.withDeclarationListVisitor (\nodes context -> ( [], declarationListVisitor nodes context ))
+        |> Rule.withDeclarationListVisitor (\nodes context -> declarationListVisitor nodes context |> Rule.updateContext |> Rule.visitResultToTuple context)
         |> Rule.withDeclarationEnterVisitor declarationEnterVisitor
         |> Rule.withDeclarationExitVisitor declarationExitVisitor
-        |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionEnterVisitor node context ))
+        |> Rule.withExpressionEnterVisitor (\node context -> expressionEnterVisitor node context |> Rule.updateContext |> Rule.visitResultToTuple context)
         |> Rule.withExpressionExitVisitor expressionExitVisitor
         |> Rule.withLetDeclarationEnterVisitor letDeclarationEnterVisitor
         |> Rule.withLetDeclarationExitVisitor letDeclarationExitVisitor
-        |> Rule.withCaseBranchEnterVisitor (\_ casePattern context -> ( [], caseBranchEnterVisitor casePattern context ))
+        |> Rule.withCaseBranchEnterVisitor (\_ casePattern context -> caseBranchEnterVisitor casePattern context |> Rule.updateContext |> Rule.visitResultToTuple context)
         |> Rule.withCaseBranchExitVisitor caseBranchExitVisitor
         |> Rule.withFinalModuleEvaluation finalEvaluation
 
