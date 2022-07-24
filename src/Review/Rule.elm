@@ -15,6 +15,7 @@ module Review.Rule exposing
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
     , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
     , Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
+    , VisitResult, noChange, reportErrors, reportErrorsAndUpdateContext, updateContext
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , globalError, configurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
@@ -230,6 +231,11 @@ first, as they are in practice a simpler version of project rules.
 ### Requesting more information (DEPRECATED)
 
 @docs Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
+
+
+## Visit result
+
+@docs VisitResult, noChange, reportErrors, reportErrorsAndUpdateContext, updateContext
 
 
 ## Errors
@@ -3189,6 +3195,37 @@ for [`withImportVisitor`](#withImportVisitor), but using [`withFinalModuleEvalua
 withFinalModuleEvaluation : (moduleContext -> List (Error {})) -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withFinalModuleEvaluation visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | finalEvaluationFns = visitor :: schema.finalEvaluationFns }
+
+
+
+-- VISIT RESULT
+
+
+type VisitResult scope context
+    = NoChange
+    | ReportErrors (List (Error scope))
+    | UpdateContext context
+    | ReportErrorsAndUpdateContext (List (Error scope)) context
+
+
+noChange : VisitResult scope context
+noChange =
+    NoChange
+
+
+reportErrors : List (Error scope) -> VisitResult scope context
+reportErrors =
+    ReportErrors
+
+
+updateContext : context -> VisitResult scope context
+updateContext =
+    UpdateContext
+
+
+reportErrorsAndUpdateContext : List (Error scope) -> context -> VisitResult scope context
+reportErrorsAndUpdateContext =
+    ReportErrorsAndUpdateContext
 
 
 
