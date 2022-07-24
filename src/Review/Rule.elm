@@ -3200,6 +3200,7 @@ withFinalModuleEvaluation visitor (ModuleRuleSchema schema) =
 
 
 -- VISIT RESULT
+-- TODO Breaking change: Move this to a separate module
 
 
 type VisitResult scope context
