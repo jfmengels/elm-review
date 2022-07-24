@@ -425,7 +425,7 @@ review rules project =
                     in
                     case Graph.checkAcyclic moduleGraph of
                         Err edge ->
-                            ( importCycleError moduleGraph edge, rules )
+                            ( [ importCycleError moduleGraph edge ], rules )
 
                         Ok nodesContexts ->
                             let
@@ -636,14 +636,14 @@ getModulesSortedByImport project =
             Ok (Graph.topologicalSort graph)
 
         Err edge ->
-            Err (importCycleError moduleGraph edge)
+            Err [ importCycleError moduleGraph edge ]
 
 
 
 -- IMPORT CYCLE
 
 
-importCycleError : Graph ModuleName e -> Graph.Edge e -> List ReviewError
+importCycleError : Graph ModuleName e -> Graph.Edge e -> ReviewError
 importCycleError moduleGraph edge =
     let
         cycle : List ModuleName
@@ -651,7 +651,7 @@ importCycleError moduleGraph edge =
             findCycle moduleGraph edge
                 |> List.reverse
     in
-    [ elmReviewGlobalError
+    elmReviewGlobalError
         { message = "Your module imports form a cycle"
         , details =
             [ printCycle cycle
@@ -660,7 +660,6 @@ importCycleError moduleGraph edge =
         }
         |> setRuleName "Incorrect project"
         |> errorToReviewError
-    ]
 
 
 findCycle : Graph n e -> Graph.Edge e -> List n
