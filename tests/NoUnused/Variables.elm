@@ -123,7 +123,7 @@ moduleVisitor schema =
         |> Rule.withDeclarationExitVisitor (\project context -> declarationExitVisitor project context |> Rule.visitResultToTuple context)
         |> Rule.withExpressionEnterVisitor (\node context -> expressionEnterVisitor node context |> Rule.updateContext |> Rule.visitResultToTuple context)
         |> Rule.withExpressionExitVisitor (\project context -> expressionExitVisitor project context |> Rule.visitResultToTuple context)
-        |> Rule.withLetDeclarationEnterVisitor letDeclarationEnterVisitor
+        |> Rule.withLetDeclarationEnterVisitor (\letBlock project context -> letDeclarationEnterVisitor letBlock project context |> Rule.visitResultToTuple context)
         |> Rule.withLetDeclarationExitVisitor (\_ project context -> letDeclarationExitVisitor project context |> Rule.visitResultToTuple context)
         |> Rule.withCaseBranchEnterVisitor (\_ casePattern context -> caseBranchEnterVisitor casePattern context |> Rule.updateContext |> Rule.visitResultToTuple context)
         |> Rule.withCaseBranchExitVisitor (\_ _ context -> caseBranchExitVisitor context |> Rule.visitResultToTuple context)
@@ -684,7 +684,7 @@ expressionExitVisitor node context =
             Rule.noChange
 
 
-letDeclarationEnterVisitor : Node Expression.LetBlock -> Node Expression.LetDeclaration -> ModuleContext -> ( List (Error {}), ModuleContext )
+letDeclarationEnterVisitor : Node Expression.LetBlock -> Node Expression.LetDeclaration -> ModuleContext -> Rule.VisitResult {} ModuleContext
 letDeclarationEnterVisitor (Node range { declarations, expression }) declaration context =
     let
         letBlockContext : LetBlockContext
@@ -713,20 +713,20 @@ letDeclarationEnterVisitor (Node range { declarations, expression }) declaration
                         |> markValuesFromPatternsAsUsed functionDeclaration.arguments
                         |> registerFunction letBlockContext function (Node.range declaration)
             in
-            ( []
-            , { newContext
-                | scopes = NonemptyList.cons { declared = Dict.empty, used = Dict.empty, namesToIgnore = namesToIgnore } newContext.scopes
-              }
-            )
+            Rule.updateContext
+                { newContext
+                    | scopes = NonemptyList.cons { declared = Dict.empty, used = Dict.empty, namesToIgnore = namesToIgnore } newContext.scopes
+                }
 
         Expression.LetDestructuring pattern value ->
             case removeParensFromPattern pattern of
                 Node wildCardRange Pattern.AllPattern ->
                     if isDebugLog context.lookupTable value then
-                        ( [], context )
+                        Rule.noChange
 
                     else
-                        ( [ Rule.errorWithFix
+                        Rule.reportErrors
+                            [ Rule.errorWithFix
                                 { message = "Value assigned to `_` is unused"
                                 , details =
                                     [ "This value has been assigned to a wildcard, which makes the value unusable. You should remove it at the location I pointed at."
@@ -734,12 +734,11 @@ letDeclarationEnterVisitor (Node range { declarations, expression }) declaration
                                 }
                                 wildCardRange
                                 [ Fix.removeRange (letDeclarationToRemoveRange letBlockContext (Node.range declaration)) ]
-                          ]
-                        , context
-                        )
+                            ]
 
                 Node unitPattern Pattern.UnitPattern ->
-                    ( [ Rule.errorWithFix
+                    Rule.reportErrors
+                        [ Rule.errorWithFix
                             { message = "Unit value is unused"
                             , details =
                                 [ "This value has no data, which makes the value unusable. You should remove it at the location I pointed at."
@@ -747,25 +746,24 @@ letDeclarationEnterVisitor (Node range { declarations, expression }) declaration
                             }
                             unitPattern
                             [ Fix.removeRange (letDeclarationToRemoveRange letBlockContext (Node.range declaration)) ]
-                      ]
-                    , context
-                    )
+                        ]
 
                 _ ->
-                    ( if introducesVariable [ pattern ] then
-                        []
+                    Rule.reportErrorsAndUpdateContext
+                        (if introducesVariable [ pattern ] then
+                            []
 
-                      else
-                        [ Rule.errorWithFix
-                            { message = "Pattern doesn't introduce any variables"
-                            , details =
-                                [ "This value has been computed but isn't assigned to any variable, which makes the value unusable. You should remove it at the location I pointed at." ]
-                            }
-                            (Node.range pattern)
-                            [ Fix.removeRange (letDeclarationToRemoveRange letBlockContext (Node.range declaration)) ]
-                        ]
-                    , markValuesFromPatternsAsUsed [ pattern ] context
-                    )
+                         else
+                            [ Rule.errorWithFix
+                                { message = "Pattern doesn't introduce any variables"
+                                , details =
+                                    [ "This value has been computed but isn't assigned to any variable, which makes the value unusable. You should remove it at the location I pointed at." ]
+                                }
+                                (Node.range pattern)
+                                [ Fix.removeRange (letDeclarationToRemoveRange letBlockContext (Node.range declaration)) ]
+                            ]
+                        )
+                        (markValuesFromPatternsAsUsed [ pattern ] context)
 
 
 isDebugLog : ModuleNameLookupTable -> Node Expression -> Bool
