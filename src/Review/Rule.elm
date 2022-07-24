@@ -22,7 +22,7 @@ module Review.Rule exposing
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , review, reviewV2, ProjectData, ruleName, getConfigurationError
     , Required, Forbidden
-    , visitResultToTuple
+    , adaptVisitor2, adaptVisitor3, visitResultToTuple
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -3233,6 +3233,18 @@ reportErrorsAndUpdateContext =
 errorsAndUpdateContext : ( List (Error scope), context ) -> VisitResult scope context
 errorsAndUpdateContext ( errors, context ) =
     ReportErrorsAndUpdateContext errors context
+
+
+adaptVisitor2 : (a -> context -> VisitResult scope context) -> a -> context -> ( List (Error scope), context )
+adaptVisitor2 visitor data context =
+    visitor data context
+        |> visitResultToTuple context
+
+
+adaptVisitor3 : (a -> b -> context -> VisitResult scope context) -> a -> b -> context -> ( List (Error scope), context )
+adaptVisitor3 visitor data1 data2 context =
+    visitor data1 data2 context
+        |> visitResultToTuple context
 
 
 {-| Helper function to help going from visit results to the old tuple result.
