@@ -560,6 +560,49 @@ checkForConfigurationErrors rules =
         Err errors
 
 
+runReview : Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
+runReview ((Project p) as project) rules maybeProjectData nodeContexts =
+    let
+        scopeResult : { projectData : Maybe ProjectData, extract : Maybe Extract }
+        scopeResult =
+            if needsToComputeScope rules then
+                let
+                    { cache, extract } =
+                        runProjectVisitor
+                            "DUMMY"
+                            scopeRule
+                            (Maybe.map extractProjectData maybeProjectData)
+                            Exceptions.init
+                            project
+                            nodeContexts
+                in
+                { projectData = Just (ProjectData cache)
+                , extract = extract
+                }
+
+            else
+                { projectData = Nothing
+                , extract = Nothing
+                }
+
+        moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
+        moduleNameLookupTables =
+            Maybe.map (\(Extract moduleNameLookupTables_) -> moduleNameLookupTables_) scopeResult.extract
+
+        projectWithLookupTables : Project
+        projectWithLookupTables =
+            Project { p | moduleNameLookupTables = moduleNameLookupTables }
+    in
+    let
+        ( errors, newRules ) =
+            runRules rules projectWithLookupTables nodeContexts
+    in
+    { errors = List.map errorToReviewError errors
+    , rules = newRules
+    , projectData = scopeResult.projectData
+    }
+
+
 checkForModulesThatFailedToParse : Project -> Result (List ReviewError) ()
 checkForModulesThatFailedToParse project =
     case Review.Project.modulesThatFailedToParse project of
@@ -594,6 +637,10 @@ getModulesSortedByImport project =
 
         Err edge ->
             Err (importCycleError moduleGraph edge)
+
+
+
+-- IMPORT CYCLE
 
 
 importCycleError : Graph ModuleName e -> Graph.Edge e -> List ReviewError
@@ -706,47 +753,8 @@ wrapInCycle string =
     "    ┌─────┐\n    │    " ++ string ++ "\n    └─────┘"
 
 
-runReview : Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
-runReview ((Project p) as project) rules maybeProjectData nodeContexts =
-    let
-        scopeResult : { projectData : Maybe ProjectData, extract : Maybe Extract }
-        scopeResult =
-            if needsToComputeScope rules then
-                let
-                    { cache, extract } =
-                        runProjectVisitor
-                            "DUMMY"
-                            scopeRule
-                            (Maybe.map extractProjectData maybeProjectData)
-                            Exceptions.init
-                            project
-                            nodeContexts
-                in
-                { projectData = Just (ProjectData cache)
-                , extract = extract
-                }
 
-            else
-                { projectData = Nothing
-                , extract = Nothing
-                }
-
-        moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
-        moduleNameLookupTables =
-            Maybe.map (\(Extract moduleNameLookupTables_) -> moduleNameLookupTables_) scopeResult.extract
-
-        projectWithLookupTables : Project
-        projectWithLookupTables =
-            Project { p | moduleNameLookupTables = moduleNameLookupTables }
-    in
-    let
-        ( errors, newRules ) =
-            runRules rules projectWithLookupTables nodeContexts
-    in
-    { errors = List.map errorToReviewError errors
-    , rules = newRules
-    , projectData = scopeResult.projectData
-    }
+-- PROJECT DATA
 
 
 {-| Internal cache about the project.
