@@ -119,7 +119,7 @@ moduleVisitor schema =
         |> Rule.withModuleDefinitionVisitor (\module_ context -> moduleDefinitionVisitor module_ context |> Rule.updateContext |> Rule.visitResultToTuple context)
         |> Rule.withImportVisitor importVisitor
         |> Rule.withDeclarationListVisitor (\nodes context -> declarationListVisitor nodes context |> Rule.updateContext |> Rule.visitResultToTuple context)
-        |> Rule.withDeclarationEnterVisitor declarationEnterVisitor
+        |> Rule.withDeclarationEnterVisitor (\project context -> declarationEnterVisitor project context |> Rule.visitResultToTuple context)
         |> Rule.withDeclarationExitVisitor declarationExitVisitor
         |> Rule.withExpressionEnterVisitor (\node context -> expressionEnterVisitor node context |> Rule.updateContext |> Rule.visitResultToTuple context)
         |> Rule.withExpressionExitVisitor expressionExitVisitor
@@ -1138,7 +1138,7 @@ registerTypeAlias range { name, typeAnnotation } context =
 -- DECLARATION ENTER VISITOR
 
 
-declarationEnterVisitor : Node Declaration -> ModuleContext -> ( List (Error {}), ModuleContext )
+declarationEnterVisitor : Node Declaration -> ModuleContext -> Rule.VisitResult {} ModuleContext
 declarationEnterVisitor node context =
     case Node.value node of
         Declaration.FunctionDeclaration function ->
@@ -1201,7 +1201,7 @@ declarationEnterVisitor node context =
                         _ ->
                             []
             in
-            ( shadowingImportError, newContext )
+            Rule.reportErrorsAndUpdateContext shadowingImportError newContext
 
         Declaration.CustomTypeDeclaration { name, constructors } ->
             let
@@ -1209,14 +1209,12 @@ declarationEnterVisitor node context =
                 arguments =
                     List.concatMap (Node.value >> .arguments) constructors
             in
-            ( []
-            , collectNamesFromTypeAnnotation (Just (Node.value name)) arguments context
-            )
+            collectNamesFromTypeAnnotation (Just (Node.value name)) arguments context
+                |> Rule.updateContext
 
         Declaration.AliasDeclaration { typeAnnotation } ->
-            ( []
-            , collectNamesFromTypeAnnotation Nothing [ typeAnnotation ] context
-            )
+            collectNamesFromTypeAnnotation Nothing [ typeAnnotation ] context
+                |> Rule.updateContext
 
         Declaration.PortDeclaration { name, typeAnnotation } ->
             let
@@ -1224,11 +1222,10 @@ declarationEnterVisitor node context =
                 contextWithUsedElements =
                     collectNamesFromTypeAnnotation Nothing [ typeAnnotation ] context
             in
-            ( []
-            , if context.exposesEverything then
-                contextWithUsedElements
+            if context.exposesEverything then
+                Rule.updateContext contextWithUsedElements
 
-              else
+            else
                 registerVariable
                     { typeName = "Port"
                     , under = Node.range name
@@ -1237,11 +1234,10 @@ declarationEnterVisitor node context =
                     }
                     (Node.value name)
                     contextWithUsedElements
-            )
+                    |> Rule.updateContext
 
         Declaration.InfixDeclaration { operator, function } ->
-            ( []
-            , context
+            context
                 |> markValueAsUsed (Node.value function)
                 |> registerVariable
                     { typeName = "Declared operator"
@@ -1250,10 +1246,10 @@ declarationEnterVisitor node context =
                     , warning = ""
                     }
                     (Node.value operator)
-            )
+                |> Rule.updateContext
 
         Declaration.Destructuring _ _ ->
-            ( [], context )
+            Rule.noChange
 
 
 
