@@ -15,7 +15,7 @@ module Review.Rule exposing
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
     , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
     , Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
-    , VisitResult, noChange, reportErrors, reportErrorsAndUpdateContext, updateContext
+    , VisitResult, noChange, reportErrors, reportErrorsAndUpdateContext, errorsAndUpdateContext, updateContext
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , globalError, configurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
@@ -236,7 +236,7 @@ first, as they are in practice a simpler version of project rules.
 
 ## Visit result
 
-@docs VisitResult, noChange, reportErrors, reportErrorsAndUpdateContext, updateContext
+@docs VisitResult, noChange, reportErrors, reportErrorsAndUpdateContext, errorsAndUpdateContext, updateContext
 
 
 ## Errors
@@ -3228,6 +3228,11 @@ updateContext =
 reportErrorsAndUpdateContext : List (Error scope) -> context -> VisitResult scope context
 reportErrorsAndUpdateContext =
     ReportErrorsAndUpdateContext
+
+
+errorsAndUpdateContext : ( List (Error scope), context ) -> VisitResult scope context
+errorsAndUpdateContext ( errors, context ) =
+    ReportErrorsAndUpdateContext errors context
 
 
 {-| Helper function to help going from visit results to the old tuple result.

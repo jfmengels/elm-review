@@ -120,7 +120,7 @@ moduleVisitor schema =
         |> Rule.withImportVisitor importVisitor
         |> Rule.withDeclarationListVisitor (\nodes context -> declarationListVisitor nodes context |> Rule.updateContext |> Rule.visitResultToTuple context)
         |> Rule.withDeclarationEnterVisitor (\project context -> declarationEnterVisitor project context |> Rule.visitResultToTuple context)
-        |> Rule.withDeclarationExitVisitor declarationExitVisitor
+        |> Rule.withDeclarationExitVisitor (\project context -> declarationExitVisitor project context |> Rule.visitResultToTuple context)
         |> Rule.withExpressionEnterVisitor (\node context -> expressionEnterVisitor node context |> Rule.updateContext |> Rule.visitResultToTuple context)
         |> Rule.withExpressionExitVisitor expressionExitVisitor
         |> Rule.withLetDeclarationEnterVisitor letDeclarationEnterVisitor
@@ -1201,7 +1201,7 @@ declarationEnterVisitor node context =
                         _ ->
                             []
             in
-            Rule.reportErrorsAndUpdateContext shadowingImportError newContext
+            Rule.errorsAndUpdateContext ( shadowingImportError, newContext )
 
         Declaration.CustomTypeDeclaration { name, constructors } ->
             let
@@ -1256,14 +1256,15 @@ declarationEnterVisitor node context =
 -- DECLARATION EXIT VISITOR
 
 
-declarationExitVisitor : Node Declaration -> ModuleContext -> ( List (Error {}), ModuleContext )
+declarationExitVisitor : Node Declaration -> ModuleContext -> Rule.VisitResult {} ModuleContext
 declarationExitVisitor node context =
     case Node.value node of
         Declaration.FunctionDeclaration _ ->
             makeReport context
+                |> Rule.errorsAndUpdateContext
 
         _ ->
-            ( [], context )
+            Rule.noChange
 
 
 
