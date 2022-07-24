@@ -3232,8 +3232,8 @@ reportErrorsAndUpdateContext =
 
 {-| Helper function to help going from visit results to the old tuple result.
 -}
-visitResultToTuple : VisitResult scope context -> context -> ( List (Error scope), context )
-visitResultToTuple visitResult previousContext =
+visitResultToTuple : context -> VisitResult scope context -> ( List (Error scope), context )
+visitResultToTuple previousContext visitResult =
     case visitResult of
         NoChange ->
             ( [], previousContext )
