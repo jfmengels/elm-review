@@ -102,7 +102,7 @@ rule : Rule
 rule =
     Rule.newProjectRuleSchema "NoUnused.Variables" initialContext
         |> Rule.withElmJsonProjectVisitor (\project context -> elmJsonVisitor project context |> Rule.visitResultToTuple context)
-        |> Rule.withDependenciesProjectVisitor dependenciesVisitor
+        |> Rule.withDependenciesProjectVisitor (\data context -> dependenciesVisitor data context |> Rule.visitResultToTuple context)
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModule
@@ -324,7 +324,7 @@ elmJsonVisitor maybeElmJson projectContext =
 -- DEPENDENCIES VISITOR
 
 
-dependenciesVisitor : Dict String Dependency -> ProjectContext -> ( List (Error nothing), ProjectContext )
+dependenciesVisitor : Dict String Dependency -> ProjectContext -> Rule.VisitResult scope ProjectContext
 dependenciesVisitor dependencies projectContext =
     let
         customTypes : Dict ModuleName (Dict String (List String))
@@ -342,7 +342,7 @@ dependenciesVisitor dependencies projectContext =
                     )
                 |> Dict.fromList
     in
-    ( [], { projectContext | customTypes = customTypes } )
+    Rule.updateContext { projectContext | customTypes = customTypes }
 
 
 
