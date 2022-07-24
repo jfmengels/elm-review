@@ -117,7 +117,7 @@ moduleVisitor : Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRu
 moduleVisitor schema =
     schema
         |> Rule.withModuleDefinitionVisitor (\module_ context -> moduleDefinitionVisitor module_ context |> Rule.updateContext |> Rule.visitResultToTuple context)
-        |> Rule.withImportVisitor importVisitor
+        |> Rule.withImportVisitor (\nodes context -> importVisitor nodes context |> Rule.visitResultToTuple context)
         |> Rule.withDeclarationListVisitor (\nodes context -> declarationListVisitor nodes context |> Rule.updateContext |> Rule.visitResultToTuple context)
         |> Rule.withDeclarationEnterVisitor (\project context -> declarationEnterVisitor project context |> Rule.visitResultToTuple context)
         |> Rule.withDeclarationExitVisitor (\project context -> declarationExitVisitor project context |> Rule.visitResultToTuple context)
@@ -380,7 +380,7 @@ getExposingName node =
             name
 
 
-importVisitor : Node Import -> ModuleContext -> ( List (Error {}), ModuleContext )
+importVisitor : Node Import -> ModuleContext -> Rule.VisitResult {} ModuleContext
 importVisitor ((Node importRange import_) as node) context =
     let
         errors : List (Error {})
@@ -401,55 +401,57 @@ importVisitor ((Node importRange import_) as node) context =
 
                 Nothing ->
                     []
-    in
-    case import_.exposingList of
-        Nothing ->
-            ( errors, registerModuleNameOrAlias node context )
 
-        Just declaredImports ->
-            let
-                contextWithAlias : ModuleContext
-                contextWithAlias =
-                    case import_.moduleAlias of
-                        Just moduleAlias ->
-                            registerModuleAlias node moduleAlias context
+        newContext : ModuleContext
+        newContext =
+            case import_.exposingList of
+                Nothing ->
+                    registerModuleNameOrAlias node context
 
-                        Nothing ->
-                            context
-            in
-            ( errors
-            , case Node.value declaredImports of
-                Exposing.All _ ->
-                    if Dict.member (Node.value import_.moduleName) context.customTypes then
-                        { contextWithAlias
-                            | exposingAllModules =
-                                { name = Node.value import_.moduleName
-                                , alias = Maybe.map (Node.value >> String.join ".") import_.moduleAlias
-                                , moduleNameRange = Node.range import_.moduleName
-                                , exposingRange = Node.range declaredImports
-                                , importRange = importRange
-                                , wasUsedImplicitly = False
-                                , wasUsedWithModuleName = False
-                                }
-                                    :: context.exposingAllModules
-                        }
-
-                    else
-                        contextWithAlias
-
-                Exposing.Explicit list ->
+                Just declaredImports ->
                     let
-                        customTypesFromModule : Dict String (List String)
-                        customTypesFromModule =
-                            context.customTypes
-                                |> Dict.get (Node.value import_.moduleName)
-                                |> Maybe.withDefault Dict.empty
+                        contextWithAlias : ModuleContext
+                        contextWithAlias =
+                            case import_.moduleAlias of
+                                Just moduleAlias ->
+                                    registerModuleAlias node moduleAlias context
+
+                                Nothing ->
+                                    context
                     in
-                    List.foldl
-                        (registerExposedElements customTypesFromModule)
-                        contextWithAlias
-                        (collectExplicitlyExposedElements (Node.range declaredImports) list)
-            )
+                    case Node.value declaredImports of
+                        Exposing.All _ ->
+                            if Dict.member (Node.value import_.moduleName) context.customTypes then
+                                { contextWithAlias
+                                    | exposingAllModules =
+                                        { name = Node.value import_.moduleName
+                                        , alias = Maybe.map (Node.value >> String.join ".") import_.moduleAlias
+                                        , moduleNameRange = Node.range import_.moduleName
+                                        , exposingRange = Node.range declaredImports
+                                        , importRange = importRange
+                                        , wasUsedImplicitly = False
+                                        , wasUsedWithModuleName = False
+                                        }
+                                            :: context.exposingAllModules
+                                }
+
+                            else
+                                contextWithAlias
+
+                        Exposing.Explicit list ->
+                            let
+                                customTypesFromModule : Dict String (List String)
+                                customTypesFromModule =
+                                    context.customTypes
+                                        |> Dict.get (Node.value import_.moduleName)
+                                        |> Maybe.withDefault Dict.empty
+                            in
+                            List.foldl
+                                (registerExposedElements customTypesFromModule)
+                                contextWithAlias
+                                (collectExplicitlyExposedElements (Node.range declaredImports) list)
+    in
+    Rule.reportErrorsAndUpdateContext errors newContext
 
 
 registerExposedElements : Dict String (List String) -> ExposedElement -> ModuleContext -> ModuleContext
