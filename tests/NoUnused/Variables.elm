@@ -101,8 +101,8 @@ elm-review --template jfmengels/elm-review-unused/example --rules NoUnused.Varia
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "NoUnused.Variables" initialContext
-        |> Rule.withElmJsonProjectVisitor (\project context -> elmJsonVisitor project context |> Rule.visitResultToTuple context)
-        |> Rule.withDependenciesProjectVisitor (\data context -> dependenciesVisitor data context |> Rule.visitResultToTuple context)
+        |> Rule.withElmJsonProjectVisitor (Rule.adaptVisitor2 elmJsonVisitor)
+        |> Rule.withDependenciesProjectVisitor (Rule.adaptVisitor2 dependenciesVisitor)
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModule
@@ -116,17 +116,17 @@ rule =
 moduleVisitor : Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor schema =
     schema
-        |> Rule.withModuleDefinitionVisitor (\module_ context -> moduleDefinitionVisitor module_ context |> Rule.updateContext |> Rule.visitResultToTuple context)
-        |> Rule.withImportVisitor (\nodes context -> importVisitor nodes context |> Rule.visitResultToTuple context)
-        |> Rule.withDeclarationListVisitor (\nodes context -> declarationListVisitor nodes context |> Rule.updateContext |> Rule.visitResultToTuple context)
-        |> Rule.withDeclarationEnterVisitor (\project context -> declarationEnterVisitor project context |> Rule.visitResultToTuple context)
-        |> Rule.withDeclarationExitVisitor (\project context -> declarationExitVisitor project context |> Rule.visitResultToTuple context)
-        |> Rule.withExpressionEnterVisitor (\node context -> expressionEnterVisitor node context |> Rule.updateContext |> Rule.visitResultToTuple context)
-        |> Rule.withExpressionExitVisitor (\project context -> expressionExitVisitor project context |> Rule.visitResultToTuple context)
-        |> Rule.withLetDeclarationEnterVisitor (\letBlock project context -> letDeclarationEnterVisitor letBlock project context |> Rule.visitResultToTuple context)
-        |> Rule.withLetDeclarationExitVisitor (\_ project context -> letDeclarationExitVisitor project context |> Rule.visitResultToTuple context)
-        |> Rule.withCaseBranchEnterVisitor (\_ casePattern context -> caseBranchEnterVisitor casePattern context |> Rule.updateContext |> Rule.visitResultToTuple context)
-        |> Rule.withCaseBranchExitVisitor (\_ _ context -> caseBranchExitVisitor context |> Rule.visitResultToTuple context)
+        |> Rule.withModuleDefinitionVisitor (Rule.adaptVisitor2 (Rule.contextOnlyVisitor2 moduleDefinitionVisitor))
+        |> Rule.withImportVisitor (Rule.adaptVisitor2 importVisitor)
+        |> Rule.withDeclarationListVisitor (Rule.adaptVisitor2 (Rule.contextOnlyVisitor2 declarationListVisitor))
+        |> Rule.withDeclarationEnterVisitor (Rule.adaptVisitor2 declarationEnterVisitor)
+        |> Rule.withDeclarationExitVisitor (Rule.adaptVisitor2 declarationExitVisitor)
+        |> Rule.withExpressionEnterVisitor (Rule.adaptVisitor2 (Rule.contextOnlyVisitor2 expressionEnterVisitor))
+        |> Rule.withExpressionExitVisitor (Rule.adaptVisitor2 expressionExitVisitor)
+        |> Rule.withLetDeclarationEnterVisitor (Rule.adaptVisitor3 letDeclarationEnterVisitor)
+        |> Rule.withLetDeclarationExitVisitor (Rule.adaptVisitor3 letDeclarationExitVisitor)
+        |> Rule.withCaseBranchEnterVisitor (Rule.adaptVisitor3 (Rule.contextOnlyVisitor3 caseBranchEnterVisitor))
+        |> Rule.withCaseBranchExitVisitor (Rule.adaptVisitor3 caseBranchExitVisitor)
         |> Rule.withFinalModuleEvaluation finalEvaluation
 
 
@@ -824,8 +824,8 @@ isDebugLog lookupTable node =
             False
 
 
-letDeclarationExitVisitor : Node Expression.LetDeclaration -> ModuleContext -> Rule.VisitResult {} ModuleContext
-letDeclarationExitVisitor declaration context =
+letDeclarationExitVisitor : a -> Node Expression.LetDeclaration -> ModuleContext -> Rule.VisitResult {} ModuleContext
+letDeclarationExitVisitor _ declaration context =
     case Node.value declaration of
         Expression.LetFunction _ ->
             makeReport { context | inTheDeclarationOf = List.drop 1 context.inTheDeclarationOf }
@@ -834,8 +834,8 @@ letDeclarationExitVisitor declaration context =
             Rule.noChange
 
 
-caseBranchEnterVisitor : ( Node Pattern, b ) -> ModuleContext -> ModuleContext
-caseBranchEnterVisitor ( pattern, _ ) context =
+caseBranchEnterVisitor : a -> ( Node Pattern, b ) -> ModuleContext -> ModuleContext
+caseBranchEnterVisitor _ ( pattern, _ ) context =
     { context
         | scopes =
             NonemptyList.cons
@@ -847,8 +847,8 @@ caseBranchEnterVisitor ( pattern, _ ) context =
     }
 
 
-caseBranchExitVisitor : ModuleContext -> Rule.VisitResult {} ModuleContext
-caseBranchExitVisitor context =
+caseBranchExitVisitor : a -> b -> ModuleContext -> Rule.VisitResult {} ModuleContext
+caseBranchExitVisitor _ _ context =
     makeReport context
 
 
