@@ -101,7 +101,7 @@ elm-review --template jfmengels/elm-review-unused/example --rules NoUnused.Varia
 rule : Rule
 rule =
     Rule.newProjectRuleSchema "NoUnused.Variables" initialContext
-        |> Rule.withElmJsonProjectVisitor (\project context -> ( [], elmJsonVisitor project context ))
+        |> Rule.withElmJsonProjectVisitor (\project context -> elmJsonVisitor project context |> Rule.visitResultToTuple context)
         |> Rule.withDependenciesProjectVisitor dependenciesVisitor
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContextUsingContextCreator
@@ -306,18 +306,18 @@ details =
 -- ELM.JSON VISITOR
 
 
-elmJsonVisitor : Maybe { a | project : Elm.Project.Project } -> ProjectContext -> ProjectContext
+elmJsonVisitor : Maybe { a | project : Elm.Project.Project } -> ProjectContext -> Rule.VisitResult scope ProjectContext
 elmJsonVisitor maybeElmJson projectContext =
     case Maybe.map .project maybeElmJson of
         Just (Elm.Project.Application _) ->
-            { projectContext | isApplication = True }
+            Rule.updateContext { projectContext | isApplication = True }
 
         Just (Elm.Project.Package _) ->
-            { projectContext | isApplication = False }
+            Rule.updateContext { projectContext | isApplication = False }
 
         Nothing ->
             -- Sensible default, because now `main` won't be reported.
-            { projectContext | isApplication = True }
+            Rule.updateContext { projectContext | isApplication = True }
 
 
 
