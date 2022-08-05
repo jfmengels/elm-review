@@ -63,11 +63,11 @@ elm-review --template jfmengels/elm-review-unused/example --rules NoUnused.Patte
 rule : Rule
 rule =
     Rule.newModuleRuleSchema "NoUnused.Patterns" initialContext
-        |> Rule.withExpressionEnterVisitor expressionEnterVisitor
-        |> Rule.withExpressionExitVisitor expressionExitVisitor
-        |> Rule.withCaseBranchEnterVisitor caseBranchEnterVisitor
-        |> Rule.withCaseBranchExitVisitor caseBranchExitVisitor
-        |> NameVisitor.withValueVisitor valueVisitor
+        |> Rule.withExpressionEnterVisitor (Rule.adaptVisitor2 expressionEnterVisitor)
+        |> Rule.withExpressionExitVisitor (Rule.adaptVisitor2 expressionExitVisitor)
+        |> Rule.withCaseBranchEnterVisitor (Rule.adaptVisitor3 caseBranchEnterVisitor)
+        |> Rule.withCaseBranchExitVisitor (Rule.adaptVisitor3 caseBranchExitVisitor)
+        |> NameVisitor.withValueVisitor (Rule.adaptVisitor2 valueVisitor)
         |> Rule.fromModuleRuleSchema
 
 
@@ -105,7 +105,7 @@ initialContext =
 -- EXPRESSION ENTER VISITOR
 
 
-expressionEnterVisitor : Node Expression -> Context -> ( List nothing, Context )
+expressionEnterVisitor : Node Expression -> Context -> Rule.VisitResult scope Context
 expressionEnterVisitor node context =
     case Node.value node of
         Expression.LetExpression { declarations } ->
@@ -118,44 +118,46 @@ expressionEnterVisitor node context =
 
                         Expression.LetDestructuring pattern _ ->
                             findPatterns Destructuring pattern
+
+                newScope =
+                    { declared = List.concatMap findPatternsInLetDeclaration declarations
+                    , used = Set.empty
+                    }
             in
-            ( []
-            , { declared = List.concatMap findPatternsInLetDeclaration declarations
-              , used = Set.empty
-              }
-                :: context
-            )
+            Rule.updateContext (newScope :: context)
 
         _ ->
-            ( [], context )
+            Rule.noChange
 
 
-expressionExitVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
+expressionExitVisitor : Node Expression -> Context -> Rule.VisitResult {} Context
 expressionExitVisitor node context =
     case Node.value node of
         Expression.LetExpression _ ->
             report context
 
         _ ->
-            ( [], context )
+            Rule.noChange
 
 
-caseBranchEnterVisitor : a -> ( Node Pattern, Node Expression ) -> Context -> ( List nothing, Context )
+caseBranchEnterVisitor : a -> ( Node Pattern, Node Expression ) -> Context -> Rule.VisitResult scope Context
 caseBranchEnterVisitor _ ( pattern, _ ) context =
-    ( []
-    , { declared = findPatterns Matching pattern
-      , used = Set.empty
-      }
-        :: context
-    )
+    let
+        newScope : Scope
+        newScope =
+            { declared = findPatterns Matching pattern
+            , used = Set.empty
+            }
+    in
+    Rule.updateContext (newScope :: context)
 
 
-caseBranchExitVisitor : a -> b -> Context -> ( List (Rule.Error {}), Context )
+caseBranchExitVisitor : a -> b -> Context -> Rule.VisitResult {} Context
 caseBranchExitVisitor _ _ context =
     report context
 
 
-report : Context -> ( List (Rule.Error {}), Context )
+report : Context -> Rule.VisitResult {} Context
 report context =
     case context of
         headScope :: restOfScopes ->
@@ -197,15 +199,16 @@ report context =
                                     pattern.fix
                             )
             in
-            ( errors
-            , List.foldl
-                useValue
-                restOfScopes
-                (Set.toList nonUsedVars)
-            )
+            Rule.reportErrorsAndUpdateContext
+                errors
+                (List.foldl
+                    useValue
+                    restOfScopes
+                    (Set.toList nonUsedVars)
+                )
 
         _ ->
-            ( [], context )
+            Rule.noChange
 
 
 recordErrors : Context -> { fields : List (Node String), recordRange : Range } -> List (Rule.Error {})
@@ -284,14 +287,14 @@ findDeclaredPatterns scope =
         scope.declared
 
 
-valueVisitor : Node ( ModuleName, String ) -> Context -> ( List (Rule.Error {}), Context )
+valueVisitor : Node ( ModuleName, String ) -> Context -> Rule.VisitResult scope Context
 valueVisitor (Node _ ( moduleName, value )) context =
     case moduleName of
         [] ->
-            ( [], useValue value context )
+            Rule.updateContext (useValue value context)
 
         _ ->
-            ( [], context )
+            Rule.noChange
 
 
 
