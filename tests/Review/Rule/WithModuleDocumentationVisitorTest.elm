@@ -18,7 +18,7 @@ a = 1
                     |> Review.Test.expectNoErrors
         , test "should pass the module documentation if there is one" <|
             \() ->
-                """port module ModuleName exposing (a)
+                """module ModuleName exposing (a)
 {-| module documentation
 -}
 
@@ -34,6 +34,44 @@ a = 1
                             , under = "{-| module documentation\n-}"
                             }
                         ]
+        , test "should pass the module documentation if there is one, even if it looks like a port documentation" <|
+            \() ->
+                """port module ModuleName exposing (a)
+{-| module documentation
+-}
+port a : String -> Cmd msg
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "{-| module documentation\n-}"
+                            , details = [ "No details" ]
+                            , under = "{-| module documentation\n-}"
+                            }
+                        ]
+        , test "should not mis-categorize the documentation for a port for the module documentation (doc after import)" <|
+            \() ->
+                """port module ModuleName exposing (a)
+import A
+
+{-| port documentation
+-}
+port a : String -> Cmd msg
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectNoErrors
+        , test "should not mis-categorize the documentation for a port for the module documentation (doc after a declaration)" <|
+            \() ->
+                """port module ModuleName exposing (a)
+
+b = 1
+
+{-| port documentation
+-}
+port a : String -> Cmd msg
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectNoErrors
         ]
 
 
