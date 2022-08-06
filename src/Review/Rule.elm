@@ -4371,14 +4371,10 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
         computeModule : Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> CacheEntry projectContext
         computeModule cache importedModules module_ =
             let
-                moduleKey : ModuleKey
-                moduleKey =
-                    ModuleKey module_.path
-
                 availableData : AvailableData
                 availableData =
                     { ast = module_.ast
-                    , moduleKey = moduleKey
+                    , moduleKey = ModuleKey module_.path
                     , moduleNameLookupTable =
                         Dict.get (Review.Project.Internal.getModuleName module_) moduleNameLookupTables
                             |> Maybe.withDefault (ModuleNameLookupTableInternal.empty (Node.value (moduleNameNode module_.ast.moduleDefinition)))
