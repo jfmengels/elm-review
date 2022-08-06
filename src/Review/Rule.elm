@@ -4,6 +4,7 @@ module Review.Rule exposing
     , withSimpleModuleDefinitionVisitor, withSimpleCommentsVisitor, withSimpleImportVisitor, withSimpleDeclarationVisitor, withSimpleExpressionVisitor
     , newModuleRuleSchemaUsingContextCreator
     , withModuleDefinitionVisitor
+    , withModuleDocumentationVisitor
     , withCommentsVisitor
     , withImportVisitor
     , Direction(..), withDeclarationEnterVisitor, withDeclarationExitVisitor, withDeclarationVisitor, withDeclarationListVisitor
@@ -164,6 +165,7 @@ The traversal of a module rule is the following:
       - The definition for dependencies, visited by [`withDependenciesModuleVisitor`](#withDependenciesModuleVisitor)
   - Visit the Elm module (in the following order)
       - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
+      - The module documentation, visited by [`withModuleDocumentationVisitor`](#withModuleDocumentationVisitor)
       - The module's list of comments, visited by [`withSimpleCommentsVisitor`](#withSimpleCommentsVisitor) and [`withCommentsVisitor`](#withCommentsVisitor)
       - Each import, visited by [`withSimpleImportVisitor`](#withSimpleImportVisitor) and [`withImportVisitor`](#withImportVisitor)
       - The list of declarations, visited by [`withDeclarationListVisitor`](#withDeclarationListVisitor)
@@ -192,6 +194,7 @@ Evaluating/visiting a node means two things:
 
 @docs newModuleRuleSchemaUsingContextCreator
 @docs withModuleDefinitionVisitor
+@docs withModuleDocumentationVisitor
 @docs withCommentsVisitor
 @docs withImportVisitor
 @docs Direction, withDeclarationEnterVisitor, withDeclarationExitVisitor, withDeclarationVisitor, withDeclarationListVisitor
@@ -343,6 +346,7 @@ type alias ModuleRuleSchemaData moduleContext =
     , initialModuleContext : Maybe moduleContext
     , moduleContextCreator : ContextCreator () moduleContext
     , moduleDefinitionVisitors : List (Visitor Module moduleContext)
+    , moduleDocumentationVisitors : List (Maybe (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
     , commentsVisitors : List (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
     , importVisitors : List (Visitor Import moduleContext)
     , declarationListVisitors : List (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
@@ -976,6 +980,7 @@ newModuleRuleSchema name initialModuleContext =
         , initialModuleContext = Just initialModuleContext
         , moduleContextCreator = initContextCreator (always initialModuleContext)
         , moduleDefinitionVisitors = []
+        , moduleDocumentationVisitors = []
         , commentsVisitors = []
         , importVisitors = []
         , declarationListVisitors = []
@@ -1040,6 +1045,7 @@ newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
         , initialModuleContext = Nothing
         , moduleContextCreator = moduleContextCreator
         , moduleDefinitionVisitors = []
+        , moduleDocumentationVisitors = []
         , commentsVisitors = []
         , importVisitors = []
         , declarationListVisitors = []
@@ -1312,6 +1318,7 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
                 , initialModuleContext = Just initialModuleContext
                 , moduleContextCreator = initContextCreator (always initialModuleContext)
                 , moduleDefinitionVisitors = []
+                , moduleDocumentationVisitors = []
                 , commentsVisitors = []
                 , importVisitors = []
                 , declarationListVisitors = []
@@ -1343,6 +1350,7 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
 fromModuleRuleSchemaToRunnableModuleVisitor : ModuleRuleSchema schemaState moduleContext -> RunnableModuleVisitor moduleContext
 fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     { moduleDefinitionVisitors = List.reverse schema.moduleDefinitionVisitors
+    , moduleDocumentationVisitors = List.reverse schema.moduleDocumentationVisitors
     , commentsVisitors = List.reverse schema.commentsVisitors
     , importVisitors = List.reverse schema.importVisitors
     , declarationListVisitors = List.reverse schema.declarationListVisitors
@@ -1983,17 +1991,17 @@ withSimpleModuleDefinitionVisitor visitor schema =
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's comments.
 
 This visitor will give you access to the list of comments (in source order) in
-the module all at once. Note that comments that are parsed as doc comments by
+the module all at once. Note that comments that are parsed as documentation comments by
 [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/)
 are not included in this list.
 
 As such, the following comments are included (✅) / excluded (❌):
 
-  - ✅ Module doc comments (`{-| -}`)
-  - ✅ Port doc comments (`{-| -}`)
+  - ✅ Module documentation (`{-| -}`)
+  - ✅ Port documentation comments (`{-| -}`)
   - ✅ Top-level comments not internal to a function/type/etc.
   - ✅ Comments internal to a function/type/etc.
-  - ❌ Function/type/type alias doc comments (`{-| -}`)
+  - ❌ Function/type/type alias documentation comments (`{-| -}`)
 
 The following example forbids words like "TODO" appearing in a comment.
 
@@ -2353,25 +2361,40 @@ withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
 the `context` and/or report patterns.
 
 This visitor will give you access to the list of comments (in source order) in
-the module all at once. Note that comments that are parsed as doc comments by
+the module all at once. Note that comments that are parsed as documentation comments by
 [`elm-syntax`](https://package.elm-lang.org/packages/stil4m/elm-syntax/latest/)
 are not included in this list.
 
 As such, the following comments are included (✅) / excluded (❌):
 
-  - ✅ Module doc comments (`{-| -}`)
-  - ✅ Port doc comments (`{-| -}`)
+  - ✅ Module documentation (`{-| -}`)
+  - ✅ Port documentation comments (`{-| -}`)
   - ✅ Top-level comments not internal to a function/type/etc.
   - ✅ Comments internal to a function/type/etc.
-  - ❌ Function/type/type alias doc comments (`{-| -}`)
+  - ❌ Function/type/type alias documentation comments (`{-| -}`)
 
 Tip: If you do not need to collect data in this visitor, you may wish to use the
 simpler [`withSimpleCommentsVisitor`](#withSimpleCommentsVisitor) function.
+
+Tip: If you only need to access the module documentation, you should use
+[`withModuleDocumentationVisitor`](#withModuleDocumentationVisitor) instead.
 
 -}
 withCommentsVisitor : (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withCommentsVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | commentsVisitors = visitor :: schema.commentsVisitors }
+
+
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's documentation, collect data in
+the `context` and/or report patterns.
+
+This visitor will give you access to the module documentation comment. Modules don't always have a documentation.
+When that is the case, the visitor will be called with the `Nothing` as the module documentation.
+
+-}
+withModuleDocumentationVisitor : (Maybe (Node String) -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
+withModuleDocumentationVisitor visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | moduleDocumentationVisitors = visitor :: schema.moduleDocumentationVisitors }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
@@ -3933,6 +3956,7 @@ type alias RunnableProjectVisitor projectContext moduleContext =
 
 type alias RunnableModuleVisitor moduleContext =
     { moduleDefinitionVisitors : List (Visitor Module moduleContext)
+    , moduleDocumentationVisitors : List (Maybe (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
     , commentsVisitors : List (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
     , importVisitors : List (Visitor Import moduleContext)
     , declarationListVisitors : List (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
@@ -4496,6 +4520,8 @@ visitModuleForProjectRule : RunnableModuleVisitor moduleContext -> moduleContext
 visitModuleForProjectRule schema initialContext module_ =
     ( [], initialContext )
         |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors module_.ast.moduleDefinition
+        -- TODO When `elm-syntax` integrates the module documentation by default, then we should use that instead of this.
+        |> accumulateModuleDocumentationVisitor schema.moduleDocumentationVisitors module_.ast.comments
         |> accumulateWithListOfVisitors schema.commentsVisitors module_.ast.comments
         |> accumulateList schema.importVisitors module_.ast.imports
         |> accumulateWithListOfVisitors schema.declarationListVisitors module_.ast.declarations
@@ -4980,6 +5006,27 @@ accumulateWithListOfVisitors visitors element initialErrorsAndContext =
         (\visitor errorsAndContext -> accumulate (visitor element) errorsAndContext)
         initialErrorsAndContext
         visitors
+
+
+accumulateModuleDocumentationVisitor :
+    List (Maybe (Node String) -> context -> ( List (Error {}), context ))
+    -> List (Node String)
+    -> ( List (Error {}), context )
+    -> ( List (Error {}), context )
+accumulateModuleDocumentationVisitor visitors comments initialErrorsAndContext =
+    if List.isEmpty visitors then
+        initialErrorsAndContext
+
+    else
+        let
+            moduleDocumentation : Maybe (Node String)
+            moduleDocumentation =
+                findInList (\(Node _ comment) -> String.startsWith "{-|" comment) comments
+        in
+        List.foldl
+            (\visitor errorsAndContext -> accumulate (visitor moduleDocumentation) errorsAndContext)
+            initialErrorsAndContext
+            visitors
 
 
 accumulateList : List (a -> context -> ( List (Error {}), context )) -> List a -> ( List (Error {}), context ) -> ( List (Error {}), context )
