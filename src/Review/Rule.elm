@@ -5158,7 +5158,14 @@ applyContextCreator data (ContextCreator fn _) from =
 withMetadata : ContextCreator Metadata (from -> to) -> ContextCreator from to
 withMetadata (ContextCreator fn requestedData) =
     ContextCreator
-        (\data -> fn data data.metadata)
+        (\data ->
+            fn data
+                (createMetadata
+                    { moduleNameNode = moduleNameNode data.ast.moduleDefinition
+                    , isInSourceDirectories = data.isInSourceDirectories
+                    }
+                )
+        )
         requestedData
 
 
