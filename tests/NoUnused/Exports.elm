@@ -71,7 +71,7 @@ moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema 
 moduleVisitor schema =
     schema
         |> Rule.withModuleDefinitionVisitor (\project context -> ( [], moduleDefinitionVisitor project context ))
-        |> Rule.withCommentsVisitor (\project context -> ( [], commentsVisitor project context ))
+        |> Rule.withModuleDocumentationVisitor (\project context -> ( [], moduleDocumentationVisitor project context ))
         |> Rule.withImportVisitor (\project context -> ( [], importVisitor project context ))
         |> Rule.withDeclarationListVisitor (\project context -> ( [], declarationListVisitor project context ))
         |> Rule.withExpressionEnterVisitor (\project context -> ( [], expressionVisitor project context ))
@@ -358,21 +358,21 @@ moduleDefinitionVisitor moduleNode moduleContext =
             { moduleContext | rawExposed = list }
 
 
-commentsVisitor : List (Node String) -> ModuleContext -> ModuleContext
-commentsVisitor nodes moduleContext =
+moduleDocumentationVisitor : Maybe (Node String) -> ModuleContext -> ModuleContext
+moduleDocumentationVisitor maybeModuleDocumentation moduleContext =
     if List.isEmpty moduleContext.rawExposed then
         moduleContext
 
     else
         let
-            comments : List ( Int, String )
-            comments =
-                case List.Extra.find (\(Node _ comment) -> String.startsWith "{-|" comment) nodes of
-                    Just (Node range comment) ->
+            docsReferences : List ( Int, String )
+            docsReferences =
+                case maybeModuleDocumentation of
+                    Just (Node range moduleDocumentation) ->
                         let
                             lines : List String
                             lines =
-                                comment
+                                moduleDocumentation
                                     |> String.lines
                                     |> List.drop 1
                         in
@@ -392,12 +392,12 @@ commentsVisitor nodes moduleContext =
                         []
         in
         { moduleContext
-            | exposed = collectExposedElements comments moduleContext.rawExposed
+            | exposed = collectExposedElements docsReferences moduleContext.rawExposed
         }
 
 
 collectExposedElements : List ( Int, String ) -> List (Node Exposing.TopLevelExpose) -> Dict String ExposedElement
-collectExposedElements comments nodes =
+collectExposedElements docsReferences nodes =
     let
         listWithPreviousRange : List (Maybe Range)
         listWithPreviousRange =
@@ -424,7 +424,7 @@ collectExposedElements comments nodes =
                         Just
                             ( name
                             , { range = untilEndOfVariable name range
-                              , rangesToRemove = getRangesToRemove comments nodes name index maybePreviousRange range nextRange
+                              , rangesToRemove = getRangesToRemove docsReferences nodes name index maybePreviousRange range nextRange
                               , elementType = Function
                               }
                             )
@@ -433,7 +433,7 @@ collectExposedElements comments nodes =
                         Just
                             ( name
                             , { range = untilEndOfVariable name range
-                              , rangesToRemove = getRangesToRemove comments nodes name index maybePreviousRange range nextRange
+                              , rangesToRemove = getRangesToRemove docsReferences nodes name index maybePreviousRange range nextRange
                               , elementType = TypeOrTypeAlias
                               }
                             )
