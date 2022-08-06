@@ -5037,12 +5037,26 @@ accumulateModuleDocumentationVisitor visitors ast initialErrorsAndContext =
 
             moduleDocumentation : Maybe (Node String)
             moduleDocumentation =
-                findInList (\(Node _ comment) -> String.startsWith "{-|" comment) ast.comments
+                findModuleDocumentation cutOffLine ast.comments
         in
         List.foldl
             (\visitor errorsAndContext -> accumulate (visitor moduleDocumentation) errorsAndContext)
             initialErrorsAndContext
             visitors
+
+
+findModuleDocumentation : Int -> List (Node String) -> Maybe (Node String)
+findModuleDocumentation cutOffLine comments =
+    case comments of
+        [] ->
+            Nothing
+
+        comment :: restOfComments ->
+            if String.startsWith "{-|" (Node.value comment) then
+                Just comment
+
+            else
+                findModuleDocumentation cutOffLine restOfComments
 
 
 accumulateList : List (a -> context -> ( List (Error {}), context )) -> List a -> ( List (Error {}), context ) -> ( List (Error {}), context )
