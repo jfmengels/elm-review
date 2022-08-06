@@ -202,7 +202,7 @@ foldProjectContexts newContext previousContext =
 moduleVisitor : StableConfiguration -> Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor configuration schema =
     schema
-        |> Rule.withCommentsVisitor (\comments context -> ( [], commentsVisitor configuration comments context ))
+        |> Rule.withModuleDocumentationVisitor (\moduleDocumentation context -> ( [], moduleDocumentationVisitor configuration moduleDocumentation context ))
         |> Rule.withDeclarationListVisitor (\nodes context -> ( [], declarationListVisitor configuration nodes context ))
         |> Rule.withDeclarationEnterVisitor (\node context -> ( declarationVisitor configuration node context, context ))
         |> Rule.withExpressionEnterVisitor (\node context -> ( expressionVisitor configuration node context, context ))
@@ -485,13 +485,13 @@ registerDeprecatedThings (StableConfiguration configuration) module_ acc =
         }
 
 
-commentsVisitor : StableConfiguration -> List (Node String) -> ModuleContext -> ModuleContext
-commentsVisitor (StableConfiguration configuration) comments moduleContext =
+moduleDocumentationVisitor : StableConfiguration -> Maybe (Node String) -> ModuleContext -> ModuleContext
+moduleDocumentationVisitor (StableConfiguration configuration) maybeModuleDocumentation moduleContext =
     if moduleContext.isModuleDeprecated then
         moduleContext
 
     else
-        case find (\(Node _ comment) -> String.startsWith "{-|" comment) comments of
+        case maybeModuleDocumentation of
             Just (Node _ moduleDocumentation) ->
                 { moduleContext | isModuleDeprecated = configuration.documentationPredicate moduleDocumentation }
 
@@ -998,23 +998,3 @@ error origin range =
         , details = details
         }
         range
-
-
-{-| Find the first element that satisfies a predicate and return
-Just that element. If none match, return Nothing.
-
-    find (\num -> num > 5) [ 2, 4, 6, 8 ] == Just 6
-
--}
-find : (a -> Bool) -> List a -> Maybe a
-find predicate list =
-    case list of
-        [] ->
-            Nothing
-
-        first :: rest ->
-            if predicate first then
-                Just first
-
-            else
-                find predicate rest
