@@ -1269,66 +1269,75 @@ mergeModuleVisitors :
     -> List (ModuleRuleSchema schemaState1 moduleContext -> ModuleRuleSchema schemaState2 moduleContext)
     -> Maybe ( RunnableModuleVisitor moduleContext, ContextCreator projectContext moduleContext )
 mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
-    case ( maybeModuleContextCreator, List.isEmpty visitors ) of
-        ( Nothing, _ ) ->
+    case maybeModuleContextCreator of
+        Nothing ->
             Nothing
 
-        ( _, True ) ->
-            Nothing
+        Just moduleContextCreator ->
+            if List.isEmpty visitors then
+                Nothing
 
-        ( Just moduleContextCreator, False ) ->
-            let
-                dummyAvailableData : AvailableData
-                dummyAvailableData =
-                    { metadata =
-                        createMetadata
-                            { moduleNameNode = Node.Node Range.emptyRange []
-                            , isInSourceDirectories = True
-                            }
-                    , moduleKey = ModuleKey "dummy"
-                    , moduleNameLookupTable = ModuleNameLookupTableInternal.empty []
-                    , extractSourceCode = always "dummy"
-                    , filePath = "dummy file path"
+            else
+                Just (mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors)
+
+
+mergeModuleVisitorsHelp :
+    projectContext
+    -> ContextCreator projectContext moduleContext
+    -> List (ModuleRuleSchema schemaState1 moduleContext -> ModuleRuleSchema schemaState2 moduleContext)
+    -> ( RunnableModuleVisitor moduleContext, ContextCreator projectContext moduleContext )
+mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
+    let
+        dummyAvailableData : AvailableData
+        dummyAvailableData =
+            { metadata =
+                createMetadata
+                    { moduleNameNode = Node.Node Range.emptyRange []
+                    , isInSourceDirectories = True
                     }
+            , moduleKey = ModuleKey "dummy"
+            , moduleNameLookupTable = ModuleNameLookupTableInternal.empty []
+            , extractSourceCode = always "dummy"
+            , filePath = "dummy file path"
+            }
 
-                initialModuleContext : moduleContext
-                initialModuleContext =
-                    applyContextCreator dummyAvailableData moduleContextCreator initialProjectContext
+        initialModuleContext : moduleContext
+        initialModuleContext =
+            applyContextCreator dummyAvailableData moduleContextCreator initialProjectContext
 
-                emptyModuleVisitor : ModuleRuleSchema schemaState moduleContext
-                emptyModuleVisitor =
-                    ModuleRuleSchema
-                        { name = ""
-                        , initialModuleContext = Just initialModuleContext
-                        , moduleContextCreator = initContextCreator (always initialModuleContext)
-                        , moduleDefinitionVisitors = []
-                        , commentsVisitors = []
-                        , importVisitors = []
-                        , declarationListVisitors = []
-                        , declarationVisitorsOnEnter = []
-                        , declarationVisitorsOnExit = []
-                        , expressionVisitorsOnEnter = []
-                        , expressionVisitorsOnExit = []
-                        , letDeclarationVisitorsOnEnter = []
-                        , letDeclarationVisitorsOnExit = []
-                        , caseBranchVisitorsOnEnter = []
-                        , caseBranchVisitorsOnExit = []
-                        , finalEvaluationFns = []
-                        , elmJsonVisitors = []
-                        , readmeVisitors = []
-                        , dependenciesVisitors = []
-                        }
-            in
-            Just
-                ( List.foldl
-                    (\addVisitors (ModuleRuleSchema moduleVisitorSchema) ->
-                        addVisitors (ModuleRuleSchema moduleVisitorSchema)
-                    )
-                    emptyModuleVisitor
-                    visitors
-                    |> fromModuleRuleSchemaToRunnableModuleVisitor
-                , moduleContextCreator
-                )
+        emptyModuleVisitor : ModuleRuleSchema schemaState moduleContext
+        emptyModuleVisitor =
+            ModuleRuleSchema
+                { name = ""
+                , initialModuleContext = Just initialModuleContext
+                , moduleContextCreator = initContextCreator (always initialModuleContext)
+                , moduleDefinitionVisitors = []
+                , commentsVisitors = []
+                , importVisitors = []
+                , declarationListVisitors = []
+                , declarationVisitorsOnEnter = []
+                , declarationVisitorsOnExit = []
+                , expressionVisitorsOnEnter = []
+                , expressionVisitorsOnExit = []
+                , letDeclarationVisitorsOnEnter = []
+                , letDeclarationVisitorsOnExit = []
+                , caseBranchVisitorsOnEnter = []
+                , caseBranchVisitorsOnExit = []
+                , finalEvaluationFns = []
+                , elmJsonVisitors = []
+                , readmeVisitors = []
+                , dependenciesVisitors = []
+                }
+    in
+    ( List.foldl
+        (\addVisitors (ModuleRuleSchema moduleVisitorSchema) ->
+            addVisitors (ModuleRuleSchema moduleVisitorSchema)
+        )
+        emptyModuleVisitor
+        visitors
+        |> fromModuleRuleSchemaToRunnableModuleVisitor
+    , moduleContextCreator
+    )
 
 
 fromModuleRuleSchemaToRunnableModuleVisitor : ModuleRuleSchema schemaState moduleContext -> RunnableModuleVisitor moduleContext
