@@ -281,6 +281,7 @@ import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
 import Elm.Syntax.Expression as Expression exposing (Expression, Function)
+import Elm.Syntax.File
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Infix as Infix
 import Elm.Syntax.Module as Module exposing (Module)
@@ -4521,7 +4522,7 @@ visitModuleForProjectRule schema initialContext module_ =
     ( [], initialContext )
         |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors module_.ast.moduleDefinition
         -- TODO When `elm-syntax` integrates the module documentation by default, then we should use that instead of this.
-        |> accumulateModuleDocumentationVisitor schema.moduleDocumentationVisitors module_.ast.comments
+        |> accumulateModuleDocumentationVisitor schema.moduleDocumentationVisitors module_.ast
         |> accumulateWithListOfVisitors schema.commentsVisitors module_.ast.comments
         |> accumulateList schema.importVisitors module_.ast.imports
         |> accumulateWithListOfVisitors schema.declarationListVisitors module_.ast.declarations
@@ -5010,18 +5011,33 @@ accumulateWithListOfVisitors visitors element initialErrorsAndContext =
 
 accumulateModuleDocumentationVisitor :
     List (Maybe (Node String) -> context -> ( List (Error {}), context ))
-    -> List (Node String)
+    -> Elm.Syntax.File.File
     -> ( List (Error {}), context )
     -> ( List (Error {}), context )
-accumulateModuleDocumentationVisitor visitors comments initialErrorsAndContext =
+accumulateModuleDocumentationVisitor visitors ast initialErrorsAndContext =
     if List.isEmpty visitors then
         initialErrorsAndContext
 
     else
         let
+            cutOffLine : Int
+            cutOffLine =
+                case ast.imports of
+                    firstImport :: _ ->
+                        (Node.range firstImport).start.row
+
+                    [] ->
+                        case ast.declarations of
+                            firstDeclaration :: _ ->
+                                (Node.range firstDeclaration).start.row
+
+                            [] ->
+                                -- Should not happen, as every module should have a declaration
+                                0
+
             moduleDocumentation : Maybe (Node String)
             moduleDocumentation =
-                findInList (\(Node _ comment) -> String.startsWith "{-|" comment) comments
+                findInList (\(Node _ comment) -> String.startsWith "{-|" comment) ast.comments
         in
         List.foldl
             (\visitor errorsAndContext -> accumulate (visitor moduleDocumentation) errorsAndContext)
