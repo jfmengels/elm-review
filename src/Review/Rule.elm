@@ -1321,6 +1321,7 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
             , moduleNameLookupTable = ModuleNameLookupTableInternal.empty []
             , extractSourceCode = always "dummy"
             , filePath = "dummy file path"
+            , isInSourceDirectories = True
             }
 
         initialModuleContext : moduleContext
@@ -4405,6 +4406,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                         else
                             always ""
                     , filePath = module_.path
+                    , isInSourceDirectories = module_.isInSourceDirectories
                     }
 
                 initialModuleContext : moduleContext
@@ -5392,6 +5394,7 @@ type alias AvailableData =
     , moduleNameLookupTable : ModuleNameLookupTable
     , extractSourceCode : Range -> String
     , filePath : String
+    , isInSourceDirectories : Bool
     }
 
 
