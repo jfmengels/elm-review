@@ -234,7 +234,7 @@ moduleVisitor : Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRu
 moduleVisitor schema =
     schema
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-        |> Rule.withCommentsVisitor commentsVisitor
+        |> Rule.withModuleDocumentationVisitor moduleDocumentationVisitor
         |> Rule.withDeclarationListVisitor declarationListVisitor
 
 
@@ -351,37 +351,34 @@ exposedName node =
 
 
 
--- COMMENTS VISITOR
+-- MODULE DOCUMENTATION VISITOR
 
 
-commentsVisitor : List (Node String) -> ModuleContext -> ( List nothing, ModuleContext )
-commentsVisitor comments context =
+moduleDocumentationVisitor : Maybe (Node String) -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
+moduleDocumentationVisitor moduleDocumentation context =
     let
-        docs : List (Node String)
-        docs =
-            List.filter (Node.value >> String.startsWith "{-|") comments
-
-        sectionsAndLinks : List { titleSections : List SectionWithRange, links : List MaybeExposedLink }
+        sectionsAndLinks : { titleSections : List SectionWithRange, links : List MaybeExposedLink }
         sectionsAndLinks =
-            List.map
-                (\doc ->
+            case moduleDocumentation of
+                Just (Node range content) ->
                     findSectionsAndLinks
                         context.moduleName
                         context.isModuleExposed
-                        { content = Node.value doc, startRow = (Node.range doc).start.row }
-                )
-                docs
+                        { content = content, startRow = range.start.row }
+
+                Nothing ->
+                    { titleSections = [], links = [] }
     in
     ( []
     , { isModuleExposed = context.isModuleExposed
       , exposedElements = context.exposedElements
       , moduleName = context.moduleName
-      , commentSections = List.concatMap .titleSections sectionsAndLinks
+      , commentSections = sectionsAndLinks.titleSections
       , sections =
             List.append
-                (List.concatMap (.titleSections >> List.map removeRangeFromSection) sectionsAndLinks)
+                (List.map removeRangeFromSection sectionsAndLinks.titleSections)
                 context.sections
-      , links = List.append (List.concatMap .links sectionsAndLinks) context.links
+      , links = List.append sectionsAndLinks.links context.links
       }
     )
 
