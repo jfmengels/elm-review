@@ -1311,13 +1311,8 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
 
         dummyAvailableData : AvailableData
         dummyAvailableData =
-            { metadata =
-                createMetadata
-                    { moduleNameNode = Node.Node Range.emptyRange []
-                    , isInSourceDirectories = True
-                    }
+            { ast = dummyAst
             , moduleKey = ModuleKey "dummy"
-            , ast = dummyAst
             , moduleNameLookupTable = ModuleNameLookupTableInternal.empty []
             , extractSourceCode = always "dummy"
             , filePath = "dummy file path"
@@ -4380,18 +4375,10 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                 moduleKey =
                     ModuleKey module_.path
 
-                metadata : Metadata
-                metadata =
-                    createMetadata
-                        { moduleNameNode = moduleNameNode module_.ast.moduleDefinition
-                        , isInSourceDirectories = module_.isInSourceDirectories
-                        }
-
                 availableData : AvailableData
                 availableData =
-                    { metadata = metadata
+                    { ast = module_.ast
                     , moduleKey = moduleKey
-                    , ast = module_.ast
                     , moduleNameLookupTable =
                         Dict.get (Review.Project.Internal.getModuleName module_) moduleNameLookupTables
                             |> Maybe.withDefault (ModuleNameLookupTableInternal.empty (Node.value (moduleNameNode module_.ast.moduleDefinition)))
@@ -5186,7 +5173,7 @@ withMetadata (ContextCreator fn requestedData) =
 withModuleName : ContextCreator ModuleName (from -> to) -> ContextCreator from to
 withModuleName (ContextCreator fn requestedData) =
     ContextCreator
-        (\data -> fn data (moduleNameFromMetadata data.metadata))
+        (\data -> fn data (moduleNameNode data.ast.moduleDefinition |> Node.value))
         requestedData
 
 
@@ -5206,8 +5193,7 @@ withModuleName (ContextCreator fn requestedData) =
 -}
 withModuleNameNode : ContextCreator (Node ModuleName) (from -> to) -> ContextCreator from to
 withModuleNameNode (ContextCreator fn requestedData) =
-    ContextCreator
-        (\data -> fn data (moduleNameNodeFromMetadata data.metadata))
+    ContextCreator (\data -> fn data (moduleNameNode data.ast.moduleDefinition))
         requestedData
 
 
@@ -5229,7 +5215,7 @@ know whether the module is part of the tests or of the production code.
 withIsInSourceDirectories : ContextCreator Bool (from -> to) -> ContextCreator from to
 withIsInSourceDirectories (ContextCreator fn requestedData) =
     ContextCreator
-        (\data -> fn data (isInSourceDirectories data.metadata))
+        (\data -> fn data data.isInSourceDirectories)
         requestedData
 
 
@@ -5395,8 +5381,7 @@ withSourceCodeExtractor (ContextCreator fn (RequestedData requested)) =
 
 
 type alias AvailableData =
-    { metadata : Metadata
-    , ast : Elm.Syntax.File.File
+    { ast : Elm.Syntax.File.File
     , moduleKey : ModuleKey
     , moduleNameLookupTable : ModuleNameLookupTable
     , extractSourceCode : Range -> String
