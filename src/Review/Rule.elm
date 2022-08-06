@@ -1768,7 +1768,7 @@ you to request more information
                 }
             |> Rule.fromProjectRuleSchema
 
-    fromProjectToModule : ProjectContext -> ModuleContext
+    fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
     fromProjectToModule =
         Rule.initContextCreator
             (\projectContext ->
