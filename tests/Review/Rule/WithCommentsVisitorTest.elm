@@ -11,7 +11,7 @@ all =
     describe "Review.Rule.withCommentsVisitor"
         [ test "passes the list of comments in source order to the rule" <|
             \() ->
-                Review.Test.run rule """port module ModuleName exposing (a)
+                """port module ModuleName exposing (a)
 {-| Module
 
 @docs a
@@ -47,6 +47,7 @@ port output : Json.Encode.Value -> Cmd msg
 
 -- Last comment
 """
+                    |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "comments"

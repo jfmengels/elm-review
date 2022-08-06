@@ -12,12 +12,13 @@ all =
     describe "Review.Rule.withDeclarationListVisitor"
         [ test "passes the list of declarations to the rule" <|
             \() ->
-                Review.Test.run rule """port module ModuleName exposing (b)
+                """port module ModuleName exposing (b)
 type A = Bar | Baz
 a_ = 1
 b_ = 2
 port output : Json.Encode.Value -> Cmd msg
 port input : (Json.Decode.Value -> msg) -> Sub msg"""
+                    |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Declarations"

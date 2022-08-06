@@ -122,9 +122,10 @@ a = 1
                             }
                         ]
                 in
-                Review.Test.run rule """module A exposing (..)
+                """module A exposing (..)
 a = 1
 """
+                    |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = """
@@ -167,9 +168,10 @@ Exit A"""
                             }
                         ]
                 in
-                Review.Test.run rule """module A exposing (..)
+                """module A exposing (..)
 a = 1
 """
+                    |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = """
