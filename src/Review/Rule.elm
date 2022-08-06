@@ -14,7 +14,7 @@ module Review.Rule exposing
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
-    , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
+    , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst
     , Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , globalError, configurationError
@@ -227,7 +227,7 @@ first, as they are in practice a simpler version of project rules.
 
 ## Requesting more information
 
-@docs ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor
+@docs ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst
 
 
 ### Requesting more information (DEPRECATED)
@@ -5274,6 +5274,35 @@ withModuleNameLookupTable (ContextCreator fn (RequestedData requested)) =
     ContextCreator
         (\data -> fn data data.moduleNameLookupTable)
         (RequestedData { requested | moduleNameLookupTable = True })
+
+
+{-| Request the full [AST](https://en.wikipedia.org/wiki/Abstract_syntax_tree) for the current module.
+
+This can be useful if you wish to avoid initializing the module context with dummy data future node visits can replace them.
+
+For instance, if you wish to know what is exposed from a module, you may need to visit the module definition and then
+the list of declarations. If you need this information earlier on, you will have to provide dummy data at context
+initialization and store some intermediary data.
+
+Using the full AST, you can simplify the implementation by computing the data in the context creator, without the use of visitors.
+
+    contextCreator : Rule.ContextCreator () Context
+    contextCreator =
+        Rule.initContextCreator
+            (\ast () ->
+                { exposed = collectExposed ast.moduleDefinition ast.declarations
+
+                -- ...other fields
+                }
+            )
+            |> Rule.withFullAst
+
+-}
+withFullAst : ContextCreator Elm.Syntax.File.File (from -> to) -> ContextCreator from to
+withFullAst (ContextCreator fn requested) =
+    ContextCreator
+        (\data -> fn data data.ast)
+        requested
 
 
 {-| Request the [module key](#ModuleKey) for this module.
