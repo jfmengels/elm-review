@@ -5032,7 +5032,7 @@ accumulateModuleDocumentationVisitor visitors ast initialErrorsAndContext =
                                 (Node.range firstDeclaration).start.row
 
                             [] ->
-                                -- Should not happen, as every module should have a declaration
+                                -- Should not happen, as every module should have at least one declaration
                                 0
 
             moduleDocumentation : Maybe (Node String)
@@ -5051,8 +5051,11 @@ findModuleDocumentation cutOffLine comments =
         [] ->
             Nothing
 
-        comment :: restOfComments ->
-            if String.startsWith "{-|" (Node.value comment) then
+        ((Node range content) as comment) :: restOfComments ->
+            if range.start.row > cutOffLine then
+                Nothing
+
+            else if String.startsWith "{-|" content then
                 Just comment
 
             else
