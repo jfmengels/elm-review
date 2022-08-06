@@ -3268,11 +3268,11 @@ visitResultToTuple previousContext visitResult =
         ReportErrors errors ->
             ( errors, previousContext )
 
-        UpdateContext context ->
-            ( [], context )
+        UpdateContext newContext ->
+            ( [], newContext )
 
-        ReportErrorsAndUpdateContext errors context ->
-            ( errors, context )
+        ReportErrorsAndUpdateContext errors newContext ->
+            ( errors, newContext )
 
 
 
