@@ -1295,6 +1295,20 @@ mergeModuleVisitorsHelp :
     -> ( RunnableModuleVisitor moduleContext, ContextCreator projectContext moduleContext )
 mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
     let
+        dummyAst : Elm.Syntax.File.File
+        dummyAst =
+            { moduleDefinition =
+                Node.Node Range.emptyRange
+                    (Module.NormalModule
+                        { moduleName = Node.Node Range.emptyRange []
+                        , exposingList = Node.Node Range.emptyRange (Exposing.Explicit [])
+                        }
+                    )
+            , imports = []
+            , declarations = []
+            , comments = []
+            }
+
         dummyAvailableData : AvailableData
         dummyAvailableData =
             { metadata =
@@ -1303,6 +1317,7 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
                     , isInSourceDirectories = True
                     }
             , moduleKey = ModuleKey "dummy"
+            , ast = dummyAst
             , moduleNameLookupTable = ModuleNameLookupTableInternal.empty []
             , extractSourceCode = always "dummy"
             , filePath = "dummy file path"
@@ -4375,6 +4390,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                 availableData =
                     { metadata = metadata
                     , moduleKey = moduleKey
+                    , ast = module_.ast
                     , moduleNameLookupTable =
                         Dict.get (Review.Project.Internal.getModuleName module_) moduleNameLookupTables
                             |> Maybe.withDefault (ModuleNameLookupTableInternal.empty (Node.value (moduleNameNode module_.ast.moduleDefinition)))
@@ -5371,6 +5387,7 @@ withSourceCodeExtractor (ContextCreator fn (RequestedData requested)) =
 
 type alias AvailableData =
     { metadata : Metadata
+    , ast : Elm.Syntax.File.File
     , moduleKey : ModuleKey
     , moduleNameLookupTable : ModuleNameLookupTable
     , extractSourceCode : Range -> String
