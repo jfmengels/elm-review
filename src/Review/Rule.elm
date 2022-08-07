@@ -14,7 +14,7 @@ module Review.Rule exposing
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
-    , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst
+    , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
     , Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , globalError, configurationError
@@ -227,7 +227,7 @@ first, as they are in practice a simpler version of project rules.
 
 ## Requesting more information
 
-@docs ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst
+@docs ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
 
 
 ### Requesting more information (DEPRECATED)
@@ -5308,6 +5308,28 @@ withFullAst : ContextCreator Elm.Syntax.File.File (from -> to) -> ContextCreator
 withFullAst (ContextCreator fn requested) =
     ContextCreator
         (\data -> fn data data.ast)
+        requested
+
+
+{-| Request the module documentation. Modules don't always have a documentation.
+When that is the case, the module documentation will be `Nothing`.
+
+    contextCreator : Rule.ContextCreator () Context
+    contextCreator =
+        Rule.initContextCreator
+            (\moduleDocumentation () ->
+                { moduleDocumentation = moduleDocumentation
+
+                -- ...other fields
+                }
+            )
+            |> Rule.withModuleDocumentation
+
+-}
+withModuleDocumentation : ContextCreator (Maybe (Node String)) (from -> to) -> ContextCreator from to
+withModuleDocumentation (ContextCreator fn requested) =
+    ContextCreator
+        (\data -> fn data (findModuleDocumentation data.ast))
         requested
 
 
