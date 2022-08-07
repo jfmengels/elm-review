@@ -104,7 +104,7 @@ rule configuration =
     Rule.newModuleRuleSchema "Docs.NoMissing" initialContext
         |> Rule.withElmJsonModuleVisitor elmJsonVisitor
         |> Rule.withModuleDefinitionVisitor (moduleDefinitionVisitor configuration.from)
-        |> Rule.withCommentsVisitor commentsVisitor
+        |> Rule.withModuleDocumentationVisitor moduleDocumentationVisitor
         |> Rule.withDeclarationEnterVisitor (declarationVisitor configuration.document)
         |> Rule.fromModuleRuleSchema
 
@@ -268,37 +268,18 @@ collectExposing node =
 
 
 
--- COMMENTS VISITOR
+-- MODULE DOCUMENTATION VISITOR
 
 
-commentsVisitor : List (Node String) -> Context -> ( List (Error {}), Context )
-commentsVisitor comments context =
+moduleDocumentationVisitor : Maybe (Node String) -> Context -> ( List (Rule.Error {}), Context )
+moduleDocumentationVisitor moduleDocumentation context =
     if context.shouldBeReported then
-        let
-            documentation : Maybe (Node String)
-            documentation =
-                findFirst (Node.value >> String.startsWith "{-|") comments
-        in
-        ( checkModuleDocumentation documentation context.moduleNameNode
+        ( checkModuleDocumentation moduleDocumentation context.moduleNameNode
         , context
         )
 
     else
         ( [], context )
-
-
-findFirst : (a -> Bool) -> List a -> Maybe a
-findFirst predicate list =
-    case list of
-        [] ->
-            Nothing
-
-        a :: rest ->
-            if predicate a then
-                Just a
-
-            else
-                findFirst predicate rest
 
 
 

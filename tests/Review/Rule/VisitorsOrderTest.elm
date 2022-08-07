@@ -29,20 +29,22 @@ all =
                             |> Rule.withDependenciesModuleVisitor (\_ context -> context ++ "\n3.2 - withDependenciesModuleVisitor")
                             |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ++ "\n4.1 - withModuleDefinitionVisitor" ))
                             |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ++ "\n4.2 - withModuleDefinitionVisitor" ))
-                            |> Rule.withCommentsVisitor (\_ context -> ( [], context ++ "\n5.1 - withCommentsVisitor" ))
-                            |> Rule.withCommentsVisitor (\_ context -> ( [], context ++ "\n5.2 - withCommentsVisitor" ))
-                            |> Rule.withImportVisitor (\_ context -> ( [], context ++ "\n6.1 - withImportVisitor" ))
-                            |> Rule.withImportVisitor (\_ context -> ( [], context ++ "\n6.2 - withImportVisitor" ))
-                            |> Rule.withDeclarationListVisitor (\_ context -> ( [], context ++ "\n7.1 - withDeclarationListVisitor" ))
-                            |> Rule.withDeclarationListVisitor (\_ context -> ( [], context ++ "\n7.2 - withDeclarationListVisitor" ))
-                            |> Rule.withDeclarationEnterVisitor (\_ context -> ( [], context ++ "\n8.1 - withDeclarationEnterVisitor" ))
-                            |> Rule.withDeclarationEnterVisitor (\_ context -> ( [], context ++ "\n8.2 - withDeclarationEnterVisitor" ))
-                            |> Rule.withDeclarationExitVisitor (\_ context -> ( [], context ++ "\n11.2 - withDeclarationExitVisitor" ))
-                            |> Rule.withDeclarationExitVisitor (\_ context -> ( [], context ++ "\n11.1 - withDeclarationExitVisitor" ))
-                            |> Rule.withExpressionEnterVisitor (\_ context -> ( [], context ++ "\n9.1 - withExpressionEnterVisitor" ))
-                            |> Rule.withExpressionEnterVisitor (\_ context -> ( [], context ++ "\n9.2 - withExpressionEnterVisitor" ))
-                            |> Rule.withExpressionExitVisitor (\_ context -> ( [], context ++ "\n10.2 - withExpressionExitVisitor" ))
-                            |> Rule.withExpressionExitVisitor (\_ context -> ( [], context ++ "\n10.1 - withExpressionExitVisitor" ))
+                            |> Rule.withModuleDocumentationVisitor (\_ context -> ( [], context ++ "\n5.1 - withModuleDocumentationVisitor" ))
+                            |> Rule.withModuleDocumentationVisitor (\_ context -> ( [], context ++ "\n5.2 - withModuleDocumentationVisitor" ))
+                            |> Rule.withCommentsVisitor (\_ context -> ( [], context ++ "\n6.1 - withCommentsVisitor" ))
+                            |> Rule.withCommentsVisitor (\_ context -> ( [], context ++ "\n6.2 - withCommentsVisitor" ))
+                            |> Rule.withImportVisitor (\_ context -> ( [], context ++ "\n7.1 - withImportVisitor" ))
+                            |> Rule.withImportVisitor (\_ context -> ( [], context ++ "\n7.2 - withImportVisitor" ))
+                            |> Rule.withDeclarationListVisitor (\_ context -> ( [], context ++ "\n8.1 - withDeclarationListVisitor" ))
+                            |> Rule.withDeclarationListVisitor (\_ context -> ( [], context ++ "\n8.2 - withDeclarationListVisitor" ))
+                            |> Rule.withDeclarationEnterVisitor (\_ context -> ( [], context ++ "\n9.1 - withDeclarationEnterVisitor" ))
+                            |> Rule.withDeclarationEnterVisitor (\_ context -> ( [], context ++ "\n9.2 - withDeclarationEnterVisitor" ))
+                            |> Rule.withDeclarationExitVisitor (\_ context -> ( [], context ++ "\n12.2 - withDeclarationExitVisitor" ))
+                            |> Rule.withDeclarationExitVisitor (\_ context -> ( [], context ++ "\n12.1 - withDeclarationExitVisitor" ))
+                            |> Rule.withExpressionEnterVisitor (\_ context -> ( [], context ++ "\n10.1 - withExpressionEnterVisitor" ))
+                            |> Rule.withExpressionEnterVisitor (\_ context -> ( [], context ++ "\n10.2 - withExpressionEnterVisitor" ))
+                            |> Rule.withExpressionExitVisitor (\_ context -> ( [], context ++ "\n11.2 - withExpressionExitVisitor" ))
+                            |> Rule.withExpressionExitVisitor (\_ context -> ( [], context ++ "\n11.1 - withExpressionExitVisitor" ))
                             |> Rule.withFinalModuleEvaluation finalEvaluation
                             |> Rule.fromModuleRuleSchema
 
@@ -71,20 +73,22 @@ a = 1
 3.2 - withDependenciesModuleVisitor
 4.1 - withModuleDefinitionVisitor
 4.2 - withModuleDefinitionVisitor
-5.1 - withCommentsVisitor
-5.2 - withCommentsVisitor
-6.1 - withImportVisitor
-6.2 - withImportVisitor
-7.1 - withDeclarationListVisitor
-7.2 - withDeclarationListVisitor
-8.1 - withDeclarationEnterVisitor
-8.2 - withDeclarationEnterVisitor
-9.1 - withExpressionEnterVisitor
-9.2 - withExpressionEnterVisitor
-10.1 - withExpressionExitVisitor
-10.2 - withExpressionExitVisitor
-11.1 - withDeclarationExitVisitor
-11.2 - withDeclarationExitVisitor"""
+5.1 - withModuleDocumentationVisitor
+5.2 - withModuleDocumentationVisitor
+6.1 - withCommentsVisitor
+6.2 - withCommentsVisitor
+7.1 - withImportVisitor
+7.2 - withImportVisitor
+8.1 - withDeclarationListVisitor
+8.2 - withDeclarationListVisitor
+9.1 - withDeclarationEnterVisitor
+9.2 - withDeclarationEnterVisitor
+10.1 - withExpressionEnterVisitor
+10.2 - withExpressionEnterVisitor
+11.1 - withExpressionExitVisitor
+11.2 - withExpressionExitVisitor
+12.1 - withDeclarationExitVisitor
+12.2 - withDeclarationExitVisitor"""
                             , details = [ "details" ]
                             , under = "module"
                             }
@@ -118,9 +122,10 @@ a = 1
                             }
                         ]
                 in
-                Review.Test.run rule """module A exposing (..)
+                """module A exposing (..)
 a = 1
 """
+                    |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = """
@@ -163,9 +168,10 @@ Exit A"""
                             }
                         ]
                 in
-                Review.Test.run rule """module A exposing (..)
+                """module A exposing (..)
 a = 1
 """
+                    |> Review.Test.run rule
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = """

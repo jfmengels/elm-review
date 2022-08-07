@@ -94,7 +94,7 @@ rule =
     Rule.newModuleRuleSchema "Docs.ReviewAtDocs" initialContext
         |> Rule.withElmJsonModuleVisitor elmJsonVisitor
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
-        |> Rule.withCommentsVisitor commentsVisitor
+        |> Rule.withModuleDocumentationVisitor moduleDocumentationVisitor
         |> Rule.withDeclarationListVisitor (\nodes context -> ( declarationListVisitor nodes context, context ))
         |> Rule.fromModuleRuleSchema
 
@@ -152,12 +152,12 @@ moduleDefinitionVisitor node context =
 
 
 
--- COMMENTS VISITOR
+-- MODULE DOCUMENTATION VISITOR
 
 
-commentsVisitor : List (Node String) -> Context -> ( List (Rule.Error {}), Context )
-commentsVisitor nodes context =
-    case find (Node.value >> String.startsWith "{-|") nodes of
+moduleDocumentationVisitor : Maybe (Node String) -> Context -> ( List (Rule.Error {}), Context )
+moduleDocumentationVisitor moduleDocumentation context =
+    case moduleDocumentation of
         Just (Node range comment) ->
             case String.lines comment of
                 firstLine :: restOfLines ->
@@ -448,20 +448,6 @@ topLevelExposeName (Node range topLevelExpose) =
 
         Exposing.TypeExpose { name } ->
             Node range name
-
-
-find : (a -> Bool) -> List a -> Maybe a
-find predicate list =
-    case list of
-        [] ->
-            Nothing
-
-        first :: rest ->
-            if predicate first then
-                Just first
-
-            else
-                find predicate rest
 
 
 indexedConcatMap : (Int -> a -> List b) -> List a -> List b
