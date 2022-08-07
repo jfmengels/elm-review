@@ -5021,24 +5021,9 @@ accumulateModuleDocumentationVisitor visitors ast initialErrorsAndContext =
 
     else
         let
-            cutOffLine : Int
-            cutOffLine =
-                case ast.imports of
-                    firstImport :: _ ->
-                        (Node.range firstImport).start.row
-
-                    [] ->
-                        case ast.declarations of
-                            firstDeclaration :: _ ->
-                                (Node.range firstDeclaration).start.row
-
-                            [] ->
-                                -- Should not happen, as every module should have at least one declaration
-                                0
-
             moduleDocumentation : Maybe (Node String)
             moduleDocumentation =
-                findModuleDocumentation cutOffLine ast.comments
+                findModuleDocumentation ast
         in
         List.foldl
             (\visitor errorsAndContext -> accumulate (visitor moduleDocumentation) errorsAndContext)
@@ -5046,8 +5031,29 @@ accumulateModuleDocumentationVisitor visitors ast initialErrorsAndContext =
             visitors
 
 
-findModuleDocumentation : Int -> List (Node String) -> Maybe (Node String)
-findModuleDocumentation cutOffLine comments =
+findModuleDocumentation : Elm.Syntax.File.File -> Maybe (Node String)
+findModuleDocumentation ast =
+    let
+        cutOffLine : Int
+        cutOffLine =
+            case ast.imports of
+                firstImport :: _ ->
+                    (Node.range firstImport).start.row
+
+                [] ->
+                    case ast.declarations of
+                        firstDeclaration :: _ ->
+                            (Node.range firstDeclaration).start.row
+
+                        [] ->
+                            -- Should not happen, as every module should have at least one declaration
+                            0
+    in
+    findModuleDocumentationBeforeCutOffLine cutOffLine ast.comments
+
+
+findModuleDocumentationBeforeCutOffLine : Int -> List (Node String) -> Maybe (Node String)
+findModuleDocumentationBeforeCutOffLine cutOffLine comments =
     case comments of
         [] ->
             Nothing
@@ -5060,7 +5066,7 @@ findModuleDocumentation cutOffLine comments =
                 Just comment
 
             else
-                findModuleDocumentation cutOffLine restOfComments
+                findModuleDocumentationBeforeCutOffLine cutOffLine restOfComments
 
 
 accumulateList : List (a -> context -> ( List (Error {}), context )) -> List a -> ( List (Error {}), context ) -> ( List (Error {}), context )
