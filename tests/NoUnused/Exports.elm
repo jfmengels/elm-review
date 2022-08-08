@@ -148,7 +148,7 @@ fromProjectToModule =
             in
             { lookupTable = lookupTable
             , exposed = exposed
-            , used = Set.empty
+            , used = ModuleNameLookupTable.allReferences lookupTable
             , elementsNotToReport = Set.empty
             }
         )
