@@ -2,6 +2,7 @@ module Review.ModuleNameLookupTable exposing
     ( ModuleNameLookupTable, moduleNameFor, moduleNameAt
     , fullModuleNameFor, fullModuleNameAt
     , createForTests
+    , allReferences
     )
 
 {-| Looks up the name of the module a function or type comes from based on the position of the element in the module's AST.
@@ -34,6 +35,7 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import Review.ModuleNameLookupTable.Internal as Internal
+import Set exposing (Set)
 
 
 {-| Associates positions in the AST of a module to the name of the module that the contained variable or type originates
@@ -163,3 +165,11 @@ createForTests moduleName list =
     Internal.fromList
         moduleName
         (List.map (\( range, moduleName_ ) -> ( range, ( moduleName_, "" ) )) list)
+
+
+allReferences : ModuleNameLookupTable -> Set ( ModuleName, String )
+allReferences (Internal.ModuleNameLookupTable _ dict) =
+    Dict.foldl
+        (\_ target acc -> Set.insert target acc)
+        Set.empty
+        dict
