@@ -16,7 +16,7 @@ import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing exposing (TopLevelExpose)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Import exposing (Import)
-import Elm.Syntax.Module as Module exposing (Module)
+import Elm.Syntax.Module as Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
@@ -62,7 +62,7 @@ rule =
             , foldProjectContexts = foldProjectContexts
             }
         |> Rule.withContextFromImportedModules
-        |> Rule.withElmJsonProjectVisitor (\project context -> ( [], elmJsonVisitor project context ))
+        |> Rule.withElmJsonProjectVisitor (\elmJson context -> ( [], elmJsonVisitor elmJson context ))
         |> Rule.withFinalProjectEvaluation finalEvaluationForProject
         |> Rule.fromProjectRuleSchema
 
@@ -70,11 +70,9 @@ rule =
 moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor schema =
     schema
-        |> Rule.withModuleDefinitionVisitor (\project context -> ( [], moduleDefinitionVisitor project context ))
-        |> Rule.withModuleDocumentationVisitor (\project context -> ( [], moduleDocumentationVisitor project context ))
-        |> Rule.withImportVisitor (\project context -> ( [], importVisitor project context ))
-        |> Rule.withDeclarationListVisitor (\project context -> ( [], declarationListVisitor project context ))
-        |> Rule.withExpressionEnterVisitor (\project context -> ( [], expressionVisitor project context ))
+        |> Rule.withImportVisitor (\node context -> ( [], importVisitor node context ))
+        |> Rule.withDeclarationEnterVisitor (\node context -> ( [], declarationVisitor node context ))
+        |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionVisitor node context ))
 
 
 
@@ -119,8 +117,6 @@ type ExposedElementType
 
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
-    , exposesEverything : Bool
-    , rawExposed : List (Node TopLevelExpose)
     , exposed : Dict String ExposedElement
     , used : Set ( ModuleName, String )
     , elementsNotToReport : Set String
@@ -139,16 +135,26 @@ initialProjectContext =
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable _ ->
+        (\lookupTable ast moduleDocumentation _ ->
+            let
+                exposed : Dict String ExposedElement
+                exposed =
+                    case Module.exposingList (Node.value ast.moduleDefinition) of
+                        Exposing.All _ ->
+                            Dict.empty
+
+                        Exposing.Explicit explicitlyExposed ->
+                            collectExposed moduleDocumentation explicitlyExposed ast.declarations
+            in
             { lookupTable = lookupTable
-            , exposesEverything = False
-            , exposed = Dict.empty
-            , rawExposed = []
+            , exposed = exposed
             , used = Set.empty
             , elementsNotToReport = Set.empty
             }
         )
         |> Rule.withModuleNameLookupTable
+        |> Rule.withFullAst
+        |> Rule.withModuleDocumentation
 
 
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
@@ -344,116 +350,6 @@ removeReviewConfig moduleName dict =
         dict
 
 
-
--- MODULE DEFINITION VISITOR
-
-
-moduleDefinitionVisitor : Node Module -> ModuleContext -> ModuleContext
-moduleDefinitionVisitor moduleNode moduleContext =
-    case Module.exposingList (Node.value moduleNode) of
-        Exposing.All _ ->
-            { moduleContext | exposesEverything = True }
-
-        Exposing.Explicit list ->
-            { moduleContext | rawExposed = list }
-
-
-moduleDocumentationVisitor : Maybe (Node String) -> ModuleContext -> ModuleContext
-moduleDocumentationVisitor maybeModuleDocumentation moduleContext =
-    if List.isEmpty moduleContext.rawExposed then
-        moduleContext
-
-    else
-        let
-            docsReferences : List ( Int, String )
-            docsReferences =
-                case maybeModuleDocumentation of
-                    Just (Node range moduleDocumentation) ->
-                        let
-                            lines : List String
-                            lines =
-                                moduleDocumentation
-                                    |> String.lines
-                                    |> List.drop 1
-                        in
-                        List.Extra.indexedFilterMap
-                            (\lineNumber line ->
-                                if String.startsWith "@docs " line then
-                                    Just ( lineNumber, line )
-
-                                else
-                                    Nothing
-                            )
-                            (range.start.row + 1)
-                            lines
-                            []
-
-                    Nothing ->
-                        []
-        in
-        { moduleContext
-            | exposed = collectExposedElements docsReferences moduleContext.rawExposed
-        }
-
-
-collectExposedElements : List ( Int, String ) -> List (Node Exposing.TopLevelExpose) -> Dict String ExposedElement
-collectExposedElements docsReferences nodes =
-    let
-        listWithPreviousRange : List (Maybe Range)
-        listWithPreviousRange =
-            Nothing
-                :: (nodes
-                        |> List.take (List.length nodes - 1)
-                        |> List.map (\(Node range _) -> Just range)
-                   )
-
-        listWithNextRange : List Range
-        listWithNextRange =
-            (nodes
-                |> List.map Node.range
-                |> List.drop 1
-            )
-                ++ [ { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } } ]
-    in
-    nodes
-        |> List.map3 (\prev next current -> ( prev, current, next )) listWithPreviousRange listWithNextRange
-        |> List.indexedMap
-            (\index ( maybePreviousRange, Node range value, nextRange ) ->
-                case value of
-                    Exposing.FunctionExpose name ->
-                        Just
-                            ( name
-                            , { range = untilEndOfVariable name range
-                              , rangesToRemove = getRangesToRemove docsReferences nodes name index maybePreviousRange range nextRange
-                              , elementType = Function
-                              }
-                            )
-
-                    Exposing.TypeOrAliasExpose name ->
-                        Just
-                            ( name
-                            , { range = untilEndOfVariable name range
-                              , rangesToRemove = getRangesToRemove docsReferences nodes name index maybePreviousRange range nextRange
-                              , elementType = TypeOrTypeAlias
-                              }
-                            )
-
-                    Exposing.TypeExpose { name } ->
-                        Just
-                            ( name
-                            , { range = untilEndOfVariable name range
-                              , rangesToRemove = []
-                              , elementType = ExposedType []
-                              }
-                            )
-
-                    Exposing.InfixExpose _ ->
-                        Nothing
-            )
-        |> List.filterMap identity
-        |> Dict.fromList
-
-
 getRangesToRemove : List ( Int, String ) -> List a -> String -> Int -> Maybe Range -> Range -> Range -> List Range
 getRangesToRemove comments nodes name index maybePreviousRange range nextRange =
     if List.length nodes == 1 then
@@ -482,7 +378,7 @@ getRangesToRemove comments nodes name index maybePreviousRange range nextRange =
 
 findDocsRangeToRemove : String -> ( Int, String ) -> Maybe Range
 findDocsRangeToRemove name fullComment =
-    case findcommentInMiddle name fullComment of
+    case findCommentInMiddle name fullComment of
         Just range ->
             Just range
 
@@ -490,8 +386,8 @@ findDocsRangeToRemove name fullComment =
             findCommentAtEnd name fullComment
 
 
-findcommentInMiddle : String -> ( Int, String ) -> Maybe Range
-findcommentInMiddle name ( row, comment ) =
+findCommentInMiddle : String -> ( Int, String ) -> Maybe Range
+findCommentInMiddle name ( row, comment ) =
     String.indexes (" " ++ name ++ ", ") comment
         |> List.head
         |> Maybe.map
@@ -586,102 +482,173 @@ importVisitor node moduleContext =
             moduleContext
 
 
-
--- DECLARATION LIST VISITOR
-
-
-declarationListVisitor : List (Node Declaration) -> ModuleContext -> ModuleContext
-declarationListVisitor declarations moduleContext =
+collectExposed : Maybe (Node String) -> List (Node TopLevelExpose) -> List (Node Declaration) -> Dict String ExposedElement
+collectExposed moduleDocumentation explicitlyExposed declarations =
     let
-        moduleContextWithUpdatedConstructors : ModuleContext
-        moduleContextWithUpdatedConstructors =
-            { moduleContext | exposed = List.foldl addConstructorsToExposedCustomTypes moduleContext.exposed declarations }
+        docsReferences : List ( Int, String )
+        docsReferences =
+            collectDocsReferences moduleDocumentation
+    in
+    collectExposedElements docsReferences explicitlyExposed declarations
+        |> filterOut declarations
 
-        typesUsedInDeclaration_ : List ( List ( ModuleName, String ), Bool )
-        typesUsedInDeclaration_ =
+
+collectDocsReferences : Maybe (Node String) -> List ( Int, String )
+collectDocsReferences maybeModuleDocumentation =
+    case maybeModuleDocumentation of
+        Just (Node range moduleDocumentation) ->
+            let
+                lines : List String
+                lines =
+                    moduleDocumentation
+                        |> String.lines
+                        |> List.drop 1
+            in
+            List.Extra.indexedFilterMap
+                (\lineNumber line ->
+                    if String.startsWith "@docs " line then
+                        Just ( lineNumber, line )
+
+                    else
+                        Nothing
+                )
+                (range.start.row + 1)
+                lines
+                []
+
+        Nothing ->
+            []
+
+
+collectExposedElements : List ( Int, String ) -> List (Node Exposing.TopLevelExpose) -> List (Node Declaration) -> Dict String ExposedElement
+collectExposedElements docsReferences exposingNodes declarations =
+    let
+        listWithPreviousRange : List (Maybe Range)
+        listWithPreviousRange =
+            Nothing
+                :: (exposingNodes
+                        |> List.take (List.length exposingNodes - 1)
+                        |> List.map (\(Node range _) -> Just range)
+                   )
+
+        listWithNextRange : List Range
+        listWithNextRange =
+            (exposingNodes
+                |> List.map Node.range
+                |> List.drop 1
+            )
+                ++ [ { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } } ]
+    in
+    exposingNodes
+        |> List.map3 (\prev next current -> ( prev, current, next )) listWithPreviousRange listWithNextRange
+        |> List.indexedMap
+            (\index ( maybePreviousRange, Node range value, nextRange ) ->
+                case value of
+                    Exposing.FunctionExpose name ->
+                        Just
+                            ( name
+                            , { range = untilEndOfVariable name range
+                              , rangesToRemove = getRangesToRemove docsReferences exposingNodes name index maybePreviousRange range nextRange
+                              , elementType = Function
+                              }
+                            )
+
+                    Exposing.TypeOrAliasExpose name ->
+                        Just
+                            ( name
+                            , { range = untilEndOfVariable name range
+                              , rangesToRemove = getRangesToRemove docsReferences exposingNodes name index maybePreviousRange range nextRange
+                              , elementType = TypeOrTypeAlias
+                              }
+                            )
+
+                    Exposing.TypeExpose { name } ->
+                        Just
+                            ( name
+                            , { range = untilEndOfVariable name range
+                              , rangesToRemove = []
+                              , elementType = ExposedType (findConstructorsForExposedCustomType name declarations)
+                              }
+                            )
+
+                    Exposing.InfixExpose _ ->
+                        Nothing
+            )
+        |> List.filterMap identity
+        |> Dict.fromList
+
+
+filterOut : List (Node Declaration) -> Dict String ExposedElement -> Dict String ExposedElement
+filterOut declarations exposed =
+    let
+        declaredNames : Set String
+        declaredNames =
             declarations
-                |> List.map (typesUsedInDeclaration moduleContextWithUpdatedConstructors)
+                |> List.filterMap (\(Node _ declaration) -> declarationName declaration)
+                |> Set.fromList
+    in
+    Dict.filter (\name _ -> Set.member name declaredNames) exposed
 
-        testFunctions : List String
-        testFunctions =
-            declarations
-                |> List.filterMap (testFunctionName moduleContextWithUpdatedConstructors)
 
-        allUsedTypes : List ( ModuleName, String )
-        allUsedTypes =
-            typesUsedInDeclaration_
-                |> List.concatMap Tuple.first
+declarationVisitor : Node Declaration -> ModuleContext -> ModuleContext
+declarationVisitor node moduleContext =
+    let
+        ( allUsedTypes, comesFromCustomTypeWithHiddenConstructors ) =
+            typesUsedInDeclaration moduleContext node
+
+        allUsedTypesSet : Set String
+        allUsedTypesSet =
+            if comesFromCustomTypeWithHiddenConstructors then
+                Set.empty
+
+            else
+                allUsedTypes
+                    |> List.map Tuple.second
+                    |> Set.fromList
+
+        elementsNotToReport : Set String
+        elementsNotToReport =
+            case testFunctionName moduleContext node of
+                Just testFunction ->
+                    Set.insert testFunction allUsedTypesSet
+
+                Nothing ->
+                    allUsedTypesSet
+
+        testFunctionSet : List ( ModuleName, String )
+        testFunctionSet =
+            case testFunctionName moduleContext node of
+                Just testFunction ->
+                    [ ( [], testFunction ) ]
+
+                Nothing ->
+                    []
 
         contextWithUsedElements : ModuleContext
         contextWithUsedElements =
-            registerMultipleAsUsed allUsedTypes moduleContextWithUpdatedConstructors
+            registerMultipleAsUsed (testFunctionSet ++ allUsedTypes) moduleContext
     in
-    { contextWithUsedElements
-        | exposed =
-            if moduleContextWithUpdatedConstructors.exposesEverything then
-                contextWithUsedElements.exposed
-
-            else
-                let
-                    declaredNames : Set String
-                    declaredNames =
-                        declarations
-                            |> List.filterMap (\(Node _ declaration) -> declarationName declaration)
-                            |> Set.fromList
-                in
-                Dict.filter (\name _ -> Set.member name declaredNames) contextWithUsedElements.exposed
-        , elementsNotToReport =
-            typesUsedInDeclaration_
-                |> List.concatMap
-                    (\( list, comesFromCustomTypeWithHiddenConstructors ) ->
-                        if comesFromCustomTypeWithHiddenConstructors then
-                            []
-
-                        else
-                            List.filter (\( moduleName, name ) -> isType name && moduleName == []) list
-                    )
-                |> List.map Tuple.second
-                |> List.append testFunctions
-                |> Set.fromList
-    }
+    { contextWithUsedElements | elementsNotToReport = Set.union elementsNotToReport contextWithUsedElements.elementsNotToReport }
 
 
-addConstructorsToExposedCustomTypes : Node Declaration -> Dict String ExposedElement -> Dict String ExposedElement
-addConstructorsToExposedCustomTypes node exposed =
-    case Node.value node of
-        Declaration.CustomTypeDeclaration type_ ->
-            case Dict.get (Node.value type_.name) exposed of
-                Just exposedElement ->
-                    case exposedElement.elementType of
-                        ExposedType [] ->
-                            let
-                                constructors : List String
-                                constructors =
-                                    List.map (\c -> c |> Node.value |> .name |> Node.value) type_.constructors
-                            in
-                            Dict.insert
-                                (Node.value type_.name)
-                                { exposedElement | elementType = ExposedType constructors }
-                                exposed
+findConstructorsForExposedCustomType : String -> List (Node Declaration) -> List String
+findConstructorsForExposedCustomType typeName declarations =
+    findMap
+        (\node ->
+            case Node.value node of
+                Declaration.CustomTypeDeclaration type_ ->
+                    if Node.value type_.name /= typeName then
+                        Nothing
 
-                        _ ->
-                            exposed
+                    else
+                        List.map (\c -> c |> Node.value |> .name |> Node.value) type_.constructors
+                            |> Just
 
-                Nothing ->
-                    exposed
-
-        _ ->
-            exposed
-
-
-isType : String -> Bool
-isType string =
-    case String.uncons string of
-        Nothing ->
-            False
-
-        Just ( char, _ ) ->
-            Char.isUpper char
+                _ ->
+                    Nothing
+        )
+        declarations
+        |> Maybe.withDefault []
 
 
 declarationName : Declaration -> Maybe String
