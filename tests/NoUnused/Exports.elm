@@ -207,11 +207,6 @@ registerAsUsed ( moduleName, name ) moduleContext =
     { moduleContext | used = Set.insert ( moduleName, name ) moduleContext.used }
 
 
-registerMultipleAsUsed : List ( ModuleName, String ) -> ModuleContext -> ModuleContext
-registerMultipleAsUsed usedElements moduleContext =
-    { moduleContext | used = Set.union (Set.fromList usedElements) moduleContext.used }
-
-
 
 -- ELM JSON VISITOR
 
@@ -454,26 +449,27 @@ importVisitor node moduleContext =
                 moduleName =
                     Node.value (Node.value node).moduleName
 
-                usedElements : List ( ModuleName, String )
+                usedElements : Set ( ModuleName, String )
                 usedElements =
-                    List.filterMap
-                        (\(Node _ element) ->
+                    List.foldl
+                        (\(Node _ element) acc ->
                             case element of
                                 Exposing.FunctionExpose name ->
-                                    Just ( moduleName, name )
+                                    Set.insert ( moduleName, name ) acc
 
                                 Exposing.TypeOrAliasExpose name ->
-                                    Just ( moduleName, name )
+                                    Set.insert ( moduleName, name ) acc
 
                                 Exposing.TypeExpose { name } ->
-                                    Just ( moduleName, name )
+                                    Set.insert ( moduleName, name ) acc
 
                                 Exposing.InfixExpose _ ->
-                                    Nothing
+                                    acc
                         )
+                        moduleContext.used
                         list
             in
-            registerMultipleAsUsed usedElements moduleContext
+            { moduleContext | used = usedElements }
 
         Just (Exposing.All _) ->
             moduleContext
@@ -596,39 +592,34 @@ declarationVisitor node moduleContext =
         ( allUsedTypes, comesFromCustomTypeWithHiddenConstructors ) =
             typesUsedInDeclaration moduleContext node
 
-        allUsedTypesSet : Set String
-        allUsedTypesSet =
-            if comesFromCustomTypeWithHiddenConstructors then
-                Set.empty
-
-            else
-                allUsedTypes
-                    |> List.map Tuple.second
-                    |> Set.fromList
-
         elementsNotToReport : Set String
         elementsNotToReport =
-            case testFunctionName moduleContext node of
-                Just testFunction ->
-                    Set.insert testFunction allUsedTypesSet
+            (if comesFromCustomTypeWithHiddenConstructors then
+                moduleContext.elementsNotToReport
 
-                Nothing ->
-                    allUsedTypesSet
+             else
+                List.foldl (\( _, name ) acc -> Set.insert name acc) moduleContext.elementsNotToReport allUsedTypes
+            )
+                |> maybeSetInsert (testFunctionName moduleContext node)
 
-        testFunctionSet : List ( ModuleName, String )
-        testFunctionSet =
-            case testFunctionName moduleContext node of
-                Just testFunction ->
-                    [ ( [], testFunction ) ]
-
-                Nothing ->
-                    []
-
-        contextWithUsedElements : ModuleContext
-        contextWithUsedElements =
-            registerMultipleAsUsed (testFunctionSet ++ allUsedTypes) moduleContext
+        used : Set ( ModuleName, String )
+        used =
+            List.foldl Set.insert moduleContext.used allUsedTypes
     in
-    { contextWithUsedElements | elementsNotToReport = Set.union elementsNotToReport contextWithUsedElements.elementsNotToReport }
+    { moduleContext
+        | elementsNotToReport = elementsNotToReport
+        , used = used
+    }
+
+
+maybeSetInsert : Maybe comparable -> Set comparable -> Set comparable
+maybeSetInsert maybeValue set =
+    case maybeValue of
+        Just value ->
+            Set.insert value set
+
+        Nothing ->
+            set
 
 
 findConstructorsForExposedCustomType : String -> List (Node Declaration) -> List String
@@ -838,7 +829,7 @@ expressionVisitor node moduleContext =
                         []
                         declarations
             in
-            registerMultipleAsUsed used moduleContext
+            { moduleContext | used = List.foldl Set.insert moduleContext.used used }
 
         Expression.CaseExpression { cases } ->
             let
@@ -849,7 +840,7 @@ expressionVisitor node moduleContext =
                         (List.map Tuple.first cases)
                         []
             in
-            registerMultipleAsUsed usedConstructors moduleContext
+            { moduleContext | used = List.foldl Set.insert moduleContext.used usedConstructors }
 
         _ ->
             moduleContext
