@@ -2,6 +2,9 @@ module NoUnused.Modules exposing (rule)
 
 {-| Forbid the use of modules that are never used in your project.
 
+**@deprecated** This rule has been deprecated, as it has now been integrated into [`NoUnused.Exports`](NoUnused-Exports).
+You should use that rule instead.
+
 @docs rule
 
 -}
