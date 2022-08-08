@@ -14,7 +14,6 @@ import Elm.Module
 import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing exposing (TopLevelExpose)
-import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Module as Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
@@ -72,7 +71,6 @@ moduleVisitor schema =
     schema
         |> Rule.withImportVisitor (\node context -> ( [], importVisitor node context ))
         |> Rule.withDeclarationEnterVisitor (\node context -> ( [], declarationVisitor node context ))
-        |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionVisitor node context ))
 
 
 
@@ -200,11 +198,6 @@ foldProjectContexts newContext previousContext =
     , used = Set.union newContext.used previousContext.used
     , constructors = Dict.union previousContext.constructors newContext.constructors
     }
-
-
-registerAsUsed : ( ModuleName, String ) -> ModuleContext -> ModuleContext
-registerAsUsed ( moduleName, name ) moduleContext =
-    { moduleContext | used = Set.insert ( moduleName, name ) moduleContext.used }
 
 
 
@@ -781,69 +774,6 @@ collectTypesFromTypeAnnotation moduleContext nodes acc =
 
 
 -- EXPRESSION VISITOR
-
-
-expressionVisitor : Node Expression -> ModuleContext -> ModuleContext
-expressionVisitor node moduleContext =
-    case Node.value node of
-        Expression.FunctionOrValue _ name ->
-            case ModuleNameLookupTable.moduleNameFor moduleContext.lookupTable node of
-                Just moduleName ->
-                    registerAsUsed
-                        ( moduleName, name )
-                        moduleContext
-
-                Nothing ->
-                    moduleContext
-
-        Expression.RecordUpdateExpression (Node range name) _ ->
-            case ModuleNameLookupTable.moduleNameAt moduleContext.lookupTable range of
-                Just moduleName ->
-                    registerAsUsed
-                        ( moduleName, name )
-                        moduleContext
-
-                Nothing ->
-                    moduleContext
-
-        Expression.LetExpression { declarations } ->
-            let
-                used : List ( ModuleName, String )
-                used =
-                    List.foldl
-                        (\declaration acc ->
-                            case Node.value declaration of
-                                Expression.LetFunction function ->
-                                    case function.signature of
-                                        Just signature ->
-                                            acc
-                                                |> collectTypesFromTypeAnnotation moduleContext [ (Node.value signature).typeAnnotation ]
-                                                |> findUsedConstructors moduleContext.lookupTable (Node.value function.declaration).arguments
-
-                                        Nothing ->
-                                            findUsedConstructors moduleContext.lookupTable (Node.value function.declaration).arguments acc
-
-                                Expression.LetDestructuring pattern _ ->
-                                    findUsedConstructors moduleContext.lookupTable [ pattern ] acc
-                        )
-                        []
-                        declarations
-            in
-            { moduleContext | used = List.foldl Set.insert moduleContext.used used }
-
-        Expression.CaseExpression { cases } ->
-            let
-                usedConstructors : List ( ModuleName, String )
-                usedConstructors =
-                    findUsedConstructors
-                        moduleContext.lookupTable
-                        (List.map Tuple.first cases)
-                        []
-            in
-            { moduleContext | used = List.foldl Set.insert moduleContext.used usedConstructors }
-
-        _ ->
-            moduleContext
 
 
 findUsedConstructors : ModuleNameLookupTable -> List (Node Pattern) -> List ( ModuleName, String ) -> List ( ModuleName, String )
