@@ -88,8 +88,8 @@ moduleNameFor (Internal.ModuleNameLookupTable _ dict) (Node range _) =
 if the type or value was defined in this module, instead of `Just []`.
 -}
 fullModuleNameFor : ModuleNameLookupTable -> Node a -> Maybe ModuleName
-fullModuleNameFor (Internal.ModuleNameLookupTable currentModuleName dict) (Node range _) =
-    case Dict.get (Internal.toRangeLike range) dict of
+fullModuleNameFor ((Internal.ModuleNameLookupTable currentModuleName _) as lookupTable) node =
+    case moduleNameFor lookupTable node of
         Just [] ->
             Just currentModuleName
 
@@ -136,8 +136,8 @@ moduleNameAt (Internal.ModuleNameLookupTable _ dict) range =
 if the type or value was defined in this module, instead of `Just []`.
 -}
 fullModuleNameAt : ModuleNameLookupTable -> Range -> Maybe ModuleName
-fullModuleNameAt (Internal.ModuleNameLookupTable currentModuleName dict) range =
-    case Dict.get (Internal.toRangeLike range) dict of
+fullModuleNameAt ((Internal.ModuleNameLookupTable currentModuleName _) as lookupTable) range =
+    case moduleNameAt lookupTable range of
         Just [] ->
             Just currentModuleName
 
