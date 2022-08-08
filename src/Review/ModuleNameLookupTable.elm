@@ -82,6 +82,7 @@ Note: If using a `Range` is easier in your situation than using a `Node`, use [`
 moduleNameFor : ModuleNameLookupTable -> Node a -> Maybe ModuleName
 moduleNameFor (Internal.ModuleNameLookupTable _ dict) (Node range _) =
     Dict.get (Internal.toRangeLike range) dict
+        |> Maybe.map (\( moduleName, _ ) -> moduleName)
 
 
 {-| This is the same as [`moduleNameFor`](#moduleNameFor), except that the function will return the current module name
@@ -130,6 +131,7 @@ Note: If using a `Node` is easier in your situation than using a `Range`, use [`
 moduleNameAt : ModuleNameLookupTable -> Range -> Maybe ModuleName
 moduleNameAt (Internal.ModuleNameLookupTable _ dict) range =
     Dict.get (Internal.toRangeLike range) dict
+        |> Maybe.map (\( moduleName, _ ) -> moduleName)
 
 
 {-| This is the same as [`moduleNameAt`](#moduleNameAt), except that the function will return the current module name
@@ -156,5 +158,8 @@ This can be useful if you want to test individual functions that take a `ModuleN
 
 -}
 createForTests : ModuleName -> List ( Range, ModuleName ) -> ModuleNameLookupTable
-createForTests =
+createForTests moduleName list =
+    -- TODO THis function should probably be deprecated when we add names to the lookup table
     Internal.fromList
+        moduleName
+        (List.map (\( range, moduleName_ ) -> ( range, ( moduleName_, "" ) )) list)

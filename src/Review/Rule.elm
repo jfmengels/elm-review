@@ -6239,13 +6239,13 @@ scope_declarationEnterVisitor node context =
                         |> nonemptyList_cons newScope
                         |> updateScope context
 
-                moduleNamesFromSignature : List ( Range, ModuleName )
+                moduleNamesFromSignature : List ( Range, ModuleName, String )
                 moduleNamesFromSignature =
                     function.signature
                         |> Maybe.map (Node.value >> .typeAnnotation >> collectModuleNamesFromTypeAnnotation newContext)
                         |> Maybe.withDefault []
 
-                moduleNamesFromArguments : List ( Range, ModuleName )
+                moduleNamesFromArguments : List ( Range, ModuleName, String )
                 moduleNamesFromArguments =
                     function.declaration
                         |> Node.value
@@ -6278,7 +6278,7 @@ scope_declarationEnterVisitor node context =
 
         Declaration.PortDeclaration signature ->
             let
-                moduleNamesFromSignature : List ( Range, ModuleName )
+                moduleNamesFromSignature : List ( Range, ModuleName, String )
                 moduleNamesFromSignature =
                     collectModuleNamesFromTypeAnnotation context signature.typeAnnotation
 
@@ -6363,12 +6363,12 @@ collectNamesFromPatternHelp patternsToVisit acc =
             acc
 
 
-collectModuleNamesFromPattern : ScopeModuleContext -> Node Pattern -> List ( Range, ModuleName )
+collectModuleNamesFromPattern : ScopeModuleContext -> Node Pattern -> List ( Range, ModuleName, String )
 collectModuleNamesFromPattern context pattern =
     collectModuleNamesFromPatternHelp context [ pattern ] []
 
 
-collectModuleNamesFromPatternHelp : ScopeModuleContext -> List (Node Pattern) -> List ( Range, ModuleName ) -> List ( Range, ModuleName )
+collectModuleNamesFromPatternHelp : ScopeModuleContext -> List (Node Pattern) -> List ( Range, ModuleName, String ) -> List ( Range, ModuleName, String )
 collectModuleNamesFromPatternHelp context patternsToVisit acc =
     case patternsToVisit of
         pattern :: restOfPatternsToVisit ->
@@ -6377,7 +6377,7 @@ collectModuleNamesFromPatternHelp context patternsToVisit acc =
                     collectModuleNamesFromPatternHelp
                         context
                         (List.append subPatterns restOfPatternsToVisit)
-                        (( Node.range pattern, moduleNameForValue context name moduleName ) :: acc)
+                        (( Node.range pattern, moduleNameForValue context name moduleName, name ) :: acc)
 
                 Pattern.UnConsPattern left right ->
                     collectModuleNamesFromPatternHelp context (left :: right :: restOfPatternsToVisit) acc
@@ -6465,8 +6465,8 @@ scope_expressionEnterVisitor node context =
                         declarations
                         |> updateScope context
 
-                moduleNames : List ( Range, ModuleName )
-                moduleNames =
+                targets : List ( Range, ModuleName, String )
+                targets =
                     declarations
                         |> ListExtra.fastConcatMap
                             (\declaration ->
@@ -6486,7 +6486,7 @@ scope_expressionEnterVisitor node context =
                                         collectModuleNamesFromPattern newContext pattern
                             )
             in
-            { newContext | lookupTable = ModuleNameLookupTableInternal.addMultiple moduleNames newContext.lookupTable }
+            { newContext | lookupTable = ModuleNameLookupTableInternal.addMultiple targets newContext.lookupTable }
 
         Expression.CaseExpression caseBlock ->
             let
@@ -6509,15 +6509,15 @@ scope_expressionEnterVisitor node context =
                         )
                         caseBlock.cases
 
-                moduleNames : List ( Range, ModuleName )
-                moduleNames =
+                targets : List ( Range, ModuleName, String )
+                targets =
                     ListExtra.fastConcatMap
                         (\( pattern, _ ) -> collectModuleNamesFromPattern context pattern)
                         caseBlock.cases
             in
             { context
                 | scopes = nonemptyList_mapHead (\scope -> { scope | cases = cases }) context.scopes
-                , lookupTable = ModuleNameLookupTableInternal.addMultiple moduleNames context.lookupTable
+                , lookupTable = ModuleNameLookupTableInternal.addMultiple targets context.lookupTable
             }
 
         Expression.FunctionOrValue moduleName name ->
@@ -6526,6 +6526,7 @@ scope_expressionEnterVisitor node context =
                     ModuleNameLookupTableInternal.add
                         (Node.range node)
                         (moduleNameForValue context name moduleName)
+                        name
                         context.lookupTable
             }
 
@@ -6535,6 +6536,7 @@ scope_expressionEnterVisitor node context =
                     ModuleNameLookupTableInternal.add
                         range
                         (moduleNameForValue context name [])
+                        name
                         context.lookupTable
             }
 
@@ -6552,6 +6554,7 @@ scope_expressionEnterVisitor node context =
                     ModuleNameLookupTableInternal.add
                         (Node.range node)
                         (moduleNameForValue context op [])
+                        op
                         context.lookupTable
             }
 
@@ -6561,6 +6564,7 @@ scope_expressionEnterVisitor node context =
                     ModuleNameLookupTableInternal.add
                         (Node.range node)
                         (moduleNameForValue context op [])
+                        op
                         context.lookupTable
             }
 
@@ -6568,12 +6572,12 @@ scope_expressionEnterVisitor node context =
             context
 
 
-collectModuleNamesFromTypeAnnotation : ScopeModuleContext -> Node TypeAnnotation -> List ( Range, ModuleName )
+collectModuleNamesFromTypeAnnotation : ScopeModuleContext -> Node TypeAnnotation -> List ( Range, ModuleName, String )
 collectModuleNamesFromTypeAnnotation context typeAnnotationToVisit =
     collectModuleNamesFromTypeAnnotationHelp context [ typeAnnotationToVisit ] []
 
 
-collectModuleNamesFromTypeAnnotationHelp : ScopeModuleContext -> List (Node TypeAnnotation) -> List ( Range, ModuleName ) -> List ( Range, ModuleName )
+collectModuleNamesFromTypeAnnotationHelp : ScopeModuleContext -> List (Node TypeAnnotation) -> List ( Range, ModuleName, String ) -> List ( Range, ModuleName, String )
 collectModuleNamesFromTypeAnnotationHelp context typeAnnotationsToVisit acc =
     case typeAnnotationsToVisit of
         typeAnnotationNode :: remainingTypeAnnotationsToVisit ->
@@ -6582,7 +6586,7 @@ collectModuleNamesFromTypeAnnotationHelp context typeAnnotationsToVisit acc =
                     collectModuleNamesFromTypeAnnotationHelp
                         context
                         (args ++ remainingTypeAnnotationsToVisit)
-                        (( range, moduleNameForType context name moduleName ) :: acc)
+                        (( range, moduleNameForType context name moduleName, name ) :: acc)
 
                 TypeAnnotation.Tupled nodes ->
                     collectModuleNamesFromTypeAnnotationHelp

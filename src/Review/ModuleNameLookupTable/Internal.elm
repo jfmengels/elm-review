@@ -6,7 +6,7 @@ import Elm.Syntax.Range exposing (Range)
 
 
 type ModuleNameLookupTable
-    = ModuleNameLookupTable ModuleName (Dict RangeLike ModuleName)
+    = ModuleNameLookupTable ModuleName (Dict RangeLike ( ModuleName, String ))
 
 
 empty : ModuleName -> ModuleNameLookupTable
@@ -14,23 +14,23 @@ empty currentModuleName =
     ModuleNameLookupTable currentModuleName Dict.empty
 
 
-fromList : ModuleName -> List ( Range, ModuleName ) -> ModuleNameLookupTable
+fromList : ModuleName -> List ( Range, ( ModuleName, String ) ) -> ModuleNameLookupTable
 fromList fileModuleName list =
     List.foldl
-        (\( range, moduleName ) acc -> add range moduleName acc)
+        (\( range, ( moduleName, name ) ) acc -> add range moduleName name acc)
         (empty fileModuleName)
         list
 
 
-add : Range -> ModuleName -> ModuleNameLookupTable -> ModuleNameLookupTable
-add range moduleName (ModuleNameLookupTable currentModuleName moduleNameLookupTable) =
-    ModuleNameLookupTable currentModuleName (Dict.insert (toRangeLike range) moduleName moduleNameLookupTable)
+add : Range -> ModuleName -> String -> ModuleNameLookupTable -> ModuleNameLookupTable
+add range moduleName name (ModuleNameLookupTable currentModuleName moduleNameLookupTable) =
+    ModuleNameLookupTable currentModuleName (Dict.insert (toRangeLike range) ( moduleName, name ) moduleNameLookupTable)
 
 
-addMultiple : List ( Range, ModuleName ) -> ModuleNameLookupTable -> ModuleNameLookupTable
+addMultiple : List ( Range, ModuleName, String ) -> ModuleNameLookupTable -> ModuleNameLookupTable
 addMultiple elements moduleNameLookupTable =
     List.foldl
-        (\( range, moduleName ) lookupTable -> add range moduleName lookupTable)
+        (\( range, moduleName, name ) lookupTable -> add range moduleName name lookupTable)
         moduleNameLookupTable
         elements
 
