@@ -283,6 +283,19 @@ a = Test.describe "thing" []
 """
                     |> Review.Test.runWithProjectData package rule
                     |> Review.Test.expectNoErrors
+        , test "should not report exposed tests (with other declarations available)" <|
+            \() ->
+                """module A exposing (all)
+import Test exposing (Test, describe, fuzz, test)
+
+all : Test
+all =
+   test "NameVisitor" testFn
+
+a = 1
+"""
+                    |> Review.Test.runWithProjectData package rule
+                    |> Review.Test.expectNoErrors
         , test "should not report ReviewConfig.config" <|
             \() ->
                 """
@@ -503,7 +516,7 @@ type alias B = A.OtherType
 """ ]
                     |> Review.Test.runOnModulesWithProjectData package rule
                     |> Review.Test.expectNoErrors
-        , test "should not report an unused exposed custom type if it's present in an exposed custom type constructor's arguments but the constructors are not exposed" <|
+        , test "should report an unused exposed custom type if it's present in an exposed custom type constructor's arguments but the constructors are not exposed" <|
             \() ->
                 [ """
 module A exposing (MyType, OtherType)
