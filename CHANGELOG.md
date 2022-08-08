@@ -3,6 +3,8 @@
 ## Unreleased
 
 - Adds [`Review.Rule.withModuleDocumentationVisitor`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withModuleDocumentationVisitor) [#132](https://github.com/jfmengels/elm-review/pull/132)
+- Adds [`Review.Rule.withModuleDocumentation`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withModuleDocumentation) [#133](https://github.com/jfmengels/elm-review/pull/133)
+- Adds [`Review.Rule.withFullAst`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withFullAst) [#133](https://github.com/jfmengels/elm-review/pull/133)
 
 
 ## [2.8.1] - 2022-07-17
