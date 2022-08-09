@@ -13,14 +13,15 @@
             "elm/project-metadata-utils": "1.0.2",
             "elm/regex": "1.0.0",
             "jfmengels/elm-review": "2.6.2",
-            "stil4m/elm-syntax": "7.2.3"
+            "pzp1997/assoc-list": "1.0.0",
+            "stil4m/elm-syntax": "7.2.9"
         },
         "indirect": {
             "elm/html": "1.0.0",
             "elm/random": "1.0.0",
             "elm/time": "1.0.0",
-            "elm/virtual-dom": "1.0.2",
-            "elm-community/list-extra": "8.3.0",
+            "elm/virtual-dom": "1.0.3",
+            "elm-community/list-extra": "8.6.0",
             "elm-explorations/test": "1.2.2",
             "miniBill/elm-unicode": "1.0.2",
             "rtfeldman/elm-hex": "1.0.0",

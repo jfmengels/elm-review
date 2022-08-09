@@ -46,6 +46,15 @@ Below is the list of all kinds of simplifications this rule applies.
     not True
     --> False
 
+    not (not x)
+    --> x
+
+    not >> not
+    --> identity
+
+
+### Comparisons
+
     x == True
     --> x
 
@@ -64,12 +73,6 @@ Below is the list of all kinds of simplifications this rule applies.
     { r | a = 1 } == { r | a = 2 }
     --> False
 
-    not (not x)
-    --> x
-
-    not >> not
-    --> identity
-
 
 ### If expressions
 
@@ -87,6 +90,17 @@ Below is the list of all kinds of simplifications this rule applies.
 
     if condition then False else True
     --> not condition
+
+
+    a =
+        if condition then
+            if condition then
+                1
+            else
+                2
+        else
+            3
+    --> if condition then 1 else 3
 
 
 ### Case expressions
@@ -446,8 +460,8 @@ Below is the list of all kinds of simplifications this rule applies.
     Set.map fn Set.empty -- same for Set.filter, Set.remove...
     --> Set.empty
 
-    Set.map identity list
-    --> list
+    Set.map identity set
+    --> set
 
     Set.map identity
     --> identity
@@ -486,7 +500,7 @@ Below is the list of all kinds of simplifications this rule applies.
     --> ( Set.empty, Set.empty )
 
     Set.partition (always True) set
-    --> ( list, Set.empty )
+    --> ( set, Set.empty )
 
 
 ### Dict
@@ -551,8 +565,11 @@ import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNam
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
+import Simplify.AstHelpers as AstHelpers
+import Simplify.Infer as Infer
 import Simplify.Match as Match exposing (Match(..))
 import Simplify.Normalize as Normalize
+import Simplify.RangeDict as RangeDict exposing (RangeDict)
 
 
 {-| Rule to simplify Elm code.
@@ -597,6 +614,7 @@ moduleVisitor typeNames schema =
     schema
         |> Rule.withDeclarationEnterVisitor declarationVisitor
         |> Rule.withExpressionEnterVisitor expressionVisitor
+        |> Rule.withExpressionExitVisitor (\node context -> ( [], expressionExitVisitor node context ))
         |> addDeclarationListVisitor typeNames
 
 
@@ -742,6 +760,8 @@ type alias ModuleContext =
     , ignoredCustomTypes : List Constructor
     , localIgnoredCustomTypes : List Constructor
     , constructorsToIgnore : Set ( ModuleName, String )
+    , inferredConstantsDict : RangeDict Infer.Inferred
+    , inferredConstants : ( Infer.Inferred, List Infer.Inferred )
     }
 
 
@@ -770,35 +790,39 @@ fromModuleToProject =
 initialModuleContext : Rule.ContextCreator () ModuleContext
 initialModuleContext =
     Rule.initContextCreator
-        (\lookupTable moduleName () ->
+        (\lookupTable metadata () ->
             { lookupTable = lookupTable
-            , moduleName = moduleName
+            , moduleName = Rule.moduleNameFromMetadata metadata
             , rangesToIgnore = []
             , rightSidesOfPlusPlus = []
             , localIgnoredCustomTypes = []
             , ignoredCustomTypes = []
             , constructorsToIgnore = Set.empty
+            , inferredConstantsDict = Dict.empty
+            , inferredConstants = ( Infer.empty, [] )
             }
         )
         |> Rule.withModuleNameLookupTable
-        |> Rule.withModuleName
+        |> Rule.withMetadata
 
 
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable moduleName projectContext ->
+        (\lookupTable metadata projectContext ->
             { lookupTable = lookupTable
-            , moduleName = moduleName
+            , moduleName = Rule.moduleNameFromMetadata metadata
             , rangesToIgnore = []
             , rightSidesOfPlusPlus = []
             , localIgnoredCustomTypes = []
             , ignoredCustomTypes = projectContext.ignoredCustomTypes
             , constructorsToIgnore = buildConstructorsToIgnore projectContext.ignoredCustomTypes
+            , inferredConstantsDict = RangeDict.empty
+            , inferredConstants = ( Infer.empty, [] )
             }
         )
         |> Rule.withModuleNameLookupTable
-        |> Rule.withModuleName
+        |> Rule.withMetadata
 
 
 buildConstructorsToIgnore : List Constructor -> Set ( ModuleName, String )
@@ -926,7 +950,13 @@ findCustomTypes constructorsToIgnore context node =
 
 declarationVisitor : Node a -> ModuleContext -> ( List nothing, ModuleContext )
 declarationVisitor _ context =
-    ( [], { context | rangesToIgnore = [], rightSidesOfPlusPlus = [] } )
+    ( []
+    , { context
+        | rangesToIgnore = []
+        , rightSidesOfPlusPlus = []
+        , inferredConstantsDict = RangeDict.empty
+      }
+    )
 
 
 
@@ -935,40 +965,71 @@ declarationVisitor _ context =
 
 expressionVisitor : Node Expression -> ModuleContext -> ( List (Error {}), ModuleContext )
 expressionVisitor node context =
-    if List.member (Node.range node) context.rangesToIgnore then
-        ( [], context )
+    let
+        newContext : ModuleContext
+        newContext =
+            case RangeDict.get (Node.range node) context.inferredConstantsDict of
+                Just inferredConstants ->
+                    let
+                        ( previous, previousStack ) =
+                            context.inferredConstants
+                    in
+                    { context | inferredConstants = ( inferredConstants, previous :: previousStack ) }
+
+                Nothing ->
+                    context
+    in
+    if List.member (Node.range node) newContext.rangesToIgnore then
+        ( [], newContext )
 
     else
         let
-            { errors, rangesToIgnore, rightSidesOfPlusPlus } =
-                expressionVisitorHelp node context
+            { errors, rangesToIgnore, rightSidesOfPlusPlus, inferredConstants } =
+                expressionVisitorHelp node newContext
         in
         ( errors
-        , { context
-            | rangesToIgnore = rangesToIgnore ++ context.rangesToIgnore
-            , rightSidesOfPlusPlus =
-                rightSidesOfPlusPlus ++ context.rightSidesOfPlusPlus
+        , { newContext
+            | rangesToIgnore = rangesToIgnore ++ newContext.rangesToIgnore
+            , rightSidesOfPlusPlus = rightSidesOfPlusPlus ++ newContext.rightSidesOfPlusPlus
+            , inferredConstantsDict = List.foldl (\( range, constants ) acc -> RangeDict.insert range constants acc) newContext.inferredConstantsDict inferredConstants
           }
         )
 
 
-errorsAndRangesToIgnore : List (Error {}) -> List Range -> { errors : List (Error {}), rangesToIgnore : List Range, rightSidesOfPlusPlus : List Range }
+expressionExitVisitor : Node Expression -> ModuleContext -> ModuleContext
+expressionExitVisitor node context =
+    if RangeDict.member (Node.range node) context.inferredConstantsDict then
+        case Tuple.second context.inferredConstants of
+            topOfStack :: restOfStack ->
+                { context | inferredConstants = ( topOfStack, restOfStack ) }
+
+            [] ->
+                -- should never be empty
+                context
+
+    else
+        context
+
+
+errorsAndRangesToIgnore : List (Error {}) -> List Range -> { errors : List (Error {}), rangesToIgnore : List Range, rightSidesOfPlusPlus : List Range, inferredConstants : List ( Range, Infer.Inferred ) }
 errorsAndRangesToIgnore errors rangesToIgnore =
     { errors = errors
     , rangesToIgnore = rangesToIgnore
     , rightSidesOfPlusPlus = []
+    , inferredConstants = []
     }
 
 
-onlyErrors : List (Error {}) -> { errors : List (Error {}), rangesToIgnore : List Range, rightSidesOfPlusPlus : List Range }
+onlyErrors : List (Error {}) -> { errors : List (Error {}), rangesToIgnore : List Range, rightSidesOfPlusPlus : List Range, inferredConstants : List ( Range, Infer.Inferred ) }
 onlyErrors errors =
     { errors = errors
     , rangesToIgnore = []
     , rightSidesOfPlusPlus = []
+    , inferredConstants = []
     }
 
 
-expressionVisitorHelp : Node Expression -> ModuleContext -> { errors : List (Error {}), rangesToIgnore : List Range, rightSidesOfPlusPlus : List Range }
+expressionVisitorHelp : Node Expression -> ModuleContext -> { errors : List (Error {}), rangesToIgnore : List Range, rightSidesOfPlusPlus : List Range, inferredConstants : List ( Range, Infer.Inferred ) }
 expressionVisitorHelp node context =
     case Node.value node of
         --------------------
@@ -983,6 +1044,7 @@ expressionVisitorHelp node context =
                     onlyErrors
                         (checkFn
                             { lookupTable = context.lookupTable
+                            , inferredConstants = context.inferredConstants
                             , parentRange = Node.range node
                             , fnRange = fnRange
                             , firstArg = firstArg
@@ -998,105 +1060,14 @@ expressionVisitorHelp node context =
         -------------------
         -- IF EXPRESSION --
         -------------------
-        Expression.IfBlock cond trueBranch falseBranch ->
-            case getBoolean context.lookupTable cond of
-                Determined True ->
-                    onlyErrors
-                        [ Rule.errorWithFix
-                            { message = "The condition will always evaluate to True"
-                            , details = [ "The expression can be replaced by what is inside the 'then' branch." ]
-                            }
-                            (targetIf node)
-                            [ Fix.removeRange
-                                { start = (Node.range node).start
-                                , end = (Node.range trueBranch).start
-                                }
-                            , Fix.removeRange
-                                { start = (Node.range trueBranch).end
-                                , end = (Node.range node).end
-                                }
-                            ]
-                        ]
-
-                Determined False ->
-                    onlyErrors
-                        [ Rule.errorWithFix
-                            { message = "The condition will always evaluate to False"
-                            , details = [ "The expression can be replaced by what is inside the 'else' branch." ]
-                            }
-                            (targetIf node)
-                            [ Fix.removeRange
-                                { start = (Node.range node).start
-                                , end = (Node.range falseBranch).start
-                                }
-                            ]
-                        ]
-
-                Undetermined ->
-                    case ( getBoolean context.lookupTable trueBranch, getBoolean context.lookupTable falseBranch ) of
-                        ( Determined True, Determined False ) ->
-                            onlyErrors
-                                [ Rule.errorWithFix
-                                    { message = "The if expression's value is the same as the condition"
-                                    , details = [ "The expression can be replaced by the condition." ]
-                                    }
-                                    (targetIf node)
-                                    [ Fix.removeRange
-                                        { start = (Node.range node).start
-                                        , end = (Node.range cond).start
-                                        }
-                                    , Fix.removeRange
-                                        { start = (Node.range cond).end
-                                        , end = (Node.range node).end
-                                        }
-                                    ]
-                                ]
-
-                        ( Determined False, Determined True ) ->
-                            onlyErrors
-                                [ Rule.errorWithFix
-                                    { message = "The if expression's value is the inverse of the condition"
-                                    , details = [ "The expression can be replaced by the condition wrapped by `not`." ]
-                                    }
-                                    (targetIf node)
-                                    [ Fix.replaceRangeBy
-                                        { start = (Node.range node).start
-                                        , end = (Node.range cond).start
-                                        }
-                                        "not ("
-                                    , Fix.replaceRangeBy
-                                        { start = (Node.range cond).end
-                                        , end = (Node.range node).end
-                                        }
-                                        ")"
-                                    ]
-                                ]
-
-                        _ ->
-                            case Normalize.compare context.lookupTable trueBranch falseBranch of
-                                Normalize.ConfirmedEquality ->
-                                    onlyErrors
-                                        [ Rule.errorWithFix
-                                            { message = "The values in both branches is the same."
-                                            , details = [ "The expression can be replaced by the contents of either branch." ]
-                                            }
-                                            (targetIf node)
-                                            [ Fix.removeRange
-                                                { start = (Node.range node).start
-                                                , end = (Node.range trueBranch).start
-                                                }
-                                            , Fix.removeRange
-                                                { start = (Node.range trueBranch).end
-                                                , end = (Node.range node).end
-                                                }
-                                            ]
-                                        ]
-
-                                Normalize.ConfirmedInequality ->
-                                    onlyErrors []
-
-                                Normalize.Unconfirmed ->
-                                    onlyErrors []
+        Expression.IfBlock condition trueBranch falseBranch ->
+            ifChecks
+                context
+                (Node.range node)
+                { condition = condition
+                , trueBranch = trueBranch
+                , falseBranch = falseBranch
+                }
 
         -------------------------------
         --  APPLIED LAMBDA FUNCTIONS --
@@ -1191,6 +1162,7 @@ expressionVisitorHelp node context =
                     onlyErrors
                         (checkFn
                             { lookupTable = context.lookupTable
+                            , inferredConstants = context.inferredConstants
                             , parentRange = Node.range node
                             , fnRange = fnRange
                             , firstArg = firstArg
@@ -1212,6 +1184,7 @@ expressionVisitorHelp node context =
                     errorsAndRangesToIgnore
                         (checkFn
                             { lookupTable = context.lookupTable
+                            , inferredConstants = context.inferredConstants
                             , parentRange = Node.range node
                             , fnRange = fnRange
                             , firstArg = firstArg
@@ -1237,6 +1210,7 @@ expressionVisitorHelp node context =
                     onlyErrors
                         (checkFn
                             { lookupTable = context.lookupTable
+                            , inferredConstants = context.inferredConstants
                             , parentRange = Node.range node
                             , fnRange = fnRange
                             , firstArg = firstArg
@@ -1258,6 +1232,7 @@ expressionVisitorHelp node context =
                     errorsAndRangesToIgnore
                         (checkFn
                             { lookupTable = context.lookupTable
+                            , inferredConstants = context.inferredConstants
                             , parentRange = Node.range node
                             , fnRange = fnRange
                             , firstArg = firstArg
@@ -1329,6 +1304,7 @@ expressionVisitorHelp node context =
                     { errors =
                         checkFn
                             { lookupTable = context.lookupTable
+                            , inferredConstants = context.inferredConstants
                             , parentRange = Node.range node
                             , operator = operator
                             , left = left
@@ -1340,17 +1316,18 @@ expressionVisitorHelp node context =
                     , rangesToIgnore = []
                     , rightSidesOfPlusPlus =
                         if operator == "++" then
-                            [ Node.range <| removeParens right ]
+                            [ Node.range <| AstHelpers.removeParens right ]
 
                         else
                             []
+                    , inferredConstants = []
                     }
 
                 Nothing ->
                     onlyErrors []
 
         Expression.Negation baseExpr ->
-            case removeParens baseExpr of
+            case AstHelpers.removeParens baseExpr of
                 Node range (Expression.Negation _) ->
                     let
                         doubleNegationRange : Range
@@ -1377,6 +1354,7 @@ expressionVisitorHelp node context =
 
 type alias CheckInfo =
     { lookupTable : ModuleNameLookupTable
+    , inferredConstants : ( Infer.Inferred, List Infer.Inferred )
     , parentRange : Range
     , fnRange : Range
     , firstArg : Node Expression
@@ -1405,6 +1383,7 @@ functionCallChecks =
         , reportEmptyListFirstArgument ( ( [ "List" ], "concat" ), listConcatChecks )
         , reportEmptyListSecondArgument ( ( [ "List" ], "concatMap" ), listConcatMapChecks )
         , reportEmptyListSecondArgument ( ( [ "List" ], "indexedMap" ), listIndexedMapChecks )
+        , reportEmptyListSecondArgument ( ( [ "List" ], "intersperse" ), listIndexedMapChecks )
         , ( ( [ "List" ], "all" ), listAllChecks )
         , ( ( [ "List" ], "any" ), listAnyChecks )
         , ( ( [ "List" ], "range" ), listRangeChecks )
@@ -1415,6 +1394,7 @@ functionCallChecks =
         , ( ( [ "List" ], "reverse" ), listReverseChecks )
         , ( ( [ "List" ], "take" ), listTakeChecks )
         , ( ( [ "List" ], "drop" ), listDropChecks )
+        , ( ( [ "List" ], "member" ), collectionMemberChecks listCollection )
         , ( ( [ "Set" ], "map" ), collectionMapChecks setCollection )
         , ( ( [ "Set" ], "filter" ), collectionFilterChecks setCollection )
         , ( ( [ "Set" ], "remove" ), collectionRemoveChecks setCollection )
@@ -1453,6 +1433,7 @@ functionCallChecks =
 
 type alias OperatorCheckInfo =
     { lookupTable : ModuleNameLookupTable
+    , inferredConstants : ( Infer.Inferred, List Infer.Inferred )
     , parentRange : Range
     , operator : String
     , left : Node Expression
@@ -1528,7 +1509,7 @@ removeAlongWithOtherFunctionCheck :
     -> CheckInfo
     -> List (Error {})
 removeAlongWithOtherFunctionCheck errorMessage secondFunctionCheck checkInfo =
-    case Node.value (removeParens checkInfo.firstArg) of
+    case Node.value (AstHelpers.removeParens checkInfo.firstArg) of
         Expression.Application (secondFn :: firstArgOfSecondCall :: _) ->
             case secondFunctionCheck checkInfo.lookupTable secondFn of
                 Just secondRange ->
@@ -1919,7 +1900,7 @@ negateCompositionCheck { lookupTable, fromLeftToRight, parentRange, left, right,
 
 getNegateComposition : ModuleNameLookupTable -> Bool -> Node Expression -> Maybe Range
 getNegateComposition lookupTable takeFirstFunction node =
-    case Node.value (removeParens node) of
+    case Node.value (AstHelpers.removeParens node) of
         Expression.OperatorApplication "<<" _ left right ->
             if takeFirstFunction then
                 getNegateFunction lookupTable right
@@ -1949,7 +1930,7 @@ basicsNegateChecks checkInfo =
 
 getNegateFunction : ModuleNameLookupTable -> Node Expression -> Maybe Range
 getNegateFunction lookupTable baseNode =
-    case removeParens baseNode of
+    case AstHelpers.removeParens baseNode of
         Node range (Expression.FunctionOrValue _ "negate") ->
             case ModuleNameLookupTable.moduleNameAt lookupTable range of
                 Just [ "Basics" ] ->
@@ -1968,7 +1949,7 @@ getNegateFunction lookupTable baseNode =
 
 basicsNotChecks : CheckInfo -> List (Error {})
 basicsNotChecks checkInfo =
-    case getBoolean checkInfo.lookupTable checkInfo.firstArg of
+    case Infer.getBoolean checkInfo checkInfo.firstArg of
         Determined bool ->
             [ Rule.errorWithFix
                 { message = "Expression is equal to " ++ boolToString (not bool)
@@ -2042,7 +2023,7 @@ notNotCompositionErrorMessage =
 
 getNotComposition : ModuleNameLookupTable -> Bool -> Node Expression -> Maybe Range
 getNotComposition lookupTable takeFirstFunction node =
-    case Node.value (removeParens node) of
+    case Node.value (AstHelpers.removeParens node) of
         Expression.OperatorApplication "<<" _ left right ->
             if takeFirstFunction then
                 getNotFunction lookupTable right
@@ -2097,7 +2078,7 @@ findSimilarConditionsError operatorCheckInfo =
         errorsForNode nodeToCompareTo =
             List.concatMap
                 (areSimilarConditionsError
-                    operatorCheckInfo.lookupTable
+                    operatorCheckInfo
                     operatorCheckInfo.operator
                     nodeToCompareTo
                 )
@@ -2108,9 +2089,9 @@ findSimilarConditionsError operatorCheckInfo =
         |> List.concatMap (Tuple.second >> errorsForNode)
 
 
-areSimilarConditionsError : ModuleNameLookupTable -> String -> Node Expression -> ( RedundantConditionResolution, Node Expression ) -> List (Error {})
-areSimilarConditionsError lookupTable operator nodeToCompareTo ( redundantConditionResolution, nodeToLookAt ) =
-    case Normalize.compare lookupTable nodeToCompareTo nodeToLookAt of
+areSimilarConditionsError : Infer.Resources a -> String -> Node Expression -> ( RedundantConditionResolution, Node Expression ) -> List (Error {})
+areSimilarConditionsError resources operator nodeToCompareTo ( redundantConditionResolution, nodeToLookAt ) =
+    case Normalize.compare resources nodeToCompareTo nodeToLookAt of
         Normalize.ConfirmedEquality ->
             errorForRedundantCondition operator redundantConditionResolution nodeToLookAt
 
@@ -2188,8 +2169,8 @@ listConditions operatorToLookFor redundantConditionResolution node =
 
 
 or_isLeftSimplifiableError : OperatorCheckInfo -> List (Error {})
-or_isLeftSimplifiableError { lookupTable, parentRange, left, leftRange, rightRange } =
-    case getBoolean lookupTable left of
+or_isLeftSimplifiableError ({ parentRange, left, leftRange, rightRange } as checkInfo) =
+    case Infer.getBoolean checkInfo left of
         Determined True ->
             [ Rule.errorWithFix
                 { message = "Condition is always True"
@@ -2221,8 +2202,8 @@ or_isLeftSimplifiableError { lookupTable, parentRange, left, leftRange, rightRan
 
 
 or_isRightSimplifiableError : OperatorCheckInfo -> List (Error {})
-or_isRightSimplifiableError { lookupTable, parentRange, right, leftRange, rightRange } =
-    case getBoolean lookupTable right of
+or_isRightSimplifiableError ({ parentRange, right, leftRange, rightRange } as checkInfo) =
+    case Infer.getBoolean checkInfo right of
         Determined True ->
             [ Rule.errorWithFix
                 { message = unnecessaryMessage
@@ -2267,8 +2248,8 @@ andChecks operatorCheckInfo =
 
 
 and_isLeftSimplifiableError : OperatorCheckInfo -> List (Rule.Error {})
-and_isLeftSimplifiableError { lookupTable, parentRange, left, leftRange, rightRange } =
-    case getBoolean lookupTable left of
+and_isLeftSimplifiableError ({ parentRange, left, leftRange, rightRange } as checkInfo) =
+    case Infer.getBoolean checkInfo left of
         Determined True ->
             [ Rule.errorWithFix
                 { message = unnecessaryMessage
@@ -2300,8 +2281,8 @@ and_isLeftSimplifiableError { lookupTable, parentRange, left, leftRange, rightRa
 
 
 and_isRightSimplifiableError : OperatorCheckInfo -> List (Rule.Error {})
-and_isRightSimplifiableError { lookupTable, parentRange, leftRange, right, rightRange } =
-    case getBoolean lookupTable right of
+and_isRightSimplifiableError ({ parentRange, leftRange, right, rightRange } as checkInfo) =
+    case Infer.getBoolean checkInfo right of
         Determined True ->
             [ Rule.errorWithFix
                 { message = unnecessaryMessage
@@ -2337,8 +2318,8 @@ and_isRightSimplifiableError { lookupTable, parentRange, leftRange, right, right
 
 
 equalityChecks : Bool -> OperatorCheckInfo -> List (Error {})
-equalityChecks isEqual { lookupTable, parentRange, left, right, leftRange, rightRange } =
-    if getBoolean lookupTable right == Determined isEqual then
+equalityChecks isEqual ({ lookupTable, parentRange, left, right, leftRange, rightRange } as checkInfo) =
+    if Infer.getBoolean checkInfo right == Determined isEqual then
         [ Rule.errorWithFix
             { message = "Unnecessary comparison with boolean"
             , details = [ "The result of the expression will be the same with or without the comparison." ]
@@ -2347,7 +2328,7 @@ equalityChecks isEqual { lookupTable, parentRange, left, right, leftRange, right
             [ Fix.removeRange { start = leftRange.end, end = rightRange.end } ]
         ]
 
-    else if getBoolean lookupTable left == Determined isEqual then
+    else if Infer.getBoolean checkInfo left == Determined isEqual then
         [ Rule.errorWithFix
             { message = "Unnecessary comparison with boolean"
             , details = [ "The result of the expression will be the same with or without the comparison." ]
@@ -2368,7 +2349,7 @@ equalityChecks isEqual { lookupTable, parentRange, left, right, leftRange, right
                 ]
 
             _ ->
-                case Normalize.compare lookupTable left right of
+                case Normalize.compare checkInfo left right of
                     Normalize.ConfirmedEquality ->
                         [ Rule.errorWithFix
                             { message = "Condition is always " ++ boolToString isEqual
@@ -2395,7 +2376,7 @@ equalityChecks isEqual { lookupTable, parentRange, left, right, leftRange, right
 
 getNotCall : ModuleNameLookupTable -> Node Expression -> Maybe Range
 getNotCall lookupTable baseNode =
-    case Node.value (removeParens baseNode) of
+    case Node.value (AstHelpers.removeParens baseNode) of
         Expression.Application ((Node notRange (Expression.FunctionOrValue _ "not")) :: _) ->
             case ModuleNameLookupTable.moduleNameAt lookupTable notRange of
                 Just [ "Basics" ] ->
@@ -2410,7 +2391,7 @@ getNotCall lookupTable baseNode =
 
 getNotFunction : ModuleNameLookupTable -> Node Expression -> Maybe Range
 getNotFunction lookupTable baseNode =
-    case removeParens baseNode of
+    case AstHelpers.removeParens baseNode of
         Node notRange (Expression.FunctionOrValue _ "not") ->
             case ModuleNameLookupTable.moduleNameAt lookupTable notRange of
                 Just [ "Basics" ] ->
@@ -2425,7 +2406,7 @@ getNotFunction lookupTable baseNode =
 
 getSpecificFunction : ( ModuleName, String ) -> ModuleNameLookupTable -> Node Expression -> Maybe Range
 getSpecificFunction ( moduleName, name ) lookupTable baseNode =
-    case removeParens baseNode of
+    case AstHelpers.removeParens baseNode of
         Node fnRange (Expression.FunctionOrValue _ foundName) ->
             if
                 (foundName == name)
@@ -2445,7 +2426,7 @@ getSpecificFunctionCall ( moduleName, name ) lookupTable baseNode =
     let
         match : Maybe ( Range, String )
         match =
-            case Node.value (removeParens baseNode) of
+            case Node.value (AstHelpers.removeParens baseNode) of
                 Expression.Application ((Node fnRange (Expression.FunctionOrValue _ foundName)) :: _ :: _) ->
                     Just ( fnRange, foundName )
 
@@ -2537,12 +2518,8 @@ comparisonChecks operatorFunction operatorCheckInfo =
 -- IF EXPRESSIONS
 
 
-targetIf : Node a -> Range
-targetIf node =
-    let
-        { start } =
-            Node.range node
-    in
+targetIfKeyword : Range -> Range
+targetIfKeyword { start } =
     { start = start
     , end = { start | column = start.column + 2 }
     }
@@ -2644,7 +2621,7 @@ alwaysCompositionCheck { lookupTable, fromLeftToRight, left, right, leftRange, r
 
 isAlwaysCall : ModuleNameLookupTable -> Node Expression -> Bool
 isAlwaysCall lookupTable node =
-    case Node.value (removeParens node) of
+    case Node.value (AstHelpers.removeParens node) of
         Expression.Application ((Node alwaysRange (Expression.FunctionOrValue _ "always")) :: _ :: []) ->
             ModuleNameLookupTable.moduleNameAt lookupTable alwaysRange == Just [ "Basics" ]
 
@@ -2654,7 +2631,7 @@ isAlwaysCall lookupTable node =
 
 getAlwaysArgument : ModuleNameLookupTable -> Node Expression -> Maybe { alwaysRange : Range, rangeToRemove : Range }
 getAlwaysArgument lookupTable node =
-    case Node.value (removeParens node) of
+    case Node.value (AstHelpers.removeParens node) of
         Expression.Application ((Node alwaysRange (Expression.FunctionOrValue _ "always")) :: arg :: []) ->
             if ModuleNameLookupTable.moduleNameAt lookupTable alwaysRange == Just [ "Basics" ] then
                 Just
@@ -2696,7 +2673,7 @@ reportEmptyListSecondArgument ( ( moduleName, name ), function ) =
         case checkInfo.secondArg of
             Just (Node _ (Expression.ListExpr [])) ->
                 [ Rule.errorWithFix
-                    { message = "Using " ++ String.join "." moduleName ++ "." ++ name ++ " on an empty list will result in a empty list"
+                    { message = "Using " ++ String.join "." moduleName ++ "." ++ name ++ " on an empty list will result in an empty list"
                     , details = [ "You can replace this call by an empty list." ]
                     }
                     checkInfo.fnRange
@@ -2715,7 +2692,7 @@ reportEmptyListFirstArgument ( ( moduleName, name ), function ) =
         case checkInfo.firstArg of
             Node _ (Expression.ListExpr []) ->
                 [ Rule.errorWithFix
-                    { message = "Using " ++ String.join "." moduleName ++ "." ++ name ++ " on an empty list will result in a empty list"
+                    { message = "Using " ++ String.join "." moduleName ++ "." ++ name ++ " on an empty list will result in an empty list"
                     , details = [ "You can replace this call by an empty list." ]
                     }
                     checkInfo.fnRange
@@ -2773,7 +2750,7 @@ stringWordsChecks { parentRange, fnRange, firstArg } =
     case Node.value firstArg of
         Expression.Literal "" ->
             [ Rule.errorWithFix
-                { message = "Using String.words on an empty string will result in a empty list"
+                { message = "Using String.words on an empty string will result in an empty list"
                 , details = [ "You can replace this call by an empty list." ]
                 }
                 fnRange
@@ -2789,7 +2766,7 @@ stringLinesChecks { parentRange, fnRange, firstArg } =
     case Node.value firstArg of
         Expression.Literal "" ->
             [ Rule.errorWithFix
-                { message = "Using String.lines on an empty string will result in a empty list"
+                { message = "Using String.lines on an empty string will result in an empty list"
                 , details = [ "You can replace this call by an empty list." ]
                 }
                 fnRange
@@ -2870,7 +2847,7 @@ stringLengthChecks { parentRange, fnRange, firstArg } =
 
 
 stringRepeatChecks : CheckInfo -> List (Error {})
-stringRepeatChecks { parentRange, fnRange, firstArg, secondArg } =
+stringRepeatChecks ({ parentRange, fnRange, firstArg, secondArg } as checkInfo) =
     case secondArg of
         Just (Node _ (Expression.Literal "")) ->
             [ Rule.errorWithFix
@@ -2882,7 +2859,7 @@ stringRepeatChecks { parentRange, fnRange, firstArg, secondArg } =
             ]
 
         _ ->
-            case getIntValue firstArg of
+            case Infer.getInt checkInfo firstArg of
                 Just intValue ->
                     if intValue == 1 then
                         [ Rule.errorWithFix
@@ -2910,10 +2887,10 @@ stringRepeatChecks { parentRange, fnRange, firstArg, secondArg } =
 
 
 stringReplaceChecks : CheckInfo -> List (Error {})
-stringReplaceChecks { lookupTable, fnRange, firstArg, secondArg, thirdArg } =
+stringReplaceChecks ({ fnRange, firstArg, secondArg, thirdArg } as checkInfo) =
     case secondArg of
         Just secondArg_ ->
-            case Normalize.compare lookupTable firstArg secondArg_ of
+            case Normalize.compare checkInfo firstArg secondArg_ of
                 Normalize.ConfirmedEquality ->
                     [ Rule.errorWithFix
                         { message = "The result of String.replace will be the original string"
@@ -3016,7 +2993,7 @@ maybeMapChecks checkInfo =
 maybeMapCompositionChecks : CompositionCheckInfo -> List (Error {})
 maybeMapCompositionChecks { lookupTable, fromLeftToRight, parentRange, left, right } =
     if fromLeftToRight then
-        case ( removeParens left, Node.value (removeParens right) ) of
+        case ( AstHelpers.removeParens left, Node.value (AstHelpers.removeParens right) ) of
             ( Node justRange (Expression.FunctionOrValue _ "Just"), Expression.Application ((Node maybeMapRange (Expression.FunctionOrValue _ "map")) :: mapperFunction :: []) ) ->
                 if
                     (ModuleNameLookupTable.moduleNameAt lookupTable justRange == Just [ "Maybe" ])
@@ -3039,7 +3016,7 @@ maybeMapCompositionChecks { lookupTable, fromLeftToRight, parentRange, left, rig
                 []
 
     else
-        case ( Node.value (removeParens left), removeParens right ) of
+        case ( Node.value (AstHelpers.removeParens left), AstHelpers.removeParens right ) of
             ( Expression.Application ((Node maybeMapRange (Expression.FunctionOrValue _ "map")) :: mapperFunction :: []), Node justRange (Expression.FunctionOrValue _ "Just") ) ->
                 if ModuleNameLookupTable.moduleNameAt lookupTable justRange == Just [ "Maybe" ] && ModuleNameLookupTable.moduleNameAt lookupTable maybeMapRange == Just [ "Maybe" ] then
                     [ Rule.errorWithFix
@@ -3062,7 +3039,7 @@ maybeMapCompositionChecks { lookupTable, fromLeftToRight, parentRange, left, rig
 resultMapCompositionChecks : CompositionCheckInfo -> List (Error {})
 resultMapCompositionChecks { lookupTable, fromLeftToRight, parentRange, left, right } =
     if fromLeftToRight then
-        case ( removeParens left, Node.value (removeParens right) ) of
+        case ( AstHelpers.removeParens left, Node.value (AstHelpers.removeParens right) ) of
             ( Node justRange (Expression.FunctionOrValue _ "Ok"), Expression.Application ((Node resultMapRange (Expression.FunctionOrValue _ "map")) :: mapperFunction :: []) ) ->
                 if
                     (ModuleNameLookupTable.moduleNameAt lookupTable justRange == Just [ "Result" ])
@@ -3085,7 +3062,7 @@ resultMapCompositionChecks { lookupTable, fromLeftToRight, parentRange, left, ri
                 []
 
     else
-        case ( Node.value (removeParens left), removeParens right ) of
+        case ( Node.value (AstHelpers.removeParens left), AstHelpers.removeParens right ) of
             ( Expression.Application ((Node resultMapRange (Expression.FunctionOrValue _ "map")) :: mapperFunction :: []), Node justRange (Expression.FunctionOrValue _ "Ok") ) ->
                 if ModuleNameLookupTable.moduleNameAt lookupTable justRange == Just [ "Result" ] && ModuleNameLookupTable.moduleNameAt lookupTable resultMapRange == Just [ "Result" ] then
                     [ Rule.errorWithFix
@@ -3280,7 +3257,7 @@ concatAndMapCompositionCheck : CompositionCheckInfo -> List (Error {})
 concatAndMapCompositionCheck { lookupTable, fromLeftToRight, left, right } =
     if fromLeftToRight then
         if isSpecificFunction [ "List" ] "concat" lookupTable right then
-            case Node.value (removeParens left) of
+            case Node.value (AstHelpers.removeParens left) of
                 Expression.Application [ leftFunction, _ ] ->
                     if isSpecificFunction [ "List" ] "map" lookupTable leftFunction then
                         [ Rule.errorWithFix
@@ -3303,7 +3280,7 @@ concatAndMapCompositionCheck { lookupTable, fromLeftToRight, left, right } =
             []
 
     else if isSpecificFunction [ "List" ] "concat" lookupTable left then
-        case Node.value (removeParens right) of
+        case Node.value (AstHelpers.removeParens right) of
             Expression.Application [ rightFunction, _ ] ->
                 if isSpecificFunction [ "List" ] "map" lookupTable rightFunction then
                     [ Rule.errorWithFix
@@ -3328,9 +3305,9 @@ concatAndMapCompositionCheck { lookupTable, fromLeftToRight, left, right } =
 
 listIndexedMapChecks : CheckInfo -> List (Error {})
 listIndexedMapChecks { lookupTable, fnRange, firstArg } =
-    case removeParens firstArg of
+    case AstHelpers.removeParens firstArg of
         Node lambdaRange (Expression.LambdaExpression { args, expression }) ->
-            case Maybe.map removeParensFromPattern (List.head args) of
+            case Maybe.map AstHelpers.removeParensFromPattern (List.head args) of
                 Just (Node patternRange Pattern.AllPattern) ->
                     let
                         rangeToRemove : Range
@@ -3377,8 +3354,8 @@ listIndexedMapChecks { lookupTable, fnRange, firstArg } =
 
 
 listAllChecks : CheckInfo -> List (Error {})
-listAllChecks { lookupTable, parentRange, fnRange, firstArg, secondArg } =
-    case Maybe.map (removeParens >> Node.value) secondArg of
+listAllChecks ({ parentRange, fnRange, firstArg, secondArg } as checkInfo) =
+    case Maybe.map (AstHelpers.removeParens >> Node.value) secondArg of
         Just (Expression.ListExpr []) ->
             [ Rule.errorWithFix
                 { message = "The call to List.all will result in True"
@@ -3389,7 +3366,7 @@ listAllChecks { lookupTable, parentRange, fnRange, firstArg, secondArg } =
             ]
 
         _ ->
-            case isAlwaysBoolean lookupTable firstArg of
+            case Infer.isAlwaysBoolean checkInfo firstArg of
                 Determined True ->
                     [ Rule.errorWithFix
                         { message = "The call to List.all will result in True"
@@ -3404,8 +3381,8 @@ listAllChecks { lookupTable, parentRange, fnRange, firstArg, secondArg } =
 
 
 listAnyChecks : CheckInfo -> List (Error {})
-listAnyChecks { lookupTable, parentRange, fnRange, firstArg, secondArg } =
-    case Maybe.map (removeParens >> Node.value) secondArg of
+listAnyChecks ({ parentRange, fnRange, firstArg, secondArg } as checkInfo) =
+    case Maybe.map (AstHelpers.removeParens >> Node.value) secondArg of
         Just (Expression.ListExpr []) ->
             [ Rule.errorWithFix
                 { message = "The call to List.any will result in False"
@@ -3416,7 +3393,7 @@ listAnyChecks { lookupTable, parentRange, fnRange, firstArg, secondArg } =
             ]
 
         _ ->
-            case isAlwaysBoolean lookupTable firstArg of
+            case Infer.isAlwaysBoolean checkInfo firstArg of
                 Determined False ->
                     [ Rule.errorWithFix
                         { message = "The call to List.any will result in False"
@@ -3530,10 +3507,10 @@ collectJusts lookupTable list acc =
 filterAndMapCompositionCheck : CompositionCheckInfo -> List (Error {})
 filterAndMapCompositionCheck { lookupTable, fromLeftToRight, left, right } =
     if fromLeftToRight then
-        case Node.value (removeParens right) of
+        case Node.value (AstHelpers.removeParens right) of
             Expression.Application [ rightFunction, arg ] ->
                 if isSpecificFunction [ "List" ] "filterMap" lookupTable rightFunction && isIdentity lookupTable arg then
-                    case Node.value (removeParens left) of
+                    case Node.value (AstHelpers.removeParens left) of
                         Expression.Application [ leftFunction, _ ] ->
                             if isSpecificFunction [ "List" ] "map" lookupTable leftFunction then
                                 [ Rule.errorWithFix
@@ -3559,10 +3536,10 @@ filterAndMapCompositionCheck { lookupTable, fromLeftToRight, left, right } =
                 []
 
     else
-        case Node.value (removeParens left) of
+        case Node.value (AstHelpers.removeParens left) of
             Expression.Application [ leftFunction, arg ] ->
                 if isSpecificFunction [ "List" ] "filterMap" lookupTable leftFunction && isIdentity lookupTable arg then
-                    case Node.value (removeParens right) of
+                    case Node.value (AstHelpers.removeParens right) of
                         Expression.Application [ rightFunction, _ ] ->
                             if isSpecificFunction [ "List" ] "map" lookupTable rightFunction then
                                 [ Rule.errorWithFix
@@ -3589,28 +3566,33 @@ filterAndMapCompositionCheck { lookupTable, fromLeftToRight, left, right } =
 
 
 listRangeChecks : CheckInfo -> List (Error {})
-listRangeChecks { parentRange, fnRange, firstArg, secondArg } =
-    case Maybe.map2 Tuple.pair (getIntValue firstArg) (Maybe.andThen getIntValue secondArg) of
-        Just ( first, second ) ->
-            if first > second then
-                [ Rule.errorWithFix
-                    { message = "The call to List.range will result in []"
-                    , details = [ "The second argument to List.range is bigger than the first one, therefore you can replace this list by an empty list." ]
-                    }
-                    fnRange
-                    (replaceByEmptyFix "[]" parentRange secondArg)
-                ]
+listRangeChecks ({ parentRange, fnRange, firstArg, secondArg } as checkInfo) =
+    case Maybe.andThen (Infer.getInt checkInfo) secondArg of
+        Just second ->
+            case Infer.getInt checkInfo firstArg of
+                Just first ->
+                    if first > second then
+                        [ Rule.errorWithFix
+                            { message = "The call to List.range will result in []"
+                            , details = [ "The second argument to List.range is bigger than the first one, therefore you can replace this list by an empty list." ]
+                            }
+                            fnRange
+                            (replaceByEmptyFix "[]" parentRange secondArg)
+                        ]
 
-            else
-                []
+                    else
+                        []
+
+                Nothing ->
+                    []
 
         Nothing ->
             []
 
 
 listRepeatChecks : CheckInfo -> List (Error {})
-listRepeatChecks { parentRange, fnRange, firstArg, secondArg } =
-    case getIntValue firstArg of
+listRepeatChecks ({ parentRange, fnRange, firstArg, secondArg } as checkInfo) =
+    case Infer.getInt checkInfo firstArg of
         Just intValue ->
             if intValue < 1 then
                 [ Rule.errorWithFix
@@ -3630,7 +3612,7 @@ listRepeatChecks { parentRange, fnRange, firstArg, secondArg } =
 
 listReverseChecks : CheckInfo -> List (Error {})
 listReverseChecks ({ parentRange, fnRange, firstArg } as checkInfo) =
-    case Node.value (removeParens firstArg) of
+    case Node.value (AstHelpers.removeParens firstArg) of
         Expression.ListExpr [] ->
             [ Rule.errorWithFix
                 { message = "Using List.reverse on [] will result in []"
@@ -3751,7 +3733,7 @@ subAndCmdBatchChecks moduleName { lookupTable, parentRange, fnRange, firstArg } 
                 (List.map (Node.range >> Just) (List.drop 1 args) ++ [ Nothing ])
                 |> List.filterMap
                     (\( prev, arg, next ) ->
-                        case removeParens arg of
+                        case AstHelpers.removeParens arg of
                             Node batchRange (Expression.FunctionOrValue _ "none") ->
                                 if ModuleNameLookupTable.moduleNameAt lookupTable batchRange == Just [ "Platform", moduleName ] then
                                     Just
@@ -3791,7 +3773,7 @@ subAndCmdBatchChecks moduleName { lookupTable, parentRange, fnRange, firstArg } 
 
 oneOfChecks : CheckInfo -> List (Error {})
 oneOfChecks { fnRange, firstArg } =
-    case removeParens firstArg of
+    case AstHelpers.removeParens firstArg of
         Node listRange (Expression.ListExpr [ Node singleElementRange _ ]) ->
             [ Rule.errorWithFix
                 { message = "Unnecessary oneOf"
@@ -4099,7 +4081,7 @@ resultWithDefaultChecks checkInfo =
 
 
 collectionFilterChecks : Collection -> CheckInfo -> List (Error {})
-collectionFilterChecks collection ({ lookupTable, parentRange, fnRange, firstArg, secondArg } as checkInfo) =
+collectionFilterChecks collection ({ parentRange, fnRange, firstArg, secondArg } as checkInfo) =
     case Maybe.andThen (collection.determineSize checkInfo.lookupTable) checkInfo.secondArg of
         Just (Exactly 0) ->
             [ Rule.errorWithFix
@@ -4111,7 +4093,7 @@ collectionFilterChecks collection ({ lookupTable, parentRange, fnRange, firstArg
             ]
 
         _ ->
-            case isAlwaysBoolean lookupTable firstArg of
+            case Infer.isAlwaysBoolean checkInfo firstArg of
                 Determined True ->
                     [ Rule.errorWithFix
                         { message = "Using " ++ collection.moduleName ++ ".filter with a function that will always return True is the same as not using " ++ collection.moduleName ++ ".filter"
@@ -4377,7 +4359,7 @@ collectionPartitionChecks collection checkInfo =
             ]
 
         _ ->
-            case isAlwaysBoolean checkInfo.lookupTable checkInfo.firstArg of
+            case Infer.isAlwaysBoolean checkInfo checkInfo.firstArg of
                 Determined True ->
                     case checkInfo.secondArg of
                         Just listArg ->
@@ -4449,7 +4431,7 @@ type CollectionSize
 
 determineListLength : ModuleNameLookupTable -> Node Expression -> Maybe CollectionSize
 determineListLength lookupTable node =
-    case Node.value (removeParens node) of
+    case Node.value (AstHelpers.removeParens node) of
         Expression.ListExpr list ->
             Just (Exactly (List.length list))
 
@@ -4474,7 +4456,7 @@ determineListLength lookupTable node =
 
 replaceSingleElementListBySingleValue_RENAME : ModuleNameLookupTable -> Range -> Node Expression -> Maybe (List (Error {}))
 replaceSingleElementListBySingleValue_RENAME lookupTable fnRange node =
-    case Node.value (removeParens node) of
+    case Node.value (AstHelpers.removeParens node) of
         Expression.LambdaExpression { expression } ->
             case replaceSingleElementListBySingleValue lookupTable expression of
                 Just fixes ->
@@ -4498,7 +4480,7 @@ replaceSingleElementListBySingleValue : ModuleNameLookupTable -> Node Expression
 replaceSingleElementListBySingleValue lookupTable rawNode =
     let
         (Node { start, end } nodeValue) =
-            removeParens rawNode
+            AstHelpers.removeParens rawNode
     in
     case nodeValue of
         Expression.ListExpr [ _ ] ->
@@ -4545,7 +4527,7 @@ determineIfCollectionIsEmpty moduleName singletonNumberOfArgs lookupTable node =
         Just (Exactly 0)
 
     else
-        case Node.value (removeParens node) of
+        case Node.value (AstHelpers.removeParens node) of
             Expression.Application ((Node fnRange (Expression.FunctionOrValue _ "singleton")) :: args) ->
                 if List.length args == singletonNumberOfArgs && ModuleNameLookupTable.moduleNameAt lookupTable fnRange == Just moduleName then
                     Just (Exactly 1)
@@ -4678,7 +4660,7 @@ removeRecordFields recordUpdateRange variable fields =
             let
                 value : Node Expression
                 value =
-                    removeParens valueWithParens
+                    AstHelpers.removeParens valueWithParens
             in
             if isUnnecessaryRecordUpdateSetter variable field value then
                 [ Rule.errorWithFix
@@ -4700,7 +4682,7 @@ removeRecordFields recordUpdateRange variable fields =
                     let
                         value : Node Expression
                         value =
-                            removeParens valueWithParens
+                            AstHelpers.removeParens valueWithParens
                     in
                     if isUnnecessaryRecordUpdateSetter variable field value then
                         Just
@@ -4736,6 +4718,127 @@ isUnnecessaryRecordUpdateSetter variable field value =
 
 
 
+-- IF
+
+
+ifChecks :
+    ModuleContext
+    -> Range
+    ->
+        { condition : Node Expression
+        , trueBranch : Node Expression
+        , falseBranch : Node Expression
+        }
+    -> { errors : List (Error {}), rangesToIgnore : List Range, rightSidesOfPlusPlus : List Range, inferredConstants : List ( Range, Infer.Inferred ) }
+ifChecks context nodeRange { condition, trueBranch, falseBranch } =
+    case Infer.getBoolean context condition of
+        Determined True ->
+            onlyErrors
+                [ Rule.errorWithFix
+                    { message = "The condition will always evaluate to True"
+                    , details = [ "The expression can be replaced by what is inside the 'then' branch." ]
+                    }
+                    (targetIfKeyword nodeRange)
+                    [ Fix.removeRange
+                        { start = nodeRange.start
+                        , end = (Node.range trueBranch).start
+                        }
+                    , Fix.removeRange
+                        { start = (Node.range trueBranch).end
+                        , end = nodeRange.end
+                        }
+                    ]
+                ]
+
+        Determined False ->
+            onlyErrors
+                [ Rule.errorWithFix
+                    { message = "The condition will always evaluate to False"
+                    , details = [ "The expression can be replaced by what is inside the 'else' branch." ]
+                    }
+                    (targetIfKeyword nodeRange)
+                    [ Fix.removeRange
+                        { start = nodeRange.start
+                        , end = (Node.range falseBranch).start
+                        }
+                    ]
+                ]
+
+        Undetermined ->
+            case ( Infer.getBoolean context trueBranch, Infer.getBoolean context falseBranch ) of
+                ( Determined True, Determined False ) ->
+                    onlyErrors
+                        [ Rule.errorWithFix
+                            { message = "The if expression's value is the same as the condition"
+                            , details = [ "The expression can be replaced by the condition." ]
+                            }
+                            (targetIfKeyword nodeRange)
+                            [ Fix.removeRange
+                                { start = nodeRange.start
+                                , end = (Node.range condition).start
+                                }
+                            , Fix.removeRange
+                                { start = (Node.range condition).end
+                                , end = nodeRange.end
+                                }
+                            ]
+                        ]
+
+                ( Determined False, Determined True ) ->
+                    onlyErrors
+                        [ Rule.errorWithFix
+                            { message = "The if expression's value is the inverse of the condition"
+                            , details = [ "The expression can be replaced by the condition wrapped by `not`." ]
+                            }
+                            (targetIfKeyword nodeRange)
+                            [ Fix.replaceRangeBy
+                                { start = nodeRange.start
+                                , end = (Node.range condition).start
+                                }
+                                "not ("
+                            , Fix.replaceRangeBy
+                                { start = (Node.range condition).end
+                                , end = nodeRange.end
+                                }
+                                ")"
+                            ]
+                        ]
+
+                _ ->
+                    case Normalize.compare context trueBranch falseBranch of
+                        Normalize.ConfirmedEquality ->
+                            onlyErrors
+                                [ Rule.errorWithFix
+                                    { message = "The values in both branches is the same."
+                                    , details = [ "The expression can be replaced by the contents of either branch." ]
+                                    }
+                                    (targetIfKeyword nodeRange)
+                                    [ Fix.removeRange
+                                        { start = nodeRange.start
+                                        , end = (Node.range trueBranch).start
+                                        }
+                                    , Fix.removeRange
+                                        { start = (Node.range trueBranch).end
+                                        , end = nodeRange.end
+                                        }
+                                    ]
+                                ]
+
+                        _ ->
+                            { errors = []
+                            , rangesToIgnore = []
+                            , rightSidesOfPlusPlus = []
+                            , inferredConstants =
+                                Infer.inferForIfCondition
+                                    (Node.value (Normalize.normalize context condition))
+                                    { trueBranchRange = Node.range trueBranch
+                                    , falseBranchRange = Node.range falseBranch
+                                    }
+                                    (Tuple.first context.inferredConstants)
+                            }
+
+
+
 -- CASE OF
 
 
@@ -4757,7 +4860,7 @@ sameBodyForCaseOfChecks context parentRange cases =
         first :: rest ->
             if
                 List.any (Tuple.first >> introducesVariable) (first :: rest)
-                    || not (Normalize.areAllTheSame context.lookupTable (Tuple.second first) (List.map Tuple.second rest))
+                    || not (Normalize.areAllTheSame context (Tuple.second first) (List.map Tuple.second rest))
             then
                 []
 
@@ -4765,8 +4868,7 @@ sameBodyForCaseOfChecks context parentRange cases =
                 let
                     constructorsUsed : () -> List ( ModuleName, String )
                     constructorsUsed () =
-                        List.concatMap (Tuple.first >> findUsedConstructors context) (first :: rest)
-                            |> Set.fromList
+                        findUsedConstructors context (List.map Tuple.first (first :: rest)) Set.empty
                             |> Set.toList
                 in
                 if not (List.isEmpty context.ignoredCustomTypes) && allConstructorsWereUsedOfAType context.ignoredCustomTypes (constructorsUsed ()) then
@@ -4845,38 +4947,43 @@ introducesVariable node =
             False
 
 
-findUsedConstructors : ModuleContext -> Node Pattern -> List ( ModuleName, String )
-findUsedConstructors context node =
-    case Node.value node of
-        Pattern.NamedPattern { name } nodes ->
-            case isIgnoredConstructor2 context (Node.range node) name of
-                Just moduleName ->
-                    ( moduleName, name ) :: List.concatMap (findUsedConstructors context) nodes
+findUsedConstructors : ModuleContext -> List (Node Pattern) -> Set ( ModuleName, String ) -> Set ( ModuleName, String )
+findUsedConstructors context remainingNodes acc =
+    case remainingNodes of
+        [] ->
+            acc
 
-                Nothing ->
-                    List.concatMap (findUsedConstructors context) nodes
+        node :: rest ->
+            case Node.value node of
+                Pattern.NamedPattern { name } nodes ->
+                    case isIgnoredConstructor context (Node.range node) name of
+                        Just moduleName ->
+                            findUsedConstructors context (nodes ++ rest) (Set.insert ( moduleName, name ) acc)
 
-        Pattern.AsPattern pattern _ ->
-            findUsedConstructors context pattern
+                        Nothing ->
+                            findUsedConstructors context rest acc
 
-        Pattern.ParenthesizedPattern pattern ->
-            findUsedConstructors context pattern
+                Pattern.AsPattern pattern _ ->
+                    findUsedConstructors context (pattern :: rest) acc
 
-        Pattern.TuplePattern nodes ->
-            List.concatMap (findUsedConstructors context) nodes
+                Pattern.ParenthesizedPattern pattern ->
+                    findUsedConstructors context (pattern :: rest) acc
 
-        Pattern.UnConsPattern first rest ->
-            List.concatMap (findUsedConstructors context) [ first, rest ]
+                Pattern.TuplePattern nodes ->
+                    findUsedConstructors context (nodes ++ rest) acc
 
-        Pattern.ListPattern nodes ->
-            List.concatMap (findUsedConstructors context) nodes
+                Pattern.UnConsPattern first second ->
+                    findUsedConstructors context (first :: second :: rest) acc
 
-        _ ->
-            []
+                Pattern.ListPattern nodes ->
+                    findUsedConstructors context (nodes ++ rest) acc
+
+                _ ->
+                    findUsedConstructors context rest acc
 
 
-isIgnoredConstructor2 : ModuleContext -> Range -> String -> Maybe ModuleName
-isIgnoredConstructor2 context range name =
+isIgnoredConstructor : ModuleContext -> Range -> String -> Maybe ModuleName
+isIgnoredConstructor context range name =
     case ModuleNameLookupTable.moduleNameAt context.lookupTable range of
         Just [] ->
             if Set.member ( context.moduleName, name ) context.constructorsToIgnore then
@@ -4933,7 +5040,7 @@ booleanCaseOfChecks lookupTable parentRange { expression, cases } =
 
 isSpecificFunction : ModuleName -> String -> ModuleNameLookupTable -> Node Expression -> Bool
 isSpecificFunction moduleName fnName lookupTable node =
-    case removeParens node of
+    case AstHelpers.removeParens node of
         Node noneRange (Expression.FunctionOrValue _ foundFnName) ->
             (foundFnName == fnName)
                 && (ModuleNameLookupTable.moduleNameAt lookupTable noneRange == Just moduleName)
@@ -4944,7 +5051,7 @@ isSpecificFunction moduleName fnName lookupTable node =
 
 isSpecificCall : ModuleName -> String -> ModuleNameLookupTable -> Node Expression -> Bool
 isSpecificCall moduleName fnName lookupTable node =
-    case Node.value (removeParens node) of
+    case Node.value (AstHelpers.removeParens node) of
         Expression.Application ((Node noneRange (Expression.FunctionOrValue _ foundFnName)) :: _ :: []) ->
             (foundFnName == fnName)
                 && (ModuleNameLookupTable.moduleNameAt lookupTable noneRange == Just moduleName)
@@ -4953,25 +5060,9 @@ isSpecificCall moduleName fnName lookupTable node =
             False
 
 
-getIntValue : Node Expression -> Maybe Int
-getIntValue node =
-    case Node.value (removeParens node) of
-        Expression.Integer n ->
-            Just n
-
-        Expression.Hex n ->
-            Just n
-
-        Expression.Negation expr ->
-            Maybe.map negate (getIntValue expr)
-
-        _ ->
-            Nothing
-
-
 getUncomputedNumberValue : Node Expression -> Maybe Float
 getUncomputedNumberValue node =
-    case Node.value (removeParens node) of
+    case Node.value (AstHelpers.removeParens node) of
         Expression.Integer n ->
             Just (toFloat n)
 
@@ -5082,7 +5173,7 @@ isIdentity lookupTable baseNode =
     let
         node : Node Expression
         node =
-            removeParens baseNode
+            AstHelpers.removeParens baseNode
     in
     case Node.value node of
         Expression.FunctionOrValue _ "identity" ->
@@ -5125,7 +5216,7 @@ getVarPattern node =
 
 getExpressionName : Node Expression -> Maybe String
 getExpressionName node =
-    case Node.value (removeParens node) of
+    case Node.value (AstHelpers.removeParens node) of
         Expression.FunctionOrValue [] name ->
             Just name
 
@@ -5141,72 +5232,6 @@ isListLiteral node =
 
         _ ->
             False
-
-
-removeParens : Node Expression -> Node Expression
-removeParens node =
-    case Node.value node of
-        Expression.ParenthesizedExpression expr ->
-            removeParens expr
-
-        _ ->
-            node
-
-
-removeParensFromPattern : Node Pattern -> Node Pattern
-removeParensFromPattern node =
-    case Node.value node of
-        Pattern.ParenthesizedPattern pattern ->
-            removeParensFromPattern pattern
-
-        _ ->
-            node
-
-
-isAlwaysBoolean : ModuleNameLookupTable -> Node Expression -> Match Bool
-isAlwaysBoolean lookupTable node =
-    case Node.value (removeParens node) of
-        Expression.Application ((Node alwaysRange (Expression.FunctionOrValue _ "always")) :: boolean :: []) ->
-            case ModuleNameLookupTable.moduleNameAt lookupTable alwaysRange of
-                Just [ "Basics" ] ->
-                    getBoolean lookupTable boolean
-
-                _ ->
-                    Undetermined
-
-        Expression.LambdaExpression { expression } ->
-            getBoolean lookupTable expression
-
-        _ ->
-            Undetermined
-
-
-getBoolean : ModuleNameLookupTable -> Node Expression -> Match Bool
-getBoolean lookupTable baseNode =
-    let
-        node : Node Expression
-        node =
-            removeParens baseNode
-    in
-    case Node.value node of
-        Expression.FunctionOrValue _ "True" ->
-            case ModuleNameLookupTable.moduleNameFor lookupTable node of
-                Just [ "Basics" ] ->
-                    Determined True
-
-                _ ->
-                    Undetermined
-
-        Expression.FunctionOrValue _ "False" ->
-            case ModuleNameLookupTable.moduleNameFor lookupTable node of
-                Just [ "Basics" ] ->
-                    Determined False
-
-                _ ->
-                    Undetermined
-
-        _ ->
-            Undetermined
 
 
 getBooleanPattern : ModuleNameLookupTable -> Node Pattern -> Maybe Bool
@@ -5243,7 +5268,7 @@ isAlwaysMaybe lookupTable baseNode =
     let
         node : Node Expression
         node =
-            removeParens baseNode
+            AstHelpers.removeParens baseNode
     in
     case Node.value node of
         Expression.FunctionOrValue _ "Just" ->
@@ -5276,7 +5301,7 @@ getMaybeValues lookupTable baseNode =
     let
         node : Node Expression
         node =
-            removeParens baseNode
+            AstHelpers.removeParens baseNode
     in
     case Node.value node of
         Expression.Application ((Node justRange (Expression.FunctionOrValue _ "Just")) :: arg :: []) ->
@@ -5373,7 +5398,7 @@ isAlwaysResult lookupTable baseNode =
     let
         node : Node Expression
         node =
-            removeParens baseNode
+            AstHelpers.removeParens baseNode
     in
     case Node.value node of
         Expression.FunctionOrValue _ "Ok" ->
@@ -5414,7 +5439,7 @@ getResultValues lookupTable baseNode =
     let
         node : Node Expression
         node =
-            removeParens baseNode
+            AstHelpers.removeParens baseNode
     in
     case Node.value node of
         Expression.Application ((Node justRange (Expression.FunctionOrValue _ "Ok")) :: arg :: []) ->
@@ -5524,7 +5549,7 @@ combineResultValuesHelp lookupTable nodes soFar =
 
 isAlwaysEmptyList : ModuleNameLookupTable -> Node Expression -> Bool
 isAlwaysEmptyList lookupTable node =
-    case Node.value (removeParens node) of
+    case Node.value (AstHelpers.removeParens node) of
         Expression.Application ((Node alwaysRange (Expression.FunctionOrValue _ "always")) :: alwaysValue :: []) ->
             case ModuleNameLookupTable.moduleNameAt lookupTable alwaysRange of
                 Just [ "Basics" ] ->
@@ -5542,7 +5567,7 @@ isAlwaysEmptyList lookupTable node =
 
 isEmptyList : Node Expression -> Bool
 isEmptyList node =
-    case Node.value (removeParens node) of
+    case Node.value (AstHelpers.removeParens node) of
         Expression.ListExpr [] ->
             True
 

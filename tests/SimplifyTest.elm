@@ -15,6 +15,7 @@ all =
         , caseOfTests
         , booleanCaseOfTests
         , ifTests
+        , duplicatedIfTests
         , recordUpdateTests
         , numberTests
         , fullyAppliedPrefixOperatorTests
@@ -2158,6 +2159,182 @@ a = List.map (\\a -> a.value) things == List.map (\\a -> a.value) things
 a = True
 """
                         ]
+        , test "should simplify calls with a single arg that use `<|`" <|
+            \() ->
+                """module A exposing (..)
+a = (f b) == (f <| b)
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Condition is always True"
+                            , details = sameThingOnBothSidesDetails "True"
+                            , under = "(f b) == (f <| b)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = True
+"""
+                        ]
+        , test "should simplify calls with multiple args that use `<|`" <|
+            \() ->
+                """module A exposing (..)
+a = (f b c) == (f b <| c)
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Condition is always True"
+                            , details = sameThingOnBothSidesDetails "True"
+                            , under = "(f b c) == (f b <| c)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = True
+"""
+                        ]
+        , test "should simplify calls with a single arg that use `|>`" <|
+            \() ->
+                """module A exposing (..)
+a = (f b) == (b |> f)
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Condition is always True"
+                            , details = sameThingOnBothSidesDetails "True"
+                            , under = "(f b) == (b |> f)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = True
+"""
+                        ]
+        , test "should simplify calls with multiple args that use `|>`" <|
+            \() ->
+                """module A exposing (..)
+a = (f b c) == (c |> f b)
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Condition is always True"
+                            , details = sameThingOnBothSidesDetails "True"
+                            , under = "(f b c) == (c |> f b)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = True
+"""
+                        ]
+        , test "should simplify nested function calls using `|>`" <|
+            \() ->
+                """module A exposing (..)
+a = (f b c) == (c |> (b |> f))
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Condition is always True"
+                            , details = sameThingOnBothSidesDetails "True"
+                            , under = "(f b c) == (c |> (b |> f))"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = True
+"""
+                        ]
+        , test "should simplify nested function calls using `|>`, even when function is wrapped in let expression" <|
+            \() ->
+                """module A exposing (..)
+a = (let x = 1 in f b c) == (c |> (let x = 1 in f b))
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Condition is always True"
+                            , details = sameThingOnBothSidesDetails "True"
+                            , under = "(let x = 1 in f b c) == (c |> (let x = 1 in f b))"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = True
+"""
+                        ]
+        , test "should simplify nested function calls using `|>`, even when function is wrapped in if expression" <|
+            \() ->
+                """module A exposing (..)
+a = (if cond then f b c else g d c) == (c |> (if cond then f b else g d))
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Condition is always True"
+                            , details = sameThingOnBothSidesDetails "True"
+                            , under = "(if cond then f b c else g d c) == (c |> (if cond then f b else g d))"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = True
+"""
+                        ]
+        , test "should simplify nested function calls using `|>`, even when function is wrapped in case expression" <|
+            \() ->
+                """module A exposing (..)
+a = (case x of
+        X -> f b c
+        Y -> g d c
+    )
+    ==
+    ((case x of
+        X -> f b
+        Y -> g d
+    ) <| c)
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Condition is always True"
+                            , details = sameThingOnBothSidesDetails "True"
+                            , under = """(case x of
+        X -> f b c
+        Y -> g d c
+    )
+    ==
+    ((case x of
+        X -> f b
+        Y -> g d
+    ) <| c)"""
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = True
+"""
+                        ]
+        , test "should simplify record access comparison" <|
+            \() ->
+                """module A exposing (..)
+a = (b.c) == (.c b)
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Condition is always True"
+                            , details = sameThingOnBothSidesDetails "True"
+                            , under = "(b.c) == (.c b)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = True
+"""
+                        ]
+        , test "should simplify record access comparison using pipeline" <|
+            \() ->
+                """module A exposing (..)
+a = (b.c) == (.c <| b)
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Condition is always True"
+                            , details = sameThingOnBothSidesDetails "True"
+                            , under = "(b.c) == (.c <| b)"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = True
+"""
+                        ]
         , test "should simplify equality of different literals to False" <|
             \() ->
                 """module A exposing (..)
@@ -2778,6 +2955,445 @@ a = if condition then 1 else 2 - 1
 a = 1
 """
                         ]
+        ]
+
+
+
+-- DUPLICATED IF CONDITIONS
+
+
+duplicatedIfTests : Test
+duplicatedIfTests =
+    describe "Duplicated if conditions"
+        [ test "should not remove nested conditions if they're not duplicate" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if x then
+    if y then
+      1
+    else
+      2
+  else
+    3
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectNoErrors
+        , test "should remove duplicate nested conditions (x inside the then)" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if x then
+    if x then
+      1
+    else
+      2
+  else
+    3
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The condition will always evaluate to True"
+                            , details = [ "The expression can be replaced by what is inside the 'then' branch." ]
+                            , under = "if"
+                            }
+                            |> Review.Test.atExactly { start = { row = 4, column = 5 }, end = { row = 4, column = 7 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if x then
+    1
+  else
+    3
+"""
+                        ]
+        , test "should remove duplicate nested conditions (x inside the then, with parens)" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if (x) then
+    if x then
+      1
+    else
+      2
+  else
+    3
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The condition will always evaluate to True"
+                            , details = [ "The expression can be replaced by what is inside the 'then' branch." ]
+                            , under = "if"
+                            }
+                            |> Review.Test.atExactly { start = { row = 4, column = 5 }, end = { row = 4, column = 7 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if (x) then
+    1
+  else
+    3
+"""
+                        ]
+        , test "should remove duplicate nested conditions (not x inside the top condition)" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if not x then
+    if x then
+      1
+    else
+      2
+  else
+    3
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The condition will always evaluate to False"
+                            , details = [ "The expression can be replaced by what is inside the 'else' branch." ]
+                            , under = "if"
+                            }
+                            |> Review.Test.atExactly { start = { row = 4, column = 5 }, end = { row = 4, column = 7 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if not x then
+    2
+  else
+    3
+"""
+                        ]
+        , test "should remove duplicate nested conditions (not <| x inside the top condition)" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if not <| x then
+    if x then
+      1
+    else
+      2
+  else
+    3
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The condition will always evaluate to False"
+                            , details = [ "The expression can be replaced by what is inside the 'else' branch." ]
+                            , under = "if"
+                            }
+                            |> Review.Test.atExactly { start = { row = 4, column = 5 }, end = { row = 4, column = 7 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if not <| x then
+    2
+  else
+    3
+"""
+                        ]
+        , test "should remove opposite nested conditions (not x inside the then)" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if x then
+    if not x then
+      1
+    else
+      2
+  else
+    3
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Expression is equal to False"
+                            , details = [ "You can replace the call to `not` by the boolean value directly." ]
+                            , under = "not x"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if x then
+    if False then
+      1
+    else
+      2
+  else
+    3
+"""
+                        ]
+        , test "should remove duplicate nested conditions (x inside the else)" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if x then
+    1
+  else
+    if x then
+      2
+    else
+      3
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The condition will always evaluate to False"
+                            , details = [ "The expression can be replaced by what is inside the 'else' branch." ]
+                            , under = "if"
+                            }
+                            |> Review.Test.atExactly { start = { row = 6, column = 5 }, end = { row = 6, column = 7 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if x then
+    1
+  else
+    3
+"""
+                        ]
+        , test "should remove opposite nested conditions (not x inside the else)" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if x then
+    1
+  else
+    if not x then
+      2
+    else
+      3
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Expression is equal to True"
+                            , details = [ "You can replace the call to `not` by the boolean value directly." ]
+                            , under = "not x"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if x then
+    1
+  else
+    if True then
+      2
+    else
+      3
+"""
+                        ]
+        , test "should remove duplicate nested conditions (x part of a nested condition)" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if x then
+    if x && y then
+      1
+    else
+      2
+  else
+    3
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Part of the expression is unnecessary"
+                            , details = [ "A part of this condition is unnecessary. You can remove it and it would not impact the behavior of the program." ]
+                            , under = "x && y"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if x then
+    if y then
+      1
+    else
+      2
+  else
+    3
+"""
+                        ]
+        , test "should remove duplicate deeply nested conditions" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if x then
+    if y then
+      if x then
+        1
+      else
+        2
+    else
+      3
+  else
+    4
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The condition will always evaluate to True"
+                            , details = [ "The expression can be replaced by what is inside the 'then' branch." ]
+                            , under = "if"
+                            }
+                            |> Review.Test.atExactly { start = { row = 5, column = 7 }, end = { row = 5, column = 9 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if x then
+    if y then
+      1
+    else
+      3
+  else
+    4
+"""
+                        ]
+        , test "should remove duplicate nested conditions (x part of the top && condition)" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if x && y then
+    if x then
+      1
+    else
+      2
+  else
+    3
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The condition will always evaluate to True"
+                            , details = [ "The expression can be replaced by what is inside the 'then' branch." ]
+                            , under = "if"
+                            }
+                            |> Review.Test.atExactly { start = { row = 4, column = 5 }, end = { row = 4, column = 7 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if x && y then
+    1
+  else
+    3
+"""
+                        ]
+        , test "should remove opposite nested conditions (x part of the top || condition)" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if x || y then
+    1
+  else
+    if x then
+      2
+    else
+      3
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "The condition will always evaluate to False"
+                            , details = [ "The expression can be replaced by what is inside the 'else' branch." ]
+                            , under = "if"
+                            }
+                            |> Review.Test.atExactly { start = { row = 6, column = 5 }, end = { row = 6, column = 7 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if x || y then
+    1
+  else
+    3
+"""
+                        ]
+        , test "should not remove condition when we don't have enough information (x part of the top && condition, other condition in the else)" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if x && y then
+    1
+  else
+    if x then
+      2
+    else
+      3
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectNoErrors
+        , test "should not remove condition when we don't have enough information (x part of the top || condition, other condition in the then)" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if x || y then
+    if x then
+      1
+    else
+      2
+  else
+    3
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectNoErrors
+        , test "should remove branches where the condition always matches" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if x == 1 then
+    if x == 1 then
+      1
+    else
+      2
+  else
+    3
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Condition is always True"
+                            , details = sameThingOnBothSidesDetails "True"
+                            , under = "x == 1"
+                            }
+                            |> Review.Test.atExactly { start = { row = 4, column = 8 }, end = { row = 4, column = 14 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if x == 1 then
+    if True then
+      1
+    else
+      2
+  else
+    3
+"""
+                        ]
+        , test "should remove branches where the condition never matches" <|
+            \() ->
+                """module A exposing (..)
+a =
+  if x == 1 then
+    if x == 2 then
+      1
+    else
+      2
+  else
+    3
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Condition is always False"
+                            , details = sameThingOnBothSidesDetails "False"
+                            , under = "x == 2"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+  if x == 1 then
+    if False then
+      1
+    else
+      2
+  else
+    3
+"""
+                        ]
+
+        -- TODO
+        -- Unhappy && and || cases:
+        --   if a && b then ... else <not a || not b>
+        --   if a || b then ... else <not a && not b>
+        --   if a || b then ... else (if a then (if b then <can't happen> else x) else y)
         ]
 
 
@@ -3673,7 +4289,7 @@ a = String.words ""
                     |> Review.Test.run (rule defaults)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using String.words on an empty string will result in a empty list"
+                            { message = "Using String.words on an empty string will result in an empty list"
                             , details = [ "You can replace this call by an empty list." ]
                             , under = "String.words"
                             }
@@ -3703,7 +4319,7 @@ a = String.lines ""
                     |> Review.Test.run (rule defaults)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using String.lines on an empty string will result in a empty list"
+                            { message = "Using String.lines on an empty string will result in an empty list"
                             , details = [ "You can replace this call by an empty list." ]
                             , under = "String.lines"
                             }
@@ -3784,6 +4400,8 @@ listSimplificationTests =
         , listReverseTests
         , listTakeTests
         , listDropTests
+        , listIntersperseTests
+        , listMemberTests
         ]
 
 
@@ -3853,7 +4471,7 @@ a = List.concat []
                     |> Review.Test.run (rule defaults)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using List.concat on an empty list will result in a empty list"
+                            { message = "Using List.concat on an empty list will result in an empty list"
                             , details = [ "You can replace this call by an empty list." ]
                             , under = "List.concat"
                             }
@@ -4065,7 +4683,7 @@ a = List.concatMap f []
                     |> Review.Test.run (rule defaults)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using List.concatMap on an empty list will result in a empty list"
+                            { message = "Using List.concatMap on an empty list will result in an empty list"
                             , details = [ "You can replace this call by an empty list." ]
                             , under = "List.concatMap"
                             }
@@ -4690,7 +5308,7 @@ a = List.filterMap f []
                     |> Review.Test.run (rule defaults)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using List.filterMap on an empty list will result in a empty list"
+                            { message = "Using List.filterMap on an empty list will result in an empty list"
                             , details = [ "You can replace this call by an empty list." ]
                             , under = "List.filterMap"
                             }
@@ -4706,7 +5324,7 @@ a = List.filterMap f <| []
                     |> Review.Test.run (rule defaults)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using List.filterMap on an empty list will result in a empty list"
+                            { message = "Using List.filterMap on an empty list will result in an empty list"
                             , details = [ "You can replace this call by an empty list." ]
                             , under = "List.filterMap"
                             }
@@ -4722,7 +5340,7 @@ a = [] |> List.filterMap f
                     |> Review.Test.run (rule defaults)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using List.filterMap on an empty list will result in a empty list"
+                            { message = "Using List.filterMap on an empty list will result in an empty list"
                             , details = [ "You can replace this call by an empty list." ]
                             , under = "List.filterMap"
                             }
@@ -5093,7 +5711,7 @@ a = List.indexedMap f []
                     |> Review.Test.run (rule defaults)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
-                            { message = "Using List.indexedMap on an empty list will result in a empty list"
+                            { message = "Using List.indexedMap on an empty list will result in an empty list"
                             , details = [ "You can replace this call by an empty list." ]
                             , under = "List.indexedMap"
                             }
@@ -5933,6 +6551,65 @@ a = always False |> List.partition
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = (Tuple.pair [])
+"""
+                        ]
+        ]
+
+
+listIntersperseTests : Test
+listIntersperseTests =
+    describe "List.intersperse"
+        [ test "should not report List.intersperse that contains a variable or expression" <|
+            \() ->
+                """module A exposing (..)
+a = List.intersperse 2 x
+b = List.intersperse y [ 1, 2, 3 ]
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectNoErrors
+        , test "should replace List.intersperse n [] by []" <|
+            \() ->
+                """module A exposing (..)
+a = List.intersperse x []
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Using List.intersperse on an empty list will result in an empty list"
+                            , details = [ "You can replace this call by an empty list." ]
+                            , under = "List.intersperse"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = []
+"""
+                        ]
+        ]
+
+
+listMemberTests : Test
+listMemberTests =
+    describe "List.member"
+        [ test "should not report List.member used with okay arguments" <|
+            \() ->
+                """module A exposing (..)
+a = List.member x y
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectNoErrors
+        , test "should replace List.member x List.empty by False" <|
+            \() ->
+                """module A exposing (..)
+a = List.member x []
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Using List.member on [] will result in False"
+                            , details = [ "You can replace this call by False." ]
+                            , under = "List.member"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = False
 """
                         ]
         ]
@@ -8126,7 +8803,7 @@ setMemberTests =
         [ test "should not report Set.member used with okay arguments" <|
             \() ->
                 """module A exposing (..)
-a = Set.member x x
+a = Set.member x y
 """
                     |> Review.Test.run (rule defaults)
                     |> Review.Test.expectNoErrors
