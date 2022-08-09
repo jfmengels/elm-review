@@ -230,7 +230,12 @@ normalizePattern node =
                 )
 
         Pattern.UnConsPattern element list ->
-            toNode (Pattern.UnConsPattern (normalizePattern element) (normalizePattern list))
+            case normalizePattern list of
+                Node _ (Pattern.ListPattern elements) ->
+                    toNode (Pattern.ListPattern (normalizePattern element :: elements))
+
+                normalizedList ->
+                    toNode (Pattern.UnConsPattern (normalizePattern element) normalizedList)
 
         Pattern.ListPattern patterns ->
             toNode (Pattern.ListPattern (List.map normalizePattern patterns))
