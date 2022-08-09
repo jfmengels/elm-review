@@ -142,14 +142,14 @@ normalize resources node =
                                                 , declaration =
                                                     toNode
                                                         { name = toNode (Node.value declaration.name)
-                                                        , arguments = List.map normalizePattern declaration.arguments
+                                                        , arguments = List.map (normalizePattern resources.lookupTable) declaration.arguments
                                                         , expression = normalize resources declaration.expression
                                                         }
                                                 }
                                             )
 
                                     Expression.LetDestructuring pattern expr ->
-                                        toNode (Expression.LetDestructuring (normalizePattern pattern) (normalize resources expr))
+                                        toNode (Expression.LetDestructuring (normalizePattern resources.lookupTable pattern) (normalize resources expr))
                             )
                             letBlock.declarations
                     , expression = normalize resources letBlock.expression
@@ -159,7 +159,7 @@ normalize resources node =
         Expression.CaseExpression caseBlock ->
             toNode
                 (Expression.CaseExpression
-                    { cases = List.map (\( pattern, expr ) -> ( normalizePattern pattern, normalize resources expr )) caseBlock.cases
+                    { cases = List.map (\( pattern, expr ) -> ( normalizePattern resources.lookupTable pattern, normalize resources expr )) caseBlock.cases
                     , expression = normalize resources caseBlock.expression
                     }
                 )
@@ -167,7 +167,7 @@ normalize resources node =
         Expression.LambdaExpression lambda ->
             toNode
                 (Expression.LambdaExpression
-                    { args = List.map normalizePattern lambda.args
+                    { args = List.map (normalizePattern resources.lookupTable) lambda.args
                     , expression = normalize resources lambda.expression
                     }
                 )
@@ -231,11 +231,11 @@ addToFunctionCall functionCall extraArgument =
                 |> toNode
 
 
-normalizePattern : Node Pattern -> Node Pattern
-normalizePattern node =
+normalizePattern : ModuleNameLookupTable -> Node Pattern -> Node Pattern
+normalizePattern lookupTable node =
     case Node.value node of
         Pattern.TuplePattern patterns ->
-            toNode (Pattern.TuplePattern (List.map normalizePattern patterns))
+            toNode (Pattern.TuplePattern (List.map (normalizePattern lookupTable) patterns))
 
         Pattern.RecordPattern fields ->
             toNode
@@ -247,24 +247,33 @@ normalizePattern node =
                 )
 
         Pattern.UnConsPattern element list ->
-            case normalizePattern list of
+            case normalizePattern lookupTable list of
                 Node _ (Pattern.ListPattern elements) ->
-                    toNode (Pattern.ListPattern (normalizePattern element :: elements))
+                    toNode (Pattern.ListPattern (normalizePattern lookupTable element :: elements))
 
                 normalizedList ->
-                    toNode (Pattern.UnConsPattern (normalizePattern element) normalizedList)
+                    toNode (Pattern.UnConsPattern (normalizePattern lookupTable element) normalizedList)
 
         Pattern.ListPattern patterns ->
-            toNode (Pattern.ListPattern (List.map normalizePattern patterns))
+            toNode (Pattern.ListPattern (List.map (normalizePattern lookupTable) patterns))
 
         Pattern.NamedPattern qualifiedNameRef patterns ->
-            toNode (Pattern.NamedPattern qualifiedNameRef (List.map normalizePattern patterns))
+            let
+                nameRef : Pattern.QualifiedNameRef
+                nameRef =
+                    { moduleName =
+                        ModuleNameLookupTable.moduleNameFor lookupTable node
+                            |> Maybe.withDefault qualifiedNameRef.moduleName
+                    , name = qualifiedNameRef.name
+                    }
+            in
+            toNode (Pattern.NamedPattern nameRef (List.map (normalizePattern lookupTable) patterns))
 
         Pattern.AsPattern pattern (Node _ asName) ->
-            toNode (Pattern.AsPattern (normalizePattern pattern) (toNode asName))
+            toNode (Pattern.AsPattern (normalizePattern lookupTable pattern) (toNode asName))
 
         Pattern.ParenthesizedPattern pattern ->
-            normalizePattern pattern
+            normalizePattern lookupTable pattern
 
         Pattern.HexPattern int ->
             toNode (Pattern.IntPattern int)
