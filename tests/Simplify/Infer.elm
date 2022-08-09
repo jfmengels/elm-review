@@ -2,6 +2,7 @@ module Simplify.Infer exposing
     ( Inferred
     , Resources
     , empty
+    , fromList
     , get
     , getBoolean
     , getInt
@@ -32,6 +33,11 @@ type alias Resources a =
 empty : Inferred
 empty =
     Inferred AssocList.empty
+
+
+fromList : List ( Expression, Expression ) -> Inferred
+fromList list =
+    Inferred (AssocList.fromList list)
 
 
 get : Expression -> Inferred -> Maybe Expression
