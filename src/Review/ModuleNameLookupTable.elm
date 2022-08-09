@@ -1,6 +1,7 @@
 module Review.ModuleNameLookupTable exposing
     ( ModuleNameLookupTable, moduleNameFor, moduleNameAt
     , fullModuleNameFor, fullModuleNameAt
+    , createForTests
     )
 
 {-| Looks up the name of the module a function or type comes from based on the position of the element in the module's AST.
@@ -20,6 +21,11 @@ type or value comes from.
 @docs fullModuleNameFor, fullModuleNameAt
 
 Note: If you have been using [`elm-review-scope`](https://github.com/jfmengels/elm-review-scope) before, you should use this instead.
+
+
+## Testing
+
+@docs fromList
 
 -}
 
@@ -137,3 +143,18 @@ fullModuleNameAt (Internal.ModuleNameLookupTable currentModuleName dict) range =
 
         res ->
             res
+
+
+{-| Creates a module name lookup table from a list of ranges and module names. The first argument is the name of the
+module in which this lookup table would be used.
+
+**NOTE**: This is only meant to be used for testing purposes, not for direct use in rules.
+
+This can be useful if you want to test individual functions that take a `ModuleNameLookupTable` as an argument.
+
+    ModuleNameLookupTable.createForTests [ "My", "Module" ] []
+
+-}
+createForTests : ModuleName -> List ( Range, ModuleName ) -> ModuleNameLookupTable
+createForTests =
+    Internal.fromList
