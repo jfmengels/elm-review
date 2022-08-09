@@ -238,6 +238,9 @@ normalizePattern node =
         Pattern.ParenthesizedPattern pattern ->
             normalizePattern pattern
 
+        Pattern.HexPattern int ->
+            toNode (Pattern.IntPattern int)
+
         pattern ->
             toNode pattern
 
