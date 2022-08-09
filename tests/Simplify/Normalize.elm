@@ -67,8 +67,25 @@ normalize resources node =
                 (normalize resources function)
                 (normalize resources extraArgument)
 
-        Expression.OperatorApplication string infixDirection left right ->
-            toNode (Expression.OperatorApplication string infixDirection (normalize resources left) (normalize resources right))
+        Expression.OperatorApplication "::" infixDirection element list ->
+            let
+                normalizedElement : Node Expression
+                normalizedElement =
+                    normalize resources element
+
+                normalizedList : Node Expression
+                normalizedList =
+                    normalize resources list
+            in
+            case Node.value normalizedList of
+                Expression.ListExpr elements ->
+                    toNode (Expression.ListExpr (normalizedElement :: elements))
+
+                _ ->
+                    toNode (Expression.OperatorApplication "::" infixDirection normalizedElement normalizedList)
+
+        Expression.OperatorApplication operator infixDirection left right ->
+            toNode (Expression.OperatorApplication operator infixDirection (normalize resources left) (normalize resources right))
 
         Expression.FunctionOrValue rawModuleName string ->
             case ModuleNameLookupTable.moduleNameFor resources.lookupTable node of
