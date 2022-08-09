@@ -221,7 +221,13 @@ normalizePattern node =
             toNode (Pattern.TuplePattern (List.map normalizePattern patterns))
 
         Pattern.RecordPattern fields ->
-            toNode (Pattern.RecordPattern (List.map (\(Node _ field) -> toNode field) fields))
+            toNode
+                (Pattern.RecordPattern
+                    (fields
+                        |> List.sortBy (\(Node _ fieldName) -> fieldName)
+                        |> List.map (\(Node _ field) -> toNode field)
+                    )
+                )
 
         Pattern.UnConsPattern element list ->
             toNode (Pattern.UnConsPattern (normalizePattern element) (normalizePattern list))
