@@ -2,9 +2,10 @@
 
 ## Unreleased
 
-- Adds [`Review.Rule.withModuleDocumentationVisitor`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withModuleDocumentationVisitor) [#132](https://github.com/jfmengels/elm-review/pull/132)
-- Adds [`Review.Rule.withModuleDocumentation`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withModuleDocumentation) [#133](https://github.com/jfmengels/elm-review/pull/133)
-- Adds [`Review.Rule.withFullAst`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withFullAst) [#133](https://github.com/jfmengels/elm-review/pull/133)
+- Adds [`Review.Rule.withModuleDocumentationVisitor`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withModuleDocumentationVisitor) ([#132](https://github.com/jfmengels/elm-review/pull/132))
+- Adds [`Review.Rule.withModuleDocumentation`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withModuleDocumentation) ([#133](https://github.com/jfmengels/elm-review/pull/133))
+- Adds [`Review.Rule.withFullAst`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withFullAst) ([#133](https://github.com/jfmengels/elm-review/pull/133))
+- Adds [`Review.ModuleNameLookupTable.createForTests`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-ModuleNameLookupTable#createForTests) ([d1c4102ec9113cd8e7fef1824554925e89d0b0f1])
 
 
 ## [2.8.1] - 2022-07-17
@@ -63,3 +64,4 @@ Help would be appreciated to fill the blanks!
 [f79e9700192c73dafea215410c8f67f4fdd8ffd4]: https://github.com/jfmengels/elm-review/commit/f79e9700192c73dafea215410c8f67f4fdd8ffd4
 [fae198f186a7659fa98f6f3400bb57960be57b57]: https://github.com/jfmengels/elm-review/commit/fae198f186a7659fa98f6f3400bb57960be57b57
 [648d386d9d812f95c200ce6b6d94b6f5c2dd168d]: https://github.com/jfmengels/elm-review/commit/648d386d9d812f95c200ce6b6d94b6f5c2dd168d
+[d1c4102ec9113cd8e7fef1824554925e89d0b0f1]: https://github.com/jfmengels/elm-review/commit/d1c4102ec9113cd8e7fef1824554925e89d0b0f1
