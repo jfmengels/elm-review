@@ -143,7 +143,7 @@ normalize resources node =
             toNode
                 (Expression.CaseExpression
                     { cases = List.map (\( pattern, expr ) -> ( normalizePattern pattern, normalize resources expr )) caseBlock.cases
-                    , expression = toNode <| Node.value caseBlock.expression
+                    , expression = normalize resources caseBlock.expression
                     }
                 )
 
