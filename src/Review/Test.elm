@@ -483,17 +483,21 @@ readmeRunResult errors project =
 
 indexOf : a -> List a -> Maybe Int
 indexOf elementToFind aList =
+    indexOfHelp elementToFind aList 0
+
+
+indexOfHelp : a -> List a -> Int -> Maybe Int
+indexOfHelp elementToFind aList offset =
     case aList of
         [] ->
             Nothing
 
         a :: rest ->
             if a == elementToFind then
-                Just 0
+                Just offset
 
             else
-                indexOf elementToFind rest
-                    |> Maybe.map ((+) 1)
+                indexOfHelp elementToFind rest (offset + 1)
 
 
 codeInspectorForSource : Bool -> String -> CodeInspector
