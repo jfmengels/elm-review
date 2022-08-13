@@ -94,13 +94,13 @@ Below is the list of all kinds of simplifications this rule applies.
 
     a =
         if condition then
-            if condition then
+            if not condition then
                 1
             else
                 2
         else
             3
-    --> if condition then 1 else 3
+    --> if condition then 2 else 3
 
 
 ### Case expressions
@@ -517,6 +517,9 @@ Below is the list of all kinds of simplifications this rule applies.
     Dict.size Dict.empty
     --> 0
 
+    Dict.member x Dict.empty
+    --> False
+
 
 ### Cmd / Sub
 
@@ -566,6 +569,7 @@ import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 import Simplify.AstHelpers as AstHelpers
+import Simplify.Evaluate as Evaluate
 import Simplify.Infer as Infer
 import Simplify.Match as Match exposing (Match(..))
 import Simplify.Normalize as Normalize
@@ -798,7 +802,7 @@ initialModuleContext =
             , localIgnoredCustomTypes = []
             , ignoredCustomTypes = []
             , constructorsToIgnore = Set.empty
-            , inferredConstantsDict = Dict.empty
+            , inferredConstantsDict = RangeDict.empty
             , inferredConstants = ( Infer.empty, [] )
             }
         )
@@ -1412,6 +1416,7 @@ functionCallChecks =
         , ( ( [ "Dict" ], "fromList" ), collectionFromListChecks dictCollection )
         , ( ( [ "Dict" ], "toList" ), collectionToListChecks dictCollection )
         , ( ( [ "Dict" ], "size" ), collectionSizeChecks dictCollection )
+        , ( ( [ "Dict" ], "member" ), collectionMemberChecks dictCollection )
         , ( ( [ "String" ], "isEmpty" ), stringIsEmptyChecks )
         , ( ( [ "String" ], "concat" ), stringConcatChecks )
         , ( ( [ "String" ], "join" ), stringJoinChecks )
@@ -1949,7 +1954,7 @@ getNegateFunction lookupTable baseNode =
 
 basicsNotChecks : CheckInfo -> List (Error {})
 basicsNotChecks checkInfo =
-    case Infer.getBoolean checkInfo checkInfo.firstArg of
+    case Evaluate.getBoolean checkInfo checkInfo.firstArg of
         Determined bool ->
             [ Rule.errorWithFix
                 { message = "Expression is equal to " ++ boolToString (not bool)
@@ -2170,10 +2175,10 @@ listConditions operatorToLookFor redundantConditionResolution node =
 
 or_isLeftSimplifiableError : OperatorCheckInfo -> List (Error {})
 or_isLeftSimplifiableError ({ parentRange, left, leftRange, rightRange } as checkInfo) =
-    case Infer.getBoolean checkInfo left of
+    case Evaluate.getBoolean checkInfo left of
         Determined True ->
             [ Rule.errorWithFix
-                { message = "Condition is always True"
+                { message = "Comparison is always True"
                 , details = alwaysSameDetails
                 }
                 parentRange
@@ -2203,7 +2208,7 @@ or_isLeftSimplifiableError ({ parentRange, left, leftRange, rightRange } as chec
 
 or_isRightSimplifiableError : OperatorCheckInfo -> List (Error {})
 or_isRightSimplifiableError ({ parentRange, right, leftRange, rightRange } as checkInfo) =
-    case Infer.getBoolean checkInfo right of
+    case Evaluate.getBoolean checkInfo right of
         Determined True ->
             [ Rule.errorWithFix
                 { message = unnecessaryMessage
@@ -2249,7 +2254,7 @@ andChecks operatorCheckInfo =
 
 and_isLeftSimplifiableError : OperatorCheckInfo -> List (Rule.Error {})
 and_isLeftSimplifiableError ({ parentRange, left, leftRange, rightRange } as checkInfo) =
-    case Infer.getBoolean checkInfo left of
+    case Evaluate.getBoolean checkInfo left of
         Determined True ->
             [ Rule.errorWithFix
                 { message = unnecessaryMessage
@@ -2265,7 +2270,7 @@ and_isLeftSimplifiableError ({ parentRange, left, leftRange, rightRange } as che
 
         Determined False ->
             [ Rule.errorWithFix
-                { message = "Condition is always False"
+                { message = "Comparison is always False"
                 , details = alwaysSameDetails
                 }
                 parentRange
@@ -2282,7 +2287,7 @@ and_isLeftSimplifiableError ({ parentRange, left, leftRange, rightRange } as che
 
 and_isRightSimplifiableError : OperatorCheckInfo -> List (Rule.Error {})
 and_isRightSimplifiableError ({ parentRange, leftRange, right, rightRange } as checkInfo) =
-    case Infer.getBoolean checkInfo right of
+    case Evaluate.getBoolean checkInfo right of
         Determined True ->
             [ Rule.errorWithFix
                 { message = unnecessaryMessage
@@ -2298,7 +2303,7 @@ and_isRightSimplifiableError ({ parentRange, leftRange, right, rightRange } as c
 
         Determined False ->
             [ Rule.errorWithFix
-                { message = "Condition is always False"
+                { message = "Comparison is always False"
                 , details = alwaysSameDetails
                 }
                 parentRange
@@ -2319,7 +2324,7 @@ and_isRightSimplifiableError ({ parentRange, leftRange, right, rightRange } as c
 
 equalityChecks : Bool -> OperatorCheckInfo -> List (Error {})
 equalityChecks isEqual ({ lookupTable, parentRange, left, right, leftRange, rightRange } as checkInfo) =
-    if Infer.getBoolean checkInfo right == Determined isEqual then
+    if Evaluate.getBoolean checkInfo right == Determined isEqual then
         [ Rule.errorWithFix
             { message = "Unnecessary comparison with boolean"
             , details = [ "The result of the expression will be the same with or without the comparison." ]
@@ -2328,7 +2333,7 @@ equalityChecks isEqual ({ lookupTable, parentRange, left, right, leftRange, righ
             [ Fix.removeRange { start = leftRange.end, end = rightRange.end } ]
         ]
 
-    else if Infer.getBoolean checkInfo left == Determined isEqual then
+    else if Evaluate.getBoolean checkInfo left == Determined isEqual then
         [ Rule.errorWithFix
             { message = "Unnecessary comparison with boolean"
             , details = [ "The result of the expression will be the same with or without the comparison." ]
@@ -2351,24 +2356,10 @@ equalityChecks isEqual ({ lookupTable, parentRange, left, right, leftRange, righ
             _ ->
                 case Normalize.compare checkInfo left right of
                     Normalize.ConfirmedEquality ->
-                        [ Rule.errorWithFix
-                            { message = "Condition is always " ++ boolToString isEqual
-                            , details = sameThingOnBothSidesDetails isEqual
-                            }
-                            parentRange
-                            [ Fix.replaceRangeBy parentRange (boolToString isEqual)
-                            ]
-                        ]
+                        [ comparisonError isEqual parentRange ]
 
                     Normalize.ConfirmedInequality ->
-                        [ Rule.errorWithFix
-                            { message = "Condition is always " ++ boolToString (not isEqual)
-                            , details = sameThingOnBothSidesDetails (not isEqual)
-                            }
-                            parentRange
-                            [ Fix.replaceRangeBy parentRange (boolToString (not isEqual))
-                            ]
-                        ]
+                        [ comparisonError (not isEqual) parentRange ]
 
                     Normalize.Unconfirmed ->
                         []
@@ -2471,21 +2462,6 @@ unnecessaryDetails =
     ]
 
 
-sameThingOnBothSidesDetails : Bool -> List String
-sameThingOnBothSidesDetails computedResult =
-    let
-        computedResultString : String
-        computedResultString =
-            if computedResult then
-                "True"
-
-            else
-                "False"
-    in
-    [ "The value on the left and on the right are the same. Therefore we can determine that the expression will always be " ++ computedResultString ++ "."
-    ]
-
-
 
 -- COMPARISONS
 
@@ -2496,22 +2472,29 @@ comparisonChecks operatorFunction operatorCheckInfo =
         Maybe.map2 operatorFunction
             (Normalize.getNumberValue operatorCheckInfo.left)
             (Normalize.getNumberValue operatorCheckInfo.right)
-            |> Maybe.map boolToString
     of
-        Just value ->
-            [ Rule.errorWithFix
-                { message = "Comparison is always " ++ value
-                , details =
-                    [ "The value on the left and on the right are the same. Therefore we can determine that the expression will always be " ++ value ++ "."
-                    ]
-                }
-                operatorCheckInfo.parentRange
-                [ Fix.replaceRangeBy operatorCheckInfo.parentRange value
-                ]
-            ]
+        Just bool ->
+            [ comparisonError bool operatorCheckInfo.parentRange ]
 
         Nothing ->
             []
+
+
+comparisonError : Bool -> Range -> Error {}
+comparisonError bool range =
+    let
+        boolAsString : String
+        boolAsString =
+            boolToString bool
+    in
+    Rule.errorWithFix
+        { message = "Comparison is always " ++ boolAsString
+        , details =
+            [ "Based on the values and/or the context, we can determine that the value of this operation will always be " ++ boolAsString ++ "."
+            ]
+        }
+        range
+        [ Fix.replaceRangeBy range boolAsString ]
 
 
 
@@ -3366,7 +3349,7 @@ listAllChecks ({ parentRange, fnRange, firstArg, secondArg } as checkInfo) =
             ]
 
         _ ->
-            case Infer.isAlwaysBoolean checkInfo firstArg of
+            case Evaluate.isAlwaysBoolean checkInfo firstArg of
                 Determined True ->
                     [ Rule.errorWithFix
                         { message = "The call to List.all will result in True"
@@ -3393,7 +3376,7 @@ listAnyChecks ({ parentRange, fnRange, firstArg, secondArg } as checkInfo) =
             ]
 
         _ ->
-            case Infer.isAlwaysBoolean checkInfo firstArg of
+            case Evaluate.isAlwaysBoolean checkInfo firstArg of
                 Determined False ->
                     [ Rule.errorWithFix
                         { message = "The call to List.any will result in False"
@@ -4093,7 +4076,7 @@ collectionFilterChecks collection ({ parentRange, fnRange, firstArg, secondArg }
             ]
 
         _ ->
-            case Infer.isAlwaysBoolean checkInfo firstArg of
+            case Evaluate.isAlwaysBoolean checkInfo firstArg of
                 Determined True ->
                     [ Rule.errorWithFix
                         { message = "Using " ++ collection.moduleName ++ ".filter with a function that will always return True is the same as not using " ++ collection.moduleName ++ ".filter"
@@ -4359,7 +4342,7 @@ collectionPartitionChecks collection checkInfo =
             ]
 
         _ ->
-            case Infer.isAlwaysBoolean checkInfo checkInfo.firstArg of
+            case Evaluate.isAlwaysBoolean checkInfo checkInfo.firstArg of
                 Determined True ->
                     case checkInfo.secondArg of
                         Just listArg ->
@@ -4731,9 +4714,9 @@ ifChecks :
         }
     -> { errors : List (Error {}), rangesToIgnore : List Range, rightSidesOfPlusPlus : List Range, inferredConstants : List ( Range, Infer.Inferred ) }
 ifChecks context nodeRange { condition, trueBranch, falseBranch } =
-    case Infer.getBoolean context condition of
+    case Evaluate.getBoolean context condition of
         Determined True ->
-            onlyErrors
+            errorsAndRangesToIgnore
                 [ Rule.errorWithFix
                     { message = "The condition will always evaluate to True"
                     , details = [ "The expression can be replaced by what is inside the 'then' branch." ]
@@ -4749,9 +4732,10 @@ ifChecks context nodeRange { condition, trueBranch, falseBranch } =
                         }
                     ]
                 ]
+                [ Node.range condition ]
 
         Determined False ->
-            onlyErrors
+            errorsAndRangesToIgnore
                 [ Rule.errorWithFix
                     { message = "The condition will always evaluate to False"
                     , details = [ "The expression can be replaced by what is inside the 'else' branch." ]
@@ -4763,9 +4747,10 @@ ifChecks context nodeRange { condition, trueBranch, falseBranch } =
                         }
                     ]
                 ]
+                [ Node.range condition ]
 
         Undetermined ->
-            case ( Infer.getBoolean context trueBranch, Infer.getBoolean context falseBranch ) of
+            case ( Evaluate.getBoolean context trueBranch, Evaluate.getBoolean context falseBranch ) of
                 ( Determined True, Determined False ) ->
                     onlyErrors
                         [ Rule.errorWithFix

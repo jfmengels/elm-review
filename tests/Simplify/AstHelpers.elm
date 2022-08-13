@@ -1,4 +1,4 @@
-module Simplify.AstHelpers exposing (..)
+module Simplify.AstHelpers exposing (removeParens, removeParensFromPattern)
 
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)

@@ -577,20 +577,14 @@ inferTests =
                           , [ "A" ]
                           )
                         ]
-                        [ ( FunctionOrValue [ "A" ] "a"
-                          , FunctionOrValue [ "Basics" ] "True"
-                          )
-                        ]
+                        [ ( FunctionOrValue [ "A" ] "a", Infer.DTrue ) ]
                         (FunctionOrValue [ "Basics" ] "True")
         , test "should not replace reference when module name is unknown" <|
             \() ->
                 "a"
                     |> normalizeWithInferredAndExpect
                         []
-                        [ ( FunctionOrValue [ "A" ] "a"
-                          , FunctionOrValue [ "Basics" ] "True"
-                          )
-                        ]
+                        [ ( FunctionOrValue [ "A" ] "a", Infer.DTrue ) ]
                         (FunctionOrValue [] "a")
         , test "should not replace reference when module name is not the same" <|
             \() ->
@@ -600,10 +594,7 @@ inferTests =
                           , [ "B" ]
                           )
                         ]
-                        [ ( FunctionOrValue [ "A" ] "a"
-                          , FunctionOrValue [ "Basics" ] "True"
-                          )
-                        ]
+                        [ ( FunctionOrValue [ "A" ] "a", Infer.DTrue ) ]
                         (FunctionOrValue [ "B" ] "a")
         ]
 
@@ -623,7 +614,7 @@ normalizeWithModuleNamesAndExpect moduleNames expected source =
     normalizeBase moduleNames Infer.empty expected source
 
 
-normalizeWithInferredAndExpect : List ( Range, ModuleName ) -> List ( Expression, Expression ) -> Expression -> String -> Expect.Expectation
+normalizeWithInferredAndExpect : List ( Range, ModuleName ) -> List ( Expression, Infer.DeducedValue ) -> Expression -> String -> Expect.Expectation
 normalizeWithInferredAndExpect moduleNames inferredList expected source =
     normalizeBase moduleNames (Infer.fromList inferredList) expected source
 
