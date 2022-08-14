@@ -25,7 +25,7 @@ Note: If you have been using [`elm-review-scope`](https://github.com/jfmengels/e
 
 ## Testing
 
-@docs fromList
+@docs createForTests
 
 -}
 
