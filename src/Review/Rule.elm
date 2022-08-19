@@ -5568,7 +5568,8 @@ scopeRule =
 
 
 type alias ScopeProjectContext =
-    { dependenciesModules : Dict String Elm.Docs.Module
+    { directDependencies : Set String
+    , dependenciesModules : Dict String Elm.Docs.Module
     , modules : Dict ModuleName Elm.Docs.Module
     , lookupTables : Dict ModuleName ModuleNameLookupTable
     }
@@ -5598,7 +5599,8 @@ type alias ScopeModuleContext =
 
 scope_initialProjectContext : ScopeProjectContext
 scope_initialProjectContext =
-    { dependenciesModules = Dict.empty
+    { directDependencies = Set.empty
+    , dependenciesModules = Dict.empty
     , modules = Dict.empty
     , lookupTables = Dict.empty
     }
@@ -5637,7 +5639,8 @@ scope_fromProjectToModule _ moduleName projectContext =
 
 scope_fromModuleToProject : a -> Node ModuleName -> ScopeModuleContext -> ScopeProjectContext
 scope_fromModuleToProject _ moduleName moduleContext =
-    { dependenciesModules = Dict.empty
+    { directDependencies = Set.empty
+    , dependenciesModules = Dict.empty
     , modules =
         Dict.singleton (Node.value moduleName)
             { name = String.join "." (Node.value moduleName)
@@ -5653,7 +5656,8 @@ scope_fromModuleToProject _ moduleName moduleContext =
 
 scope_foldProjectContexts : ScopeProjectContext -> ScopeProjectContext -> ScopeProjectContext
 scope_foldProjectContexts newContext previousContext =
-    { dependenciesModules = previousContext.dependenciesModules
+    { directDependencies = previousContext.directDependencies
+    , dependenciesModules = previousContext.dependenciesModules
     , modules = Dict.union previousContext.modules newContext.modules
     , lookupTables = Dict.union newContext.lookupTables previousContext.lookupTables
     }
