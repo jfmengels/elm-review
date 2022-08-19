@@ -5554,6 +5554,7 @@ isInSourceDirectories (Metadata metadata) =
 scopeRule : RunnableProjectVisitor ScopeProjectContext ScopeModuleContext
 scopeRule =
     newProjectRuleSchema "elm-review__SCOPE" scope_initialProjectContext
+        |> withElmJsonProjectVisitor scope_elmJsonVisitor
         |> withContextFromImportedModules
         |> withDirectDependenciesProjectVisitor (scope_dependenciesVisitor |> scope_pairWithNoErrors)
         |> withModuleVisitor scope_moduleVisitor
@@ -5706,6 +5707,15 @@ scope_moduleVisitor schema =
 scope_pairWithNoErrors : (visited -> context -> context) -> visited -> context -> ( List nothing, context )
 scope_pairWithNoErrors fn visited context =
     ( [], fn visited context )
+
+
+
+-- elm.json
+
+
+scope_elmJsonVisitor : Maybe { a | project : Elm.Project.Project } -> ScopeProjectContext -> ( List nothing, ScopeProjectContext )
+scope_elmJsonVisitor maybeElmJson projectContext =
+    ( [], projectContext )
 
 
 
