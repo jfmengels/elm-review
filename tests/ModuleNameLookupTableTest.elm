@@ -21,6 +21,7 @@ all =
     describe "ModuleNameLookupTable"
         [ moduleNameAtTest
         , fullModuleNameAtest
+        , dependenciesTest
         ]
 
 
@@ -446,6 +447,44 @@ type alias BAlias = {}
         ]
 
 
+dependenciesTest : Test
+dependenciesTest =
+    describe "Dependencies"
+        [ test "should not confuse a function from a local module with a module from an indirect dependency" <|
+            \() ->
+                let
+                    lookupFunction : ModuleNameLookupTable -> Range -> Maybe ModuleName
+                    lookupFunction =
+                        ModuleNameLookupTable.moduleNameAt
+
+                    rule : Rule
+                    rule =
+                        createRule
+                            (Rule.withExpressionEnterVisitor (expressionVisitor lookupFunction))
+                in
+                [ """module A exposing (..)
+import Element exposing (..)
+
+a = value
+""", """module Element exposing (value)
+value = 1
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData projectWithIndirectDependencies rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "A"
+                          , [ Review.Test.error
+                                { message = """
+<nothing>.value -> Element.value
+"""
+                                , details = [ "details" ]
+                                , under = "module"
+                                }
+                            ]
+                          )
+                        ]
+        ]
+
+
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
     , texts : List String
@@ -459,6 +498,12 @@ project =
         |> Project.addDependency Dependencies.elmHtml
         |> Project.addDependency Review.Test.Dependencies.elmParser
         |> Project.addDependency Review.Test.Dependencies.elmUrl
+
+
+projectWithIndirectDependencies : Project
+projectWithIndirectDependencies =
+    Project.new
+        |> Project.addDependency Dependencies.elmCore
 
 
 createRule : (Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext) -> Rule
