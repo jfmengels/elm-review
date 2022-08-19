@@ -5747,12 +5747,13 @@ scope_elmJsonVisitor maybeElmJson projectContext =
 -- DEPENDENCIES
 
 
-scope_dependenciesVisitor : Dict String Dependency -> { context | dependenciesModules : Dict String Elm.Docs.Module } -> { context | dependenciesModules : Dict String Elm.Docs.Module }
+scope_dependenciesVisitor : Dict String Dependency -> ScopeProjectContext -> ScopeProjectContext
 scope_dependenciesVisitor dependencies innerContext =
     let
         dependenciesModules : Dict String Elm.Docs.Module
         dependenciesModules =
             dependencies
+                |> Dict.filter (\key _ -> Set.member key innerContext.directDependencies)
                 |> Dict.values
                 |> ListExtra.fastConcatMap Review.Project.Dependency.modules
                 |> List.map (\dependencyModule -> ( dependencyModule.name, dependencyModule ))
