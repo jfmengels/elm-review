@@ -277,6 +277,7 @@ reason or seemingly inappropriately.
 import Ansi
 import Dict exposing (Dict)
 import Elm.Docs
+import Elm.Package
 import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
@@ -5554,7 +5555,7 @@ isInSourceDirectories (Metadata metadata) =
 scopeRule : RunnableProjectVisitor ScopeProjectContext ScopeModuleContext
 scopeRule =
     newProjectRuleSchema "elm-review__SCOPE" scope_initialProjectContext
-        |> withElmJsonProjectVisitor scope_elmJsonVisitor
+        |> withElmJsonProjectVisitor (\elmJson context -> ( [], scope_elmJsonVisitor elmJson context ))
         |> withContextFromImportedModules
         |> withDirectDependenciesProjectVisitor (scope_dependenciesVisitor |> scope_pairWithNoErrors)
         |> withModuleVisitor scope_moduleVisitor
@@ -5717,9 +5718,29 @@ scope_pairWithNoErrors fn visited context =
 -- elm.json
 
 
-scope_elmJsonVisitor : Maybe { a | project : Elm.Project.Project } -> ScopeProjectContext -> ( List nothing, ScopeProjectContext )
+scope_elmJsonVisitor : Maybe { a | project : Elm.Project.Project } -> ScopeProjectContext -> ScopeProjectContext
 scope_elmJsonVisitor maybeElmJson projectContext =
-    ( [], projectContext )
+    case maybeElmJson of
+        Just { project } ->
+            case project of
+                Elm.Project.Application { depsDirect, testDepsIndirect } ->
+                    { projectContext
+                        | directDependencies =
+                            (depsDirect ++ testDepsIndirect)
+                                |> List.map (\( packageName, _ ) -> Elm.Package.toString packageName)
+                                |> Set.fromList
+                    }
+
+                Elm.Project.Package { deps, testDeps } ->
+                    { projectContext
+                        | directDependencies =
+                            (deps ++ testDeps)
+                                |> List.map (\( packageName, _ ) -> Elm.Package.toString packageName)
+                                |> Set.fromList
+                    }
+
+        Nothing ->
+            projectContext
 
 
 
