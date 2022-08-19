@@ -5569,7 +5569,7 @@ scopeRule =
 
 
 type alias ScopeProjectContext =
-    { directDependencies : Set String
+    { directDependencies : Maybe (Set String)
     , dependenciesModules : Dict String Elm.Docs.Module
     , modules : Dict ModuleName Elm.Docs.Module
     , lookupTables : Dict ModuleName ModuleNameLookupTable
@@ -5600,7 +5600,7 @@ type alias ScopeModuleContext =
 
 scope_initialProjectContext : ScopeProjectContext
 scope_initialProjectContext =
-    { directDependencies = Set.empty
+    { directDependencies = Nothing
     , dependenciesModules = Dict.empty
     , modules = Dict.empty
     , lookupTables = Dict.empty
@@ -5640,7 +5640,7 @@ scope_fromProjectToModule _ moduleName projectContext =
 
 scope_fromModuleToProject : a -> Node ModuleName -> ScopeModuleContext -> ScopeProjectContext
 scope_fromModuleToProject _ moduleName moduleContext =
-    { directDependencies = Set.empty
+    { directDependencies = Nothing
     , dependenciesModules = Dict.empty
     , modules =
         Dict.singleton (Node.value moduleName)
@@ -5729,6 +5729,7 @@ scope_elmJsonVisitor maybeElmJson projectContext =
                             (depsDirect ++ testDepsIndirect)
                                 |> List.map (\( packageName, _ ) -> Elm.Package.toString packageName)
                                 |> Set.fromList
+                                |> Just
                     }
 
                 Elm.Project.Package { deps, testDeps } ->
@@ -5737,6 +5738,7 @@ scope_elmJsonVisitor maybeElmJson projectContext =
                             (deps ++ testDeps)
                                 |> List.map (\( packageName, _ ) -> Elm.Package.toString packageName)
                                 |> Set.fromList
+                                |> Just
                     }
 
         Nothing ->
@@ -5750,10 +5752,18 @@ scope_elmJsonVisitor maybeElmJson projectContext =
 scope_dependenciesVisitor : Dict String Dependency -> ScopeProjectContext -> ScopeProjectContext
 scope_dependenciesVisitor dependencies innerContext =
     let
+        dependenciesToCollect : Dict String Dependency
+        dependenciesToCollect =
+            case innerContext.directDependencies of
+                Just directDependencies ->
+                    Dict.filter (\key _ -> Set.member key directDependencies) dependencies
+
+                Nothing ->
+                    dependencies
+
         dependenciesModules : Dict String Elm.Docs.Module
         dependenciesModules =
-            dependencies
-                |> Dict.filter (\key _ -> Set.member key innerContext.directDependencies)
+            dependenciesToCollect
                 |> Dict.values
                 |> ListExtra.fastConcatMap Review.Project.Dependency.modules
                 |> List.map (\dependencyModule -> ( dependencyModule.name, dependencyModule ))
