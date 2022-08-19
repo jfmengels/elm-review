@@ -6143,12 +6143,12 @@ registerImportExposed import_ innerContext =
 
                 module_ : Elm.Docs.Module
                 module_ =
-                    (case Dict.get (joinModuleName moduleName) innerContext.dependenciesModules of
+                    (case Dict.get moduleName innerContext.modules of
                         Just m ->
                             Just m
 
                         Nothing ->
-                            Dict.get moduleName innerContext.modules
+                            Dict.get (joinModuleName moduleName) innerContext.dependenciesModules
                     )
                         |> Maybe.withDefault
                             { name = joinModuleName moduleName
