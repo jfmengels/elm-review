@@ -509,12 +509,6 @@ project =
         |> Project.addDependency xyz2dependency
 
 
-application : Project
-application =
-    Project.new
-        |> Project.addElmJson applicationElmJson
-
-
 applicationElmJson : { path : String, raw : String, project : Elm.Project.Project }
 applicationElmJson =
     { path = "elm.json"
