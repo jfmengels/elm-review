@@ -2585,7 +2585,8 @@ rawPackageElmJson =
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {
-        "package/author": "1.0.0 <= v < 2.0.0"
+        "package/author": "1.0.0 <= v < 2.0.0",
+        "author/package-with-foo": "1.0.0 <= v < 2.0.0"
     },
     "test-dependencies": {}
 }"""

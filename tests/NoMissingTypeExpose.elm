@@ -89,7 +89,7 @@ rule : Rule
 rule =
     Rule.newProjectRuleSchema "NoMissingTypeExpose" initialProjectContext
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
-        |> Rule.withDependenciesProjectVisitor dependencyDictVisitor
+        |> Rule.withDirectDependenciesProjectVisitor dependencyDictVisitor
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withContextFromImportedModules
         |> Rule.withModuleContextUsingContextCreator

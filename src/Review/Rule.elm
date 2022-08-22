@@ -5555,7 +5555,7 @@ scopeRule : RunnableProjectVisitor ScopeProjectContext ScopeModuleContext
 scopeRule =
     newProjectRuleSchema "elm-review__SCOPE" scope_initialProjectContext
         |> withContextFromImportedModules
-        |> withDependenciesProjectVisitor (scope_dependenciesVisitor |> scope_pairWithNoErrors)
+        |> withDirectDependenciesProjectVisitor (scope_dependenciesVisitor |> scope_pairWithNoErrors)
         |> withModuleVisitor scope_moduleVisitor
         |> withModuleContext
             { fromProjectToModule = scope_fromProjectToModule
