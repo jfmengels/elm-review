@@ -277,7 +277,6 @@ reason or seemingly inappropriately.
 import Ansi
 import Dict exposing (Dict)
 import Elm.Docs
-import Elm.Package
 import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
@@ -5555,7 +5554,6 @@ isInSourceDirectories (Metadata metadata) =
 scopeRule : RunnableProjectVisitor ScopeProjectContext ScopeModuleContext
 scopeRule =
     newProjectRuleSchema "elm-review__SCOPE" scope_initialProjectContext
-        |> withElmJsonProjectVisitor (\elmJson context -> ( [], scope_elmJsonVisitor elmJson context ))
         |> withContextFromImportedModules
         |> withDirectDependenciesProjectVisitor (scope_dependenciesVisitor |> scope_pairWithNoErrors)
         |> withModuleVisitor scope_moduleVisitor
@@ -5569,8 +5567,7 @@ scopeRule =
 
 
 type alias ScopeProjectContext =
-    { directDependencies : Maybe (Set String)
-    , dependenciesModules : Dict String Elm.Docs.Module
+    { dependenciesModules : Dict String Elm.Docs.Module
     , modules : Dict ModuleName Elm.Docs.Module
     , lookupTables : Dict ModuleName ModuleNameLookupTable
     }
@@ -5600,8 +5597,7 @@ type alias ScopeModuleContext =
 
 scope_initialProjectContext : ScopeProjectContext
 scope_initialProjectContext =
-    { directDependencies = Nothing
-    , dependenciesModules = Dict.empty
+    { dependenciesModules = Dict.empty
     , modules = Dict.empty
     , lookupTables = Dict.empty
     }
@@ -5640,8 +5636,7 @@ scope_fromProjectToModule _ moduleName projectContext =
 
 scope_fromModuleToProject : a -> Node ModuleName -> ScopeModuleContext -> ScopeProjectContext
 scope_fromModuleToProject _ moduleName moduleContext =
-    { directDependencies = Nothing
-    , dependenciesModules = Dict.empty
+    { dependenciesModules = Dict.empty
     , modules =
         Dict.singleton (Node.value moduleName)
             { name = String.join "." (Node.value moduleName)
@@ -5657,8 +5652,7 @@ scope_fromModuleToProject _ moduleName moduleContext =
 
 scope_foldProjectContexts : ScopeProjectContext -> ScopeProjectContext -> ScopeProjectContext
 scope_foldProjectContexts newContext previousContext =
-    { directDependencies = previousContext.directDependencies
-    , dependenciesModules = previousContext.dependenciesModules
+    { dependenciesModules = previousContext.dependenciesModules
     , modules = Dict.union previousContext.modules newContext.modules
     , lookupTables = Dict.union newContext.lookupTables previousContext.lookupTables
     }
@@ -5715,55 +5709,15 @@ scope_pairWithNoErrors fn visited context =
 
 
 
--- elm.json
-
-
-scope_elmJsonVisitor : Maybe { a | project : Elm.Project.Project } -> ScopeProjectContext -> ScopeProjectContext
-scope_elmJsonVisitor maybeElmJson projectContext =
-    case maybeElmJson of
-        Just { project } ->
-            case project of
-                Elm.Project.Application { depsDirect, testDepsIndirect } ->
-                    { projectContext
-                        | directDependencies =
-                            (depsDirect ++ testDepsIndirect)
-                                |> List.map (\( packageName, _ ) -> Elm.Package.toString packageName)
-                                |> Set.fromList
-                                |> Just
-                    }
-
-                Elm.Project.Package { deps, testDeps } ->
-                    { projectContext
-                        | directDependencies =
-                            (deps ++ testDeps)
-                                |> List.map (\( packageName, _ ) -> Elm.Package.toString packageName)
-                                |> Set.fromList
-                                |> Just
-                    }
-
-        Nothing ->
-            projectContext
-
-
-
 -- DEPENDENCIES
 
 
 scope_dependenciesVisitor : Dict String Dependency -> ScopeProjectContext -> ScopeProjectContext
 scope_dependenciesVisitor dependencies innerContext =
     let
-        dependenciesToCollect : Dict String Dependency
-        dependenciesToCollect =
-            case innerContext.directDependencies of
-                Just directDependencies ->
-                    Dict.filter (\key _ -> Set.member key directDependencies) dependencies
-
-                Nothing ->
-                    dependencies
-
         dependenciesModules : Dict String Elm.Docs.Module
         dependenciesModules =
-            dependenciesToCollect
+            dependencies
                 |> Dict.values
                 |> ListExtra.fastConcatMap Review.Project.Dependency.modules
                 |> List.map (\dependencyModule -> ( dependencyModule.name, dependencyModule ))
