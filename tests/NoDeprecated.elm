@@ -105,7 +105,7 @@ rule configuration =
                     userConfigurationToStableConfiguration configuration elementPredicate
             in
             Rule.newProjectRuleSchema "NoDeprecated" initialProjectContext
-                |> Rule.withDependenciesProjectVisitor (dependenciesVisitor stableConfiguration)
+                |> Rule.withDirectDependenciesProjectVisitor (dependenciesVisitor stableConfiguration)
                 |> Rule.withModuleVisitor (moduleVisitor stableConfiguration)
                 |> Rule.withModuleContextUsingContextCreator
                     { fromProjectToModule = fromProjectToModule stableConfiguration

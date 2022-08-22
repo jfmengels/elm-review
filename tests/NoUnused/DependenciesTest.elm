@@ -7,12 +7,13 @@ import NoUnused.Dependencies exposing (rule)
 import Review.Project as Project exposing (Project)
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Test
+import Review.Test.Dependencies
 import Test exposing (Test, describe, test)
 
 
 createProject : Maybe String -> String -> Project
 createProject maybeTestModule rawElmJson =
-    Project.new
+    Review.Test.Dependencies.projectWithElmCore
         |> Project.addElmJson (createElmJson rawElmJson)
         |> Project.addDependency packageWithBar
         |> Project.addDependency packageWithFoo

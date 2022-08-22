@@ -572,7 +572,7 @@ rule (Configuration config) =
                     Set.fromList typeNamesList
             in
             Rule.newProjectRuleSchema "Simplify" initialContext
-                |> Rule.withDependenciesProjectVisitor (dependenciesVisitor typeNames)
+                |> Rule.withDirectDependenciesProjectVisitor (dependenciesVisitor typeNames)
                 |> Rule.withModuleVisitor (moduleVisitor typeNames)
                 |> Rule.withModuleContextUsingContextCreator
                     { fromProjectToModule = fromProjectToModule

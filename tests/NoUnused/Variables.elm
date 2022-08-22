@@ -102,7 +102,7 @@ rule : Rule
 rule =
     Rule.newProjectRuleSchema "NoUnused.Variables" initialContext
         |> Rule.withElmJsonProjectVisitor (\project context -> ( [], elmJsonVisitor project context ))
-        |> Rule.withDependenciesProjectVisitor dependenciesVisitor
+        |> Rule.withDirectDependenciesProjectVisitor dependenciesVisitor
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModule
