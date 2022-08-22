@@ -12,8 +12,8 @@ module Review.Rule exposing
     , withCaseBranchEnterVisitor, withCaseBranchExitVisitor
     , withLetDeclarationEnterVisitor, withLetDeclarationExitVisitor
     , withFinalModuleEvaluation
-    , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
-    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
+    , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDirectDependenciesModuleVisitor, withDependenciesModuleVisitor
+    , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
     , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
     , Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
@@ -162,7 +162,7 @@ The traversal of a module rule is the following:
   - Read project-related info (only collect data in the context in these steps)
       - The `elm.json` file, visited by [`withElmJsonModuleVisitor`](#withElmJsonModuleVisitor)
       - The `README.md` file, visited by [`withReadmeModuleVisitor`](#withReadmeModuleVisitor)
-      - The definition for dependencies, visited by [`withDependenciesModuleVisitor`](#withDependenciesModuleVisitor)
+      - The definition for dependencies, visited by [`withDirectDependenciesModuleVisitor`](#withDirectDependenciesModuleVisitor) and [`withDependenciesModuleVisitor`](#withDependenciesModuleVisitor)
   - Visit the Elm module (in the following order)
       - The module definition, visited by [`withSimpleModuleDefinitionVisitor`](#withSimpleModuleDefinitionVisitor) and [`withModuleDefinitionVisitor`](#withModuleDefinitionVisitor)
       - The module documentation, visited by [`withModuleDocumentationVisitor`](#withModuleDocumentationVisitor)
@@ -206,7 +206,7 @@ Evaluating/visiting a node means two things:
 
 ## Builder functions to analyze the project's data
 
-@docs withElmJsonModuleVisitor, withReadmeModuleVisitor, withDependenciesModuleVisitor
+@docs withElmJsonModuleVisitor, withReadmeModuleVisitor, withDirectDependenciesModuleVisitor, withDependenciesModuleVisitor
 
 
 ## Creating a project rule
@@ -222,7 +222,7 @@ Project rules can also report errors in the `elm.json` or the `README.md` files.
 If you are new to writing rules, I would recommend learning [how to build a module rule](#creating-a-module-rule)
 first, as they are in practice a simpler version of project rules.
 
-@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
+@docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
 
 
 ## Requesting more information
@@ -365,6 +365,7 @@ type alias ModuleRuleSchemaData moduleContext =
     , elmJsonVisitors : List (Maybe Elm.Project.Project -> moduleContext -> moduleContext)
     , readmeVisitors : List (Maybe String -> moduleContext -> moduleContext)
     , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
+    , directDependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
     }
 
 
@@ -997,6 +998,7 @@ newModuleRuleSchema name initialModuleContext =
         , elmJsonVisitors = []
         , readmeVisitors = []
         , dependenciesVisitors = []
+        , directDependenciesVisitors = []
         }
 
 
@@ -1062,6 +1064,7 @@ newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
         , elmJsonVisitors = []
         , readmeVisitors = []
         , dependenciesVisitors = []
+        , directDependenciesVisitors = []
         }
 
 
@@ -1077,6 +1080,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 , initialProjectContext = initialModuleContext
                 , elmJsonVisitors = compactProjectDataVisitors (Maybe.map .project) schema.elmJsonVisitors
                 , readmeVisitors = compactProjectDataVisitors (Maybe.map .content) schema.readmeVisitors
+                , directDependenciesVisitors = compactProjectDataVisitors identity schema.directDependenciesVisitors
                 , dependenciesVisitors = compactProjectDataVisitors identity schema.dependenciesVisitors
                 , moduleVisitors = [ removeExtensibleRecordTypeVariable (always moduleVisitor) ]
                 , moduleContextCreator = Just (initContextCreator identity)
@@ -1093,6 +1097,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 , initialProjectContext = ()
                 , elmJsonVisitors = []
                 , readmeVisitors = []
+                , directDependenciesVisitors = []
                 , dependenciesVisitors = []
                 , moduleVisitors = [ removeExtensibleRecordTypeVariable (always moduleVisitor) ]
                 , moduleContextCreator = Just schema.moduleContextCreator
@@ -1141,6 +1146,7 @@ type ProjectRuleSchema schemaState projectContext moduleContext
         , initialProjectContext : projectContext
         , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
         , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
+        , directDependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
         , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
         , moduleVisitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
         , moduleContextCreator : Maybe (ContextCreator projectContext moduleContext)
@@ -1200,6 +1206,7 @@ newProjectRuleSchema name initialProjectContext =
         , initialProjectContext = initialProjectContext
         , elmJsonVisitors = []
         , readmeVisitors = []
+        , directDependenciesVisitors = []
         , dependenciesVisitors = []
         , moduleVisitors = []
         , moduleContextCreator = Nothing
@@ -1246,6 +1253,7 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
     { initialProjectContext = schema.initialProjectContext
     , elmJsonVisitors = List.reverse schema.elmJsonVisitors
     , readmeVisitors = List.reverse schema.readmeVisitors
+    , directDependenciesVisitors = List.reverse schema.directDependenciesVisitors
     , dependenciesVisitors = List.reverse schema.dependenciesVisitors
     , moduleVisitor = mergeModuleVisitors schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors
     , traversalAndFolder =
@@ -1346,6 +1354,7 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
                 , elmJsonVisitors = []
                 , readmeVisitors = []
                 , dependenciesVisitors = []
+                , directDependenciesVisitors = []
                 }
     in
     ( List.foldl
@@ -1856,7 +1865,7 @@ withReadmeProjectVisitor visitor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | readmeVisitors = removeErrorPhantomTypeFromVisitor visitor :: schema.readmeVisitors }
 
 
-{-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will visit the project's
+{-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will examine the project's
 [dependencies](./Review-Project-Dependency).
 
 It works exactly like [`withDependenciesModuleVisitor`](#withDependenciesModuleVisitor). The visitor will be called before any
@@ -1869,6 +1878,21 @@ withDependenciesProjectVisitor :
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
 withDependenciesProjectVisitor visitor (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | dependenciesVisitors = removeErrorPhantomTypeFromVisitor visitor :: schema.dependenciesVisitors }
+
+
+{-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will examine the project's
+direct [dependencies](./Review-Project-Dependency).
+
+It works exactly like [`withDependenciesModuleVisitor`](#withDependenciesModuleVisitor). The visitor will be called before any
+module is evaluated.
+
+-}
+withDirectDependenciesProjectVisitor :
+    (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error { useErrorForModule : () }), projectContext ))
+    -> ProjectRuleSchema schemaState projectContext moduleContext
+    -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
+withDirectDependenciesProjectVisitor visitor (ProjectRuleSchema schema) =
+    ProjectRuleSchema { schema | directDependenciesVisitors = removeErrorPhantomTypeFromVisitor visitor :: schema.directDependenciesVisitors }
 
 
 {-| Add a function that makes a final evaluation of the project based only on the
@@ -2288,7 +2312,7 @@ withReadmeModuleVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | readmeVisitors = visitor :: schema.readmeVisitors }
 
 
-{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the project's
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will examine the project's
 [dependencies](./Review-Project-Dependency).
 
 You can use this look at the modules contained in dependencies, which can make the rule very precise when it targets
@@ -2301,6 +2325,21 @@ withDependenciesModuleVisitor :
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
 withDependenciesModuleVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | dependenciesVisitors = visitor :: schema.dependenciesVisitors }
+
+
+{-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will examine the project's
+direct [dependencies](./Review-Project-Dependency).
+
+You can use this look at the modules contained in dependencies, which can make the rule very precise when it targets
+specific functions.
+
+-}
+withDirectDependenciesModuleVisitor :
+    (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
+    -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
+    -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
+withDirectDependenciesModuleVisitor visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | directDependenciesVisitors = visitor :: schema.directDependenciesVisitors }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
@@ -3957,6 +3996,7 @@ type alias RunnableProjectVisitor projectContext moduleContext =
     { initialProjectContext : projectContext
     , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
     , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
+    , directDependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     , moduleVisitor : Maybe ( RunnableModuleVisitor moduleContext, ContextCreator projectContext moduleContext )
     , traversalAndFolder : TraversalAndFolder projectContext moduleContext
@@ -4271,8 +4311,18 @@ computeProjectContext projectVisitor project maybePreviousCache =
                 computeDependencies : () -> CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
                 computeDependencies () =
                     let
+                        accumulateWithDirectDependencies : ( List (Error {}), projectContext ) -> ( List (Error {}), projectContext )
+                        accumulateWithDirectDependencies =
+                            case projectVisitor.directDependenciesVisitors of
+                                [] ->
+                                    identity
+
+                                visitors ->
+                                    accumulateWithListOfVisitors visitors (Review.Project.directDependencies project)
+
                         ( errorsForVisitor, contextForVisitor ) =
                             ( [], readmeCacheEntry.context )
+                                |> accumulateWithDirectDependencies
                                 |> accumulateWithListOfVisitors projectVisitor.dependenciesVisitors dependencies
                     in
                     { value = dependencies
@@ -5505,7 +5555,7 @@ scopeRule : RunnableProjectVisitor ScopeProjectContext ScopeModuleContext
 scopeRule =
     newProjectRuleSchema "elm-review__SCOPE" scope_initialProjectContext
         |> withContextFromImportedModules
-        |> withDependenciesProjectVisitor (scope_internalDependenciesVisitor |> scope_pairWithNoErrors)
+        |> withDependenciesProjectVisitor (scope_dependenciesVisitor |> scope_pairWithNoErrors)
         |> withModuleVisitor scope_moduleVisitor
         |> withModuleContext
             { fromProjectToModule = scope_fromProjectToModule
@@ -5662,8 +5712,8 @@ scope_pairWithNoErrors fn visited context =
 -- DEPENDENCIES
 
 
-scope_internalDependenciesVisitor : Dict String Dependency -> { context | dependenciesModules : Dict String Elm.Docs.Module } -> { context | dependenciesModules : Dict String Elm.Docs.Module }
-scope_internalDependenciesVisitor dependencies innerContext =
+scope_dependenciesVisitor : Dict String Dependency -> { context | dependenciesModules : Dict String Elm.Docs.Module } -> { context | dependenciesModules : Dict String Elm.Docs.Module }
+scope_dependenciesVisitor dependencies innerContext =
     let
         dependenciesModules : Dict String Elm.Docs.Module
         dependenciesModules =

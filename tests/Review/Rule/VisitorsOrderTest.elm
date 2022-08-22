@@ -25,8 +25,10 @@ all =
                             |> Rule.withElmJsonModuleVisitor (\_ context -> context ++ "\n1.2 - withElmJsonModuleVisitor")
                             |> Rule.withReadmeModuleVisitor (\_ context -> context ++ "\n2.1 - withReadmeModuleVisitor")
                             |> Rule.withReadmeModuleVisitor (\_ context -> context ++ "\n2.2 - withReadmeModuleVisitor")
-                            |> Rule.withDependenciesModuleVisitor (\_ context -> context ++ "\n3.1 - withDependenciesModuleVisitor")
-                            |> Rule.withDependenciesModuleVisitor (\_ context -> context ++ "\n3.2 - withDependenciesModuleVisitor")
+                            |> Rule.withDirectDependenciesModuleVisitor (\_ context -> context ++ "\n3.1 - withDirectDependenciesModuleVisitor")
+                            |> Rule.withDirectDependenciesModuleVisitor (\_ context -> context ++ "\n3.2 - withDirectDependenciesModuleVisitor")
+                            |> Rule.withDependenciesModuleVisitor (\_ context -> context ++ "\n3.3 - withDependenciesModuleVisitor")
+                            |> Rule.withDependenciesModuleVisitor (\_ context -> context ++ "\n3.4 - withDependenciesModuleVisitor")
                             |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ++ "\n4.1 - withModuleDefinitionVisitor" ))
                             |> Rule.withModuleDefinitionVisitor (\_ context -> ( [], context ++ "\n4.2 - withModuleDefinitionVisitor" ))
                             |> Rule.withModuleDocumentationVisitor (\_ context -> ( [], context ++ "\n5.1 - withModuleDocumentationVisitor" ))
@@ -69,8 +71,10 @@ a = 1
 1.2 - withElmJsonModuleVisitor
 2.1 - withReadmeModuleVisitor
 2.2 - withReadmeModuleVisitor
-3.1 - withDependenciesModuleVisitor
-3.2 - withDependenciesModuleVisitor
+3.1 - withDirectDependenciesModuleVisitor
+3.2 - withDirectDependenciesModuleVisitor
+3.3 - withDependenciesModuleVisitor
+3.4 - withDependenciesModuleVisitor
 4.1 - withModuleDefinitionVisitor
 4.2 - withModuleDefinitionVisitor
 5.1 - withModuleDocumentationVisitor
