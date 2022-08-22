@@ -6,6 +6,9 @@
 - Adds [`Review.Rule.withModuleDocumentation`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withModuleDocumentation) ([#133](https://github.com/jfmengels/elm-review/pull/133))
 - Adds [`Review.Rule.withFullAst`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withFullAst) ([#133](https://github.com/jfmengels/elm-review/pull/133))
 - Adds [`Review.ModuleNameLookupTable.createForTests`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-ModuleNameLookupTable#createForTests) ([d1c4102ec9113cd8e7fef1824554925e89d0b0f1])
+- Adds [`Review.Rule.withDirectDependenciesModuleVisitor`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withDirectDependenciesModuleVisitor) and [`Review.Rule.withDirectDependenciesModuleVisitor`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withDirectDependenciesModuleVisitor) ([#136](https://github.com/jfmengels/elm-review/pull/136))
+- Adds [`Review.Rule.withDirectDependenciesModuleVisitor`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withDirectDependenciesModuleVisitor) and [`Review.Rule.withDirectDependenciesModuleVisitor`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withDirectDependenciesModuleVisitor) ([#136](https://github.com/jfmengels/elm-review/pull/136))
+- Adds [`Review.Project.directDependencies`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Project#directDependencies) ([#136](https://github.com/jfmengels/elm-review/pull/136))
 
 
 ## [2.8.1] - 2022-07-17
