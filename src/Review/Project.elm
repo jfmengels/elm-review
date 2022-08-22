@@ -3,7 +3,7 @@ module Review.Project exposing
     , ProjectModule, addModule, addParsedModule, removeModule, modules, modulesThatFailedToParse, precomputeModuleGraph
     , addElmJson, elmJson
     , addReadme, readme
-    , addDependency, removeDependency, removeDependencies, dependencies
+    , addDependency, removeDependency, removeDependencies, directDependencies, dependencies
     )
 
 {-| Represents the contents of the project to be analyzed. This information will
@@ -37,11 +37,12 @@ does not look at project information (like the `elm.json`, dependencies, ...).
 
 # Project dependencies
 
-@docs addDependency, removeDependency, removeDependencies, dependencies
+@docs addDependency, removeDependency, removeDependencies, directDependencies, dependencies
 
 -}
 
 import Dict exposing (Dict)
+import Elm.Package
 import Elm.Project
 import Elm.Syntax.File
 import Elm.Syntax.ModuleName exposing (ModuleName)
@@ -396,6 +397,31 @@ removeDependencies (Internal.Project project) =
 dependencies : Project -> Dict String Dependency
 dependencies (Internal.Project project) =
     project.dependencies
+
+
+{-| Get the direct [dependencies](./Review-Project-Dependency#Dependency) of the project.
+-}
+directDependencies : Project -> Dict String Dependency
+directDependencies (Internal.Project project) =
+    case Maybe.map .project project.elmJson of
+        Just (Elm.Project.Application { depsDirect, testDepsDirect }) ->
+            let
+                allDeps : List String
+                allDeps =
+                    List.map (\( name, _ ) -> Elm.Package.toString name) (depsDirect ++ testDepsDirect)
+            in
+            Dict.filter (\depName _ -> List.member depName allDeps) project.dependencies
+
+        Just (Elm.Project.Package { deps, testDeps }) ->
+            let
+                allDeps : List String
+                allDeps =
+                    List.map (\( name, _ ) -> Elm.Package.toString name) (deps ++ testDeps)
+            in
+            Dict.filter (\depName _ -> List.member depName allDeps) project.dependencies
+
+        Nothing ->
+            project.dependencies
 
 
 makePathOSAgnostic : String -> String
