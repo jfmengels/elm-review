@@ -1,5 +1,9 @@
 module ModuleNameLookupTableTest exposing (all)
 
+import Elm.Docs
+import Elm.License
+import Elm.Package
+import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.ModuleName exposing (ModuleName)
@@ -7,12 +11,15 @@ import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern
 import Elm.Syntax.Range exposing (Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
+import Elm.Version
 import Fixtures.Dependencies as Dependencies
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Project as Project exposing (Project)
+import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Rule as Rule exposing (Rule)
 import Review.Test
 import Review.Test.Dependencies
+import Review.Test.Dependencies.Unsafe as Unsafe
 import Test exposing (Test, describe, test)
 
 
@@ -21,6 +28,7 @@ all =
     describe "ModuleNameLookupTable"
         [ moduleNameAtTest
         , fullModuleNameAtest
+        , dependenciesTest
         ]
 
 
@@ -446,6 +454,44 @@ type alias BAlias = {}
         ]
 
 
+dependenciesTest : Test
+dependenciesTest =
+    describe "Dependencies"
+        [ test "should not confuse a function from a local module with a module from an indirect dependency" <|
+            \() ->
+                let
+                    lookupFunction : ModuleNameLookupTable -> Range -> Maybe ModuleName
+                    lookupFunction =
+                        ModuleNameLookupTable.moduleNameAt
+
+                    rule : Rule
+                    rule =
+                        createRule
+                            (Rule.withExpressionEnterVisitor (expressionVisitor lookupFunction))
+                in
+                [ """module A exposing (..)
+import Element exposing (..)
+
+a = value
+""", """module Element exposing (value)
+value = 1
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData project rule
+                    |> Review.Test.expectErrorsForModules
+                        [ ( "A"
+                          , [ Review.Test.error
+                                { message = """
+<nothing>.value -> Element.value
+"""
+                                , details = [ "details" ]
+                                , under = "module"
+                                }
+                            ]
+                          )
+                        ]
+        ]
+
+
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
     , texts : List String
@@ -455,10 +501,100 @@ type alias ModuleContext =
 project : Project
 project =
     Project.new
+        |> Project.addElmJson applicationElmJson
         |> Project.addDependency Dependencies.elmCore
         |> Project.addDependency Dependencies.elmHtml
         |> Project.addDependency Review.Test.Dependencies.elmParser
         |> Project.addDependency Review.Test.Dependencies.elmUrl
+        |> Project.addDependency xyz2dependency
+
+
+applicationElmJson : { path : String, raw : String, project : Elm.Project.Project }
+applicationElmJson =
+    { path = "elm.json"
+    , raw = """{
+    "type": "application",
+    "source-directories": [
+        "src"
+    ],
+    "elm-version": "0.19.1",
+    "dependencies": {
+        "direct": {
+            "elm/core": "1.0.0",
+            "elm/html": "1.0.0",
+            "elm/parser": "1.0.0",
+            "elm/url": "1.0.0",
+            "abc/xyz": "1.0.0"
+        },
+        "indirect": {
+            "abc/xyz2": "1.0.0"
+        }
+    },
+    "test-dependencies": {
+        "direct": {},
+        "indirect": {}
+    }
+}"""
+    , project =
+        Elm.Project.Application
+            { elm = Elm.Version.one
+            , dirs = []
+            , depsDirect =
+                [ ( unsafePackageName "elm/core", Elm.Version.one )
+                , ( unsafePackageName "elm/html", Elm.Version.one )
+                , ( unsafePackageName "elm/parser", Elm.Version.one )
+                , ( unsafePackageName "elm/url", Elm.Version.one )
+                , ( unsafePackageName "abc/xyz", Elm.Version.one )
+                ]
+            , depsIndirect = [ ( unsafePackageName "abc/xyz2", Elm.Version.one ) ]
+            , testDepsDirect = []
+            , testDepsIndirect = []
+            }
+    }
+
+
+xyz2dependency : Dependency
+xyz2dependency =
+    Dependency.create "abc/xyz2"
+        xyz2elmJson
+        xyz2dependencyModules
+
+
+xyz2elmJson : Elm.Project.Project
+xyz2elmJson =
+    Elm.Project.Package
+        { elm = Unsafe.constraint "0.19.0 <= v < 0.20.0"
+        , exposed = Elm.Project.ExposedList [ Unsafe.moduleName "Element" ]
+        , license = Elm.License.fromString "BSD-3-Clause" |> Maybe.withDefault Elm.License.bsd3
+        , name = Unsafe.packageName "elm/xyz"
+        , summary = "Fake stuff"
+        , deps = [ ( Unsafe.packageName "elm/core", Unsafe.constraint "1.0.0 <= v < 2.0.0" ) ]
+        , testDeps = []
+        , version = Elm.Version.fromString "1.0.0" |> Maybe.withDefault Elm.Version.one
+        }
+
+
+xyz2dependencyModules : List Elm.Docs.Module
+xyz2dependencyModules =
+    [ { name = "Element"
+      , comment = ""
+      , unions = []
+      , aliases = []
+      , values = []
+      , binops = []
+      }
+    ]
+
+
+unsafePackageName : String -> Elm.Package.Name
+unsafePackageName packageName =
+    case Elm.Package.fromString packageName of
+        Just name ->
+            name
+
+        Nothing ->
+            -- unsafe, but if the generation went well, it should all be good.
+            unsafePackageName packageName
 
 
 createRule : (Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext) -> Rule
