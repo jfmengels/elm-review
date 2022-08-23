@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [2.9.0] - 2022-08-23
 
 - Adds [`Review.Rule.withModuleDocumentationVisitor`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withModuleDocumentationVisitor) ([#132](https://github.com/jfmengels/elm-review/pull/132))
 - Adds [`Review.Rule.withModuleDocumentation`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withModuleDocumentation) ([#133](https://github.com/jfmengels/elm-review/pull/133))
@@ -8,6 +8,7 @@
 - Adds [`Review.ModuleNameLookupTable.createForTests`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-ModuleNameLookupTable#createForTests) ([d1c4102ec9113cd8e7fef1824554925e89d0b0f1])
 - Adds [`Review.Rule.withDirectDependenciesModuleVisitor`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withDirectDependenciesModuleVisitor) and [`Review.Rule.withDirectDependenciesModuleVisitor`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withDirectDependenciesModuleVisitor) ([#136](https://github.com/jfmengels/elm-review/pull/136))
 - Adds [`Review.Project.directDependencies`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Project#directDependencies) ([#136](https://github.com/jfmengels/elm-review/pull/136))
+- Fixes a bug in the `ModuleNameLookupTable` where the module name would not be resolved due to the presence of indirect dependencies ([#135](https://github.com/jfmengels/elm-review/pull/135))
 
 
 ## [2.8.1] - 2022-07-17
@@ -50,6 +51,7 @@ Help would be appreciated to fill the blanks!
 
 [`NoDeprecated`]: (https://package.elm-lang.org/packages/jfmengels/elm-review-common/latest/NoDeprecated)
 
+[2.9.0]: https://github.com/jfmengels/elm-review/releases/tag/2.9.0
 [2.8.1]: https://github.com/jfmengels/elm-review/releases/tag/2.8.1
 [2.8.0]: https://github.com/jfmengels/elm-review/releases/tag/2.8.0
 [2.7.2]: https://github.com/jfmengels/elm-review/releases/tag/2.7.2
