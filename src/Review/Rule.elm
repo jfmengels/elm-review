@@ -3313,7 +3313,7 @@ The `details` is a list of paragraphs, and each item will be visually separated
 when shown to the user. The details may not be empty, and this will be enforced
 by the tests automatically.
 
-    error : Node a -> Error
+    error : Node a -> Error {}
     error node =
         Rule.error
             { message = "Remove the use of `Debug` before shipping to production"
@@ -3348,7 +3348,7 @@ provides an automatic fix that the user can apply.
 
     import Review.Fix as Fix
 
-    error : Node a -> Error
+    error : Node a -> Error {}
     error node =
         Rule.errorWithFix
             { message = "Remove the use of `Debug` before shipping to production"
@@ -3645,7 +3645,7 @@ parsingError rawFile =
 
     import Review.Fix as Fix
 
-    error : Node a -> Error
+    error : Node a -> Error {}
     error node =
         Rule.error
             { message = "Remove the use of `Debug` before shipping to production"
