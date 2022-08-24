@@ -272,13 +272,13 @@ findDeclaredPatterns scope =
         (\foundPattern acc ->
             case foundPattern of
                 SingleValue v ->
-                    { acc | singles = v :: acc.singles }
+                    { singles = v :: acc.singles, records = acc.records, simplifiablePatterns = acc.simplifiablePatterns }
 
                 RecordPattern v ->
-                    { acc | records = v :: acc.records }
+                    { singles = acc.singles, records = v :: acc.records, simplifiablePatterns = acc.simplifiablePatterns }
 
                 SimplifiablePattern simplifiablePatternError ->
-                    { acc | simplifiablePatterns = simplifiablePatternError :: acc.simplifiablePatterns }
+                    { singles = acc.singles, records = acc.records, simplifiablePatterns = simplifiablePatternError :: acc.simplifiablePatterns }
         )
         { singles = [], records = [], simplifiablePatterns = [] }
         scope.declared

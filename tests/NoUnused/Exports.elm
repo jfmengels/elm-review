@@ -13,7 +13,7 @@ import Dict exposing (Dict)
 import Elm.Module
 import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
-import Elm.Syntax.Exposing as Exposing exposing (TopLevelExpose)
+import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Module as Module
@@ -31,9 +31,10 @@ import Set exposing (Set)
 
 
 {-| Report functions and types that are exposed from a module but that are never
-used in other modules.
+used in other modules. Also reports when a module is entirely unused.
 
 🔧 Running with `--fix` will automatically remove all the reported errors.
+It won't automatically remove unused modules though.
 
 If the project is a package and the module that declared the element is exposed,
 then nothing will be reported.
@@ -86,7 +87,9 @@ type alias ProjectContext =
             ModuleName
             { moduleKey : Rule.ModuleKey
             , exposed : Dict String ExposedElement
+            , moduleNameLocation : Range
             }
+    , usedModules : Set ModuleName
     , used : Set ( ModuleName, String )
     , constructors : Dict ( ModuleName, String ) String
     }
@@ -120,6 +123,9 @@ type alias ModuleContext =
     , exposed : Dict String ExposedElement
     , used : Set ( ModuleName, String )
     , elementsNotToReport : Set String
+    , importedModules : Set ModuleName
+    , containsMainFunction : Bool
+    , projectType : ProjectType
     }
 
 
@@ -127,6 +133,7 @@ initialProjectContext : ProjectContext
 initialProjectContext =
     { projectType = IsApplication ElmApplication
     , modules = Dict.empty
+    , usedModules = Set.singleton [ "ReviewConfig" ]
     , used = Set.empty
     , constructors = Dict.empty
     }
@@ -135,7 +142,7 @@ initialProjectContext =
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable ast moduleDocumentation _ ->
+        (\lookupTable ast moduleDocumentation projectContext ->
             let
                 exposed : Dict String ExposedElement
                 exposed =
@@ -150,6 +157,9 @@ fromProjectToModule =
             , exposed = exposed
             , used = Set.empty
             , elementsNotToReport = Set.empty
+            , importedModules = Set.empty
+            , containsMainFunction = False
+            , projectType = projectContext.projectType
             }
         )
         |> Rule.withModuleNameLookupTable
@@ -160,18 +170,25 @@ fromProjectToModule =
 fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
 fromModuleToProject =
     Rule.initContextCreator
-        (\moduleKey moduleName moduleContext ->
+        (\moduleKey (Node moduleNameRange moduleName) moduleContext ->
             { projectType = IsApplication ElmApplication
             , modules =
                 Dict.singleton
                     moduleName
                     { moduleKey = moduleKey
                     , exposed = moduleContext.exposed
+                    , moduleNameLocation = moduleNameRange
                     }
             , used =
                 moduleContext.elementsNotToReport
                     |> Set.map (Tuple.pair moduleName)
                     |> Set.union moduleContext.used
+            , usedModules =
+                if Set.member [ "Test" ] moduleContext.importedModules || moduleContext.containsMainFunction then
+                    Set.insert moduleName moduleContext.importedModules
+
+                else
+                    moduleContext.importedModules
             , constructors =
                 Dict.foldl
                     (\name element acc ->
@@ -190,13 +207,14 @@ fromModuleToProject =
             }
         )
         |> Rule.withModuleKey
-        |> Rule.withModuleName
+        |> Rule.withModuleNameNode
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts newContext previousContext =
     { projectType = previousContext.projectType
     , modules = Dict.union previousContext.modules newContext.modules
+    , usedModules = Set.union previousContext.usedModules newContext.usedModules
     , used = Set.union newContext.used previousContext.used
     , constructors = Dict.union previousContext.constructors newContext.constructors
     }
@@ -272,14 +290,32 @@ finalEvaluationForProject projectContext =
                 )
                 projectContext.used
                 projectContext.used
+
+        ( usedModules, unusedModules ) =
+            projectContext.modules
+                |> removeExposedPackages projectContext
+                |> Dict.partition (\moduleName _ -> Set.member moduleName projectContext.usedModules)
     in
-    projectContext.modules
-        |> removeExposedPackages projectContext
-        |> Dict.toList
-        |> List.concatMap (errorsForModule projectContext used)
+    List.concat
+        [ usedModules
+            |> Dict.toList
+            |> List.concatMap (errorsForModule projectContext used)
+        , unusedModules
+            |> Dict.toList
+            |> List.map unusedModuleError
+        ]
 
 
-errorsForModule : ProjectContext -> Set ( ModuleName, String ) -> ( ModuleName, { moduleKey : Rule.ModuleKey, exposed : Dict String ExposedElement } ) -> List (Error scope)
+unusedModuleError : ( ModuleName, { a | moduleKey : Rule.ModuleKey, moduleNameLocation : Range } ) -> Error scope
+unusedModuleError ( moduleName, { moduleKey, moduleNameLocation } ) =
+    Rule.errorForModule moduleKey
+        { message = "Module `" ++ String.join "." moduleName ++ "` is never used."
+        , details = [ "This module is never used. You may want to remove it to keep your project clean, and maybe detect some unused code in your project." ]
+        }
+        moduleNameLocation
+
+
+errorsForModule : ProjectContext -> Set ( ModuleName, String ) -> ( ModuleName, { a | moduleKey : Rule.ModuleKey, exposed : Dict String ExposedElement } ) -> List (Error scope)
 errorsForModule projectContext used ( moduleName, { moduleKey, exposed } ) =
     exposed
         |> removeApplicationExceptions projectContext
@@ -441,41 +477,45 @@ untilEndOfVariable name range =
 
 
 importVisitor : Node Import -> ModuleContext -> ModuleContext
-importVisitor node moduleContext =
-    case (Node.value node).exposingList |> Maybe.map Node.value of
+importVisitor (Node _ import_) moduleContext =
+    let
+        moduleName : ModuleName
+        moduleName =
+            Node.value import_.moduleName
+    in
+    { moduleContext
+        | used = collectUsedFromImport moduleName import_.exposingList moduleContext.used
+        , importedModules = Set.insert moduleName moduleContext.importedModules
+    }
+
+
+collectUsedFromImport : ModuleName -> Maybe (Node Exposing) -> Set ( ModuleName, String ) -> Set ( ModuleName, String )
+collectUsedFromImport moduleName exposingList used =
+    case Maybe.map Node.value exposingList of
         Just (Exposing.Explicit list) ->
-            let
-                moduleName : ModuleName
-                moduleName =
-                    Node.value (Node.value node).moduleName
+            List.foldl
+                (\(Node _ element) acc ->
+                    case element of
+                        Exposing.FunctionExpose name ->
+                            Set.insert ( moduleName, name ) acc
 
-                usedElements : Set ( ModuleName, String )
-                usedElements =
-                    List.foldl
-                        (\(Node _ element) acc ->
-                            case element of
-                                Exposing.FunctionExpose name ->
-                                    Set.insert ( moduleName, name ) acc
+                        Exposing.TypeOrAliasExpose name ->
+                            Set.insert ( moduleName, name ) acc
 
-                                Exposing.TypeOrAliasExpose name ->
-                                    Set.insert ( moduleName, name ) acc
+                        Exposing.TypeExpose { name } ->
+                            Set.insert ( moduleName, name ) acc
 
-                                Exposing.TypeExpose { name } ->
-                                    Set.insert ( moduleName, name ) acc
-
-                                Exposing.InfixExpose _ ->
-                                    acc
-                        )
-                        moduleContext.used
-                        list
-            in
-            { moduleContext | used = usedElements }
+                        Exposing.InfixExpose _ ->
+                            acc
+                )
+                used
+                list
 
         Just (Exposing.All _) ->
-            moduleContext
+            used
 
         Nothing ->
-            moduleContext
+            used
 
 
 collectExposed : Maybe (Node String) -> List (Node TopLevelExpose) -> List (Node Declaration) -> Dict String ExposedElement
@@ -609,7 +649,35 @@ declarationVisitor node moduleContext =
     { moduleContext
         | elementsNotToReport = elementsNotToReport
         , used = used
+        , containsMainFunction =
+            moduleContext.containsMainFunction
+                || doesModuleContainMainFunction moduleContext.projectType node
     }
+
+
+doesModuleContainMainFunction : ProjectType -> Node Declaration -> Bool
+doesModuleContainMainFunction projectType declaration =
+    case projectType of
+        IsPackage _ ->
+            False
+
+        IsApplication elmApplicationType ->
+            case Node.value declaration of
+                Declaration.FunctionDeclaration function ->
+                    isMainFunction elmApplicationType (function.declaration |> Node.value |> .name |> Node.value)
+
+                _ ->
+                    False
+
+
+isMainFunction : ElmApplicationType -> String -> Bool
+isMainFunction elmApplicationType =
+    case elmApplicationType of
+        ElmApplication ->
+            \name -> name == "main"
+
+        LamderaApplication ->
+            \name -> name == "main" || name == "app"
 
 
 maybeSetInsert : Maybe comparable -> Set comparable -> Set comparable

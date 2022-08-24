@@ -1,4 +1,4 @@
-module NoUnused.ParametersTests exposing (all)
+module NoUnused.ParametersTest exposing (all)
 
 import NoUnused.Parameters exposing (rule)
 import Review.Test

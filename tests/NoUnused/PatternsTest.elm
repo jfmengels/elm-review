@@ -1,4 +1,4 @@
-module NoUnused.PatternsTests exposing (all)
+module NoUnused.PatternsTest exposing (all)
 
 import NoUnused.Patterns exposing (rule)
 import Review.Test

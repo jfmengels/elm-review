@@ -2,6 +2,9 @@ module NoUnused.Modules exposing (rule)
 
 {-| Forbid the use of modules that are never used in your project.
 
+**@deprecated** This rule has been deprecated, as it has now been integrated into [`NoUnused.Exports`](NoUnused-Exports).
+You should use that rule instead.
+
 @docs rule
 
 -}
@@ -12,7 +15,7 @@ import Elm.Project exposing (Project)
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.ModuleName exposing (ModuleName)
-import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
 import NoUnused.LamderaSupport as LamderaSupport
 import Review.Rule as Rule exposing (Error, Rule)
@@ -49,7 +52,7 @@ rule : Rule
 rule =
     Rule.newProjectRuleSchema "NoUnused.Modules" initialProjectContext
         |> Rule.withModuleVisitor moduleVisitor
-        |> Rule.withModuleContext
+        |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModule
             , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
@@ -107,28 +110,36 @@ initialProjectContext =
     }
 
 
-fromProjectToModule : Rule.ModuleKey -> Node ModuleName -> ProjectContext -> ModuleContext
-fromProjectToModule _ _ projectContext =
-    { importedModules = Set.empty
-    , containsMainFunction = False
-    , projectType = projectContext.projectType
-    }
+fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
+fromProjectToModule =
+    Rule.initContextCreator
+        (\projectContext ->
+            { importedModules = Set.empty
+            , containsMainFunction = False
+            , projectType = projectContext.projectType
+            }
+        )
 
 
-fromModuleToProject : Rule.ModuleKey -> Node ModuleName -> ModuleContext -> ProjectContext
-fromModuleToProject moduleKey moduleName moduleContext =
-    { modules =
-        Dict.singleton
-            (Node.value moduleName)
-            { moduleKey = moduleKey, moduleNameLocation = Node.range moduleName }
-    , usedModules =
-        if Set.member [ "Test" ] moduleContext.importedModules || moduleContext.containsMainFunction then
-            Set.insert (Node.value moduleName) moduleContext.importedModules
+fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
+fromModuleToProject =
+    Rule.initContextCreator
+        (\(Node moduleNameRange moduleName) moduleKey moduleContext ->
+            { modules =
+                Dict.singleton
+                    moduleName
+                    { moduleKey = moduleKey, moduleNameLocation = moduleNameRange }
+            , usedModules =
+                if Set.member [ "Test" ] moduleContext.importedModules || moduleContext.containsMainFunction then
+                    Set.insert moduleName moduleContext.importedModules
 
-        else
-            moduleContext.importedModules
-    , projectType = moduleContext.projectType
-    }
+                else
+                    moduleContext.importedModules
+            , projectType = moduleContext.projectType
+            }
+        )
+        |> Rule.withModuleNameNode
+        |> Rule.withModuleKey
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
