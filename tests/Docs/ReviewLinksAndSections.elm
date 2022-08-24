@@ -15,7 +15,7 @@ import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Documentation exposing (Documentation)
 import Elm.Syntax.Exposing as Exposing
-import Elm.Syntax.Module as Module exposing (Module)
+import Elm.Syntax.Module as Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Range exposing (Range)
@@ -192,15 +192,26 @@ type alias MaybeExposedLinkData =
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\moduleName projectContext ->
+        (\ast moduleName projectContext ->
+            let
+                exposedElements : Set String
+                exposedElements =
+                    case Module.exposingList (Node.value ast.moduleDefinition) of
+                        Exposing.All _ ->
+                            Set.fromList (List.filterMap nameOfDeclaration ast.declarations)
+
+                        Exposing.Explicit explicitlyExposed ->
+                            Set.fromList (List.map exposedName explicitlyExposed)
+            in
             { isModuleExposed = Set.member moduleName projectContext.exposedModules
-            , exposedElements = Set.empty
+            , exposedElements = exposedElements
             , moduleName = moduleName
             , commentSections = []
             , sections = []
             , links = []
             }
         )
+        |> Rule.withFullAst
         |> Rule.withModuleName
 
 
@@ -233,7 +244,6 @@ foldProjectContexts newContext previousContext =
 moduleVisitor : Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
 moduleVisitor schema =
     schema
-        |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withModuleDocumentationVisitor moduleDocumentationVisitor
         |> Rule.withDeclarationListVisitor declarationListVisitor
 
@@ -322,18 +332,6 @@ readmeVisitor maybeReadmeInfo projectContext =
 -- MODULE DEFINITION VISITOR
 
 
-moduleDefinitionVisitor : Node Module -> ModuleContext -> ( List nothing, ModuleContext )
-moduleDefinitionVisitor node context =
-    case Module.exposingList (Node.value node) of
-        Exposing.All _ ->
-            -- We'll keep `exposedElements` empty, which will make `declarationListVisitor` fill it with the known
-            -- declarations.
-            ( [], context )
-
-        Exposing.Explicit exposed ->
-            ( [], { context | exposedElements = Set.fromList (List.map exposedName exposed) } )
-
-
 exposedName : Node Exposing.TopLevelExpose -> String
 exposedName node =
     case Node.value node of
@@ -390,18 +388,10 @@ moduleDocumentationVisitor moduleDocumentation context =
 declarationListVisitor : List (Node Declaration) -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
 declarationListVisitor declarations context =
     let
-        exposedElements : Set String
-        exposedElements =
-            if Set.isEmpty context.exposedElements then
-                Set.fromList (List.filterMap nameOfDeclaration declarations)
-
-            else
-                context.exposedElements
-
         knownSections : List { slug : String, isExposed : Bool }
         knownSections =
             List.append
-                (List.map (\slug -> { slug = slug, isExposed = True }) (Set.toList exposedElements))
+                (List.map (\slug -> { slug = slug, isExposed = True }) (Set.toList context.exposedElements))
                 context.sections
 
         sectionsAndLinks : List { titleSections : List SectionWithRange, links : List MaybeExposedLink }
@@ -410,7 +400,7 @@ declarationListVisitor declarations context =
                 (findSectionsAndLinksForDeclaration
                     context.moduleName
                     (if context.isModuleExposed then
-                        exposedElements
+                        context.exposedElements
 
                      else
                         Set.empty
@@ -422,10 +412,10 @@ declarationListVisitor declarations context =
         titleSections =
             List.concatMap .titleSections sectionsAndLinks
     in
-    ( duplicateSectionErrors exposedElements (List.append titleSections context.commentSections)
+    ( duplicateSectionErrors context.exposedElements (List.append titleSections context.commentSections)
         |> List.map (Rule.error duplicateSectionErrorDetails)
     , { isModuleExposed = context.isModuleExposed
-      , exposedElements = exposedElements
+      , exposedElements = context.exposedElements
       , moduleName = context.moduleName
       , commentSections = context.commentSections
       , sections = List.append (List.map removeRangeFromSection titleSections) knownSections
