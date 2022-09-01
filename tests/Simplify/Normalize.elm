@@ -1,58 +1,154 @@
-module Simplify.Normalize exposing (Comparison(..), areAllTheSame, compare, getNumberValue)
+module Simplify.Normalize exposing (Comparison(..), areAllTheSame, compare, compareWithoutNormalization, getNumberValue, normalize)
 
 import Dict
 import Elm.Syntax.Expression as Expression exposing (Expression)
-import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
-import Elm.Syntax.Range as Range exposing (Range)
+import Elm.Syntax.Range as Range
+import Elm.Writer
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
+import Simplify.Infer as Infer
 
 
-areTheSame : ModuleNameLookupTable -> Node Expression -> Node Expression -> Bool
-areTheSame lookupTable left right =
-    normalize lookupTable left == normalize lookupTable right
-
-
-areAllTheSame : ModuleNameLookupTable -> Node Expression -> List (Node Expression) -> Bool
-areAllTheSame lookupTable first rest =
+areAllTheSame : Infer.Resources a -> Node Expression -> List (Node Expression) -> Bool
+areAllTheSame resources first rest =
     let
         normalizedFirst : Node Expression
         normalizedFirst =
-            normalize lookupTable first
+            normalize resources first
     in
-    List.all (\node -> normalize lookupTable node == normalizedFirst) rest
+    List.all (\node -> normalize resources node == normalizedFirst) rest
 
 
-normalize : ModuleNameLookupTable -> Node Expression -> Node Expression
-normalize lookupTable node =
+normalize : Infer.Resources a -> Node Expression -> Node Expression
+normalize resources node =
     case Node.value node of
         Expression.ParenthesizedExpression expr ->
-            normalize lookupTable expr
+            normalize resources expr
 
         Expression.Application nodes ->
-            toNode (Expression.Application (List.map (normalize lookupTable) nodes))
+            case nodes of
+                fn :: arg1 :: restOrArgs ->
+                    let
+                        normalizedArg1 : Node Expression
+                        normalizedArg1 =
+                            normalize resources arg1
+                    in
+                    case normalize resources fn of
+                        Node _ (Expression.RecordAccessFunction fieldAccess) ->
+                            let
+                                recordAccess : Node Expression
+                                recordAccess =
+                                    Expression.RecordAccess normalizedArg1 (toNode (String.dropLeft 1 fieldAccess))
+                                        |> toNode
+                            in
+                            if List.isEmpty restOrArgs then
+                                recordAccess
 
-        Expression.OperatorApplication string infixDirection left right ->
-            toNode (Expression.OperatorApplication string infixDirection (normalize lookupTable left) (normalize lookupTable right))
+                            else
+                                (recordAccess :: List.map (normalize resources) restOrArgs)
+                                    |> Expression.Application
+                                    |> toNode
+
+                        normalizedFn ->
+                            (normalizedFn :: normalizedArg1 :: List.map (normalize resources) restOrArgs)
+                                |> Expression.Application
+                                |> toNode
+
+                _ ->
+                    node
+
+        Expression.OperatorApplication "<|" _ function extraArgument ->
+            addToFunctionCall
+                (normalize resources function)
+                (normalize resources extraArgument)
+
+        Expression.OperatorApplication "|>" _ extraArgument function ->
+            addToFunctionCall
+                (normalize resources function)
+                (normalize resources extraArgument)
+
+        Expression.OperatorApplication "::" infixDirection element list ->
+            let
+                normalizedElement : Node Expression
+                normalizedElement =
+                    normalize resources element
+
+                normalizedList : Node Expression
+                normalizedList =
+                    normalize resources list
+            in
+            case Node.value normalizedList of
+                Expression.ListExpr elements ->
+                    toNode (Expression.ListExpr (normalizedElement :: elements))
+
+                _ ->
+                    toNode (Expression.OperatorApplication "::" infixDirection normalizedElement normalizedList)
+
+        Expression.OperatorApplication ">" infixDirection left right ->
+            toNode (Expression.OperatorApplication "<" infixDirection (normalize resources right) (normalize resources left))
+
+        Expression.OperatorApplication ">=" infixDirection left right ->
+            toNode (Expression.OperatorApplication "<=" infixDirection (normalize resources right) (normalize resources left))
+
+        Expression.OperatorApplication operator infixDirection l r ->
+            let
+                left : Node Expression
+                left =
+                    normalize resources l
+
+                right : Node Expression
+                right =
+                    normalize resources r
+            in
+            if List.member operator [ "+", "*", "||", "&&", "==", "/=" ] && toComparable left > toComparable right then
+                toNode (Expression.OperatorApplication operator infixDirection right left)
+
+            else
+                toNode (Expression.OperatorApplication operator infixDirection left right)
 
         Expression.FunctionOrValue rawModuleName string ->
-            let
-                moduleName : ModuleName
-                moduleName =
-                    ModuleNameLookupTable.moduleNameFor lookupTable node
-                        |> Maybe.withDefault rawModuleName
-            in
-            toNode (Expression.FunctionOrValue moduleName string)
+            Expression.FunctionOrValue
+                (ModuleNameLookupTable.moduleNameFor resources.lookupTable node
+                    |> Maybe.withDefault rawModuleName
+                )
+                string
+                |> toNodeAndInfer resources
 
         Expression.IfBlock cond then_ else_ ->
-            toNode (Expression.IfBlock (normalize lookupTable cond) (normalize lookupTable then_) (normalize lookupTable else_))
+            let
+                reverseIfConditionIsNegated : Node Expression -> Node Expression -> Node Expression -> Node Expression
+                reverseIfConditionIsNegated condArg thenArg elseArg =
+                    case Node.value condArg of
+                        Expression.Application [ Node _ (Expression.FunctionOrValue [ "Basics" ] "not"), negatedCondition ] ->
+                            reverseIfConditionIsNegated negatedCondition elseArg thenArg
+
+                        _ ->
+                            toNode (Expression.IfBlock condArg thenArg elseArg)
+            in
+            reverseIfConditionIsNegated
+                (normalize resources cond)
+                (normalize resources then_)
+                (normalize resources else_)
 
         Expression.Negation expr ->
-            toNode (Expression.Negation (normalize lookupTable expr))
+            let
+                normalized : Node Expression
+                normalized =
+                    normalize resources expr
+            in
+            case Node.value normalized of
+                Expression.Integer int ->
+                    toNode (Expression.Integer -int)
+
+                Expression.Floatable float ->
+                    toNode (Expression.Floatable -float)
+
+                _ ->
+                    toNode (Expression.Negation normalized)
 
         Expression.TupledExpression nodes ->
-            toNode (Expression.TupledExpression (List.map (normalize lookupTable) nodes))
+            toNode (Expression.TupledExpression (List.map (normalize resources) nodes))
 
         Expression.LetExpression letBlock ->
             toNode
@@ -74,83 +170,156 @@ normalize lookupTable node =
                                                 , declaration =
                                                     toNode
                                                         { name = toNode (Node.value declaration.name)
-                                                        , arguments = List.map normalizePattern declaration.arguments
-                                                        , expression = normalize lookupTable declaration.expression
+                                                        , arguments = List.map (normalizePattern resources.lookupTable) declaration.arguments
+                                                        , expression = normalize resources declaration.expression
                                                         }
                                                 }
                                             )
 
                                     Expression.LetDestructuring pattern expr ->
-                                        toNode (Expression.LetDestructuring (normalizePattern pattern) (normalize lookupTable expr))
+                                        toNode (Expression.LetDestructuring (normalizePattern resources.lookupTable pattern) (normalize resources expr))
                             )
                             letBlock.declarations
-                    , expression = normalize lookupTable letBlock.expression
+                    , expression = normalize resources letBlock.expression
                     }
                 )
 
         Expression.CaseExpression caseBlock ->
             toNode
                 (Expression.CaseExpression
-                    { cases = List.map (\( pattern, expr ) -> ( normalizePattern pattern, normalize lookupTable expr )) caseBlock.cases
-                    , expression = toNode <| Node.value caseBlock.expression
+                    { cases = List.map (\( pattern, expr ) -> ( normalizePattern resources.lookupTable pattern, normalize resources expr )) caseBlock.cases
+                    , expression = normalize resources caseBlock.expression
                     }
                 )
 
         Expression.LambdaExpression lambda ->
             toNode
                 (Expression.LambdaExpression
-                    { args = List.map normalizePattern lambda.args
-                    , expression = normalize lookupTable lambda.expression
+                    { args = List.map (normalizePattern resources.lookupTable) lambda.args
+                    , expression = normalize resources lambda.expression
                     }
                 )
 
         Expression.ListExpr nodes ->
-            toNode (Expression.ListExpr (List.map (normalize lookupTable) nodes))
+            toNode (Expression.ListExpr (List.map (normalize resources) nodes))
 
         Expression.RecordAccess expr (Node _ field) ->
-            toNode (Expression.RecordAccess (normalize lookupTable expr) (toNode field))
+            toNode (Expression.RecordAccess (normalize resources expr) (toNode field))
 
         Expression.RecordExpr nodes ->
             nodes
                 |> List.sortBy (\(Node _ ( Node _ fieldName, _ )) -> fieldName)
-                |> List.map (\(Node _ ( Node _ fieldName, expr )) -> toNode ( toNode fieldName, normalize lookupTable expr ))
+                |> List.map (\(Node _ ( Node _ fieldName, expr )) -> toNode ( toNode fieldName, normalize resources expr ))
                 |> Expression.RecordExpr
                 |> toNode
 
         Expression.RecordUpdateExpression (Node _ value) nodes ->
             nodes
                 |> List.sortBy (\(Node _ ( Node _ fieldName, _ )) -> fieldName)
-                |> List.map (\(Node _ ( Node _ fieldName, expr )) -> toNode ( toNode fieldName, normalize lookupTable expr ))
+                |> List.map (\(Node _ ( Node _ fieldName, expr )) -> toNode ( toNode fieldName, normalize resources expr ))
                 |> Expression.RecordUpdateExpression (toNode value)
+                |> toNode
+
+        Expression.Hex int ->
+            Expression.Integer int
                 |> toNode
 
         expr ->
             toNode expr
 
 
-normalizePattern : Node Pattern -> Node Pattern
-normalizePattern node =
+toNodeAndInfer : Infer.Resources a -> Expression -> Node Expression
+toNodeAndInfer resources element =
+    case Infer.get element (Tuple.first resources.inferredConstants) of
+        Just value ->
+            toNode value
+
+        Nothing ->
+            toNode element
+
+
+toComparable : Node Expression -> String
+toComparable a =
+    Elm.Writer.write (Elm.Writer.writeExpression a)
+
+
+addToFunctionCall : Node Expression -> Node Expression -> Node Expression
+addToFunctionCall functionCall extraArgument =
+    case Node.value functionCall of
+        Expression.ParenthesizedExpression expr ->
+            addToFunctionCall expr extraArgument
+
+        Expression.Application (fnCall :: args) ->
+            Expression.Application (fnCall :: (args ++ [ extraArgument ]))
+                |> toNode
+
+        Expression.LetExpression { declarations, expression } ->
+            Expression.LetExpression { declarations = declarations, expression = addToFunctionCall expression extraArgument }
+                |> toNode
+
+        Expression.IfBlock condition ifBranch elseBranch ->
+            Expression.IfBlock condition (addToFunctionCall ifBranch extraArgument) (addToFunctionCall elseBranch extraArgument)
+                |> toNode
+
+        Expression.CaseExpression { expression, cases } ->
+            Expression.CaseExpression { expression = expression, cases = List.map (\( cond, expr ) -> ( cond, addToFunctionCall expr extraArgument )) cases }
+                |> toNode
+
+        Expression.RecordAccessFunction fieldAccess ->
+            Expression.RecordAccess extraArgument (toNode (String.dropLeft 1 fieldAccess))
+                |> toNode
+
+        _ ->
+            Expression.Application [ functionCall, extraArgument ]
+                |> toNode
+
+
+normalizePattern : ModuleNameLookupTable -> Node Pattern -> Node Pattern
+normalizePattern lookupTable node =
     case Node.value node of
         Pattern.TuplePattern patterns ->
-            toNode (Pattern.TuplePattern (List.map normalizePattern patterns))
+            toNode (Pattern.TuplePattern (List.map (normalizePattern lookupTable) patterns))
 
         Pattern.RecordPattern fields ->
-            toNode (Pattern.RecordPattern (List.map (\(Node _ field) -> toNode field) fields))
+            toNode
+                (Pattern.RecordPattern
+                    (fields
+                        |> List.sortBy (\(Node _ fieldName) -> fieldName)
+                        |> List.map (\(Node _ field) -> toNode field)
+                    )
+                )
 
         Pattern.UnConsPattern element list ->
-            toNode (Pattern.UnConsPattern (normalizePattern element) (normalizePattern list))
+            case normalizePattern lookupTable list of
+                Node _ (Pattern.ListPattern elements) ->
+                    toNode (Pattern.ListPattern (normalizePattern lookupTable element :: elements))
+
+                normalizedList ->
+                    toNode (Pattern.UnConsPattern (normalizePattern lookupTable element) normalizedList)
 
         Pattern.ListPattern patterns ->
-            toNode (Pattern.ListPattern (List.map normalizePattern patterns))
+            toNode (Pattern.ListPattern (List.map (normalizePattern lookupTable) patterns))
 
         Pattern.NamedPattern qualifiedNameRef patterns ->
-            toNode (Pattern.NamedPattern qualifiedNameRef (List.map normalizePattern patterns))
+            let
+                nameRef : Pattern.QualifiedNameRef
+                nameRef =
+                    { moduleName =
+                        ModuleNameLookupTable.moduleNameFor lookupTable node
+                            |> Maybe.withDefault qualifiedNameRef.moduleName
+                    , name = qualifiedNameRef.name
+                    }
+            in
+            toNode (Pattern.NamedPattern nameRef (List.map (normalizePattern lookupTable) patterns))
 
         Pattern.AsPattern pattern (Node _ asName) ->
-            toNode (Pattern.AsPattern (normalizePattern pattern) (toNode asName))
+            toNode (Pattern.AsPattern (normalizePattern lookupTable pattern) (toNode asName))
 
         Pattern.ParenthesizedPattern pattern ->
-            normalizePattern pattern
+            normalizePattern lookupTable pattern
+
+        Pattern.HexPattern int ->
+            toNode (Pattern.IntPattern int)
 
         pattern ->
             toNode pattern
@@ -171,45 +340,39 @@ type Comparison
     | Unconfirmed
 
 
-compare : ModuleNameLookupTable -> Node Expression -> Node Expression -> Comparison
-compare lookupTable leftNode right =
-    compareHelp lookupTable leftNode right True
+compare : Infer.Resources a -> Node Expression -> Node Expression -> Comparison
+compare resources leftNode right =
+    compareHelp
+        (normalize resources leftNode)
+        (normalize resources right)
+        True
 
 
-compareHelp : ModuleNameLookupTable -> Node Expression -> Node Expression -> Bool -> Comparison
-compareHelp lookupTable leftNode right canFlip =
+compareWithoutNormalization : Node Expression -> Node Expression -> Comparison
+compareWithoutNormalization leftNode right =
+    compareHelp leftNode right True
+
+
+compareHelp : Node Expression -> Node Expression -> Bool -> Comparison
+compareHelp leftNode right canFlip =
     let
-        fallback : Node Expression -> Comparison
-        fallback rightNode =
+        fallback : () -> Comparison
+        fallback () =
             if canFlip then
-                compareHelp lookupTable rightNode leftNode False
+                compareHelp right leftNode False
 
-            else if areTheSame lookupTable leftNode right then
+            else if leftNode == right then
                 ConfirmedEquality
 
             else
                 Unconfirmed
     in
     case Node.value leftNode of
-        Expression.ParenthesizedExpression expr ->
-            compareHelp lookupTable expr right canFlip
-
         Expression.Integer left ->
             compareNumbers (Basics.toFloat left) right
 
         Expression.Floatable left ->
             compareNumbers left right
-
-        Expression.Hex left ->
-            compareNumbers (Basics.toFloat left) right
-
-        Expression.Negation left ->
-            case getNumberValue left of
-                Just leftValue ->
-                    compareNumbers -leftValue right
-
-                Nothing ->
-                    fallback right
 
         Expression.OperatorApplication leftOp _ leftLeft leftRight ->
             if List.member leftOp [ "+", "-", "*", "/" ] then
@@ -220,25 +383,24 @@ compareHelp lookupTable leftNode right canFlip =
                                 fromEquality (leftValue == rightValue)
 
                             Nothing ->
-                                fallback right
+                                fallback ()
 
                     Nothing ->
-                        fallback right
+                        fallback ()
 
             else
                 case Node.value (removeParens right) of
                     Expression.OperatorApplication rightOp _ rightLeft rightRight ->
                         if leftOp == rightOp then
                             compareEqualityOfAll
-                                lookupTable
                                 [ leftLeft, leftRight ]
                                 [ rightLeft, rightRight ]
 
                         else
-                            fallback right
+                            fallback ()
 
                     _ ->
-                        fallback right
+                        fallback ()
 
         Expression.Literal left ->
             case Node.value (removeParens right) of
@@ -246,7 +408,7 @@ compareHelp lookupTable leftNode right canFlip =
                     fromEquality (left == rightValue)
 
                 _ ->
-                    fallback right
+                    fallback ()
 
         Expression.CharLiteral left ->
             case Node.value (removeParens right) of
@@ -254,29 +416,19 @@ compareHelp lookupTable leftNode right canFlip =
                     fromEquality (left == rightValue)
 
                 _ ->
-                    fallback right
+                    fallback ()
 
-        Expression.FunctionOrValue _ leftName ->
-            let
-                right_ : Node Expression
-                right_ =
-                    removeParens right
-            in
-            case Node.value right_ of
-                Expression.FunctionOrValue _ rightName ->
-                    if
-                        isSameReference
-                            lookupTable
-                            ( Node.range leftNode, leftName )
-                            ( Node.range right_, rightName )
-                    then
+        Expression.FunctionOrValue moduleNameLeft leftName ->
+            case Node.value right of
+                Expression.FunctionOrValue moduleNameRight rightName ->
+                    if leftName == rightName && moduleNameRight == moduleNameLeft then
                         ConfirmedEquality
 
                     else
-                        fallback right_
+                        fallback ()
 
                 _ ->
-                    fallback right
+                    fallback ()
 
         Expression.ListExpr leftList ->
             case Node.value (removeParens right) of
@@ -285,58 +437,58 @@ compareHelp lookupTable leftNode right canFlip =
                         ConfirmedInequality
 
                     else
-                        compareLists lookupTable leftList rightList ConfirmedEquality
+                        compareLists leftList rightList ConfirmedEquality
 
                 _ ->
-                    fallback right
+                    fallback ()
 
         Expression.TupledExpression leftList ->
             case Node.value (removeParens right) of
                 Expression.TupledExpression rightList ->
-                    compareLists lookupTable leftList rightList ConfirmedEquality
+                    compareLists leftList rightList ConfirmedEquality
 
                 _ ->
-                    fallback right
+                    fallback ()
 
         Expression.RecordExpr leftList ->
             case Node.value (removeParens right) of
                 Expression.RecordExpr rightList ->
-                    compareRecords lookupTable leftList rightList ConfirmedEquality
+                    compareRecords leftList rightList ConfirmedEquality
 
                 _ ->
-                    fallback right
+                    fallback ()
 
         Expression.RecordUpdateExpression leftBaseValue leftList ->
             case Node.value (removeParens right) of
                 Expression.RecordUpdateExpression rightBaseValue rightList ->
                     if Node.value leftBaseValue == Node.value rightBaseValue then
-                        compareRecords lookupTable leftList rightList ConfirmedEquality
+                        compareRecords leftList rightList ConfirmedEquality
 
                     else
-                        compareRecords lookupTable leftList rightList Unconfirmed
+                        compareRecords leftList rightList Unconfirmed
 
                 _ ->
-                    fallback right
+                    fallback ()
 
         Expression.Application leftArgs ->
             case Node.value (removeParens right) of
                 Expression.Application rightArgs ->
-                    compareEqualityOfAll lookupTable leftArgs rightArgs
+                    compareEqualityOfAll leftArgs rightArgs
 
                 _ ->
-                    fallback right
+                    fallback ()
 
         Expression.RecordAccess leftExpr leftName ->
             case Node.value (removeParens right) of
                 Expression.RecordAccess rightExpr rightName ->
                     if Node.value leftName == Node.value rightName then
-                        compareHelp lookupTable leftExpr rightExpr canFlip
+                        compareHelp leftExpr rightExpr canFlip
 
                     else
                         Unconfirmed
 
                 _ ->
-                    fallback right
+                    fallback ()
 
         Expression.UnitExpr ->
             ConfirmedEquality
@@ -345,27 +497,14 @@ compareHelp lookupTable leftNode right canFlip =
             case Node.value (removeParens right) of
                 Expression.IfBlock rightCond rightThen rightElse ->
                     compareEqualityOfAll
-                        lookupTable
                         [ leftCond, leftThen, leftElse ]
                         [ rightCond, rightThen, rightElse ]
 
                 _ ->
-                    fallback right
+                    fallback ()
 
         _ ->
-            fallback right
-
-
-isSameReference : ModuleNameLookupTable -> ( Range, String ) -> ( Range, String ) -> Bool
-isSameReference lookupTable ( leftFnRange, leftFnName ) ( rightFnRange, rightFnName ) =
-    if leftFnName == rightFnName then
-        Maybe.map2 (==)
-            (ModuleNameLookupTable.moduleNameAt lookupTable leftFnRange)
-            (ModuleNameLookupTable.moduleNameAt lookupTable rightFnRange)
-            |> Maybe.withDefault False
-
-    else
-        False
+            fallback ()
 
 
 compareNumbers : Float -> Node Expression -> Comparison
@@ -424,31 +563,31 @@ getNumberValue node =
             Nothing
 
 
-compareLists : ModuleNameLookupTable -> List (Node Expression) -> List (Node Expression) -> Comparison -> Comparison
-compareLists lookupTable leftList rightList acc =
+compareLists : List (Node Expression) -> List (Node Expression) -> Comparison -> Comparison
+compareLists leftList rightList acc =
     case ( leftList, rightList ) of
         ( left :: restOfLeft, right :: restOfRight ) ->
-            case compareHelp lookupTable left right True of
+            case compareWithoutNormalization left right of
                 ConfirmedEquality ->
-                    compareLists lookupTable restOfLeft restOfRight acc
+                    compareLists restOfLeft restOfRight acc
 
                 ConfirmedInequality ->
                     ConfirmedInequality
 
                 Unconfirmed ->
-                    compareLists lookupTable restOfLeft restOfRight Unconfirmed
+                    compareLists restOfLeft restOfRight Unconfirmed
 
         _ ->
             acc
 
 
-compareEqualityOfAll : ModuleNameLookupTable -> List (Node Expression) -> List (Node Expression) -> Comparison
-compareEqualityOfAll lookupTable leftList rightList =
+compareEqualityOfAll : List (Node Expression) -> List (Node Expression) -> Comparison
+compareEqualityOfAll leftList rightList =
     case ( leftList, rightList ) of
         ( left :: restOfLeft, right :: restOfRight ) ->
-            case compareHelp lookupTable left right True of
+            case compareHelp left right True of
                 ConfirmedEquality ->
-                    compareEqualityOfAll lookupTable restOfLeft restOfRight
+                    compareEqualityOfAll restOfLeft restOfRight
 
                 ConfirmedInequality ->
                     Unconfirmed
@@ -465,8 +604,8 @@ type RecordFieldComparison
     | HasBothValues (Node Expression) (Node Expression)
 
 
-compareRecords : ModuleNameLookupTable -> List (Node Expression.RecordSetter) -> List (Node Expression.RecordSetter) -> Comparison -> Comparison
-compareRecords lookupTable leftList rightList acc =
+compareRecords : List (Node Expression.RecordSetter) -> List (Node Expression.RecordSetter) -> Comparison -> Comparison
+compareRecords leftList rightList acc =
     let
         leftFields : List ( String, Node Expression )
         leftFields =
@@ -487,28 +626,28 @@ compareRecords lookupTable leftList rightList acc =
                 Dict.empty
                 |> Dict.values
     in
-    compareRecordFields lookupTable recordFieldComparisons acc
+    compareRecordFields recordFieldComparisons acc
 
 
-compareRecordFields : ModuleNameLookupTable -> List RecordFieldComparison -> Comparison -> Comparison
-compareRecordFields lookupTable recordFieldComparisons acc =
+compareRecordFields : List RecordFieldComparison -> Comparison -> Comparison
+compareRecordFields recordFieldComparisons acc =
     case recordFieldComparisons of
         [] ->
             acc
 
         MissingOtherValue :: rest ->
-            compareRecordFields lookupTable rest Unconfirmed
+            compareRecordFields rest Unconfirmed
 
         (HasBothValues a b) :: rest ->
-            case compare lookupTable a b of
+            case compareHelp a b True of
                 ConfirmedInequality ->
                     ConfirmedInequality
 
                 ConfirmedEquality ->
-                    compareRecordFields lookupTable rest acc
+                    compareRecordFields rest acc
 
                 Unconfirmed ->
-                    compareRecordFields lookupTable rest Unconfirmed
+                    compareRecordFields rest Unconfirmed
 
 
 fromEquality : Bool -> Comparison
