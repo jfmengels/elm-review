@@ -138,7 +138,7 @@ import Vendor.ListExtra as ListExtra
 type ReviewResult
     = ConfigurationError { message : String, details : List String }
     | FailedRun String
-    | SuccessfulRun (List GlobalError) (List SuccessfulRunResult) (Maybe Encode.Value)
+    | SuccessfulRun (List GlobalError) (List SuccessfulRunResult) ExtractResult
 
 
 type alias GlobalError =
@@ -160,6 +160,11 @@ type alias CodeInspector =
     , getCodeAtLocation : Range -> Maybe String
     , checkIfLocationIsAmbiguous : ReviewError -> String -> Expectation
     }
+
+
+type ExtractResult
+    = RuleHasNoExtractor
+    | Extracted (Maybe Encode.Value)
 
 
 {-| An expectation for an error. Use [`error`](#error) to create one.
@@ -413,9 +418,13 @@ runOnModulesWithProjectDataHelp project rule sources =
                             errors =
                                 runResult.errors
 
-                            extract : Maybe Encode.Value
+                            extract : ExtractResult
                             extract =
-                                Dict.get (Rule.ruleName rule) runResult.extracts
+                                if Rule.ruleExtractsData rule then
+                                    Extracted (Dict.get (Rule.ruleName rule) runResult.extracts)
+
+                                else
+                                    RuleHasNoExtractor
                         in
                         case ListExtra.find (\err -> Rule.errorTarget err == Error.Global) errors of
                             Just globalError ->
@@ -1540,13 +1549,16 @@ expectConfigurationErrorDetailsMatch expectedError configurationError =
         Expect.pass
 
 
-expectNoExtract : Maybe a -> Expectation
+expectNoExtract : ExtractResult -> Expectation
 expectNoExtract maybeExtract =
     case maybeExtract of
-        Just _ ->
+        Extracted (Just _) ->
             Expect.fail FailureMessage.needToUsedExpectErrorsForModules
 
-        Nothing ->
+        Extracted Nothing ->
+            Expect.pass
+
+        RuleHasNoExtractor ->
             Expect.pass
 
 
@@ -1570,13 +1582,16 @@ expectDataExtract expectedExtract reviewResult =
                 ()
 
 
-expectDataExtractContent : String -> Maybe Encode.Value -> Expectation
+expectDataExtractContent : String -> ExtractResult -> Expectation
 expectDataExtractContent rawExpected maybeActualExtract =
     case maybeActualExtract of
-        Nothing ->
+        RuleHasNoExtractor ->
             Expect.fail FailureMessage.missingExtract
 
-        Just actual ->
+        Extracted Nothing ->
+            Expect.fail FailureMessage.missingExtract
+
+        Extracted (Just actual) ->
             case Decode.decodeString Decode.value rawExpected of
                 Err parsingError ->
                     Expect.fail (FailureMessage.invalidJsonForExpectedDataExtract parsingError)
