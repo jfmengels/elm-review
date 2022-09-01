@@ -7,7 +7,8 @@ module Review.Test.FailureMessage exposing
     , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
     , messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors
     , unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
-    , unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch
+    , unexpectedExtract, invalidJsonForExpectedDataExtract, extractMismatch
+    , missingExtractContent, missingExtractor, unexpectedExtractContent
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -651,11 +652,26 @@ You should use `REPLACEME` to assert that the extract fits what you had.
 """ ++ formatJson value)
 
 
-missingExtract : String
-missingExtract =
-    failureMessage "MISSING EXTRACT"
+missingExtractor : String
+missingExtractor =
+    failureMessage "MISSING DATA EXTRACTOR"
         """I expected that the rule would extract information using
 `Rule.withDataExtractor`, but it doesn't seem that that function was used."""
+
+
+missingExtractContent : String
+missingExtractContent =
+    failureMessage "MISSING DATA EXTRACT CONTENT"
+        """I expected that the rule would extract information using
+`Rule.withDataExtractor`, but the data extractor seemed to have
+returned `Nothing`."""
+
+
+unexpectedExtractContent : String
+unexpectedExtractContent =
+    failureMessage "UNEXPECTED DATA EXTRACT CONTENT"
+        """I expected that the rule would return `Nothing` in its
+data extractor function, but the data extractor returned `Just` something."""
 
 
 invalidJsonForExpectedDataExtract : Decode.Error -> String

@@ -1564,7 +1564,7 @@ expectNoExtract maybeExtract =
 
 {-| REPLACEME
 -}
-expectDataExtract : String -> ReviewResult -> Expectation
+expectDataExtract : Maybe String -> ReviewResult -> Expectation
 expectDataExtract expectedExtract reviewResult =
     case reviewResult of
         ConfigurationError configurationError ->
@@ -1582,31 +1582,39 @@ expectDataExtract expectedExtract reviewResult =
                 ()
 
 
-expectDataExtractContent : String -> ExtractResult -> Expectation
-expectDataExtractContent rawExpected maybeActualExtract =
+expectDataExtractContent : Maybe String -> ExtractResult -> Expectation
+expectDataExtractContent maybeExpected maybeActualExtract =
     case maybeActualExtract of
         RuleHasNoExtractor ->
-            Expect.fail FailureMessage.missingExtract
+            Expect.fail FailureMessage.missingExtractor
 
-        Extracted Nothing ->
-            Expect.fail FailureMessage.missingExtract
+        Extracted extracted ->
+            case ( maybeExpected, extracted ) of
+                ( Nothing, Nothing ) ->
+                    Expect.pass
 
-        Extracted (Just actual) ->
-            case Decode.decodeString Decode.value rawExpected of
-                Err parsingError ->
-                    Expect.fail (FailureMessage.invalidJsonForExpectedDataExtract parsingError)
+                ( Just _, Nothing ) ->
+                    Expect.fail FailureMessage.missingExtractContent
 
-                Ok expected ->
-                    let
-                        differences : List (Diff.Change String)
-                        differences =
-                            Diff.diffLines (Encode.encode 2 actual) (Encode.encode 2 expected)
-                    in
-                    if containsDifferences differences then
-                        Expect.fail (FailureMessage.extractMismatch actual expected differences)
+                ( Nothing, Just _ ) ->
+                    Expect.fail FailureMessage.unexpectedExtractContent
 
-                    else
-                        Expect.pass
+                ( Just rawExpected, Just actual ) ->
+                    case Decode.decodeString Decode.value rawExpected of
+                        Err parsingError ->
+                            Expect.fail (FailureMessage.invalidJsonForExpectedDataExtract parsingError)
+
+                        Ok expected ->
+                            let
+                                differences : List (Diff.Change String)
+                                differences =
+                                    Diff.diffLines (Encode.encode 2 actual) (Encode.encode 2 expected)
+                            in
+                            if containsDifferences differences then
+                                Expect.fail (FailureMessage.extractMismatch actual expected differences)
+
+                            else
+                                Expect.pass
 
 
 containsDifferences : List (Diff.Change a) -> Bool
