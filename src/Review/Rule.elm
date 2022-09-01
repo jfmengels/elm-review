@@ -4295,28 +4295,30 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
             , configurationError = Nothing
             }
     , cache = newCache
-    , extract =
-        case
-            projectVisitor.dataExtractor
-        of
-            Just dataExtractor ->
-                let
-                    -- TODO This is already computed during the final project evaluation
-                    -- Re-use the data instead of re-computing
-                    contextToAnalyze : projectContext
-                    contextToAnalyze =
-                        case getFolderFromTraversal projectVisitor.traversalAndFolder of
-                            Just { foldProjectContexts } ->
-                                List.foldl foldProjectContexts initialContext allModulesContext
-
-                            Nothing ->
-                                initialContext
-                in
-                Just (dataExtractor contextToAnalyze)
-
-            Nothing ->
-                Nothing
+    , extract = extractData projectVisitor initialContext allModulesContext
     }
+
+
+extractData : RunnableProjectVisitor projectContext moduleContext -> projectContext -> List projectContext -> Maybe Extract
+extractData projectVisitor initialContext allModulesContext =
+    case projectVisitor.dataExtractor of
+        Just dataExtractor ->
+            let
+                -- TODO This is already computed during the final project evaluation
+                -- Re-use the data instead of re-computing
+                contextToAnalyze : projectContext
+                contextToAnalyze =
+                    case getFolderFromTraversal projectVisitor.traversalAndFolder of
+                        Just { foldProjectContexts } ->
+                            List.foldl foldProjectContexts initialContext allModulesContext
+
+                        Nothing ->
+                            initialContext
+            in
+            Just (dataExtractor contextToAnalyze)
+
+        Nothing ->
+            Nothing
 
 
 setRuleName : String -> Error scope -> Error scope
