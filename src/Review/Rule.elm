@@ -2047,6 +2047,8 @@ type Extract
     | JsonExtract (Maybe Encode.Value)
 
 
+{-| REPLACEME
+-}
 withDataExtractor :
     (projectContext -> Maybe Encode.Value)
     -> ProjectRuleSchema schemaState projectContext moduleContext
