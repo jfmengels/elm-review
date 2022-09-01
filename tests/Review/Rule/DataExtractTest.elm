@@ -18,7 +18,7 @@ rule : Rule
 rule =
     Rule.newProjectRuleSchema "TestRule" ()
         |> Rule.withElmJsonProjectVisitor (\_ context -> ( [], context ))
-        |> Rule.withDataExtractor dataExtractor
+        |> Rule.withDataExtractor (dataExtractor >> Just)
         |> Rule.fromProjectRuleSchema
 
 

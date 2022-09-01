@@ -912,8 +912,11 @@ runRules initialRules project nodeContexts =
             , rules = result.rule :: rules
             , extracts =
                 case result.extract of
-                    Just (JsonExtract extract) ->
+                    Just (JsonExtract (Just extract)) ->
                         Dict.insert name extract extracts
+
+                    Just (JsonExtract Nothing) ->
+                        extracts
 
                     Just (ModuleNameLookupTableExtract _) ->
                         extracts
@@ -2031,11 +2034,11 @@ withFinalProjectEvaluation visitor (ProjectRuleSchema schema) =
 
 type Extract
     = ModuleNameLookupTableExtract (Dict ModuleName ModuleNameLookupTable)
-    | JsonExtract Encode.Value
+    | JsonExtract (Maybe Encode.Value)
 
 
 withDataExtractor :
-    (projectContext -> Encode.Value)
+    (projectContext -> Maybe Encode.Value)
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema schemaState projectContext moduleContext
 withDataExtractor dataExtractor (ProjectRuleSchema schema) =
