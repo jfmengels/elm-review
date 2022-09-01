@@ -455,7 +455,7 @@ review rules project =
 
                                 moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
                                 moduleNameLookupTables =
-                                    Maybe.map (\(Extract moduleNameLookupTables_) -> moduleNameLookupTables_) scopeResult.extract
+                                    Maybe.map (\(ModuleNameLookupTableExtract moduleNameLookupTables_) -> moduleNameLookupTables_) scopeResult.extract
 
                                 projectWithLookupTable : Project
                                 projectWithLookupTable =
@@ -591,7 +591,7 @@ runReview ((Project p) as project) rules maybeProjectData nodeContexts =
 
         moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
         moduleNameLookupTables =
-            Maybe.map (\(Extract moduleNameLookupTables_) -> moduleNameLookupTables_) scopeResult.extract
+            Maybe.map (\(ModuleNameLookupTableExtract moduleNameLookupTables_) -> moduleNameLookupTables_) scopeResult.extract
 
         projectWithLookupTables : Project
         projectWithLookupTables =
@@ -1925,7 +1925,7 @@ withFinalProjectEvaluation visitor (ProjectRuleSchema schema) =
 
 
 type Extract
-    = Extract (Dict ModuleName ModuleNameLookupTable)
+    = ModuleNameLookupTableExtract (Dict ModuleName ModuleNameLookupTable)
 
 
 withDataExtractor :
@@ -5595,7 +5595,7 @@ scopeRule =
             , fromModuleToProject = scope_fromModuleToProject
             , foldProjectContexts = scope_foldProjectContexts
             }
-        |> withDataExtractor (\projectContext -> Extract projectContext.lookupTables)
+        |> withDataExtractor (\projectContext -> ModuleNameLookupTableExtract projectContext.lookupTables)
         |> fromProjectRuleSchemaToRunnableProjectVisitor
 
 
