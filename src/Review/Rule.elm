@@ -21,7 +21,7 @@ module Review.Rule exposing
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , withDataExtractor
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
-    , reviewV3, reviewV2, review, ProjectData, ruleName, getConfigurationError
+    , reviewV3, reviewV2, review, ProjectData, ruleName, ruleExtractsData, getConfigurationError
     , Required, Forbidden
     )
 
@@ -271,7 +271,7 @@ reason or seemingly inappropriately.
 
 # Running rules
 
-@docs reviewV3, reviewV2, review, ProjectData, ruleName, getConfigurationError
+@docs reviewV3, reviewV2, review, ProjectData, ruleName, ruleExtractsData, getConfigurationError
 
 
 # Internals
@@ -326,6 +326,7 @@ type Rule
         { name : String
         , exceptions : Exceptions
         , requestedData : RequestedData
+        , extractsData : Bool
         , ruleImplementation : ReviewV3Options -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
         , configurationError : Maybe { message : String, details : List String }
         }
@@ -976,6 +977,17 @@ ruleName (Rule rule) =
     rule.name
 
 
+{-| Indicates whether the rule has a data extractor.
+
+You should not have to use this when writing a rule.
+
+-}
+ruleExtractsData : Rule -> Bool
+ruleExtractsData (Rule rule) =
+    -- TODO Breaking change: This should be an internal detail, not shown to the user
+    rule.extractsData
+
+
 {-| Get the configuration error for a rule.
 
 You should not have to use this when writing a rule. You might be looking for [`configurationError`](#configurationError) instead.
@@ -1343,6 +1355,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
 
                 Nothing ->
                     RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
+        , extractsData = schema.dataExtractor /= Nothing
         , ruleImplementation =
             \reviewOptions exceptions project nodeContexts ->
                 let
@@ -1626,6 +1639,7 @@ configurationError name configurationError_ =
         { name = name
         , exceptions = Exceptions.init
         , requestedData = RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
+        , extractsData = False
         , ruleImplementation = \_ _ _ _ -> { errors = [], rule = configurationError name configurationError_, extract = Nothing }
         , configurationError = Just configurationError_
         }
@@ -3969,6 +3983,7 @@ ignoreErrorsForDirectories directories (Rule rule) =
         { name = rule.name
         , exceptions = Exceptions.addDirectories directories rule.exceptions
         , requestedData = rule.requestedData
+        , extractsData = rule.extractsData
         , ruleImplementation = rule.ruleImplementation
         , configurationError = rule.configurationError
         }
@@ -4037,6 +4052,7 @@ ignoreErrorsForFiles files (Rule rule) =
         { name = rule.name
         , exceptions = Exceptions.addFiles files rule.exceptions
         , requestedData = rule.requestedData
+        , extractsData = rule.extractsData
         , ruleImplementation = rule.ruleImplementation
         , configurationError = rule.configurationError
         }
@@ -4113,6 +4129,7 @@ filterErrorsForFiles condition (Rule rule) =
         { name = rule.name
         , exceptions = Exceptions.addFilter condition rule.exceptions
         , requestedData = rule.requestedData
+        , extractsData = rule.extractsData
         , ruleImplementation = rule.ruleImplementation
         , configurationError = rule.configurationError
         }
@@ -4277,6 +4294,7 @@ runProjectVisitor reviewOptions projectVisitor maybePreviousCache exceptions pro
             { name = projectVisitor.name
             , exceptions = exceptions
             , requestedData = projectVisitor.requestedData
+            , extractsData = projectVisitor.dataExtractor /= Nothing
             , ruleImplementation =
                 \newReviewOptions newExceptions newProject newNodeContexts ->
                     let
