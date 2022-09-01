@@ -18,6 +18,7 @@ import Docs.UpToDateReadmeLinks
 import NoDebug.Log
 import NoDebug.TodoOrToString
 import NoExposingEverything
+import NoForbiddenWords
 import NoImportingEverything
 import NoMissingTypeAnnotation
 import NoMissingTypeAnnotationInLetIn
@@ -64,6 +65,7 @@ config =
     --, NoUnnecessaryTrailingUnderscore.rule
     , NoUnused.Variables.rule
     , NoSimpleLetBody.rule
+    , NoForbiddenWords.rule [ "REPLACEME" ]
     ]
         |> List.map (Rule.ignoreErrorsForDirectories [ "src/Vendor/", "tests/Vendor/" ])
         |> List.map (Rule.ignoreErrorsForFiles [ "tests/NoUnused/Patterns/NameVisitor.elm" ])
