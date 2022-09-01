@@ -570,54 +570,6 @@ checkForConfigurationErrors rules =
         Err errors
 
 
-runReview : Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
-runReview ((Project p) as project) rules maybeProjectData nodeContexts =
-    let
-        scopeResult : { projectData : Maybe ProjectData, lookupTables : Maybe (Dict ModuleName ModuleNameLookupTable) }
-        scopeResult =
-            if needsToComputeScope rules then
-                let
-                    { cache, extract } =
-                        runProjectVisitor
-                            "DUMMY"
-                            scopeRule
-                            (Maybe.map extractProjectData maybeProjectData)
-                            Exceptions.init
-                            project
-                            nodeContexts
-                in
-                { projectData = Just (ProjectData cache)
-                , lookupTables =
-                    case extract of
-                        Just (ModuleNameLookupTableExtract lookupTable) ->
-                            Just lookupTable
-
-                        Just (JsonExtract _) ->
-                            Nothing
-
-                        Nothing ->
-                            Nothing
-                }
-
-            else
-                { projectData = Nothing
-                , lookupTables = Nothing
-                }
-
-        projectWithLookupTables : Project
-        projectWithLookupTables =
-            Project { p | moduleNameLookupTables = scopeResult.lookupTables }
-    in
-    let
-        ( errors, newRules ) =
-            runRules rules projectWithLookupTables nodeContexts
-    in
-    { errors = List.map errorToReviewError errors
-    , rules = newRules
-    , projectData = scopeResult.projectData
-    }
-
-
 checkForModulesThatFailedToParse : Project -> Result (List ReviewError) ()
 checkForModulesThatFailedToParse project =
     case Review.Project.modulesThatFailedToParse project of
@@ -765,6 +717,54 @@ printCycle moduleNames =
 wrapInCycle : String -> String
 wrapInCycle string =
     "    ┌─────┐\n    │    " ++ string ++ "\n    └─────┘"
+
+
+runReview : Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
+runReview ((Project p) as project) rules maybeProjectData nodeContexts =
+    let
+        scopeResult : { projectData : Maybe ProjectData, lookupTables : Maybe (Dict ModuleName ModuleNameLookupTable) }
+        scopeResult =
+            if needsToComputeScope rules then
+                let
+                    { cache, extract } =
+                        runProjectVisitor
+                            "DUMMY"
+                            scopeRule
+                            (Maybe.map extractProjectData maybeProjectData)
+                            Exceptions.init
+                            project
+                            nodeContexts
+                in
+                { projectData = Just (ProjectData cache)
+                , lookupTables =
+                    case extract of
+                        Just (ModuleNameLookupTableExtract lookupTable) ->
+                            Just lookupTable
+
+                        Just (JsonExtract _) ->
+                            Nothing
+
+                        Nothing ->
+                            Nothing
+                }
+
+            else
+                { projectData = Nothing
+                , lookupTables = Nothing
+                }
+
+        projectWithLookupTables : Project
+        projectWithLookupTables =
+            Project { p | moduleNameLookupTables = scopeResult.lookupTables }
+    in
+    let
+        ( errors, newRules ) =
+            runRules rules projectWithLookupTables nodeContexts
+    in
+    { errors = List.map errorToReviewError errors
+    , rules = newRules
+    , projectData = scopeResult.projectData
+    }
 
 
 
