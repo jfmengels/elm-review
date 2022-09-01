@@ -456,7 +456,12 @@ review rules project =
 
                                 moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
                                 moduleNameLookupTables =
-                                    Maybe.map (\(ModuleNameLookupTableExtract moduleNameLookupTables_) -> moduleNameLookupTables_) scopeResult.extract
+                                    case scopeResult.extract of
+                                        Just (ModuleNameLookupTableExtract lookupTables) ->
+                                            Just lookupTables
+
+                                        Nothing ->
+                                            Nothing
 
                                 projectWithLookupTable : Project
                                 projectWithLookupTable =
@@ -569,7 +574,7 @@ checkForConfigurationErrors rules =
 runReview : Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
 runReview ((Project p) as project) rules maybeProjectData nodeContexts =
     let
-        scopeResult : { projectData : Maybe ProjectData, extract : Maybe Extract }
+        scopeResult : { projectData : Maybe ProjectData, lookupTables : Maybe (Dict ModuleName ModuleNameLookupTable) }
         scopeResult =
             if needsToComputeScope rules then
                 let
@@ -583,21 +588,23 @@ runReview ((Project p) as project) rules maybeProjectData nodeContexts =
                             nodeContexts
                 in
                 { projectData = Just (ProjectData cache)
-                , extract = extract
+                , lookupTables =
+                    case extract of
+                        Just (ModuleNameLookupTableExtract lookupTable) ->
+                            Just lookupTable
+
+                        Nothing ->
+                            Nothing
                 }
 
             else
                 { projectData = Nothing
-                , extract = Nothing
+                , lookupTables = Nothing
                 }
-
-        moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
-        moduleNameLookupTables =
-            Maybe.map (\(ModuleNameLookupTableExtract moduleNameLookupTables_) -> moduleNameLookupTables_) scopeResult.extract
 
         projectWithLookupTables : Project
         projectWithLookupTables =
-            Project { p | moduleNameLookupTables = moduleNameLookupTables }
+            Project { p | moduleNameLookupTables = scopeResult.lookupTables }
     in
     let
         ( errors, newRules ) =
