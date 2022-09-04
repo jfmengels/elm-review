@@ -19,7 +19,7 @@ module Review.Rule exposing
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , globalError, configurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
-    , withDataExtractor
+    , withDataExtractor, preventExtract
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , reviewV3, reviewV2, review, ProjectData, ruleName, ruleExtractsData, getConfigurationError
     , Required, Forbidden
@@ -245,7 +245,7 @@ first, as they are in practice a simpler version of project rules.
 
 ## Extract information
 
-@docs withDataExtractor
+@docs withDataExtractor, preventExtract
 
 
 ## Configuring exceptions
@@ -639,6 +639,7 @@ checkForConfigurationErrors rules =
                                 , range = Range.emptyRange
                                 , fixes = Nothing
                                 , target = Review.Error.Global
+                                , preventsExtract = False
                                 }
                         )
                         (getConfigurationError rule)
@@ -2060,6 +2061,8 @@ type Extract
     | JsonExtract Encode.Value
 
 
+{-| Extract data from `elm-review`.
+-}
 withDataExtractor :
     (projectContext -> Encode.Value)
     -> ProjectRuleSchema schemaState projectContext moduleContext
@@ -3412,11 +3415,35 @@ withFinalModuleEvaluation visitor (ModuleRuleSchema schema) =
 -- ERRORS
 
 
-{-| Represents an error found by a [`Rule`](#Rule). These are created by the
-rules.
+{-| Represents an error found by a [`Rule`](#Rule). These are created by the rules.
 -}
 type Error scope
     = Error InternalError
+
+
+{-| Make this error prevent extracting data using [`withDataExtractor`](#withDataExtractor).
+
+Use this if the rule extracts data and an issue is discovered that would make the extraction
+output incorrect data.
+
+    error : Error {}
+    error =
+        Rule.error
+            { message = "..."
+            , details = [ "..." ]
+            }
+            (Node.range node)
+            |> Rule.preventExtract
+
+-}
+preventExtract : Error a -> Error a
+preventExtract (Error err) =
+    Error (Review.Error.preventExtract err)
+
+
+doesPreventExtract : Error a -> Bool
+doesPreventExtract (Error err) =
+    Review.Error.doesPreventExtract err
 
 
 removeErrorPhantomType : Error something -> Error {}
@@ -3468,6 +3495,7 @@ error { message, details } range =
         , range = range
         , fixes = Nothing
         , target = Review.Error.Module
+        , preventsExtract = False
         }
 
 
@@ -3530,6 +3558,7 @@ errorForModule (ModuleKey path) { message, details } range =
         , filePath = path
         , fixes = Nothing
         , target = Review.Error.Module
+        , preventsExtract = False
         }
 
 
@@ -3593,6 +3622,7 @@ errorForElmJson (ElmJsonKey { path, raw }) getErrorInfo =
         , filePath = path
         , fixes = Nothing
         , target = Review.Error.ElmJson
+        , preventsExtract = False
         }
 
 
@@ -3642,6 +3672,7 @@ errorForElmJsonWithFix (ElmJsonKey elmJson) getErrorInfo getFix =
                 )
                 (getFix elmJson.project)
         , target = Review.Error.ElmJson
+        , preventsExtract = False
         }
 
 
@@ -3675,6 +3706,7 @@ errorForReadme (ReadmeKey { path }) { message, details } range =
         , range = range
         , fixes = Nothing
         , target = Review.Error.Readme
+        , preventsExtract = False
         }
 
 
@@ -3707,6 +3739,7 @@ elmReviewGlobalError { message, details } =
         , range = Range.emptyRange
         , fixes = Nothing
         , target = Review.Error.Global
+        , preventsExtract = False
         }
 
 
@@ -3749,6 +3782,7 @@ globalError { message, details } =
         , range = Range.emptyRange
         , fixes = Nothing
         , target = Review.Error.UserGlobal
+        , preventsExtract = False
         }
 
 
@@ -3766,6 +3800,7 @@ parsingError rawFile =
         , range = Range.emptyRange
         , fixes = Nothing
         , target = Review.Error.Module
+        , preventsExtract = False
         }
 
 
@@ -4239,8 +4274,22 @@ runProjectVisitor reviewOptions projectVisitor maybePreviousCache exceptions pro
                 exceptions
                 maybePreviousCache
 
+        tmpCache : ProjectRuleCache projectContext
+        tmpCache =
+            { elmJson = cacheWithInitialContext.elmJson
+            , readme = cacheWithInitialContext.readme
+            , dependencies = cacheWithInitialContext.dependencies
+            , moduleContexts = newModuleContexts
+            , foldedProjectContext = maybeFoldedContext
+            , finalEvaluationErrors = errorsFromFinalEvaluation
+            }
+
+        errors : List (Error {})
+        errors =
+            errorsFromCache tmpCache
+
         ( extract, maybeFoldedContext2 ) =
-            if reviewOptions.extract then
+            if reviewOptions.extract && not (List.any doesPreventExtract errors) then
                 computeExtract projectVisitor computeFoldedContext maybeFoldedContext
 
             else
@@ -4248,15 +4297,15 @@ runProjectVisitor reviewOptions projectVisitor maybePreviousCache exceptions pro
 
         newCache : ProjectRuleCache projectContext
         newCache =
-            { elmJson = cacheWithInitialContext.elmJson
-            , readme = cacheWithInitialContext.readme
-            , dependencies = cacheWithInitialContext.dependencies
-            , moduleContexts = newModuleContexts
+            { elmJson = tmpCache.elmJson
+            , readme = tmpCache.readme
+            , dependencies = tmpCache.dependencies
+            , moduleContexts = tmpCache.moduleContexts
             , foldedProjectContext = maybeFoldedContext2
-            , finalEvaluationErrors = errorsFromFinalEvaluation
+            , finalEvaluationErrors = tmpCache.finalEvaluationErrors
             }
     in
-    { errors = errorsFromCache newCache
+    { errors = errors
     , rule =
         Rule
             { name = projectVisitor.name

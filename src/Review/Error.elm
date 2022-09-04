@@ -1,4 +1,4 @@
-module Review.Error exposing (Fix(..), InternalError, ReviewError(..), Target(..), error, withFixes)
+module Review.Error exposing (Fix(..), InternalError, ReviewError(..), Target(..), doesPreventExtract, error, preventExtract, withFixes)
 
 import Elm.Syntax.Range exposing (Range)
 
@@ -23,6 +23,7 @@ type alias InternalError =
     , range : Range
     , fixes : Maybe (List Fix)
     , target : Target
+    , preventsExtract : Bool
     }
 
 
@@ -45,6 +46,7 @@ error { message, details } range =
         , range = range
         , fixes = Nothing
         , target = Module
+        , preventsExtract = False
         }
 
 
@@ -59,3 +61,13 @@ withFixes fixes (ReviewError error_) =
                 else
                     Just fixes
         }
+
+
+preventExtract : InternalError -> InternalError
+preventExtract error_ =
+    { error_ | preventsExtract = True }
+
+
+doesPreventExtract : InternalError -> Bool
+doesPreventExtract error_ =
+    error_.preventsExtract
