@@ -304,6 +304,7 @@ import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix as Fix exposing (Fix)
+import Review.Logger as Logger
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Options as ReviewOptions exposing (ReviewOptions)
@@ -609,7 +610,12 @@ reviewV3 reviewOptions rules maybeProjectData project =
             |> Result.andThen (\() -> getModulesSortedByImport project)
     of
         Ok nodeContexts ->
-            runReview reviewOptions project rules maybeProjectData nodeContexts
+            runReview
+                reviewOptions
+                project
+                rules
+                maybeProjectData
+                nodeContexts
 
         Err errors ->
             { errors = errors
@@ -4216,6 +4222,39 @@ runProjectVisitor :
     -> List (Graph.NodeContext ModuleName ())
     -> { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
 runProjectVisitor (ReviewOptionsInternal reviewOptions) projectVisitor maybePreviousCache exceptions project nodeContexts =
+    nodeContexts
+        |> Logger.log reviewOptions.logger (startedRule projectVisitor.name)
+        |> runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybePreviousCache exceptions project
+        |> Logger.log reviewOptions.logger (endedRule projectVisitor.name)
+
+
+startedRule : String -> String
+startedRule name =
+    Encode.object
+        [ ( "type", Encode.string "rule-start" )
+        , ( "ruleName", Encode.string name )
+        ]
+        |> Encode.encode 0
+
+
+endedRule : String -> String
+endedRule name =
+    Encode.object
+        [ ( "type", Encode.string "rule-end" )
+        , ( "ruleName", Encode.string name )
+        ]
+        |> Encode.encode 0
+
+
+runProjectVisitorHelp :
+    ReviewOptions
+    -> RunnableProjectVisitor projectContext moduleContext
+    -> Maybe (ProjectRuleCache projectContext)
+    -> Exceptions
+    -> Project
+    -> List (Graph.NodeContext ModuleName ())
+    -> { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
+runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybePreviousCache exceptions project nodeContexts =
     -- IGNORE TCO
     let
         ( cacheWithInitialContext, hasInitialContextChanged ) =

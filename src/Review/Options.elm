@@ -1,7 +1,7 @@
 module Review.Options exposing
     ( ReviewOptions
     , defaults
-    , withDataExtraction
+    , withDataExtraction, withLogger
     )
 
 {-| Configure how `elm-review` runs.
@@ -11,10 +11,11 @@ process like the CLI.
 
 @docs ReviewOptions
 @docs defaults
-@docs withDataExtraction
+@docs withDataExtraction, withLogger
 
 -}
 
+import Review.Logger as Logger
 import Review.Options.Internal exposing (ReviewOptionsInternal(..))
 
 
@@ -33,6 +34,7 @@ defaults : ReviewOptions
 defaults =
     ReviewOptionsInternal
         { extract = False
+        , logger = Logger.none
         }
 
 
@@ -41,3 +43,19 @@ defaults =
 withDataExtraction : Bool -> ReviewOptions -> ReviewOptions
 withDataExtraction extract (ReviewOptionsInternal reviewOptions) =
     ReviewOptionsInternal { reviewOptions | extract = extract }
+
+
+{-| Add a logger.
+-}
+withLogger : Maybe (String -> String) -> ReviewOptions -> ReviewOptions
+withLogger maybeLogger (ReviewOptionsInternal reviewOptions) =
+    ReviewOptionsInternal
+        { reviewOptions
+            | logger =
+                case maybeLogger of
+                    Just fn ->
+                        Logger.fromFn fn
+
+                    Nothing ->
+                        Logger.none
+        }
