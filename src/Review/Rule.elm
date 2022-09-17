@@ -4770,7 +4770,7 @@ visitOnlyExpressionsOnlyOnEnter :
     -> ( List (Error {}), moduleContext )
 visitOnlyExpressionsOnlyOnEnter expressionVisitorsOnEnter node errorsAndContext =
     List.foldl
-        (visitWithListOfVisitors expressionVisitorsOnEnter)
+        (\exprNode acc -> visitWithListOfVisitors expressionVisitorsOnEnter exprNode acc)
         errorsAndContext
         (expressionChildrenTCO [ node ] [])
 
