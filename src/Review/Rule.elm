@@ -6557,23 +6557,17 @@ scope_expressionEnterVisitor node context =
 
         Expression.CaseExpression caseBlock ->
             let
-                cases : List ( Node Expression, Dict String VariableInfo )
-                cases =
-                    List.map
-                        (\( pattern, expression ) ->
-                            ( expression
-                            , collectNamesFromPattern PatternVariable [ pattern ] Dict.empty
+                ( cases, lookupTable ) =
+                    List.foldl
+                        (\( pattern, expression ) ( casesAcc, lookupTableAcc ) ->
+                            ( ( expression
+                              , collectNamesFromPattern PatternVariable [ pattern ] Dict.empty
+                              )
+                                :: casesAcc
+                            , collectModuleNamesFromPattern context [ pattern ] lookupTableAcc
                             )
                         )
-                        caseBlock.cases
-
-                lookupTable : ModuleNameLookupTable
-                lookupTable =
-                    List.foldl
-                        (\( pattern, _ ) acc ->
-                            collectModuleNamesFromPattern context [ pattern ] acc
-                        )
-                        context.lookupTable
+                        ( [], context.lookupTable )
                         caseBlock.cases
             in
             { context
