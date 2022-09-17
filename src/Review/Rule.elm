@@ -4511,13 +4511,20 @@ computeModuleAndCacheResult traversalAndFolder modules graph computeModule { nod
                             []
 
                         TraverseImportedModulesFirst _ ->
-                            incoming
-                                |> IntDict.keys
-                                |> List.filterMap
-                                    (\key ->
+                            IntDict.foldl
+                                (\key _ acc ->
+                                    case
                                         Graph.get key graph
                                             |> Maybe.andThen (\nodeContext -> Dict.get nodeContext.node.label modules)
-                                    )
+                                    of
+                                        Just mod ->
+                                            mod :: acc
+
+                                        Nothing ->
+                                            acc
+                                )
+                                []
+                                incoming
 
                 compute : Maybe (CacheEntry projectContext) -> ( Dict String (CacheEntry projectContext), Set ModuleName )
                 compute previousResult =
