@@ -6162,34 +6162,36 @@ registerImportExposed import_ innerContext =
             case exposing_ of
                 Exposing.All _ ->
                     let
-                        nameWithModuleName : { r | name : String } -> ( String, ModuleName )
-                        nameWithModuleName { name } =
-                            ( name, moduleName )
+                        foldIntoDict : List { a | name : comparable } -> Dict comparable ModuleName -> Dict comparable ModuleName
+                        foldIntoDict list dict =
+                            List.foldl (\{ name } acc -> Dict.insert name moduleName acc) dict list
 
-                        exposedValues : Dict String ModuleName
-                        exposedValues =
-                            List.concat
-                                [ ListExtra.fastConcatMap
-                                    (\union ->
-                                        List.map (\( name, _ ) -> ( name, moduleName )) union.tags
-                                    )
-                                    module_.unions
-                                , List.map nameWithModuleName module_.values
-                                , List.map nameWithModuleName module_.aliases
-                                , List.map nameWithModuleName module_.binops
-                                ]
-                                |> Dict.fromList
+                        foldCustomTypesIntoDict : List { a | tags : List ( String, b ) } -> Dict String ModuleName -> Dict String ModuleName
+                        foldCustomTypesIntoDict unions dict =
+                            List.foldl
+                                (\union acc ->
+                                    List.foldl (\( name, _ ) subAcc -> Dict.insert name moduleName subAcc) acc union.tags
+                                )
+                                dict
+                                unions
 
-                        exposedTypes : Dict String ModuleName
-                        exposedTypes =
-                            List.append
-                                (List.map nameWithModuleName module_.unions)
-                                (List.map nameWithModuleName module_.aliases)
-                                |> Dict.fromList
+                        importedFunctions : Dict String ModuleName
+                        importedFunctions =
+                            innerContext.importedFunctions
+                                |> foldIntoDict module_.values
+                                |> foldIntoDict module_.binops
+                                |> foldIntoDict module_.aliases
+                                |> foldCustomTypesIntoDict module_.unions
+
+                        importedTypes : Dict String ModuleName
+                        importedTypes =
+                            innerContext.importedTypes
+                                |> foldIntoDict module_.unions
+                                |> foldIntoDict module_.aliases
                     in
                     { innerContext
-                        | importedFunctions = Dict.union exposedValues innerContext.importedFunctions
-                        , importedTypes = Dict.union innerContext.importedTypes exposedTypes
+                        | importedFunctions = importedFunctions
+                        , importedTypes = Dict.union innerContext.importedTypes importedTypes
                     }
 
                 Exposing.Explicit topLevelExposeList ->
