@@ -3,7 +3,7 @@ module Review.Exceptions exposing
     , init
     , addDirectories, addFiles
     , addFilter
-    , apply
+    , isFileWeWantReportsFor
     )
 
 {-| Configuration for elements that should be ignored from the review rules.
@@ -12,7 +12,7 @@ module Review.Exceptions exposing
 @docs init
 @docs addDirectories, addFiles
 @docs addFilter
-@docs apply
+@docs isFileWeWantReportsFor
 
 -}
 
@@ -65,14 +65,16 @@ addFiles files =
     addFilter (\file -> Set.member file cleanedFiles |> not)
 
 
-apply : Exceptions -> (a -> String) -> List a -> List a
-apply (Exceptions conditions) getPath items =
+isFileWeWantReportsFor : Exceptions -> String -> Bool
+isFileWeWantReportsFor (Exceptions conditions) filePath =
     let
         allConditions : String -> Bool
         allConditions path =
             List.all (\condition -> condition path) conditions
     in
-    List.filter (getPath >> makePathOSAgnostic >> allConditions) items
+    filePath
+        |> makePathOSAgnostic
+        |> allConditions
 
 
 isInAnIgnoredDirectory : List String -> String -> Bool

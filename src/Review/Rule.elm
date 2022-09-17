@@ -4072,7 +4072,7 @@ runProjectVisitor projectVisitor maybePreviousCache exceptions project nodeConte
     -- IGNORE TCO
     let
         ( cacheWithInitialContext, hasInitialContextChanged ) =
-            computeProjectContext projectVisitor project maybePreviousCache
+            computeProjectContext projectVisitor exceptions project maybePreviousCache
 
         initialContext : projectContext
         initialContext =
@@ -4123,6 +4123,7 @@ runProjectVisitor projectVisitor maybePreviousCache exceptions project nodeConte
             computeErrorsForFinalEvaluation
                 projectVisitor
                 computeFoldedContext
+                exceptions
                 maybePreviousCache
 
         ( extract, maybeFoldedContext2 ) =
@@ -4137,12 +4138,8 @@ runProjectVisitor projectVisitor maybePreviousCache exceptions project nodeConte
             , foldedProjectContext = maybeFoldedContext2
             , finalEvaluationErrors = errorsFromFinalEvaluation
             }
-
-        errors : List (Error {})
-        errors =
-            Exceptions.apply exceptions (accessInternalError >> .filePath) (errorsFromCache newCache)
     in
-    { errors = List.map (setRuleName projectVisitor.name) errors
+    { errors = errorsFromCache newCache
     , rule =
         Rule
             { name = projectVisitor.name
@@ -4212,8 +4209,8 @@ errorsFromCache cache =
 -- VISIT PROJECT
 
 
-computeProjectContext : RunnableProjectVisitor projectContext moduleContext -> Project -> Maybe (ProjectRuleCache projectContext) -> ( ProjectRuleCache projectContext, Bool )
-computeProjectContext projectVisitor project maybePreviousCache =
+computeProjectContext : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Project -> Maybe (ProjectRuleCache projectContext) -> ( ProjectRuleCache projectContext, Bool )
+computeProjectContext projectVisitor exceptions project maybePreviousCache =
     let
         projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
         projectElmJson =
@@ -4250,7 +4247,7 @@ computeProjectContext projectVisitor project maybePreviousCache =
                                 |> accumulateWithListOfVisitors projectVisitor.elmJsonVisitors elmJsonData
                     in
                     { value = projectElmJson
-                    , errors = errorsForVisitor
+                    , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
                     , context = contextForVisitor
                     }
             in
@@ -4276,7 +4273,7 @@ computeProjectContext projectVisitor project maybePreviousCache =
                                 |> accumulateWithListOfVisitors projectVisitor.readmeVisitors readmeData
                     in
                     { value = readmeData
-                    , errors = errorsForVisitor
+                    , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
                     , context = contextForVisitor
                     }
             in
@@ -4321,7 +4318,7 @@ computeProjectContext projectVisitor project maybePreviousCache =
                                 |> accumulateWithListOfVisitors projectVisitor.dependenciesVisitors dependencies
                     in
                     { value = dependencies
-                    , errors = errorsForVisitor
+                    , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
                     , context = contextForVisitor
                     }
             in
@@ -4350,6 +4347,25 @@ computeProjectContext projectVisitor project maybePreviousCache =
       }
     , hasAnythingChanged
     )
+
+
+filterExceptionsAndSetName : Exceptions -> String -> List (Error scope) -> List (Error scope)
+filterExceptionsAndSetName exceptions name errors =
+    List.foldl
+        (\error_ acc ->
+            if Exceptions.isFileWeWantReportsFor exceptions (errorFilePathInternal error_) then
+                setRuleName name error_ :: acc
+
+            else
+                acc
+        )
+        []
+        errors
+
+
+errorFilePathInternal : Error scope -> String
+errorFilePathInternal error_ =
+    (accessInternalError error_).filePath
 
 
 
@@ -4381,9 +4397,8 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                 TraverseAllModulesInParallel Nothing ->
                     -- Performance: avoid visiting modules when they're ignored and they
                     -- can't influence the rest of the review.
-                    Exceptions.apply
-                        exceptions
-                        .path
+                    List.filter
+                        (\{ path } -> Exceptions.isFileWeWantReportsFor exceptions path)
                         (Review.Project.modules project)
 
                 TraverseAllModulesInParallel (Just _) ->
@@ -4468,7 +4483,10 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                         module_
             in
             { source = module_.source
-            , errors = ListExtra.orderIndependentMap (setFilePathIfUnset module_) moduleErrors
+            , errors =
+                moduleErrors
+                    |> ListExtra.orderIndependentMap (setFilePathIfUnset module_)
+                    |> filterExceptionsAndSetName exceptions projectVisitor.name
             , context =
                 case getFolderFromTraversal projectVisitor.traversalAndFolder of
                     Just { fromModuleToProject } ->
@@ -5007,9 +5025,10 @@ functionToExpression function =
 computeErrorsForFinalEvaluation :
     RunnableProjectVisitor projectContext moduleContext
     -> (() -> projectContext)
+    -> Exceptions
     -> Maybe (ProjectRuleCache projectContext)
     -> ( List (Error {}), Maybe projectContext )
-computeErrorsForFinalEvaluation projectVisitor computeFoldedContext maybePreviousCache =
+computeErrorsForFinalEvaluation projectVisitor computeFoldedContext exceptions maybePreviousCache =
     if List.isEmpty projectVisitor.finalEvaluationFns then
         ( [], Nothing )
 
@@ -5022,7 +5041,10 @@ computeErrorsForFinalEvaluation projectVisitor computeFoldedContext maybePreviou
             errorsFromFinalEvaluationForProject : () -> List (Error {})
             errorsFromFinalEvaluationForProject () =
                 ListExtra.orderIndependentConcatMap
-                    (\finalEvaluationFn -> finalEvaluationFn finalContext)
+                    (\finalEvaluationFn ->
+                        finalEvaluationFn finalContext
+                            |> filterExceptionsAndSetName exceptions projectVisitor.name
+                    )
                     projectVisitor.finalEvaluationFns
         in
         ( case maybePreviousCache of

@@ -23,7 +23,7 @@ all =
                 , "src/File.elm"
                 , "src-other/Ignored/File.elm"
                 ]
-                    |> Exceptions.apply exceptions identity
+                    |> List.filter (Exceptions.isFileWeWantReportsFor exceptions)
                     |> Expect.equal
                         [ "src/Foo/Bar.elm"
                         , "src/IgnoredFile.elm"
@@ -46,7 +46,7 @@ all =
                 , "src/File.elm"
                 , "src-other/Ignored/File.elm"
                 ]
-                    |> Exceptions.apply exceptions identity
+                    |> List.filter (Exceptions.isFileWeWantReportsFor exceptions)
                     |> Expect.equal
                         [ "src/Foo/Bar.elm"
                         , "src/IgnoredFile.elm"
@@ -71,7 +71,7 @@ all =
                 , "src/File.elm"
                 , "src-other/Ignored/File.elm" -- should be removed
                 ]
-                    |> Exceptions.apply exceptions identity
+                    |> List.filter (Exceptions.isFileWeWantReportsFor exceptions)
                     |> Expect.equal
                         [ "src/Foo/Bar.elm"
                         , "src/IgnoredFile.elm"
@@ -94,7 +94,7 @@ all =
                 , "src/File.elm"
                 , "src-other/Ignored/File.elm"
                 ]
-                    |> Exceptions.apply exceptions identity
+                    |> List.filter (Exceptions.isFileWeWantReportsFor exceptions)
                     |> Expect.equal
                         [ "src/Foo/Bar.elm"
                         , "src/Ignored/File.elm"
@@ -120,7 +120,7 @@ all =
                 , "src/File.elm"
                 , "src-other/Ignored/File.elm"
                 ]
-                    |> Exceptions.apply exceptions identity
+                    |> List.filter (Exceptions.isFileWeWantReportsFor exceptions)
                     |> Expect.equal []
         , test "should remove files using Exceptions.addFilter" <|
             \() ->
@@ -138,7 +138,7 @@ all =
                 , "src/File.elm"
                 , "src-other/Ignored/File.elm" -- should be removed
                 ]
-                    |> Exceptions.apply exceptions identity
+                    |> List.filter (Exceptions.isFileWeWantReportsFor exceptions)
                     |> Expect.equal
                         [ "src/Foo/Bar.elm"
                         , "src/Foo/Thing.elm"
@@ -163,7 +163,7 @@ all =
                 , "src/File.elm"
                 , "src-other/Ignored/File.elm" -- should be removed
                 ]
-                    |> Exceptions.apply exceptions identity
+                    |> List.filter (Exceptions.isFileWeWantReportsFor exceptions)
                     |> Expect.equal
                         [ "src/IgnoredFile.elm"
                         , "src/Foo/Thing/SubThing.elm"
@@ -185,7 +185,7 @@ all =
                 , "src/File.elm"
                 , "src-other/Ignored/File.elm"
                 ]
-                    |> Exceptions.apply exceptions identity
+                    |> List.filter (Exceptions.isFileWeWantReportsFor exceptions)
                     |> Expect.equal
                         [ "src/Foo/Bar.elm"
                         , "src/IgnoredFile.elm"
@@ -204,7 +204,7 @@ all =
                 [ "src/Ignored/File.elm"
                 , "src/IgnoredFile.elm"
                 ]
-                    |> Exceptions.apply exceptions identity
+                    |> List.filter (Exceptions.isFileWeWantReportsFor exceptions)
                     |> Expect.equal
                         [ "src/IgnoredFile.elm"
                         ]
@@ -223,7 +223,7 @@ all =
                 , "src\\File.elm"
                 , "src-other\\Ignored\\File.elm"
                 ]
-                    |> Exceptions.apply exceptions identity
+                    |> List.filter (Exceptions.isFileWeWantReportsFor exceptions)
                     |> Expect.equal
                         [ "src\\Foo\\Bar.elm"
                         , "src\\IgnoredFile.elm"
@@ -246,7 +246,7 @@ all =
                 , "src\\File.elm"
                 , "src-other\\Ignored\\File.elm"
                 ]
-                    |> Exceptions.apply exceptions identity
+                    |> List.filter (Exceptions.isFileWeWantReportsFor exceptions)
                     |> Expect.equal
                         [ "src\\Foo\\Bar.elm"
                         , "src\\IgnoredFile.elm"
