@@ -4393,9 +4393,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
 
         projectModulePaths : Set String
         projectModulePaths =
-            modulesToAnalyze
-                |> List.map .path
-                |> Set.fromList
+            List.foldl (\{ path } acc -> Set.insert path acc) Set.empty modulesToAnalyze
 
         modules : Dict ModuleName ProjectModule
         modules =
@@ -4447,13 +4445,17 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                             let
                                 projectContext : projectContext
                                 projectContext =
-                                    importedModules
-                                        |> List.filterMap
-                                            (\importedModule ->
-                                                Dict.get importedModule.path cache
-                                                    |> Maybe.map .context
-                                            )
-                                        |> List.foldl foldProjectContexts initialProjectContext
+                                    List.foldl
+                                        (\importedModule accContext ->
+                                            case Dict.get importedModule.path cache of
+                                                Just importedModuleCache ->
+                                                    foldProjectContexts importedModuleCache.context accContext
+
+                                                Nothing ->
+                                                    accContext
+                                        )
+                                        initialProjectContext
+                                        importedModules
                             in
                             -- It is never used anywhere else
                             applyContextCreator availableData moduleContextCreator projectContext
@@ -4465,7 +4467,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                         module_
             in
             { source = module_.source
-            , errors = List.map (setFilePathIfUnset module_) moduleErrors
+            , errors = ListExtra.orderIndependentMap (setFilePathIfUnset module_) moduleErrors
             , context =
                 case getFolderFromTraversal projectVisitor.traversalAndFolder of
                     Just { fromModuleToProject } ->
