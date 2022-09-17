@@ -4037,6 +4037,7 @@ type alias ProjectRuleCache projectContext =
     , readme : CacheEntryFor (Maybe { readmeKey : ReadmeKey, content : String }) projectContext
     , dependencies : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
     , moduleContexts : Dict String (CacheEntry projectContext)
+    , foldedProjectContext : Maybe projectContext
     , finalEvaluationErrors : List (Error {})
     }
 
@@ -4086,8 +4087,8 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
                     Nothing ->
                         Dict.empty
 
-        newCachedModuleContexts : Dict String (CacheEntry projectContext)
-        newCachedModuleContexts =
+        newModuleContexts : Dict String (CacheEntry projectContext)
+        newModuleContexts =
             case projectVisitor.moduleVisitor of
                 Nothing ->
                     Dict.empty
@@ -4102,45 +4103,34 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
                         nodeContexts
                         previousModuleContexts
 
-        contextsAndErrorsPerModule : List ( List (Error {}), projectContext )
-        contextsAndErrorsPerModule =
-            newCachedModuleContexts
-                |> Dict.values
-                |> List.map (\cacheEntry -> ( cacheEntry.errors, cacheEntry.context ))
+        computeFoldedContext : () -> projectContext
+        computeFoldedContext () =
+            case getFolderFromTraversal projectVisitor.traversalAndFolder of
+                Just { foldProjectContexts } ->
+                    Dict.foldl
+                        (\_ cacheEntry acc -> foldProjectContexts cacheEntry.context acc)
+                        initialContext
+                        newModuleContexts
 
-        previousAllModulesContext : List projectContext
-        previousAllModulesContext =
-            previousModuleContexts
-                |> Dict.values
-                |> List.map .context
+                Nothing ->
+                    initialContext
 
-        allModulesContext : List projectContext
-        allModulesContext =
-            List.map Tuple.second contextsAndErrorsPerModule
+        ( errorsFromFinalEvaluation, maybeFoldedContext ) =
+            computeErrorsForFinalEvaluation
+                projectVisitor
+                computeFoldedContext
+                maybePreviousCache
 
-        errorsFromFinalEvaluation : List (Error {})
-        errorsFromFinalEvaluation =
-            if List.isEmpty projectVisitor.finalEvaluationFns then
-                []
-
-            else
-                case maybePreviousCache of
-                    Just previousCache ->
-                        if allModulesContext == previousAllModulesContext then
-                            previousCache.finalEvaluationErrors
-
-                        else
-                            errorsFromFinalEvaluationForProject projectVisitor initialContext allModulesContext
-
-                    Nothing ->
-                        errorsFromFinalEvaluationForProject projectVisitor initialContext allModulesContext
+        ( extract, maybeFoldedContext2 ) =
+            computeExtract projectVisitor computeFoldedContext maybeFoldedContext
 
         newCache : ProjectRuleCache projectContext
         newCache =
             { elmJson = cacheWithInitialContext.elmJson
             , readme = cacheWithInitialContext.readme
             , dependencies = cacheWithInitialContext.dependencies
-            , moduleContexts = newCachedModuleContexts
+            , moduleContexts = newModuleContexts
+            , foldedProjectContext = maybeFoldedContext2
             , finalEvaluationErrors = errorsFromFinalEvaluation
             }
 
@@ -4171,28 +4161,32 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
             , configurationError = Nothing
             }
     , cache = newCache
-    , extract =
-        case
-            projectVisitor.dataExtractor
-        of
-            Just dataExtractor ->
-                let
-                    -- TODO This is already computed during the final project evaluation
-                    -- Re-use the data instead of re-computing
-                    contextToAnalyze : projectContext
-                    contextToAnalyze =
-                        case getFolderFromTraversal projectVisitor.traversalAndFolder of
-                            Just { foldProjectContexts } ->
-                                List.foldl foldProjectContexts initialContext allModulesContext
-
-                            Nothing ->
-                                initialContext
-                in
-                Just (dataExtractor contextToAnalyze)
-
-            Nothing ->
-                Nothing
+    , extract = extract
     }
+
+
+computeExtract :
+    RunnableProjectVisitor projectContext moduleContext
+    -> (() -> projectContext)
+    -> Maybe projectContext
+    -> ( Maybe Extract, Maybe projectContext )
+computeExtract projectVisitor computeFoldedContext maybeFoldedContext =
+    case projectVisitor.dataExtractor of
+        Just dataExtractor ->
+            case maybeFoldedContext of
+                Just foldedContext ->
+                    ( Just (dataExtractor foldedContext), maybeFoldedContext )
+
+                Nothing ->
+                    let
+                        foldedContext : projectContext
+                        foldedContext =
+                            computeFoldedContext ()
+                    in
+                    ( Just (dataExtractor foldedContext), Just foldedContext )
+
+        Nothing ->
+            ( Nothing, maybeFoldedContext )
 
 
 setRuleName : String -> Error scope -> Error scope
@@ -4350,6 +4344,7 @@ computeProjectContext projectVisitor project maybePreviousCache =
       , readme = readmeCacheEntry
       , dependencies = dependenciesCacheEntry
       , moduleContexts = Dict.empty
+      , foldedProjectContext = Nothing
       , finalEvaluationErrors = []
       }
     , hasAnythingChanged
@@ -5009,21 +5004,39 @@ functionToExpression function =
 -- FINAL EVALUATION
 
 
-errorsFromFinalEvaluationForProject : RunnableProjectVisitor projectContext moduleContext -> projectContext -> List projectContext -> List (Error {})
-errorsFromFinalEvaluationForProject projectVisitor initialContext contextsPerModule =
-    let
-        finalContext : projectContext
-        finalContext =
-            case getFolderFromTraversal projectVisitor.traversalAndFolder of
-                Just { foldProjectContexts } ->
-                    List.foldl foldProjectContexts initialContext contextsPerModule
+computeErrorsForFinalEvaluation :
+    RunnableProjectVisitor projectContext moduleContext
+    -> (() -> projectContext)
+    -> Maybe (ProjectRuleCache projectContext)
+    -> ( List (Error {}), Maybe projectContext )
+computeErrorsForFinalEvaluation projectVisitor computeFoldedContext maybePreviousCache =
+    if List.isEmpty projectVisitor.finalEvaluationFns then
+        ( [], Nothing )
 
-                Nothing ->
-                    initialContext
-    in
-    ListExtra.orderIndependentConcatMap
-        (\finalEvaluationFn -> finalEvaluationFn finalContext)
-        projectVisitor.finalEvaluationFns
+    else
+        let
+            finalContext : projectContext
+            finalContext =
+                computeFoldedContext ()
+
+            errorsFromFinalEvaluationForProject : () -> List (Error {})
+            errorsFromFinalEvaluationForProject () =
+                ListExtra.orderIndependentConcatMap
+                    (\finalEvaluationFn -> finalEvaluationFn finalContext)
+                    projectVisitor.finalEvaluationFns
+        in
+        ( case maybePreviousCache of
+            Just previousCache ->
+                if Just finalContext == previousCache.foldedProjectContext then
+                    previousCache.finalEvaluationErrors
+
+                else
+                    errorsFromFinalEvaluationForProject ()
+
+            Nothing ->
+                errorsFromFinalEvaluationForProject ()
+        , Just finalContext
+        )
 
 
 moduleNameNode : Node Module -> Node ModuleName
