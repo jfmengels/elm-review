@@ -467,14 +467,14 @@ review rules project =
                                     Project { p | moduleNameLookupTables = moduleNameLookupTables }
                             in
                             if not (List.isEmpty scopeResult.errors) then
-                                ( List.map errorToReviewError scopeResult.errors, rules )
+                                ( ListExtra.orderIndependentMap errorToReviewError scopeResult.errors, rules )
 
                             else
                                 runRules rules projectWithLookupTable sortedModules
-                                    |> Tuple.mapFirst (List.map errorToReviewError)
+                                    |> Tuple.mapFirst (ListExtra.orderIndependentMap errorToReviewError)
 
         modulesThatFailedToParse ->
-            ( List.map parsingError modulesThatFailedToParse, rules )
+            ( ListExtra.orderIndependentMap parsingError modulesThatFailedToParse, rules )
 
 
 {-| Review a project and gives back the errors raised by the given rules.
