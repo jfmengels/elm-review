@@ -4953,17 +4953,17 @@ expressionChildren node =
             [ cond, then_, else_ ]
 
         Expression.LetExpression { expression, declarations } ->
-            List.map
-                (\declaration ->
+            List.foldr
+                (\declaration acc ->
                     case Node.value declaration of
                         Expression.LetFunction function ->
-                            functionToExpression function
+                            functionToExpression function :: acc
 
                         Expression.LetDestructuring _ expr ->
-                            expr
+                            expr :: acc
                 )
+                [ expression ]
                 declarations
-                ++ [ expression ]
 
         Expression.CaseExpression { expression, cases } ->
             expression
