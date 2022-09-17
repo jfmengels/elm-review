@@ -6291,24 +6291,28 @@ scope_declarationEnterVisitor node context =
                         |> nonemptyList_cons newScope
                         |> updateScope context
 
-                moduleNamesFromSignature : List ( Range, ModuleName )
-                moduleNamesFromSignature =
-                    function.signature
-                        |> Maybe.map (Node.value >> .typeAnnotation >> collectModuleNamesFromTypeAnnotation newContext)
-                        |> Maybe.withDefault []
-
                 moduleNamesFromArguments : List ( Range, ModuleName )
                 moduleNamesFromArguments =
                     function.declaration
                         |> Node.value
                         |> .arguments
-                        |> ListExtra.fastConcatMap (collectModuleNamesFromPattern newContext)
+                        |> ListExtra.orderIndependentConcatMap (collectModuleNamesFromPattern newContext)
+
+                newModuleNames : List ( Range, ModuleName )
+                newModuleNames =
+                    case function.signature of
+                        Just signature ->
+                            collectModuleNamesFromTypeAnnotationHelp
+                                context
+                                [ (Node.value signature).typeAnnotation ]
+                                moduleNamesFromArguments
+
+                        Nothing ->
+                            moduleNamesFromArguments
 
                 lookupTable : ModuleNameLookupTable
                 lookupTable =
-                    ModuleNameLookupTableInternal.addMultiple
-                        (moduleNamesFromSignature ++ moduleNamesFromArguments)
-                        newContext.lookupTable
+                    ModuleNameLookupTableInternal.addMultiple newModuleNames newContext.lookupTable
             in
             { newContext | lookupTable = lookupTable }
 
@@ -6316,7 +6320,7 @@ scope_declarationEnterVisitor node context =
             { context
                 | lookupTable =
                     ModuleNameLookupTableInternal.addMultiple
-                        (constructors |> ListExtra.fastConcatMap (Node.value >> .arguments) |> ListExtra.fastConcatMap (collectModuleNamesFromTypeAnnotation context))
+                        (constructors |> ListExtra.orderIndependentConcatMap (Node.value >> .arguments) |> ListExtra.orderIndependentConcatMap (collectModuleNamesFromTypeAnnotation context))
                         context.lookupTable
             }
 
