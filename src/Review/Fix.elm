@@ -254,9 +254,8 @@ tryToApplyFix fixes sourceCode isValidSourceCode =
 containRangeCollisions : List Fix -> Bool
 containRangeCollisions fixes =
     fixes
-        |> List.map getFixRange
-        |> ListExtra.uniquePairs
-        |> List.any (\( a, b ) -> collide a b)
+        |> ListExtra.orderIndependentMap getFixRange
+        |> ListExtra.anyCombination collide
 
 
 getFixRange : Fix -> Range

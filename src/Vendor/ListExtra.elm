@@ -1,7 +1,8 @@
 module Vendor.ListExtra exposing
-    ( find, last, uniquePairs
+    ( find, last
     , orderIndependentMap, orderIndependentAppend, orderIndependentConcatMap
     , orderIndependentMapAppend, orderIndependentConcat, orderIndependentConcatMapAppend, orderIndependentFilterMap
+    , anyCombination
     )
 
 {-| Functions taken from elm-community/list-extra.
@@ -14,10 +15,12 @@ This also includes a few custom functions
 
 # List functions
 
-@docs find, last, uniquePairs
+@docs find, last
 
 @docs orderIndependentMap, orderIndependentAppend, orderIndependentConcatMap
 @docs orderIndependentMapAppend, orderIndependentConcat, orderIndependentConcatMapAppend, orderIndependentFilterMap
+
+@docs anyCombination
 
 -}
 
@@ -51,16 +54,6 @@ last items =
 
         _ :: rest ->
             last rest
-
-
-uniquePairs : List a -> List ( a, a )
-uniquePairs xs =
-    case xs of
-        [] ->
-            []
-
-        x :: xs_ ->
-            List.map (\y -> ( x, y )) xs_ ++ uniquePairs xs_
 
 
 
@@ -128,3 +121,19 @@ orderIndependentFilterMapHelp fn list acc =
 
                 Nothing ->
                     orderIndependentFilterMapHelp fn rest acc
+
+
+{-| Similar to List.any, but on any combination pair of the list.
+-}
+anyCombination : (a -> a -> Bool) -> List a -> Bool
+anyCombination predicate xs =
+    case xs of
+        [] ->
+            False
+
+        x :: xs_ ->
+            if List.any (\y -> predicate x y) xs_ then
+                True
+
+            else
+                anyCombination predicate xs_
