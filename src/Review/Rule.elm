@@ -4578,7 +4578,7 @@ visitModuleForProjectRule schema initialContext module_ =
         |> accumulateList schema.importVisitors module_.ast.imports
         |> accumulateWithListOfVisitors schema.declarationListVisitors module_.ast.declarations
         |> schema.declarationAndExpressionVisitor module_.ast.declarations
-        |> (\( errors, moduleContext ) -> ( makeFinalEvaluation schema.finalEvaluationFns ( errors, moduleContext ), moduleContext ))
+        |> (\( errors, moduleContext ) -> ( makeFinalModuleEvaluation schema.finalEvaluationFns ( errors, moduleContext ), moduleContext ))
 
 
 shouldVisitDeclarations : ModuleRuleSchemaData moduleContext -> Bool
@@ -4910,8 +4910,8 @@ visitCaseBranch expressionRelatedVisitors caseBlockWithRange (( _, caseExpressio
 
 {-| Concatenate the errors of the previous step and of the last step.
 -}
-makeFinalEvaluation : List (context -> List (Error {})) -> ( List (Error {}), context ) -> List (Error {})
-makeFinalEvaluation finalEvaluationFns ( previousErrors, context ) =
+makeFinalModuleEvaluation : List (context -> List (Error {})) -> ( List (Error {}), context ) -> List (Error {})
+makeFinalModuleEvaluation finalEvaluationFns ( previousErrors, context ) =
     ListExtra.orderIndependentConcatMapAppend
         (\visitor -> visitor context)
         finalEvaluationFns
