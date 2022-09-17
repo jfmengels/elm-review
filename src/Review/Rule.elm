@@ -603,7 +603,7 @@ runReview ((Project p) as project) rules maybeProjectData nodeContexts =
         ( errors, newRules ) =
             runRules rules projectWithLookupTables nodeContexts
     in
-    { errors = List.map errorToReviewError errors
+    { errors = ListExtra.orderIndependentMap errorToReviewError errors
     , rules = newRules
     , projectData = scopeResult.projectData
     }
