@@ -1,6 +1,5 @@
 module Vendor.ListExtra exposing
     ( find, last, uniquePairs
-    , fastConcatMap
     , orderIndependentMap, orderIndependentAppend, orderIndependentConcatMap, orderIndependentMapAppend, orderIndependentConcat, orderIndependentConcatMapAppend
     )
 
@@ -16,7 +15,6 @@ This also includes a few custom functions
 
 @docs find, last, uniquePairs
 
-@docs fastConcatMap
 @docs orderIndependentMap, orderIndependentAppend, orderIndependentConcatMap, orderIndependentMapAppend, orderIndependentConcat, orderIndependentConcatMapAppend
 
 -}
@@ -65,11 +63,6 @@ uniquePairs xs =
 
 
 -- Not originally from elm-community/list-extra
-
-
-fastConcatMap : (a -> List b) -> List a -> List b
-fastConcatMap fn list =
-    List.foldr (\item acc -> fn item ++ acc) [] list
 
 
 {-| Version of List.map that doesn't care about order.
