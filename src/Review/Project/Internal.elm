@@ -57,7 +57,7 @@ to use.
 [`elm-community/graph` Graph]: https://package.elm-lang.org/packages/elm-community/graph/6.0.0/Graph#Graph
 
 -}
-moduleGraph : Project -> Graph (List String) ()
+moduleGraph : Project -> Graph ModuleName ()
 moduleGraph (Project project) =
     case project.moduleGraph of
         Just graph ->

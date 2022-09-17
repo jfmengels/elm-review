@@ -425,7 +425,7 @@ review rules project =
 
                 Nothing ->
                     let
-                        moduleGraph : Graph (List String) ()
+                        moduleGraph : Graph ModuleName ()
                         moduleGraph =
                             Review.Project.Internal.moduleGraph project
                     in
@@ -632,7 +632,7 @@ checkForDuplicateModules project =
 getModulesSortedByImport : Project -> Result (List Review.Error.ReviewError) (List (Graph.NodeContext ModuleName ()))
 getModulesSortedByImport project =
     let
-        moduleGraph : Graph (List String) ()
+        moduleGraph : Graph ModuleName ()
         moduleGraph =
             project
                 |> Review.Project.Internal.moduleGraph
@@ -5577,8 +5577,8 @@ type alias ScopeModuleContext =
     { scopes : Nonempty Scope
     , localTypes : Set String
     , importAliases : Dict String (List ModuleName)
-    , importedFunctions : Dict String (List String)
-    , importedTypes : Dict String (List String)
+    , importedFunctions : Dict String ModuleName
+    , importedTypes : Dict String ModuleName
     , dependenciesModules : Dict String Elm.Docs.Module
     , modules : Dict ModuleName Elm.Docs.Module
     , exposesEverything : Bool
@@ -5833,7 +5833,7 @@ elmCorePrelude =
     ]
 
 
-createFakeImport : { moduleName : List String, exposingList : Maybe Exposing, moduleAlias : Maybe String } -> Import
+createFakeImport : { moduleName : ModuleName, exposingList : Maybe Exposing, moduleAlias : Maybe String } -> Import
 createFakeImport { moduleName, moduleAlias, exposingList } =
     { moduleName = Node Range.emptyRange moduleName
     , moduleAlias = moduleAlias |> Maybe.map (List.singleton >> Node Range.emptyRange)
@@ -6004,7 +6004,7 @@ syntaxTypeAnnotationToDocsType innerContext (Node _ typeAnnotation) =
 
         TypeAnnotation.Typed (Node _ ( moduleName, typeName )) typeParameters ->
             let
-                realModuleName : List String
+                realModuleName : ModuleName
                 realModuleName =
                     moduleNameForType innerContext typeName moduleName
             in
@@ -6102,7 +6102,7 @@ registerImportAlias import_ innerContext =
     case import_.moduleAlias of
         Nothing ->
             let
-                moduleName : List String
+                moduleName : ModuleName
                 moduleName =
                     Node.value import_.moduleName
             in
@@ -6137,7 +6137,7 @@ registerImportExposed import_ innerContext =
 
         Just exposing_ ->
             let
-                moduleName : List String
+                moduleName : ModuleName
                 moduleName =
                     Node.value import_.moduleName
 
@@ -6162,11 +6162,11 @@ registerImportExposed import_ innerContext =
             case exposing_ of
                 Exposing.All _ ->
                     let
-                        nameWithModuleName : { r | name : String } -> ( String, List String )
+                        nameWithModuleName : { r | name : String } -> ( String, ModuleName )
                         nameWithModuleName { name } =
                             ( name, moduleName )
 
-                        exposedValues : Dict String (List String)
+                        exposedValues : Dict String ModuleName
                         exposedValues =
                             List.concat
                                 [ ListExtra.fastConcatMap
@@ -6180,7 +6180,7 @@ registerImportExposed import_ innerContext =
                                 ]
                                 |> Dict.fromList
 
-                        exposedTypes : Dict String (List String)
+                        exposedTypes : Dict String ModuleName
                         exposedTypes =
                             List.append
                                 (List.map nameWithModuleName module_.unions)
@@ -6194,14 +6194,14 @@ registerImportExposed import_ innerContext =
 
                 Exposing.Explicit topLevelExposeList ->
                     let
-                        exposedValues : Dict String (List String)
+                        exposedValues : Dict String ModuleName
                         exposedValues =
                             topLevelExposeList
                                 |> ListExtra.fastConcatMap (valuesFromExposingList module_)
                                 |> List.map (\name -> ( name, moduleName ))
                                 |> Dict.fromList
 
-                        exposedTypes : Dict String (List String)
+                        exposedTypes : Dict String ModuleName
                         exposedTypes =
                             topLevelExposeList
                                 |> List.filterMap typesFromExposingList
@@ -6703,7 +6703,7 @@ findInList predicate list =
 A value can be either a function, a constant, a custom type constructor or a type alias (used as a function).
 
   - The second argument (`String`) is the name of the value
-  - The third argument (`List String`) is the module name that was used next to the value's name where you found it
+  - The third argument (`ModuleName`) is the module name that was used next to the value's name where you found it
 
 If the element was defined in the current module, then the result will be `[]`.
 
@@ -6721,7 +6721,7 @@ If the element was defined in the current module, then the result will be `[]`.
                 ( [], context )
 
 -}
-moduleNameForValue : ScopeModuleContext -> String -> List String -> List String
+moduleNameForValue : ScopeModuleContext -> String -> ModuleName -> ModuleName
 moduleNameForValue context valueName moduleName =
     case moduleName of
         [] ->
@@ -6773,10 +6773,10 @@ moduleNameForValue context valueName moduleName =
 A type can be either a custom type or a type alias.
 
   - The second argument (`String`) is the name of the type
-  - The third argument (`List String`) is the module name that was used next to the type name where you found it
+  - The third argument (`ModuleName`) is the module name that was used next to the type name where you found it
 
 -}
-moduleNameForType : ScopeModuleContext -> String -> List String -> List String
+moduleNameForType : ScopeModuleContext -> String -> ModuleName -> ModuleName
 moduleNameForType context typeName moduleName =
     case moduleName of
         [] ->
@@ -6848,7 +6848,7 @@ isInScope name scopes =
 -- MISC
 
 
-joinModuleName : List String -> String
+joinModuleName : ModuleName -> String
 joinModuleName name =
     String.join "." name
 
