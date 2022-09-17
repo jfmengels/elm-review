@@ -6305,10 +6305,7 @@ scope_declarationEnterVisitor node context =
 
                 moduleNamesFromArguments : List ( Range, ModuleName )
                 moduleNamesFromArguments =
-                    function.declaration
-                        |> Node.value
-                        |> .arguments
-                        |> ListExtra.orderIndependentConcatMap (collectModuleNamesFromPattern newContext)
+                    collectModuleNamesFromPattern newContext (Node.value function.declaration).arguments []
 
                 newModuleNames : List ( Range, ModuleName )
                 newModuleNames =
@@ -6442,39 +6439,34 @@ collectNamesFromPattern variableType patternsToVisit acc =
             acc
 
 
-collectModuleNamesFromPattern : ScopeModuleContext -> Node Pattern -> List ( Range, ModuleName )
-collectModuleNamesFromPattern context pattern =
-    collectModuleNamesFromPatternHelp context [ pattern ] []
-
-
-collectModuleNamesFromPatternHelp : ScopeModuleContext -> List (Node Pattern) -> List ( Range, ModuleName ) -> List ( Range, ModuleName )
-collectModuleNamesFromPatternHelp context patternsToVisit acc =
+collectModuleNamesFromPattern : ScopeModuleContext -> List (Node Pattern) -> List ( Range, ModuleName ) -> List ( Range, ModuleName )
+collectModuleNamesFromPattern context patternsToVisit acc =
     case patternsToVisit of
         pattern :: restOfPatternsToVisit ->
             case Node.value pattern of
                 Pattern.NamedPattern { moduleName, name } subPatterns ->
-                    collectModuleNamesFromPatternHelp
+                    collectModuleNamesFromPattern
                         context
                         (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit)
                         (( Node.range pattern, moduleNameForValue context name moduleName ) :: acc)
 
                 Pattern.UnConsPattern left right ->
-                    collectModuleNamesFromPatternHelp context (left :: right :: restOfPatternsToVisit) acc
+                    collectModuleNamesFromPattern context (left :: right :: restOfPatternsToVisit) acc
 
                 Pattern.TuplePattern subPatterns ->
-                    collectModuleNamesFromPatternHelp context (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit) acc
+                    collectModuleNamesFromPattern context (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit) acc
 
                 Pattern.ParenthesizedPattern subPattern ->
-                    collectModuleNamesFromPatternHelp context (subPattern :: restOfPatternsToVisit) acc
+                    collectModuleNamesFromPattern context (subPattern :: restOfPatternsToVisit) acc
 
                 Pattern.AsPattern subPattern _ ->
-                    collectModuleNamesFromPatternHelp context (subPattern :: restOfPatternsToVisit) acc
+                    collectModuleNamesFromPattern context (subPattern :: restOfPatternsToVisit) acc
 
                 Pattern.ListPattern subPatterns ->
-                    collectModuleNamesFromPatternHelp context (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit) acc
+                    collectModuleNamesFromPattern context (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit) acc
 
                 _ ->
-                    collectModuleNamesFromPatternHelp context restOfPatternsToVisit acc
+                    collectModuleNamesFromPattern context restOfPatternsToVisit acc
 
         [] ->
             acc
@@ -6546,32 +6538,32 @@ scope_expressionEnterVisitor node context =
 
                 moduleNames : List ( Range, ModuleName )
                 moduleNames =
-                    declarations
-                        |> ListExtra.fastConcatMap
-                            (\declaration ->
-                                case Node.value declaration of
-                                    Expression.LetFunction function ->
-                                        let
-                                            declarationModuleNames : List ( Range, ModuleName )
-                                            declarationModuleNames =
-                                                function.declaration
-                                                    |> Node.value
-                                                    |> .arguments
-                                                    |> ListExtra.fastConcatMap (collectModuleNamesFromPattern newContext)
-                                        in
-                                        case function.signature of
-                                            Just signature ->
-                                                collectModuleNamesFromTypeAnnotationHelp
-                                                    context
-                                                    [ (Node.value signature).typeAnnotation ]
-                                                    declarationModuleNames
-
-                                            Nothing ->
+                    List.foldl
+                        (\declaration acc ->
+                            case Node.value declaration of
+                                Expression.LetFunction function ->
+                                    let
+                                        declarationModuleNames : List ( Range, ModuleName )
+                                        declarationModuleNames =
+                                            collectModuleNamesFromPattern newContext
+                                                (Node.value function.declaration).arguments
+                                                acc
+                                    in
+                                    case function.signature of
+                                        Just signature ->
+                                            collectModuleNamesFromTypeAnnotationHelp
+                                                context
+                                                [ (Node.value signature).typeAnnotation ]
                                                 declarationModuleNames
 
-                                    Expression.LetDestructuring pattern _ ->
-                                        collectModuleNamesFromPattern newContext pattern
-                            )
+                                        Nothing ->
+                                            declarationModuleNames
+
+                                Expression.LetDestructuring pattern _ ->
+                                    collectModuleNamesFromPattern newContext [ pattern ] acc
+                        )
+                        []
+                        declarations
             in
             { newContext | lookupTable = ModuleNameLookupTableInternal.addMultiple moduleNames newContext.lookupTable }
 
@@ -6589,8 +6581,11 @@ scope_expressionEnterVisitor node context =
 
                 moduleNames : List ( Range, ModuleName )
                 moduleNames =
-                    ListExtra.fastConcatMap
-                        (\( pattern, _ ) -> collectModuleNamesFromPattern context pattern)
+                    List.foldl
+                        (\( pattern, _ ) acc ->
+                            collectModuleNamesFromPattern context [ pattern ] acc
+                        )
+                        []
                         caseBlock.cases
             in
             { context
@@ -6620,7 +6615,7 @@ scope_expressionEnterVisitor node context =
             { context
                 | lookupTable =
                     ModuleNameLookupTableInternal.addMultiple
-                        (ListExtra.fastConcatMap (collectModuleNamesFromPattern context) args)
+                        (collectModuleNamesFromPattern context args [])
                         context.lookupTable
             }
 
