@@ -6303,59 +6303,40 @@ scope_declarationEnterVisitor node context =
                         |> nonemptyList_cons newScope
                         |> updateScope context
 
-                moduleNamesFromArguments : List ( Range, ModuleName )
-                moduleNamesFromArguments =
-                    collectModuleNamesFromPattern newContext (Node.value function.declaration).arguments []
+                lookupTableAfterArguments : ModuleNameLookupTable
+                lookupTableAfterArguments =
+                    collectModuleNamesFromPattern newContext (Node.value function.declaration).arguments newContext.lookupTable
 
-                newModuleNames : List ( Range, ModuleName )
-                newModuleNames =
+                finalLookupTable : ModuleNameLookupTable
+                finalLookupTable =
                     case function.signature of
                         Just signature ->
-                            collectModuleNamesFromTypeAnnotationHelp
+                            collectModuleNamesFromTypeAnnotation
                                 context
                                 [ (Node.value signature).typeAnnotation ]
-                                moduleNamesFromArguments
+                                lookupTableAfterArguments
 
                         Nothing ->
-                            moduleNamesFromArguments
-
-                lookupTable : ModuleNameLookupTable
-                lookupTable =
-                    ModuleNameLookupTableInternal.addMultiple newModuleNames newContext.lookupTable
+                            lookupTableAfterArguments
             in
-            { newContext | lookupTable = lookupTable }
+            { newContext | lookupTable = finalLookupTable }
 
         Declaration.CustomTypeDeclaration { constructors } ->
             { context
                 | lookupTable =
-                    ModuleNameLookupTableInternal.addMultiple
-                        (List.foldl
-                            (\(Node _ constructor) acc ->
-                                collectModuleNamesFromTypeAnnotationHelp context constructor.arguments acc
-                            )
-                            []
-                            constructors
+                    List.foldl
+                        (\(Node _ constructor) acc ->
+                            collectModuleNamesFromTypeAnnotation context constructor.arguments acc
                         )
                         context.lookupTable
+                        constructors
             }
 
         Declaration.AliasDeclaration { typeAnnotation } ->
-            { context
-                | lookupTable =
-                    ModuleNameLookupTableInternal.addMultiple
-                        (collectModuleNamesFromTypeAnnotation context typeAnnotation)
-                        context.lookupTable
-            }
+            { context | lookupTable = collectModuleNamesFromTypeAnnotation context [ typeAnnotation ] context.lookupTable }
 
         Declaration.PortDeclaration signature ->
-            let
-                lookupTable : ModuleNameLookupTable
-                lookupTable =
-                    ModuleNameLookupTableInternal.addMultiple
-                        (collectModuleNamesFromTypeAnnotation context signature.typeAnnotation)
-                        context.lookupTable
-            in
-            { context | lookupTable = lookupTable }
+            { context | lookupTable = collectModuleNamesFromTypeAnnotation context [ signature.typeAnnotation ] context.lookupTable }
 
         _ ->
             context
@@ -6441,7 +6422,7 @@ collectNamesFromPattern variableType patternsToVisit acc =
             acc
 
 
-collectModuleNamesFromPattern : ScopeModuleContext -> List (Node Pattern) -> List ( Range, ModuleName ) -> List ( Range, ModuleName )
+collectModuleNamesFromPattern : ScopeModuleContext -> List (Node Pattern) -> ModuleNameLookupTable -> ModuleNameLookupTable
 collectModuleNamesFromPattern context patternsToVisit acc =
     case patternsToVisit of
         pattern :: restOfPatternsToVisit ->
@@ -6450,7 +6431,7 @@ collectModuleNamesFromPattern context patternsToVisit acc =
                     collectModuleNamesFromPattern
                         context
                         (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit)
-                        (( Node.range pattern, moduleNameForValue context name moduleName ) :: acc)
+                        (ModuleNameLookupTableInternal.add (Node.range pattern) (moduleNameForValue context name moduleName) acc)
 
                 Pattern.UnConsPattern left right ->
                     collectModuleNamesFromPattern context (left :: right :: restOfPatternsToVisit) acc
@@ -6538,36 +6519,36 @@ scope_expressionEnterVisitor node context =
                         declarations
                         |> updateScope context
 
-                moduleNames : List ( Range, ModuleName )
-                moduleNames =
+                lookupTable : ModuleNameLookupTable
+                lookupTable =
                     List.foldl
                         (\declaration acc ->
                             case Node.value declaration of
                                 Expression.LetFunction function ->
                                     let
-                                        declarationModuleNames : List ( Range, ModuleName )
-                                        declarationModuleNames =
+                                        withDeclarationModuleName : ModuleNameLookupTable
+                                        withDeclarationModuleName =
                                             collectModuleNamesFromPattern newContext
                                                 (Node.value function.declaration).arguments
                                                 acc
                                     in
                                     case function.signature of
                                         Just signature ->
-                                            collectModuleNamesFromTypeAnnotationHelp
+                                            collectModuleNamesFromTypeAnnotation
                                                 context
                                                 [ (Node.value signature).typeAnnotation ]
-                                                declarationModuleNames
+                                                withDeclarationModuleName
 
                                         Nothing ->
-                                            declarationModuleNames
+                                            withDeclarationModuleName
 
                                 Expression.LetDestructuring pattern _ ->
                                     collectModuleNamesFromPattern newContext [ pattern ] acc
                         )
-                        []
+                        newContext.lookupTable
                         declarations
             in
-            { newContext | lookupTable = ModuleNameLookupTableInternal.addMultiple moduleNames newContext.lookupTable }
+            { newContext | lookupTable = lookupTable }
 
         Expression.CaseExpression caseBlock ->
             let
@@ -6581,18 +6562,18 @@ scope_expressionEnterVisitor node context =
                         )
                         caseBlock.cases
 
-                moduleNames : List ( Range, ModuleName )
-                moduleNames =
+                lookupTable : ModuleNameLookupTable
+                lookupTable =
                     List.foldl
                         (\( pattern, _ ) acc ->
                             collectModuleNamesFromPattern context [ pattern ] acc
                         )
-                        []
+                        context.lookupTable
                         caseBlock.cases
             in
             { context
                 | scopes = nonemptyList_mapHead (\scope -> { scope | cases = cases }) context.scopes
-                , lookupTable = ModuleNameLookupTableInternal.addMultiple moduleNames context.lookupTable
+                , lookupTable = lookupTable
             }
 
         Expression.FunctionOrValue moduleName name ->
@@ -6614,12 +6595,7 @@ scope_expressionEnterVisitor node context =
             }
 
         Expression.LambdaExpression { args } ->
-            { context
-                | lookupTable =
-                    ModuleNameLookupTableInternal.addMultiple
-                        (collectModuleNamesFromPattern context args [])
-                        context.lookupTable
-            }
+            { context | lookupTable = collectModuleNamesFromPattern context args context.lookupTable }
 
         Expression.PrefixOperator op ->
             { context
@@ -6643,48 +6619,43 @@ scope_expressionEnterVisitor node context =
             context
 
 
-collectModuleNamesFromTypeAnnotation : ScopeModuleContext -> Node TypeAnnotation -> List ( Range, ModuleName )
-collectModuleNamesFromTypeAnnotation context typeAnnotationToVisit =
-    collectModuleNamesFromTypeAnnotationHelp context [ typeAnnotationToVisit ] []
-
-
-collectModuleNamesFromTypeAnnotationHelp : ScopeModuleContext -> List (Node TypeAnnotation) -> List ( Range, ModuleName ) -> List ( Range, ModuleName )
-collectModuleNamesFromTypeAnnotationHelp context typeAnnotationsToVisit acc =
+collectModuleNamesFromTypeAnnotation : ScopeModuleContext -> List (Node TypeAnnotation) -> ModuleNameLookupTable -> ModuleNameLookupTable
+collectModuleNamesFromTypeAnnotation context typeAnnotationsToVisit acc =
     case typeAnnotationsToVisit of
         typeAnnotationNode :: remainingTypeAnnotationsToVisit ->
             case Node.value typeAnnotationNode of
                 TypeAnnotation.Typed (Node range ( moduleName, name )) args ->
-                    collectModuleNamesFromTypeAnnotationHelp
+                    collectModuleNamesFromTypeAnnotation
                         context
                         (ListExtra.orderIndependentAppend args remainingTypeAnnotationsToVisit)
-                        (( range, moduleNameForType context name moduleName ) :: acc)
+                        (ModuleNameLookupTableInternal.add range (moduleNameForType context name moduleName) acc)
 
                 TypeAnnotation.Tupled nodes ->
-                    collectModuleNamesFromTypeAnnotationHelp
+                    collectModuleNamesFromTypeAnnotation
                         context
                         (ListExtra.orderIndependentAppend nodes remainingTypeAnnotationsToVisit)
                         acc
 
                 TypeAnnotation.Record fields ->
-                    collectModuleNamesFromTypeAnnotationHelp
+                    collectModuleNamesFromTypeAnnotation
                         context
                         (ListExtra.orderIndependentMapAppend (\field -> field |> Node.value |> Tuple.second) fields remainingTypeAnnotationsToVisit)
                         acc
 
                 TypeAnnotation.GenericRecord _ fields ->
-                    collectModuleNamesFromTypeAnnotationHelp
+                    collectModuleNamesFromTypeAnnotation
                         context
                         (ListExtra.orderIndependentMapAppend (\field -> field |> Node.value |> Tuple.second) (Node.value fields) remainingTypeAnnotationsToVisit)
                         acc
 
                 TypeAnnotation.FunctionTypeAnnotation left right ->
-                    collectModuleNamesFromTypeAnnotationHelp
+                    collectModuleNamesFromTypeAnnotation
                         context
                         (left :: right :: remainingTypeAnnotationsToVisit)
                         acc
 
                 _ ->
-                    collectModuleNamesFromTypeAnnotationHelp
+                    collectModuleNamesFromTypeAnnotation
                         context
                         remainingTypeAnnotationsToVisit
                         acc
