@@ -4382,9 +4382,6 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
         modulesToAnalyze : List ProjectModule
         modulesToAnalyze =
             case projectVisitor.traversalAndFolder of
-                TraverseAllModulesInParallel (Just _) ->
-                    Review.Project.modules project
-
                 TraverseAllModulesInParallel Nothing ->
                     -- Performance: avoid visiting modules when they're ignored and they
                     -- can't influence the rest of the review.
@@ -4392,6 +4389,9 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                         exceptions
                         .path
                         (Review.Project.modules project)
+
+                TraverseAllModulesInParallel (Just _) ->
+                    Review.Project.modules project
 
                 TraverseImportedModulesFirst _ ->
                     Review.Project.modules project
