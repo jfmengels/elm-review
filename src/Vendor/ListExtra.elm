@@ -1,6 +1,7 @@
 module Vendor.ListExtra exposing
     ( find, last, uniquePairs
-    , orderIndependentMap, orderIndependentAppend, orderIndependentConcatMap, orderIndependentMapAppend, orderIndependentConcat, orderIndependentConcatMapAppend
+    , orderIndependentMap, orderIndependentAppend, orderIndependentConcatMap
+    , orderIndependentMapAppend, orderIndependentConcat, orderIndependentConcatMapAppend, orderIndependentFilterMap
     )
 
 {-| Functions taken from elm-community/list-extra.
@@ -15,7 +16,8 @@ This also includes a few custom functions
 
 @docs find, last, uniquePairs
 
-@docs orderIndependentMap, orderIndependentAppend, orderIndependentConcatMap, orderIndependentMapAppend, orderIndependentConcat, orderIndependentConcatMapAppend
+@docs orderIndependentMap, orderIndependentAppend, orderIndependentConcatMap
+@docs orderIndependentMapAppend, orderIndependentConcat, orderIndependentConcatMapAppend, orderIndependentFilterMap
 
 -}
 
@@ -106,3 +108,23 @@ orderIndependentConcat list =
 orderIndependentConcatMap : (a -> List b) -> List a -> List b
 orderIndependentConcatMap fn list =
     List.foldl (\item acc -> orderIndependentAppend (fn item) acc) [] list
+
+
+orderIndependentFilterMap : (a -> Maybe b) -> List a -> List b
+orderIndependentFilterMap fn list =
+    orderIndependentFilterMapHelp fn list []
+
+
+orderIndependentFilterMapHelp : (a -> Maybe b) -> List a -> List b -> List b
+orderIndependentFilterMapHelp fn list acc =
+    case list of
+        [] ->
+            acc
+
+        a :: rest ->
+            case fn a of
+                Just b ->
+                    orderIndependentFilterMapHelp fn rest (b :: acc)
+
+                Nothing ->
+                    orderIndependentFilterMapHelp fn rest acc

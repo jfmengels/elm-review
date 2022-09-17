@@ -540,7 +540,7 @@ checkForConfigurationErrors rules =
     let
         errors : List ReviewError
         errors =
-            List.filterMap
+            ListExtra.orderIndependentFilterMap
                 (\rule ->
                     Maybe.map
                         (\{ message, details } ->
