@@ -1,5 +1,6 @@
 module Review.ModuleNameLookupTable.Internal exposing (ModuleNameLookupTable(..), add, empty, fromList, toRangeLike)
 
+import Bitwise
 import Dict exposing (Dict)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Range exposing (Range)
@@ -28,11 +29,11 @@ add range moduleName (ModuleNameLookupTable currentModuleName moduleNameLookupTa
 
 
 type alias RangeLike =
-    ( ( Int, Int ), ( Int, Int ) )
+    ( Int, Int )
 
 
 toRangeLike : Range -> RangeLike
 toRangeLike { start, end } =
-    ( ( start.row, start.column )
-    , ( end.row, end.column )
+    ( Bitwise.shiftLeftBy 16 start.row + start.column
+    , Bitwise.shiftLeftBy 16 end.row + end.column
     )
