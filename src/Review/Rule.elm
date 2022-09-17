@@ -1122,10 +1122,10 @@ compactProjectDataVisitors getData visitors =
                     getData rawData
             in
             ( []
-            , List.foldl
+            , List.foldr
                 (\visitor moduleContext_ -> visitor data moduleContext_)
                 moduleContext
-                (List.reverse visitors)
+                visitors
             )
         ]
 
