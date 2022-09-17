@@ -4788,18 +4788,12 @@ expressionChildrenTCO nodesToVisit acc =
 
                 Expression.RecordExpr fields ->
                     expressionChildrenTCO
-                        (List.append
-                            (List.map (Node.value >> (\( _, expr ) -> expr)) fields)
-                            rest
-                        )
+                        (List.foldl (\(Node _ ( _, expr )) toVisitAcc -> expr :: toVisitAcc) rest fields)
                         (head :: acc)
 
                 Expression.RecordUpdateExpression _ setters ->
                     expressionChildrenTCO
-                        (List.append
-                            (List.map (Node.value >> (\( _, expr ) -> expr)) setters)
-                            rest
-                        )
+                        (List.foldl (\(Node _ ( _, expr )) toVisitAcc -> expr :: toVisitAcc) rest setters)
                         (head :: acc)
 
                 Expression.ParenthesizedExpression expr ->
@@ -4828,28 +4822,24 @@ expressionChildrenTCO nodesToVisit acc =
 
                 Expression.LetExpression { expression, declarations } ->
                     expressionChildrenTCO
-                        (List.append
-                            (List.map
-                                (\declaration ->
-                                    case Node.value declaration of
-                                        Expression.LetFunction function ->
-                                            functionToExpression function
+                        (List.foldl
+                            (\declaration toVisitAcc ->
+                                case Node.value declaration of
+                                    Expression.LetFunction function ->
+                                        functionToExpression function :: toVisitAcc
 
-                                        Expression.LetDestructuring _ expr ->
-                                            expr
-                                )
-                                declarations
+                                    Expression.LetDestructuring _ expr ->
+                                        expr :: toVisitAcc
                             )
                             (expression :: rest)
+                            declarations
                         )
                         (head :: acc)
 
                 Expression.CaseExpression { expression, cases } ->
                     expressionChildrenTCO
                         (expression
-                            :: List.append
-                                (List.map (\( _, caseExpression ) -> caseExpression) cases)
-                                rest
+                            :: List.foldl (\( _, caseExpression ) toVisitAcc -> caseExpression :: toVisitAcc) rest cases
                         )
                         (head :: acc)
 
