@@ -6080,23 +6080,23 @@ scope_moduleDefinitionVisitor node innerContext =
 
 exposedElements : List (Node Exposing.TopLevelExpose) -> Dict String Range
 exposedElements nodes =
-    nodes
-        |> List.filterMap
-            (\node ->
-                case Node.value node of
-                    Exposing.FunctionExpose name ->
-                        Just ( name, Node.range node )
+    List.foldl
+        (\node acc ->
+            case Node.value node of
+                Exposing.FunctionExpose name ->
+                    Dict.insert name (Node.range node) acc
 
-                    Exposing.TypeOrAliasExpose name ->
-                        Just ( name, Node.range node )
+                Exposing.TypeOrAliasExpose name ->
+                    Dict.insert name (Node.range node) acc
 
-                    Exposing.TypeExpose { name } ->
-                        Just ( name, Node.range node )
+                Exposing.TypeExpose { name } ->
+                    Dict.insert name (Node.range node) acc
 
-                    Exposing.InfixExpose _ ->
-                        Nothing
-            )
-        |> Dict.fromList
+                Exposing.InfixExpose _ ->
+                    acc
+        )
+        Dict.empty
+        nodes
 
 
 
