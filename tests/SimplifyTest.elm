@@ -3779,7 +3779,7 @@ a =
 a =
   if a || b then
     1
-  else if a then
+  else if b then
     2
   else
     3
@@ -3793,7 +3793,7 @@ a =
 a =
   if a || b then
     1
-  else if b then
+  else if a then
     2
   else
     3

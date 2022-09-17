@@ -4202,13 +4202,13 @@ setRuleName ruleName_ error_ =
 
 errorsFromCache : ProjectRuleCache projectContext -> List (Error {})
 errorsFromCache cache =
-    List.concat
-        [ cache.elmJson.errors
+    ListExtra.orderIndependentConcat
+        [ cache.moduleContexts
+            |> Dict.values
+            |> ListExtra.orderIndependentConcatMap (\cacheEntry -> cacheEntry.errors)
+        , cache.elmJson.errors
         , cache.readme.errors
         , cache.dependencies.errors
-        , cache.moduleContexts
-            |> Dict.values
-            |> ListExtra.fastConcatMap (\cacheEntry -> cacheEntry.errors)
         , cache.finalEvaluationErrors
         ]
 
