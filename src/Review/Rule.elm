@@ -6295,7 +6295,7 @@ scope_declarationEnterVisitor node context =
             let
                 newScope : Scope
                 newScope =
-                    { emptyScope | names = parameters <| .arguments <| Node.value function.declaration }
+                    { emptyScope | names = parameters (Node.value function.declaration).arguments }
 
                 newContext : ScopeModuleContext
                 newContext =
@@ -6374,16 +6374,17 @@ scope_declarationExitVisitor node context =
 
 parameters : List (Node Pattern) -> Dict String VariableInfo
 parameters patterns =
-    ListExtra.fastConcatMap collectNamesFromPattern patterns
-        |> List.map
-            (\node ->
-                ( Node.value node
-                , { node = node
-                  , variableType = FunctionParameter
-                  }
-                )
-            )
-        |> Dict.fromList
+    List.foldl
+        (\node acc ->
+            Dict.insert
+                (Node.value node)
+                { node = node
+                , variableType = FunctionParameter
+                }
+                acc
+        )
+        Dict.empty
+        (ListExtra.orderIndependentConcatMap collectNamesFromPattern patterns)
 
 
 collectNamesFromPattern : Node Pattern -> List (Node String)
