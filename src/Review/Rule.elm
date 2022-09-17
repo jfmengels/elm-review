@@ -1935,7 +1935,7 @@ withDataExtractor dataExtractor (ProjectRuleSchema schema) =
 removeErrorPhantomTypeFromVisitor : (element -> projectContext -> ( List (Error b), projectContext )) -> (element -> projectContext -> ( List (Error {}), projectContext ))
 removeErrorPhantomTypeFromVisitor function element projectContext =
     function element projectContext
-        |> Tuple.mapFirst (List.map removeErrorPhantomType)
+        |> Tuple.mapFirst (ListExtra.orderIndependentMap removeErrorPhantomType)
 
 
 {-| Allows the rule to have access to the context of the modules imported by the
