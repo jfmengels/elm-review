@@ -1383,12 +1383,17 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
 createDeclarationAndExpressionVisitor : ModuleRuleSchemaData moduleContext -> List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
 createDeclarationAndExpressionVisitor schema =
     if shouldVisitDeclarations schema then
+        let
+            declarationVisitorsOnEnter : List (Visitor Declaration moduleContext)
+            declarationVisitorsOnEnter =
+                List.reverse schema.declarationVisitorsOnEnter
+        in
         case createExpressionVisitor schema of
             Just expressionVisitor ->
                 \nodes initialErrorsAndContext ->
                     List.foldl
                         (visitDeclaration
-                            (List.reverse schema.declarationVisitorsOnEnter)
+                            declarationVisitorsOnEnter
                             schema.declarationVisitorsOnExit
                             expressionVisitor
                         )
@@ -1400,7 +1405,7 @@ createDeclarationAndExpressionVisitor schema =
                     visitor : Node Declaration -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
                     visitor =
                         visitOnlyDeclaration
-                            (List.reverse schema.declarationVisitorsOnEnter)
+                            declarationVisitorsOnEnter
                             schema.declarationVisitorsOnExit
                 in
                 \nodes initialErrorsAndContext ->
