@@ -6219,9 +6219,17 @@ registerImportExposed import_ innerContext =
 
                         importedTypes : Dict String ModuleName
                         importedTypes =
-                            topLevelExposeList
-                                |> List.filterMap typesFromExposingList
-                                |> List.foldl (\name acc -> Dict.insert name moduleName acc) innerContext.importedTypes
+                            List.foldl
+                                (\topLevelExpose acc ->
+                                    case typesFromExposingList topLevelExpose of
+                                        Just name ->
+                                            Dict.insert name moduleName acc
+
+                                        Nothing ->
+                                            acc
+                                )
+                                innerContext.importedTypes
+                                topLevelExposeList
                     in
                     { innerContext
                         | importedFunctions = importedFunctions
