@@ -815,7 +815,7 @@ runRules rules project nodeContexts =
                 ( ruleErrors, ruleWithCache ) =
                     ruleImplementation exceptions project nodeContexts
             in
-            ( ListExtra.orderIndependentAppend (List.map removeErrorPhantomType ruleErrors) errors
+            ( ListExtra.orderIndependentMapAppend removeErrorPhantomType ruleErrors errors
             , ruleWithCache :: previousRules
             )
         )
