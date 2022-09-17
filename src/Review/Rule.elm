@@ -616,7 +616,7 @@ checkForModulesThatFailedToParse project =
             Ok ()
 
         modulesThatFailedToParse ->
-            Err (List.map parsingError modulesThatFailedToParse)
+            Err (ListExtra.orderIndependentMap parsingError modulesThatFailedToParse)
 
 
 checkForDuplicateModules : Project -> Result (List ReviewError) ()
