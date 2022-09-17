@@ -447,7 +447,6 @@ review rules project =
                                     }
                                 scopeResult =
                                     runProjectVisitor
-                                        "DUMMY"
                                         scopeRule
                                         Nothing
                                         Exceptions.init
@@ -575,7 +574,6 @@ runReview ((Project p) as project) rules maybeProjectData nodeContexts =
                 let
                     { cache, extract } =
                         runProjectVisitor
-                            "DUMMY"
                             scopeRule
                             (Maybe.map extractProjectData maybeProjectData)
                             Exceptions.init
@@ -1236,7 +1234,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                 let
                     result : { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
                     result =
-                        runProjectVisitor schema.name
+                        runProjectVisitor
                             (fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema)
                             Nothing
                             exceptions
@@ -1250,7 +1248,8 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
 
 fromProjectRuleSchemaToRunnableProjectVisitor : ProjectRuleSchema schemaState projectContext moduleContext -> RunnableProjectVisitor projectContext moduleContext
 fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
-    { initialProjectContext = schema.initialProjectContext
+    { name = schema.name
+    , initialProjectContext = schema.initialProjectContext
     , elmJsonVisitors = List.reverse schema.elmJsonVisitors
     , readmeVisitors = List.reverse schema.readmeVisitors
     , directDependenciesVisitors = List.reverse schema.directDependenciesVisitors
@@ -3998,7 +3997,8 @@ filterErrorsForFiles condition (Rule rule) =
 
 
 type alias RunnableProjectVisitor projectContext moduleContext =
-    { initialProjectContext : projectContext
+    { name : String
+    , initialProjectContext : projectContext
     , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
     , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
     , directDependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
@@ -4062,14 +4062,13 @@ type alias CacheEntryFor value projectContext =
 
 
 runProjectVisitor :
-    String
-    -> RunnableProjectVisitor projectContext moduleContext
+    RunnableProjectVisitor projectContext moduleContext
     -> Maybe (ProjectRuleCache projectContext)
     -> Exceptions
     -> Project
     -> List (Graph.NodeContext ModuleName ())
     -> { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
-runProjectVisitor name projectVisitor maybePreviousCache exceptions project nodeContexts =
+runProjectVisitor projectVisitor maybePreviousCache exceptions project nodeContexts =
     -- IGNORE TCO
     let
         ( cacheWithInitialContext, hasInitialContextChanged ) =
@@ -4143,10 +4142,10 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
         errors =
             Exceptions.apply exceptions (accessInternalError >> .filePath) (errorsFromCache newCache)
     in
-    { errors = List.map (setRuleName name) errors
+    { errors = List.map (setRuleName projectVisitor.name) errors
     , rule =
         Rule
-            { name = name
+            { name = projectVisitor.name
             , exceptions = exceptions
             , requestedData = projectVisitor.requestedData
             , ruleImplementation =
@@ -4155,7 +4154,6 @@ runProjectVisitor name projectVisitor maybePreviousCache exceptions project node
                         result : { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
                         result =
                             runProjectVisitor
-                                name
                                 projectVisitor
                                 (Just newCache)
                                 newExceptions
