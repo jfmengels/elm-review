@@ -6187,58 +6187,74 @@ registerImportExposed import_ innerContext =
                     in
                     { innerContext
                         | importedFunctions = importedFunctions
-                        , importedTypes = Dict.union innerContext.importedTypes importedTypes
+                        , importedTypes = importedTypes
                     }
 
                 Exposing.Explicit topLevelExposeList ->
                     let
-                        exposedValues : Dict String ModuleName
-                        exposedValues =
-                            topLevelExposeList
-                                |> ListExtra.fastConcatMap (valuesFromExposingList module_)
-                                |> List.map (\name -> ( name, moduleName ))
-                                |> Dict.fromList
+                        importedFunctions : Dict String ModuleName
+                        importedFunctions =
+                            valuesFromExposingList
+                                moduleName
+                                module_
+                                topLevelExposeList
+                                innerContext.importedFunctions
 
-                        exposedTypes : Dict String ModuleName
-                        exposedTypes =
+                        importedTypes : Dict String ModuleName
+                        importedTypes =
                             topLevelExposeList
                                 |> List.filterMap typesFromExposingList
-                                |> List.map (\name -> ( name, moduleName ))
-                                |> Dict.fromList
+                                |> List.foldl (\name acc -> Dict.insert name moduleName acc) innerContext.importedTypes
                     in
                     { innerContext
-                        | importedFunctions = Dict.union exposedValues innerContext.importedFunctions
-                        , importedTypes = Dict.union innerContext.importedTypes exposedTypes
+                        | importedFunctions = importedFunctions
+                        , importedTypes = importedTypes
                     }
 
 
-valuesFromExposingList : Elm.Docs.Module -> Node TopLevelExpose -> List String
-valuesFromExposingList module_ topLevelExpose =
-    case Node.value topLevelExpose of
-        Exposing.InfixExpose operator ->
-            [ operator ]
+valuesFromExposingList : ModuleName -> Elm.Docs.Module -> List (Node TopLevelExpose) -> Dict String ModuleName -> Dict String ModuleName
+valuesFromExposingList moduleName module_ topLevelExposeList acc =
+    case topLevelExposeList of
+        [] ->
+            acc
 
-        Exposing.FunctionExpose function ->
-            [ function ]
+        topLevelExpose :: rest ->
+            case Node.value topLevelExpose of
+                Exposing.InfixExpose operator ->
+                    valuesFromExposingList moduleName module_ rest (Dict.insert operator moduleName acc)
 
-        Exposing.TypeOrAliasExpose name ->
-            if List.any (\alias -> alias.name == name) module_.aliases then
-                [ name ]
+                Exposing.FunctionExpose function ->
+                    valuesFromExposingList moduleName module_ rest (Dict.insert function moduleName acc)
 
-            else
-                -- Type is a custom type
-                []
+                Exposing.TypeOrAliasExpose name ->
+                    if List.any (\alias -> alias.name == name) module_.aliases then
+                        valuesFromExposingList moduleName module_ rest (Dict.insert name moduleName acc)
 
-        Exposing.TypeExpose { name, open } ->
-            case open of
-                Just _ ->
-                    module_.unions
-                        |> List.filter (\union -> union.name == name)
-                        |> ListExtra.fastConcatMap .tags
-                        |> List.map Tuple.first
+                    else
+                        -- Type is a custom type
+                        valuesFromExposingList moduleName module_ rest acc
 
-                Nothing ->
-                    []
+                Exposing.TypeExpose { name, open } ->
+                    case open of
+                        Just _ ->
+                            let
+                                newAcc : Dict String ModuleName
+                                newAcc =
+                                    List.foldl
+                                        (\union subAcc ->
+                                            if union.name == name then
+                                                List.foldl (\( tag, _ ) subSubAcc -> Dict.insert tag moduleName subSubAcc) subAcc union.tags
+
+                                            else
+                                                subAcc
+                                        )
+                                        acc
+                                        module_.unions
+                            in
+                            valuesFromExposingList moduleName module_ rest newAcc
+
+                        Nothing ->
+                            valuesFromExposingList moduleName module_ rest acc
 
 
 typesFromExposingList : Node TopLevelExpose -> Maybe String
