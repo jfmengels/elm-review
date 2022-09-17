@@ -815,7 +815,7 @@ runRules rules project nodeContexts =
                 ( ruleErrors, ruleWithCache ) =
                     ruleImplementation exceptions project nodeContexts
             in
-            ( List.append (List.map removeErrorPhantomType ruleErrors) errors
+            ( ListExtra.orderIndependentAppend (List.map removeErrorPhantomType ruleErrors) errors
             , ruleWithCache :: previousRules
             )
         )
@@ -4912,7 +4912,7 @@ visitCaseBranch expressionRelatedVisitors caseBlockWithRange (( _, caseExpressio
 -}
 makeFinalEvaluation : List (context -> List (Error {})) -> ( List (Error {}), context ) -> List (Error {})
 makeFinalEvaluation finalEvaluationFns ( previousErrors, context ) =
-    List.append
+    ListExtra.orderIndependentAppend
         (ListExtra.fastConcatMap
             (\visitor -> visitor context)
             finalEvaluationFns
@@ -5132,7 +5132,7 @@ accumulate visitor ( previousErrors, previousContext ) =
         ( newErrors, newContext ) =
             visitor previousContext
     in
-    ( List.append newErrors previousErrors, newContext )
+    ( ListExtra.orderIndependentAppend newErrors previousErrors, newContext )
 
 
 
@@ -6384,12 +6384,12 @@ collectNamesFromPatternHelp patternsToVisit acc =
                         (Node (Node.range pattern) name :: acc)
 
                 Pattern.NamedPattern _ subPatterns ->
-                    collectNamesFromPatternHelp (List.append subPatterns restOfPatternsToVisit) acc
+                    collectNamesFromPatternHelp (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit) acc
 
                 Pattern.RecordPattern names ->
                     collectNamesFromPatternHelp
                         restOfPatternsToVisit
-                        (List.append names acc)
+                        (ListExtra.orderIndependentAppend names acc)
 
                 Pattern.ParenthesizedPattern subPattern ->
                     collectNamesFromPatternHelp (subPattern :: restOfPatternsToVisit) acc
@@ -6398,13 +6398,13 @@ collectNamesFromPatternHelp patternsToVisit acc =
                     collectNamesFromPatternHelp (subPattern :: restOfPatternsToVisit) (alias :: acc)
 
                 Pattern.TuplePattern subPatterns ->
-                    collectNamesFromPatternHelp (List.append subPatterns restOfPatternsToVisit) acc
+                    collectNamesFromPatternHelp (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit) acc
 
                 Pattern.UnConsPattern left right ->
                     collectNamesFromPatternHelp (left :: right :: restOfPatternsToVisit) acc
 
                 Pattern.ListPattern subPatterns ->
-                    collectNamesFromPatternHelp (List.append subPatterns restOfPatternsToVisit) acc
+                    collectNamesFromPatternHelp (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit) acc
 
                 _ ->
                     collectNamesFromPatternHelp restOfPatternsToVisit acc
@@ -6426,14 +6426,14 @@ collectModuleNamesFromPatternHelp context patternsToVisit acc =
                 Pattern.NamedPattern { moduleName, name } subPatterns ->
                     collectModuleNamesFromPatternHelp
                         context
-                        (List.append subPatterns restOfPatternsToVisit)
+                        (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit)
                         (( Node.range pattern, moduleNameForValue context name moduleName ) :: acc)
 
                 Pattern.UnConsPattern left right ->
                     collectModuleNamesFromPatternHelp context (left :: right :: restOfPatternsToVisit) acc
 
                 Pattern.TuplePattern subPatterns ->
-                    collectModuleNamesFromPatternHelp context (List.append subPatterns restOfPatternsToVisit) acc
+                    collectModuleNamesFromPatternHelp context (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit) acc
 
                 Pattern.ParenthesizedPattern subPattern ->
                     collectModuleNamesFromPatternHelp context (subPattern :: restOfPatternsToVisit) acc
@@ -6442,7 +6442,7 @@ collectModuleNamesFromPatternHelp context patternsToVisit acc =
                     collectModuleNamesFromPatternHelp context (subPattern :: restOfPatternsToVisit) acc
 
                 Pattern.ListPattern subPatterns ->
-                    collectModuleNamesFromPatternHelp context (List.append subPatterns restOfPatternsToVisit) acc
+                    collectModuleNamesFromPatternHelp context (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit) acc
 
                 _ ->
                     collectModuleNamesFromPatternHelp context restOfPatternsToVisit acc
