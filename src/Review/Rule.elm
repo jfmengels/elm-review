@@ -5716,10 +5716,8 @@ scope_dependenciesVisitor dependencies innerContext =
         dependenciesModules : Dict String Elm.Docs.Module
         dependenciesModules =
             dependencies
-                |> Dict.values
-                |> ListExtra.fastConcatMap Review.Project.Dependency.modules
-                |> List.map (\dependencyModule -> ( dependencyModule.name, dependencyModule ))
-                |> Dict.fromList
+                |> Dict.foldl (\_ dep acc -> ListExtra.orderIndependentAppend (Review.Project.Dependency.modules dep) acc) []
+                |> List.foldl (\dependencyModule acc -> Dict.insert dependencyModule.name dependencyModule acc) Dict.empty
     in
     { innerContext | dependenciesModules = dependenciesModules }
 
