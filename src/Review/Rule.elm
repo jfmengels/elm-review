@@ -6528,15 +6528,23 @@ scope_expressionEnterVisitor node context =
                             (\declaration ->
                                 case Node.value declaration of
                                     Expression.LetFunction function ->
-                                        (function.signature
-                                            |> Maybe.map (Node.value >> .typeAnnotation >> collectModuleNamesFromTypeAnnotation newContext)
-                                            |> Maybe.withDefault []
-                                        )
-                                            ++ (function.declaration
+                                        let
+                                            declarationModuleNames : List ( Range, ModuleName )
+                                            declarationModuleNames =
+                                                function.declaration
                                                     |> Node.value
                                                     |> .arguments
                                                     |> ListExtra.fastConcatMap (collectModuleNamesFromPattern newContext)
-                                               )
+                                        in
+                                        case function.signature of
+                                            Just signature ->
+                                                collectModuleNamesFromTypeAnnotationHelp
+                                                    context
+                                                    [ (Node.value signature).typeAnnotation ]
+                                                    declarationModuleNames
+
+                                            Nothing ->
+                                                declarationModuleNames
 
                                     Expression.LetDestructuring pattern _ ->
                                         collectModuleNamesFromPattern newContext pattern
@@ -6551,16 +6559,17 @@ scope_expressionEnterVisitor node context =
                     List.map
                         (\( pattern, expression ) ->
                             ( expression
-                            , collectNamesFromPattern pattern
-                                |> List.map
-                                    (\node_ ->
-                                        ( Node.value node_
-                                        , { node = node_
-                                          , variableType = PatternVariable
-                                          }
-                                        )
-                                    )
-                                |> Dict.fromList
+                            , List.foldl
+                                (\node_ acc ->
+                                    Dict.insert
+                                        (Node.value node_)
+                                        { node = node_
+                                        , variableType = PatternVariable
+                                        }
+                                        acc
+                                )
+                                Dict.empty
+                                (collectNamesFromPattern pattern)
                             )
                         )
                         caseBlock.cases
