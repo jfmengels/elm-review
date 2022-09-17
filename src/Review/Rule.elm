@@ -6646,25 +6646,25 @@ collectModuleNamesFromTypeAnnotationHelp context typeAnnotationsToVisit acc =
                 TypeAnnotation.Typed (Node range ( moduleName, name )) args ->
                     collectModuleNamesFromTypeAnnotationHelp
                         context
-                        (args ++ remainingTypeAnnotationsToVisit)
+                        (ListExtra.orderIndependentAppend args remainingTypeAnnotationsToVisit)
                         (( range, moduleNameForType context name moduleName ) :: acc)
 
                 TypeAnnotation.Tupled nodes ->
                     collectModuleNamesFromTypeAnnotationHelp
                         context
-                        (nodes ++ remainingTypeAnnotationsToVisit)
+                        (ListExtra.orderIndependentAppend nodes remainingTypeAnnotationsToVisit)
                         acc
 
                 TypeAnnotation.Record fields ->
                     collectModuleNamesFromTypeAnnotationHelp
                         context
-                        (List.map (Node.value >> Tuple.second) fields ++ remainingTypeAnnotationsToVisit)
+                        (ListExtra.orderIndependentMapAppend (\field -> field |> Node.value |> Tuple.second) fields remainingTypeAnnotationsToVisit)
                         acc
 
                 TypeAnnotation.GenericRecord _ fields ->
                     collectModuleNamesFromTypeAnnotationHelp
                         context
-                        (List.map (Node.value >> Tuple.second) (Node.value fields) ++ remainingTypeAnnotationsToVisit)
+                        (ListExtra.orderIndependentMapAppend (\field -> field |> Node.value |> Tuple.second) (Node.value fields) remainingTypeAnnotationsToVisit)
                         acc
 
                 TypeAnnotation.FunctionTypeAnnotation left right ->
