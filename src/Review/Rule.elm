@@ -4912,11 +4912,9 @@ visitCaseBranch expressionRelatedVisitors caseBlockWithRange (( _, caseExpressio
 -}
 makeFinalEvaluation : List (context -> List (Error {})) -> ( List (Error {}), context ) -> List (Error {})
 makeFinalEvaluation finalEvaluationFns ( previousErrors, context ) =
-    ListExtra.orderIndependentAppend
-        (ListExtra.fastConcatMap
-            (\visitor -> visitor context)
-            finalEvaluationFns
-        )
+    ListExtra.orderIndependentConcatMapAppend
+        (\visitor -> visitor context)
+        finalEvaluationFns
         previousErrors
 
 
@@ -5023,7 +5021,7 @@ errorsFromFinalEvaluationForProject projectVisitor initialContext contextsPerMod
                 Nothing ->
                     initialContext
     in
-    ListExtra.fastConcatMap
+    ListExtra.orderIndependentConcatMap
         (\finalEvaluationFn -> finalEvaluationFn finalContext)
         projectVisitor.finalEvaluationFns
 
