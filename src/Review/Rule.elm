@@ -6374,59 +6374,69 @@ scope_declarationExitVisitor node context =
 
 parameters : List (Node Pattern) -> Dict String VariableInfo
 parameters patterns =
-    List.foldl
-        (\node acc ->
-            Dict.insert
-                (Node.value node)
-                { node = node
-                , variableType = FunctionParameter
-                }
-                acc
-        )
-        Dict.empty
-        (ListExtra.orderIndependentConcatMap collectNamesFromPattern patterns)
+    collectNamesFromPattern FunctionParameter patterns Dict.empty
 
 
-collectNamesFromPattern : Node Pattern -> List (Node String)
-collectNamesFromPattern pattern =
-    collectNamesFromPatternHelp [ pattern ] []
-
-
-collectNamesFromPatternHelp : List (Node Pattern) -> List (Node String) -> List (Node String)
-collectNamesFromPatternHelp patternsToVisit acc =
+collectNamesFromPattern : VariableType -> List (Node Pattern) -> Dict String VariableInfo -> Dict String VariableInfo
+collectNamesFromPattern variableType patternsToVisit acc =
     case patternsToVisit of
         pattern :: restOfPatternsToVisit ->
             case Node.value pattern of
                 Pattern.VarPattern name ->
-                    collectNamesFromPatternHelp
+                    collectNamesFromPattern variableType
                         restOfPatternsToVisit
-                        (Node (Node.range pattern) name :: acc)
+                        (Dict.insert
+                            name
+                            { node = Node (Node.range pattern) name
+                            , variableType = variableType
+                            }
+                            acc
+                        )
 
                 Pattern.NamedPattern _ subPatterns ->
-                    collectNamesFromPatternHelp (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit) acc
+                    collectNamesFromPattern variableType (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit) acc
 
                 Pattern.RecordPattern names ->
-                    collectNamesFromPatternHelp
+                    collectNamesFromPattern variableType
                         restOfPatternsToVisit
-                        (ListExtra.orderIndependentAppend names acc)
+                        (List.foldl
+                            (\nameNode subAcc ->
+                                Dict.insert
+                                    (Node.value nameNode)
+                                    { node = nameNode
+                                    , variableType = variableType
+                                    }
+                                    subAcc
+                            )
+                            acc
+                            names
+                        )
 
                 Pattern.ParenthesizedPattern subPattern ->
-                    collectNamesFromPatternHelp (subPattern :: restOfPatternsToVisit) acc
+                    collectNamesFromPattern variableType (subPattern :: restOfPatternsToVisit) acc
 
                 Pattern.AsPattern subPattern alias ->
-                    collectNamesFromPatternHelp (subPattern :: restOfPatternsToVisit) (alias :: acc)
+                    collectNamesFromPattern variableType
+                        (subPattern :: restOfPatternsToVisit)
+                        (Dict.insert
+                            (Node.value alias)
+                            { node = alias
+                            , variableType = variableType
+                            }
+                            acc
+                        )
 
                 Pattern.TuplePattern subPatterns ->
-                    collectNamesFromPatternHelp (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit) acc
+                    collectNamesFromPattern variableType (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit) acc
 
                 Pattern.UnConsPattern left right ->
-                    collectNamesFromPatternHelp (left :: right :: restOfPatternsToVisit) acc
+                    collectNamesFromPattern variableType (left :: right :: restOfPatternsToVisit) acc
 
                 Pattern.ListPattern subPatterns ->
-                    collectNamesFromPatternHelp (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit) acc
+                    collectNamesFromPattern variableType (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit) acc
 
                 _ ->
-                    collectNamesFromPatternHelp restOfPatternsToVisit acc
+                    collectNamesFromPattern variableType restOfPatternsToVisit acc
 
         [] ->
             acc
@@ -6572,17 +6582,7 @@ scope_expressionEnterVisitor node context =
                     List.map
                         (\( pattern, expression ) ->
                             ( expression
-                            , List.foldl
-                                (\node_ acc ->
-                                    Dict.insert
-                                        (Node.value node_)
-                                        { node = node_
-                                        , variableType = PatternVariable
-                                        }
-                                        acc
-                                )
-                                Dict.empty
-                                (collectNamesFromPattern pattern)
+                            , collectNamesFromPattern PatternVariable [ pattern ] Dict.empty
                             )
                         )
                         caseBlock.cases
