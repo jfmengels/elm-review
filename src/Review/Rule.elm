@@ -6329,7 +6329,13 @@ scope_declarationEnterVisitor node context =
             { context
                 | lookupTable =
                     ModuleNameLookupTableInternal.addMultiple
-                        (constructors |> ListExtra.orderIndependentConcatMap (Node.value >> .arguments) |> ListExtra.orderIndependentConcatMap (collectModuleNamesFromTypeAnnotation context))
+                        (List.foldl
+                            (\(Node _ constructor) acc ->
+                                collectModuleNamesFromTypeAnnotationHelp context constructor.arguments acc
+                            )
+                            []
+                            constructors
+                        )
                         context.lookupTable
             }
 
@@ -6343,14 +6349,10 @@ scope_declarationEnterVisitor node context =
 
         Declaration.PortDeclaration signature ->
             let
-                moduleNamesFromSignature : List ( Range, ModuleName )
-                moduleNamesFromSignature =
-                    collectModuleNamesFromTypeAnnotation context signature.typeAnnotation
-
                 lookupTable : ModuleNameLookupTable
                 lookupTable =
                     ModuleNameLookupTableInternal.addMultiple
-                        moduleNamesFromSignature
+                        (collectModuleNamesFromTypeAnnotation context signature.typeAnnotation)
                         context.lookupTable
             in
             { context | lookupTable = lookupTable }
