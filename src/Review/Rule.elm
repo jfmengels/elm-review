@@ -1912,12 +1912,12 @@ withFinalProjectEvaluation :
     -> ProjectRuleSchema schemaState projectContext moduleContext
 withFinalProjectEvaluation visitor (ProjectRuleSchema schema) =
     let
-        removeErrorPhantomTypeFromEvaluation : (projectContext -> List (Error b)) -> (projectContext -> List (Error {}))
-        removeErrorPhantomTypeFromEvaluation function projectContext =
-            function projectContext
-                |> List.map removeErrorPhantomType
+        removeErrorPhantomTypeFromEvaluation : projectContext -> List (Error {})
+        removeErrorPhantomTypeFromEvaluation projectContext =
+            visitor projectContext
+                |> ListExtra.orderIndependentMap removeErrorPhantomType
     in
-    ProjectRuleSchema { schema | finalEvaluationFns = removeErrorPhantomTypeFromEvaluation visitor :: schema.finalEvaluationFns }
+    ProjectRuleSchema { schema | finalEvaluationFns = removeErrorPhantomTypeFromEvaluation :: schema.finalEvaluationFns }
 
 
 type Extract
