@@ -808,10 +808,10 @@ duplicateModulesGlobalError duplicate =
 runRules : List Rule -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), List Rule )
 runRules rules project nodeContexts =
     List.foldl
-        (\(Rule { exceptions, ruleImplementation }) ( errors, previousRules ) ->
+        (\rule ( errors, previousRules ) ->
             let
                 ( ruleErrors, ruleWithCache ) =
-                    ruleImplementation exceptions project nodeContexts
+                    runRule rule project nodeContexts
             in
             ( ListExtra.orderIndependentMapAppend removeErrorPhantomType ruleErrors errors
             , ruleWithCache :: previousRules
@@ -819,6 +819,11 @@ runRules rules project nodeContexts =
         )
         ( [], [] )
         rules
+
+
+runRule : Rule -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
+runRule (Rule { exceptions, ruleImplementation }) project nodeContexts =
+    ruleImplementation exceptions project nodeContexts
 
 
 duplicateModuleNames : Dict ModuleName String -> List ProjectModule -> Maybe { moduleName : ModuleName, paths : List String }
