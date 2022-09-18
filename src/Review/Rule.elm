@@ -320,9 +320,13 @@ type Rule
         { name : String
         , exceptions : Exceptions
         , requestedData : RequestedData
-        , ruleImplementation : Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> ( List (Error {}), Rule )
+        , ruleImplementation : Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> RuleImplementationResult
         , configurationError : Maybe { message : String, details : List String }
         }
+
+
+type alias RuleImplementationResult =
+    ( List (Error {}), Rule )
 
 
 {-| Represents a schema for a module [`Rule`](#Rule).
