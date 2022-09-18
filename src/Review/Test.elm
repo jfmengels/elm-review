@@ -1,9 +1,12 @@
 module Review.Test exposing
     ( ReviewResult, run, runWithProjectData, runOnModules, runOnModulesWithProjectData
     , ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme
-    , expectGlobalErrors, expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
+    , expectGlobalErrors
     , expectConfigurationError
     , expectDataExtract
+    , expect, ReviewExpectation
+    , moduleErrors, globalErrors, elmJsonErrors, readmeErrors, dataExtract
+    , expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
     )
 
 {-| Module that helps you test your rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/).
@@ -102,9 +105,20 @@ for this module.
 # Making assertions
 
 @docs ExpectedError, expectNoErrors, expectErrors, error, atExactly, whenFixed, expectErrorsForModules, expectErrorsForElmJson, expectErrorsForReadme
-@docs expectGlobalErrors, expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
+@docs expectGlobalErrors
 @docs expectConfigurationError
 @docs expectDataExtract
+
+
+## Composite assertions
+
+@docs expect, ReviewExpectation
+@docs moduleErrors, globalErrors, elmJsonErrors, readmeErrors, dataExtract
+
+
+# Deprecated
+
+@docs expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
 
 -}
 
@@ -427,8 +441,8 @@ runOnModulesWithProjectDataHelp project rule sources =
                                     RuleHasNoExtractor
                         in
                         case ListExtra.find (\err -> Rule.errorTarget err == Error.Global) errors of
-                            Just globalError ->
-                                FailedRun <| FailureMessage.globalErrorInTest globalError
+                            Just globalError_ ->
+                                FailedRun <| FailureMessage.globalErrorInTest globalError_
 
                             Nothing ->
                                 let
@@ -440,13 +454,13 @@ runOnModulesWithProjectDataHelp project rule sources =
                                             , readmeRunResult errors projectWithModules
                                             ]
 
-                                    globalErrors : List GlobalError
-                                    globalErrors =
+                                    foundGlobalErrors : List GlobalError
+                                    foundGlobalErrors =
                                         errors
                                             |> List.filter (\error_ -> Rule.errorTarget error_ == Error.UserGlobal)
                                             |> List.map (\error_ -> { message = Rule.errorMessage error_, details = Rule.errorDetails error_ })
                                 in
-                                SuccessfulRun globalErrors fileErrors extract
+                                SuccessfulRun foundGlobalErrors fileErrors extract
 
 
 hasOneElement : List a -> Bool
@@ -496,14 +510,14 @@ elmJsonRunResult errors project =
 readmeRunResult : List ReviewError -> Project -> List SuccessfulRunResult
 readmeRunResult errors project =
     case Project.readme project of
-        Just readme ->
-            case List.filter (\error_ -> Rule.errorFilePath error_ == readme.path) errors of
+        Just projectReadme ->
+            case List.filter (\error_ -> Rule.errorFilePath error_ == projectReadme.path) errors of
                 [] ->
                     []
 
                 errorsForReadme ->
-                    [ { moduleName = readme.path
-                      , inspector = codeInspectorForSource False readme.content
+                    [ { moduleName = projectReadme.path
+                      , inspector = codeInspectorForSource False projectReadme.content
                       , errors = errorsForReadme
                       }
                     ]
@@ -637,12 +651,12 @@ expectNoErrors reviewResult =
 
 
 expectNoGlobalErrors : List GlobalError -> Expectation
-expectNoGlobalErrors globalErrors =
-    if List.isEmpty globalErrors then
+expectNoGlobalErrors foundGlobalErrors =
+    if List.isEmpty foundGlobalErrors then
         Expect.pass
 
     else
-        Expect.fail <| FailureMessage.didNotExpectGlobalErrors globalErrors
+        Expect.fail <| FailureMessage.didNotExpectGlobalErrors foundGlobalErrors
 
 
 expectNoModuleErrors : List SuccessfulRunResult -> Expectation
@@ -708,6 +722,8 @@ to create the test. When using those, the errors you expect need to be associate
 with a module. If we don't specify this, your tests might pass because you
 expected the right errors, but they may be reported for the wrong module!
 
+If you expect the rule to report other kinds of errors or extract data, then you should use the [`Review.Test.expect`](#expect) and [`moduleErrors`](#moduleErrors) functions.
+
 The expected errors are tupled: the first element is the module name
 (for example: `List` or `My.Module.Name`) and the second element is the list of
 errors you expect to be reported.
@@ -751,7 +767,9 @@ expectErrorsForModules expectedErrorsList reviewResult =
         reviewResult
 
 
-{-| Assert that the rule reported some [global errors](./Review-Rule#globalError) and [local](./Review-Test#ExpectedError) errors, by specifying which ones.
+{-| **@deprecated** Use [`Review.Test.expect`](#expect) instead.
+
+Assert that the rule reported some [global errors](./Review-Rule#globalError) and [local](./Review-Test#ExpectedError) errors, by specifying which ones.
 
 Use this function when you expect both local and global errors for a particular test, and when you are using [`run`](#run) or [`runWithProjectData`](#runWithProjectData).
 When using [`runOnModules`](#runOnModules) or [`runOnModulesWithProjectData`](#runOnModulesWithProjectData), use [`expectGlobalAndModuleErrors`](#expectGlobalAndModuleErrors) instead.
@@ -770,14 +788,14 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun globalErrors runResults extract ->
+        SuccessfulRun foundGlobalErrors runResults extract ->
             Expect.all
                 [ \() ->
                     if List.isEmpty global then
-                        expectNoGlobalErrors globalErrors
+                        expectNoGlobalErrors foundGlobalErrors
 
                     else
-                        checkAllGlobalErrorsMatch (List.length global) { expected = global, actual = globalErrors }
+                        checkAllGlobalErrorsMatch (List.length global) { expected = global, actual = foundGlobalErrors }
                 , \() ->
                     if List.isEmpty local then
                         expectNoModuleErrors runResults
@@ -789,12 +807,14 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
 
                             _ ->
                                 Expect.fail FailureMessage.needToUsedExpectErrorsForModules
-                , \() -> expectNoExtract extract
+                , \() -> expectNoDataExtract extract
                 ]
                 ()
 
 
-{-| Assert that the rule reported some errors for modules and global errors, by specifying which ones.
+{-| **@deprecated** Use [`Review.Test.expect`](#expect) instead.
+
+Assert that the rule reported some errors for modules and global errors, by specifying which ones.
 
 Use this function when you expect both local and global errors for a particular test, and when you are using [`runOnModules`](#runOnModules) or [`runOnModulesWithProjectData`](#runOnModulesWithProjectData).
 When using[`run`](#run) or [`runWithProjectData`](#runWithProjectData), use [`expectGlobalAndLocalErrors`](#expectGlobalAndLocalErrors) instead.
@@ -813,16 +833,16 @@ expectGlobalAndModuleErrors { global, modules } reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun globalErrors runResults extract ->
+        SuccessfulRun foundGlobalErrors runResults extract ->
             Expect.all
                 [ \() ->
                     if List.isEmpty global then
-                        expectNoGlobalErrors globalErrors
+                        expectNoGlobalErrors foundGlobalErrors
 
                     else
-                        checkAllGlobalErrorsMatch (List.length global) { expected = global, actual = globalErrors }
+                        checkAllGlobalErrorsMatch (List.length global) { expected = global, actual = foundGlobalErrors }
                 , \() -> expectErrorsForModulesHelp modules runResults
-                , \() -> expectNoExtract extract
+                , \() -> expectNoDataExtract extract
                 ]
                 ()
 
@@ -872,6 +892,8 @@ expectErrorsForModuleFiles expectedErrorsList runResults =
 
 {-| Assert that the rule reported some errors for the `elm.json` file, by specifying which ones.
 
+If you expect the rule to report other kinds of errors or extract data, then you should use the [`Review.Test.expect`](#expect) and [`elmJsonErrors`](#elmJsonErrors) functions.
+
     test "report an error when a module is unused" <|
         \() ->
             let
@@ -892,15 +914,6 @@ expectErrorsForModuleFiles expectedErrorsList runResults =
                         }
                     ]
 
-Alternatively, or if you need to specify errors for other files too, you can use [`expectErrorsForModules`](#expectErrorsForModules), specifying `"elm.json"` as the module name.
-
-    sourceCode
-        |> Review.Test.runOnModulesWithProjectData project rule
-        |> Review.Test.expectErrorsForModules
-            [ ( "ModuleB", [ Review.Test.error someErrorModuleB ] )
-            , ( "elm.json", [ Review.Test.error someErrorForElmJson ] )
-            ]
-
 Assert which errors are reported using [`error`](#error). The test will fail if
 a different number of errors than expected are reported, or if the message or the
 location is incorrect.
@@ -912,6 +925,8 @@ expectErrorsForElmJson expectedErrors reviewResult =
 
 
 {-| Assert that the rule reported some [global errors](./Review-Rule#globalError), by specifying which ones.
+
+If you expect the rule to report other kinds of errors or extract data, then you should use the [`Review.Test.expect`](#expect) and [`globalErrors`](#globalErrors) functions.
 
 Assert which errors are reported using records with the expected message and details. The test will fail if
 a different number of errors than expected are reported, or if the message or details is incorrect.
@@ -949,6 +964,8 @@ expectGlobalErrors expectedErrors reviewResult =
 
 {-| Assert that the rule reported some errors for the `README.md` file, by specifying which ones.
 
+If you expect the rule to report other kinds of errors or extract data, then you should use the [`Review.Test.expect`](#expect) and [`readmeErrors`](#readmeErrors) functions.
+
     test "report an error when a module is unused" <|
         \() ->
             let
@@ -968,15 +985,6 @@ expectGlobalErrors expectedErrors reviewResult =
                         , under = "htt://example.com"
                         }
                     ]
-
-Alternatively, or if you need to specify errors for other files too, you can use [`expectErrorsForModules`](#expectErrorsForModules), specifying `"README.md"` as the module name.
-
-    sourceCode
-        |> Review.Test.runOnModulesWithProjectData project rule
-        |> Review.Test.expectErrorsForModules
-            [ ( "ModuleB", [ Review.Test.error someErrorModuleB ] )
-            , ( "README.md", [ Review.Test.error someErrorForReadme ] )
-            ]
 
 Assert which errors are reported using [`error`](#error). The test will fail if
 a different number of errors than expected are reported, or if the message or the
@@ -1566,8 +1574,8 @@ expectConfigurationErrorDetailsMatch expectedError configurationError =
         Expect.pass
 
 
-expectNoExtract : ExtractResult -> Expectation
-expectNoExtract maybeExtract =
+expectNoDataExtract : ExtractResult -> Expectation
+expectNoDataExtract maybeExtract =
     case maybeExtract of
         Extracted (Just _) ->
             Expect.fail FailureMessage.needToUsedExpectErrorsForModules
@@ -1580,6 +1588,8 @@ expectNoExtract maybeExtract =
 
 
 {-| Expect the rule to produce a specific data extract.
+
+If you expect the rule to also report errors, then you should use the [`Review.Test.expect`](#expect) and [`dataExtract`](#dataExtract) functions.
 
 Note: You do not need to match the exact formatting of the JSON object, though the order of fields does need to match.
 
@@ -1611,9 +1621,9 @@ expectDataExtract expectedExtract reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun globalErrors runResults extract ->
+        SuccessfulRun foundGlobalErrors runResults extract ->
             Expect.all
-                [ \() -> expectNoGlobalErrors globalErrors
+                [ \() -> expectNoGlobalErrors foundGlobalErrors
                 , \() -> expectNoModuleErrors runResults
                 , \() -> expectDataExtractContent expectedExtract extract
                 ]
@@ -1645,6 +1655,324 @@ expectDataExtractContent rawExpected maybeActualExtract =
 
                     else
                         Expect.pass
+
+
+{-| Expectation of something that the rule will report or do.
+
+Check out the functions below to create these, and then pass them to [`Review.Test.expect`](#expect).
+
+-}
+type ReviewExpectation
+    = FileErrorExpectation String (List ExpectedError)
+    | GlobalErrorExpectation (List { message : String, details : List String })
+    | DataExtractExpectation String
+
+
+type CompiledDataExtract
+    = NoDataExtractExpected
+    | DataExtractExpected String
+    | MultipleDataExtractExpected
+
+
+type alias CompiledExpectations =
+    { globals : List { message : String, details : List String }
+    , modules : List ( String, List ExpectedError )
+    , dataExtract : CompiledDataExtract
+    }
+
+
+{-| Expect multiple outputs for tests.
+
+Functions such as [`expectErrors`](#expectErrors) and [`expectGlobalErrors`](#expectGlobalErrors) work well, but
+in some situations a rule will report multiple things: module errors, global errors, errors for `elm.json` or the
+README, or even extract data.
+
+When you have multiple expectations to make for a module, use this function.
+
+    import Review.Test
+    import Test exposing (Test, describe, test)
+    import The.Rule.You.Want.To.Test exposing (rule)
+
+    tests : Test
+    tests =
+        describe "The.Rule.You.Want.To.Test"
+            [ test "should ..." <|
+                \() ->
+                    [ """module A.B exposing (..)
+    import B
+    a = 1
+    b = 2
+    c = 3
+    """
+                    , """module B exposing (..)
+    x = 1
+    y = 2
+    z = 3
+    """
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expect
+                            [ Review.Test.globalErrors [ { message = "message", details = [ "details" ] } ]
+                            , Review.Test.moduleErrors "A.B" [ { message = "message", details = [ "details" ] } ]
+                            , Review.Test.dataExtract """
+    {
+        "foo": "bar",
+        "other": [ 1, 2, 3 ]
+    }"""
+                            ]
+            ]
+
+-}
+expect : List ReviewExpectation -> ReviewResult -> Expectation
+expect expectations reviewResult =
+    case reviewResult of
+        ConfigurationError configurationError ->
+            Expect.fail (FailureMessage.unexpectedConfigurationError configurationError)
+
+        FailedRun errorMessage ->
+            Expect.fail errorMessage
+
+        SuccessfulRun foundGlobalErrors runResults extract ->
+            let
+                expected : CompiledExpectations
+                expected =
+                    compileExpectations expectations
+            in
+            Expect.all
+                [ \() ->
+                    if List.isEmpty expected.globals then
+                        expectNoGlobalErrors foundGlobalErrors
+
+                    else
+                        checkAllGlobalErrorsMatch (List.length expected.globals) { expected = expected.globals, actual = foundGlobalErrors }
+                , \() -> expectErrorsForModulesHelp expected.modules runResults
+                , \() ->
+                    case expected.dataExtract of
+                        NoDataExtractExpected ->
+                            expectNoDataExtract extract
+
+                        DataExtractExpected string ->
+                            expectDataExtractContent string extract
+
+                        MultipleDataExtractExpected ->
+                            Expect.fail FailureMessage.specifiedMultipleExtracts
+                ]
+                ()
+
+
+compileExpectations : List ReviewExpectation -> CompiledExpectations
+compileExpectations expectations =
+    List.foldl
+        (\expectation acc ->
+            case expectation of
+                GlobalErrorExpectation globals ->
+                    { acc | globals = globals ++ acc.globals }
+
+                FileErrorExpectation moduleName errors ->
+                    { acc | modules = ( moduleName, errors ) :: acc.modules }
+
+                DataExtractExpectation string ->
+                    { acc
+                        | dataExtract =
+                            case acc.dataExtract of
+                                NoDataExtractExpected ->
+                                    DataExtractExpected string
+
+                                DataExtractExpected _ ->
+                                    MultipleDataExtractExpected
+
+                                MultipleDataExtractExpected ->
+                                    MultipleDataExtractExpected
+                    }
+        )
+        { globals = [], modules = [], dataExtract = NoDataExtractExpected }
+        expectations
+
+
+{-| Assert that the rule reported some [global errors](./Review-Rule#globalError), by specifying which ones. To be used along with [`Review.Test.expect`](#expect).
+
+If you expect only global errors, then you may want to use [`expectGlobalErrors`](#expectGlobalErrors) which is simpler.
+
+Assert which errors are reported using records with the expected message and details. The test will fail if
+a different number of errors than expected are reported, or if the message or details is incorrect.
+
+    import Review.Test
+    import Test exposing (Test, test)
+    import The.Rule.You.Want.To.Test exposing (rule)
+
+    someTest : Test
+    someTest =
+        test "should report a global error when the specified module could not be found" <|
+            \() ->
+                """
+    module ModuleA exposing (a)
+    a = 1"""
+                    |> Review.Test.run (rule "ModuleB")
+                    |> Review.Test.expect
+                        [ Review.Test.globalErrors
+                            [ { message = "Could not find module ModuleB"
+                              , details =
+                                    [ "You mentioned the module ModuleB in the configuration of this rule, but it could not be found."
+                                    , "This likely means you misconfigured the rule or the configuration has become out of date with recent changes in your project."
+                                    ]
+                              }
+                            ]
+                        ]
+
+-}
+globalErrors : List { message : String, details : List String } -> ReviewExpectation
+globalErrors expected =
+    GlobalErrorExpectation expected
+
+
+{-| Assert that the rule reported some errors for modules, by specifying which ones. To be used along with [`Review.Test.expect`](#expect).
+
+If you expect only module errors, then you may want to use [`expectErrorsForModules`](#expectErrorsForModules) which is simpler.
+
+    test "report an error when a module is unused" <|
+        \() ->
+            [ """
+    module ModuleA exposing (a)
+    a = 1""", """
+    module ModuleB exposing (a)
+    a = Debug.log "log" 1""" ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.expect
+                    [ Review.Test.moduleErrors "ModuleB"
+                        [ Review.Test.error
+                            { message = "Remove the use of `Debug` before shipping to production"
+                            , details = [ "Details about the error" ]
+                            , under = "Debug.log"
+                            }
+                        ]
+                    ]
+
+Assert which errors are reported using [`error`](#error). The test will fail if
+a different number of errors than expected are reported, or if the message or the
+location is incorrect.
+
+-}
+moduleErrors : String -> List ExpectedError -> ReviewExpectation
+moduleErrors moduleName expected =
+    FileErrorExpectation moduleName expected
+
+
+{-| Assert that the rule reported some errors for the `elm.json` file, by specifying which ones. To be used along with [`Review.Test.expect`](#expect).
+
+If you expect only errors for `elm.json`, then you may want to use [`expectErrorsForElmJson`](#expectErrorsForElmJson) which is simpler.
+
+    test "report an error when a module is unused" <|
+        \() ->
+            let
+                project : Project
+                project =
+                    Project.new
+                        |> Project.addElmJson elmJsonToConstructManually
+            in
+            """
+    module ModuleA exposing (a)
+    a = 1"""
+                |> Review.Test.runWithProjectData project rule
+                |> Review.Test.expect
+                    [ Review.Test.elmJson
+                        [ Review.Test.error
+                            { message = "Unused dependency `author/package`"
+                            , details = [ "Dependency should be removed" ]
+                            , under = "author/package"
+                            }
+                        ]
+                    ]
+
+Assert which errors are reported using [`error`](#error). The test will fail if
+a different number of errors than expected are reported, or if the message or the
+location is incorrect.
+
+-}
+elmJsonErrors : List ExpectedError -> ReviewExpectation
+elmJsonErrors expected =
+    FileErrorExpectation "elm.json" expected
+
+
+{-| Assert that the rule reported some errors for the `README.md` file. To be used along with [`Review.Test.expect`](#expect).
+
+If you expect only errors for `README.md`, then you may want to use [`expectErrorsForReadme`](#expectErrorsForReadme) which is simpler.
+
+    import Review.Test
+    import Test exposing (Test, describe, test)
+    import The.Rule.You.Want.To.Test exposing (rule)
+
+    tests : Test
+    tests =
+        describe "The.Rule.You.Want.To.Test"
+            [ test "should extract even if there are errors" <|
+                \() ->
+                    let
+                        project : Project
+                        project =
+                            Project.new
+                                |> Project.addReadme { path = "README.md", context = "# Project\n..." }
+                    in
+                    """module ModuleA exposing (a)
+                    a = 1"""
+                        |> Review.Test.runWithProjectData project rule
+                        |> Review.Test.expect
+                            [ Review.Test.readme
+                                [ Review.Test.error
+                                    { message = "Invalid link"
+                                    , details = [ "README contains an invalid link" ]
+                                    , under = "htt://example.com"
+                                    }
+                                ]
+                            ]
+            ]
+
+-}
+readmeErrors : List ExpectedError -> ReviewExpectation
+readmeErrors expected =
+    FileErrorExpectation "README.md" expected
+
+
+{-| Expect the rule to produce a specific data extract. To be used along with [`Review.Test.expect`](#expect).
+
+If you expect the rule not to report any errors, then you may want to use [`expectDataExtract`](#expectDataExtract) which is simpler.
+
+Note: You do not need to match the exact formatting of the JSON object, though the order of fields does need to match.
+
+    import Review.Test
+    import Test exposing (Test, describe, test)
+    import The.Rule.You.Want.To.Test exposing (rule)
+
+    tests : Test
+    tests =
+        describe "The.Rule.You.Want.To.Test"
+            [ test "should extract even if there are errors" <|
+                \() ->
+                    [ """module A.B exposing (..)
+    import B
+    a = 1
+    b = 2
+    c = 3
+    """
+                    , """module B exposing (..)
+    x = 1
+    y = 2
+    z = 3
+    """
+                    ]
+                        |> Review.Test.runOnModules rule
+                        |> Review.Test.expect
+                            [ Review.Test.dataExtract """
+    {
+        "foo": "bar",
+        "other": [ 1, 2, 3 ]
+    }"""
+                            ]
+            ]
+
+-}
+dataExtract : String -> ReviewExpectation
+dataExtract expectedDataExtract =
+    DataExtractExpectation expectedDataExtract
 
 
 containsDifferences : List (Diff.Change a) -> Bool

@@ -7,7 +7,7 @@ module Review.Test.FailureMessage exposing
     , didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
     , messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors
     , unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
-    , unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch
+    , unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch, specifiedMultipleExtracts
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -23,7 +23,7 @@ module Review.Test.FailureMessage exposing
 @docs didNotExpectGlobalErrors, expectedMoreGlobalErrors, fixedCodeWhitespaceMismatch, messageMismatchForConfigurationError
 @docs messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors
 @docs unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
-@docs unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch
+@docs unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch, specifiedMultipleExtracts
 
 -}
 
@@ -680,6 +680,15 @@ when I was expecting the following:
 Here are the differences:
 
 """ ++ formatJsonDiff differences)
+
+
+specifiedMultipleExtracts : String
+specifiedMultipleExtracts =
+    failureMessage "SPECIFIED MULTIPLE DATA EXTRACTS"
+        """You specified multiple expectations for a data extract. Contrary to errors,
+it is only possible to have a single data extract at most. Please remove
+expectations so that you end up with only a single expectation about the
+data extract."""
 
 
 formatJsonDiff : List (Diff.Change String) -> String
