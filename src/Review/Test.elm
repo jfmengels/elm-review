@@ -381,7 +381,7 @@ runOnModulesWithProjectDataHelp project rule sources =
                     , index = indexOf source sources |> Maybe.withDefault -1
                     }
             in
-            FailedRun <| FailureMessage.parsingFailure (List.length sources == 1) fileAndIndex
+            FailedRun <| FailureMessage.parsingFailure (hasOneElement sources) fileAndIndex
 
         [] ->
             let
@@ -426,6 +426,16 @@ runOnModulesWithProjectDataHelp project rule sources =
                                             |> List.map (\error_ -> { message = Rule.errorMessage error_, details = Rule.errorDetails error_ })
                                 in
                                 SuccessfulRun globalErrors fileErrors
+
+
+hasOneElement : List a -> Bool
+hasOneElement list =
+    case list of
+        [ _ ] ->
+            True
+
+        _ ->
+            False
 
 
 moduleToRunResult : List ReviewError -> ProjectModule -> SuccessfulRunResult
@@ -1142,7 +1152,7 @@ checkIfLocationIsAmbiguousInSourceCode sourceCode error_ under =
         occurrencesInSourceCode =
             String.indexes under sourceCode
     in
-    (List.length occurrencesInSourceCode == 1)
+    hasOneElement occurrencesInSourceCode
         |> Expect.true (FailureMessage.locationIsAmbiguousInSourceCode sourceCode error_ under occurrencesInSourceCode)
 
 
