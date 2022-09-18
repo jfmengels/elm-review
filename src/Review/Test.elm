@@ -4,6 +4,7 @@ module Review.Test exposing
     , expectGlobalErrors, expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
     , expectConfigurationError
     , expectDataExtract
+    , dataExtract, expectMultiple, globalError, moduleError
     )
 
 {-| Module that helps you test your rules, using [`elm-test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/).
@@ -427,8 +428,8 @@ runOnModulesWithProjectDataHelp project rule sources =
                                     RuleHasNoExtractor
                         in
                         case ListExtra.find (\err -> Rule.errorTarget err == Error.Global) errors of
-                            Just globalError ->
-                                FailedRun <| FailureMessage.globalErrorInTest globalError
+                            Just globalError_ ->
+                                FailedRun <| FailureMessage.globalErrorInTest globalError_
 
                             Nothing ->
                                 let
@@ -789,7 +790,7 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
 
                             _ ->
                                 Expect.fail FailureMessage.needToUsedExpectErrorsForModules
-                , \() -> expectNoExtract extract
+                , \() -> expectNoDataExtract extract
                 ]
                 ()
 
@@ -822,7 +823,7 @@ expectGlobalAndModuleErrors { global, modules } reviewResult =
                     else
                         checkAllGlobalErrorsMatch (List.length global) { expected = global, actual = globalErrors }
                 , \() -> expectErrorsForModulesHelp modules runResults
-                , \() -> expectNoExtract extract
+                , \() -> expectNoDataExtract extract
                 ]
                 ()
 
@@ -1559,8 +1560,8 @@ expectConfigurationErrorDetailsMatch expectedError configurationError =
         Expect.pass
 
 
-expectNoExtract : ExtractResult -> Expectation
-expectNoExtract maybeExtract =
+expectNoDataExtract : ExtractResult -> Expectation
+expectNoDataExtract maybeExtract =
     case maybeExtract of
         Extracted (Just _) ->
             Expect.fail FailureMessage.needToUsedExpectErrorsForModules
@@ -1615,6 +1616,106 @@ expectDataExtractContent rawExpected maybeActualExtract =
 
                     else
                         Expect.pass
+
+
+type ReviewExpectation
+    = ModuleErrorExpectation String (List ExpectedError)
+    | GlobalErrorExpectation (List { message : String, details : List String })
+    | DataExtractExpectation String
+
+
+type CompiledDataExtract
+    = NoDataExtractExpected
+    | DataExtractExpected String
+    | MultipleDataExtractExpected
+
+
+type alias CompiledExpectations =
+    { globals : List { message : String, details : List String }
+    , modules : List ( String, List ExpectedError )
+    , dataExtract : CompiledDataExtract
+    }
+
+
+expectMultiple : List ReviewExpectation -> ReviewResult -> Expectation
+expectMultiple expectations reviewResult =
+    case reviewResult of
+        ConfigurationError configurationError ->
+            Expect.fail (FailureMessage.unexpectedConfigurationError configurationError)
+
+        FailedRun errorMessage ->
+            Expect.fail errorMessage
+
+        SuccessfulRun globalErrors runResults extract ->
+            let
+                expected : CompiledExpectations
+                expected =
+                    compileExpectations expectations
+            in
+            Expect.all
+                [ \() ->
+                    if List.isEmpty expected.globals then
+                        expectNoGlobalErrors globalErrors
+
+                    else
+                        checkAllGlobalErrorsMatch (List.length expected.globals) { expected = expected.globals, actual = globalErrors }
+                , \() -> expectErrorsForModulesHelp expected.modules runResults
+                , \() ->
+                    case expected.dataExtract of
+                        NoDataExtractExpected ->
+                            expectNoDataExtract extract
+
+                        DataExtractExpected string ->
+                            expectDataExtractContent string extract
+
+                        MultipleDataExtractExpected ->
+                            Expect.fail FailureMessage.specifiedMultipleExtracts
+                ]
+                ()
+
+
+compileExpectations : List ReviewExpectation -> CompiledExpectations
+compileExpectations expectations =
+    List.foldl
+        (\expectation acc ->
+            case expectation of
+                GlobalErrorExpectation globals ->
+                    { acc | globals = globals ++ acc.globals }
+
+                ModuleErrorExpectation moduleName errors ->
+                    { acc | modules = ( moduleName, errors ) :: acc.modules }
+
+                DataExtractExpectation string ->
+                    { acc
+                        | dataExtract =
+                            case acc.dataExtract of
+                                NoDataExtractExpected ->
+                                    DataExtractExpected string
+
+                                DataExtractExpected _ ->
+                                    MultipleDataExtractExpected
+
+                                MultipleDataExtractExpected ->
+                                    MultipleDataExtractExpected
+                    }
+        )
+        { globals = [], modules = [], dataExtract = NoDataExtractExpected }
+        expectations
+
+
+globalError : List { message : String, details : List String } -> ReviewExpectation
+globalError expected =
+    GlobalErrorExpectation expected
+
+
+moduleError : String -> List ExpectedError -> ReviewExpectation
+moduleError moduleName expected =
+    ModuleErrorExpectation moduleName expected
+
+
+dataExtract : String -> ReviewExpectation
+dataExtract expectedDataExtract =
+    DataExtractExpectation expectedDataExtract
 
 
 containsDifferences : List (Diff.Change a) -> Bool
