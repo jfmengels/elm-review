@@ -32,7 +32,7 @@ import NoUnused.Parameters
 import NoUnused.Patterns
 import NoUnused.Variables
 import Review.Rule as Rule exposing (Rule)
-
+import NoUnused.CustomTypeConstructorArgs
 
 config : List Rule
 config =
@@ -56,6 +56,7 @@ config =
             [ "src/Review/Rule.elm"
             , "src/Review/Fix.elm"
             ]
+    , NoUnused.CustomTypeConstructorArgs.rule
     , NoUnused.CustomTypeConstructors.rule []
     , NoUnused.Dependencies.rule
     , NoUnused.Exports.rule
