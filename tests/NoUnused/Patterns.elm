@@ -6,6 +6,7 @@ module NoUnused.Patterns exposing (rule)
 
 -}
 
+import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
@@ -63,6 +64,7 @@ elm-review --template jfmengels/elm-review-unused/example --rules NoUnused.Patte
 rule : Rule
 rule =
     Rule.newModuleRuleSchema "NoUnused.Patterns" initialContext
+        |> Rule.withDeclarationEnterVisitor declarationEnterVisitor
         |> Rule.withExpressionEnterVisitor expressionEnterVisitor
         |> Rule.withExpressionExitVisitor expressionExitVisitor
         |> Rule.withCaseBranchEnterVisitor caseBranchEnterVisitor
@@ -105,7 +107,19 @@ initialContext =
 -- EXPRESSION ENTER VISITOR
 
 
-expressionEnterVisitor : Node Expression -> Context -> ( List nothing, Context )
+declarationEnterVisitor : Node Declaration -> Context -> ( List (Rule.Error {}), Context )
+declarationEnterVisitor node context =
+    case Node.value node of
+        Declaration.FunctionDeclaration { declaration } ->
+            ( findAsPatternsErrors (Node.value declaration).arguments []
+            , context
+            )
+
+        _ ->
+            ( [], context )
+
+
+expressionEnterVisitor : Node Expression -> Context -> ( List (Rule.Error {}), Context )
 expressionEnterVisitor node context =
     case Node.value node of
         Expression.LetExpression { declarations } ->
@@ -118,13 +132,25 @@ expressionEnterVisitor node context =
 
                         Expression.LetDestructuring pattern _ ->
                             findPatterns Destructuring pattern
+
+                asPatternsErrors : Node Expression.LetDeclaration -> List (Rule.Error {})
+                asPatternsErrors letDeclaration =
+                    case Node.value letDeclaration of
+                        Expression.LetFunction { declaration } ->
+                            findAsPatternsErrors (Node.value declaration).arguments []
+
+                        Expression.LetDestructuring _ _ ->
+                            []
             in
-            ( []
+            ( List.concatMap asPatternsErrors declarations
             , { declared = List.concatMap findPatternsInLetDeclaration declarations
               , used = Set.empty
               }
                 :: context
             )
+
+        Expression.LambdaExpression { args } ->
+            ( findAsPatternsErrors args [], context )
 
         _ ->
             ( [], context )
@@ -246,8 +272,7 @@ recordErrors context { fields, recordRange } =
                             _ ->
                                 ( Range.combine (List.map Node.range unused)
                                 , Node Range.emptyRange (Pattern.RecordPattern used)
-                                    |> Writer.writePattern
-                                    |> Writer.write
+                                    |> writePattern
                                     |> Fix.replaceRangeBy recordRange
                                 )
                 in
@@ -299,79 +324,109 @@ valueVisitor (Node _ ( moduleName, value )) context =
 
 
 findPatterns : PatternUse -> Node Pattern -> List FoundPattern
-findPatterns use (Node range pattern) =
-    case pattern of
-        Pattern.VarPattern name ->
-            [ SingleValue
-                { name = name
-                , message = "Value `" ++ name ++ "` is not used."
-                , details = singularReplaceDetails
-                , range = range
-                , fix = [ Fix.replaceRangeBy range "_" ]
-                }
-            ]
+findPatterns use pattern =
+    findPatternsHelp use [ pattern ] []
 
-        Pattern.TuplePattern [ Node _ Pattern.AllPattern, Node _ Pattern.AllPattern ] ->
-            [ SimplifiablePattern
-                (Rule.errorWithFix
-                    { message = "Tuple pattern is not needed"
-                    , details = redundantDetails
-                    }
-                    range
-                    [ Fix.replaceRangeBy range "_" ]
-                )
-            ]
 
-        Pattern.TuplePattern [ Node _ Pattern.AllPattern, Node _ Pattern.AllPattern, Node _ Pattern.AllPattern ] ->
-            [ SimplifiablePattern
-                (Rule.errorWithFix
-                    { message = "Tuple pattern is not needed"
-                    , details = redundantDetails
-                    }
-                    range
-                    [ Fix.replaceRangeBy range "_" ]
-                )
-            ]
+findPatternsHelp : PatternUse -> List (Node Pattern) -> List FoundPattern -> List FoundPattern
+findPatternsHelp use patterns acc =
+    case patterns of
+        [] ->
+            acc
 
-        Pattern.TuplePattern patterns ->
-            List.concatMap (findPatterns use) patterns
+        (Node range pattern) :: rest ->
+            case pattern of
+                Pattern.VarPattern name ->
+                    let
+                        foundPattern : FoundPattern
+                        foundPattern =
+                            SingleValue
+                                { name = name
+                                , message = "Value `" ++ name ++ "` is not used"
+                                , details = singularReplaceDetails
+                                , range = range
+                                , fix = [ Fix.replaceRangeBy range "_" ]
+                                }
+                    in
+                    findPatternsHelp use rest (foundPattern :: acc)
 
-        Pattern.RecordPattern fields ->
-            [ RecordPattern
-                { fields = fields
-                , recordRange = range
-                }
-            ]
+                Pattern.TuplePattern [ Node _ Pattern.AllPattern, Node _ Pattern.AllPattern ] ->
+                    let
+                        foundPattern : FoundPattern
+                        foundPattern =
+                            SimplifiablePattern
+                                (Rule.errorWithFix
+                                    { message = "Tuple pattern is not needed"
+                                    , details = redundantDetails
+                                    }
+                                    range
+                                    [ Fix.replaceRangeBy range "_" ]
+                                )
+                    in
+                    findPatternsHelp use rest (foundPattern :: acc)
 
-        Pattern.UnConsPattern first second ->
-            findPatterns use first ++ findPatterns use second
+                Pattern.TuplePattern [ Node _ Pattern.AllPattern, Node _ Pattern.AllPattern, Node _ Pattern.AllPattern ] ->
+                    let
+                        foundPattern : FoundPattern
+                        foundPattern =
+                            SimplifiablePattern
+                                (Rule.errorWithFix
+                                    { message = "Tuple pattern is not needed"
+                                    , details = redundantDetails
+                                    }
+                                    range
+                                    [ Fix.replaceRangeBy range "_" ]
+                                )
+                    in
+                    findPatternsHelp use rest (foundPattern :: acc)
 
-        Pattern.ListPattern patterns ->
-            List.concatMap (findPatterns use) patterns
+                Pattern.TuplePattern subPatterns ->
+                    findPatternsHelp use (subPatterns ++ rest) acc
 
-        Pattern.NamedPattern _ patterns ->
-            if use == Destructuring && List.all isAllPattern patterns then
-                [ SimplifiablePattern
-                    (Rule.errorWithFix
-                        { message = "Named pattern is not needed"
-                        , details = redundantDetails
-                        }
-                        range
-                        [ Fix.replaceRangeBy range "_" ]
-                    )
-                ]
+                Pattern.RecordPattern fields ->
+                    let
+                        foundPattern : FoundPattern
+                        foundPattern =
+                            RecordPattern
+                                { fields = fields
+                                , recordRange = range
+                                }
+                    in
+                    findPatternsHelp use rest (foundPattern :: acc)
 
-            else
-                List.concatMap (findPatterns use) patterns
+                Pattern.UnConsPattern first second ->
+                    findPatternsHelp use (first :: second :: rest) acc
 
-        Pattern.AsPattern inner name ->
-            findPatternForAsPattern range inner name :: findPatterns use inner
+                Pattern.ListPattern subPatterns ->
+                    findPatternsHelp use (subPatterns ++ rest) acc
 
-        Pattern.ParenthesizedPattern inner ->
-            findPatterns use inner
+                Pattern.NamedPattern _ subPatterns ->
+                    if use == Destructuring && List.all isAllPattern subPatterns then
+                        let
+                            foundPattern : FoundPattern
+                            foundPattern =
+                                SimplifiablePattern
+                                    (Rule.errorWithFix
+                                        { message = "Named pattern is not needed"
+                                        , details = redundantDetails
+                                        }
+                                        range
+                                        [ Fix.replaceRangeBy range "_" ]
+                                    )
+                        in
+                        findPatternsHelp use rest (foundPattern :: acc)
 
-        _ ->
-            []
+                    else
+                        findPatternsHelp use (subPatterns ++ rest) acc
+
+                Pattern.AsPattern inner name ->
+                    findPatternsHelp use (inner :: rest) (findPatternForAsPattern range inner name :: acc)
+
+                Pattern.ParenthesizedPattern inner ->
+                    findPatternsHelp use (inner :: rest) acc
+
+                _ ->
+                    findPatternsHelp use rest acc
 
 
 
@@ -526,8 +581,7 @@ errorsForRecordValueList recordRange list context =
                         _ ->
                             ( Range.combine (List.map Node.range unused)
                             , Node Range.emptyRange (Pattern.RecordPattern used)
-                                |> Writer.writePattern
-                                |> Writer.write
+                                |> writePattern
                                 |> Fix.replaceRangeBy recordRange
                             )
             in
@@ -546,10 +600,10 @@ listToMessage : String -> List String -> String
 listToMessage first rest =
     case List.reverse rest of
         [] ->
-            "Value `" ++ first ++ "` is not used."
+            "Value `" ++ first ++ "` is not used"
 
         last :: middle ->
-            "Values `" ++ String.join "`, `" (first :: middle) ++ "` and `" ++ last ++ "` are not used."
+            "Values `" ++ String.join "`, `" (first :: middle) ++ "` and `" ++ last ++ "` are not used"
 
 
 listToDetails : String -> List String -> List String
@@ -569,13 +623,12 @@ errorsForAsPattern patternRange inner (Node range name) context =
             fix : List Fix
             fix =
                 [ inner
-                    |> Writer.writePattern
-                    |> Writer.write
+                    |> writePattern
                     |> Fix.replaceRangeBy patternRange
                 ]
         in
         ( [ Rule.errorWithFix
-                { message = "Pattern alias `" ++ name ++ "` is not used."
+                { message = "Pattern alias `" ++ name ++ "` is not used"
                 , details = singularRemoveDetails
                 }
                 range
@@ -599,35 +652,99 @@ errorsForAsPattern patternRange inner (Node range name) context =
         ( [], context )
 
 
-findPatternForAsPattern : Range -> Node Pattern -> Node String -> FoundPattern
-findPatternForAsPattern patternRange inner (Node range name) =
-    if isAllPattern inner then
-        SimplifiablePattern
-            (Rule.errorWithFix
-                { message = "Pattern `_` is not needed"
-                , details = removeDetails
-                }
-                (Node.range inner)
-                [ Fix.replaceRangeBy patternRange name ]
-            )
+findAsPatternsErrors : List (Node Pattern) -> List (Rule.Error {}) -> List (Rule.Error {})
+findAsPatternsErrors patterns acc =
+    case patterns of
+        [] ->
+            acc
 
-    else
-        let
-            fix : List Fix
-            fix =
-                [ inner
-                    |> Writer.writePattern
-                    |> Writer.write
-                    |> Fix.replaceRangeBy patternRange
-                ]
-        in
-        SingleValue
-            { name = name
-            , message = "Pattern alias `" ++ name ++ "` is not used."
-            , details = singularRemoveDetails
-            , range = range
-            , fix = fix
-            }
+        pattern :: rest ->
+            case Node.value pattern of
+                Pattern.AsPattern inner name ->
+                    let
+                        newAcc : List (Rule.Error {})
+                        newAcc =
+                            case findPatternForAsPattern (Node.range pattern) inner name of
+                                SimplifiablePattern error ->
+                                    error :: acc
+
+                                SingleValue _ ->
+                                    acc
+
+                                RecordPattern _ ->
+                                    acc
+                    in
+                    findAsPatternsErrors (inner :: rest) newAcc
+
+                Pattern.TuplePattern subPatterns ->
+                    findAsPatternsErrors (subPatterns ++ rest) acc
+
+                Pattern.UnConsPattern first second ->
+                    findAsPatternsErrors (first :: second :: rest) acc
+
+                Pattern.ListPattern subPatterns ->
+                    findAsPatternsErrors (subPatterns ++ rest) acc
+
+                Pattern.NamedPattern _ subPatterns ->
+                    findAsPatternsErrors (subPatterns ++ rest) acc
+
+                Pattern.ParenthesizedPattern inner ->
+                    findAsPatternsErrors (inner :: rest) acc
+
+                _ ->
+                    findAsPatternsErrors rest acc
+
+
+findPatternForAsPattern : Range -> Node Pattern -> Node String -> FoundPattern
+findPatternForAsPattern patternRange pattern ((Node range name) as nameNode) =
+    case Node.value pattern of
+        Pattern.ParenthesizedPattern subPattern ->
+            findPatternForAsPattern patternRange subPattern nameNode
+
+        Pattern.AllPattern ->
+            SimplifiablePattern
+                (Rule.errorWithFix
+                    { message = "Pattern `_` is not needed"
+                    , details = removeDetails
+                    }
+                    (Node.range pattern)
+                    [ Fix.replaceRangeBy patternRange name ]
+                )
+
+        Pattern.VarPattern innerName ->
+            SimplifiablePattern
+                (Rule.error
+                    { message = "Unnecessary duplicate alias `" ++ name ++ "`"
+                    , details = [ "This alias is redundant because the value is already named `" ++ innerName ++ "`. I suggest you remove one of them." ]
+                    }
+                    range
+                )
+
+        Pattern.AsPattern _ (Node innerRange innerName) ->
+            SimplifiablePattern
+                (Rule.error
+                    { message = "Unnecessary duplicate alias `" ++ innerName ++ "`"
+                    , details = [ "This name is redundant because the value is already aliased as `" ++ name ++ "`. I suggest you remove one of them." ]
+                    }
+                    innerRange
+                )
+
+        _ ->
+            let
+                fix : List Fix
+                fix =
+                    [ pattern
+                        |> writePattern
+                        |> Fix.replaceRangeBy patternRange
+                    ]
+            in
+            SingleValue
+                { name = name
+                , message = "Pattern alias `" ++ name ++ "` is not used"
+                , details = singularRemoveDetails
+                , range = range
+                , fix = fix
+                }
 
 
 isAllPattern : Node Pattern -> Bool
@@ -685,3 +802,59 @@ isUnused name context =
 
         headScope :: _ ->
             not <| Set.member name headScope.used
+
+
+{-| Write a pattern.
+-}
+writePattern : Node Pattern -> String
+writePattern pattern =
+    case Node.value pattern of
+        Pattern.AllPattern ->
+            "_"
+
+        Pattern.UnitPattern ->
+            "()"
+
+        Pattern.CharPattern c ->
+            "'" ++ String.fromChar c ++ "'"
+
+        Pattern.StringPattern s ->
+            "\"" ++ String.replace "\"" "\\\"" s ++ "\""
+
+        Pattern.HexPattern _ ->
+            pattern
+                |> Writer.writePattern
+                |> Writer.write
+
+        Pattern.IntPattern i ->
+            String.fromInt i
+
+        Pattern.FloatPattern f ->
+            String.fromFloat f
+
+        Pattern.TuplePattern inner ->
+            "( " ++ String.join ", " (List.map writePattern inner) ++ " )"
+
+        Pattern.RecordPattern inner ->
+            "{ " ++ String.join ", " (List.map Node.value inner) ++ " }"
+
+        Pattern.UnConsPattern left right ->
+            writePattern left ++ " :: " ++ writePattern right
+
+        Pattern.ListPattern inner ->
+            "[ " ++ String.join ", " (List.map writePattern inner) ++ " ]"
+
+        Pattern.VarPattern var ->
+            var
+
+        Pattern.NamedPattern qnr others ->
+            String.join " "
+                (String.join "." (qnr.moduleName ++ [ qnr.name ])
+                    :: List.map writePattern others
+                )
+
+        Pattern.AsPattern innerPattern asName ->
+            writePattern innerPattern ++ " as " ++ Node.value asName
+
+        Pattern.ParenthesizedPattern innerPattern ->
+            "(" ++ writePattern innerPattern ++ ")"

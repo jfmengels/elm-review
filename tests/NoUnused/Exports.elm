@@ -20,7 +20,7 @@ import Elm.Syntax.Module as Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern as Pattern exposing (Pattern)
-import Elm.Syntax.Range exposing (Range)
+import Elm.Syntax.Range as Range exposing (Range)
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import List.Extra
 import NoUnused.LamderaSupport as LamderaSupport
@@ -62,7 +62,6 @@ rule =
             , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
             }
-        |> Rule.withContextFromImportedModules
         |> Rule.withElmJsonProjectVisitor (\elmJson context -> ( [], elmJsonVisitor elmJson context ))
         |> Rule.withFinalProjectEvaluation finalEvaluationForProject
         |> Rule.fromProjectRuleSchema
@@ -151,7 +150,7 @@ fromProjectToModule =
                             Dict.empty
 
                         Exposing.Explicit explicitlyExposed ->
-                            collectExposed moduleDocumentation explicitlyExposed ast.declarations
+                            collectExposedElements moduleDocumentation explicitlyExposed ast.declarations
             in
             { lookupTable = lookupTable
             , exposed = exposed
@@ -180,9 +179,10 @@ fromModuleToProject =
                     , moduleNameLocation = moduleNameRange
                     }
             , used =
-                moduleContext.elementsNotToReport
-                    |> Set.map (Tuple.pair moduleName)
-                    |> Set.union moduleContext.used
+                Set.foldl
+                    (\element acc -> Set.insert ( moduleName, element ) acc)
+                    moduleContext.used
+                    moduleContext.elementsNotToReport
             , usedModules =
                 if Set.member [ "Test" ] moduleContext.importedModules || moduleContext.containsMainFunction then
                     Set.insert moduleName moduleContext.importedModules
@@ -213,10 +213,10 @@ fromModuleToProject =
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts newContext previousContext =
     { projectType = previousContext.projectType
-    , modules = Dict.union previousContext.modules newContext.modules
-    , usedModules = Set.union previousContext.usedModules newContext.usedModules
+    , modules = Dict.union newContext.modules previousContext.modules
+    , usedModules = Set.union newContext.usedModules previousContext.usedModules
     , used = Set.union newContext.used previousContext.used
-    , constructors = Dict.union previousContext.constructors newContext.constructors
+    , constructors = Dict.union newContext.constructors previousContext.constructors
     }
 
 
@@ -381,12 +381,9 @@ removeReviewConfig moduleName dict =
         dict
 
 
-getRangesToRemove : List ( Int, String ) -> List a -> String -> Int -> Maybe Range -> Range -> Range -> List Range
-getRangesToRemove comments nodes name index maybePreviousRange range nextRange =
-    if List.length nodes == 1 then
-        []
-
-    else
+getRangesToRemove : List ( Int, String ) -> Bool -> String -> Int -> Maybe Range -> Range -> Range -> List Range
+getRangesToRemove comments canRemoveExposed name index maybePreviousRange range nextRange =
+    if canRemoveExposed then
         let
             exposeRemoval : Range
             exposeRemoval =
@@ -405,6 +402,9 @@ getRangesToRemove comments nodes name index maybePreviousRange range nextRange =
             [ Just exposeRemoval
             , findMap (findDocsRangeToRemove name) comments
             ]
+
+    else
+        []
 
 
 findDocsRangeToRemove : String -> ( Int, String ) -> Maybe Range
@@ -518,17 +518,6 @@ collectUsedFromImport moduleName exposingList used =
             used
 
 
-collectExposed : Maybe (Node String) -> List (Node TopLevelExpose) -> List (Node Declaration) -> Dict String ExposedElement
-collectExposed moduleDocumentation explicitlyExposed declarations =
-    let
-        docsReferences : List ( Int, String )
-        docsReferences =
-            collectDocsReferences moduleDocumentation
-    in
-    collectExposedElements docsReferences explicitlyExposed declarations
-        |> filterOut declarations
-
-
 collectDocsReferences : Maybe (Node String) -> List ( Int, String )
 collectDocsReferences maybeModuleDocumentation =
     case maybeModuleDocumentation of
@@ -556,74 +545,98 @@ collectDocsReferences maybeModuleDocumentation =
             []
 
 
-collectExposedElements : List ( Int, String ) -> List (Node Exposing.TopLevelExpose) -> List (Node Declaration) -> Dict String ExposedElement
-collectExposedElements docsReferences exposingNodes declarations =
+collectExposedElements : Maybe (Node String) -> List (Node Exposing.TopLevelExpose) -> List (Node Declaration) -> Dict String ExposedElement
+collectExposedElements moduleDocumentation exposingNodes declarations =
     let
-        listWithPreviousRange : List (Maybe Range)
-        listWithPreviousRange =
-            Nothing
-                :: (exposingNodes
-                        |> List.take (List.length exposingNodes - 1)
-                        |> List.map (\(Node range _) -> Just range)
-                   )
+        docsReferences : List ( Int, String )
+        docsReferences =
+            collectDocsReferences moduleDocumentation
 
-        listWithNextRange : List Range
-        listWithNextRange =
-            (exposingNodes
-                |> List.map Node.range
-                |> List.drop 1
-            )
-                ++ [ { start = { row = 0, column = 0 }, end = { row = 0, column = 0 } } ]
-    in
-    exposingNodes
-        |> List.map3 (\prev next current -> ( prev, current, next )) listWithPreviousRange listWithNextRange
-        |> List.indexedMap
-            (\index ( maybePreviousRange, Node range value, nextRange ) ->
-                case value of
-                    Exposing.FunctionExpose name ->
-                        Just
-                            ( name
-                            , { range = untilEndOfVariable name range
-                              , rangesToRemove = getRangesToRemove docsReferences exposingNodes name index maybePreviousRange range nextRange
-                              , elementType = Function
-                              }
-                            )
-
-                    Exposing.TypeOrAliasExpose name ->
-                        Just
-                            ( name
-                            , { range = untilEndOfVariable name range
-                              , rangesToRemove = getRangesToRemove docsReferences exposingNodes name index maybePreviousRange range nextRange
-                              , elementType = TypeOrTypeAlias
-                              }
-                            )
-
-                    Exposing.TypeExpose { name } ->
-                        Just
-                            ( name
-                            , { range = untilEndOfVariable name range
-                              , rangesToRemove = []
-                              , elementType = ExposedType (findConstructorsForExposedCustomType name declarations)
-                              }
-                            )
-
-                    Exposing.InfixExpose _ ->
-                        Nothing
-            )
-        |> List.filterMap identity
-        |> Dict.fromList
-
-
-filterOut : List (Node Declaration) -> Dict String ExposedElement -> Dict String ExposedElement
-filterOut declarations exposed =
-    let
         declaredNames : Set String
         declaredNames =
-            declarations
-                |> List.filterMap (\(Node _ declaration) -> declarationName declaration)
-                |> Set.fromList
+            List.foldl
+                (\(Node _ declaration) acc ->
+                    case declarationName declaration of
+                        Just name ->
+                            Set.insert name acc
+
+                        Nothing ->
+                            acc
+                )
+                Set.empty
+                declarations
     in
-    Dict.filter (\name _ -> Set.member name declaredNames) exposed
+    collectExposedElementsHelp docsReferences declarations declaredNames (List.length exposingNodes /= 1) Nothing exposingNodes 0 Dict.empty
+
+
+collectExposedElementsHelp : List ( Int, String ) -> List (Node Declaration) -> Set String -> Bool -> Maybe Range -> List (Node TopLevelExpose) -> Int -> Dict String ExposedElement -> Dict String ExposedElement
+collectExposedElementsHelp docsReferences declarations declaredNames canRemoveExposed maybePreviousRange exposingNodes index acc =
+    case exposingNodes of
+        [] ->
+            acc
+
+        (Node range value) :: rest ->
+            let
+                nextRange : Range
+                nextRange =
+                    case List.head rest of
+                        Just nextNode ->
+                            Node.range nextNode
+
+                        Nothing ->
+                            Range.emptyRange
+
+                newAcc : Dict String ExposedElement
+                newAcc =
+                    case value of
+                        Exposing.FunctionExpose name ->
+                            if Set.member name declaredNames then
+                                Dict.insert name
+                                    { range = untilEndOfVariable name range
+                                    , rangesToRemove = getRangesToRemove docsReferences canRemoveExposed name index maybePreviousRange range nextRange
+                                    , elementType = Function
+                                    }
+                                    acc
+
+                            else
+                                acc
+
+                        Exposing.TypeOrAliasExpose name ->
+                            if Set.member name declaredNames then
+                                Dict.insert name
+                                    { range = untilEndOfVariable name range
+                                    , rangesToRemove = getRangesToRemove docsReferences canRemoveExposed name index maybePreviousRange range nextRange
+                                    , elementType = TypeOrTypeAlias
+                                    }
+                                    acc
+
+                            else
+                                acc
+
+                        Exposing.TypeExpose { name } ->
+                            if Set.member name declaredNames then
+                                Dict.insert name
+                                    { range = untilEndOfVariable name range
+                                    , rangesToRemove = []
+                                    , elementType = ExposedType (findConstructorsForExposedCustomType name declarations)
+                                    }
+                                    acc
+
+                            else
+                                acc
+
+                        Exposing.InfixExpose _ ->
+                            acc
+            in
+            collectExposedElementsHelp
+                docsReferences
+                declarations
+                declaredNames
+                canRemoveExposed
+                (Just range)
+                rest
+                (index + 1)
+                newAcc
 
 
 declarationVisitor : Node Declaration -> ModuleContext -> ModuleContext
@@ -671,13 +684,13 @@ doesModuleContainMainFunction projectType declaration =
 
 
 isMainFunction : ElmApplicationType -> String -> Bool
-isMainFunction elmApplicationType =
+isMainFunction elmApplicationType name =
     case elmApplicationType of
         ElmApplication ->
-            \name -> name == "main"
+            name == "main"
 
         LamderaApplication ->
-            \name -> name == "main" || name == "app"
+            name == "main" || name == "app"
 
 
 maybeSetInsert : Maybe comparable -> Set comparable -> Set comparable
@@ -779,11 +792,14 @@ typesUsedInDeclaration moduleContext declaration =
 
         Declaration.CustomTypeDeclaration type_ ->
             let
-                arguments : List (Node TypeAnnotation)
-                arguments =
-                    List.concatMap (\constructor -> (Node.value constructor).arguments) type_.constructors
+                typesUsedInArguments : List ( ModuleName, String )
+                typesUsedInArguments =
+                    List.foldl
+                        (\constructor acc -> collectTypesFromTypeAnnotation moduleContext (Node.value constructor).arguments acc)
+                        []
+                        type_.constructors
             in
-            ( collectTypesFromTypeAnnotation moduleContext arguments []
+            ( typesUsedInArguments
             , case Dict.get (Node.value type_.name) moduleContext.exposed |> Maybe.map .elementType of
                 Just (ExposedType _) ->
                     False

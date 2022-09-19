@@ -44,7 +44,7 @@ rule : Rule
 rule =
     Rule.newProjectRuleSchema "NoUnused.Dependencies" initialProjectContext
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
-        |> Rule.withDirectDependenciesProjectVisitor dependenciesVisitor
+        |> Rule.withDependenciesProjectVisitor dependenciesVisitor
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModule
@@ -66,15 +66,18 @@ dependenciesVisitor dependencies projectContext =
     let
         moduleNameToDependency : Dict String String
         moduleNameToDependency =
-            Dict.foldl
-                (\packageName dependency dict ->
-                    List.foldl
-                        (\{ name } d -> Dict.insert name packageName d)
-                        dict
-                        (Dependency.modules dependency)
-                )
-                Dict.empty
-                dependencies
+            dependencies
+                |> Dict.filter
+                    (\packageName _ ->
+                        Set.member packageName projectContext.directProjectDependencies
+                            || Set.member packageName projectContext.directTestDependencies
+                    )
+                |> Dict.toList
+                |> List.concatMap
+                    (\( packageName, dependency ) ->
+                        List.map (\{ name } -> ( name, packageName )) (Dependency.modules dependency)
+                    )
+                |> Dict.fromList
     in
     ( []
     , { projectContext
@@ -475,28 +478,23 @@ removeProjectDependency projectAndDependencyIdentifier =
     case projectAndDependencyIdentifier of
         ApplicationProject ({ application } as project) ->
             let
-                directDependencies : List ( Elm.Package.Name, Elm.Version.Version )
-                directDependencies =
+                depsDirect : List ( Elm.Package.Name, Elm.Version.Version )
+                depsDirect =
                     List.filter (\pkg -> pkg |> isPackageWithName (Elm.Package.toString project.name) |> not) application.depsDirect
 
                 depsIndirect : Elm.Project.Deps Elm.Version.Version
                 depsIndirect =
-                    listIndirectDependencies
-                        project.getDependenciesAndVersion
-                        directDependencies
+                    listIndirectDependencies project.getDependenciesAndVersion depsDirect
             in
             ApplicationProject
                 { project
                     | application =
                         { application
-                            | depsDirect = directDependencies
-                            , depsIndirect =
-                                depsIndirect
+                            | depsDirect = depsDirect
+                            , depsIndirect = depsIndirect
                             , testDepsIndirect =
-                                listIndirectDependencies
-                                    project.getDependenciesAndVersion
-                                    application.testDepsDirect
-                                    |> List.filter (\dep -> not (List.member dep application.depsDirect || List.member dep depsIndirect))
+                                listIndirectDependencies project.getDependenciesAndVersion application.testDepsDirect
+                                    |> List.filter (\dep -> not (List.member dep depsDirect || List.member dep depsIndirect))
                         }
                 }
 

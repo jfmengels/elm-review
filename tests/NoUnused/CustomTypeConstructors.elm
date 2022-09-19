@@ -123,14 +123,14 @@ elm-review --template jfmengels/elm-review-unused/example --rules NoUnused.Custo
 rule : List { moduleName : String, typeName : String, index : Int } -> Rule
 rule phantomTypes =
     Rule.newProjectRuleSchema "NoUnused.CustomTypeConstructors" (initialProjectContext phantomTypes)
-        |> Rule.withContextFromImportedModules
+        |> Rule.withElmJsonProjectVisitor elmJsonVisitor
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModule
             , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
             }
-        |> Rule.withElmJsonProjectVisitor elmJsonVisitor
+        |> Rule.withContextFromImportedModules
         |> Rule.withFinalProjectEvaluation finalProjectEvaluation
         |> Rule.fromProjectRuleSchema
 
@@ -351,30 +351,34 @@ foldProjectContexts newContext previousContext =
     { exposedModules = previousContext.exposedModules
     , declaredConstructors = Dict.union newContext.declaredConstructors previousContext.declaredConstructors
     , usedConstructors =
-        Dict.merge
-            Dict.insert
-            (\key newUsed previousUsed dict -> Dict.insert key (Set.union newUsed previousUsed) dict)
-            Dict.insert
-            newContext.usedConstructors
+        Dict.foldl
+            (\key newSet acc ->
+                case Dict.get key acc of
+                    Just existingSet ->
+                        Dict.insert key (Set.union newSet existingSet) acc
+
+                    Nothing ->
+                        Dict.insert key newSet acc
+            )
             previousContext.usedConstructors
-            Dict.empty
+            newContext.usedConstructors
     , phantomVariables = Dict.union newContext.phantomVariables previousContext.phantomVariables
     , wasUsedInLocationThatNeedsItself = Set.union newContext.wasUsedInLocationThatNeedsItself previousContext.wasUsedInLocationThatNeedsItself
     , wasUsedInComparisons = Set.union newContext.wasUsedInComparisons previousContext.wasUsedInComparisons
     , wasUsedInOtherModules = Set.union newContext.wasUsedInOtherModules previousContext.wasUsedInOtherModules
-    , fixesForRemovingConstructor = mergeDictsWithLists newContext.fixesForRemovingConstructor previousContext.fixesForRemovingConstructor
+    , fixesForRemovingConstructor =
+        Dict.foldl
+            (\key newFixes acc ->
+                case Dict.get key acc of
+                    Just existingFixes ->
+                        Dict.insert key (List.foldl (::) existingFixes newFixes) acc
+
+                    Nothing ->
+                        Dict.insert key newFixes acc
+            )
+            previousContext.fixesForRemovingConstructor
+            newContext.fixesForRemovingConstructor
     }
-
-
-mergeDictsWithLists : Dict comparable (List a) -> Dict comparable (List a) -> Dict comparable (List a)
-mergeDictsWithLists left right =
-    Dict.merge
-        Dict.insert
-        (\key a b dict -> Dict.insert key (a ++ b) dict)
-        Dict.insert
-        left
-        right
-        Dict.empty
 
 
 updateToAdd : comparable -> a -> Dict comparable (List a) -> Dict comparable (List a)

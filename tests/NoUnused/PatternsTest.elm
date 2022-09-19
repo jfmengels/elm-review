@@ -35,12 +35,13 @@ all =
         , describe "in Let Functions" letFunctionTests
 
         --- patterns
-        , describe "with as pattern" asPatternTests
         , describe "with list pattern" listPatternTests
         , describe "with named pattern" namedPatternTests
         , describe "with record pattern" recordPatternTests
         , describe "with tuple pattern" tuplePatternTests
         , describe "with uncons pattern" unconsPatternTests
+        , describe "with as pattern" asPatternTests
+        , describe "with as pattern in parameters" asPatternInParametersTests
         ]
 
 
@@ -60,7 +61,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Value `bish` is not used."
+                        { message = "Value `bish` is not used"
                         , details = useOrReplaceDetails
                         , under = "bish"
                         }
@@ -75,7 +76,7 @@ foo =
             Nothing
 """
                     , Review.Test.error
-                        { message = "Value `bash` is not used."
+                        { message = "Value `bash` is not used"
                         , details = useOrReplaceDetails
                         , under = "bash"
                         }
@@ -104,7 +105,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Value `one` is not used."
+                        { message = "Value `one` is not used"
                         , details = useOrReplaceDetails
                         , under = "one"
                         }
@@ -119,7 +120,7 @@ foo =
         more -> 3
 """
                     , Review.Test.error
-                        { message = "Value `first` is not used."
+                        { message = "Value `first` is not used"
                         , details = useOrReplaceDetails
                         , under = "first"
                         }
@@ -134,7 +135,7 @@ foo =
         more -> 3
 """
                     , Review.Test.error
-                        { message = "Value `two` is not used."
+                        { message = "Value `two` is not used"
                         , details = useOrReplaceDetails
                         , under = "two"
                         }
@@ -149,7 +150,7 @@ foo =
         more -> 3
 """
                     , Review.Test.error
-                        { message = "Value `more` is not used."
+                        { message = "Value `more` is not used"
                         , details = useOrReplaceDetails
                         , under = "more"
                         }
@@ -178,7 +179,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Value `one` is not used."
+                        { message = "Value `one` is not used"
                         , details = useOrReplaceDetails
                         , under = "one"
                         }
@@ -193,7 +194,7 @@ foo =
         _ :: _ :: more -> 3
 """
                     , Review.Test.error
-                        { message = "Value `first` is not used."
+                        { message = "Value `first` is not used"
                         , details = useOrReplaceDetails
                         , under = "first"
                         }
@@ -208,7 +209,7 @@ foo =
         _ :: _ :: more -> 3
 """
                     , Review.Test.error
-                        { message = "Value `two` is not used."
+                        { message = "Value `two` is not used"
                         , details = useOrReplaceDetails
                         , under = "two"
                         }
@@ -223,7 +224,7 @@ foo =
         _ :: _ :: more -> 3
 """
                     , Review.Test.error
-                        { message = "Value `more` is not used."
+                        { message = "Value `more` is not used"
                         , details = useOrReplaceDetails
                         , under = "more"
                         }
@@ -252,7 +253,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Value `foo` is not used."
+                        { message = "Value `foo` is not used"
                         , details = useOrReplaceDetails
                         , under = "foo"
                         }
@@ -284,7 +285,7 @@ bar =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Value `bish` is not used."
+                        { message = "Value `bish` is not used"
                         , details = useOrReplaceDetails
                         , under = "bish"
                         }
@@ -317,7 +318,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Value `data` is not used."
+                        { message = "Value `data` is not used"
                         , details = useOrReplaceDetails
                         , under = "data"
                         }
@@ -381,7 +382,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Value `right` is not used."
+                        { message = "Value `right` is not used"
                         , details = useOrReplaceDetails
                         , under = "right"
                         }
@@ -445,7 +446,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Value `right` is not used."
+                        { message = "Value `right` is not used"
                         , details = useOrReplaceDetails
                         , under = "right"
                         }
@@ -523,7 +524,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Pattern alias `bosh` is not used."
+                        { message = "Pattern alias `bosh` is not used"
                         , details = useOrRemoveDetails
                         , under = "bosh"
                         }
@@ -532,7 +533,7 @@ foo =
 module A exposing (..)
 foo =
     case bar of
-        ({bish, bash}) ->
+        ({ bish, bash }) ->
             ( bish, bash )
 """
                     ]
@@ -548,7 +549,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Value `bash` is not used."
+                        { message = "Value `bash` is not used"
                         , details = useOrRemoveDetails
                         , under = "bash"
                         }
@@ -557,7 +558,7 @@ foo =
 module A exposing (..)
 foo =
     case bar of
-        ({bish} as bosh) ->
+        ({ bish } as bosh) ->
             ( bish, bosh )
 """
                     ]
@@ -573,7 +574,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Value `bash` is not used."
+                        { message = "Value `bash` is not used"
                         , details = useOrRemoveDetails
                         , under = "bash"
                         }
@@ -582,11 +583,11 @@ foo =
 module A exposing (..)
 foo =
     case bar of
-        ({bish} as bosh) ->
+        ({ bish } as bosh) ->
             bish
 """
                     , Review.Test.error
-                        { message = "Pattern alias `bosh` is not used."
+                        { message = "Pattern alias `bosh` is not used"
                         , details = useOrRemoveDetails
                         , under = "bosh"
                         }
@@ -595,7 +596,7 @@ foo =
 module A exposing (..)
 foo =
     case bar of
-        ({bish, bash}) ->
+        ({ bish, bash }) ->
             bish
 """
                     ]
@@ -636,7 +637,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Pattern alias `bish` is not used."
+                        { message = "Pattern alias `bish` is not used"
                         , details = useOrRemoveDetails
                         , under = "bish"
                         }
@@ -645,10 +646,135 @@ foo =
 module A exposing (..)
 foo =
     case maybeTupleMaybe of
-        Just ( _, ( Just _ ) ) ->
+        Just ( _, Just _ ) ->
             bash
         _ ->
             bosh
+"""
+                    ]
+    , test "should report aliases to a name" <|
+        \() ->
+            """
+module A exposing (..)
+foo =
+    case maybeTupleMaybe of
+        Just ( bosh as bish ) ->
+            bosh + bish
+        _ ->
+            0
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Unnecessary duplicate alias `bish`"
+                        , details = [ "This alias is redundant because the value is already named `bosh`. I suggest you remove one of them." ]
+                        , under = "bish"
+                        }
+                        |> Review.Test.atExactly { start = { row = 5, column = 24 }, end = { row = 5, column = 28 } }
+                    ]
+    , test "should report duplicate aliases" <|
+        \() ->
+            """
+module A exposing (..)
+foo =
+    case maybeTupleMaybe of
+        Just ( ((Foo bash) as bosh) as bish ) ->
+            bash + bosh + bish
+        _ ->
+            0
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Unnecessary duplicate alias `bosh`"
+                        , details = [ "This name is redundant because the value is already aliased as `bish`. I suggest you remove one of them." ]
+                        , under = "bosh"
+                        }
+                        |> Review.Test.atExactly { start = { row = 5, column = 31 }, end = { row = 5, column = 35 } }
+                    ]
+    ]
+
+
+asPatternInParametersTests : List Test
+asPatternInParametersTests =
+    [ test "should report aliases to a name (top-level declaration)" <|
+        \() ->
+            """module A exposing (..)
+foo (bosh as bash) =
+    bosh + bash
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Unnecessary duplicate alias `bash`"
+                        , details = [ "This alias is redundant because the value is already named `bosh`. I suggest you remove one of them." ]
+                        , under = "bash"
+                        }
+                        |> Review.Test.atExactly { start = { row = 2, column = 14 }, end = { row = 2, column = 18 } }
+                    ]
+    , test "should report aliases to a name (lambda)" <|
+        \() ->
+            """module A exposing (..)
+foo =
+    (\\(bosh as bash) -> bosh + bash)
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Unnecessary duplicate alias `bash`"
+                        , details = [ "This alias is redundant because the value is already named `bosh`. I suggest you remove one of them." ]
+                        , under = "bash"
+                        }
+                        |> Review.Test.atExactly { start = { row = 3, column = 16 }, end = { row = 3, column = 20 } }
+                    ]
+    , test "should report aliases to a name (let function)" <|
+        \() ->
+            """module A exposing (..)
+foo =
+    let bar (bosh as bash) = bosh + bash
+    in
+    bar
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Unnecessary duplicate alias `bash`"
+                        , details = [ "This alias is redundant because the value is already named `bosh`. I suggest you remove one of them." ]
+                        , under = "bash"
+                        }
+                        |> Review.Test.atExactly { start = { row = 3, column = 22 }, end = { row = 3, column = 26 } }
+                    ]
+    , test "should report duplicate aliases (top-level declaration)" <|
+        \() ->
+            """module A exposing (..)
+foo (((Foo bash) as bosh) as bish) =
+    bash + bosh + bish
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Unnecessary duplicate alias `bosh`"
+                        , details = [ "This name is redundant because the value is already aliased as `bish`. I suggest you remove one of them." ]
+                        , under = "bosh"
+                        }
+                        |> Review.Test.atExactly { start = { row = 2, column = 21 }, end = { row = 2, column = 25 } }
+                    ]
+    , test "should report aliasing of _ in arguments" <|
+        \() ->
+            """module A exposing (..)
+foo (_ as x) =
+    x
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Pattern `_` is not needed"
+                        , details = [ "This pattern is redundant and should be removed." ]
+                        , under = "_"
+                        }
+                        |> Review.Test.whenFixed """module A exposing (..)
+foo (x) =
+    x
 """
                     ]
     ]
@@ -668,7 +794,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Value `first` is not used."
+                        { message = "Value `first` is not used"
                         , details = useOrReplaceDetails
                         , under = "first"
                         }
@@ -681,7 +807,7 @@ foo =
             another
 """
                     , Review.Test.error
-                        { message = "Value `second` is not used."
+                        { message = "Value `second` is not used"
                         , details = useOrReplaceDetails
                         , under = "second"
                         }
@@ -713,7 +839,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Value `bish` is not used."
+                        { message = "Value `bish` is not used"
                         , details = useOrReplaceDetails
                         , under = "bish"
                         }
@@ -742,7 +868,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Value `bish` is not used."
+                        { message = "Value `bish` is not used"
                         , details = useOrReplaceDetails
                         , under = "bish"
                         }
@@ -876,7 +1002,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Values `bish` and `bash` are not used."
+                        { message = "Values `bish` and `bash` are not used"
                         , details = [ "You should either use these values somewhere or remove them." ]
                         , under = "{ bish, bash }"
                         }
@@ -905,7 +1031,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Values `bish` and `bosh` are not used."
+                        { message = "Values `bish` and `bosh` are not used"
                         , details = [ "You should either use these values somewhere or remove them." ]
                         , under = "bish, bash, bosh"
                         }
@@ -914,7 +1040,7 @@ foo =
 module A exposing (..)
 foo =
     let
-        {bash} =
+        { bash } =
             bar
     in
     bash
@@ -963,7 +1089,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Values `bash` and `bosh` are not used."
+                        { message = "Values `bash` and `bosh` are not used"
                         , details = [ "You should either use these values somewhere or remove them." ]
                         , under = "bash, bosh"
                         }
@@ -972,7 +1098,7 @@ foo =
 module A exposing (..)
 foo =
     let
-        {bish} =
+        { bish } =
             bar
     in
     bish
@@ -997,7 +1123,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Value `bish` is not used."
+                        { message = "Value `bish` is not used"
                         , details = useOrReplaceDetails
                         , under = "bish"
                         }
@@ -1012,7 +1138,7 @@ foo =
     bash
 """
                     , Review.Test.error
-                        { message = "Value `bosh` is not used."
+                        { message = "Value `bosh` is not used"
                         , details = useOrReplaceDetails
                         , under = "bosh"
                         }
@@ -1113,7 +1239,7 @@ foo =
                 |> Review.Test.run rule
                 |> Review.Test.expectErrors
                     [ Review.Test.error
-                        { message = "Value `first` is not used."
+                        { message = "Value `first` is not used"
                         , details = useOrReplaceDetails
                         , under = "first"
                         }
@@ -1126,7 +1252,7 @@ foo =
             list
 """
                     , Review.Test.error
-                        { message = "Value `rest` is not used."
+                        { message = "Value `rest` is not used"
                         , details = useOrReplaceDetails
                         , under = "rest"
                         }

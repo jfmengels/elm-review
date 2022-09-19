@@ -252,24 +252,15 @@ foo =
         bish
 """
                     ]
-    , test "should report unused patterns that are aliased" <|
+    , test "should not report aliases to wildcards" <|
+        -- Already handled by `NoUnused.Patterns`
         \() ->
             """module A exposing (..)
 foo =
     \\(_ as bar) -> bar
 """
                 |> Review.Test.run rule
-                |> Review.Test.expectErrors
-                    [ Review.Test.error
-                        { message = "Pattern does not introduce any variables"
-                        , details = [ "You should remove this pattern." ]
-                        , under = "_"
-                        }
-                        |> Review.Test.whenFixed """module A exposing (..)
-foo =
-    \\(bar) -> bar
-"""
-                    ]
+                |> Review.Test.expectNoErrors
     , test "should report nested unused pattern aliases" <|
         \() ->
             """module A exposing (..)
@@ -547,20 +538,15 @@ foo ({ bish, bash } as bosh) =
                         , under = "bosh"
                         }
                     ]
-    , test "should report unused patterns that are aliased" <|
+    , test "should not report aliases to wildcards" <|
+        -- Already handled by `NoUnused.Patterns`
         \() ->
             """module A exposing (..)
 foo (_ as bar) =
     bar
 """
                 |> Review.Test.run rule
-                |> Review.Test.expectErrors
-                    [ Review.Test.error
-                        { message = "Pattern does not introduce any variables"
-                        , details = [ "You should remove this pattern." ]
-                        , under = "_"
-                        }
-                    ]
+                |> Review.Test.expectNoErrors
     , test "should report nested unused pattern aliases" <|
         \() ->
             """module A exposing (..)

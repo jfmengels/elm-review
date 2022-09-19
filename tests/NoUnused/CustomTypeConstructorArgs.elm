@@ -274,13 +274,17 @@ foldProjectContexts newContext previousContext =
             newContext.customTypeArgs
             previousContext.customTypeArgs
     , usedArguments =
-        Dict.merge
-            Dict.insert
-            (\key newSet prevSet dict -> Dict.insert key (Set.union newSet prevSet) dict)
-            Dict.insert
-            newContext.usedArguments
+        Dict.foldl
+            (\key newSet acc ->
+                case Dict.get key acc of
+                    Just existingSet ->
+                        Dict.insert key (Set.union newSet existingSet) acc
+
+                    Nothing ->
+                        Dict.insert key newSet acc
+            )
             previousContext.usedArguments
-            Dict.empty
+            newContext.usedArguments
     , customTypesNotToReport = Set.union newContext.customTypesNotToReport previousContext.customTypesNotToReport
     }
 
