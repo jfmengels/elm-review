@@ -22,6 +22,7 @@ import NoForbiddenWords
 import NoImportingEverything
 import NoMissingTypeAnnotation
 import NoMissingTypeAnnotationInLetIn
+import NoMissingTypeExpose
 import NoSimpleLetBody
 import NoUnnecessaryTrailingUnderscore
 import NoUnused.CustomTypeConstructors
@@ -50,9 +51,11 @@ config =
     , NoMissingTypeAnnotation.rule
     , NoMissingTypeAnnotationInLetIn.rule
         |> Rule.ignoreErrorsForDirectories [ "tests/" ]
-
-    --, NoMissingTypeExpose.rule
-    --    |> Rule.ignoreErrorsForFiles [ "src/Review/Rule.elm" ]
+    , NoMissingTypeExpose.rule
+        |> Rule.ignoreErrorsForFiles
+            [ "src/Review/Rule.elm"
+            , "src/Review/Fix.elm"
+            ]
     , NoUnused.CustomTypeConstructors.rule []
     , NoUnused.Dependencies.rule
     , NoUnused.Exports.rule
