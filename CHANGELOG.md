@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.9.1] - 2022-09-19
+
+This release contains HUGE performance updates. `elm-review` should now run quite a bit faster (rough estimate says 50%).
+
+
 ## [2.9.0] - 2022-08-23
 
 - Adds [`Review.Rule.withModuleDocumentationVisitor`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withModuleDocumentationVisitor) ([#132](https://github.com/jfmengels/elm-review/pull/132))
@@ -51,6 +56,7 @@ Help would be appreciated to fill the blanks!
 
 [`NoDeprecated`]: (https://package.elm-lang.org/packages/jfmengels/elm-review-common/latest/NoDeprecated)
 
+[2.9.1]: https://github.com/jfmengels/elm-review/releases/tag/2.9.1
 [2.9.0]: https://github.com/jfmengels/elm-review/releases/tag/2.9.0
 [2.8.1]: https://github.com/jfmengels/elm-review/releases/tag/2.8.1
 [2.8.0]: https://github.com/jfmengels/elm-review/releases/tag/2.8.0
