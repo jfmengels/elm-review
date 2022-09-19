@@ -7,7 +7,6 @@ module NoMissingTypeExpose exposing (rule)
 -}
 
 import Dict exposing (Dict)
-import Elm.Docs exposing (Module)
 import Elm.Module
 import Elm.Project exposing (Project)
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
@@ -663,7 +662,7 @@ foldExposedModules newExposedModules oldExposedModules =
             oldExposedModules
 
         ( Package oldList, Package newList ) ->
-            Package (Set.union oldList newList)
+            Package (Set.union newList oldList)
 
 
 foldModuleTypes : Dict ModuleName (Set String) -> Dict ModuleName (Set String) -> Dict ModuleName (Set String)

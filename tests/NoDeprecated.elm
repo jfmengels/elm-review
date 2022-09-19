@@ -21,20 +21,20 @@ for instance) will give you the more precise problems and locations.
 ## Recommendations
 
 I recommend making it extra explicit when deprecating elements in your application code, for instance by renaming
-deprecated elements to include "deprecated" in their name, or in their module name for modules.
+them to include "deprecated" in their name, or in their module name for modules.
 
-That way, it will be very explicit for you and your teammates when you're using something that is deprecated, even in
+That way, it will be very clear for you and your teammates when you're using something that is deprecated, even in
 Git diffs.
 
-For packages, renaming something is a breaking chance so that is not a viable option (if it is, remove the function and
+For packages, renaming something is a breaking change so that is not a viable option (if it is, remove the function and
 release a new major version). Instead, what you can do is to start a line in your module/value/type's documentation
 with `@deprecated`. There is no official nor conventional approach around deprecation in the Elm community, but this may
 be a good start. But definitely pitch in the discussion around making a standard!
 (I'll put a link here soon. If I haven't, please remind me!)
 
 For both application and packages, when you deprecate something, I highly recommend documenting (in the most appropriate
-location) why it is deprecate but especially what alternatives should be used or explored. It can be frustrating to
-learn that something is deprecated without an explanation or any guidance what to use instead.
+location) **why it is deprecated** but especially **what alternatives should be used** or explored. It can be frustrating to
+learn that something is deprecated without an explanation or any guidance on what to use instead.
 
 @docs Configuration, defaults, dependencies, withExceptionsForElements
 
