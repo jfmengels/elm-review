@@ -544,7 +544,7 @@ reviewV2 rules maybeProjectData project =
     of
         Ok nodeContexts ->
             let
-                runResult : { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
+                runResult : { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
                 runResult =
                     runReview ReviewOptions.defaults project rules maybeProjectData nodeContexts
             in
@@ -600,7 +600,7 @@ exported/imported with `elm/browser`'s debugger, and may cause a crash if you tr
 to compare them or the model that holds them.
 
 -}
-reviewV3 : ReviewOptions -> List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
+reviewV3 : ReviewOptions -> List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
 reviewV3 reviewOptions rules maybeProjectData project =
     case
         checkForConfigurationErrors rules
@@ -614,6 +614,7 @@ reviewV3 reviewOptions rules maybeProjectData project =
         Err errors ->
             { errors = errors
             , rules = rules
+            , project = project
             , projectData = maybeProjectData
             , extracts = Dict.empty
             }
@@ -800,7 +801,7 @@ wrapInCycle string =
     "    ┌─────┐\n    │    " ++ string ++ "\n    └─────┘"
 
 
-runReview : ReviewOptions -> Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
+runReview : ReviewOptions -> Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
 runReview reviewOptions ((Project p) as project) rules maybeProjectData nodeContexts =
     let
         scopeResult : { projectData : Maybe ProjectData, lookupTables : Maybe (Dict ModuleName ModuleNameLookupTable) }
@@ -845,6 +846,7 @@ runReview reviewOptions ((Project p) as project) rules maybeProjectData nodeCont
     in
     { errors = ListExtra.orderIndependentMap errorToReviewError runResult.errors
     , rules = runResult.rules
+    , project = project
     , projectData = scopeResult.projectData
     , extracts = runResult.extracts
     }
