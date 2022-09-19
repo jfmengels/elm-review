@@ -425,7 +425,7 @@ runOnModulesWithProjectDataHelp project rule sources =
 
                     Nothing ->
                         let
-                            runResult : { errors : List ReviewError, rules : List Rule, projectData : Maybe Rule.ProjectData, extracts : Dict String Encode.Value }
+                            runResult : { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe Rule.ProjectData, extracts : Dict String Encode.Value }
                             runResult =
                                 Rule.reviewV3 (ReviewOptions.withDataExtraction True ReviewOptions.defaults) [ rule ] Nothing projectWithModules
 
