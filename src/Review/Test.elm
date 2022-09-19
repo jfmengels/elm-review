@@ -120,6 +120,7 @@ import Json.Encode as Encode
 import Review.Error as Error
 import Review.FileParser as FileParser
 import Review.Fix as Fix
+import Review.Options as ReviewOptions
 import Review.Project as Project exposing (Project, ProjectModule)
 import Review.Rule as Rule exposing (ReviewError, Rule)
 import Review.Test.Dependencies exposing (projectWithElmCore)
@@ -413,7 +414,7 @@ runOnModulesWithProjectDataHelp project rule sources =
                         let
                             runResult : { errors : List ReviewError, rules : List Rule, projectData : Maybe Rule.ProjectData, extracts : Dict String Encode.Value }
                             runResult =
-                                Rule.reviewV3 { extract = True } [ rule ] Nothing projectWithModules
+                                Rule.reviewV3 (ReviewOptions.withDataExtraction True ReviewOptions.defaults) [ rule ] Nothing projectWithModules
 
                             errors : List ReviewError
                             errors =

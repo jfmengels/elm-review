@@ -306,6 +306,8 @@ import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix as Fix exposing (Fix)
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
+import Review.Options as ReviewOptions exposing (ReviewOptions)
+import Review.Options.Internal exposing (ReviewOptionsInternal(..))
 import Review.Project exposing (ProjectModule)
 import Review.Project.Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
@@ -327,7 +329,7 @@ type Rule
         , exceptions : Exceptions
         , requestedData : RequestedData
         , extractsData : Bool
-        , ruleImplementation : ReviewV3Options -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
+        , ruleImplementation : ReviewOptions -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
         , configurationError : Maybe { message : String, details : List String }
         }
 
@@ -454,7 +456,7 @@ review rules ((Project p) as project) =
                                     }
                                 scopeResult =
                                     runProjectVisitor
-                                        { extract = True }
+                                        (ReviewOptions.withDataExtraction True ReviewOptions.defaults)
                                         scopeRule
                                         Nothing
                                         Exceptions.init
@@ -484,7 +486,7 @@ review rules ((Project p) as project) =
                                 let
                                     runRulesResult : { errors : List (Error {}), rules : List Rule, extracts : Dict String Encode.Value }
                                     runRulesResult =
-                                        runRules { extract = False } rules projectWithLookupTable sortedModules
+                                        runRules ReviewOptions.defaults rules projectWithLookupTable sortedModules
                                 in
                                 ( ListExtra.orderIndependentMap errorToReviewError runRulesResult.errors, runRulesResult.rules )
 
@@ -544,7 +546,7 @@ reviewV2 rules maybeProjectData project =
             let
                 runResult : { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
                 runResult =
-                    runReview { extract = False } project rules maybeProjectData nodeContexts
+                    runReview ReviewOptions.defaults project rules maybeProjectData nodeContexts
             in
             { errors = runResult.errors
             , rules = runResult.rules
@@ -598,7 +600,7 @@ exported/imported with `elm/browser`'s debugger, and may cause a crash if you tr
 to compare them or the model that holds them.
 
 -}
-reviewV3 : ReviewV3Options -> List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
+reviewV3 : ReviewOptions -> List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
 reviewV3 reviewOptions rules maybeProjectData project =
     case
         checkForConfigurationErrors rules
@@ -615,11 +617,6 @@ reviewV3 reviewOptions rules maybeProjectData project =
             , projectData = maybeProjectData
             , extracts = Dict.empty
             }
-
-
-type alias ReviewV3Options =
-    { extract : Bool
-    }
 
 
 checkForConfigurationErrors : List Rule -> Result (List ReviewError) ()
@@ -803,7 +800,7 @@ wrapInCycle string =
     "    ┌─────┐\n    │    " ++ string ++ "\n    └─────┘"
 
 
-runReview : ReviewV3Options -> Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
+runReview : ReviewOptions -> Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
 runReview reviewOptions ((Project p) as project) rules maybeProjectData nodeContexts =
     let
         scopeResult : { projectData : Maybe ProjectData, lookupTables : Maybe (Dict ModuleName ModuleNameLookupTable) }
@@ -812,7 +809,7 @@ runReview reviewOptions ((Project p) as project) rules maybeProjectData nodeCont
                 let
                     { cache, extract } =
                         runProjectVisitor
-                            { extract = True }
+                            (ReviewOptions.withDataExtraction True ReviewOptions.defaults)
                             scopeRule
                             (Maybe.map extractProjectData maybeProjectData)
                             Exceptions.init
@@ -903,7 +900,7 @@ duplicateModulesGlobalError duplicate =
 
 
 runRules :
-    ReviewV3Options
+    ReviewOptions
     -> List Rule
     -> Project
     -> List (Graph.NodeContext ModuleName ())
@@ -4235,14 +4232,14 @@ type alias CacheEntryFor value projectContext =
 
 
 runProjectVisitor :
-    ReviewV3Options
+    ReviewOptionsInternal
     -> RunnableProjectVisitor projectContext moduleContext
     -> Maybe (ProjectRuleCache projectContext)
     -> Exceptions
     -> Project
     -> List (Graph.NodeContext ModuleName ())
     -> { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
-runProjectVisitor reviewOptions projectVisitor maybePreviousCache exceptions project nodeContexts =
+runProjectVisitor (ReviewOptionsInternal reviewOptions) projectVisitor maybePreviousCache exceptions project nodeContexts =
     -- IGNORE TCO
     let
         ( cacheWithInitialContext, hasInitialContextChanged ) =
