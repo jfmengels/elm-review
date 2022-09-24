@@ -1721,7 +1721,7 @@ but are unused in the rest of the project.
 
         -- Collect the exposed functions from the new context and the previous one.
         -- We could use `Dict.merge`, but in this case, that doesn't change anything
-        , exposedFunctions = Dict.union previousContext.modules newContext.modules
+        , exposedFunctions = Dict.union newContext.modules previousContext.modules
 
         -- Collect the used functions from the new context and the previous one
         , used = Set.union newContext.used previousContext.used
