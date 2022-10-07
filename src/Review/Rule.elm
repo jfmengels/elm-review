@@ -4176,11 +4176,10 @@ runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybe
                     Nothing ->
                         Dict.empty
 
-        newModuleContexts : Dict String (CacheEntry projectContext)
-        newModuleContexts =
+        { newProject, newModuleContexts } =
             case projectVisitor.moduleVisitor of
                 Nothing ->
-                    Dict.empty
+                    { newProject = project, newModuleContexts = Dict.empty }
 
                 Just moduleVisitor ->
                     computeModules
@@ -4250,7 +4249,7 @@ runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybe
             , requestedData = projectVisitor.requestedData
             , extractsData = projectVisitor.dataExtractor /= Nothing
             , ruleImplementation =
-                \newReviewOptions newExceptions newProject newNodeContexts ->
+                \newReviewOptions newExceptions newProjectArg newNodeContexts ->
                     let
                         result : { errors : List (Error {}), rule : Rule, project : Project, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
                         result =
@@ -4259,7 +4258,7 @@ runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybe
                                 projectVisitor
                                 (Just newCache)
                                 newExceptions
-                                newProject
+                                newProjectArg
                                 newNodeContexts
                     in
                     { errors = result.errors
@@ -4269,7 +4268,7 @@ runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybe
                     }
             , configurationError = Nothing
             }
-    , project = project
+    , project = newProject
     , cache = newCache
     , extract = extract
     }
@@ -4491,7 +4490,7 @@ computeModules :
     -> projectContext
     -> List (Graph.NodeContext ModuleName ())
     -> Dict String (CacheEntry projectContext)
-    -> Dict String (CacheEntry projectContext)
+    -> { newProject : Project, newModuleContexts : Dict String (CacheEntry projectContext) }
 computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions initialProjectContext nodeContexts startCache =
     let
         graph : Graph ModuleName ()
@@ -4607,11 +4606,14 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                         initialProjectContext
             }
     in
-    List.foldl
-        (computeModuleAndCacheResult projectVisitor.traversalAndFolder modules graph computeModule)
-        ( newStartCache, Set.empty )
-        nodeContexts
-        |> Tuple.first
+    { newProject = project
+    , newModuleContexts =
+        List.foldl
+            (computeModuleAndCacheResult projectVisitor.traversalAndFolder modules graph computeModule)
+            ( newStartCache, Set.empty )
+            nodeContexts
+            |> Tuple.first
+    }
 
 
 computeModuleAndCacheResult :
