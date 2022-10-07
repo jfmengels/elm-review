@@ -330,7 +330,7 @@ type Rule
         , exceptions : Exceptions
         , requestedData : RequestedData
         , extractsData : Bool
-        , ruleImplementation : ReviewOptions -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
+        , ruleImplementation : ReviewOptions -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
         , configurationError : Maybe { message : String, details : List String }
         }
 
@@ -452,6 +452,7 @@ review rules ((Project p) as project) =
                                 scopeResult :
                                     { errors : List (Error {})
                                     , rule : Rule
+                                    , project : Project
                                     , cache : ProjectRuleCache ScopeProjectContext
                                     , extract : Maybe Extract
                                     }
@@ -485,7 +486,7 @@ review rules ((Project p) as project) =
 
                             else
                                 let
-                                    runRulesResult : { errors : List (Error {}), rules : List Rule, extracts : Dict String Encode.Value }
+                                    runRulesResult : { errors : List (Error {}), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
                                     runRulesResult =
                                         runRules ReviewOptions.defaults rules projectWithLookupTable sortedModules
                                 in
@@ -740,13 +741,13 @@ runReview reviewOptions ((Project p) as project) rules maybeProjectData nodeCont
             Project { p | moduleNameLookupTables = scopeResult.lookupTables }
     in
     let
-        runResult : { errors : List (Error {}), rules : List Rule, extracts : Dict String Encode.Value }
+        runResult : { errors : List (Error {}), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
         runResult =
             runRules reviewOptions rules projectWithLookupTables nodeContexts
     in
     { errors = ListExtra.orderIndependentMap errorToReviewError runResult.errors
     , rules = runResult.rules
-    , project = project
+    , project = runResult.project
     , projectData = scopeResult.projectData
     , extracts = runResult.extracts
     }
@@ -806,17 +807,18 @@ runRules :
     -> List Rule
     -> Project
     -> List (Graph.NodeContext ModuleName ())
-    -> { errors : List (Error {}), rules : List Rule, extracts : Dict String Encode.Value }
+    -> { errors : List (Error {}), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
 runRules reviewOptions initialRules project nodeContexts =
     List.foldl
         (\(Rule { name, exceptions, ruleImplementation }) { errors, rules, extracts } ->
             let
-                result : { errors : List (Error {}), rule : Rule, extract : Maybe Extract }
+                result : { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
                 result =
                     ruleImplementation reviewOptions exceptions project nodeContexts
             in
             { errors = ListExtra.orderIndependentMapAppend removeErrorPhantomType result.errors errors
             , rules = result.rule :: rules
+            , project = result.project
             , extracts =
                 case result.extract of
                     Just (JsonExtract extract) ->
@@ -831,6 +833,7 @@ runRules reviewOptions initialRules project nodeContexts =
         )
         { errors = []
         , rules = []
+        , project = project
         , extracts = Dict.empty
         }
         initialRules
@@ -1259,7 +1262,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
         , ruleImplementation =
             \reviewOptions exceptions project nodeContexts ->
                 let
-                    result : { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
+                    result : { errors : List (Error {}), rule : Rule, project : Project, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
                     result =
                         runProjectVisitor
                             reviewOptions
@@ -1270,6 +1273,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                             nodeContexts
                 in
                 { errors = result.errors
+                , project = result.project
                 , rule = result.rule
                 , extract = result.extract
                 }
@@ -1540,7 +1544,7 @@ configurationError name configurationError_ =
         , exceptions = Exceptions.init
         , requestedData = RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
         , extractsData = False
-        , ruleImplementation = \_ _ _ _ -> { errors = [], rule = configurationError name configurationError_, extract = Nothing }
+        , ruleImplementation = \_ _ project _ -> { errors = [], rule = configurationError name configurationError_, project = project, extract = Nothing }
         , configurationError = Just configurationError_
         }
 
@@ -4115,7 +4119,7 @@ runProjectVisitor :
     -> Exceptions
     -> Project
     -> List (Graph.NodeContext ModuleName ())
-    -> { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
+    -> { errors : List (Error {}), rule : Rule, project : Project, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
 runProjectVisitor (ReviewOptionsInternal reviewOptions) projectVisitor maybePreviousCache exceptions project nodeContexts =
     nodeContexts
         |> Logger.log reviewOptions.logger (startedRule projectVisitor.name)
@@ -4148,7 +4152,7 @@ runProjectVisitorHelp :
     -> Exceptions
     -> Project
     -> List (Graph.NodeContext ModuleName ())
-    -> { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
+    -> { errors : List (Error {}), rule : Rule, project : Project, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
 runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybePreviousCache exceptions project nodeContexts =
     -- IGNORE TCO
     let
@@ -4248,7 +4252,7 @@ runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybe
             , ruleImplementation =
                 \newReviewOptions newExceptions newProject newNodeContexts ->
                     let
-                        result : { errors : List (Error {}), rule : Rule, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
+                        result : { errors : List (Error {}), rule : Rule, project : Project, cache : ProjectRuleCache projectContext, extract : Maybe Extract }
                         result =
                             runProjectVisitor
                                 newReviewOptions
@@ -4260,10 +4264,12 @@ runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybe
                     in
                     { errors = result.errors
                     , rule = result.rule
+                    , project = result.project
                     , extract = result.extract
                     }
             , configurationError = Nothing
             }
+    , project = project
     , cache = newCache
     , extract = extract
     }
