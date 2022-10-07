@@ -7,4 +7,5 @@ type ReviewOptionsInternal
     = ReviewOptionsInternal
         { extract : Bool
         , logger : Logger
+        , fixAll : Bool
         }
