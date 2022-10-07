@@ -1,7 +1,7 @@
 module Review.Options exposing
     ( ReviewOptions
     , defaults
-    , withDataExtraction, withLogger
+    , withDataExtraction, withLogger, withFixAll
     )
 
 {-| Configure how `elm-review` runs.
@@ -11,7 +11,7 @@ process like the CLI.
 
 @docs ReviewOptions
 @docs defaults
-@docs withDataExtraction, withLogger
+@docs withDataExtraction, withLogger, withFixAll
 
 -}
 
@@ -35,6 +35,7 @@ defaults =
     ReviewOptionsInternal
         { extract = False
         , logger = Logger.none
+        , fixAll = False
         }
 
 
@@ -59,3 +60,10 @@ withLogger maybeLogger (ReviewOptionsInternal reviewOptions) =
                     Nothing ->
                         Logger.none
         }
+
+
+{-| Enable fix all mode.
+-}
+withFixAll : Bool -> ReviewOptions -> ReviewOptions
+withFixAll enableFixAll (ReviewOptionsInternal reviewOptions) =
+    ReviewOptionsInternal { reviewOptions | fixAll = enableFixAll }
