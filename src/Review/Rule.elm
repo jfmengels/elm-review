@@ -4072,6 +4072,7 @@ runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybe
 
                 Just moduleVisitor ->
                     computeModules
+                        reviewOptions.fixAll
                         projectVisitor
                         moduleVisitor
                         project
@@ -4371,7 +4372,8 @@ errorFilePathInternal (Error err) =
 
 
 computeModules :
-    RunnableProjectVisitor projectContext moduleContext
+    Bool
+    -> RunnableProjectVisitor projectContext moduleContext
     -> ( RunnableModuleVisitor moduleContext, ContextCreator projectContext moduleContext )
     -> Project
     -> Exceptions
@@ -4379,7 +4381,7 @@ computeModules :
     -> List (Graph.NodeContext ModuleName ())
     -> Dict String (CacheEntry projectContext)
     -> { newProject : Project, newModuleContexts : Dict String (CacheEntry projectContext) }
-computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions initialProjectContext nodeContexts startCache =
+computeModules fixAll projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions initialProjectContext nodeContexts startCache =
     let
         graph : Graph ModuleName ()
         graph =
