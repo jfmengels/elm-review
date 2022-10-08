@@ -32,7 +32,7 @@ type Project
         , dependencies : Dict String Dependency
         , moduleGraph : Maybe (Graph ModuleName ())
         , sourceDirectories : List String
-        , moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
+        , moduleNameLookupTables : Dict ModuleName ModuleNameLookupTable
         }
 
 
@@ -69,7 +69,7 @@ moduleGraph (Project project) =
 
 moduleNameLookupTables : Project -> Dict ModuleName ModuleNameLookupTable
 moduleNameLookupTables (Project project) =
-    Maybe.withDefault Dict.empty project.moduleNameLookupTables
+    project.moduleNameLookupTables
 
 
 sourceDirectories : Project -> List String

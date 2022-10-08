@@ -464,17 +464,17 @@ review rules ((Project p) as project) =
                                         project
                                         sortedModules
 
-                                moduleNameLookupTables : Maybe (Dict ModuleName ModuleNameLookupTable)
+                                moduleNameLookupTables : Dict ModuleName ModuleNameLookupTable
                                 moduleNameLookupTables =
                                     case scopeResult.extract of
                                         Just (ModuleNameLookupTableExtract lookupTables) ->
-                                            Just lookupTables
+                                            lookupTables
 
                                         Just (JsonExtract _) ->
-                                            Nothing
+                                            Dict.empty
 
                                         Nothing ->
-                                            Nothing
+                                            Dict.empty
 
                                 projectWithLookupTable : Project
                                 projectWithLookupTable =
@@ -809,7 +809,7 @@ wrapInCycle string =
 runReview : ReviewOptions -> Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
 runReview reviewOptions ((Project p) as project) rules maybeProjectData nodeContexts =
     let
-        scopeResult : { projectData : Maybe ProjectData, lookupTables : Maybe (Dict ModuleName ModuleNameLookupTable) }
+        scopeResult : { projectData : Maybe ProjectData, lookupTables : Dict ModuleName ModuleNameLookupTable }
         scopeResult =
             if needsToComputeScope rules then
                 let
@@ -826,18 +826,18 @@ runReview reviewOptions ((Project p) as project) rules maybeProjectData nodeCont
                 , lookupTables =
                     case extract of
                         Just (ModuleNameLookupTableExtract lookupTable) ->
-                            Just lookupTable
+                            lookupTable
 
                         Just (JsonExtract _) ->
-                            Nothing
+                            Dict.empty
 
                         Nothing ->
-                            Nothing
+                            Dict.empty
                 }
 
             else
                 { projectData = Nothing
-                , lookupTables = Nothing
+                , lookupTables = Dict.empty
                 }
 
         projectWithLookupTables : Project
