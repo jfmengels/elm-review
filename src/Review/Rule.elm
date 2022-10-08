@@ -4513,6 +4513,75 @@ computeModules fixAll projectVisitor ( moduleVisitor, moduleContextCreator ) pro
     }
 
 
+findFix :
+    Dict String Fix.Problem
+    -> Dict String { path : String, source : String }
+    -> List (Error a)
+    ->
+        ( Dict String Fix.Problem
+        , Maybe
+            { file : { path : String, source : String }
+            , error : InternalError
+            , fixedSource : String
+            , remainingErrors : List (Error a)
+            }
+        )
+findFix failedFixesDict files errors =
+    case errors of
+        [] ->
+            ( failedFixesDict, Nothing )
+
+        (Error headError) :: restOfErrors ->
+            case headError.fixes of
+                Just fixes ->
+                    case Dict.get headError.filePath files of
+                        Nothing ->
+                            findFix failedFixesDict files restOfErrors
+
+                        Just file ->
+                            case Fix.fix headError.target fixes file.source of
+                                Fix.Errored problem ->
+                                    -- Ignore error if applying the fix results in a problem
+                                    findFix
+                                        (Dict.insert (hashFixes fixes) problem failedFixesDict)
+                                        files
+                                        restOfErrors
+
+                                Fix.Successful fixedSource ->
+                                    -- Return error and the result of the fix otherwise
+                                    ( failedFixesDict
+                                    , Just
+                                        { file = { path = file.path, source = file.source }
+                                        , error = headError
+                                        , fixedSource = fixedSource
+                                        , remainingErrors = restOfErrors
+                                        }
+                                    )
+
+                Nothing ->
+                    findFix failedFixesDict files restOfErrors
+
+
+hashFixes : List Fix -> String
+hashFixes fixes =
+    fixes
+        |> ListExtra.orderIndependentMap (\fix -> hashFix (Fix.toRecord fix))
+        |> String.join "$$$$$$elm-review$$$$$$"
+
+
+hashFix : { range : Range, replacement : String } -> String
+hashFix { range, replacement } =
+    String.fromInt range.start.row
+        ++ "-"
+        ++ String.fromInt range.start.column
+        ++ "-"
+        ++ String.fromInt range.end.row
+        ++ "-"
+        ++ String.fromInt range.end.column
+        ++ "-"
+        ++ replacement
+
+
 computeModuleAndCacheResult :
     TraversalAndFolder projectContext moduleContext
     -> Dict ModuleName ProjectModule
