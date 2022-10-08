@@ -4513,6 +4513,30 @@ computeModules fixAll projectVisitor ( moduleVisitor, moduleContextCreator ) pro
     }
 
 
+fixableFilesInProject : Project -> Dict String { path : String, source : String }
+fixableFilesInProject project =
+    -- TODO Insert each element in dict directly, or avoid constructing this dict.
+    let
+        elmJson : { path : String, source : String }
+        elmJson =
+            Review.Project.elmJson project
+                |> Maybe.map (\r -> { path = r.path, source = r.raw })
+                |> Maybe.withDefault { path = "$$Not a valid module name$$", source = "" }
+
+        readme : { path : String, source : String }
+        readme =
+            Review.Project.readme project
+                |> Maybe.map (\r -> { path = r.path, source = r.content })
+                |> Maybe.withDefault { path = "$$Not a valid module name$$", source = "" }
+
+        moduleFiles : List ( String, { path : String, source : String } )
+        moduleFiles =
+            Review.Project.modules project
+                |> List.map (\module_ -> ( module_.path, { path = module_.path, source = module_.source } ))
+    in
+    Dict.fromList (( elmJson.path, elmJson ) :: ( readme.path, readme ) :: moduleFiles)
+
+
 findFix :
     Dict String { path : String, source : String }
     -> List (Error a)
