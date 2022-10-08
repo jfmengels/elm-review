@@ -5654,7 +5654,7 @@ scope_fromModuleToProject _ moduleName moduleContext =
 scope_foldProjectContexts : ScopeProjectContext -> ScopeProjectContext -> ScopeProjectContext
 scope_foldProjectContexts newContext previousContext =
     { dependenciesModules = previousContext.dependenciesModules
-    , modules = Dict.union previousContext.modules newContext.modules
+    , modules = Dict.union newContext.modules previousContext.modules
     , lookupTables = Dict.union newContext.lookupTables previousContext.lookupTables
     }
 
