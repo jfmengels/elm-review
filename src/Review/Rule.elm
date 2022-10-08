@@ -543,7 +543,7 @@ checkForConfigurationErrors rules =
                 (\rule ->
                     Maybe.map
                         (\{ message, details } ->
-                            SpecifiedError
+                            Review.Error.ReviewError
                                 { filePath = "CONFIGURATION ERROR"
                                 , ruleName = ruleName rule
                                 , message = message
@@ -552,7 +552,6 @@ checkForConfigurationErrors rules =
                                 , fixes = Nothing
                                 , target = Review.Error.Global
                                 }
-                                |> errorToReviewError
                         )
                         (getConfigurationError rule)
                 )
@@ -1974,22 +1973,12 @@ withContextFromImportedModules (ProjectRuleSchema schema) =
 
 
 setFilePathIfUnset : ProjectModule -> Error scope -> Error scope
-setFilePathIfUnset module_ error_ =
-    case error_ of
-        UnspecifiedError err ->
-            SpecifiedError
-                { err
-                    | filePath =
-                        case err.filePath of
-                            "" ->
-                                module_.path
+setFilePathIfUnset module_ ((Error err) as rawError) =
+    if err.filePath == "" then
+        Error { err | filePath = module_.path }
 
-                            _ ->
-                                err.filePath
-                }
-
-        SpecifiedError _ ->
-            error_
+    else
+        rawError
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's [module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`) and report patterns.
@@ -3286,18 +3275,12 @@ withFinalModuleEvaluation visitor (ModuleRuleSchema schema) =
 rules.
 -}
 type Error scope
-    = UnspecifiedError InternalError
-    | SpecifiedError InternalError
+    = Error InternalError
 
 
 removeErrorPhantomType : Error something -> Error {}
-removeErrorPhantomType err =
-    case err of
-        UnspecifiedError internalError ->
-            UnspecifiedError internalError
-
-        SpecifiedError internalError ->
-            SpecifiedError internalError
+removeErrorPhantomType (Error err) =
+    Error err
 
 
 {-| Represents an error found by a [`Rule`](#Rule). These are the ones that will
@@ -3336,7 +3319,7 @@ In most cases, you can get it using [`Node.range`].
 -}
 error : { message : String, details : List String } -> Range -> Error {}
 error { message, details } range =
-    UnspecifiedError
+    Error
         { message = message
         , ruleName = ""
         , filePath = ""
@@ -3398,7 +3381,7 @@ functions that you define when using [`newProjectRuleSchema`](#newProjectRuleSch
 -}
 errorForModule : ModuleKey -> { message : String, details : List String } -> Range -> Error scope
 errorForModule (ModuleKey path) { message, details } range =
-    SpecifiedError
+    Error
         { message = message
         , ruleName = ""
         , details = details
@@ -3461,7 +3444,7 @@ errorForElmJson (ElmJsonKey { path, raw }) getErrorInfo =
         errorInfo =
             getErrorInfo raw
     in
-    SpecifiedError
+    Error
         { message = errorInfo.message
         , ruleName = ""
         , details = errorInfo.details
@@ -3495,7 +3478,7 @@ errorForElmJsonWithFix (ElmJsonKey elmJson) getErrorInfo getFix =
         errorInfo =
             getErrorInfo elmJson.raw
     in
-    SpecifiedError
+    Error
         { message = errorInfo.message
         , ruleName = ""
         , details = errorInfo.details
@@ -3543,7 +3526,7 @@ function.
 -}
 errorForReadme : ReadmeKey -> { message : String, details : List String } -> Range -> Error scope
 errorForReadme (ReadmeKey { path }) { message, details } range =
-    SpecifiedError
+    Error
         { message = message
         , ruleName = ""
         , filePath = path
@@ -3575,7 +3558,7 @@ errorForReadmeWithFix readmeKey info range fixes =
 
 elmReviewGlobalError : { message : String, details : List String } -> Error scope
 elmReviewGlobalError { message, details } =
-    SpecifiedError
+    Error
         { filePath = "GLOBAL ERROR"
         , ruleName = ""
         , message = message
@@ -3617,7 +3600,7 @@ by the tests automatically.
 -}
 globalError : { message : String, details : List String } -> Error scope
 globalError { message, details } =
-    SpecifiedError
+    Error
         { filePath = "GLOBAL ERROR"
         , ruleName = ""
         , message = message
@@ -3699,8 +3682,8 @@ withFixes fixes error_ =
 
 
 errorToReviewError : Error scope -> ReviewError
-errorToReviewError error_ =
-    Review.Error.ReviewError (accessInternalError error_)
+errorToReviewError (Error err) =
+    Review.Error.ReviewError err
 
 
 {-| Get the name of the rule that triggered this [`Error`](#Error).
@@ -3755,23 +3738,8 @@ errorTarget (Review.Error.ReviewError err) =
 
 
 mapInternalError : (InternalError -> InternalError) -> Error scope -> Error scope
-mapInternalError fn err =
-    case err of
-        UnspecifiedError internal ->
-            UnspecifiedError (fn internal)
-
-        SpecifiedError internal ->
-            SpecifiedError (fn internal)
-
-
-accessInternalError : Error scope -> InternalError
-accessInternalError error_ =
-    case error_ of
-        UnspecifiedError internalError ->
-            internalError
-
-        SpecifiedError internalError ->
-            internalError
+mapInternalError fn (Error err) =
+    Error (fn err)
 
 
 
@@ -4364,8 +4332,8 @@ filterExceptionsAndSetName exceptions name errors =
 
 
 errorFilePathInternal : Error scope -> String
-errorFilePathInternal error_ =
-    (accessInternalError error_).filePath
+errorFilePathInternal (Error err) =
+    err.filePath
 
 
 
