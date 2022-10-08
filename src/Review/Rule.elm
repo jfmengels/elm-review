@@ -4516,6 +4516,7 @@ computeModules fixAll projectVisitor ( moduleVisitor, moduleContextCreator ) pro
 findFix :
     Dict String { path : String, source : String }
     -> List (Error a)
+    -> Project
     ->
         Maybe
             { file : { path : String, source : String }
@@ -4523,7 +4524,7 @@ findFix :
             , fixedSource : String
             , remainingErrors : List (Error a)
             }
-findFix files errors =
+findFix files errors project =
     case errors of
         [] ->
             Nothing
@@ -4533,12 +4534,12 @@ findFix files errors =
                 Just fixes ->
                     case Dict.get headError.filePath files of
                         Nothing ->
-                            findFix files restOfErrors
+                            findFix files restOfErrors project
 
                         Just file ->
                             case Fix.fix headError.target fixes file.source of
                                 Fix.Errored _ ->
-                                    findFix files restOfErrors
+                                    findFix files restOfErrors project
 
                                 Fix.Successful fixedSource ->
                                     Just
@@ -4549,7 +4550,7 @@ findFix files errors =
                                         }
 
                 Nothing ->
-                    findFix files restOfErrors
+                    findFix files restOfErrors project
 
 
 computeModuleAndCacheResult :
