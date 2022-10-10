@@ -134,7 +134,6 @@ compute moduleName module_ ((Project { dataCache }) as project) =
             , lookupTables = Dict.insert moduleName moduleContext.lookupTable dataCache.lookupTables
             }
     in
-    -- TODO Update project to contain the new "project context"
     ( moduleContext.lookupTable, updateProject newDataCache project )
 
 
