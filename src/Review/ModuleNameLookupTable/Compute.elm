@@ -76,13 +76,6 @@ emptyScope =
 compute : ModuleName -> ProjectModule -> Project -> ( ModuleNameLookupTable, Project )
 compute moduleName module_ ((Project { dataCache }) as project) =
     let
-        computeDependencies : () -> Dict String Elm.Docs.Module
-        computeDependencies () =
-            project
-                |> Review.Project.directDependencies
-                |> Dict.foldl (\_ dep acc -> ListExtra.orderIndependentAppend (Review.Project.Dependency.modules dep) acc) []
-                |> List.foldl (\dependencyModule acc -> Dict.insert dependencyModule.name dependencyModule acc) Dict.empty
-
         elmJsonRaw : Maybe String
         elmJsonRaw =
             Maybe.map .raw (Review.Project.elmJson project)
@@ -95,10 +88,10 @@ compute moduleName module_ ((Project { dataCache }) as project) =
                         cache.deps
 
                     else
-                        computeDependencies ()
+                        computeDependencies project
 
                 Nothing ->
-                    computeDependencies ()
+                    computeDependencies project
 
         moduleContext : Context
         moduleContext =
@@ -122,6 +115,14 @@ compute moduleName module_ ((Project { dataCache }) as project) =
             }
     in
     ( moduleContext.lookupTable, updateProject newDataCache project )
+
+
+computeDependencies : Project -> Dict String Elm.Docs.Module
+computeDependencies project =
+    project
+        |> Review.Project.directDependencies
+        |> Dict.foldl (\_ dep acc -> ListExtra.orderIndependentAppend (Review.Project.Dependency.modules dep) acc) []
+        |> List.foldl (\dependencyModule acc -> Dict.insert dependencyModule.name dependencyModule acc) Dict.empty
 
 
 updateProject : Review.Project.Internal.DataCache -> Project -> Project
