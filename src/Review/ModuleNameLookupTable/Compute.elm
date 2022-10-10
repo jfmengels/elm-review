@@ -26,12 +26,6 @@ import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
 
 
-type alias ScopeProjectContext =
-    { dependenciesModules : Dict String Elm.Docs.Module
-    , modules : Dict ModuleName Elm.Docs.Module
-    }
-
-
 type alias ScopeModuleContext =
     { scopes : NonEmpty Scope
     , localTypes : Set String
@@ -107,15 +101,9 @@ compute moduleName module_ ((Project { dataCache }) as project) =
                 Nothing ->
                     computeDependencies ()
 
-        projectContext : ScopeProjectContext
-        projectContext =
-            { dependenciesModules = deps
-            , modules = dataCache.modules
-            }
-
         moduleContext : ScopeModuleContext
         moduleContext =
-            scope_fromProjectToModule moduleName projectContext
+            scope_fromProjectToModule moduleName deps dataCache.modules
                 |> collectLookupTable module_.ast
 
         newDataCache : Review.Project.Internal.DataCache
@@ -142,15 +130,15 @@ updateProject dataCache (Project project) =
     Project { project | dataCache = dataCache }
 
 
-scope_fromProjectToModule : ModuleName -> ScopeProjectContext -> ScopeModuleContext
-scope_fromProjectToModule moduleName projectContext =
+scope_fromProjectToModule : ModuleName -> Dict String Elm.Docs.Module -> Dict ModuleName Elm.Docs.Module -> ScopeModuleContext
+scope_fromProjectToModule moduleName dependenciesModules modules =
     { scopes = NonEmpty.fromElement emptyScope
     , localTypes = Set.empty
     , importAliases = Dict.empty
     , importedFunctions = Dict.empty
     , importedTypes = Dict.empty
-    , dependenciesModules = projectContext.dependenciesModules
-    , modules = projectContext.modules
+    , dependenciesModules = dependenciesModules
+    , modules = modules
     , exposesEverything = False
     , exposedNames = Dict.empty
     , exposedUnions = []
