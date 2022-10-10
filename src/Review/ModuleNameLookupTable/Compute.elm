@@ -7,4 +7,9 @@ import Review.Project.Internal exposing (Project)
 
 compute : ModuleName -> Project -> ( ModuleNameLookupTable, Project )
 compute moduleName project =
-    ( ModuleNameLookupTableInternal.empty moduleName, project )
+    let
+        lookupTable : ModuleNameLookupTable
+        lookupTable =
+            ModuleNameLookupTableInternal.empty moduleName
+    in
+    ( lookupTable, project )
