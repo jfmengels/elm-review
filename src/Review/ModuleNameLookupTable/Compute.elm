@@ -32,7 +32,7 @@ type alias Context =
     , importAliases : Dict String (List ModuleName)
     , importedFunctions : Dict String ModuleName
     , importedTypes : Dict String ModuleName
-    , dependenciesModules : Dict String Elm.Docs.Module
+    , dependenciesModules : Dict ModuleName Elm.Docs.Module
     , modules : Dict ModuleName Elm.Docs.Module
     , exposesEverything : Bool
     , exposedNames : Set String
@@ -80,7 +80,7 @@ compute moduleName module_ ((Project { dataCache }) as project) =
         elmJsonRaw =
             Maybe.map .raw (Review.Project.elmJson project)
 
-        deps : Dict String Elm.Docs.Module
+        deps : Dict ModuleName Elm.Docs.Module
         deps =
             -- TODO Invalidate all the lookuptables if elm.json has changed? Or be smarter about it, but at least
             -- avoid outdated results
@@ -106,7 +106,7 @@ compute moduleName module_ ((Project { dataCache }) as project) =
 
                         maybeImportedModule : Maybe Elm.Docs.Module
                         maybeImportedModule =
-                            case Dict.get (joinModuleName importedModuleName) deps of
+                            case Dict.get importedModuleName deps of
                                 Just importedModule ->
                                     Just importedModule
 
@@ -150,12 +150,12 @@ compute moduleName module_ ((Project { dataCache }) as project) =
     ( moduleContext.lookupTable, updateProject newDataCache project )
 
 
-computeDependencies : Project -> Dict String Elm.Docs.Module
+computeDependencies : Project -> Dict ModuleName Elm.Docs.Module
 computeDependencies project =
     project
         |> Review.Project.directDependencies
         |> Dict.foldl (\_ dep acc -> ListExtra.orderIndependentAppend (Review.Project.Dependency.modules dep) acc) []
-        |> List.foldl (\dependencyModule acc -> Dict.insert dependencyModule.name dependencyModule acc) Dict.empty
+        |> List.foldl (\dependencyModule acc -> Dict.insert (String.split "." dependencyModule.name) dependencyModule acc) Dict.empty
 
 
 updateProject : Review.Project.Internal.DataCache -> Project -> Project
@@ -163,7 +163,7 @@ updateProject dataCache (Project project) =
     Project { project | dataCache = dataCache }
 
 
-fromProjectToModule : ModuleName -> Dict String Elm.Docs.Module -> Dict ModuleName Elm.Docs.Module -> Context
+fromProjectToModule : ModuleName -> Dict ModuleName Elm.Docs.Module -> Dict ModuleName Elm.Docs.Module -> Context
 fromProjectToModule moduleName dependenciesModules modules =
     { scopes = NonEmpty.fromElement emptyScope
     , localTypes = Set.empty
@@ -634,7 +634,7 @@ registerImportExposed import_ innerContext =
                             Just m
 
                         Nothing ->
-                            Dict.get (joinModuleName moduleName) innerContext.dependenciesModules
+                            Dict.get moduleName innerContext.dependenciesModules
                     )
                         |> Maybe.withDefault
                             { name = joinModuleName moduleName
@@ -1201,7 +1201,7 @@ moduleNameForValue context valueName moduleName =
                                         isValueDeclaredInModule valueName module_
 
                                     Nothing ->
-                                        case Dict.get (joinModuleName aliasedModuleName) context.dependenciesModules of
+                                        case Dict.get aliasedModuleName context.dependenciesModules of
                                             Just module_ ->
                                                 isValueDeclaredInModule valueName module_
 
@@ -1256,7 +1256,7 @@ moduleNameForType context typeName moduleName =
                                         isTypeDeclaredInModule typeName module_
 
                                     Nothing ->
-                                        case Dict.get (joinModuleName aliasedModuleName) context.dependenciesModules of
+                                        case Dict.get aliasedModuleName context.dependenciesModules of
                                             Just module_ ->
                                                 isTypeDeclaredInModule typeName module_
 
