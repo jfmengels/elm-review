@@ -4496,10 +4496,6 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
         graph =
             Review.Project.Internal.moduleGraph project
 
-        moduleNameLookupTables : Dict ModuleName ModuleNameLookupTable
-        moduleNameLookupTables =
-            Review.Project.Internal.moduleNameLookupTables project
-
         modulesToAnalyze : List ProjectModule
         modulesToAnalyze =
             case projectVisitor.traversalAndFolder of
@@ -4544,7 +4540,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                     { ast = module_.ast
                     , moduleKey = ModuleKey module_.path
                     , moduleNameLookupTable =
-                        Dict.get (Review.Project.Internal.getModuleName module_) moduleNameLookupTables
+                        Dict.get (Review.Project.Internal.getModuleName module_) (Review.Project.Internal.moduleNameLookupTables project)
                             |> Maybe.withDefault (ModuleNameLookupTableInternal.empty (Node.value (moduleNameNode module_.ast.moduleDefinition)))
                     , extractSourceCode =
                         let
