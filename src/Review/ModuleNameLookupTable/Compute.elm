@@ -120,14 +120,14 @@ compute moduleName module_ ((Project { dataCache }) as project) =
                             acc
                 )
                 Dict.empty
-                module_.ast.imports
+                (elmCorePrelude ++ module_.ast.imports)
 
         cacheKey =
             { deps = deps, modules = dataCache.modules }
 
         moduleContext : Context
         moduleContext =
-            fromProjectToModule moduleName deps dataCache.modules
+            fromProjectToModule moduleName imported
                 |> collectLookupTable module_.ast
 
         newDataCache : Review.Project.Internal.DataCache
@@ -162,14 +162,14 @@ updateProject dataCache (Project project) =
     Project { project | dataCache = dataCache }
 
 
-fromProjectToModule : ModuleName -> Dict ModuleName Elm.Docs.Module -> Dict ModuleName Elm.Docs.Module -> Context
-fromProjectToModule moduleName dependenciesModules modules =
+fromProjectToModule : ModuleName -> Dict ModuleName Elm.Docs.Module -> Context
+fromProjectToModule moduleName modules =
     { scopes = NonEmpty.fromElement emptyScope
     , localTypes = Set.empty
     , importAliases = Dict.empty
     , importedFunctions = Dict.empty
     , importedTypes = Dict.empty
-    , modules = Dict.union dependenciesModules modules
+    , modules = modules
     , exposesEverything = False
     , exposedNames = Set.empty
     , exposedUnions = []
