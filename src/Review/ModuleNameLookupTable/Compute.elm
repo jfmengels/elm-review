@@ -72,12 +72,6 @@ emptyScope =
     }
 
 
-type alias ModuleCacheKey =
-    { imported : Dict ModuleName Elm.Docs.Module
-    , source : String
-    }
-
-
 compute : ModuleName -> ProjectModule -> Project -> ( ModuleNameLookupTable, Project )
 compute moduleName module_ ((Project { dataCache }) as project) =
     let
@@ -128,32 +122,50 @@ compute moduleName module_ ((Project { dataCache }) as project) =
                 Dict.empty
                 (elmCorePrelude ++ module_.ast.imports)
 
-        cacheKey : ModuleCacheKey
+        cacheKey : Review.Project.Internal.ModuleCacheKey
         cacheKey =
             { imported = imported, source = module_.source }
 
-        moduleContext : Context
-        moduleContext =
-            fromProjectToModule moduleName imported
-                |> collectLookupTable module_.ast
+        computeLookupTableForModule : () -> ( ModuleNameLookupTable, Dict ModuleName Elm.Docs.Module )
+        computeLookupTableForModule () =
+            let
+                moduleContext : Context
+                moduleContext =
+                    fromProjectToModule moduleName imported
+                        |> collectLookupTable module_.ast
+            in
+            ( moduleContext.lookupTable
+            , Dict.insert moduleName
+                { name = String.join "." moduleName
+                , comment = ""
+                , unions = moduleContext.exposedUnions
+                , aliases = moduleContext.exposedAliases
+                , values = moduleContext.exposedValues
+                , binops = []
+                }
+                dataCache.modules
+            )
+
+        ( lookupTable, modules ) =
+            case Dict.get moduleName dataCache.lookupTables of
+                Just cache ->
+                    if cache.key == cacheKey then
+                        ( cache.lookupTable, dataCache.modules )
+
+                    else
+                        computeLookupTableForModule ()
+
+                Nothing ->
+                    computeLookupTableForModule ()
 
         newDataCache : Review.Project.Internal.DataCache
         newDataCache =
             { dependenciesModules = Just { elmJsonRaw = elmJsonRaw, deps = deps }
-            , modules =
-                Dict.insert moduleName
-                    { name = String.join "." moduleName
-                    , comment = ""
-                    , unions = moduleContext.exposedUnions
-                    , aliases = moduleContext.exposedAliases
-                    , values = moduleContext.exposedValues
-                    , binops = []
-                    }
-                    dataCache.modules
-            , lookupTables = Dict.insert moduleName moduleContext.lookupTable dataCache.lookupTables
+            , modules = modules
+            , lookupTables = Dict.insert moduleName { key = cacheKey, lookupTable = lookupTable } dataCache.lookupTables
             }
     in
-    ( moduleContext.lookupTable, updateProject newDataCache project )
+    ( lookupTable, updateProject newDataCache project )
 
 
 computeDependencies : Project -> Dict ModuleName Elm.Docs.Module

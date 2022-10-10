@@ -1,5 +1,6 @@
 module Review.Project.Internal exposing
     ( DataCache
+    , ModuleCacheKey
     , Project(..)
     , ProjectModule
     , buildModuleGraph
@@ -42,7 +43,13 @@ type Project
 type alias DataCache =
     { dependenciesModules : Maybe { elmJsonRaw : Maybe String, deps : Dict ModuleName Elm.Docs.Module }
     , modules : Dict ModuleName Elm.Docs.Module
-    , lookupTables : Dict ModuleName ModuleNameLookupTable
+    , lookupTables : Dict ModuleName { key : ModuleCacheKey, lookupTable : ModuleNameLookupTable }
+    }
+
+
+type alias ModuleCacheKey =
+    { imported : Dict ModuleName Elm.Docs.Module
+    , source : String
     }
 
 
