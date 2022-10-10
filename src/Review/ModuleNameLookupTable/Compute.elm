@@ -95,6 +95,37 @@ compute moduleName module_ ((Project { dataCache }) as project) =
                 Nothing ->
                     computeDependencies project
 
+        imported : Dict ModuleName Elm.Docs.Module
+        imported =
+            List.foldl
+                (\(Node _ import_) acc ->
+                    let
+                        importedModuleName : ModuleName
+                        importedModuleName =
+                            Node.value import_.moduleName
+
+                        maybeImportedModule : Maybe Elm.Docs.Module
+                        maybeImportedModule =
+                            case Dict.get (joinModuleName importedModuleName) deps of
+                                Just importedModule ->
+                                    Just importedModule
+
+                                Nothing ->
+                                    Dict.get importedModuleName dataCache.modules
+                    in
+                    case maybeImportedModule of
+                        Just importedModule ->
+                            Dict.insert importedModuleName importedModule acc
+
+                        Nothing ->
+                            acc
+                )
+                Dict.empty
+                module_.ast.imports
+
+        cacheKey =
+            { deps = deps, modules = dataCache.modules }
+
         moduleContext : Context
         moduleContext =
             fromProjectToModule moduleName deps dataCache.modules
