@@ -6640,7 +6640,7 @@ scope_popScopeEnter node context =
 
         caseExpression : Maybe ( Node Expression, Dict String VariableInfo )
         caseExpression =
-            findInList (\( expressionNode, _ ) -> node == expressionNode) currentScope.cases
+            ListExtra.find (\( expressionNode, _ ) -> node == expressionNode) currentScope.cases
     in
     case caseExpression of
         Nothing ->
@@ -6847,20 +6847,6 @@ expressionExitVisitor node context =
             context
 
 
-findInList : (a -> Bool) -> List a -> Maybe a
-findInList predicate list =
-    case list of
-        [] ->
-            Nothing
-
-        a :: rest ->
-            if predicate a then
-                Just a
-
-            else
-                findInList predicate rest
-
-
 
 -- ACCESS
 
@@ -6905,7 +6891,7 @@ moduleNameForValue context valueName moduleName =
 
                 Just aliases ->
                     case
-                        findInList
+                        ListExtra.find
                             (\aliasedModuleName ->
                                 case Dict.get aliasedModuleName context.modules of
                                     Just module_ ->
@@ -6960,7 +6946,7 @@ moduleNameForType context typeName moduleName =
 
                 Just aliases ->
                     case
-                        findInList
+                        ListExtra.find
                             (\aliasedModuleName ->
                                 case Dict.get aliasedModuleName context.modules of
                                     Just module_ ->
