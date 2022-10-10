@@ -82,6 +82,8 @@ compute moduleName module_ ((Project { dataCache }) as project) =
 
         deps : Dict String Elm.Docs.Module
         deps =
+            -- TODO Invalidate all the lookuptables if elm.json has changed? Or be smarter about it, but at least
+            -- avoid outdated results
             case dataCache.dependenciesModules of
                 Just cache ->
                     if elmJsonRaw == cache.elmJsonRaw then
