@@ -5786,7 +5786,7 @@ type alias ScopeModuleContext =
     , dependenciesModules : Dict String Elm.Docs.Module
     , modules : Dict ModuleName Elm.Docs.Module
     , exposesEverything : Bool
-    , exposedNames : Dict String Range
+    , exposedNames : Set String
     , exposedUnions : List Elm.Docs.Union
     , exposedAliases : List Elm.Docs.Alias
     , exposedValues : List Elm.Docs.Value
@@ -5827,7 +5827,7 @@ scope_fromProjectToModule _ moduleName projectContext =
     , dependenciesModules = projectContext.dependenciesModules
     , modules = projectContext.modules
     , exposesEverything = False
-    , exposedNames = Dict.empty
+    , exposedNames = Set.empty
     , exposedUnions = []
     , exposedAliases = []
     , exposedValues = []
@@ -6178,7 +6178,7 @@ registerExposedTypeAlias name innerContext =
 
 registerIfExposed : (String -> ScopeModuleContext -> ScopeModuleContext) -> String -> ScopeModuleContext -> ScopeModuleContext
 registerIfExposed registerFn name innerContext =
-    if innerContext.exposesEverything || Dict.member name innerContext.exposedNames then
+    if innerContext.exposesEverything || Set.member name innerContext.exposedNames then
         registerFn name innerContext
 
     else
@@ -6265,24 +6265,24 @@ scope_moduleDefinitionVisitor node innerContext =
             { innerContext | exposedNames = exposedElements list }
 
 
-exposedElements : List (Node Exposing.TopLevelExpose) -> Dict String Range
+exposedElements : List (Node Exposing.TopLevelExpose) -> Set String
 exposedElements nodes =
     List.foldl
         (\node acc ->
             case Node.value node of
                 Exposing.FunctionExpose name ->
-                    Dict.insert name (Node.range node) acc
+                    Set.insert name acc
 
                 Exposing.TypeOrAliasExpose name ->
-                    Dict.insert name (Node.range node) acc
+                    Set.insert name acc
 
                 Exposing.TypeExpose { name } ->
-                    Dict.insert name (Node.range node) acc
+                    Set.insert name acc
 
                 Exposing.InfixExpose _ ->
                     acc
         )
-        Dict.empty
+        Set.empty
         nodes
 
 
