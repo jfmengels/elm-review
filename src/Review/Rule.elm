@@ -807,32 +807,32 @@ runRules :
     -> Project
     -> List (Graph.NodeContext ModuleName ())
     -> { errors : List (Error {}), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
-runRules reviewOptions initialRules project nodeContexts =
+runRules reviewOptions initialRules initialProject nodeContexts =
     List.foldl
-        (\(Rule { name, exceptions, ruleImplementation }) { errors, rules, extracts } ->
+        (\(Rule { name, exceptions, ruleImplementation }) acc ->
             let
                 result : { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
                 result =
-                    ruleImplementation reviewOptions exceptions project nodeContexts
+                    ruleImplementation reviewOptions exceptions acc.project nodeContexts
             in
-            { errors = ListExtra.orderIndependentMapAppend removeErrorPhantomType result.errors errors
-            , rules = result.rule :: rules
+            { errors = ListExtra.orderIndependentMapAppend removeErrorPhantomType result.errors acc.errors
+            , rules = result.rule :: acc.rules
             , project = result.project
             , extracts =
                 case result.extract of
                     Just (JsonExtract extract) ->
-                        Dict.insert name extract extracts
+                        Dict.insert name extract acc.extracts
 
                     Just (ModuleNameLookupTableExtract _) ->
-                        extracts
+                        acc.extracts
 
                     Nothing ->
-                        extracts
+                        acc.extracts
             }
         )
         { errors = []
         , rules = []
-        , project = project
+        , project = initialProject
         , extracts = Dict.empty
         }
         initialRules
