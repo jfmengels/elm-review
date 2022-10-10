@@ -4275,6 +4275,7 @@ computeExtract :
     -> Maybe projectContext
     -> ( Maybe Extract, Maybe projectContext )
 computeExtract projectVisitor computeFoldedContext maybeFoldedContext =
+    -- TODO Cache the extract
     case projectVisitor.dataExtractor of
         Just dataExtractor ->
             case maybeFoldedContext of
