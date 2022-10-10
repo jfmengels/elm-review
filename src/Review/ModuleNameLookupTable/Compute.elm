@@ -105,12 +105,12 @@ compute moduleName module_ ((Project { dataCache }) as project) =
 
                         maybeImportedModule : Maybe Elm.Docs.Module
                         maybeImportedModule =
-                            case Dict.get importedModuleName deps of
+                            case Dict.get importedModuleName dataCache.modules of
                                 Just importedModule ->
                                     Just importedModule
 
                                 Nothing ->
-                                    Dict.get importedModuleName dataCache.modules
+                                    Dict.get importedModuleName deps
                     in
                     case maybeImportedModule of
                         Just importedModule ->
