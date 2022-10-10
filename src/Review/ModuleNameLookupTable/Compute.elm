@@ -109,7 +109,7 @@ compute moduleName ((Project { dataCache }) as project) =
         projectContext : ScopeProjectContext
         projectContext =
             { dependenciesModules = dependenciesModules
-            , modules = Dict.empty
+            , modules = dataCache.modules
             }
 
         moduleContext : ScopeModuleContext
