@@ -604,8 +604,8 @@ exported/imported with `elm/browser`'s debugger, and may cause a crash if you tr
 to compare them or the model that holds them.
 
 -}
-reviewV3 : ReviewOptions -> List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
-reviewV3 reviewOptions rules maybeProjectData project =
+reviewV3 : ReviewOptions -> List Rule -> Project -> { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+reviewV3 reviewOptions rules project =
     case
         checkForConfigurationErrors rules
             |> Result.andThen (\() -> checkForModulesThatFailedToParse project)
@@ -613,12 +613,7 @@ reviewV3 reviewOptions rules maybeProjectData project =
             |> Result.andThen (\() -> getModulesSortedByImport project)
     of
         Ok nodeContexts ->
-            runReview
-                reviewOptions
-                project
-                rules
-                maybeProjectData
-                nodeContexts
+            runRules reviewOptions rules project nodeContexts
 
         Err errors ->
             { errors = errors
@@ -751,47 +746,6 @@ runReviewForV2 reviewOptions ((Project p) as project) rules maybeProjectData nod
     , projectData = scopeResult.projectData
     , extracts = runResult.extracts
     }
-
-
-runReview : ReviewOptions -> Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
-runReview reviewOptions ((Project p) as project) rules maybeProjectData nodeContexts =
-    let
-        scopeResult : { projectData : Maybe ProjectData, lookupTables : Dict ModuleName ModuleNameLookupTable }
-        scopeResult =
-            if needsToComputeScope rules then
-                let
-                    { cache, extract } =
-                        runProjectVisitor
-                            (ReviewOptions.withDataExtraction True ReviewOptions.defaults)
-                            scopeRule
-                            (Maybe.map extractProjectData maybeProjectData)
-                            Exceptions.init
-                            project
-                            nodeContexts
-                in
-                { projectData = Just (ProjectData cache)
-                , lookupTables =
-                    case extract of
-                        Just (ModuleNameLookupTableExtract lookupTable) ->
-                            lookupTable
-
-                        Just (JsonExtract _) ->
-                            Dict.empty
-
-                        Nothing ->
-                            Dict.empty
-                }
-
-            else
-                { projectData = Nothing
-                , lookupTables = Dict.empty
-                }
-
-        projectWithLookupTables : Project
-        projectWithLookupTables =
-            Project { p | moduleNameLookupTables = scopeResult.lookupTables }
-    in
-    runRules reviewOptions rules projectWithLookupTables nodeContexts
 
 
 
