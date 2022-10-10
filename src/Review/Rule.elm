@@ -550,7 +550,7 @@ reviewV2 rules maybeProjectData project =
             let
                 runResult : { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
                 runResult =
-                    runReview ReviewOptions.defaults project rules maybeProjectData nodeContexts
+                    runReviewForV2 ReviewOptions.defaults project rules maybeProjectData nodeContexts
             in
             { errors = runResult.errors
             , rules = runResult.rules
@@ -702,6 +702,56 @@ importCycleError moduleGraph edge =
         |> elmReviewGlobalError
         |> setRuleName "Incorrect project"
         |> errorToReviewError
+
+
+runReviewForV2 : ReviewOptions -> Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
+runReviewForV2 reviewOptions ((Project p) as project) rules maybeProjectData nodeContexts =
+    let
+        scopeResult : { projectData : Maybe ProjectData, lookupTables : Dict ModuleName ModuleNameLookupTable }
+        scopeResult =
+            if needsToComputeScope rules then
+                let
+                    { cache, extract } =
+                        runProjectVisitor
+                            (ReviewOptions.withDataExtraction True ReviewOptions.defaults)
+                            scopeRule
+                            (Maybe.map extractProjectData maybeProjectData)
+                            Exceptions.init
+                            project
+                            nodeContexts
+                in
+                { projectData = Just (ProjectData cache)
+                , lookupTables =
+                    case extract of
+                        Just (ModuleNameLookupTableExtract lookupTable) ->
+                            lookupTable
+
+                        Just (JsonExtract _) ->
+                            Dict.empty
+
+                        Nothing ->
+                            Dict.empty
+                }
+
+            else
+                { projectData = Nothing
+                , lookupTables = Dict.empty
+                }
+
+        projectWithLookupTables : Project
+        projectWithLookupTables =
+            Project { p | moduleNameLookupTables = scopeResult.lookupTables }
+
+        runResult : { errors : List (Error {}), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+        runResult =
+            runRules reviewOptions rules projectWithLookupTables nodeContexts
+    in
+    { errors = ListExtra.orderIndependentMap errorToReviewError runResult.errors
+    , rules = runResult.rules
+    , project = runResult.project
+    , projectData = scopeResult.projectData
+    , extracts = runResult.extracts
+    }
 
 
 runReview : ReviewOptions -> Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
