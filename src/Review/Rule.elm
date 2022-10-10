@@ -604,7 +604,7 @@ exported/imported with `elm/browser`'s debugger, and may cause a crash if you tr
 to compare them or the model that holds them.
 
 -}
-reviewV3 : ReviewOptions -> List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
+reviewV3 : ReviewOptions -> List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
 reviewV3 reviewOptions rules maybeProjectData project =
     case
         checkForConfigurationErrors rules
@@ -624,7 +624,6 @@ reviewV3 reviewOptions rules maybeProjectData project =
             { errors = errors
             , rules = rules
             , project = project
-            , projectData = maybeProjectData
             , extracts = Dict.empty
             }
 
@@ -754,7 +753,7 @@ runReviewForV2 reviewOptions ((Project p) as project) rules maybeProjectData nod
     }
 
 
-runReview : ReviewOptions -> Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
+runReview : ReviewOptions -> Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
 runReview reviewOptions ((Project p) as project) rules maybeProjectData nodeContexts =
     let
         scopeResult : { projectData : Maybe ProjectData, lookupTables : Dict ModuleName ModuleNameLookupTable }
@@ -799,7 +798,6 @@ runReview reviewOptions ((Project p) as project) rules maybeProjectData nodeCont
     { errors = ListExtra.orderIndependentMap errorToReviewError runResult.errors
     , rules = runResult.rules
     , project = runResult.project
-    , projectData = scopeResult.projectData
     , extracts = runResult.extracts
     }
 
