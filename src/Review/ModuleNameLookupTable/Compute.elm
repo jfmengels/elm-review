@@ -72,6 +72,12 @@ emptyScope =
     }
 
 
+type alias ModuleCacheKey =
+    { imported : Dict ModuleName Elm.Docs.Module
+    , source : String
+    }
+
+
 compute : ModuleName -> ProjectModule -> Project -> ( ModuleNameLookupTable, Project )
 compute moduleName module_ ((Project { dataCache }) as project) =
     let
@@ -122,8 +128,9 @@ compute moduleName module_ ((Project { dataCache }) as project) =
                 Dict.empty
                 (elmCorePrelude ++ module_.ast.imports)
 
+        cacheKey : ModuleCacheKey
         cacheKey =
-            { deps = deps, modules = dataCache.modules }
+            { imported = imported, source = module_.source }
 
         moduleContext : Context
         moduleContext =
