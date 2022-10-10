@@ -160,45 +160,51 @@ scope_fromProjectToModule moduleName projectContext =
     , exposedBinops = []
     , lookupTable = ModuleNameLookupTableInternal.empty moduleName
     }
-        |> registerPrelude
 
 
 collectLookupTable : Elm.Syntax.File.File -> ScopeModuleContext -> ScopeModuleContext
 collectLookupTable ast context =
-    List.foldl scope_importVisitor context ast.imports
+    List.foldl scope_importVisitor context (elmCorePrelude ++ ast.imports)
         |> scope_moduleDefinitionVisitor ast.moduleDefinition
         |> scope_declarationListVisitor ast.declarations
+        |> visitDeclarationsAndExpressions ast.declarations
 
 
-
--- DEPENDENCIES
-
-
-scope_dependenciesVisitor : Dict String Dependency -> ScopeProjectContext -> ScopeProjectContext
-scope_dependenciesVisitor dependencies innerContext =
-    let
-        dependenciesModules : Dict String Elm.Docs.Module
-        dependenciesModules =
-            dependencies
-                |> Dict.foldl (\_ dep acc -> ListExtra.orderIndependentAppend (Review.Project.Dependency.modules dep) acc) []
-                |> List.foldl (\dependencyModule acc -> Dict.insert dependencyModule.name dependencyModule acc) Dict.empty
-    in
-    { innerContext | dependenciesModules = dependenciesModules }
-
-
-registerPrelude : ScopeModuleContext -> ScopeModuleContext
-registerPrelude innerContext =
+visitDeclarationsAndExpressions : List (Node Declaration) -> ScopeModuleContext -> ScopeModuleContext
+visitDeclarationsAndExpressions declarations context =
     List.foldl
-        (\import_ ctx ->
-            ctx
-                |> registerImportAlias import_
-                |> registerImportExposed import_
+        (\declaration ctx ->
+            case Node.value declaration of
+                Declaration.FunctionDeclaration function ->
+                    ctx
+                        |> scope_declarationEnterVisitor declaration
+                        |> visitExpressions (function.declaration |> Node.value |> .expression)
+                        |> scope_declarationExitVisitor declaration
+
+                _ ->
+                    scope_declarationEnterVisitor declaration ctx
         )
-        innerContext
-        elmCorePrelude
+        context
+        declarations
 
 
-elmCorePrelude : List Import
+visitExpressions : Node Expression -> ScopeModuleContext -> ScopeModuleContext
+visitExpressions node context =
+    -- IGNORE TCO
+    context
+        |> scope_popScopeEnter node
+        |> scope_expressionEnterVisitor node
+        |> (\newContext ->
+                List.foldl
+                    visitExpressions
+                    newContext
+                    (expressionChildren node)
+           )
+        |> scope_popScopeExit node
+        |> expressionExitVisitor node
+
+
+elmCorePrelude : List (Node Import)
 elmCorePrelude =
     let
         explicit : List Exposing.TopLevelExpose -> Maybe Exposing
@@ -293,12 +299,13 @@ elmCorePrelude =
     ]
 
 
-createFakeImport : { moduleName : ModuleName, exposingList : Maybe Exposing, moduleAlias : Maybe String } -> Import
+createFakeImport : { moduleName : ModuleName, exposingList : Maybe Exposing, moduleAlias : Maybe String } -> Node Import
 createFakeImport { moduleName, moduleAlias, exposingList } =
-    { moduleName = Node Range.emptyRange moduleName
-    , moduleAlias = moduleAlias |> Maybe.map (List.singleton >> Node Range.emptyRange)
-    , exposingList = exposingList |> Maybe.map (Node Range.emptyRange)
-    }
+    Node Range.emptyRange
+        { moduleName = Node Range.emptyRange moduleName
+        , moduleAlias = moduleAlias |> Maybe.map (List.singleton >> Node Range.emptyRange)
+        , exposingList = exposingList |> Maybe.map (Node Range.emptyRange)
+        }
 
 
 scope_declarationListVisitor : List (Node Declaration) -> ScopeModuleContext -> ScopeModuleContext
