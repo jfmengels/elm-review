@@ -87,8 +87,8 @@ compute moduleName project =
     ( lookupTable, project )
 
 
-scope_fromProjectToModule : a -> Node ModuleName -> ScopeProjectContext -> ScopeModuleContext
-scope_fromProjectToModule _ moduleName projectContext =
+scope_fromProjectToModule : ModuleName -> ScopeProjectContext -> ScopeModuleContext
+scope_fromProjectToModule moduleName projectContext =
     { scopes = NonEmpty.fromElement emptyScope
     , localTypes = Set.empty
     , importAliases = Dict.empty
@@ -102,14 +102,9 @@ scope_fromProjectToModule _ moduleName projectContext =
     , exposedAliases = []
     , exposedValues = []
     , exposedBinops = []
-    , lookupTable = ModuleNameLookupTableInternal.empty (Node.value moduleName)
+    , lookupTable = ModuleNameLookupTableInternal.empty moduleName
     }
         |> registerPrelude
-
-
-scope_pairWithNoErrors : (visited -> context -> context) -> visited -> context -> ( List nothing, context )
-scope_pairWithNoErrors fn visited context =
-    ( [], fn visited context )
 
 
 
