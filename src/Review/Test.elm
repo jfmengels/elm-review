@@ -425,18 +425,13 @@ runOnModulesWithProjectDataHelp project rule sources =
 
                     Nothing ->
                         let
-                            runResult : { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
-                            runResult =
+                            { errors, extracts } =
                                 Rule.reviewV3 (ReviewOptions.withDataExtraction True ReviewOptions.defaults) [ rule ] projectWithModules
-
-                            errors : List ReviewError
-                            errors =
-                                runResult.errors
 
                             extract : ExtractResult
                             extract =
                                 if Rule.ruleExtractsData rule then
-                                    Extracted (Dict.get (Rule.ruleName rule) runResult.extracts)
+                                    Extracted (Dict.get (Rule.ruleName rule) extracts)
 
                                 else
                                     RuleHasNoExtractor
