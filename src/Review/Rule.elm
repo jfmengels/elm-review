@@ -4544,8 +4544,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
 
                 moduleNameLookupTable =
                     if requestedData.moduleNameLookupTable then
-                        Dict.get moduleName (Review.Project.Internal.moduleNameLookupTables currentProject)
-                            |> Maybe.withDefault (ModuleNameLookupTableInternal.empty moduleName)
+                        computeModuleNameLookupTable moduleName currentProject
 
                     else
                         ModuleNameLookupTableInternal.empty moduleName
@@ -4621,6 +4620,12 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
     { newProject = newProject
     , newModuleContexts = newModuleContexts
     }
+
+
+computeModuleNameLookupTable : ModuleName -> Project -> ModuleNameLookupTable
+computeModuleNameLookupTable moduleName project =
+    Dict.get moduleName (Review.Project.Internal.moduleNameLookupTables project)
+        |> Maybe.withDefault (ModuleNameLookupTableInternal.empty moduleName)
 
 
 computeModuleAndCacheResult :
