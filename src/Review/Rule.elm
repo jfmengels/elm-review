@@ -5790,7 +5790,6 @@ type alias ScopeModuleContext =
     , exposedUnions : List Elm.Docs.Union
     , exposedAliases : List Elm.Docs.Alias
     , exposedValues : List Elm.Docs.Value
-    , exposedBinops : List Elm.Docs.Binop
     , lookupTable : ModuleNameLookupTable
     }
 
@@ -5832,7 +5831,6 @@ scope_fromProjectToModule _ moduleName projectContext =
     , exposedUnions = []
     , exposedAliases = []
     , exposedValues = []
-    , exposedBinops = []
     , lookupTable = ModuleNameLookupTableInternal.empty (Node.value moduleName)
     }
         |> registerPrelude
@@ -5848,7 +5846,7 @@ scope_fromModuleToProject _ moduleName moduleContext =
             , unions = moduleContext.exposedUnions
             , aliases = moduleContext.exposedAliases
             , values = moduleContext.exposedValues
-            , binops = moduleContext.exposedBinops
+            , binops = []
             }
     , lookupTables = Dict.singleton (Node.value moduleName) moduleContext.lookupTable
     }

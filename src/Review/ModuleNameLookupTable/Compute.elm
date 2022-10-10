@@ -39,7 +39,6 @@ type alias Context =
     , exposedUnions : List Elm.Docs.Union
     , exposedAliases : List Elm.Docs.Alias
     , exposedValues : List Elm.Docs.Value
-    , exposedBinops : List Elm.Docs.Binop
     , lookupTable : ModuleNameLookupTable
     }
 
@@ -116,7 +115,7 @@ compute moduleName module_ ((Project { dataCache }) as project) =
                     , unions = moduleContext.exposedUnions
                     , aliases = moduleContext.exposedAliases
                     , values = moduleContext.exposedValues
-                    , binops = moduleContext.exposedBinops
+                    , binops = []
                     }
                     dataCache.modules
             , lookupTables = Dict.insert moduleName moduleContext.lookupTable dataCache.lookupTables
@@ -144,7 +143,6 @@ fromProjectToModule moduleName dependenciesModules modules =
     , exposedUnions = []
     , exposedAliases = []
     , exposedValues = []
-    , exposedBinops = []
     , lookupTable = ModuleNameLookupTableInternal.empty moduleName
     }
 
