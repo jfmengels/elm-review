@@ -4532,15 +4532,15 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
         newStartCache =
             Dict.filter (\path _ -> Set.member path projectModulePaths) startCache
 
-        computeModule : Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> CacheEntry projectContext
-        computeModule cache importedModules module_ =
+        computeModule : Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> Project -> ( Project, CacheEntry projectContext )
+        computeModule cache importedModules module_ currentProject =
             let
                 (RequestedData requestedData) =
                     projectVisitor.requestedData
 
                 moduleNameLookupTable =
                     if requestedData.moduleNameLookupTable then
-                        Dict.get (Review.Project.Internal.getModuleName module_) (Review.Project.Internal.moduleNameLookupTables project)
+                        Dict.get (Review.Project.Internal.getModuleName module_) (Review.Project.Internal.moduleNameLookupTables currentProject)
                             |> Maybe.withDefault (ModuleNameLookupTableInternal.empty (Node.value (moduleNameNode module_.ast.moduleDefinition)))
 
                     else
@@ -4592,27 +4592,30 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                         initialModuleContext
                         module_
             in
-            { source = module_.source
-            , errors =
-                moduleErrors
-                    |> ListExtra.orderIndependentMap (setFilePathIfUnset module_)
-                    |> filterExceptionsAndSetName exceptions projectVisitor.name
-            , context =
-                case getFolderFromTraversal projectVisitor.traversalAndFolder of
-                    Just { fromModuleToProject } ->
-                        applyContextCreator availableData fromModuleToProject context
+            ( currentProject
+            , { source = module_.source
+              , errors =
+                    moduleErrors
+                        |> ListExtra.orderIndependentMap (setFilePathIfUnset module_)
+                        |> filterExceptionsAndSetName exceptions projectVisitor.name
+              , context =
+                    case getFolderFromTraversal projectVisitor.traversalAndFolder of
+                        Just { fromModuleToProject } ->
+                            applyContextCreator availableData fromModuleToProject context
 
-                    Nothing ->
-                        initialProjectContext
-            }
+                        Nothing ->
+                            initialProjectContext
+              }
+            )
+
+        ( newModuleContexts, _, newProject ) =
+            List.foldl
+                (computeModuleAndCacheResult projectVisitor.traversalAndFolder modules graph computeModule)
+                ( newStartCache, Set.empty, project )
+                nodeContexts
     in
-    { newProject = project
-    , newModuleContexts =
-        List.foldl
-            (computeModuleAndCacheResult projectVisitor.traversalAndFolder modules graph computeModule)
-            ( newStartCache, Set.empty )
-            nodeContexts
-            |> Tuple.first
+    { newProject = newProject
+    , newModuleContexts = newModuleContexts
     }
 
 
@@ -4620,14 +4623,14 @@ computeModuleAndCacheResult :
     TraversalAndFolder projectContext moduleContext
     -> Dict ModuleName ProjectModule
     -> Graph ModuleName ()
-    -> (Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> CacheEntry projectContext)
+    -> (Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> Project -> ( Project, CacheEntry projectContext ))
     -> Graph.NodeContext ModuleName ()
-    -> ( Dict String (CacheEntry projectContext), Set ModuleName )
-    -> ( Dict String (CacheEntry projectContext), Set ModuleName )
-computeModuleAndCacheResult traversalAndFolder modules graph computeModule { node, incoming } ( cache, invalidatedModules ) =
+    -> ( Dict String (CacheEntry projectContext), Set ModuleName, Project )
+    -> ( Dict String (CacheEntry projectContext), Set ModuleName, Project )
+computeModuleAndCacheResult traversalAndFolder modules graph computeModule { node, incoming } ( cache, invalidatedModules, currentProject ) =
     case Dict.get node.label modules of
         Nothing ->
-            ( cache, invalidatedModules )
+            ( cache, invalidatedModules, currentProject )
 
         Just module_ ->
             let
@@ -4653,12 +4656,11 @@ computeModuleAndCacheResult traversalAndFolder modules graph computeModule { nod
                                 []
                                 incoming
 
-                compute : Maybe (CacheEntry projectContext) -> ( Dict String (CacheEntry projectContext), Set ModuleName )
+                compute : Maybe (CacheEntry projectContext) -> ( Dict String (CacheEntry projectContext), Set ModuleName, Project )
                 compute previousResult =
                     let
-                        result : CacheEntry projectContext
-                        result =
-                            computeModule cache importedModules module_
+                        ( newProject, result ) =
+                            computeModule cache importedModules module_ currentProject
                     in
                     ( Dict.insert module_.path result cache
                     , if Just result.context /= Maybe.map .context previousResult then
@@ -4666,6 +4668,7 @@ computeModuleAndCacheResult traversalAndFolder modules graph computeModule { nod
 
                       else
                         invalidatedModules
+                    , newProject
                     )
             in
             case Dict.get module_.path cache of
@@ -4675,7 +4678,7 @@ computeModuleAndCacheResult traversalAndFolder modules graph computeModule { nod
                 Just cacheEntry ->
                     if cacheEntry.source == module_.source && contextFromImportedModulesIsUnchanged traversalAndFolder importedModules invalidatedModules then
                         -- The module's source and the module's imported modules' context are unchanged, we will later return the cached errors and context
-                        ( cache, invalidatedModules )
+                        ( cache, invalidatedModules, currentProject )
 
                     else
                         compute (Just cacheEntry)
