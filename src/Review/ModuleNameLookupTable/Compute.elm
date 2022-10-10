@@ -80,6 +80,12 @@ emptyScope =
 compute : ModuleName -> Project -> ( ModuleNameLookupTable, Project )
 compute moduleName project =
     let
+        projectContext : ScopeProjectContext
+        projectContext =
+            { dependenciesModules = Dict.empty
+            , modules = Dict.empty
+            }
+
         lookupTable : ModuleNameLookupTable
         lookupTable =
             ModuleNameLookupTableInternal.empty moduleName
