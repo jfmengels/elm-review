@@ -306,6 +306,7 @@ import Review.Fix as Fix exposing (Fix)
 import Review.ImportCycle as ImportCycle
 import Review.Logger as Logger
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
+import Review.ModuleNameLookupTable.Compute
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Options as ReviewOptions exposing (ReviewOptions)
 import Review.Options.Internal exposing (ReviewOptionsInternal(..))
@@ -4631,7 +4632,7 @@ computeModuleNameLookupTable moduleName project =
 
         Nothing ->
             -- TODO Compute
-            ( ModuleNameLookupTableInternal.empty moduleName, project )
+            Review.ModuleNameLookupTable.Compute.compute moduleName project
 
 
 computeModuleAndCacheResult :
