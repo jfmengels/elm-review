@@ -40,7 +40,7 @@ type Project
 
 
 type alias DataCache =
-    { dependenciesModules : Maybe { elmJsonRaw : String, deps : Dict String Elm.Docs.Module }
+    { dependenciesModules : Maybe { elmJsonRaw : Maybe String, deps : Dict String Elm.Docs.Module }
     , modules : Dict ModuleName Elm.Docs.Module
     , lookupTables : Dict ModuleName ModuleNameLookupTable
     }
