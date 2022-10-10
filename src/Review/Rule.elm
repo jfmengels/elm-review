@@ -299,6 +299,7 @@ import Elm.Syntax.Type
 import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
 import Json.Encode as Encode
+import NonEmpty exposing (NonEmpty)
 import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
@@ -5739,7 +5740,7 @@ type alias ScopeProjectContext =
 
 
 type alias ScopeModuleContext =
-    { scopes : Nonempty Scope
+    { scopes : NonEmpty Scope
     , localTypes : Set String
     , importAliases : Dict String (List ModuleName)
     , importedFunctions : Dict String ModuleName
@@ -5781,7 +5782,7 @@ scope_initialProjectContext =
 -}
 scope_fromProjectToModule : a -> Node ModuleName -> ScopeProjectContext -> ScopeModuleContext
 scope_fromProjectToModule _ moduleName projectContext =
-    { scopes = nonemptyList_fromElement emptyScope
+    { scopes = NonEmpty.fromElement emptyScope
     , localTypes = Set.empty
     , importAliases = Dict.empty
     , importedFunctions = Dict.empty
@@ -6080,7 +6081,7 @@ scope_registerDeclaration declaration innerContext =
 addToScope : { variableType : VariableType, node : Node String } -> ScopeModuleContext -> ScopeModuleContext
 addToScope variableData innerContext =
     let
-        newScopes : Nonempty Scope
+        newScopes : NonEmpty Scope
         newScopes =
             registerVariable
                 variableData
@@ -6202,14 +6203,14 @@ recordUpdateToDocsType innerContext updates =
         updates
 
 
-registerVariable : VariableInfo -> String -> Nonempty Scope -> Nonempty Scope
+registerVariable : VariableInfo -> String -> NonEmpty Scope -> NonEmpty Scope
 registerVariable variableInfo name scopes =
-    nonemptyList_mapHead
+    NonEmpty.mapHead
         (\scope -> { scope | names = Dict.insert name variableInfo scope.names })
         scopes
 
 
-updateScope : ScopeModuleContext -> Nonempty Scope -> ScopeModuleContext
+updateScope : ScopeModuleContext -> NonEmpty Scope -> ScopeModuleContext
 updateScope innerContext scopes =
     { innerContext | scopes = scopes }
 
@@ -6475,7 +6476,7 @@ scope_declarationEnterVisitor node context =
                 newContext : ScopeModuleContext
                 newContext =
                     context.scopes
-                        |> nonemptyList_cons newScope
+                        |> NonEmpty.cons newScope
                         |> updateScope context
 
                 lookupTableAfterArguments : ModuleNameLookupTable
@@ -6521,7 +6522,7 @@ scope_declarationExitVisitor : Node Declaration -> ScopeModuleContext -> ScopeMo
 scope_declarationExitVisitor node context =
     case Node.value node of
         Declaration.FunctionDeclaration _ ->
-            { context | scopes = nonemptyList_pop context.scopes }
+            { context | scopes = NonEmpty.pop context.scopes }
 
         _ ->
             context
@@ -6635,7 +6636,7 @@ scope_popScopeEnter node context =
     let
         currentScope : Scope
         currentScope =
-            nonemptyList_head context.scopes
+            NonEmpty.head context.scopes
 
         caseExpression : Maybe ( Node Expression, Dict String VariableInfo )
         caseExpression =
@@ -6646,7 +6647,7 @@ scope_popScopeEnter node context =
             context
 
         Just ( _, names ) ->
-            { context | scopes = nonemptyList_cons { emptyScope | names = names, caseToExit = node } context.scopes }
+            { context | scopes = NonEmpty.cons { emptyScope | names = names, caseToExit = node } context.scopes }
 
 
 scope_popScopeExit : Node Expression -> ScopeModuleContext -> ScopeModuleContext
@@ -6654,10 +6655,10 @@ scope_popScopeExit node context =
     let
         currentScope : Scope
         currentScope =
-            nonemptyList_head context.scopes
+            NonEmpty.head context.scopes
     in
     if node == currentScope.caseToExit then
-        { context | scopes = nonemptyList_pop context.scopes }
+        { context | scopes = NonEmpty.pop context.scopes }
 
     else
         context
@@ -6690,7 +6691,7 @@ scope_expressionEnterVisitor node context =
                                 Expression.LetDestructuring _ _ ->
                                     scopes
                         )
-                        (nonemptyList_cons emptyScope context.scopes)
+                        (NonEmpty.cons emptyScope context.scopes)
                         declarations
                         |> updateScope context
 
@@ -6741,7 +6742,7 @@ scope_expressionEnterVisitor node context =
                         caseBlock.cases
             in
             { context
-                | scopes = nonemptyList_mapHead (\scope -> { scope | cases = cases }) context.scopes
+                | scopes = NonEmpty.mapHead (\scope -> { scope | cases = cases }) context.scopes
                 , lookupTable = lookupTable
             }
 
@@ -6837,10 +6838,10 @@ expressionExitVisitor : Node Expression -> ScopeModuleContext -> ScopeModuleCont
 expressionExitVisitor node context =
     case Node.value node of
         Expression.LetExpression _ ->
-            { context | scopes = nonemptyList_pop context.scopes }
+            { context | scopes = NonEmpty.pop context.scopes }
 
         Expression.CaseExpression _ ->
-            { context | scopes = nonemptyList_mapHead (\scope -> { scope | cases = [] }) context.scopes }
+            { context | scopes = NonEmpty.mapHead (\scope -> { scope | cases = [] }) context.scopes }
 
         _ ->
             context
@@ -7004,9 +7005,9 @@ isTypeDeclaredInModule typeName module_ =
         || List.any (.name >> (==) typeName) module_.unions
 
 
-isInScope : String -> Nonempty Scope -> Bool
+isInScope : String -> NonEmpty Scope -> Bool
 isInScope name scopes =
-    nonemptyList_any (.names >> Dict.member name) scopes
+    NonEmpty.any (.names >> Dict.member name) scopes
 
 
 
@@ -7016,137 +7017,3 @@ isInScope name scopes =
 joinModuleName : ModuleName -> String
 joinModuleName name =
     String.join "." name
-
-
-
-{- INLINED NONEMPTYLIST
-
-   Copied contents of mgold/elm-nonempty-list, and trimmed down unused functions.
-
-   This is to avoid dependency conflicts when mgold/elm-nonempty-list would release a new major version.
-
-   A list that cannot be empty. The head and tail can be accessed without Maybes. Most other list functions are
-   available.
-
-
-   # Definition
-
-   @docs Nonempty
-
-
-   # Create
-
-   @docs fromElement
-
-
-   # Access
-
-   @docs head
-
-
-   # Inspect
-
-   @docs any
-
-
-   # Convert
-
-   @docs cons, pop
-
-
-   # Map
-
-   @docs mapHead
-
-
-   # Original copyright notice
-
-   Copyright (c) 2015, Max Goldstein
-
-   All rights reserved.
-
-   Redistribution and use in source and binary forms, with or without
-   modification, are permitted provided that the following conditions are met:
-
-       * Redistributions of source code must retain the above copyright
-         notice, this list of conditions and the following disclaimer.
-
-       * Redistributions in binary form must reproduce the above
-         copyright notice, this list of conditions and the following
-         disclaimer in the documentation and/or other materials provided
-         with the distribution.
-
-       * Neither the name of Max Goldstein nor the names of other
-         contributors may be used to endorse or promote products derived
-         from this software without specific prior written permission.
-
-   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-   "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-   A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-   OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-   SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-   LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-   DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-   THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-   (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-   OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
--}
-
-
-{-| The Nonempty type. If you have both a head and tail, you can construct a
-nonempty list directly. Otherwise use the helpers below instead.
--}
-type Nonempty a
-    = Nonempty a (List a)
-
-
-{-| Create a singleton list with the given element.
--}
-nonemptyList_fromElement : a -> Nonempty a
-nonemptyList_fromElement x =
-    Nonempty x []
-
-
-{-| Return the head of the list.
--}
-nonemptyList_head : Nonempty a -> a
-nonemptyList_head (Nonempty x _) =
-    x
-
-
-{-| Determine if any elements satisfy the predicate.
--}
-nonemptyList_any : (a -> Bool) -> Nonempty a -> Bool
-nonemptyList_any f (Nonempty x xs) =
-    f x || List.any f xs
-
-
-{-| Add another element as the head of the list, pushing the previous head to the tail.
--}
-nonemptyList_cons : a -> Nonempty a -> Nonempty a
-nonemptyList_cons y (Nonempty x xs) =
-    Nonempty y (x :: xs)
-
-
-{-| Pop and discard the head, or do nothing for a singleton list. Useful if you
-want to exhaust a list but hang on to the last item indefinitely.
-pop (Nonempty 3 [ 2, 1 ]) --> Nonempty 2 [1]
-pop (Nonempty 1 []) --> Nonempty 1 []
--}
-nonemptyList_pop : Nonempty a -> Nonempty a
-nonemptyList_pop (Nonempty x xs) =
-    case xs of
-        [] ->
-            Nonempty x xs
-
-        y :: ys ->
-            Nonempty y ys
-
-
-{-| Map the head to a value of the same type
--}
-nonemptyList_mapHead : (a -> a) -> Nonempty a -> Nonempty a
-nonemptyList_mapHead fn (Nonempty x xs) =
-    Nonempty (fn x) xs
