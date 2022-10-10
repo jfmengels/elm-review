@@ -19,7 +19,7 @@ import NonEmpty exposing (NonEmpty)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal exposing (ModuleNameLookupTable)
 import Review.Project
 import Review.Project.Dependency exposing (Dependency)
-import Review.Project.Internal exposing (Project(..))
+import Review.Project.Internal exposing (Project(..), ProjectModule)
 import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
 
@@ -78,8 +78,8 @@ emptyScope =
     }
 
 
-compute : ModuleName -> Project -> ( ModuleNameLookupTable, Project )
-compute moduleName ((Project { dataCache }) as project) =
+compute : ModuleName -> ProjectModule -> Project -> ( ModuleNameLookupTable, Project )
+compute moduleName module_ ((Project { dataCache }) as project) =
     let
         computeDependencies : () -> Dict String Elm.Docs.Module
         computeDependencies () =
