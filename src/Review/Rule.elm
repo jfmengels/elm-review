@@ -488,11 +488,11 @@ review rules ((Project p) as project) =
 
                             else
                                 let
-                                    runRulesResult : { errors : List (Error {}), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+                                    runRulesResult : { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
                                     runRulesResult =
                                         runRules ReviewOptions.defaults rules projectWithLookupTable sortedModules
                                 in
-                                ( ListExtra.orderIndependentMap errorToReviewError runRulesResult.errors, runRulesResult.rules )
+                                ( runRulesResult.errors, runRulesResult.rules )
 
         modulesThatFailedToParse ->
             ( ListExtra.orderIndependentMap parsingError modulesThatFailedToParse, rules )
@@ -741,11 +741,11 @@ runReviewForV2 reviewOptions ((Project p) as project) rules maybeProjectData nod
         projectWithLookupTables =
             Project { p | moduleNameLookupTables = scopeResult.lookupTables }
 
-        runResult : { errors : List (Error {}), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+        runResult : { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
         runResult =
             runRules reviewOptions rules projectWithLookupTables nodeContexts
     in
-    { errors = ListExtra.orderIndependentMap errorToReviewError runResult.errors
+    { errors = runResult.errors
     , rules = runResult.rules
     , project = runResult.project
     , projectData = scopeResult.projectData
@@ -790,16 +790,8 @@ runReview reviewOptions ((Project p) as project) rules maybeProjectData nodeCont
         projectWithLookupTables : Project
         projectWithLookupTables =
             Project { p | moduleNameLookupTables = scopeResult.lookupTables }
-
-        runResult : { errors : List (Error {}), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
-        runResult =
-            runRules reviewOptions rules projectWithLookupTables nodeContexts
     in
-    { errors = ListExtra.orderIndependentMap errorToReviewError runResult.errors
-    , rules = runResult.rules
-    , project = runResult.project
-    , extracts = runResult.extracts
-    }
+    runRules reviewOptions rules projectWithLookupTables nodeContexts
 
 
 
@@ -856,7 +848,7 @@ runRules :
     -> List Rule
     -> Project
     -> List (Graph.NodeContext ModuleName ())
-    -> { errors : List (Error {}), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+    -> { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
 runRules reviewOptions initialRules initialProject nodeContexts =
     List.foldl
         (\(Rule { name, exceptions, ruleImplementation }) acc ->
@@ -865,7 +857,7 @@ runRules reviewOptions initialRules initialProject nodeContexts =
                 result =
                     ruleImplementation reviewOptions exceptions acc.project nodeContexts
             in
-            { errors = ListExtra.orderIndependentMapAppend removeErrorPhantomType result.errors acc.errors
+            { errors = ListExtra.orderIndependentMapAppend errorToReviewError result.errors acc.errors
             , rules = result.rule :: acc.rules
             , project = result.project
             , extracts =
