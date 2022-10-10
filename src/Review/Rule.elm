@@ -4535,6 +4535,9 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
         computeModule : Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> CacheEntry projectContext
         computeModule cache importedModules module_ =
             let
+                (RequestedData requestedData) =
+                    projectVisitor.requestedData
+
                 availableData : AvailableData
                 availableData =
                     { ast = module_.ast
@@ -4543,10 +4546,6 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                         Dict.get (Review.Project.Internal.getModuleName module_) (Review.Project.Internal.moduleNameLookupTables project)
                             |> Maybe.withDefault (ModuleNameLookupTableInternal.empty (Node.value (moduleNameNode module_.ast.moduleDefinition)))
                     , extractSourceCode =
-                        let
-                            (RequestedData requestedData) =
-                                projectVisitor.requestedData
-                        in
                         if requestedData.sourceCodeExtractor then
                             extractSourceCode (String.lines module_.source)
 
