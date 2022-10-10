@@ -88,36 +88,56 @@ compute moduleName ((Project { dataCache }) as project) =
                 |> Dict.foldl (\_ dep acc -> ListExtra.orderIndependentAppend (Review.Project.Dependency.modules dep) acc) []
                 |> List.foldl (\dependencyModule acc -> Dict.insert dependencyModule.name dependencyModule acc) Dict.empty
 
-        dependenciesModules : Dict String Elm.Docs.Module
-        dependenciesModules =
+        elmJsonRaw : Maybe String
+        elmJsonRaw =
+            Maybe.map .raw (Review.Project.elmJson project)
+
+        deps : Dict String Elm.Docs.Module
+        deps =
             case dataCache.dependenciesModules of
-                Just { elmJsonRaw, deps } ->
-                    case Review.Project.elmJson project of
-                        Just { raw } ->
-                            if elmJsonRaw == raw then
-                                deps
+                Just cache ->
+                    if elmJsonRaw == cache.elmJsonRaw then
+                        cache.deps
 
-                            else
-                                computeDependencies ()
-
-                        Nothing ->
-                            computeDependencies ()
+                    else
+                        computeDependencies ()
 
                 Nothing ->
                     computeDependencies ()
 
         projectContext : ScopeProjectContext
         projectContext =
-            { dependenciesModules = dependenciesModules
+            { dependenciesModules = deps
             , modules = dataCache.modules
             }
 
         moduleContext : ScopeModuleContext
         moduleContext =
             scope_fromProjectToModule moduleName projectContext
+
+        newDataCache : Review.Project.Internal.DataCache
+        newDataCache =
+            { dependenciesModules = Just { elmJsonRaw = elmJsonRaw, deps = deps }
+            , modules =
+                Dict.insert moduleName
+                    { name = String.join "." moduleName
+                    , comment = ""
+                    , unions = moduleContext.exposedUnions
+                    , aliases = moduleContext.exposedAliases
+                    , values = moduleContext.exposedValues
+                    , binops = moduleContext.exposedBinops
+                    }
+                    dataCache.modules
+            , lookupTables = Dict.insert moduleName moduleContext.lookupTable dataCache.lookupTables
+            }
     in
     -- TODO Update project to contain the new "project context"
-    ( moduleContext.lookupTable, project )
+    ( moduleContext.lookupTable, updateProject newDataCache project )
+
+
+updateProject : Review.Project.Internal.DataCache -> Project -> Project
+updateProject dataCache (Project project) =
+    Project { project | dataCache = dataCache }
 
 
 scope_fromProjectToModule : ModuleName -> ScopeProjectContext -> ScopeModuleContext
