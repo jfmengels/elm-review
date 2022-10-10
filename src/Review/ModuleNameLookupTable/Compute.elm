@@ -17,8 +17,9 @@ import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
 import NonEmpty exposing (NonEmpty)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal exposing (ModuleNameLookupTable)
+import Review.Project
 import Review.Project.Dependency exposing (Dependency)
-import Review.Project.Internal exposing (Project)
+import Review.Project.Internal exposing (Project(..))
 import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
 
@@ -78,11 +79,36 @@ emptyScope =
 
 
 compute : ModuleName -> Project -> ( ModuleNameLookupTable, Project )
-compute moduleName project =
+compute moduleName ((Project { dataCache }) as project) =
     let
+        computeDependencies : () -> Dict String Elm.Docs.Module
+        computeDependencies () =
+            project
+                |> Review.Project.directDependencies
+                |> Dict.foldl (\_ dep acc -> ListExtra.orderIndependentAppend (Review.Project.Dependency.modules dep) acc) []
+                |> List.foldl (\dependencyModule acc -> Dict.insert dependencyModule.name dependencyModule acc) Dict.empty
+
+        dependenciesModules : Dict String Elm.Docs.Module
+        dependenciesModules =
+            case dataCache.dependenciesModules of
+                Just { elmJsonRaw, deps } ->
+                    case Review.Project.elmJson project of
+                        Just { raw } ->
+                            if elmJsonRaw == raw then
+                                deps
+
+                            else
+                                computeDependencies ()
+
+                        Nothing ->
+                            computeDependencies ()
+
+                Nothing ->
+                    computeDependencies ()
+
         projectContext : ScopeProjectContext
         projectContext =
-            { dependenciesModules = Dict.empty
+            { dependenciesModules = dependenciesModules
             , modules = Dict.empty
             }
 
