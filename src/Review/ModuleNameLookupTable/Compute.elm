@@ -7,6 +7,7 @@ import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.File
 import Elm.Syntax.Import exposing (Import)
+import Elm.Syntax.Infix as Infix
 import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
@@ -1275,3 +1276,74 @@ isInScope name scopes =
 joinModuleName : ModuleName -> String
 joinModuleName name =
     String.join "." name
+
+
+expressionChildren : Node Expression -> List (Node Expression)
+expressionChildren node =
+    case Node.value node of
+        Expression.Application expressions ->
+            expressions
+
+        Expression.ListExpr elements ->
+            elements
+
+        Expression.RecordExpr fields ->
+            List.map (Node.value >> (\( _, expr ) -> expr)) fields
+
+        Expression.RecordUpdateExpression _ setters ->
+            List.map (Node.value >> (\( _, expr ) -> expr)) setters
+
+        Expression.ParenthesizedExpression expr ->
+            [ expr ]
+
+        Expression.OperatorApplication _ direction left right ->
+            case direction of
+                Infix.Left ->
+                    [ left, right ]
+
+                Infix.Right ->
+                    [ right, left ]
+
+                Infix.Non ->
+                    [ left, right ]
+
+        Expression.IfBlock cond then_ else_ ->
+            [ cond, then_, else_ ]
+
+        Expression.LetExpression { expression, declarations } ->
+            List.foldr
+                (\declaration acc ->
+                    case Node.value declaration of
+                        Expression.LetFunction function ->
+                            functionToExpression function :: acc
+
+                        Expression.LetDestructuring _ expr ->
+                            expr :: acc
+                )
+                [ expression ]
+                declarations
+
+        Expression.CaseExpression { expression, cases } ->
+            expression
+                :: List.map (\( _, caseExpression ) -> caseExpression) cases
+
+        Expression.LambdaExpression { expression } ->
+            [ expression ]
+
+        Expression.TupledExpression expressions ->
+            expressions
+
+        Expression.Negation expr ->
+            [ expr ]
+
+        Expression.RecordAccess expr _ ->
+            [ expr ]
+
+        _ ->
+            []
+
+
+functionToExpression : Expression.Function -> Node Expression
+functionToExpression function =
+    Node.value function.declaration
+        |> .expression
