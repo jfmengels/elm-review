@@ -32,7 +32,6 @@ type alias Context =
     , importAliases : Dict String (List ModuleName)
     , importedFunctions : Dict String ModuleName
     , importedTypes : Dict String ModuleName
-    , dependenciesModules : Dict ModuleName Elm.Docs.Module
     , modules : Dict ModuleName Elm.Docs.Module
     , exposesEverything : Bool
     , exposedNames : Set String
@@ -170,7 +169,6 @@ fromProjectToModule moduleName dependenciesModules modules =
     , importAliases = Dict.empty
     , importedFunctions = Dict.empty
     , importedTypes = Dict.empty
-    , dependenciesModules = dependenciesModules
     , modules = Dict.union dependenciesModules modules
     , exposesEverything = False
     , exposedNames = Set.empty
@@ -629,13 +627,7 @@ registerImportExposed import_ innerContext =
 
                 module_ : Elm.Docs.Module
                 module_ =
-                    (case Dict.get moduleName innerContext.modules of
-                        Just m ->
-                            Just m
-
-                        Nothing ->
-                            Dict.get moduleName innerContext.dependenciesModules
-                    )
+                    Dict.get moduleName innerContext.modules
                         |> Maybe.withDefault
                             { name = joinModuleName moduleName
                             , comment = ""
@@ -1201,12 +1193,7 @@ moduleNameForValue context valueName moduleName =
                                         isValueDeclaredInModule valueName module_
 
                                     Nothing ->
-                                        case Dict.get aliasedModuleName context.dependenciesModules of
-                                            Just module_ ->
-                                                isValueDeclaredInModule valueName module_
-
-                                            Nothing ->
-                                                False
+                                        False
                             )
                             aliases
                     of
@@ -1256,12 +1243,7 @@ moduleNameForType context typeName moduleName =
                                         isTypeDeclaredInModule typeName module_
 
                                     Nothing ->
-                                        case Dict.get aliasedModuleName context.dependenciesModules of
-                                            Just module_ ->
-                                                isTypeDeclaredInModule typeName module_
-
-                                            Nothing ->
-                                                False
+                                        False
                             )
                             aliases
                     of
