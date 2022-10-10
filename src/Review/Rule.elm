@@ -4624,10 +4624,14 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
 
 computeModuleNameLookupTable : ModuleName -> Project -> ( ModuleNameLookupTable, Project )
 computeModuleNameLookupTable moduleName project =
-    ( Dict.get moduleName (Review.Project.Internal.moduleNameLookupTables project)
-        |> Maybe.withDefault (ModuleNameLookupTableInternal.empty moduleName)
-    , project
-    )
+    case Dict.get moduleName (Review.Project.Internal.moduleNameLookupTables project) of
+        Just cachedLookupTable ->
+            -- TODO Uncache if the source has changed
+            ( cachedLookupTable, project )
+
+        Nothing ->
+            -- TODO Compute
+            ( ModuleNameLookupTableInternal.empty moduleName, project )
 
 
 computeModuleAndCacheResult :
