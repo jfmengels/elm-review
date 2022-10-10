@@ -739,8 +739,7 @@ runReview reviewOptions ((Project p) as project) rules maybeProjectData nodeCont
         projectWithLookupTables : Project
         projectWithLookupTables =
             Project { p | moduleNameLookupTables = scopeResult.lookupTables }
-    in
-    let
+
         runResult : { errors : List (Error {}), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
         runResult =
             runRules reviewOptions rules projectWithLookupTables nodeContexts
