@@ -4542,12 +4542,12 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                 moduleName =
                     Node.value (moduleNameNode module_.ast.moduleDefinition)
 
-                moduleNameLookupTable =
+                ( moduleNameLookupTable, newProject ) =
                     if requestedData.moduleNameLookupTable then
                         computeModuleNameLookupTable moduleName currentProject
 
                     else
-                        ModuleNameLookupTableInternal.empty moduleName
+                        ( ModuleNameLookupTableInternal.empty moduleName, currentProject )
 
                 availableData : AvailableData
                 availableData =
@@ -4595,7 +4595,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                         initialModuleContext
                         module_
             in
-            ( currentProject
+            ( newProject
             , { source = module_.source
               , errors =
                     moduleErrors
@@ -4611,21 +4611,23 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
               }
             )
 
-        ( newModuleContexts, _, newProject ) =
+        ( newModuleContexts, _, finalProject ) =
             List.foldl
                 (computeModuleAndCacheResult projectVisitor.traversalAndFolder modules graph computeModule)
                 ( newStartCache, Set.empty, project )
                 nodeContexts
     in
-    { newProject = newProject
+    { newProject = finalProject
     , newModuleContexts = newModuleContexts
     }
 
 
-computeModuleNameLookupTable : ModuleName -> Project -> ModuleNameLookupTable
+computeModuleNameLookupTable : ModuleName -> Project -> ( ModuleNameLookupTable, Project )
 computeModuleNameLookupTable moduleName project =
-    Dict.get moduleName (Review.Project.Internal.moduleNameLookupTables project)
+    ( Dict.get moduleName (Review.Project.Internal.moduleNameLookupTables project)
         |> Maybe.withDefault (ModuleNameLookupTableInternal.empty moduleName)
+    , project
+    )
 
 
 computeModuleAndCacheResult :
