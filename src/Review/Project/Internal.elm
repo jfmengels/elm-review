@@ -41,11 +41,7 @@ type Project
 
 type alias DataCache =
     { dependenciesModules : Maybe { elmJsonRaw : String, deps : Dict String Elm.Docs.Module }
-
-    -- TODO Find a way to cache and de-cache it correctly
     , modules : Dict ModuleName Elm.Docs.Module
-
-    -- TODO Find a way to cache and de-cache it correctly
     , lookupTables : Dict ModuleName ModuleNameLookupTable
     }
 
