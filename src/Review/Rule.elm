@@ -4546,7 +4546,7 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
 
                 ( moduleNameLookupTable, newProject ) =
                     if requestedData.moduleNameLookupTable then
-                        computeModuleNameLookupTable moduleName currentProject
+                        computeModuleNameLookupTable moduleName module_ currentProject
 
                     else
                         ( ModuleNameLookupTableInternal.empty moduleName, currentProject )
@@ -4624,8 +4624,8 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
     }
 
 
-computeModuleNameLookupTable : ModuleName -> Project -> ( ModuleNameLookupTable, Project )
-computeModuleNameLookupTable moduleName project =
+computeModuleNameLookupTable : ModuleName -> ProjectModule -> Project -> ( ModuleNameLookupTable, Project )
+computeModuleNameLookupTable moduleName module_ project =
     --case Dict.get moduleName (Review.Project.Internal.moduleNameLookupTables project) of
     --    Just cachedLookupTable ->
     --        -- TODO Uncache if the source has changed
@@ -4633,7 +4633,7 @@ computeModuleNameLookupTable moduleName project =
     --
     --    Nothing ->
     -- TODO Compute
-    Review.ModuleNameLookupTable.Compute.compute moduleName project
+    Review.ModuleNameLookupTable.Compute.compute moduleName module_ project
 
 
 computeModuleAndCacheResult :
