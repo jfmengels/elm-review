@@ -4538,13 +4538,17 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                 (RequestedData requestedData) =
                     projectVisitor.requestedData
 
+                moduleName : ModuleName
+                moduleName =
+                    Node.value (moduleNameNode module_.ast.moduleDefinition)
+
                 moduleNameLookupTable =
                     if requestedData.moduleNameLookupTable then
-                        Dict.get (Review.Project.Internal.getModuleName module_) (Review.Project.Internal.moduleNameLookupTables currentProject)
-                            |> Maybe.withDefault (ModuleNameLookupTableInternal.empty (Node.value (moduleNameNode module_.ast.moduleDefinition)))
+                        Dict.get moduleName (Review.Project.Internal.moduleNameLookupTables currentProject)
+                            |> Maybe.withDefault (ModuleNameLookupTableInternal.empty moduleName)
 
                     else
-                        ModuleNameLookupTableInternal.empty (Node.value (moduleNameNode module_.ast.moduleDefinition))
+                        ModuleNameLookupTableInternal.empty moduleName
 
                 availableData : AvailableData
                 availableData =

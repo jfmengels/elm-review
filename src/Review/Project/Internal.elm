@@ -4,7 +4,6 @@ module Review.Project.Internal exposing
     , ProjectModule
     , buildModuleGraph
     , emptyDataCache
-    , getModuleName
     , moduleGraph
     , moduleNameLookupTables
     , sourceDirectories
