@@ -26,7 +26,7 @@ import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
 
 
-type alias ScopeModuleContext =
+type alias Context =
     { scopes : NonEmpty Scope
     , localTypes : Set String
     , importAliases : Dict String (List ModuleName)
@@ -101,9 +101,9 @@ compute moduleName module_ ((Project { dataCache }) as project) =
                 Nothing ->
                     computeDependencies ()
 
-        moduleContext : ScopeModuleContext
+        moduleContext : Context
         moduleContext =
-            scope_fromProjectToModule moduleName deps dataCache.modules
+            fromProjectToModule moduleName deps dataCache.modules
                 |> collectLookupTable module_.ast
 
         newDataCache : Review.Project.Internal.DataCache
@@ -130,8 +130,8 @@ updateProject dataCache (Project project) =
     Project { project | dataCache = dataCache }
 
 
-scope_fromProjectToModule : ModuleName -> Dict String Elm.Docs.Module -> Dict ModuleName Elm.Docs.Module -> ScopeModuleContext
-scope_fromProjectToModule moduleName dependenciesModules modules =
+fromProjectToModule : ModuleName -> Dict String Elm.Docs.Module -> Dict ModuleName Elm.Docs.Module -> Context
+fromProjectToModule moduleName dependenciesModules modules =
     { scopes = NonEmpty.fromElement emptyScope
     , localTypes = Set.empty
     , importAliases = Dict.empty
@@ -149,45 +149,45 @@ scope_fromProjectToModule moduleName dependenciesModules modules =
     }
 
 
-collectLookupTable : Elm.Syntax.File.File -> ScopeModuleContext -> ScopeModuleContext
+collectLookupTable : Elm.Syntax.File.File -> Context -> Context
 collectLookupTable ast context =
-    List.foldl scope_importVisitor context (elmCorePrelude ++ ast.imports)
-        |> scope_moduleDefinitionVisitor ast.moduleDefinition
-        |> scope_declarationListVisitor ast.declarations
+    List.foldl importVisitor context (elmCorePrelude ++ ast.imports)
+        |> moduleDefinitionVisitor ast.moduleDefinition
+        |> declarationListVisitor ast.declarations
         |> visitDeclarationsAndExpressions ast.declarations
 
 
-visitDeclarationsAndExpressions : List (Node Declaration) -> ScopeModuleContext -> ScopeModuleContext
+visitDeclarationsAndExpressions : List (Node Declaration) -> Context -> Context
 visitDeclarationsAndExpressions declarations context =
     List.foldl
         (\declaration ctx ->
             case Node.value declaration of
                 Declaration.FunctionDeclaration function ->
                     ctx
-                        |> scope_declarationEnterVisitor declaration
+                        |> declarationEnterVisitor declaration
                         |> visitExpressions (function.declaration |> Node.value |> .expression)
-                        |> scope_declarationExitVisitor declaration
+                        |> declarationExitVisitor declaration
 
                 _ ->
-                    scope_declarationEnterVisitor declaration ctx
+                    declarationEnterVisitor declaration ctx
         )
         context
         declarations
 
 
-visitExpressions : Node Expression -> ScopeModuleContext -> ScopeModuleContext
+visitExpressions : Node Expression -> Context -> Context
 visitExpressions node context =
     -- IGNORE TCO
     context
-        |> scope_popScopeEnter node
-        |> scope_expressionEnterVisitor node
+        |> popScopeEnter node
+        |> expressionEnterVisitor node
         |> (\newContext ->
                 List.foldl
                     visitExpressions
                     newContext
                     (expressionChildren node)
            )
-        |> scope_popScopeExit node
+        |> popScopeExit node
         |> expressionExitVisitor node
 
 
@@ -295,13 +295,13 @@ createFakeImport { moduleName, moduleAlias, exposingList } =
         }
 
 
-scope_declarationListVisitor : List (Node Declaration) -> ScopeModuleContext -> ScopeModuleContext
-scope_declarationListVisitor declarations innerContext =
-    List.foldl scope_registerDeclaration innerContext declarations
+declarationListVisitor : List (Node Declaration) -> Context -> Context
+declarationListVisitor declarations innerContext =
+    List.foldl registerDeclaration innerContext declarations
 
 
-scope_registerDeclaration : Node Declaration -> ScopeModuleContext -> ScopeModuleContext
-scope_registerDeclaration declaration innerContext =
+registerDeclaration : Node Declaration -> Context -> Context
+registerDeclaration declaration innerContext =
     case Node.value declaration of
         Declaration.FunctionDeclaration function ->
             let
@@ -368,7 +368,7 @@ scope_registerDeclaration declaration innerContext =
             innerContext
 
 
-addToScope : { variableType : VariableType, node : Node String } -> ScopeModuleContext -> ScopeModuleContext
+addToScope : { variableType : VariableType, node : Node String } -> Context -> Context
 addToScope variableData innerContext =
     let
         newScopes : NonEmpty Scope
@@ -381,7 +381,7 @@ addToScope variableData innerContext =
     { innerContext | scopes = newScopes }
 
 
-registerExposedValue : { a | documentation : Maybe (Node String), signature : Maybe (Node Signature) } -> String -> ScopeModuleContext -> ScopeModuleContext
+registerExposedValue : { a | documentation : Maybe (Node String), signature : Maybe (Node Signature) } -> String -> Context -> Context
 registerExposedValue function name innerContext =
     { innerContext
         | exposedValues =
@@ -399,7 +399,7 @@ registerExposedValue function name innerContext =
     }
 
 
-registerExposedCustomType : List (Node Elm.Syntax.Type.ValueConstructor) -> String -> ScopeModuleContext -> ScopeModuleContext
+registerExposedCustomType : List (Node Elm.Syntax.Type.ValueConstructor) -> String -> Context -> Context
 registerExposedCustomType constructors name innerContext =
     { innerContext
         | exposedUnions =
@@ -417,7 +417,7 @@ registerExposedCustomType constructors name innerContext =
     }
 
 
-registerExposedTypeAlias : String -> ScopeModuleContext -> ScopeModuleContext
+registerExposedTypeAlias : String -> Context -> Context
 registerExposedTypeAlias name innerContext =
     { innerContext
         | exposedAliases =
@@ -430,7 +430,7 @@ registerExposedTypeAlias name innerContext =
     }
 
 
-registerIfExposed : (String -> ScopeModuleContext -> ScopeModuleContext) -> String -> ScopeModuleContext -> ScopeModuleContext
+registerIfExposed : (String -> Context -> Context) -> String -> Context -> Context
 registerIfExposed registerFn name innerContext =
     if innerContext.exposesEverything || Dict.member name innerContext.exposedNames then
         registerFn name innerContext
@@ -439,7 +439,7 @@ registerIfExposed registerFn name innerContext =
         innerContext
 
 
-convertTypeSignatureToDocsType : ScopeModuleContext -> Maybe (Node Signature) -> Elm.Type.Type
+convertTypeSignatureToDocsType : Context -> Maybe (Node Signature) -> Elm.Type.Type
 convertTypeSignatureToDocsType innerContext maybeSignature =
     case maybeSignature of
         Just signature ->
@@ -449,7 +449,7 @@ convertTypeSignatureToDocsType innerContext maybeSignature =
             Elm.Type.Tuple []
 
 
-syntaxTypeAnnotationToDocsType : ScopeModuleContext -> Node TypeAnnotation -> Elm.Type.Type
+syntaxTypeAnnotationToDocsType : Context -> Node TypeAnnotation -> Elm.Type.Type
 syntaxTypeAnnotationToDocsType innerContext (Node _ typeAnnotation) =
     -- IGNORE TCO
     case typeAnnotation of
@@ -482,7 +482,7 @@ syntaxTypeAnnotationToDocsType innerContext (Node _ typeAnnotation) =
                 (syntaxTypeAnnotationToDocsType innerContext right)
 
 
-recordUpdateToDocsType : ScopeModuleContext -> List (Node TypeAnnotation.RecordField) -> List ( String, Elm.Type.Type )
+recordUpdateToDocsType : Context -> List (Node TypeAnnotation.RecordField) -> List ( String, Elm.Type.Type )
 recordUpdateToDocsType innerContext updates =
     List.map
         (\(Node _ ( name, typeAnnotation )) ->
@@ -500,7 +500,7 @@ registerVariable variableInfo name scopes =
         scopes
 
 
-updateScope : ScopeModuleContext -> NonEmpty Scope -> ScopeModuleContext
+updateScope : Context -> NonEmpty Scope -> Context
 updateScope innerContext scopes =
     { innerContext | scopes = scopes }
 
@@ -509,8 +509,8 @@ updateScope innerContext scopes =
 -- MODULE DEFINITION VISITOR
 
 
-scope_moduleDefinitionVisitor : Node Module -> ScopeModuleContext -> ScopeModuleContext
-scope_moduleDefinitionVisitor node innerContext =
+moduleDefinitionVisitor : Node Module -> Context -> Context
+moduleDefinitionVisitor node innerContext =
     case Module.exposingList (Node.value node) of
         Exposing.All _ ->
             { innerContext | exposesEverything = True }
@@ -544,14 +544,14 @@ exposedElements nodes =
 -- IMPORT VISITOR
 
 
-scope_importVisitor : Node Import -> ScopeModuleContext -> ScopeModuleContext
-scope_importVisitor (Node _ import_) innerContext =
+importVisitor : Node Import -> Context -> Context
+importVisitor (Node _ import_) innerContext =
     innerContext
         |> registerImportAlias import_
         |> registerImportExposed import_
 
 
-registerImportAlias : Import -> ScopeModuleContext -> ScopeModuleContext
+registerImportAlias : Import -> Context -> Context
 registerImportAlias import_ innerContext =
     case import_.moduleAlias of
         Nothing ->
@@ -583,7 +583,7 @@ registerImportAlias import_ innerContext =
             }
 
 
-registerImportExposed : Import -> ScopeModuleContext -> ScopeModuleContext
+registerImportExposed : Import -> Context -> Context
 registerImportExposed import_ innerContext =
     case import_.exposingList |> Maybe.map Node.value of
         Nothing ->
@@ -739,8 +739,8 @@ typesFromExposingList topLevelExpose =
             Just name
 
 
-scope_declarationEnterVisitor : Node Declaration -> ScopeModuleContext -> ScopeModuleContext
-scope_declarationEnterVisitor node context =
+declarationEnterVisitor : Node Declaration -> Context -> Context
+declarationEnterVisitor node context =
     case Node.value node of
         Declaration.FunctionDeclaration function ->
             let
@@ -748,7 +748,7 @@ scope_declarationEnterVisitor node context =
                 newScope =
                     { emptyScope | names = parameters (Node.value function.declaration).arguments }
 
-                newContext : ScopeModuleContext
+                newContext : Context
                 newContext =
                     context.scopes
                         |> NonEmpty.cons newScope
@@ -793,8 +793,8 @@ scope_declarationEnterVisitor node context =
             context
 
 
-scope_declarationExitVisitor : Node Declaration -> ScopeModuleContext -> ScopeModuleContext
-scope_declarationExitVisitor node context =
+declarationExitVisitor : Node Declaration -> Context -> Context
+declarationExitVisitor node context =
     case Node.value node of
         Declaration.FunctionDeclaration _ ->
             { context | scopes = NonEmpty.pop context.scopes }
@@ -873,7 +873,7 @@ collectNamesFromPattern variableType patternsToVisit acc =
             acc
 
 
-collectModuleNamesFromPattern : ScopeModuleContext -> List (Node Pattern) -> ModuleNameLookupTable -> ModuleNameLookupTable
+collectModuleNamesFromPattern : Context -> List (Node Pattern) -> ModuleNameLookupTable -> ModuleNameLookupTable
 collectModuleNamesFromPattern context patternsToVisit acc =
     case patternsToVisit of
         pattern :: restOfPatternsToVisit ->
@@ -906,8 +906,8 @@ collectModuleNamesFromPattern context patternsToVisit acc =
             acc
 
 
-scope_popScopeEnter : Node Expression -> ScopeModuleContext -> ScopeModuleContext
-scope_popScopeEnter node context =
+popScopeEnter : Node Expression -> Context -> Context
+popScopeEnter node context =
     let
         currentScope : Scope
         currentScope =
@@ -925,8 +925,8 @@ scope_popScopeEnter node context =
             { context | scopes = NonEmpty.cons { emptyScope | names = names, caseToExit = node } context.scopes }
 
 
-scope_popScopeExit : Node Expression -> ScopeModuleContext -> ScopeModuleContext
-scope_popScopeExit node context =
+popScopeExit : Node Expression -> Context -> Context
+popScopeExit node context =
     let
         currentScope : Scope
         currentScope =
@@ -939,12 +939,12 @@ scope_popScopeExit node context =
         context
 
 
-scope_expressionEnterVisitor : Node Expression -> ScopeModuleContext -> ScopeModuleContext
-scope_expressionEnterVisitor node context =
+expressionEnterVisitor : Node Expression -> Context -> Context
+expressionEnterVisitor node context =
     case Node.value node of
         Expression.LetExpression { declarations } ->
             let
-                newContext : ScopeModuleContext
+                newContext : Context
                 newContext =
                     List.foldl
                         (\declaration scopes ->
@@ -1064,7 +1064,7 @@ scope_expressionEnterVisitor node context =
             context
 
 
-collectModuleNamesFromTypeAnnotation : ScopeModuleContext -> List (Node TypeAnnotation) -> ModuleNameLookupTable -> ModuleNameLookupTable
+collectModuleNamesFromTypeAnnotation : Context -> List (Node TypeAnnotation) -> ModuleNameLookupTable -> ModuleNameLookupTable
 collectModuleNamesFromTypeAnnotation context typeAnnotationsToVisit acc =
     case typeAnnotationsToVisit of
         typeAnnotationNode :: remainingTypeAnnotationsToVisit ->
@@ -1109,7 +1109,7 @@ collectModuleNamesFromTypeAnnotation context typeAnnotationsToVisit acc =
             acc
 
 
-expressionExitVisitor : Node Expression -> ScopeModuleContext -> ScopeModuleContext
+expressionExitVisitor : Node Expression -> Context -> Context
 expressionExitVisitor node context =
     case Node.value node of
         Expression.LetExpression _ ->
@@ -1144,7 +1144,7 @@ If the element was defined in the current module, then the result will be `[]`.
                 ( [], context )
 
 -}
-moduleNameForValue : ScopeModuleContext -> String -> ModuleName -> ModuleName
+moduleNameForValue : Context -> String -> ModuleName -> ModuleName
 moduleNameForValue context valueName moduleName =
     case moduleName of
         [] ->
@@ -1199,7 +1199,7 @@ A type can be either a custom type or a type alias.
   - The third argument (`ModuleName`) is the module name that was used next to the type name where you found it
 
 -}
-moduleNameForType : ScopeModuleContext -> String -> ModuleName -> ModuleName
+moduleNameForType : Context -> String -> ModuleName -> ModuleName
 moduleNameForType context typeName moduleName =
     case moduleName of
         [] ->
