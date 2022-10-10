@@ -4543,8 +4543,12 @@ computeModules projectVisitor ( moduleVisitor, moduleContextCreator ) project ex
                     { ast = module_.ast
                     , moduleKey = ModuleKey module_.path
                     , moduleNameLookupTable =
-                        Dict.get (Review.Project.Internal.getModuleName module_) (Review.Project.Internal.moduleNameLookupTables project)
-                            |> Maybe.withDefault (ModuleNameLookupTableInternal.empty (Node.value (moduleNameNode module_.ast.moduleDefinition)))
+                        if requestedData.moduleNameLookupTable then
+                            Dict.get (Review.Project.Internal.getModuleName module_) (Review.Project.Internal.moduleNameLookupTables project)
+                                |> Maybe.withDefault (ModuleNameLookupTableInternal.empty (Node.value (moduleNameNode module_.ast.moduleDefinition)))
+
+                        else
+                            ModuleNameLookupTableInternal.empty (Node.value (moduleNameNode module_.ast.moduleDefinition))
                     , extractSourceCode =
                         if requestedData.sourceCodeExtractor then
                             extractSourceCode (String.lines module_.source)
