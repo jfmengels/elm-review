@@ -5,6 +5,7 @@ import Elm.Docs
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing exposing (Exposing, TopLevelExpose)
 import Elm.Syntax.Expression as Expression exposing (Expression)
+import Elm.Syntax.File
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Module as Module exposing (Module)
 import Elm.Syntax.ModuleName exposing (ModuleName)
@@ -114,6 +115,7 @@ compute moduleName module_ ((Project { dataCache }) as project) =
         moduleContext : ScopeModuleContext
         moduleContext =
             scope_fromProjectToModule moduleName projectContext
+                |> collectLookupTable module_.ast
 
         newDataCache : Review.Project.Internal.DataCache
         newDataCache =
@@ -158,6 +160,13 @@ scope_fromProjectToModule moduleName projectContext =
     , lookupTable = ModuleNameLookupTableInternal.empty moduleName
     }
         |> registerPrelude
+
+
+collectLookupTable : Elm.Syntax.File.File -> ScopeModuleContext -> ScopeModuleContext
+collectLookupTable ast context =
+    List.foldl scope_importVisitor context ast.imports
+        |> scope_moduleDefinitionVisitor ast.moduleDefinition
+        |> scope_declarationListVisitor ast.declarations
 
 
 
