@@ -86,11 +86,12 @@ compute moduleName project =
             , modules = Dict.empty
             }
 
-        lookupTable : ModuleNameLookupTable
-        lookupTable =
-            ModuleNameLookupTableInternal.empty moduleName
+        moduleContext : ScopeModuleContext
+        moduleContext =
+            scope_fromProjectToModule moduleName projectContext
     in
-    ( lookupTable, project )
+    -- TODO Update project to contain the new "project context"
+    ( moduleContext.lookupTable, project )
 
 
 scope_fromProjectToModule : ModuleName -> ScopeProjectContext -> ScopeModuleContext
