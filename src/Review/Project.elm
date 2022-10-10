@@ -82,6 +82,7 @@ new =
         , moduleGraph = Nothing
         , sourceDirectories = [ "src/" ]
         , moduleNameLookupTables = Dict.empty
+        , dataCache = Internal.emptyDataCache
         }
 
 

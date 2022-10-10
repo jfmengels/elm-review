@@ -1,7 +1,9 @@
 module Review.Project.Internal exposing
-    ( Project(..)
+    ( DataCache
+    , Project(..)
     , ProjectModule
     , buildModuleGraph
+    , emptyDataCache
     , getModuleName
     , moduleGraph
     , moduleNameLookupTables
@@ -13,6 +15,7 @@ the `elm.json` file, the project modules and the project dependencies.
 -}
 
 import Dict exposing (Dict)
+import Elm.Docs
 import Elm.Project
 import Elm.Syntax.File
 import Elm.Syntax.Module
@@ -33,7 +36,27 @@ type Project
         , moduleGraph : Maybe (Graph ModuleName ())
         , sourceDirectories : List String
         , moduleNameLookupTables : Dict ModuleName ModuleNameLookupTable
+        , dataCache : DataCache
         }
+
+
+type alias DataCache =
+    { dependenciesModules : Maybe { elmJsonString : String, deps : Dict String Elm.Docs.Module }
+
+    -- TODO Find a way to cache and de-cache it correctly
+    , modules : Dict ModuleName Elm.Docs.Module
+
+    -- TODO Find a way to cache and de-cache it correctly
+    , lookupTables : Dict ModuleName ModuleNameLookupTable
+    }
+
+
+emptyDataCache : DataCache
+emptyDataCache =
+    { dependenciesModules = Nothing
+    , modules = Dict.empty
+    , lookupTables = Dict.empty
+    }
 
 
 {-| Represents a parsed file.
