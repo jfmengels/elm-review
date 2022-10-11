@@ -4491,19 +4491,23 @@ computeModules fixAll projectVisitor ( moduleVisitor, moduleContextCreator ) pro
                     moduleErrors
                         |> ListExtra.orderIndependentMap (setFilePathIfUnset module_)
                         |> filterExceptionsAndSetName exceptions projectVisitor.name
-            in
-            ( newProject
-            , { source = module_.source
-              , errors = errors
-              , context =
-                    case getFolderFromTraversal projectVisitor.traversalAndFolder of
-                        Just { fromModuleToProject } ->
-                            applyContextCreator availableData fromModuleToProject context
 
-                        Nothing ->
-                            initialProjectContext
-              }
-            )
+                resultWhenNoFix : () -> ( Project, { source : String, errors : List (Error {}), context : projectContext } )
+                resultWhenNoFix () =
+                    ( newProject
+                    , { source = module_.source
+                      , errors = errors
+                      , context =
+                            case getFolderFromTraversal projectVisitor.traversalAndFolder of
+                                Just { fromModuleToProject } ->
+                                    applyContextCreator availableData fromModuleToProject context
+
+                                Nothing ->
+                                    initialProjectContext
+                      }
+                    )
+            in
+            resultWhenNoFix ()
 
         ( newModuleContexts, _, finalProject ) =
             List.foldl
