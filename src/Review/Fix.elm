@@ -235,7 +235,7 @@ tryToApplyFix fixes sourceCode isValidSourceCode =
             resultAfterFix : String
             resultAfterFix =
                 fixes
-                    |> List.sortBy (rangePosition >> negate)
+                    |> List.sortBy (Internal.rangePosition >> negate)
                     |> List.foldl Internal.applyFix (String.lines sourceCode)
                     |> String.join "\n"
         in
@@ -247,29 +247,6 @@ tryToApplyFix fixes sourceCode isValidSourceCode =
 
         else
             Errored (SourceCodeIsNotValid resultAfterFix)
-
-
-rangePosition : Fix -> Int
-rangePosition fix_ =
-    positionAsInt <|
-        case fix_ of
-            Internal.Replacement range _ ->
-                range.start
-
-            Internal.Removal range ->
-                range.start
-
-            Internal.InsertAt position _ ->
-                position
-
-
-positionAsInt : { row : Int, column : Int } -> Int
-positionAsInt { row, column } =
-    -- This is a quick and simple heuristic to be able to sort ranges.
-    -- It is entirely based on the assumption that no line is longer than
-    -- 1.000.000 characters long. Then, as long as ranges don't overlap,
-    -- this should work fine.
-    row * 1000000 + column
 
 
 

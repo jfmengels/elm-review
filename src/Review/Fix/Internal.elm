@@ -1,6 +1,8 @@
-module Review.Fix.Internal exposing (Fix(..), applyFix, containRangeCollisions)
+module Review.Fix.Internal exposing (Fix(..), applyFix, containRangeCollisions, rangePosition)
 
 import Array
+import Elm.Parser
+import Elm.RawFile exposing (RawFile)
 import Elm.Syntax.Range exposing (Range)
 import Unicode
 import Vendor.ListExtra as ListExtra
@@ -127,3 +129,30 @@ comparePosition a b =
 
         order ->
             order
+
+
+
+-- RANGE POSITION
+
+
+rangePosition : Fix -> Int
+rangePosition fix_ =
+    positionAsInt <|
+        case fix_ of
+            Replacement range _ ->
+                range.start
+
+            Removal range ->
+                range.start
+
+            InsertAt position _ ->
+                position
+
+
+positionAsInt : { row : Int, column : Int } -> Int
+positionAsInt { row, column } =
+    -- This is a quick and simple heuristic to be able to sort ranges.
+    -- It is entirely based on the assumption that no line is longer than
+    -- 1.000.000 characters long. Then, as long as ranges don't overlap,
+    -- this should work fine.
+    row * 1000000 + column
