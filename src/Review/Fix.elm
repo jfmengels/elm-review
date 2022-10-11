@@ -137,6 +137,7 @@ import Elm.Project
 import Elm.Syntax.Range exposing (Range)
 import Json.Decode as Decode
 import Review.Error as Error
+import Review.Fix.Internal as Internal
 import Unicode
 import Vendor.ListExtra as ListExtra
 
@@ -149,7 +150,7 @@ import Vendor.ListExtra as ListExtra
 automatically fix a review error.
 -}
 type alias Fix =
-    Error.Fix
+    Internal.Fix
 
 
 
@@ -160,21 +161,21 @@ type alias Fix =
 -}
 removeRange : Range -> Fix
 removeRange =
-    Error.Removal
+    Internal.Removal
 
 
 {-| Replace the code in between a range by some other code.
 -}
 replaceRangeBy : Range -> String -> Fix
 replaceRangeBy =
-    Error.Replacement
+    Internal.Replacement
 
 
 {-| Insert some code at the given position.
 -}
 insertAt : { row : Int, column : Int } -> String -> Fix
 insertAt =
-    Error.InsertAt
+    Internal.InsertAt
 
 
 
@@ -261,13 +262,13 @@ containRangeCollisions fixes =
 getFixRange : Fix -> Range
 getFixRange fix_ =
     case fix_ of
-        Error.Replacement range _ ->
+        Internal.Replacement range _ ->
             range
 
-        Error.Removal range ->
+        Internal.Removal range ->
             range
 
-        Error.InsertAt position _ ->
+        Internal.InsertAt position _ ->
             { start = position, end = position }
 
 
@@ -296,13 +297,13 @@ rangePosition : Fix -> Int
 rangePosition fix_ =
     positionAsInt <|
         case fix_ of
-            Error.Replacement range _ ->
+            Internal.Replacement range _ ->
                 range.start
 
-            Error.Removal range ->
+            Internal.Removal range ->
                 range.start
 
-            Error.InsertAt position _ ->
+            Internal.InsertAt position _ ->
                 position
 
 
@@ -328,13 +329,13 @@ comparePosition a b =
 applyFix : Fix -> List String -> List String
 applyFix fix_ lines =
     case fix_ of
-        Error.Replacement range replacement ->
+        Internal.Replacement range replacement ->
             applyReplace range replacement lines
 
-        Error.Removal range ->
+        Internal.Removal range ->
             applyReplace range "" lines
 
-        Error.InsertAt position insertion ->
+        Internal.InsertAt position insertion ->
             applyReplace { start = position, end = position } insertion lines
 
 
@@ -392,17 +393,17 @@ This is meant for external tooling. You shouldn't have to care about this
 toRecord : Fix -> { range : Range, replacement : String }
 toRecord fix_ =
     case fix_ of
-        Error.Replacement range replacement ->
+        Internal.Replacement range replacement ->
             { range = range
             , replacement = replacement
             }
 
-        Error.Removal range ->
+        Internal.Removal range ->
             { range = range
             , replacement = ""
             }
 
-        Error.InsertAt position replacement ->
+        Internal.InsertAt position replacement ->
             { range = { start = position, end = position }
             , replacement = replacement
             }
