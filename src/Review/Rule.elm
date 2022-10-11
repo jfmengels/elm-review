@@ -4522,6 +4522,10 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
             if reviewOptions.fixAll then
                 case findFix (fixableFilesInProject newProject) errors newProject of
                     Just ( projectWithFix, { filePath } ) ->
+                        let
+                            _ =
+                                Debug.log "modulename" moduleName
+                        in
                         computeModule
                             cache
                             importedModules
@@ -4615,6 +4619,10 @@ addUpdatedFileToProject file project =
                                 (removedDependencies oldElmJson.project newElmJson)
 
                         Err _ ->
+                            let
+                                _ =
+                                    Debug.log "error" ()
+                            in
                             -- TODO Error
                             project
 
