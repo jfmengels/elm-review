@@ -4521,7 +4521,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
             in
             if reviewOptions.fixAll then
                 case findFix (fixableFilesInProject newProject) errors newProject of
-                    Just ( projectWithFix, { filePath } ) ->
+                    Just ( projectWithFix, filePath ) ->
                         let
                             _ =
                                 Debug.log "modulename" moduleName
@@ -4577,7 +4577,7 @@ findFix :
     Dict String { path : String, source : String }
     -> List (Error a)
     -> Project
-    -> Maybe ( Project, InternalError )
+    -> Maybe ( Project, String )
 findFix files errors project =
     case errors of
         [] ->
@@ -4596,7 +4596,7 @@ findFix files errors project =
                                     findFix files restOfErrors project
 
                                 Fix.Successful fixedSource ->
-                                    Just ( addUpdatedFileToProject { file | source = fixedSource } project, headError )
+                                    Just ( addUpdatedFileToProject { file | source = fixedSource } project, headError.filePath )
 
                 Nothing ->
                     findFix files restOfErrors project
