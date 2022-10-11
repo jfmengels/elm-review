@@ -426,7 +426,7 @@ to compare them or the model that holds them.
 
 -}
 review : List Rule -> Project -> ( List ReviewError, List Rule )
-review rules ((Project p) as project) =
+review rules project =
     case Review.Project.modulesThatFailedToParse project of
         [] ->
             case Review.Project.modules project |> duplicateModuleNames Dict.empty of
@@ -466,22 +466,6 @@ review rules ((Project p) as project) =
                                         Exceptions.init
                                         project
                                         sortedModules
-
-                                moduleNameLookupTables : Dict ModuleName ModuleNameLookupTable
-                                moduleNameLookupTables =
-                                    case scopeResult.extract of
-                                        Just (ModuleNameLookupTableExtract lookupTables) ->
-                                            lookupTables
-
-                                        Just (JsonExtract _) ->
-                                            Dict.empty
-
-                                        Nothing ->
-                                            Dict.empty
-
-                                projectWithLookupTable : Project
-                                projectWithLookupTable =
-                                    Project { p | moduleNameLookupTables = moduleNameLookupTables }
                             in
                             if not (List.isEmpty scopeResult.errors) then
                                 ( ListExtra.orderIndependentMap errorToReviewError scopeResult.errors, rules )
@@ -490,7 +474,7 @@ review rules ((Project p) as project) =
                                 let
                                     runRulesResult : { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
                                     runRulesResult =
-                                        runRules ReviewOptions.defaults rules projectWithLookupTable sortedModules
+                                        runRules ReviewOptions.defaults rules project sortedModules
                                 in
                                 ( runRulesResult.errors, runRulesResult.rules )
 
@@ -699,7 +683,7 @@ importCycleError moduleGraph edge =
 
 
 runReviewForV2 : ReviewOptions -> Project -> List Rule -> Maybe ProjectData -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
-runReviewForV2 reviewOptions ((Project p) as project) rules maybeProjectData nodeContexts =
+runReviewForV2 reviewOptions project rules maybeProjectData nodeContexts =
     let
         scopeResult : { projectData : Maybe ProjectData, lookupTables : Dict ModuleName ModuleNameLookupTable }
         scopeResult =
@@ -732,13 +716,9 @@ runReviewForV2 reviewOptions ((Project p) as project) rules maybeProjectData nod
                 , lookupTables = Dict.empty
                 }
 
-        projectWithLookupTables : Project
-        projectWithLookupTables =
-            Project { p | moduleNameLookupTables = scopeResult.lookupTables }
-
         runResult : { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
         runResult =
-            runRules reviewOptions rules projectWithLookupTables nodeContexts
+            runRules reviewOptions rules project nodeContexts
     in
     { errors = runResult.errors
     , rules = runResult.rules

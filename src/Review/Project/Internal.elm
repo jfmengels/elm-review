@@ -6,7 +6,6 @@ module Review.Project.Internal exposing
     , buildModuleGraph
     , emptyDataCache
     , moduleGraph
-    , moduleNameLookupTables
     , sourceDirectories
     )
 
@@ -35,7 +34,6 @@ type Project
         , dependencies : Dict String Dependency
         , moduleGraph : Maybe (Graph ModuleName ())
         , sourceDirectories : List String
-        , moduleNameLookupTables : Dict ModuleName ModuleNameLookupTable
         , dataCache : DataCache
         }
 
@@ -90,11 +88,6 @@ moduleGraph (Project project) =
 
         Nothing ->
             buildModuleGraph <| Dict.values project.modules
-
-
-moduleNameLookupTables : Project -> Dict ModuleName ModuleNameLookupTable
-moduleNameLookupTables (Project project) =
-    project.moduleNameLookupTables
 
 
 sourceDirectories : Project -> List String
