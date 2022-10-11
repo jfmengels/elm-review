@@ -286,7 +286,7 @@ import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing
 import Elm.Syntax.Expression as Expression exposing (Expression, Function)
-import Elm.Syntax.File
+import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Import exposing (Import)
 import Elm.Syntax.Infix as Infix
 import Elm.Syntax.Module as Module exposing (Module)
@@ -300,6 +300,7 @@ import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix as Fix exposing (Fix)
+import Review.Fix.Internal as InternalFix
 import Review.ImportCycle as ImportCycle
 import Review.Logger as Logger
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
@@ -4577,32 +4578,33 @@ findFix :
     Dict String { path : String, source : String }
     -> List (Error a)
     -> Project
-    -> Maybe { project : Project, fixedSource : String, filePath : String }
+    -> Maybe { project : Project, fixedSource : String, ast : File, filePath : String }
 findFix files errors project =
     case errors of
         [] ->
             Nothing
 
         (Error headError) :: restOfErrors ->
-            case headError.fixes of
-                Just fixes ->
+            case ( headError.fixes, headError.target ) of
+                ( Just fixes, Review.Error.Module ) ->
                     case Dict.get headError.filePath files of
                         Nothing ->
                             findFix files restOfErrors project
 
                         Just file ->
-                            case Fix.fix headError.target fixes file.source of
-                                Fix.Errored _ ->
+                            case InternalFix.fixModule fixes file.source of
+                                Nothing ->
                                     findFix files restOfErrors project
 
-                                Fix.Successful fixedSource ->
+                                Just { source, ast } ->
                                     Just
-                                        { project = addUpdatedFileToProject { file | source = fixedSource } project
-                                        , fixedSource = fixedSource
+                                        { project = Review.Project.addParsedModule { path = headError.filePath, source = source, ast = ast } project
+                                        , fixedSource = source
+                                        , ast = ast
                                         , filePath = headError.filePath
                                         }
 
-                Nothing ->
+                _ ->
                     findFix files restOfErrors project
 
 
