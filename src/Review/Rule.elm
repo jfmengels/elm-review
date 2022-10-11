@@ -4527,11 +4527,15 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                             _ =
                                 Debug.log "modulename" moduleName
                         in
-                        computeModule
-                            cache
-                            importedModules
-                            module_
-                            (Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = fixResult.filePath }) fixResult.project)
+                        if module_.path == fixResult.filePath then
+                            computeModule
+                                cache
+                                importedModules
+                                { module_ | source = fixResult.fixedSource, ast = fixResult.ast }
+                                (Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = fixResult.filePath }) fixResult.project)
+
+                        else
+                            resultWhenNoFix ()
 
                     Nothing ->
                         resultWhenNoFix ()
