@@ -131,14 +131,12 @@ in the context of your rule.
 
 -}
 
-import Array
 import Elm.Parser
 import Elm.Project
 import Elm.Syntax.Range exposing (Range)
 import Json.Decode as Decode
 import Review.Error as Error
 import Review.Fix.Internal as Internal
-import Unicode
 
 
 
@@ -238,7 +236,7 @@ tryToApplyFix fixes sourceCode isValidSourceCode =
             resultAfterFix =
                 fixes
                     |> List.sortBy (rangePosition >> negate)
-                    |> List.foldl applyFix (String.lines sourceCode)
+                    |> List.foldl Internal.applyFix (String.lines sourceCode)
                     |> String.join "\n"
         in
         if sourceCode == resultAfterFix then
@@ -272,61 +270,6 @@ positionAsInt { row, column } =
     -- 1.000.000 characters long. Then, as long as ranges don't overlap,
     -- this should work fine.
     row * 1000000 + column
-
-
-applyFix : Fix -> List String -> List String
-applyFix fix_ lines =
-    case fix_ of
-        Internal.Replacement range replacement ->
-            applyReplace range replacement lines
-
-        Internal.Removal range ->
-            applyReplace range "" lines
-
-        Internal.InsertAt position insertion ->
-            applyReplace { start = position, end = position } insertion lines
-
-
-applyReplace : Range -> String -> List String -> List String
-applyReplace range replacement lines =
-    let
-        linesBefore : List String
-        linesBefore =
-            List.take (range.start.row - 1) lines
-
-        linesAfter : List String
-        linesAfter =
-            List.drop range.end.row lines
-
-        startLine : String
-        startLine =
-            getRowAtLine lines (range.start.row - 1)
-                |> Unicode.left (range.start.column - 1)
-
-        endLine : String
-        endLine =
-            getRowAtLine lines (range.end.row - 1)
-                |> Unicode.dropLeft (range.end.column - 1)
-    in
-    List.concat
-        [ linesBefore
-        , startLine ++ replacement ++ endLine |> String.lines
-        , linesAfter
-        ]
-
-
-getRowAtLine : List String -> Int -> String
-getRowAtLine lines rowIndex =
-    case lines |> Array.fromList |> Array.get rowIndex of
-        Just line ->
-            if String.trim line /= "" then
-                line
-
-            else
-                ""
-
-        Nothing ->
-            ""
 
 
 
