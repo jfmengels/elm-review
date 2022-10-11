@@ -139,7 +139,6 @@ import Json.Decode as Decode
 import Review.Error as Error
 import Review.Fix.Internal as Internal
 import Unicode
-import Vendor.ListExtra as ListExtra
 
 
 
@@ -230,7 +229,7 @@ fix target fixes sourceCode =
 
 tryToApplyFix : List Fix -> String -> (String -> Bool) -> FixResult
 tryToApplyFix fixes sourceCode isValidSourceCode =
-    if containRangeCollisions fixes then
+    if Internal.containRangeCollisions fixes then
         Errored HasCollisionsInFixRanges
 
     else
@@ -250,47 +249,6 @@ tryToApplyFix fixes sourceCode isValidSourceCode =
 
         else
             Errored (SourceCodeIsNotValid resultAfterFix)
-
-
-containRangeCollisions : List Fix -> Bool
-containRangeCollisions fixes =
-    fixes
-        |> ListExtra.orderIndependentMap getFixRange
-        |> ListExtra.anyCombination collide
-
-
-getFixRange : Fix -> Range
-getFixRange fix_ =
-    case fix_ of
-        Internal.Replacement range _ ->
-            range
-
-        Internal.Removal range ->
-            range
-
-        Internal.InsertAt position _ ->
-            { start = position, end = position }
-
-
-collide : Range -> Range -> Bool
-collide a b =
-    case comparePosition a.end b.start of
-        LT ->
-            False
-
-        EQ ->
-            False
-
-        GT ->
-            case comparePosition b.end a.start of
-                LT ->
-                    False
-
-                EQ ->
-                    False
-
-                GT ->
-                    True
 
 
 rangePosition : Fix -> Int
@@ -314,16 +272,6 @@ positionAsInt { row, column } =
     -- 1.000.000 characters long. Then, as long as ranges don't overlap,
     -- this should work fine.
     row * 1000000 + column
-
-
-comparePosition : { row : Int, column : Int } -> { row : Int, column : Int } -> Order
-comparePosition a b =
-    case compare a.row b.row of
-        EQ ->
-            compare a.column b.column
-
-        order ->
-            order
 
 
 applyFix : Fix -> List String -> List String
