@@ -1,9 +1,9 @@
 module Review.Fix.Internal exposing (Fix(..), applyFix, containRangeCollisions, fixModule, rangePosition)
 
 import Array
-import Elm.Parser
-import Elm.RawFile exposing (RawFile)
+import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Range exposing (Range)
+import Review.FileParser as FileParser
 import Unicode
 import Vendor.ListExtra as ListExtra
 
@@ -82,11 +82,11 @@ getRowAtLine lines rowIndex =
 
 {-| Apply the changes on the source code.
 -}
-fixModule : List Fix -> String -> Maybe { source : String, ast : RawFile }
+fixModule : List Fix -> String -> Maybe { source : String, ast : File }
 fixModule fixes originalSourceCode =
     case tryToApplyFixForModule fixes originalSourceCode of
         Just fixedSourceCode ->
-            case Elm.Parser.parse fixedSourceCode of
+            case FileParser.parse fixedSourceCode of
                 Ok ast ->
                     Just { source = fixedSourceCode, ast = ast }
 
