@@ -4550,13 +4550,7 @@ findFix :
     Dict String { path : String, source : String }
     -> List (Error a)
     -> Project
-    ->
-        Maybe
-            { file : { path : String, source : String }
-            , error : InternalError
-            , fixedSource : String
-            , remainingErrors : List (Error a)
-            }
+    -> Maybe ( Project, InternalError )
 findFix files errors project =
     case errors of
         [] ->
@@ -4575,12 +4569,7 @@ findFix files errors project =
                                     findFix files restOfErrors project
 
                                 Fix.Successful fixedSource ->
-                                    Just
-                                        { file = { path = file.path, source = file.source }
-                                        , error = headError
-                                        , fixedSource = fixedSource
-                                        , remainingErrors = restOfErrors
-                                        }
+                                    Just ( addUpdatedFileToProject { file | source = fixedSource } project, headError )
 
                 Nothing ->
                     findFix files restOfErrors project
