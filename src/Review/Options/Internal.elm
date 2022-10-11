@@ -1,11 +1,14 @@
-module Review.Options.Internal exposing (ReviewOptionsInternal(..))
+module Review.Options.Internal exposing (ReviewOptionsData, ReviewOptionsInternal(..))
 
 import Review.Logger exposing (Logger)
 
 
 type ReviewOptionsInternal
-    = ReviewOptionsInternal
-        { extract : Bool
-        , logger : Logger
-        , fixAll : Bool
-        }
+    = ReviewOptionsInternal ReviewOptionsData
+
+
+type alias ReviewOptionsData =
+    { extract : Bool
+    , logger : Logger
+    , fixAll : Bool
+    }

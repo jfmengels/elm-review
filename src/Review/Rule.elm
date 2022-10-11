@@ -306,7 +306,7 @@ import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.ModuleNameLookupTable.Compute
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Options as ReviewOptions exposing (ReviewOptions)
-import Review.Options.Internal exposing (ReviewOptionsInternal(..))
+import Review.Options.Internal exposing (ReviewOptionsData, ReviewOptionsInternal(..))
 import Review.Project exposing (ProjectModule)
 import Review.Project.Dependency
 import Review.Project.Internal exposing (Project)
@@ -4036,6 +4036,16 @@ endedRule name =
         |> Encode.encode 0
 
 
+fixedError : { ruleName : String, filePath : String } -> String
+fixedError data =
+    Encode.object
+        [ ( "type", Encode.string "apply-fix" )
+        , ( "ruleName", Encode.string data.ruleName )
+        , ( "filePath", Encode.string data.filePath )
+        ]
+        |> Encode.encode 0
+
+
 runProjectVisitorHelp :
     ReviewOptions
     -> RunnableProjectVisitor projectContext moduleContext
@@ -4074,7 +4084,7 @@ runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybe
 
                 Just moduleVisitor ->
                     computeModules
-                        reviewOptions.fixAll
+                        reviewOptions
                         projectVisitor
                         moduleVisitor
                         project
@@ -4374,7 +4384,7 @@ errorFilePathInternal (Error err) =
 
 
 computeModules :
-    Bool
+    ReviewOptionsData
     -> RunnableProjectVisitor projectContext moduleContext
     -> ( RunnableModuleVisitor moduleContext, ContextCreator projectContext moduleContext )
     -> Project
@@ -4383,7 +4393,7 @@ computeModules :
     -> List (Graph.NodeContext ModuleName ())
     -> Dict String (CacheEntry projectContext)
     -> { newProject : Project, newModuleContexts : Dict String (CacheEntry projectContext) }
-computeModules fixAll projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions initialProjectContext nodeContexts startCache =
+computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions initialProjectContext nodeContexts startCache =
     let
         graph : Graph ModuleName ()
         graph =
@@ -4509,10 +4519,14 @@ computeModules fixAll projectVisitor ( moduleVisitor, moduleContextCreator ) pro
                       }
                     )
             in
-            if fixAll then
+            if reviewOptions.fixAll then
                 case findFix (fixableFilesInProject newProject) errors newProject of
-                    Just ( projectWithFix, _ ) ->
-                        computeModule cache importedModules module_ projectWithFix
+                    Just ( projectWithFix, { filePath } ) ->
+                        computeModule
+                            cache
+                            importedModules
+                            module_
+                            (Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = filePath }) projectWithFix)
 
                     Nothing ->
                         resultWhenNoFix ()
