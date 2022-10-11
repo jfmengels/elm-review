@@ -281,6 +281,7 @@ reason or seemingly inappropriately.
 -}
 
 import Dict exposing (Dict)
+import Elm.Package
 import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing
@@ -293,6 +294,7 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
+import Json.Decode as Decode
 import Json.Encode as Encode
 import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
@@ -4582,6 +4584,69 @@ findFix files errors project =
 
                 Nothing ->
                     findFix files restOfErrors project
+
+
+addUpdatedFileToProject : { a | path : String, source : String } -> Project -> Project
+addUpdatedFileToProject file project =
+    if Just file.path == (Review.Project.readme project |> Maybe.map .path) then
+        Review.Project.addReadme { path = file.path, content = file.source } project
+
+    else
+        case Review.Project.elmJson project of
+            Just oldElmJson ->
+                if file.path == oldElmJson.path then
+                    case Decode.decodeString Elm.Project.decoder file.source of
+                        Ok newElmJson ->
+                            List.foldl
+                                Review.Project.removeDependency
+                                (Review.Project.addElmJson { path = file.path, raw = file.source, project = newElmJson } project)
+                                (removedDependencies oldElmJson.project newElmJson)
+
+                        Err _ ->
+                            -- TODO Error
+                            project
+
+                else
+                    addElmFile file project
+
+            Nothing ->
+                addElmFile file project
+
+
+removedDependencies : Elm.Project.Project -> Elm.Project.Project -> List String
+removedDependencies old new =
+    Set.diff (projectDependencies old) (projectDependencies new)
+        |> Set.toList
+
+
+projectDependencies : Elm.Project.Project -> Set String
+projectDependencies project =
+    case project of
+        Elm.Project.Application application ->
+            List.concat
+                [ getPackageName application.depsDirect
+                , getPackageName application.depsIndirect
+                , getPackageName application.testDepsDirect
+                , getPackageName application.testDepsIndirect
+                ]
+                |> Set.fromList
+
+        Elm.Project.Package packageInfo ->
+            List.concat
+                [ getPackageName packageInfo.deps
+                , getPackageName packageInfo.testDeps
+                ]
+                |> Set.fromList
+
+
+getPackageName : Elm.Project.Deps a -> List String
+getPackageName deps =
+    List.map (Tuple.first >> Elm.Package.toString) deps
+
+
+addElmFile : { a | path : String, source : String } -> Project -> Project
+addElmFile file project =
+    Review.Project.addModule { path = file.path, source = file.source } project
 
 
 computeModuleAndCacheResult :
