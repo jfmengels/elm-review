@@ -1,4 +1,4 @@
-module Review.Fix.Internal exposing (Fix(..), applyFix, containRangeCollisions, rangePosition)
+module Review.Fix.Internal exposing (Fix(..), applyFix, containRangeCollisions, fixModule, rangePosition)
 
 import Array
 import Elm.Parser
@@ -74,6 +74,48 @@ getRowAtLine lines rowIndex =
 
         Nothing ->
             ""
+
+
+
+-- FIX ELM MODULE
+
+
+{-| Apply the changes on the source code.
+-}
+fixModule : List Fix -> String -> Maybe { source : String, ast : RawFile }
+fixModule fixes originalSourceCode =
+    case tryToApplyFixForModule fixes originalSourceCode of
+        Just fixedSourceCode ->
+            case Elm.Parser.parse fixedSourceCode of
+                Ok ast ->
+                    Just { source = fixedSourceCode, ast = ast }
+
+                Err _ ->
+                    Nothing
+
+        Nothing ->
+            Nothing
+
+
+tryToApplyFixForModule : List Fix -> String -> Maybe String
+tryToApplyFixForModule fixes sourceCode =
+    if containRangeCollisions fixes then
+        Nothing
+
+    else
+        let
+            resultAfterFix : String
+            resultAfterFix =
+                fixes
+                    |> List.sortBy (rangePosition >> negate)
+                    |> List.foldl applyFix (String.lines sourceCode)
+                    |> String.join "\n"
+        in
+        if sourceCode == resultAfterFix then
+            Nothing
+
+        else
+            Just resultAfterFix
 
 
 
