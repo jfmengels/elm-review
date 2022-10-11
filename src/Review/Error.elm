@@ -1,6 +1,7 @@
-module Review.Error exposing (Fix(..), InternalError, ReviewError(..), Target(..), doesPreventExtract, error, preventExtract, withFixes)
+module Review.Error exposing (InternalError, ReviewError(..), Target(..), doesPreventExtract, error, preventExtract, withFixes)
 
 import Elm.Syntax.Range exposing (Range)
+import Review.Fix.Internal exposing (Fix)
 
 
 type ReviewError
@@ -25,15 +26,6 @@ type alias InternalError =
     , target : Target
     , preventsExtract : Bool
     }
-
-
-{-| Represents (part of a) fix that will be applied to a file's source code in order to
-automatically fix a review error.
--}
-type Fix
-    = Removal Range
-    | Replacement Range String
-    | InsertAt { row : Int, column : Int } String
 
 
 error : { message : String, details : List String } -> Range -> ReviewError
