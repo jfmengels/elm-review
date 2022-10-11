@@ -123,7 +123,7 @@ for this module.
 -}
 
 import Array exposing (Array)
-import Dict exposing (Dict)
+import Dict
 import Elm.Syntax.Module as Module
 import Elm.Syntax.Node as Node
 import Elm.Syntax.Range exposing (Range)
