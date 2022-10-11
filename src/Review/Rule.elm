@@ -4485,13 +4485,16 @@ computeModules fixAll projectVisitor ( moduleVisitor, moduleContextCreator ) pro
                         moduleVisitor
                         initialModuleContext
                         module_
-            in
-            ( newProject
-            , { source = module_.source
-              , errors =
+
+                errors : List (Error {})
+                errors =
                     moduleErrors
                         |> ListExtra.orderIndependentMap (setFilePathIfUnset module_)
                         |> filterExceptionsAndSetName exceptions projectVisitor.name
+            in
+            ( newProject
+            , { source = module_.source
+              , errors = errors
               , context =
                     case getFolderFromTraversal projectVisitor.traversalAndFolder of
                         Just { fromModuleToProject } ->
