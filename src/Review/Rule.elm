@@ -4521,7 +4521,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
             in
             if reviewOptions.fixAll then
                 case findFix (fixableFilesInProject newProject) errors newProject of
-                    Just ( projectWithFix, filePath ) ->
+                    Just fixResult ->
                         let
                             _ =
                                 Debug.log "modulename" moduleName
@@ -4530,7 +4530,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                             cache
                             importedModules
                             module_
-                            (Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = filePath }) projectWithFix)
+                            (Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = fixResult.filePath }) fixResult.project)
 
                     Nothing ->
                         resultWhenNoFix ()
@@ -4577,7 +4577,7 @@ findFix :
     Dict String { path : String, source : String }
     -> List (Error a)
     -> Project
-    -> Maybe ( Project, String )
+    -> Maybe { project : Project, fixedSource : String, filePath : String }
 findFix files errors project =
     case errors of
         [] ->
@@ -4596,7 +4596,11 @@ findFix files errors project =
                                     findFix files restOfErrors project
 
                                 Fix.Successful fixedSource ->
-                                    Just ( addUpdatedFileToProject { file | source = fixedSource } project, headError.filePath )
+                                    Just
+                                        { project = addUpdatedFileToProject { file | source = fixedSource } project
+                                        , fixedSource = fixedSource
+                                        , filePath = headError.filePath
+                                        }
 
                 Nothing ->
                     findFix files restOfErrors project
