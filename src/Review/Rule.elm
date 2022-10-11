@@ -4509,7 +4509,16 @@ computeModules fixAll projectVisitor ( moduleVisitor, moduleContextCreator ) pro
                       }
                     )
             in
-            resultWhenNoFix ()
+            if fixAll then
+                case findFix (fixableFilesInProject newProject) errors newProject of
+                    Just ( projectWithFix, _ ) ->
+                        computeModule cache importedModules module_ projectWithFix
+
+                    Nothing ->
+                        resultWhenNoFix ()
+
+            else
+                resultWhenNoFix ()
 
         ( newModuleContexts, _, finalProject ) =
             List.foldl
