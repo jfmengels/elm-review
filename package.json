@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "elm-review": "^2.7.3",
-    "elm-test": "^0.19.1-revision6",
+    "elm-test": "^0.19.1-revision10",
     "elm-tooling": "^1.7.0"
   },
   "devDependencies": {

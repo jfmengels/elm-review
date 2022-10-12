@@ -51,8 +51,9 @@ expectMessageEqual expectedMessage =
                 (String.lines receivedMessage
                     |> List.map
                         (\line () ->
-                            (String.length line <= 76)
-                                |> Expect.true ("Message has line longer than 76 characters:\n\n" ++ line)
+                            String.length line
+                                |> Expect.atMost 76
+                                |> Expect.onFail ("Message has line longer than 76 characters:\n\n" ++ line)
                         )
                 )
                 ()

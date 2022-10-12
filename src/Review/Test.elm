@@ -1153,7 +1153,8 @@ checkIfLocationIsAmbiguousInSourceCode sourceCode error_ under =
             String.indexes under sourceCode
     in
     hasOneElement occurrencesInSourceCode
-        |> Expect.true (FailureMessage.locationIsAmbiguousInSourceCode sourceCode error_ under occurrencesInSourceCode)
+        |> Expect.equal True
+        |> Expect.onFail (FailureMessage.locationIsAmbiguousInSourceCode sourceCode error_ under occurrencesInSourceCode)
 
 
 
@@ -1375,8 +1376,9 @@ checkErrorMatch : CodeInspector -> ExpectedError -> ReviewError -> (() -> Expect
 checkErrorMatch codeInspector ((ExpectedError expectedError_) as expectedError) error_ =
     Expect.all
         [ \() ->
-            (expectedError_.message == Rule.errorMessage error_)
-                |> Expect.true
+            Rule.errorMessage error_
+                |> Expect.equal expectedError_.message
+                |> Expect.onFail
                     (FailureMessage.messageMismatch
                         (extractExpectedErrorData expectedError)
                         error_
@@ -1410,8 +1412,9 @@ checkMessageAppearsUnder codeInspector error_ (ExpectedError expectedError) =
                                     _ ->
                                         Expect.pass
                             , \() ->
-                                (codeAtLocation == under)
-                                    |> Expect.true (FailureMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
+                                codeAtLocation
+                                    |> Expect.equal under
+                                    |> Expect.onFail (FailureMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
                             , \() ->
                                 codeInspector.checkIfLocationIsAmbiguous error_ under
                             ]
@@ -1419,11 +1422,13 @@ checkMessageAppearsUnder codeInspector error_ (ExpectedError expectedError) =
                     UnderExactly under range ->
                         Expect.all
                             [ \() ->
-                                (codeAtLocation == under)
-                                    |> Expect.true (FailureMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
+                                codeAtLocation
+                                    |> Expect.equal under
+                                    |> Expect.onFail (FailureMessage.underMismatch error_ { under = under, codeAtLocation = codeAtLocation })
                             , \() ->
-                                (Rule.errorRange error_ == range)
-                                    |> Expect.true (FailureMessage.wrongLocation error_ range under)
+                                Rule.errorRange error_
+                                    |> Expect.equal range
+                                    |> Expect.onFail (FailureMessage.wrongLocation error_ range under)
                             ]
 
             Nothing ->
@@ -1436,11 +1441,13 @@ checkDetailsAreCorrect : ReviewError -> ExpectedError -> (() -> Expectation)
 checkDetailsAreCorrect error_ (ExpectedError expectedError) =
     Expect.all
         [ \() ->
-            (not <| List.isEmpty <| Rule.errorDetails error_)
-                |> Expect.true (FailureMessage.emptyDetails (Rule.errorMessage error_))
+            (List.isEmpty <| Rule.errorDetails error_)
+                |> Expect.equal False
+                |> Expect.onFail (FailureMessage.emptyDetails (Rule.errorMessage error_))
         , \() ->
-            (Rule.errorDetails error_ == expectedError.details)
-                |> Expect.true (FailureMessage.unexpectedDetails expectedError.details error_)
+            Rule.errorDetails error_
+                |> Expect.equal expectedError.details
+                |> Expect.onFail (FailureMessage.unexpectedDetails expectedError.details error_)
         ]
 
 
