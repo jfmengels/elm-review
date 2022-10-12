@@ -1,9 +1,18 @@
 # Changelog
 
+## [2.9.2] - 2022-10-12
+
+Bumps the dependency to [`elm-explorations/test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/) to v2.
+We recommend to upgrade by using `elm-json`, like this:
+
+```bash
+cd review/
+elm-json upgrade
+```
+
 ## [2.9.1] - 2022-09-19
 
 This release contains HUGE performance updates. `elm-review` should now run quite a bit faster (rough estimate says 50%).
-
 
 ## [2.9.0] - 2022-08-23
 
@@ -56,6 +65,7 @@ Help would be appreciated to fill the blanks!
 
 [`NoDeprecated`]: (https://package.elm-lang.org/packages/jfmengels/elm-review-common/latest/NoDeprecated)
 
+[2.9.2]: https://github.com/jfmengels/elm-review/releases/tag/2.9.2
 [2.9.1]: https://github.com/jfmengels/elm-review/releases/tag/2.9.1
 [2.9.0]: https://github.com/jfmengels/elm-review/releases/tag/2.9.0
 [2.8.1]: https://github.com/jfmengels/elm-review/releases/tag/2.8.1
