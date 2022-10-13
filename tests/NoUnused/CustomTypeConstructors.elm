@@ -129,7 +129,7 @@ rule phantomTypes =
             { fromProjectToModule = fromProjectToModule
             , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
-            , distill = refineProjectContext
+            , refineProjectContext = refineProjectContext
             }
         |> Rule.withContextFromImportedModules
         |> Rule.withFinalProjectEvaluation finalProjectEvaluation

@@ -1876,7 +1876,7 @@ withModuleContextUsingContextCreatorWithBetterCache :
     { fromProjectToModule : ContextCreator equatableProjectContext moduleContext
     , fromModuleToProject : ContextCreator moduleContext projectContext
     , foldProjectContexts : projectContext -> projectContext -> projectContext
-    , distill : projectContext -> equatableProjectContext
+    , refineProjectContext : projectContext -> equatableProjectContext
     }
     -> ProjectRuleSchema { schemaState | canAddModuleVisitor : (), withModuleContext : Required } projectContext moduleContext
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : (), withModuleContext : Forbidden } projectContext moduleContext
@@ -1884,7 +1884,7 @@ withModuleContextUsingContextCreatorWithBetterCache functions (ProjectRuleSchema
     ProjectRuleSchema
         { schema
             | moduleContextCreator =
-                Just (mapFrom functions.distill functions.fromProjectToModule)
+                Just (mapFrom functions.refineProjectContext functions.fromProjectToModule)
             , folder =
                 Just
                     { fromModuleToProject = functions.fromModuleToProject
