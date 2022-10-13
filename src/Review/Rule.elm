@@ -4452,7 +4452,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
         newStartCache =
             Dict.filter (\path _ -> Set.member path projectModulePaths) startCache
 
-        computeModule : Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> Project -> ( Project, CacheEntry projectContext )
+        computeModule : Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> Project -> { project : Project, analysis : CacheEntry projectContext }
         computeModule cache importedModules module_ currentProject =
             let
                 (RequestedData requestedData) =
@@ -4521,20 +4521,21 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                         |> ListExtra.orderIndependentMap (setFilePathIfUnset module_)
                         |> filterExceptionsAndSetName exceptions projectVisitor.name
 
-                resultWhenNoFix : () -> ( Project, { source : String, errors : List (Error {}), context : projectContext } )
+                resultWhenNoFix : () -> { project : Project, analysis : CacheEntry projectContext }
                 resultWhenNoFix () =
-                    ( newProject
-                    , { source = module_.source
-                      , errors = errors
-                      , context =
+                    { project = newProject
+                    , analysis =
+                        { source = module_.source
+                        , errors = errors
+                        , context =
                             case getFolderFromTraversal projectVisitor.traversalAndFolder of
                                 Just { fromModuleToProject } ->
                                     applyContextCreator availableData fromModuleToProject context
 
                                 Nothing ->
                                     initialProjectContext
-                      }
-                    )
+                        }
+                    }
             in
             if reviewOptions.fixAll then
                 case findFix (fixableFilesInProject newProject) errors newProject of
@@ -4628,7 +4629,7 @@ computeModuleAndCacheResult :
     TraversalAndFolder projectContext moduleContext
     -> Dict ModuleName ProjectModule
     -> Graph ModuleName ()
-    -> (Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> Project -> ( Project, CacheEntry projectContext ))
+    -> (Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> Project -> { project : Project, analysis : CacheEntry projectContext })
     -> Graph.NodeContext ModuleName ()
     -> ( Dict String (CacheEntry projectContext), Set ModuleName, Project )
     -> ( Dict String (CacheEntry projectContext), Set ModuleName, Project )
@@ -4664,16 +4665,16 @@ computeModuleAndCacheResult traversalAndFolder modules graph computeModule { nod
                 compute : Maybe (CacheEntry projectContext) -> ( Dict String (CacheEntry projectContext), Set ModuleName, Project )
                 compute previousResult =
                     let
-                        ( newProject, result ) =
+                        { project, analysis } =
                             computeModule cache importedModules module_ currentProject
                     in
-                    ( Dict.insert module_.path result cache
-                    , if Just result.context /= Maybe.map .context previousResult then
+                    ( Dict.insert module_.path analysis cache
+                    , if Just analysis.context /= Maybe.map .context previousResult then
                         Set.insert (getModuleName module_) invalidatedModules
 
                       else
                         invalidatedModules
-                    , newProject
+                    , project
                     )
             in
             case Dict.get module_.path cache of
