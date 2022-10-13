@@ -25,6 +25,7 @@ module Review.Rule exposing
     , withDataExtractor, preventExtract
     , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, withRuleId, getConfigurationError
     , Required, Forbidden
+    , withModuleContextUsingContextCreatorWithBetterCache
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -1875,6 +1876,27 @@ withModuleContextUsingContextCreator functions (ProjectRuleSchema schema) =
     ProjectRuleSchema
         { schema
             | moduleContextCreator = Just functions.fromProjectToModule
+            , folder =
+                Just
+                    { fromModuleToProject = functions.fromModuleToProject
+                    , foldProjectContexts = functions.foldProjectContexts
+                    }
+        }
+
+
+withModuleContextUsingContextCreatorWithBetterCache :
+    { fromProjectToModule : ContextCreator equatableProjectContext moduleContext
+    , fromModuleToProject : ContextCreator moduleContext projectContext
+    , foldProjectContexts : projectContext -> projectContext -> projectContext
+    , distill : projectContext -> equatableProjectContext
+    }
+    -> ProjectRuleSchema { schemaState | canAddModuleVisitor : (), withModuleContext : Required } projectContext moduleContext
+    -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : (), withModuleContext : Forbidden } projectContext moduleContext
+withModuleContextUsingContextCreatorWithBetterCache functions (ProjectRuleSchema schema) =
+    ProjectRuleSchema
+        { schema
+            | moduleContextCreator =
+                Just (mapFrom functions.distill functions.fromProjectToModule)
             , folder =
                 Just
                     { fromModuleToProject = functions.fromModuleToProject
