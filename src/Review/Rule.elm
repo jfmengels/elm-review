@@ -5793,6 +5793,11 @@ type ContextCreator from to
     = ContextCreator (AvailableData -> from -> to) RequestedData
 
 
+mapFrom : (b -> a) -> ContextCreator a to -> ContextCreator b to
+mapFrom mapper (ContextCreator fn requestedData) =
+    ContextCreator (\available from -> fn available (mapper from)) requestedData
+
+
 type RequestedData
     = RequestedData
         { moduleNameLookupTable : Bool
