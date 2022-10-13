@@ -125,10 +125,11 @@ rule phantomTypes =
     Rule.newProjectRuleSchema "NoUnused.CustomTypeConstructors" (initialProjectContext phantomTypes)
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
         |> Rule.withModuleVisitor moduleVisitor
-        |> Rule.withModuleContextUsingContextCreator
+        |> Rule.withModuleContextUsingContextCreatorWithBetterCache
             { fromProjectToModule = fromProjectToModule
             , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
+            , distill = refineProjectContext
             }
         |> Rule.providesFixesForProjectRule
         |> Rule.withContextFromImportedModules
@@ -230,7 +231,22 @@ initialProjectContext phantomTypes =
     }
 
 
-fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
+type alias RefinedProjectContext =
+    { exposedModules : Set ModuleNameAsString
+    , declaredConstructors : Dict ModuleNameAsString ExposedConstructors
+    , phantomVariables : Dict ModuleName (List ( CustomTypeName, Int ))
+    }
+
+
+refineProjectContext : ProjectContext -> RefinedProjectContext
+refineProjectContext { exposedModules, declaredConstructors, phantomVariables } =
+    { exposedModules = exposedModules
+    , declaredConstructors = declaredConstructors
+    , phantomVariables = phantomVariables
+    }
+
+
+fromProjectToModule : Rule.ContextCreator RefinedProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
         (\lookupTable moduleName projectContext ->
