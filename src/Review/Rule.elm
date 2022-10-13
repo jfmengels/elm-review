@@ -315,6 +315,7 @@ import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
 import Vendor.ListExtra as ListExtra
+import Vendor.Zipper as Zipper exposing (Zipper)
 
 
 {-| Represents a construct able to analyze a project and report
@@ -329,7 +330,7 @@ type Rule
         , exceptions : Exceptions
         , requestedData : RequestedData
         , extractsData : Bool
-        , ruleImplementation : ReviewOptions -> Exceptions -> Project -> List (Graph.NodeContext ModuleName ()) -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
+        , ruleImplementation : ReviewOptions -> Exceptions -> Project -> Zipper (Graph.NodeContext ModuleName ()) -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
         , configurationError : Maybe { message : String, details : List String }
         }
 
@@ -713,6 +714,21 @@ runRules :
     -> List (Graph.NodeContext ModuleName ())
     -> { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
 runRules reviewOptions initialRules initialProject nodeContexts =
+    case Zipper.fromList nodeContexts of
+        Just zipper ->
+            runRulesHelp reviewOptions initialRules initialProject zipper
+
+        Nothing ->
+            { errors = [], rules = [], project = initialProject, extracts = Dict.empty }
+
+
+runRulesHelp :
+    ReviewOptions
+    -> List Rule
+    -> Project
+    -> Zipper (Graph.NodeContext ModuleName ())
+    -> { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+runRulesHelp reviewOptions initialRules initialProject nodeContexts =
     List.foldl
         (\(Rule { name, exceptions, ruleImplementation }) acc ->
             let
@@ -4010,7 +4026,7 @@ runProjectVisitor :
     -> Maybe (ProjectRuleCache projectContext)
     -> Exceptions
     -> Project
-    -> List (Graph.NodeContext ModuleName ())
+    -> Zipper (Graph.NodeContext ModuleName ())
     -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
 runProjectVisitor (ReviewOptionsInternal reviewOptions) projectVisitor maybePreviousCache exceptions project nodeContexts =
     nodeContexts
@@ -4053,7 +4069,7 @@ runProjectVisitorHelp :
     -> Maybe (ProjectRuleCache projectContext)
     -> Exceptions
     -> Project
-    -> List (Graph.NodeContext ModuleName ())
+    -> Zipper (Graph.NodeContext ModuleName ())
     -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
 runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybePreviousCache exceptions project nodeContexts =
     -- IGNORE TCO
@@ -4391,7 +4407,7 @@ computeModules :
     -> Project
     -> Exceptions
     -> projectContext
-    -> List (Graph.NodeContext ModuleName ())
+    -> Zipper (Graph.NodeContext ModuleName ())
     -> Dict String (CacheEntry projectContext)
     -> { newProject : Project, newModuleContexts : Dict String (CacheEntry projectContext) }
 computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions initialProjectContext nodeContexts startCache =
@@ -4540,7 +4556,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                 resultWhenNoFix ()
 
         ( newModuleContexts, _, finalProject ) =
-            List.foldl
+            Zipper.foldl
                 (computeModuleAndCacheResult projectVisitor.traversalAndFolder modules graph computeModule)
                 ( newStartCache, Set.empty, project )
                 nodeContexts
