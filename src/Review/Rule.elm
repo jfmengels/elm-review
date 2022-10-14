@@ -4682,8 +4682,7 @@ computeModuleAndCacheResult traversalAndFolder modules graph initialProjectConte
                     compute Nothing
 
                 Just cacheEntry ->
-                    if cacheEntry.source == module_.source && contextFromImportedModulesIsUnchanged traversalAndFolder importedModules invalidatedModules then
-                        -- The module's source and the module's imported modules' context are unchanged, we will later return the cached errors and context
+                    if cacheEntry.source == module_.source && cacheEntry.context == projectContext then
                         ( cache, invalidatedModules, currentProject )
 
                     else
