@@ -4530,22 +4530,34 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
             computeProjectContext projectVisitor.traversalAndFolder graph cache modules incoming initialProjectContext
 
         ( newModuleContexts, finalProject ) =
-            Zipper.foldl
-                (\nodeContext ( accCache, accProject ) ->
-                    computeModuleAndCacheResult
-                        computeProjectContext_
-                        computeModule
-                        modules
-                        nodeContext
-                        accCache
-                        accProject
-                )
-                ( newStartCache, project )
-                nodeContexts
+            runThroughModules computeProjectContext_ computeModule modules nodeContexts newStartCache project
     in
     { newProject = finalProject
     , newModuleContexts = newModuleContexts
     }
+
+
+runThroughModules :
+    (Dict String (CacheEntry projectContext) -> Graph.Adjacency () -> projectContext)
+    -> (ProjectModule -> projectContext -> Project -> { project : Project, analysis : CacheEntry projectContext })
+    -> Dict ModuleName ProjectModule
+    -> Zipper (Graph.NodeContext ModuleName ())
+    -> Dict String (CacheEntry projectContext)
+    -> Project
+    -> ( Dict String (CacheEntry projectContext), Project )
+runThroughModules computeProjectContext_ computeModule modules nodeContexts initialCache project =
+    Zipper.foldl
+        (\nodeContext ( accCache, accProject ) ->
+            computeModuleAndCacheResult
+                computeProjectContext_
+                computeModule
+                modules
+                nodeContext
+                accCache
+                accProject
+        )
+        ( initialCache, project )
+        nodeContexts
 
 
 computeProjectContext :
