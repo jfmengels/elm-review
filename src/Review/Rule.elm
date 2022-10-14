@@ -4072,7 +4072,8 @@ runProjectVisitorHelp :
 runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybePreviousCache exceptions project nodeContexts =
     -- IGNORE TCO
     let
-        ( cacheWithInitialContext, hasInitialContextChanged ) =
+        cacheWithInitialContext : ProjectRuleCache projectContext
+        cacheWithInitialContext =
             computeProjectContext projectVisitor exceptions project maybePreviousCache
 
         initialContext : projectContext
@@ -4081,16 +4082,12 @@ runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybe
 
         previousModuleContexts : Dict String (CacheEntry projectContext)
         previousModuleContexts =
-            if hasInitialContextChanged then
-                Dict.empty
+            case reuseProjectRuleCache (\previousCache -> previousCache.dependencies.context == cacheWithInitialContext.dependencies.context) maybePreviousCache of
+                Just previousCache ->
+                    previousCache.moduleContexts
 
-            else
-                case maybePreviousCache of
-                    Just { moduleContexts } ->
-                        moduleContexts
-
-                    Nothing ->
-                        Dict.empty
+                Nothing ->
+                    Dict.empty
 
         { newProject, newModuleContexts } =
             case projectVisitor.moduleVisitor of
@@ -4235,7 +4232,7 @@ errorsFromCache cache =
 -- VISIT PROJECT
 
 
-computeProjectContext : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Project -> Maybe (ProjectRuleCache projectContext) -> ( ProjectRuleCache projectContext, Bool )
+computeProjectContext : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Project -> Maybe (ProjectRuleCache projectContext) -> ProjectRuleCache projectContext
 computeProjectContext projectVisitor exceptions project maybePreviousCache =
     let
         projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
@@ -4265,8 +4262,15 @@ computeProjectContext projectVisitor exceptions project maybePreviousCache =
         elmJsonCacheEntry : CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext
         elmJsonCacheEntry =
             let
-                computeElmJson : () -> CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext
-                computeElmJson () =
+                cachePredicate : ProjectRuleCache projectContext -> Bool
+                cachePredicate previousCache =
+                    previousCache.elmJson.value == projectElmJson
+            in
+            case reuseProjectRuleCache cachePredicate maybePreviousCache of
+                Just previousCache ->
+                    previousCache.elmJson
+
+                Nothing ->
                     let
                         ( errorsForVisitor, contextForVisitor ) =
                             ( [], projectVisitor.initialProjectContext )
@@ -4276,23 +4280,22 @@ computeProjectContext projectVisitor exceptions project maybePreviousCache =
                     , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
                     , context = contextForVisitor
                     }
-            in
-            case maybePreviousCache of
-                Just previousCache ->
-                    if previousCache.elmJson.value == projectElmJson then
-                        previousCache.elmJson
-
-                    else
-                        computeElmJson ()
-
-                Nothing ->
-                    computeElmJson ()
 
         readmeCacheEntry : CacheEntryFor (Maybe { readmeKey : ReadmeKey, content : String }) projectContext
         readmeCacheEntry =
             let
-                computeReadme : () -> CacheEntryFor (Maybe { readmeKey : ReadmeKey, content : String }) projectContext
-                computeReadme () =
+                cachePredicate : ProjectRuleCache projectContext -> Bool
+                cachePredicate previousCache =
+                    -- If the previous context stayed the same
+                    (previousCache.elmJson.context == elmJsonCacheEntry.context)
+                        -- and the readme stayed the same
+                        && (previousCache.readme.value == readmeData)
+            in
+            case reuseProjectRuleCache cachePredicate maybePreviousCache of
+                Just previousCache ->
+                    previousCache.readme
+
+                Nothing ->
                     let
                         ( errorsForVisitor, contextForVisitor ) =
                             ( [], elmJsonCacheEntry.context )
@@ -4302,32 +4305,26 @@ computeProjectContext projectVisitor exceptions project maybePreviousCache =
                     , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
                     , context = contextForVisitor
                     }
-            in
-            case maybePreviousCache of
-                Just previousCache ->
-                    if
-                        -- If the previous context stayed the same
-                        (previousCache.elmJson.context == elmJsonCacheEntry.context)
-                            -- and the readme stayed the same
-                            && (previousCache.readme.value == readmeData)
-                    then
-                        previousCache.readme
 
-                    else
-                        computeReadme ()
-
-                Nothing ->
-                    computeReadme ()
-
-        ( dependenciesCacheEntry, hasAnythingChanged ) =
-            -- TODO Rewrite these steps to make it less likely to make an error at every step
+        dependenciesCacheEntry : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
+        dependenciesCacheEntry =
             let
                 dependencies : Dict String Review.Project.Dependency.Dependency
                 dependencies =
                     Review.Project.dependencies project
 
-                computeDependencies : () -> CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
-                computeDependencies () =
+                cachePredicate : ProjectRuleCache projectContext -> Bool
+                cachePredicate previousCache =
+                    -- If the previous context stayed the same
+                    (previousCache.readme.context == readmeCacheEntry.context)
+                        -- and the dependencies stayed the same
+                        && (previousCache.dependencies.value == dependencies)
+            in
+            case reuseProjectRuleCache cachePredicate maybePreviousCache of
+                Just previousCache ->
+                    previousCache.dependencies
+
+                Nothing ->
                     let
                         accumulateWithDirectDependencies : ( List (Error {}), projectContext ) -> ( List (Error {}), projectContext )
                         accumulateWithDirectDependencies =
@@ -4347,32 +4344,28 @@ computeProjectContext projectVisitor exceptions project maybePreviousCache =
                     , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
                     , context = contextForVisitor
                     }
-            in
-            case maybePreviousCache of
-                Just previousCache ->
-                    if
-                        -- If the previous context stayed the same
-                        (previousCache.readme.context == readmeCacheEntry.context)
-                            -- and the dependencies stayed the same
-                            && (previousCache.dependencies.value == dependencies)
-                    then
-                        ( previousCache.dependencies, False )
-
-                    else
-                        ( computeDependencies (), True )
-
-                Nothing ->
-                    ( computeDependencies (), True )
     in
-    ( { elmJson = elmJsonCacheEntry
-      , readme = readmeCacheEntry
-      , dependencies = dependenciesCacheEntry
-      , moduleContexts = Dict.empty
-      , foldedProjectContext = Nothing
-      , finalEvaluationErrors = []
-      }
-    , hasAnythingChanged
-    )
+    { elmJson = elmJsonCacheEntry
+    , readme = readmeCacheEntry
+    , dependencies = dependenciesCacheEntry
+    , moduleContexts = Dict.empty
+    , foldedProjectContext = Nothing
+    , finalEvaluationErrors = []
+    }
+
+
+reuseProjectRuleCache : (ProjectRuleCache a -> Bool) -> Maybe (ProjectRuleCache a) -> Maybe (ProjectRuleCache a)
+reuseProjectRuleCache predicate maybeCache =
+    case maybeCache of
+        Nothing ->
+            Nothing
+
+        Just cache ->
+            if predicate cache then
+                Just cache
+
+            else
+                Nothing
 
 
 filterExceptionsAndSetName : Exceptions -> String -> List (Error scope) -> List (Error scope)
@@ -4659,20 +4652,6 @@ reuseCache predicate maybeCacheEntry =
 
         Just cacheEntry ->
             predicate cacheEntry
-
-
-reuseCacheOrCompute : (CacheEntry v -> Bool) -> Maybe (CacheEntry v) -> Maybe (CacheEntry v)
-reuseCacheOrCompute predicate maybeCacheEntry =
-    case maybeCacheEntry of
-        Nothing ->
-            Nothing
-
-        Just cacheEntry ->
-            if predicate cacheEntry then
-                Just cacheEntry
-
-            else
-                Nothing
 
 
 getFolderFromTraversal : TraversalAndFolder projectContext moduleContext -> Maybe (Folder projectContext moduleContext)
