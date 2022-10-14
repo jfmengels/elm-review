@@ -4452,8 +4452,8 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
         newStartCache =
             Dict.filter (\path _ -> Set.member path projectModulePaths) startCache
 
-        computeModule : Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> Project -> { project : Project, analysis : CacheEntry projectContext }
-        computeModule cache importedModules module_ currentProject =
+        computeModule : Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> projectContext -> Project -> { project : Project, analysis : CacheEntry projectContext }
+        computeModule cache importedModules module_ projectContext currentProject =
             let
                 (RequestedData requestedData) =
                     projectVisitor.requestedData
@@ -4483,25 +4483,6 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                     , filePath = module_.path
                     , isInSourceDirectories = module_.isInSourceDirectories
                     }
-
-                projectContext : projectContext
-                projectContext =
-                    case projectVisitor.traversalAndFolder of
-                        TraverseAllModulesInParallel _ ->
-                            initialProjectContext
-
-                        TraverseImportedModulesFirst { foldProjectContexts } ->
-                            List.foldl
-                                (\importedModule accContext ->
-                                    case Dict.get importedModule.path cache of
-                                        Just importedModuleCache ->
-                                            foldProjectContexts importedModuleCache.context accContext
-
-                                        Nothing ->
-                                            accContext
-                                )
-                                initialProjectContext
-                                importedModules
 
                 initialModuleContext : moduleContext
                 initialModuleContext =
@@ -4543,6 +4524,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                                 cache
                                 importedModules
                                 { module_ | source = fixResult.fixedSource, ast = fixResult.ast }
+                                projectContext
                                 (Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = fixResult.filePath }) fixResult.project)
 
                         else
@@ -4556,7 +4538,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
 
         ( newModuleContexts, _, finalProject ) =
             Zipper.foldl
-                (computeModuleAndCacheResult projectVisitor.traversalAndFolder modules graph computeModule)
+                (computeModuleAndCacheResult projectVisitor.traversalAndFolder modules graph initialProjectContext computeModule)
                 ( newStartCache, Set.empty, project )
                 nodeContexts
     in
@@ -4627,11 +4609,12 @@ computeModuleAndCacheResult :
     TraversalAndFolder projectContext moduleContext
     -> Dict ModuleName ProjectModule
     -> Graph ModuleName ()
-    -> (Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> Project -> { project : Project, analysis : CacheEntry projectContext })
+    -> projectContext
+    -> (Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> projectContext -> Project -> { project : Project, analysis : CacheEntry projectContext })
     -> Graph.NodeContext ModuleName ()
     -> ( Dict String (CacheEntry projectContext), Set ModuleName, Project )
     -> ( Dict String (CacheEntry projectContext), Set ModuleName, Project )
-computeModuleAndCacheResult traversalAndFolder modules graph computeModule { node, incoming } ( cache, invalidatedModules, currentProject ) =
+computeModuleAndCacheResult traversalAndFolder modules graph initialProjectContext computeModule { node, incoming } ( cache, invalidatedModules, currentProject ) =
     case Dict.get node.label modules of
         Nothing ->
             ( cache, invalidatedModules, currentProject )
@@ -4660,11 +4643,30 @@ computeModuleAndCacheResult traversalAndFolder modules graph computeModule { nod
                                 []
                                 incoming
 
+                projectContext : projectContext
+                projectContext =
+                    case traversalAndFolder of
+                        TraverseAllModulesInParallel _ ->
+                            initialProjectContext
+
+                        TraverseImportedModulesFirst { foldProjectContexts } ->
+                            List.foldl
+                                (\importedModule accContext ->
+                                    case Dict.get importedModule.path cache of
+                                        Just importedModuleCache ->
+                                            foldProjectContexts importedModuleCache.context accContext
+
+                                        Nothing ->
+                                            accContext
+                                )
+                                initialProjectContext
+                                importedModules
+
                 compute : Maybe (CacheEntry projectContext) -> ( Dict String (CacheEntry projectContext), Set ModuleName, Project )
                 compute previousResult =
                     let
                         { project, analysis } =
-                            computeModule cache importedModules module_ currentProject
+                            computeModule cache importedModules module_ projectContext currentProject
                     in
                     ( Dict.insert module_.path analysis cache
                     , if Just analysis.context /= Maybe.map .context previousResult then
