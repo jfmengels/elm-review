@@ -4444,8 +4444,13 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
         newStartCache =
             Dict.filter (\path _ -> Set.member path projectModulePaths) startCache
 
-        computeModule : ProjectModule -> projectContext -> Project -> { project : Project, analysis : CacheEntry projectContext }
-        computeModule module_ projectContext currentProject =
+        computeModule :
+            ProjectModule
+            -> projectContext
+            -> Project
+            -> Zipper (Graph.NodeContext ModuleName ())
+            -> { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper (Graph.NodeContext ModuleName ())) }
+        computeModule module_ projectContext currentProject moduleZipper =
             let
                 (RequestedData requestedData) =
                     projectVisitor.requestedData
@@ -4492,7 +4497,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                         |> ListExtra.orderIndependentMap (setFilePathIfUnset module_)
                         |> filterExceptionsAndSetName exceptions projectVisitor.name
 
-                resultWhenNoFix : () -> { project : Project, analysis : CacheEntry projectContext }
+                resultWhenNoFix : () -> { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper (Graph.NodeContext ModuleName ())) }
                 resultWhenNoFix () =
                     { project = newProject
                     , analysis =
@@ -4506,6 +4511,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                                 Nothing ->
                                     initialProjectContext
                         }
+                    , moduleZipper = Zipper.next moduleZipper
                     }
             in
             if reviewOptions.fixAll then
@@ -4516,6 +4522,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                                 { module_ | source = fixResult.fixedSource, ast = fixResult.ast }
                                 projectContext
                                 (Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = fixResult.filePath }) fixResult.project)
+                                moduleZipper
 
                         else
                             resultWhenNoFix ()
