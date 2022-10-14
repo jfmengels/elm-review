@@ -4609,30 +4609,32 @@ computeModuleAndCacheResult :
         )
     -> Dict ModuleName ProjectModule
     -> Graph.NodeContext ModuleName ()
+    -> Zipper (Graph.NodeContext ModuleName ())
     -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
-    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
-computeModuleAndCacheResult computeProjectContext_ computeModule modules { node, incoming } acc =
+    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), moduleZipper : Maybe (Zipper (Graph.NodeContext ModuleName ())) }
+computeModuleAndCacheResult computeProjectContext_ computeModule modules { node, incoming } initialModuleZipper { project, moduleContexts } =
     case Dict.get node.label modules of
         Nothing ->
-            acc
+            { project = project, moduleContexts = moduleContexts, moduleZipper = Zipper.next initialModuleZipper }
 
         Just module_ ->
             let
                 projectContext : projectContext
                 projectContext =
-                    computeProjectContext_ acc.moduleContexts incoming
+                    computeProjectContext_ moduleContexts incoming
             in
-            if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.context == projectContext) (Dict.get module_.path acc.moduleContexts) then
-                acc
+            if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.context == projectContext) (Dict.get module_.path moduleContexts) then
+                { project = project, moduleContexts = moduleContexts, moduleZipper = Zipper.next initialModuleZipper }
 
             else
                 let
-                    { project, analysis, moduleZipper } =
-                        computeModule module_ projectContext acc.project
+                    result : { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper (Graph.NodeContext ModuleName ())) }
+                    result =
+                        computeModule module_ projectContext project initialModuleZipper
                 in
-                { project = project
-                , moduleContexts = Dict.insert module_.path analysis acc.moduleContexts
-                , moduleZipper = moduleZipper
+                { project = result.project
+                , moduleContexts = Dict.insert module_.path result.analysis moduleContexts
+                , moduleZipper = result.moduleZipper
                 }
 
 
