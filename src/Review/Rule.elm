@@ -4536,6 +4536,37 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
     }
 
 
+computeProjectContext :
+    TraversalAndFolder projectContext moduleContext
+    -> Graph ModuleName ()
+    -> Dict String (CacheEntry projectContext)
+    -> Dict ModuleName ProjectModule
+    -> Graph.Adjacency ()
+    -> projectContext
+    -> projectContext
+computeProjectContext traversalAndFolder graph cache modules incoming initial =
+    case traversalAndFolder of
+        TraverseAllModulesInParallel _ ->
+            initial
+
+        TraverseImportedModulesFirst { foldProjectContexts } ->
+            IntDict.foldl
+                (\key _ accContext ->
+                    case
+                        Graph.get key graph
+                            |> Maybe.andThen (\nodeContext -> Dict.get nodeContext.node.label modules)
+                            |> Maybe.andThen (\mod -> Dict.get mod.path cache)
+                    of
+                        Just importedModuleCache ->
+                            foldProjectContexts importedModuleCache.context accContext
+
+                        Nothing ->
+                            accContext
+                )
+                initial
+                incoming
+
+
 fixableFilesInProject : Project -> Dict String { path : String, source : String }
 fixableFilesInProject project =
     -- TODO Insert each element in dict directly, or avoid constructing this dict.
@@ -4612,26 +4643,7 @@ computeModuleAndCacheResult traversalAndFolder modules graph initialProjectConte
             let
                 projectContext : projectContext
                 projectContext =
-                    case traversalAndFolder of
-                        TraverseAllModulesInParallel _ ->
-                            initialProjectContext
-
-                        TraverseImportedModulesFirst { foldProjectContexts } ->
-                            IntDict.foldl
-                                (\key _ accContext ->
-                                    case
-                                        Graph.get key graph
-                                            |> Maybe.andThen (\nodeContext -> Dict.get nodeContext.node.label modules)
-                                            |> Maybe.andThen (\mod -> Dict.get mod.path cache)
-                                    of
-                                        Just importedModuleCache ->
-                                            foldProjectContexts importedModuleCache.context accContext
-
-                                        Nothing ->
-                                            accContext
-                                )
-                                initialProjectContext
-                                incoming
+                    computeProjectContext traversalAndFolder graph cache modules incoming initialProjectContext
             in
             if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.context == projectContext) (Dict.get module_.path cache) then
                 ( cache, currentProject )
