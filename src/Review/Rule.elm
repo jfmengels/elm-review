@@ -4089,10 +4089,11 @@ runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybe
                 Nothing ->
                     Dict.empty
 
-        { newProject, newModuleContexts } =
+        modulesVisitResult : { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
+        modulesVisitResult =
             case projectVisitor.moduleVisitor of
                 Nothing ->
-                    { newProject = project, newModuleContexts = Dict.empty }
+                    { project = project, moduleContexts = Dict.empty }
 
                 Just moduleVisitor ->
                     computeModules
@@ -4112,7 +4113,7 @@ runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybe
                     Dict.foldl
                         (\_ cacheEntry acc -> foldProjectContexts cacheEntry.context acc)
                         initialContext
-                        newModuleContexts
+                        modulesVisitResult.moduleContexts
 
                 Nothing ->
                     initialContext
@@ -4129,7 +4130,7 @@ runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybe
             { elmJson = cacheWithInitialContext.elmJson
             , readme = cacheWithInitialContext.readme
             , dependencies = cacheWithInitialContext.dependencies
-            , moduleContexts = newModuleContexts
+            , moduleContexts = modulesVisitResult.moduleContexts
             , foldedProjectContext = maybeFoldedContext
             , finalEvaluationErrors = errorsFromFinalEvaluation
             }
@@ -4182,7 +4183,7 @@ runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybe
                     }
             , configurationError = Nothing
             }
-    , project = newProject
+    , project = modulesVisitResult.project
     , extract = extract
     }
 
@@ -4400,7 +4401,7 @@ computeModules :
     -> projectContext
     -> Zipper (Graph.NodeContext ModuleName ())
     -> Dict String (CacheEntry projectContext)
-    -> { newProject : Project, newModuleContexts : Dict String (CacheEntry projectContext) }
+    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
 computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions initialProjectContext nodeContexts startCache =
     let
         graph : Graph ModuleName ()
@@ -4528,13 +4529,8 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
         computeProjectContext_ : Dict String (CacheEntry projectContext) -> Graph.Adjacency () -> projectContext
         computeProjectContext_ cache incoming =
             computeProjectContext projectVisitor.traversalAndFolder graph cache modules incoming initialProjectContext
-
-        ( newModuleContexts, finalProject ) =
-            runThroughModules computeProjectContext_ computeModule modules nodeContexts newStartCache project
     in
-    { newProject = finalProject
-    , newModuleContexts = newModuleContexts
-    }
+    runThroughModules computeProjectContext_ computeModule modules nodeContexts { project = project, moduleContexts = newStartCache }
 
 
 runThroughModules :
@@ -4542,21 +4538,19 @@ runThroughModules :
     -> (ProjectModule -> projectContext -> Project -> { project : Project, analysis : CacheEntry projectContext })
     -> Dict ModuleName ProjectModule
     -> Zipper (Graph.NodeContext ModuleName ())
-    -> Dict String (CacheEntry projectContext)
-    -> Project
-    -> ( Dict String (CacheEntry projectContext), Project )
-runThroughModules computeProjectContext_ computeModule modules nodeContexts initialCache project =
+    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
+    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
+runThroughModules computeProjectContext_ computeModule modules nodeContexts initialValue =
     Zipper.foldl
-        (\nodeContext ( accCache, accProject ) ->
+        (\nodeContext acc ->
             computeModuleAndCacheResult
                 computeProjectContext_
                 computeModule
                 modules
                 nodeContext
-                accCache
-                accProject
+                acc
         )
-        ( initialCache, project )
+        initialValue
         nodeContexts
 
 
@@ -4596,29 +4590,28 @@ computeModuleAndCacheResult :
     -> (ProjectModule -> projectContext -> Project -> { project : Project, analysis : CacheEntry projectContext })
     -> Dict ModuleName ProjectModule
     -> Graph.NodeContext ModuleName ()
-    -> Dict String (CacheEntry projectContext)
-    -> Project
-    -> ( Dict String (CacheEntry projectContext), Project )
-computeModuleAndCacheResult computeProjectContext_ computeModule modules { node, incoming } cache currentProject =
+    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
+    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
+computeModuleAndCacheResult computeProjectContext_ computeModule modules { node, incoming } acc =
     case Dict.get node.label modules of
         Nothing ->
-            ( cache, currentProject )
+            acc
 
         Just module_ ->
             let
                 projectContext : projectContext
                 projectContext =
-                    computeProjectContext_ cache incoming
+                    computeProjectContext_ acc.moduleContexts incoming
             in
-            if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.context == projectContext) (Dict.get module_.path cache) then
-                ( cache, currentProject )
+            if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.context == projectContext) (Dict.get module_.path acc.moduleContexts) then
+                acc
 
             else
                 let
                     { project, analysis } =
-                        computeModule module_ projectContext currentProject
+                        computeModule module_ projectContext acc.project
                 in
-                ( Dict.insert module_.path analysis cache, project )
+                { project = project, moduleContexts = Dict.insert module_.path analysis acc.moduleContexts }
 
 
 reuseCache : (CacheEntry v -> Bool) -> Maybe (CacheEntry v) -> Bool
