@@ -4484,30 +4484,28 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                     , isInSourceDirectories = module_.isInSourceDirectories
                     }
 
-                initialModuleContext : moduleContext
-                initialModuleContext =
+                projectContext : projectContext
+                projectContext =
                     case projectVisitor.traversalAndFolder of
                         TraverseAllModulesInParallel _ ->
-                            applyContextCreator availableData moduleContextCreator initialProjectContext
+                            initialProjectContext
 
                         TraverseImportedModulesFirst { foldProjectContexts } ->
-                            let
-                                projectContext : projectContext
-                                projectContext =
-                                    List.foldl
-                                        (\importedModule accContext ->
-                                            case Dict.get importedModule.path cache of
-                                                Just importedModuleCache ->
-                                                    foldProjectContexts importedModuleCache.context accContext
+                            List.foldl
+                                (\importedModule accContext ->
+                                    case Dict.get importedModule.path cache of
+                                        Just importedModuleCache ->
+                                            foldProjectContexts importedModuleCache.context accContext
 
-                                                Nothing ->
-                                                    accContext
-                                        )
-                                        initialProjectContext
-                                        importedModules
-                            in
-                            -- It is never used anywhere else
-                            applyContextCreator availableData moduleContextCreator projectContext
+                                        Nothing ->
+                                            accContext
+                                )
+                                initialProjectContext
+                                importedModules
+
+                initialModuleContext : moduleContext
+                initialModuleContext =
+                    applyContextCreator availableData moduleContextCreator projectContext
 
                 ( moduleErrors, context ) =
                     visitModuleForProjectRule
