@@ -4529,7 +4529,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
             Zipper.foldl
                 (\nodeContext ( accCache, accProject ) ->
                     computeModuleAndCacheResult
-                        (\incoming -> computeProjectContext projectVisitor.traversalAndFolder graph accCache modules incoming initialProjectContext)
+                        (\cache incoming -> computeProjectContext projectVisitor.traversalAndFolder graph cache modules incoming initialProjectContext)
                         computeModule
                         modules
                         nodeContext
@@ -4634,7 +4634,7 @@ findFix files errors project =
 
 
 computeModuleAndCacheResult :
-    (Graph.Adjacency () -> projectContext)
+    (Dict String (CacheEntry projectContext) -> Graph.Adjacency () -> projectContext)
     -> (ProjectModule -> projectContext -> Project -> { project : Project, analysis : CacheEntry projectContext })
     -> Dict ModuleName ProjectModule
     -> Graph.NodeContext ModuleName ()
@@ -4650,7 +4650,7 @@ computeModuleAndCacheResult computeProjectContext_ computeModule modules { node,
             let
                 projectContext : projectContext
                 projectContext =
-                    computeProjectContext_ incoming
+                    computeProjectContext_ cache incoming
             in
             if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.context == projectContext) (Dict.get module_.path cache) then
                 ( cache, currentProject )
