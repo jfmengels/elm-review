@@ -4527,7 +4527,15 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
 
         ( newModuleContexts, finalProject ) =
             Zipper.foldl
-                (computeModuleAndCacheResult projectVisitor.traversalAndFolder modules graph initialProjectContext computeModule)
+                (\nodeContext ( accCache, accProject ) ->
+                    computeModuleAndCacheResult
+                        (\incoming -> computeProjectContext projectVisitor.traversalAndFolder graph accCache modules incoming initialProjectContext)
+                        computeModule
+                        modules
+                        nodeContext
+                        accCache
+                        accProject
+                )
                 ( newStartCache, project )
                 nodeContexts
     in
@@ -4626,15 +4634,14 @@ findFix files errors project =
 
 
 computeModuleAndCacheResult :
-    TraversalAndFolder projectContext moduleContext
-    -> Dict ModuleName ProjectModule
-    -> Graph ModuleName ()
-    -> projectContext
+    (Graph.Adjacency () -> projectContext)
     -> (ProjectModule -> projectContext -> Project -> { project : Project, analysis : CacheEntry projectContext })
+    -> Dict ModuleName ProjectModule
     -> Graph.NodeContext ModuleName ()
+    -> Dict String (CacheEntry projectContext)
+    -> Project
     -> ( Dict String (CacheEntry projectContext), Project )
-    -> ( Dict String (CacheEntry projectContext), Project )
-computeModuleAndCacheResult traversalAndFolder modules graph initialProjectContext computeModule { node, incoming } ( cache, currentProject ) =
+computeModuleAndCacheResult computeProjectContext_ computeModule modules { node, incoming } cache currentProject =
     case Dict.get node.label modules of
         Nothing ->
             ( cache, currentProject )
@@ -4643,7 +4650,7 @@ computeModuleAndCacheResult traversalAndFolder modules graph initialProjectConte
             let
                 projectContext : projectContext
                 projectContext =
-                    computeProjectContext traversalAndFolder graph cache modules incoming initialProjectContext
+                    computeProjectContext_ incoming
             in
             if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.context == projectContext) (Dict.get module_.path cache) then
                 ( cache, currentProject )
