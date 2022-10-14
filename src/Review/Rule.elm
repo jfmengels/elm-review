@@ -4542,7 +4542,13 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
 
 runThroughModules :
     (Dict String (CacheEntry projectContext) -> Graph.Adjacency () -> projectContext)
-    -> (ProjectModule -> projectContext -> Project -> { project : Project, analysis : CacheEntry projectContext })
+    ->
+        (ProjectModule
+         -> projectContext
+         -> Project
+         -> Zipper (Graph.NodeContext ModuleName ())
+         -> { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper (Graph.NodeContext ModuleName ())) }
+        )
     -> Dict ModuleName ProjectModule
     -> Zipper (Graph.NodeContext ModuleName ())
     -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
@@ -4594,7 +4600,13 @@ computeProjectContext traversalAndFolder graph cache modules incoming initial =
 
 computeModuleAndCacheResult :
     (Dict String (CacheEntry projectContext) -> Graph.Adjacency () -> projectContext)
-    -> (ProjectModule -> projectContext -> Project -> { project : Project, analysis : CacheEntry projectContext })
+    ->
+        (ProjectModule
+         -> projectContext
+         -> Project
+         -> Zipper (Graph.NodeContext ModuleName ())
+         -> { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper (Graph.NodeContext ModuleName ())) }
+        )
     -> Dict ModuleName ProjectModule
     -> Graph.NodeContext ModuleName ()
     -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
@@ -4615,10 +4627,13 @@ computeModuleAndCacheResult computeProjectContext_ computeModule modules { node,
 
             else
                 let
-                    { project, analysis } =
+                    { project, analysis, moduleZipper } =
                         computeModule module_ projectContext acc.project
                 in
-                { project = project, moduleContexts = Dict.insert module_.path analysis acc.moduleContexts }
+                { project = project
+                , moduleContexts = Dict.insert module_.path analysis acc.moduleContexts
+                , moduleZipper = moduleZipper
+                }
 
 
 reuseCache : (CacheEntry v -> Bool) -> Maybe (CacheEntry v) -> Bool
