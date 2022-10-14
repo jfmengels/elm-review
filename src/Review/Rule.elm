@@ -4661,6 +4661,20 @@ reuseCache predicate maybeCacheEntry =
             predicate cacheEntry
 
 
+reuseCacheOrCompute : (CacheEntry v -> Bool) -> Maybe (CacheEntry v) -> Maybe (CacheEntry v)
+reuseCacheOrCompute predicate maybeCacheEntry =
+    case maybeCacheEntry of
+        Nothing ->
+            Nothing
+
+        Just cacheEntry ->
+            if predicate cacheEntry then
+                Just cacheEntry
+
+            else
+                Nothing
+
+
 getFolderFromTraversal : TraversalAndFolder projectContext moduleContext -> Maybe (Folder projectContext moduleContext)
 getFolderFromTraversal traversalAndFolder =
     case traversalAndFolder of
