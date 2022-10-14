@@ -4591,6 +4591,56 @@ computeProjectContext traversalAndFolder graph cache modules incoming initial =
                 incoming
 
 
+computeModuleAndCacheResult :
+    (Dict String (CacheEntry projectContext) -> Graph.Adjacency () -> projectContext)
+    -> (ProjectModule -> projectContext -> Project -> { project : Project, analysis : CacheEntry projectContext })
+    -> Dict ModuleName ProjectModule
+    -> Graph.NodeContext ModuleName ()
+    -> Dict String (CacheEntry projectContext)
+    -> Project
+    -> ( Dict String (CacheEntry projectContext), Project )
+computeModuleAndCacheResult computeProjectContext_ computeModule modules { node, incoming } cache currentProject =
+    case Dict.get node.label modules of
+        Nothing ->
+            ( cache, currentProject )
+
+        Just module_ ->
+            let
+                projectContext : projectContext
+                projectContext =
+                    computeProjectContext_ cache incoming
+            in
+            if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.context == projectContext) (Dict.get module_.path cache) then
+                ( cache, currentProject )
+
+            else
+                let
+                    { project, analysis } =
+                        computeModule module_ projectContext currentProject
+                in
+                ( Dict.insert module_.path analysis cache, project )
+
+
+reuseCache : (CacheEntry v -> Bool) -> Maybe (CacheEntry v) -> Bool
+reuseCache predicate maybeCacheEntry =
+    case maybeCacheEntry of
+        Nothing ->
+            False
+
+        Just cacheEntry ->
+            predicate cacheEntry
+
+
+getFolderFromTraversal : TraversalAndFolder projectContext moduleContext -> Maybe (Folder projectContext moduleContext)
+getFolderFromTraversal traversalAndFolder =
+    case traversalAndFolder of
+        TraverseAllModulesInParallel maybeFolder ->
+            maybeFolder
+
+        TraverseImportedModulesFirst folder ->
+            Just folder
+
+
 fixableFilesInProject : Project -> Dict String { path : String, source : String }
 fixableFilesInProject project =
     -- TODO Insert each element in dict directly, or avoid constructing this dict.
@@ -4647,56 +4697,6 @@ findFix files errors project =
 
                 _ ->
                     findFix files restOfErrors project
-
-
-computeModuleAndCacheResult :
-    (Dict String (CacheEntry projectContext) -> Graph.Adjacency () -> projectContext)
-    -> (ProjectModule -> projectContext -> Project -> { project : Project, analysis : CacheEntry projectContext })
-    -> Dict ModuleName ProjectModule
-    -> Graph.NodeContext ModuleName ()
-    -> Dict String (CacheEntry projectContext)
-    -> Project
-    -> ( Dict String (CacheEntry projectContext), Project )
-computeModuleAndCacheResult computeProjectContext_ computeModule modules { node, incoming } cache currentProject =
-    case Dict.get node.label modules of
-        Nothing ->
-            ( cache, currentProject )
-
-        Just module_ ->
-            let
-                projectContext : projectContext
-                projectContext =
-                    computeProjectContext_ cache incoming
-            in
-            if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.context == projectContext) (Dict.get module_.path cache) then
-                ( cache, currentProject )
-
-            else
-                let
-                    { project, analysis } =
-                        computeModule module_ projectContext currentProject
-                in
-                ( Dict.insert module_.path analysis cache, project )
-
-
-reuseCache : (CacheEntry v -> Bool) -> Maybe (CacheEntry v) -> Bool
-reuseCache predicate maybeCacheEntry =
-    case maybeCacheEntry of
-        Nothing ->
-            False
-
-        Just cacheEntry ->
-            predicate cacheEntry
-
-
-getFolderFromTraversal : TraversalAndFolder projectContext moduleContext -> Maybe (Folder projectContext moduleContext)
-getFolderFromTraversal traversalAndFolder =
-    case traversalAndFolder of
-        TraverseAllModulesInParallel maybeFolder ->
-            maybeFolder
-
-        TraverseImportedModulesFirst folder ->
-            Just folder
 
 
 visitModuleForProjectRule : RunnableModuleVisitor moduleContext -> moduleContext -> ProjectModule -> ( List (Error {}), moduleContext )
