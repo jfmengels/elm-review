@@ -4074,7 +4074,7 @@ runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybe
     let
         cacheWithInitialContext : ProjectRuleCache projectContext
         cacheWithInitialContext =
-            computeProjectContext projectVisitor exceptions project maybePreviousCache
+            computeProjectContextForProjectFiles projectVisitor exceptions project maybePreviousCache
 
         initialContext : projectContext
         initialContext =
@@ -4232,8 +4232,8 @@ errorsFromCache cache =
 -- VISIT PROJECT
 
 
-computeProjectContext : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Project -> Maybe (ProjectRuleCache projectContext) -> ProjectRuleCache projectContext
-computeProjectContext projectVisitor exceptions project maybePreviousCache =
+computeProjectContextForProjectFiles : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Project -> Maybe (ProjectRuleCache projectContext) -> ProjectRuleCache projectContext
+computeProjectContextForProjectFiles projectVisitor exceptions project maybePreviousCache =
     let
         projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
         projectElmJson =
