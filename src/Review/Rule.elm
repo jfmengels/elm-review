@@ -4525,11 +4525,15 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
             else
                 resultWhenNoFix ()
 
+        computeProjectContext_ : Dict String (CacheEntry projectContext) -> Graph.Adjacency () -> projectContext
+        computeProjectContext_ cache incoming =
+            computeProjectContext projectVisitor.traversalAndFolder graph cache modules incoming initialProjectContext
+
         ( newModuleContexts, finalProject ) =
             Zipper.foldl
                 (\nodeContext ( accCache, accProject ) ->
                     computeModuleAndCacheResult
-                        (\cache incoming -> computeProjectContext projectVisitor.traversalAndFolder graph cache modules incoming initialProjectContext)
+                        computeProjectContext_
                         computeModule
                         modules
                         nodeContext
