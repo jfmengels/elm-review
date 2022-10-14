@@ -4639,25 +4639,26 @@ computeModuleAndCacheResult traversalAndFolder modules graph initialProjectConte
                                 )
                                 initialProjectContext
                                 incoming
-
-                compute : () -> ( Dict String (CacheEntry projectContext), Project )
-                compute () =
-                    let
-                        { project, analysis } =
-                            computeModule module_ projectContext currentProject
-                    in
-                    ( Dict.insert module_.path analysis cache, project )
             in
-            case Dict.get module_.path cache of
-                Nothing ->
-                    compute ()
+            if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.context == projectContext) (Dict.get module_.path cache) then
+                ( cache, currentProject )
 
-                Just cacheEntry ->
-                    if cacheEntry.source == module_.source && cacheEntry.context == projectContext then
-                        ( cache, currentProject )
+            else
+                let
+                    { project, analysis } =
+                        computeModule module_ projectContext currentProject
+                in
+                ( Dict.insert module_.path analysis cache, project )
 
-                    else
-                        compute ()
+
+reuseCache : (CacheEntry v -> Bool) -> Maybe (CacheEntry v) -> Bool
+reuseCache predicate maybeCacheEntry =
+    case maybeCacheEntry of
+        Nothing ->
+            False
+
+        Just cacheEntry ->
+            predicate cacheEntry
 
 
 getFolderFromTraversal : TraversalAndFolder projectContext moduleContext -> Maybe (Folder projectContext moduleContext)
