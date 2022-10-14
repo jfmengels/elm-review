@@ -281,7 +281,6 @@ reason or seemingly inappropriately.
 -}
 
 import Dict exposing (Dict)
-import Elm.Package
 import Elm.Project
 import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Exposing as Exposing
@@ -294,7 +293,6 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
-import Json.Decode as Decode
 import Json.Encode as Encode
 import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
@@ -4452,8 +4450,8 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
         newStartCache =
             Dict.filter (\path _ -> Set.member path projectModulePaths) startCache
 
-        computeModule : Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> projectContext -> Project -> { project : Project, analysis : CacheEntry projectContext }
-        computeModule cache importedModules module_ projectContext currentProject =
+        computeModule : ProjectModule -> projectContext -> Project -> { project : Project, analysis : CacheEntry projectContext }
+        computeModule module_ projectContext currentProject =
             let
                 (RequestedData requestedData) =
                     projectVisitor.requestedData
@@ -4521,8 +4519,6 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                     Just fixResult ->
                         if module_.path == fixResult.filePath then
                             computeModule
-                                cache
-                                importedModules
                                 { module_ | source = fixResult.fixedSource, ast = fixResult.ast }
                                 projectContext
                                 (Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = fixResult.filePath }) fixResult.project)
@@ -4610,7 +4606,7 @@ computeModuleAndCacheResult :
     -> Dict ModuleName ProjectModule
     -> Graph ModuleName ()
     -> projectContext
-    -> (Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> projectContext -> Project -> { project : Project, analysis : CacheEntry projectContext })
+    -> (ProjectModule -> projectContext -> Project -> { project : Project, analysis : CacheEntry projectContext })
     -> Graph.NodeContext ModuleName ()
     -> ( Dict String (CacheEntry projectContext), Project )
     -> ( Dict String (CacheEntry projectContext), Project )
@@ -4666,7 +4662,7 @@ computeModuleAndCacheResult traversalAndFolder modules graph initialProjectConte
                 compute () =
                     let
                         { project, analysis } =
-                            computeModule cache importedModules module_ projectContext currentProject
+                            computeModule module_ projectContext currentProject
                     in
                     ( Dict.insert module_.path analysis cache, project )
             in
