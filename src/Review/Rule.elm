@@ -4617,28 +4617,6 @@ computeModuleAndCacheResult traversalAndFolder modules graph initialProjectConte
 
         Just module_ ->
             let
-                importedModules : List ProjectModule
-                importedModules =
-                    case traversalAndFolder of
-                        TraverseAllModulesInParallel _ ->
-                            []
-
-                        TraverseImportedModulesFirst _ ->
-                            IntDict.foldl
-                                (\key _ acc ->
-                                    case
-                                        Graph.get key graph
-                                            |> Maybe.andThen (\nodeContext -> Dict.get nodeContext.node.label modules)
-                                    of
-                                        Just mod ->
-                                            mod :: acc
-
-                                        Nothing ->
-                                            acc
-                                )
-                                []
-                                incoming
-
                 projectContext : projectContext
                 projectContext =
                     case traversalAndFolder of
@@ -4646,9 +4624,13 @@ computeModuleAndCacheResult traversalAndFolder modules graph initialProjectConte
                             initialProjectContext
 
                         TraverseImportedModulesFirst { foldProjectContexts } ->
-                            List.foldl
-                                (\importedModule accContext ->
-                                    case Dict.get importedModule.path cache of
+                            IntDict.foldl
+                                (\key _ accContext ->
+                                    case
+                                        Graph.get key graph
+                                            |> Maybe.andThen (\nodeContext -> Dict.get nodeContext.node.label modules)
+                                            |> Maybe.andThen (\mod -> Dict.get mod.path cache)
+                                    of
                                         Just importedModuleCache ->
                                             foldProjectContexts importedModuleCache.context accContext
 
@@ -4656,7 +4638,7 @@ computeModuleAndCacheResult traversalAndFolder modules graph initialProjectConte
                                             accContext
                                 )
                                 initialProjectContext
-                                importedModules
+                                incoming
 
                 compute : () -> ( Dict String (CacheEntry projectContext), Project )
                 compute () =
