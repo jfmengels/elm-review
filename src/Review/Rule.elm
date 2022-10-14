@@ -4536,10 +4536,10 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
             else
                 resultWhenNoFix ()
 
-        ( newModuleContexts, _, finalProject ) =
+        ( newModuleContexts, finalProject ) =
             Zipper.foldl
                 (computeModuleAndCacheResult projectVisitor.traversalAndFolder modules graph initialProjectContext computeModule)
-                ( newStartCache, Set.empty, project )
+                ( newStartCache, project )
                 nodeContexts
     in
     { newProject = finalProject
@@ -4612,12 +4612,12 @@ computeModuleAndCacheResult :
     -> projectContext
     -> (Dict String (CacheEntry projectContext) -> List ProjectModule -> ProjectModule -> projectContext -> Project -> { project : Project, analysis : CacheEntry projectContext })
     -> Graph.NodeContext ModuleName ()
-    -> ( Dict String (CacheEntry projectContext), Set ModuleName, Project )
-    -> ( Dict String (CacheEntry projectContext), Set ModuleName, Project )
-computeModuleAndCacheResult traversalAndFolder modules graph initialProjectContext computeModule { node, incoming } ( cache, invalidatedModules, currentProject ) =
+    -> ( Dict String (CacheEntry projectContext), Project )
+    -> ( Dict String (CacheEntry projectContext), Project )
+computeModuleAndCacheResult traversalAndFolder modules graph initialProjectContext computeModule { node, incoming } ( cache, currentProject ) =
     case Dict.get node.label modules of
         Nothing ->
-            ( cache, invalidatedModules, currentProject )
+            ( cache, currentProject )
 
         Just module_ ->
             let
@@ -4662,44 +4662,24 @@ computeModuleAndCacheResult traversalAndFolder modules graph initialProjectConte
                                 initialProjectContext
                                 importedModules
 
-                compute : Maybe (CacheEntry projectContext) -> ( Dict String (CacheEntry projectContext), Set ModuleName, Project )
-                compute previousResult =
+                compute : () -> ( Dict String (CacheEntry projectContext), Project )
+                compute () =
                     let
                         { project, analysis } =
                             computeModule cache importedModules module_ projectContext currentProject
                     in
-                    ( Dict.insert module_.path analysis cache
-                    , if Just analysis.context /= Maybe.map .context previousResult then
-                        Set.insert (getModuleName module_) invalidatedModules
-
-                      else
-                        invalidatedModules
-                    , project
-                    )
+                    ( Dict.insert module_.path analysis cache, project )
             in
             case Dict.get module_.path cache of
                 Nothing ->
-                    compute Nothing
+                    compute ()
 
                 Just cacheEntry ->
                     if cacheEntry.source == module_.source && cacheEntry.context == projectContext then
-                        ( cache, invalidatedModules, currentProject )
+                        ( cache, currentProject )
 
                     else
-                        compute (Just cacheEntry)
-
-
-contextFromImportedModulesIsUnchanged : TraversalAndFolder projectContext moduleContext -> List ProjectModule -> Set ModuleName -> Bool
-contextFromImportedModulesIsUnchanged traversalAndFolder importedModules invalidatedModules =
-    case traversalAndFolder of
-        TraverseAllModulesInParallel _ ->
-            True
-
-        TraverseImportedModulesFirst _ ->
-            List.any
-                (\importedModule -> Set.member (getModuleName importedModule) invalidatedModules)
-                importedModules
-                |> not
+                        compute ()
 
 
 getFolderFromTraversal : TraversalAndFolder projectContext moduleContext -> Maybe (Folder projectContext moduleContext)
