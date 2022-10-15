@@ -4525,6 +4525,32 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                                 (Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = fixResult.filePath }) fixResult.project)
                                 moduleZipper_
 
+                        else if String.endsWith ".elm" fixResult.filePath then
+                            let
+                                fixedModuleName : ModuleName
+                                fixedModuleName =
+                                    Module.moduleName (Node.value fixResult.ast.moduleDefinition)
+                            in
+                            case Zipper.focusl (\mod -> mod.node.label == fixedModuleName) moduleZipper_ of
+                                Just newModuleZipper ->
+                                    { project = fixResult.project
+                                    , analysis =
+                                        { source = module_.source
+                                        , errors = errors
+                                        , context =
+                                            case getFolderFromTraversal projectVisitor.traversalAndFolder of
+                                                Just { fromModuleToProject } ->
+                                                    applyContextCreator availableData fromModuleToProject context
+
+                                                Nothing ->
+                                                    initialProjectContext
+                                        }
+                                    , moduleZipper = Just newModuleZipper
+                                    }
+
+                                Nothing ->
+                                    resultWhenNoFix ()
+
                         else
                             resultWhenNoFix ()
 
