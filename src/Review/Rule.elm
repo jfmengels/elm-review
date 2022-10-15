@@ -4200,8 +4200,12 @@ computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ste
                 reviewOptions
                 projectVisitor
                 exceptions
-                End
+                FinalProjectEvaluation
                 ( result.project, result.projectContext, result.cache )
+
+        FinalProjectEvaluation ->
+            -- TODO
+            acc
 
         End ->
             acc
@@ -4212,6 +4216,7 @@ type Step
     | Readme
     | Dependencies
     | Modules
+    | FinalProjectEvaluation
     | End
 
 
