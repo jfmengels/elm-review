@@ -4092,6 +4092,7 @@ runProjectVisitorHelp reviewOptions projectVisitor maybePreviousCache exceptions
                     initialContext
 
         ( errorsFromFinalEvaluation, maybeFoldedContext ) =
+            -- TODO Find fixes after this step
             computeErrorsForFinalEvaluation
                 projectVisitor
                 computeFoldedContext
@@ -4251,6 +4252,8 @@ computeProjectContextForProjectFiles projectVisitor exceptions project maybePrev
                                 |> accumulateWithListOfVisitors projectVisitor.elmJsonVisitors elmJsonData
                     in
                     { value = projectElmJson
+
+                    -- TODO Find fixes after this step
                     , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
                     , context = contextForVisitor
                     }
@@ -4276,6 +4279,8 @@ computeProjectContextForProjectFiles projectVisitor exceptions project maybePrev
                                 |> accumulateWithListOfVisitors projectVisitor.readmeVisitors readmeData
                     in
                     { value = readmeData
+
+                    -- TODO Find fixes after this step
                     , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
                     , context = contextForVisitor
                     }
@@ -4315,6 +4320,8 @@ computeProjectContextForProjectFiles projectVisitor exceptions project maybePrev
                                 |> accumulateWithListOfVisitors projectVisitor.dependenciesVisitors dependencies
                     in
                     { value = dependencies
+
+                    -- TODO Find fixes after this step
                     , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
                     , context = contextForVisitor
                     }
