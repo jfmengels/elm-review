@@ -1193,7 +1193,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
         }
 
 
-emptyCache : ProjectRuleCache2 projectContext
+emptyCache : ProjectRuleCache projectContext
 emptyCache =
     { elmJson = Nothing
     , readme = Nothing
@@ -4001,16 +4001,6 @@ type alias Folder projectContext moduleContext =
     }
 
 
-type alias ProjectRuleCache projectContext =
-    { elmJson : CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext
-    , readme : CacheEntryFor (Maybe { path : String, content : String }) projectContext
-    , dependencies : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
-    , moduleContexts : Dict String (CacheEntry projectContext)
-    , foldedProjectContext : Maybe projectContext
-    , finalEvaluationErrors : List (Error {})
-    }
-
-
 type alias GraphModule =
     Graph.NodeContext ModuleName ()
 
@@ -4040,7 +4030,7 @@ type alias FinalProjectEvaluationCache projectContext =
 runProjectVisitor :
     ReviewOptionsInternal
     -> RunnableProjectVisitor projectContext moduleContext
-    -> ProjectRuleCache2 projectContext
+    -> ProjectRuleCache projectContext
     -> Exceptions
     -> Project
     -> Zipper GraphModule
@@ -4055,7 +4045,7 @@ runProjectVisitor (ReviewOptionsInternal reviewOptions) projectVisitor cache exc
 runProjectVisitorHelp :
     ReviewOptionsData
     -> RunnableProjectVisitor projectContext moduleContext
-    -> ProjectRuleCache2 projectContext
+    -> ProjectRuleCache projectContext
     -> Exceptions
     -> Project
     -> Zipper GraphModule
@@ -4103,7 +4093,7 @@ runProjectVisitorHelp reviewOptions projectVisitor cache exceptions project modu
                 exceptions
                 cache.finalEvaluationErrors
 
-        newCache : ProjectRuleCache2 projectContext
+        newCache : ProjectRuleCache projectContext
         newCache =
             { cacheWithInitialContext
                 | moduleContexts = modulesVisitResult.moduleContexts
@@ -4184,7 +4174,7 @@ setRuleName ruleName_ error_ =
     mapInternalError (\err -> { err | ruleName = ruleName_ }) error_
 
 
-errorsFromCache : ProjectRuleCache2 projectContext -> List (Error {})
+errorsFromCache : ProjectRuleCache projectContext -> List (Error {})
 errorsFromCache cache =
     ListExtra.orderIndependentConcat
         [ Dict.foldl (\_ cacheEntry acc -> ListExtra.orderIndependentAppend cacheEntry.errors acc) [] cache.moduleContexts
@@ -4199,7 +4189,7 @@ errorsFromCache cache =
 -- VISIT PROJECT
 
 
-type alias ProjectRuleCache2 projectContext =
+type alias ProjectRuleCache projectContext =
     { elmJson : Maybe (CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext)
     , readme : Maybe (CacheEntryFor (Maybe { path : String, content : String }) projectContext)
     , dependencies : Maybe (CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext)
@@ -4208,7 +4198,7 @@ type alias ProjectRuleCache2 projectContext =
     }
 
 
-computeProjectContextForProjectFiles : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Project -> Step -> ( projectContext, ProjectRuleCache2 projectContext ) -> ( projectContext, ProjectRuleCache2 projectContext )
+computeProjectContextForProjectFiles : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Project -> Step -> ( projectContext, ProjectRuleCache projectContext ) -> ( projectContext, ProjectRuleCache projectContext )
 computeProjectContextForProjectFiles projectVisitor exceptions project step (( projectContext, cache ) as acc) =
     case step of
         ElmJson ->
@@ -4251,8 +4241,8 @@ computeElmJsonCacheEntry :
     -> Exceptions
     -> Project
     -> projectContext
-    -> ProjectRuleCache2 projectContext
-    -> ( projectContext, ProjectRuleCache2 projectContext )
+    -> ProjectRuleCache projectContext
+    -> ( projectContext, ProjectRuleCache projectContext )
 computeElmJsonCacheEntry projectVisitor exceptions project inputContext cache =
     let
         projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
@@ -4301,8 +4291,8 @@ computeReadmeCacheEntry :
     -> Exceptions
     -> Project
     -> projectContext
-    -> ProjectRuleCache2 projectContext
-    -> ( projectContext, ProjectRuleCache2 projectContext )
+    -> ProjectRuleCache projectContext
+    -> ( projectContext, ProjectRuleCache projectContext )
 computeReadmeCacheEntry projectVisitor exceptions project inputContext cache =
     let
         projectReadme : Maybe { path : String, content : String }
@@ -4354,8 +4344,8 @@ computeDependenciesCacheEntry :
     -> Exceptions
     -> Project
     -> projectContext
-    -> ProjectRuleCache2 projectContext
-    -> ( projectContext, ProjectRuleCache2 projectContext )
+    -> ProjectRuleCache projectContext
+    -> ( projectContext, ProjectRuleCache projectContext )
 computeDependenciesCacheEntry projectVisitor exceptions project inputContext cache =
     let
         dependencies : Dict String Review.Project.Dependency.Dependency
@@ -4402,7 +4392,7 @@ computeDependenciesCacheEntry projectVisitor exceptions project inputContext cac
             ( outputContext, { cache | dependencies = Just dependenciesEntry } )
 
 
-reuseProjectRuleCache : (b -> Bool) -> (ProjectRuleCache2 a -> Maybe b) -> ProjectRuleCache2 a -> Maybe b
+reuseProjectRuleCache : (b -> Bool) -> (ProjectRuleCache a -> Maybe b) -> ProjectRuleCache a -> Maybe b
 reuseProjectRuleCache predicate getter cache =
     case getter cache of
         Nothing ->
