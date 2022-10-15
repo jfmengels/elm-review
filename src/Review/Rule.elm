@@ -4178,6 +4178,7 @@ computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ste
                 (computeDependencies projectVisitor exceptions project projectContext cache)
 
         Modules target ->
+            -- TODO Can we find a way to scanl from the end, by keeping the modulezipper from last time we visited modules?
             let
                 result : { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, nextStep : Step }
                 result =
