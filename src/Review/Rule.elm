@@ -4209,23 +4209,55 @@ errorsFromCache cache =
 -- VISIT PROJECT
 
 
-computeProjectContextForProjectFiles : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Project -> Maybe (ProjectRuleCache projectContext) -> ProjectRuleCache projectContext
-computeProjectContextForProjectFiles projectVisitor exceptions project maybePreviousCache =
+computeElmJsonCacheEntry :
+    RunnableProjectVisitor projectContext moduleContext
+    -> Exceptions
+    -> Maybe (ProjectRuleCache projectContext)
+    -> Project
+    -> projectContext
+    -> CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext
+computeElmJsonCacheEntry projectVisitor exceptions maybePreviousCache project inputContext =
     let
         projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
         projectElmJson =
             Review.Project.elmJson project
 
-        elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
-        elmJsonData =
-            Maybe.map
-                (\elmJson ->
-                    { elmJsonKey = ElmJsonKey elmJson
-                    , project = elmJson.project
-                    }
-                )
-                projectElmJson
+        cachePredicate : ProjectRuleCache projectContext -> Bool
+        cachePredicate previousCache =
+            previousCache.elmJson.value == projectElmJson
+    in
+    case reuseProjectRuleCache cachePredicate maybePreviousCache of
+        Just previousCache ->
+            previousCache.elmJson
 
+        Nothing ->
+            let
+                elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
+                elmJsonData =
+                    Maybe.map
+                        (\elmJson ->
+                            { elmJsonKey = ElmJsonKey elmJson
+                            , project = elmJson.project
+                            }
+                        )
+                        projectElmJson
+
+                ( errorsForVisitor, outputContext ) =
+                    ( [], inputContext )
+                        |> accumulateWithListOfVisitors projectVisitor.elmJsonVisitors elmJsonData
+            in
+            { value = projectElmJson
+
+            -- TODO Find fixes after this step
+            , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
+            , inputContext = inputContext
+            , outputContext = outputContext
+            }
+
+
+computeProjectContextForProjectFiles : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Project -> Maybe (ProjectRuleCache projectContext) -> ProjectRuleCache projectContext
+computeProjectContextForProjectFiles projectVisitor exceptions project maybePreviousCache =
+    let
         readmeData : Maybe { readmeKey : ReadmeKey, content : String }
         readmeData =
             Review.Project.readme project
@@ -4238,32 +4270,7 @@ computeProjectContextForProjectFiles projectVisitor exceptions project maybePrev
 
         elmJsonCacheEntry : CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext
         elmJsonCacheEntry =
-            let
-                cachePredicate : ProjectRuleCache projectContext -> Bool
-                cachePredicate previousCache =
-                    previousCache.elmJson.value == projectElmJson
-            in
-            case reuseProjectRuleCache cachePredicate maybePreviousCache of
-                Just previousCache ->
-                    previousCache.elmJson
-
-                Nothing ->
-                    let
-                        inputContext : projectContext
-                        inputContext =
-                            projectVisitor.initialProjectContext
-
-                        ( errorsForVisitor, outputContext ) =
-                            ( [], inputContext )
-                                |> accumulateWithListOfVisitors projectVisitor.elmJsonVisitors elmJsonData
-                    in
-                    { value = projectElmJson
-
-                    -- TODO Find fixes after this step
-                    , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
-                    , inputContext = inputContext
-                    , outputContext = outputContext
-                    }
+            computeElmJsonCacheEntry projectVisitor exceptions maybePreviousCache project projectVisitor.initialProjectContext
 
         readmeCacheEntry : CacheEntryFor (Maybe { readmeKey : ReadmeKey, content : String }) projectContext
         readmeCacheEntry =
