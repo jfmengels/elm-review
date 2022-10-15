@@ -729,34 +729,52 @@ runRules :
     -> List Rule
     -> Project
     -> { errors : List ReviewError, fixedErrors : Dict String (List ReviewError), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
-runRules reviewOptions initialRules initialProject =
-    List.foldl
-        (\(Rule { name, exceptions, ruleImplementation }) acc ->
+runRules reviewOptions rules project =
+    runRulesHelp
+        reviewOptions
+        { initialRules = rules
+        , remainingRules = rules
+        }
+        { errors = []
+        , fixedErrors = Dict.empty
+        , rules = []
+        , project = project
+        , extracts = Dict.empty
+        }
+
+
+runRulesHelp :
+    ReviewOptions
+    -> { initialRules : List Rule, remainingRules : List Rule }
+    -> { errors : List ReviewError, fixedErrors : Dict String (List ReviewError), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+    -> { errors : List ReviewError, fixedErrors : Dict String (List ReviewError), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+runRulesHelp reviewOptions { initialRules, remainingRules } acc =
+    case remainingRules of
+        [] ->
+            acc
+
+        (Rule { name, exceptions, ruleImplementation }) :: restOfRules ->
             let
                 result : { errors : List (Error {}), fixedErrors : Dict String (List ReviewError), rule : Rule, project : Project, extract : Maybe Extract }
                 result =
                     ruleImplementation reviewOptions exceptions acc.project
             in
-            { errors = ListExtra.orderIndependentMapAppend errorToReviewError result.errors acc.errors
-            , fixedErrors = result.fixedErrors
-            , rules = result.rule :: acc.rules
-            , project = result.project
-            , extracts =
-                case result.extract of
-                    Just (JsonExtract extract) ->
-                        Dict.insert name extract acc.extracts
+            runRulesHelp reviewOptions
+                { initialRules = initialRules
+                , remainingRules = restOfRules
+                }
+                { errors = ListExtra.orderIndependentMapAppend errorToReviewError result.errors acc.errors
+                , fixedErrors = result.fixedErrors
+                , rules = result.rule :: acc.rules
+                , project = result.project
+                , extracts =
+                    case result.extract of
+                        Just (JsonExtract extract) ->
+                            Dict.insert name extract acc.extracts
 
-                    Nothing ->
-                        acc.extracts
-            }
-        )
-        { errors = []
-        , fixedErrors = Dict.empty
-        , rules = []
-        , project = initialProject
-        , extracts = Dict.empty
-        }
-        initialRules
+                        Nothing ->
+                            acc.extracts
+                }
 
 
 duplicateModuleNames : Dict ModuleName String -> List ProjectModule -> Maybe { moduleName : ModuleName, paths : List String }
