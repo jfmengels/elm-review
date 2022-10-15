@@ -4057,8 +4057,8 @@ runProjectVisitorHelp reviewOptions projectVisitor maybePreviousCache exceptions
         initialContext =
             cacheWithInitialContext.dependencies.outputContext
 
-        baseCache : ProjectRuleCache2 projectContext
-        baseCache =
+        cache : ProjectRuleCache2 projectContext
+        cache =
             { elmJson = Maybe.map .elmJson maybePreviousCache
             , readme = Maybe.map .readme maybePreviousCache
             , dependencies = Maybe.map .dependencies maybePreviousCache
@@ -4071,7 +4071,7 @@ runProjectVisitorHelp reviewOptions projectVisitor maybePreviousCache exceptions
 
         cacheWithInitialContext : ProjectRuleCache projectContext
         cacheWithInitialContext =
-            computeProjectContextForProjectFiles projectVisitor exceptions project baseCache
+            computeProjectContextForProjectFiles projectVisitor exceptions project cache
 
         modulesVisitResult : { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
         modulesVisitResult =
@@ -4088,7 +4088,7 @@ runProjectVisitorHelp reviewOptions projectVisitor maybePreviousCache exceptions
                         exceptions
                         initialContext
                         moduleZipper
-                        baseCache.moduleContexts
+                        cache.moduleContexts
 
         computeFoldedContext : () -> projectContext
         computeFoldedContext () =
@@ -4108,7 +4108,7 @@ runProjectVisitorHelp reviewOptions projectVisitor maybePreviousCache exceptions
                 projectVisitor
                 computeFoldedContext
                 exceptions
-                baseCache.finalEvaluationErrors
+                cache.finalEvaluationErrors
 
         tmpCache : ProjectRuleCache projectContext
         tmpCache =
