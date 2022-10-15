@@ -4222,6 +4222,8 @@ type Step
 
 type NextStep
     = ModuleVisitStep (Maybe (Zipper GraphModule))
+    | BackToElmJson
+    | BackToReadme
 
 
 computeElmJson :
@@ -4611,6 +4613,18 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                                 Nothing ->
                                     resultWhenNoFix ()
 
+                        else if Just fixResult.filePath == Maybe.map .path (Review.Project.elmJson fixResult.project) then
+                            { project = fixResult.project
+                            , analysis = analysis ()
+                            , nextStep = BackToElmJson
+                            }
+
+                        else if Just fixResult.filePath == Maybe.map .path (Review.Project.readme fixResult.project) then
+                            { project = fixResult.project
+                            , analysis = analysis ()
+                            , nextStep = BackToReadme
+                            }
+
                         else
                             resultWhenNoFix ()
 
@@ -4668,6 +4682,12 @@ runThroughModules computeProjectContext_ computeModule modules maybeModuleZipper
                         newModuleZipper
                         result.project
                         result.moduleContexts
+
+                BackToElmJson ->
+                    { project = result.project, moduleContexts = result.moduleContexts, nextStep = ElmJson }
+
+                BackToReadme ->
+                    { project = result.project, moduleContexts = result.moduleContexts, nextStep = Readme }
 
 
 computeProjectContext :
