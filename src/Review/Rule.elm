@@ -4065,22 +4065,9 @@ runProjectVisitorHelp reviewOptions projectVisitor maybePreviousCache exceptions
         cacheWithInitialContext =
             computeProjectContextForProjectFiles projectVisitor exceptions project baseCache
 
-        reuseProjectRuleCacheOld : (ProjectRuleCache a -> Bool) -> Maybe (ProjectRuleCache a) -> Maybe (ProjectRuleCache a)
-        reuseProjectRuleCacheOld predicate maybeCache =
-            case maybeCache of
-                Nothing ->
-                    Nothing
-
-                Just cache ->
-                    if predicate cache then
-                        Just cache
-
-                    else
-                        Nothing
-
         previousModuleContexts : Dict String (CacheEntry projectContext)
         previousModuleContexts =
-            case reuseProjectRuleCacheOld (\previousCache -> previousCache.dependencies.outputContext == initialContext) maybePreviousCache of
+            case maybePreviousCache of
                 Just previousCache ->
                     previousCache.moduleContexts
 
