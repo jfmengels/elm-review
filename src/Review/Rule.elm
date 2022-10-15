@@ -328,7 +328,7 @@ type Rule
         , exceptions : Exceptions
         , requestedData : RequestedData
         , extractsData : Bool
-        , ruleImplementation : ReviewOptions -> Exceptions -> Project -> { errors : List (Error {}), fixedErrors : Dict String (List ReviewError), rule : Rule, project : Project, extract : Maybe Extract }
+        , ruleImplementation : ReviewOptionsData -> Exceptions -> Project -> { errors : List (Error {}), fixedErrors : Dict String (List ReviewError), rule : Rule, project : Project, extract : Maybe Extract }
         , configurationError : Maybe { message : String, details : List String }
         }
 
@@ -729,7 +729,7 @@ runRules :
     -> List Rule
     -> Project
     -> { errors : List ReviewError, fixedErrors : Dict String (List ReviewError), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
-runRules reviewOptions rules project =
+runRules (ReviewOptionsInternal reviewOptions) rules project =
     runRulesHelp
         reviewOptions
         { initialRules = rules
@@ -744,7 +744,7 @@ runRules reviewOptions rules project =
 
 
 runRulesHelp :
-    ReviewOptions
+    ReviewOptionsData
     -> { initialRules : List Rule, remainingRules : List Rule }
     -> { errors : List ReviewError, fixedErrors : Dict String (List ReviewError), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
     -> { errors : List ReviewError, fixedErrors : Dict String (List ReviewError), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
@@ -4044,13 +4044,13 @@ type alias FinalProjectEvaluationCache projectContext =
 
 
 runProjectVisitor :
-    ReviewOptionsInternal
+    ReviewOptionsData
     -> RunnableProjectVisitor projectContext moduleContext
     -> ProjectRuleCache projectContext
     -> Exceptions
     -> Project
     -> { errors : List (Error {}), fixedErrors : Dict String (List ReviewError), rule : Rule, project : Project, extract : Maybe Extract }
-runProjectVisitor (ReviewOptionsInternal reviewOptions) projectVisitor cache exceptions project =
+runProjectVisitor reviewOptions projectVisitor cache exceptions project =
     project
         |> Logger.log reviewOptions.logger (startedRule projectVisitor.name)
         |> runProjectVisitorHelp reviewOptions projectVisitor cache exceptions
