@@ -4518,6 +4518,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
             if reviewOptions.fixAll then
                 case findFix (fixableFilesInProject newProject) errors newProject of
                     Just fixResult ->
+                        -- TODO If the imports have changed (added imports), then maybe we should re-order the graph based on the project?
                         if module_.path == fixResult.filePath then
                             computeModule
                                 { module_ | source = fixResult.fixedSource, ast = fixResult.ast }
