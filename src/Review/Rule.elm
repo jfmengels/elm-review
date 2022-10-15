@@ -4194,7 +4194,7 @@ computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ste
             let
                 result : { project : Project, cache : ProjectRuleCache projectContext, nextStep : Step }
                 result =
-                    computeFinalProjectEvaluation projectVisitor exceptions project projectContext cache
+                    computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project projectContext cache
             in
             computeProjectContextForProjectFiles
                 reviewOptions
@@ -4426,13 +4426,14 @@ computeModules2 reviewOptions projectVisitor exceptions target project inputCont
 
 
 computeFinalProjectEvaluation :
-    RunnableProjectVisitor projectContext moduleContext
+    ReviewOptionsData
+    -> RunnableProjectVisitor projectContext moduleContext
     -> Exceptions
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
     -> { project : Project, cache : ProjectRuleCache projectContext, nextStep : Step }
-computeFinalProjectEvaluation projectVisitor exceptions project inputContext cache =
+computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project inputContext cache =
     if List.isEmpty projectVisitor.finalEvaluationFns then
         { project = project, cache = cache, nextStep = End }
 
