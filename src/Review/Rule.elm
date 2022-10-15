@@ -4469,11 +4469,38 @@ computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project in
                                     |> filterExceptionsAndSetName exceptions projectVisitor.name
                             )
                             projectVisitor.finalEvaluationFns
+
+                    resultWhenNoFix : () -> { project : Project, cache : ProjectRuleCache projectContext, nextStep : Step }
+                    resultWhenNoFix () =
+                        { project = project
+                        , cache = { cache | finalEvaluationErrors = Just { inputContext = finalContext, errors = errors } }
+                        , nextStep = End
+                        }
                 in
-                { project = project
-                , cache = { cache | finalEvaluationErrors = Just { inputContext = finalContext, errors = errors } }
-                , nextStep = End
-                }
+                if reviewOptions.fixAll then
+                    case findFix (fixableFilesInProject project) errors project of
+                        Just fixResult ->
+                            { project = fixResult.project
+
+                            -- Unnecessary to cache the final evaluation errors, since we'll end up with a different project context next time
+                            , cache = cache
+                            , nextStep =
+                                case fixResult.fixedFile of
+                                    FixedElmModule { ast } ->
+                                        Modules (Just (Module.moduleName (Node.value ast.moduleDefinition)))
+
+                                    FixedElmJson ->
+                                        ElmJson
+
+                                    FixedReadme ->
+                                        Readme
+                            }
+
+                        Nothing ->
+                            resultWhenNoFix ()
+
+                else
+                    resultWhenNoFix ()
 
 
 reuseProjectRuleCache : (b -> Bool) -> (ProjectRuleCache a -> Maybe b) -> ProjectRuleCache a -> Maybe b
