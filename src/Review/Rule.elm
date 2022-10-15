@@ -4049,8 +4049,13 @@ runProjectVisitorHelp :
 runProjectVisitorHelp reviewOptions projectVisitor previousCache exceptions initialProject =
     -- IGNORE TCO
     let
-        ( newProject, projectContext, cache ) =
-            computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ElmJson ( initialProject, projectVisitor.initialProjectContext, previousCache )
+        { project, projectContext, cache } =
+            computeProjectContextForProjectFiles
+                reviewOptions
+                projectVisitor
+                exceptions
+                ElmJson
+                { project = initialProject, projectContext = projectVisitor.initialProjectContext, cache = previousCache }
 
         computeFoldedContext : () -> projectContext
         computeFoldedContext () =
@@ -4096,7 +4101,7 @@ runProjectVisitorHelp reviewOptions projectVisitor previousCache exceptions init
                         newProjectArg
             , configurationError = Nothing
             }
-    , project = newProject
+    , project = project
     , extract = extract
     }
 
@@ -4155,8 +4160,8 @@ type alias ProjectRuleCache projectContext =
     }
 
 
-computeProjectContextForProjectFiles : ReviewOptionsData -> RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Step -> ( Project, projectContext, ProjectRuleCache projectContext ) -> ( Project, projectContext, ProjectRuleCache projectContext )
-computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions step (( project, projectContext, cache ) as acc) =
+computeProjectContextForProjectFiles : ReviewOptionsData -> RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Step -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext } -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext }
+computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions step ({ project, projectContext, cache } as acc) =
     case step of
         ElmJson ->
             computeProjectContextForProjectFiles
@@ -4194,7 +4199,7 @@ computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ste
                 projectVisitor
                 exceptions
                 result.nextStep
-                ( result.project, result.projectContext, result.cache )
+                { project = result.project, projectContext = result.projectContext, cache = result.cache }
 
         FinalProjectEvaluation ->
             let
@@ -4207,7 +4212,7 @@ computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ste
                 projectVisitor
                 exceptions
                 result.nextStep
-                ( result.project, projectContext, result.cache )
+                { project = result.project, projectContext = projectContext, cache = result.cache }
 
         End ->
             acc
@@ -4234,7 +4239,7 @@ computeElmJson :
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
-    -> ( Project, projectContext, ProjectRuleCache projectContext )
+    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext }
 computeElmJson projectVisitor exceptions project inputContext cache =
     let
         projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
@@ -4247,7 +4252,7 @@ computeElmJson projectVisitor exceptions project inputContext cache =
     in
     case reuseProjectRuleCache cachePredicate .elmJson cache of
         Just entry ->
-            ( project, entry.outputContext, cache )
+            { project = project, projectContext = entry.outputContext, cache = cache }
 
         Nothing ->
             let
@@ -4275,7 +4280,7 @@ computeElmJson projectVisitor exceptions project inputContext cache =
                     , outputContext = outputContext
                     }
             in
-            ( project, outputContext, { cache | elmJson = Just elmJsonEntry } )
+            { project = project, projectContext = outputContext, cache = { cache | elmJson = Just elmJsonEntry } }
 
 
 computeReadme :
@@ -4284,7 +4289,7 @@ computeReadme :
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
-    -> ( Project, projectContext, ProjectRuleCache projectContext )
+    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext }
 computeReadme projectVisitor exceptions project inputContext cache =
     let
         projectReadme : Maybe { path : String, content : String }
@@ -4300,7 +4305,7 @@ computeReadme projectVisitor exceptions project inputContext cache =
     in
     case reuseProjectRuleCache cachePredicate .readme cache of
         Just entry ->
-            ( project, entry.outputContext, cache )
+            { project = project, projectContext = entry.outputContext, cache = cache }
 
         Nothing ->
             let
@@ -4328,7 +4333,7 @@ computeReadme projectVisitor exceptions project inputContext cache =
                     , outputContext = outputContext
                     }
             in
-            ( project, outputContext, { cache | readme = Just readmeEntry } )
+            { project = project, projectContext = outputContext, cache = { cache | readme = Just readmeEntry } }
 
 
 computeDependencies :
@@ -4337,7 +4342,7 @@ computeDependencies :
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
-    -> ( Project, projectContext, ProjectRuleCache projectContext )
+    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext }
 computeDependencies projectVisitor exceptions project inputContext cache =
     let
         dependencies : Dict String Review.Project.Dependency.Dependency
@@ -4353,7 +4358,7 @@ computeDependencies projectVisitor exceptions project inputContext cache =
     in
     case reuseProjectRuleCache cachePredicate .dependencies cache of
         Just entry ->
-            ( project, entry.outputContext, cache )
+            { project = project, projectContext = entry.outputContext, cache = cache }
 
         Nothing ->
             let
@@ -4381,7 +4386,7 @@ computeDependencies projectVisitor exceptions project inputContext cache =
                     , outputContext = outputContext
                     }
             in
-            ( project, outputContext, { cache | dependencies = Just dependenciesEntry } )
+            { project = project, projectContext = outputContext, cache = { cache | dependencies = Just dependenciesEntry } }
 
 
 computeModules2 :
