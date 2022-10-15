@@ -571,8 +571,8 @@ reviewV3 reviewOptions rules project =
             |> Result.andThen (\() -> checkForDuplicateModules project)
             |> Result.andThen (\() -> getModulesSortedByImport project)
     of
-        Ok nodeContexts ->
-            runRules reviewOptions rules project nodeContexts
+        Ok moduleZipper ->
+            runRules reviewOptions rules project moduleZipper
 
         Err errors ->
             { errors = errors
@@ -1172,7 +1172,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
         , extractsData = schema.dataExtractor /= Nothing
         , ruleImplementation =
-            \reviewOptions exceptions project nodeContexts ->
+            \reviewOptions exceptions project moduleZipper ->
                 let
                     result : { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
                     result =
@@ -1182,7 +1182,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                             Nothing
                             exceptions
                             project
-                            nodeContexts
+                            moduleZipper
                 in
                 { errors = result.errors
                 , project = result.project
@@ -4027,8 +4027,8 @@ runProjectVisitor :
     -> Project
     -> Zipper GraphModule
     -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
-runProjectVisitor (ReviewOptionsInternal reviewOptions) projectVisitor maybePreviousCache exceptions project nodeContexts =
-    nodeContexts
+runProjectVisitor (ReviewOptionsInternal reviewOptions) projectVisitor maybePreviousCache exceptions project moduleZipper =
+    moduleZipper
         |> Logger.log reviewOptions.logger (startedRule projectVisitor.name)
         |> runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybePreviousCache exceptions project
         |> Logger.log reviewOptions.logger (endedRule projectVisitor.name)
@@ -4070,7 +4070,7 @@ runProjectVisitorHelp :
     -> Project
     -> Zipper GraphModule
     -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
-runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybePreviousCache exceptions project nodeContexts =
+runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybePreviousCache exceptions project moduleZipper =
     -- IGNORE TCO
     let
         cacheWithInitialContext : ProjectRuleCache projectContext
@@ -4104,7 +4104,7 @@ runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybe
                         project
                         exceptions
                         initialContext
-                        nodeContexts
+                        moduleZipper
                         previousModuleContexts
 
         computeFoldedContext : () -> projectContext
@@ -4165,7 +4165,7 @@ runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybe
             , requestedData = projectVisitor.requestedData
             , extractsData = projectVisitor.dataExtractor /= Nothing
             , ruleImplementation =
-                \newReviewOptions newExceptions newProjectArg newNodeContexts ->
+                \newReviewOptions newExceptions newProjectArg newModuleZipper ->
                     let
                         result : { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
                         result =
@@ -4175,7 +4175,7 @@ runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybe
                                 (Just newCache)
                                 newExceptions
                                 newProjectArg
-                                newNodeContexts
+                                newModuleZipper
                     in
                     { errors = result.errors
                     , rule = result.rule
@@ -4600,7 +4600,7 @@ computeProjectContext traversalAndFolder graph cache modules incoming initial =
                 (\key _ accContext ->
                     case
                         Graph.get key graph
-                            |> Maybe.andThen (\nodeContext -> Dict.get nodeContext.node.label modules)
+                            |> Maybe.andThen (\graphModule -> Dict.get graphModule.node.label modules)
                             |> Maybe.andThen (\mod -> Dict.get mod.path cache)
                     of
                         Just importedModuleCache ->
