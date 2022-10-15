@@ -4008,7 +4008,7 @@ type alias GraphModule =
 type alias CacheEntry projectContext =
     { source : String
     , errors : List (Error {})
-    , context : projectContext
+    , outputContext : projectContext
     }
 
 
@@ -4084,7 +4084,7 @@ runProjectVisitorHelp reviewOptions projectVisitor maybePreviousCache exceptions
             case getFolderFromTraversal projectVisitor.traversalAndFolder of
                 Just { foldProjectContexts } ->
                     Dict.foldl
-                        (\_ cacheEntry acc -> foldProjectContexts cacheEntry.context acc)
+                        (\_ cacheEntry acc -> foldProjectContexts cacheEntry.outputContext acc)
                         initialContext
                         modulesVisitResult.moduleContexts
 
@@ -4483,7 +4483,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                     , analysis =
                         { source = module_.source
                         , errors = errors
-                        , context =
+                        , outputContext =
                             case getFolderFromTraversal projectVisitor.traversalAndFolder of
                                 Just { fromModuleToProject } ->
                                     applyContextCreator availableData fromModuleToProject context
@@ -4517,7 +4517,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                                     , analysis =
                                         { source = module_.source
                                         , errors = errors
-                                        , context =
+                                        , outputContext =
                                             case getFolderFromTraversal projectVisitor.traversalAndFolder of
                                                 Just { fromModuleToProject } ->
                                                     applyContextCreator availableData fromModuleToProject context
@@ -4611,7 +4611,7 @@ computeProjectContext traversalAndFolder graph cache modules incoming initial =
                             |> Maybe.andThen (\mod -> Dict.get mod.path cache)
                     of
                         Just importedModuleCache ->
-                            foldProjectContexts importedModuleCache.context accContext
+                            foldProjectContexts importedModuleCache.outputContext accContext
 
                         Nothing ->
                             accContext
@@ -4646,7 +4646,7 @@ computeModuleAndCacheResult computeProjectContext_ computeModule modules { node,
                 projectContext =
                     computeProjectContext_ moduleContexts incoming
             in
-            if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.context == projectContext) (Dict.get module_.path moduleContexts) then
+            if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.outputContext == projectContext) (Dict.get module_.path moduleContexts) then
                 { project = project, moduleContexts = moduleContexts, moduleZipper = Zipper.next initialModuleZipper }
 
             else
