@@ -1,8 +1,10 @@
-module Review.Fix.Internal exposing (Fix(..), applyFix, containRangeCollisions, fixModule, rangePosition)
+module Review.Fix.Internal exposing (Fix(..), applyFix, containRangeCollisions, fixElmJson, fixModule, fixReadme, rangePosition)
 
 import Array
+import Elm.Project
 import Elm.Syntax.File exposing (File)
 import Elm.Syntax.Range exposing (Range)
+import Json.Decode as Decode
 import Review.FileParser as FileParser
 import Unicode
 import Vendor.ListExtra as ListExtra
@@ -84,7 +86,7 @@ getRowAtLine lines rowIndex =
 -}
 fixModule : List Fix -> String -> Maybe { source : String, ast : File }
 fixModule fixes originalSourceCode =
-    case tryToApplyFixForModule fixes originalSourceCode of
+    case tryToApplyFix fixes originalSourceCode of
         Just fixedSourceCode ->
             case FileParser.parse fixedSourceCode of
                 Ok ast ->
@@ -97,8 +99,32 @@ fixModule fixes originalSourceCode =
             Nothing
 
 
-tryToApplyFixForModule : List Fix -> String -> Maybe String
-tryToApplyFixForModule fixes sourceCode =
+{-| Apply the changes on the elm.json file.
+-}
+fixElmJson : List Fix -> String -> Maybe { raw : String, project : Elm.Project.Project }
+fixElmJson fixes originalSourceCode =
+    case tryToApplyFix fixes originalSourceCode of
+        Just resultAfterFix ->
+            case Decode.decodeString Elm.Project.decoder resultAfterFix of
+                Ok project ->
+                    Just { raw = resultAfterFix, project = project }
+
+                Err _ ->
+                    Nothing
+
+        Nothing ->
+            Nothing
+
+
+{-| Apply the changes on the README.md file.
+-}
+fixReadme : List Fix -> String -> Maybe String
+fixReadme fixes originalSourceCode =
+    tryToApplyFix fixes originalSourceCode
+
+
+tryToApplyFix : List Fix -> String -> Maybe String
+tryToApplyFix fixes sourceCode =
     if containRangeCollisions fixes then
         Nothing
 

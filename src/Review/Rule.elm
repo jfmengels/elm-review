@@ -4588,45 +4588,44 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
             if reviewOptions.fixAll then
                 case findFix (fixableFilesInProject newProject) errors newProject of
                     Just fixResult ->
-                        -- TODO If the imports have changed (added imports), then maybe we should re-order the graph based on the project?
-                        if module_.path == fixResult.filePath then
-                            computeModule
-                                { module_ | source = fixResult.fixedSource, ast = fixResult.ast }
-                                projectContext
-                                (Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = fixResult.filePath }) fixResult.project)
-                                moduleZipper_
+                        case fixResult.fixedFile of
+                            FixedElmModule { filePath, source, ast } ->
+                                -- TODO If the imports have changed (added imports), then maybe we should re-order the graph based on the project?
+                                if module_.path == filePath then
+                                    computeModule
+                                        { module_ | source = source, ast = ast }
+                                        projectContext
+                                        (Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = filePath }) fixResult.project)
+                                        moduleZipper_
 
-                        else if String.endsWith ".elm" fixResult.filePath then
-                            let
-                                fixedModuleName : ModuleName
-                                fixedModuleName =
-                                    Module.moduleName (Node.value fixResult.ast.moduleDefinition)
-                            in
-                            case Zipper.focusl (\mod -> mod.node.label == fixedModuleName) moduleZipper_ of
-                                Just newModuleZipper ->
-                                    { project = fixResult.project
-                                    , analysis = analysis ()
-                                    , nextStep = ModuleVisitStep (Just newModuleZipper)
-                                    }
-                                        |> Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = fixResult.filePath })
+                                else
+                                    let
+                                        fixedModuleName : ModuleName
+                                        fixedModuleName =
+                                            Module.moduleName (Node.value ast.moduleDefinition)
+                                    in
+                                    case Zipper.focusl (\mod -> mod.node.label == fixedModuleName) moduleZipper_ of
+                                        Just newModuleZipper ->
+                                            { project = fixResult.project
+                                            , analysis = analysis ()
+                                            , nextStep = ModuleVisitStep (Just newModuleZipper)
+                                            }
+                                                |> Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = filePath })
 
-                                Nothing ->
-                                    resultWhenNoFix ()
+                                        Nothing ->
+                                            resultWhenNoFix ()
 
-                        else if Just fixResult.filePath == Maybe.map .path (Review.Project.elmJson fixResult.project) then
-                            { project = fixResult.project
-                            , analysis = analysis ()
-                            , nextStep = BackToElmJson
-                            }
+                            FixedElmJson ->
+                                { project = fixResult.project
+                                , analysis = analysis ()
+                                , nextStep = BackToElmJson
+                                }
 
-                        else if Just fixResult.filePath == Maybe.map .path (Review.Project.readme fixResult.project) then
-                            { project = fixResult.project
-                            , analysis = analysis ()
-                            , nextStep = BackToReadme
-                            }
-
-                        else
-                            resultWhenNoFix ()
+                            FixedReadme ->
+                                { project = fixResult.project
+                                , analysis = analysis ()
+                                , nextStep = BackToReadme
+                                }
 
                     Nothing ->
                         resultWhenNoFix ()
@@ -4806,11 +4805,17 @@ fixableFilesInProject project =
     Dict.fromList (( elmJson.path, elmJson ) :: ( readme.path, readme ) :: moduleFiles)
 
 
+type FixedFile
+    = FixedElmModule { source : String, ast : File, filePath : String }
+    | FixedElmJson
+    | FixedReadme
+
+
 findFix :
     Dict String { path : String, source : String }
     -> List (Error a)
     -> Project
-    -> Maybe { project : Project, fixedSource : String, ast : File, filePath : String }
+    -> Maybe { project : Project, fixedFile : FixedFile }
 findFix files errors project =
     case errors of
         [] ->
@@ -4831,9 +4836,46 @@ findFix files errors project =
                                 Just { source, ast } ->
                                     Just
                                         { project = Review.Project.addParsedModule { path = headError.filePath, source = source, ast = ast } project
-                                        , fixedSource = source
-                                        , ast = ast
-                                        , filePath = headError.filePath
+                                        , fixedFile =
+                                            FixedElmModule
+                                                { source = source
+                                                , ast = ast
+                                                , filePath = headError.filePath
+                                                }
+                                        }
+
+                ( Just fixes, Review.Error.ElmJson ) ->
+                    case Review.Project.elmJson project of
+                        Nothing ->
+                            findFix files restOfErrors project
+
+                        Just elmJson ->
+                            case InternalFix.fixElmJson fixes elmJson.raw of
+                                Nothing ->
+                                    findFix files restOfErrors project
+
+                                Just fixResult ->
+                                    -- TODO Don't apply the fix dependencies are added, or source-directories are changed
+                                    -- TODO Remove dependencies if there are less dependencies
+                                    Just
+                                        { project = Review.Project.addElmJson { path = elmJson.path, raw = fixResult.raw, project = fixResult.project } project
+                                        , fixedFile = FixedElmJson
+                                        }
+
+                ( Just fixes, Review.Error.Readme ) ->
+                    case Review.Project.readme project of
+                        Nothing ->
+                            findFix files restOfErrors project
+
+                        Just readme ->
+                            case InternalFix.fixReadme fixes readme.content of
+                                Nothing ->
+                                    findFix files restOfErrors project
+
+                                Just content ->
+                                    Just
+                                        { project = Review.Project.addReadme { path = readme.path, content = content } project
+                                        , fixedFile = FixedReadme
                                         }
 
                 _ ->
