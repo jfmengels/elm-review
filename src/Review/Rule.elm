@@ -328,7 +328,7 @@ type Rule
         , exceptions : Exceptions
         , requestedData : RequestedData
         , extractsData : Bool
-        , ruleImplementation : ReviewOptionsData -> Exceptions -> Project -> { errors : List (Error {}), fixedErrors : Dict String (List ReviewError), rule : Rule, project : Project, extract : Maybe Extract }
+        , ruleImplementation : ReviewOptionsData -> Exceptions -> Dict String (List ReviewError) -> Project -> { errors : List (Error {}), fixedErrors : Dict String (List ReviewError), rule : Rule, project : Project, extract : Maybe Extract }
         , configurationError : Maybe { message : String, details : List String }
         }
 
@@ -755,7 +755,7 @@ runRulesHelp reviewOptions remainingRules acc =
             let
                 result : { errors : List (Error {}), fixedErrors : Dict String (List ReviewError), rule : Rule, project : Project, extract : Maybe Extract }
                 result =
-                    ruleImplementation reviewOptions exceptions acc.project
+                    ruleImplementation reviewOptions exceptions acc.fixedErrors acc.project
 
                 extracts : Dict String Encode.Value
                 extracts =
@@ -1210,12 +1210,13 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
         , extractsData = schema.dataExtractor /= Nothing
         , ruleImplementation =
-            \reviewOptions exceptions project ->
+            \reviewOptions exceptions fixedErrors project ->
                 runProjectVisitor
                     reviewOptions
                     (fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema)
                     emptyCache
                     exceptions
+                    fixedErrors
                     project
         , configurationError = Nothing
         }
@@ -1494,7 +1495,7 @@ configurationError name configurationError_ =
         , exceptions = Exceptions.init
         , requestedData = RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
         , extractsData = False
-        , ruleImplementation = \_ _ project -> { errors = [], fixedErrors = Dict.empty, rule = configurationError name configurationError_, project = project, extract = Nothing }
+        , ruleImplementation = \_ _ fixedErrors project -> { errors = [], fixedErrors = fixedErrors, rule = configurationError name configurationError_, project = project, extract = Nothing }
         , configurationError = Just configurationError_
         }
 
@@ -4060,12 +4061,13 @@ runProjectVisitor :
     -> RunnableProjectVisitor projectContext moduleContext
     -> ProjectRuleCache projectContext
     -> Exceptions
+    -> Dict String (List ReviewError)
     -> Project
     -> { errors : List (Error {}), fixedErrors : Dict String (List ReviewError), rule : Rule, project : Project, extract : Maybe Extract }
-runProjectVisitor reviewOptions projectVisitor cache exceptions project =
+runProjectVisitor reviewOptions projectVisitor cache exceptions fixedErrors project =
     project
         |> Logger.log reviewOptions.logger (startedRule projectVisitor.name)
-        |> runProjectVisitorHelp reviewOptions projectVisitor cache exceptions
+        |> runProjectVisitorHelp reviewOptions projectVisitor cache exceptions fixedErrors
         |> Logger.log reviewOptions.logger (endedRule projectVisitor.name)
 
 
@@ -4074,9 +4076,10 @@ runProjectVisitorHelp :
     -> RunnableProjectVisitor projectContext moduleContext
     -> ProjectRuleCache projectContext
     -> Exceptions
+    -> Dict String (List ReviewError)
     -> Project
     -> { errors : List (Error {}), fixedErrors : Dict String (List ReviewError), rule : Rule, project : Project, extract : Maybe Extract }
-runProjectVisitorHelp reviewOptions projectVisitor previousCache exceptions initialProject =
+runProjectVisitorHelp reviewOptions projectVisitor initialCache exceptions initialFixedErrors initialProject =
     -- IGNORE TCO
     let
         { project, projectContext, cache, fixedErrors } =
@@ -4085,7 +4088,7 @@ runProjectVisitorHelp reviewOptions projectVisitor previousCache exceptions init
                 projectVisitor
                 exceptions
                 ElmJson
-                { project = initialProject, projectContext = projectVisitor.initialProjectContext, cache = previousCache, fixedErrors = Dict.empty }
+                { project = initialProject, projectContext = projectVisitor.initialProjectContext, cache = initialCache, fixedErrors = initialFixedErrors }
 
         computeFoldedContext : () -> projectContext
         computeFoldedContext () =
