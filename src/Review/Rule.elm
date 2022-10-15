@@ -4054,7 +4054,7 @@ runProjectVisitorHelp reviewOptions projectVisitor cache exceptions initialProje
     -- IGNORE TCO
     let
         ( project, initialContext, cacheWithInitialContext ) =
-            computeProjectContextForProjectFiles projectVisitor exceptions ElmJson ( initialProject, projectVisitor.initialProjectContext, cache )
+            computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ElmJson ( initialProject, projectVisitor.initialProjectContext, cache )
 
         modulesVisitResult : { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
         modulesVisitResult =
@@ -4198,11 +4198,12 @@ type alias ProjectRuleCache projectContext =
     }
 
 
-computeProjectContextForProjectFiles : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Step -> ( Project, projectContext, ProjectRuleCache projectContext ) -> ( Project, projectContext, ProjectRuleCache projectContext )
-computeProjectContextForProjectFiles projectVisitor exceptions step (( project, projectContext, cache ) as acc) =
+computeProjectContextForProjectFiles : ReviewOptionsData -> RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Step -> ( Project, projectContext, ProjectRuleCache projectContext ) -> ( Project, projectContext, ProjectRuleCache projectContext )
+computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions step (( project, projectContext, cache ) as acc) =
     case step of
         ElmJson ->
             computeProjectContextForProjectFiles
+                reviewOptions
                 projectVisitor
                 exceptions
                 Readme
@@ -4210,6 +4211,7 @@ computeProjectContextForProjectFiles projectVisitor exceptions step (( project, 
 
         Readme ->
             computeProjectContextForProjectFiles
+                reviewOptions
                 projectVisitor
                 exceptions
                 Dependencies
@@ -4217,6 +4219,7 @@ computeProjectContextForProjectFiles projectVisitor exceptions step (( project, 
 
         Dependencies ->
             computeProjectContextForProjectFiles
+                reviewOptions
                 projectVisitor
                 exceptions
                 End
