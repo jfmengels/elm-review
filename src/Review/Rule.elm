@@ -4063,14 +4063,8 @@ runProjectVisitorHelp :
 runProjectVisitorHelp reviewOptions projectVisitor cache exceptions project moduleZipper =
     -- IGNORE TCO
     let
-        cacheWithInitialContext : ProjectRuleCache2 projectContext
-        cacheWithInitialContext =
+        ( initialContext, cacheWithInitialContext ) =
             computeProjectContextForProjectFiles projectVisitor exceptions project ElmJson projectVisitor.initialProjectContext cache
-
-        initialContext : projectContext
-        initialContext =
-            Maybe.map .outputContext cacheWithInitialContext.dependencies
-                |> Maybe.withDefault projectVisitor.initialProjectContext
 
         modulesVisitResult : { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
         modulesVisitResult =
@@ -4214,30 +4208,16 @@ type alias ProjectRuleCache2 projectContext =
     }
 
 
-computeProjectContextForProjectFiles : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Project -> Step -> projectContext -> ProjectRuleCache2 projectContext -> ProjectRuleCache2 projectContext
+computeProjectContextForProjectFiles : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Project -> Step -> projectContext -> ProjectRuleCache2 projectContext -> ( projectContext, ProjectRuleCache2 projectContext )
 computeProjectContextForProjectFiles projectVisitor exceptions project step projectContext cache =
     let
-        elmJsonCacheEntry : ProjectRuleCache2 projectContext
-        elmJsonCacheEntry =
+        ( afterElmJsonContext, elmJsonCacheEntry ) =
             computeElmJsonCacheEntry projectVisitor exceptions project projectContext cache
 
-        afterElmJsonContext : projectContext
-        afterElmJsonContext =
-            Maybe.map .outputContext elmJsonCacheEntry.elmJson |> Maybe.withDefault projectVisitor.initialProjectContext
-
-        readmeCacheEntry : ProjectRuleCache2 projectContext
-        readmeCacheEntry =
+        ( afterReadmeContext, readmeCacheEntry ) =
             computeReadmeCacheEntry projectVisitor exceptions project afterElmJsonContext elmJsonCacheEntry
-
-        afterReadmeContext : projectContext
-        afterReadmeContext =
-            Maybe.map .outputContext readmeCacheEntry.readme |> Maybe.withDefault afterElmJsonContext
-
-        dependenciesCacheEntry : ProjectRuleCache2 projectContext
-        dependenciesCacheEntry =
-            computeDependenciesCacheEntry projectVisitor exceptions project afterReadmeContext readmeCacheEntry
     in
-    dependenciesCacheEntry
+    computeDependenciesCacheEntry projectVisitor exceptions project afterReadmeContext readmeCacheEntry
 
 
 type Step
@@ -4253,7 +4233,7 @@ computeElmJsonCacheEntry :
     -> Project
     -> projectContext
     -> ProjectRuleCache2 projectContext
-    -> ProjectRuleCache2 projectContext
+    -> ( projectContext, ProjectRuleCache2 projectContext )
 computeElmJsonCacheEntry projectVisitor exceptions project inputContext cache =
     let
         projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
@@ -4265,8 +4245,8 @@ computeElmJsonCacheEntry projectVisitor exceptions project inputContext cache =
             elmJson.value == projectElmJson
     in
     case reuseProjectRuleCache cachePredicate .elmJson cache of
-        Just _ ->
-            cache
+        Just entry ->
+            ( entry.outputContext, cache )
 
         Nothing ->
             let
@@ -4294,7 +4274,7 @@ computeElmJsonCacheEntry projectVisitor exceptions project inputContext cache =
                     , outputContext = outputContext
                     }
             in
-            { cache | elmJson = Just elmJsonEntry }
+            ( outputContext, { cache | elmJson = Just elmJsonEntry } )
 
 
 computeReadmeCacheEntry :
@@ -4303,7 +4283,7 @@ computeReadmeCacheEntry :
     -> Project
     -> projectContext
     -> ProjectRuleCache2 projectContext
-    -> ProjectRuleCache2 projectContext
+    -> ( projectContext, ProjectRuleCache2 projectContext )
 computeReadmeCacheEntry projectVisitor exceptions project inputContext cache =
     let
         projectReadme : Maybe { path : String, content : String }
@@ -4318,8 +4298,8 @@ computeReadmeCacheEntry projectVisitor exceptions project inputContext cache =
                 && (readme.value == projectReadme)
     in
     case reuseProjectRuleCache cachePredicate .readme cache of
-        Just _ ->
-            cache
+        Just entry ->
+            ( entry.outputContext, cache )
 
         Nothing ->
             let
@@ -4347,7 +4327,7 @@ computeReadmeCacheEntry projectVisitor exceptions project inputContext cache =
                     , outputContext = outputContext
                     }
             in
-            { cache | readme = Just readmeEntry }
+            ( outputContext, { cache | readme = Just readmeEntry } )
 
 
 computeDependenciesCacheEntry :
@@ -4356,7 +4336,7 @@ computeDependenciesCacheEntry :
     -> Project
     -> projectContext
     -> ProjectRuleCache2 projectContext
-    -> ProjectRuleCache2 projectContext
+    -> ( projectContext, ProjectRuleCache2 projectContext )
 computeDependenciesCacheEntry projectVisitor exceptions project inputContext cache =
     let
         dependencies : Dict String Review.Project.Dependency.Dependency
@@ -4371,8 +4351,8 @@ computeDependenciesCacheEntry projectVisitor exceptions project inputContext cac
                 && (deps.value == dependencies)
     in
     case reuseProjectRuleCache cachePredicate .dependencies cache of
-        Just _ ->
-            cache
+        Just entry ->
+            ( entry.outputContext, cache )
 
         Nothing ->
             let
@@ -4400,7 +4380,7 @@ computeDependenciesCacheEntry projectVisitor exceptions project inputContext cac
                     , outputContext = outputContext
                     }
             in
-            { cache | dependencies = Just dependenciesEntry }
+            ( outputContext, { cache | dependencies = Just dependenciesEntry } )
 
 
 reuseProjectRuleCache : (b -> Bool) -> (ProjectRuleCache2 a -> Maybe b) -> ProjectRuleCache2 a -> Maybe b
