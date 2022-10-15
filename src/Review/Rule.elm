@@ -4030,19 +4030,19 @@ runProjectVisitor :
 runProjectVisitor (ReviewOptionsInternal reviewOptions) projectVisitor maybePreviousCache exceptions project moduleZipper =
     moduleZipper
         |> Logger.log reviewOptions.logger (startedRule projectVisitor.name)
-        |> runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybePreviousCache exceptions project
+        |> runProjectVisitorHelp reviewOptions projectVisitor maybePreviousCache exceptions project
         |> Logger.log reviewOptions.logger (endedRule projectVisitor.name)
 
 
 runProjectVisitorHelp :
-    ReviewOptions
+    ReviewOptionsData
     -> RunnableProjectVisitor projectContext moduleContext
     -> Maybe (ProjectRuleCache projectContext)
     -> Exceptions
     -> Project
     -> Zipper GraphModule
     -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
-runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybePreviousCache exceptions project moduleZipper =
+runProjectVisitorHelp reviewOptions projectVisitor maybePreviousCache exceptions project moduleZipper =
     -- IGNORE TCO
     let
         cacheWithInitialContext : ProjectRuleCache projectContext
