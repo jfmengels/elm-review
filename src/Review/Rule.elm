@@ -4016,7 +4016,8 @@ type alias CacheEntry projectContext =
 type alias CacheEntryFor value projectContext =
     { value : value
     , errors : List (Error {})
-    , context : projectContext
+    , inputContext : projectContext
+    , outputContext : projectContext
     }
 
 
@@ -4052,11 +4053,11 @@ runProjectVisitorHelp reviewOptions projectVisitor maybePreviousCache exceptions
 
         initialContext : projectContext
         initialContext =
-            cacheWithInitialContext.dependencies.context
+            cacheWithInitialContext.dependencies.outputContext
 
         previousModuleContexts : Dict String (CacheEntry projectContext)
         previousModuleContexts =
-            case reuseProjectRuleCache (\previousCache -> previousCache.dependencies.context == cacheWithInitialContext.dependencies.context) maybePreviousCache of
+            case reuseProjectRuleCache (\previousCache -> previousCache.dependencies.outputContext == initialContext) maybePreviousCache of
                 Just previousCache ->
                     previousCache.moduleContexts
 
@@ -4248,24 +4249,33 @@ computeProjectContextForProjectFiles projectVisitor exceptions project maybePrev
 
                 Nothing ->
                     let
-                        ( errorsForVisitor, contextForVisitor ) =
-                            ( [], projectVisitor.initialProjectContext )
+                        inputContext : projectContext
+                        inputContext =
+                            projectVisitor.initialProjectContext
+
+                        ( errorsForVisitor, outputContext ) =
+                            ( [], inputContext )
                                 |> accumulateWithListOfVisitors projectVisitor.elmJsonVisitors elmJsonData
                     in
                     { value = projectElmJson
 
                     -- TODO Find fixes after this step
                     , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
-                    , context = contextForVisitor
+                    , inputContext = inputContext
+                    , outputContext = outputContext
                     }
 
         readmeCacheEntry : CacheEntryFor (Maybe { readmeKey : ReadmeKey, content : String }) projectContext
         readmeCacheEntry =
             let
+                inputContext : projectContext
+                inputContext =
+                    elmJsonCacheEntry.outputContext
+
                 cachePredicate : ProjectRuleCache projectContext -> Bool
                 cachePredicate previousCache =
                     -- If the previous context stayed the same
-                    (previousCache.elmJson.context == elmJsonCacheEntry.context)
+                    (previousCache.readme.inputContext == inputContext)
                         -- and the readme stayed the same
                         && (previousCache.readme.value == readmeData)
             in
@@ -4275,15 +4285,16 @@ computeProjectContextForProjectFiles projectVisitor exceptions project maybePrev
 
                 Nothing ->
                     let
-                        ( errorsForVisitor, contextForVisitor ) =
-                            ( [], elmJsonCacheEntry.context )
+                        ( errorsForVisitor, outputContext ) =
+                            ( [], inputContext )
                                 |> accumulateWithListOfVisitors projectVisitor.readmeVisitors readmeData
                     in
                     { value = readmeData
 
                     -- TODO Find fixes after this step
                     , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
-                    , context = contextForVisitor
+                    , inputContext = inputContext
+                    , outputContext = outputContext
                     }
 
         dependenciesCacheEntry : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
@@ -4293,10 +4304,14 @@ computeProjectContextForProjectFiles projectVisitor exceptions project maybePrev
                 dependencies =
                     Review.Project.dependencies project
 
+                inputContext : projectContext
+                inputContext =
+                    readmeCacheEntry.outputContext
+
                 cachePredicate : ProjectRuleCache projectContext -> Bool
                 cachePredicate previousCache =
                     -- If the previous context stayed the same
-                    (previousCache.readme.context == readmeCacheEntry.context)
+                    (previousCache.dependencies.inputContext == inputContext)
                         -- and the dependencies stayed the same
                         && (previousCache.dependencies.value == dependencies)
             in
@@ -4315,8 +4330,8 @@ computeProjectContextForProjectFiles projectVisitor exceptions project maybePrev
                                 visitors ->
                                     accumulateWithListOfVisitors visitors (Review.Project.directDependencies project)
 
-                        ( errorsForVisitor, contextForVisitor ) =
-                            ( [], readmeCacheEntry.context )
+                        ( errorsForVisitor, outputContext ) =
+                            ( [], inputContext )
                                 |> accumulateWithDirectDependencies
                                 |> accumulateWithListOfVisitors projectVisitor.dependenciesVisitors dependencies
                     in
@@ -4324,7 +4339,8 @@ computeProjectContextForProjectFiles projectVisitor exceptions project maybePrev
 
                     -- TODO Find fixes after this step
                     , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
-                    , context = contextForVisitor
+                    , inputContext = inputContext
+                    , outputContext = outputContext
                     }
     in
     { elmJson = elmJsonCacheEntry
