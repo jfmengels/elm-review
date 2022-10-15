@@ -4049,13 +4049,13 @@ runProjectVisitorHelp :
 runProjectVisitorHelp reviewOptions projectVisitor previousCache exceptions initialProject =
     -- IGNORE TCO
     let
-        { project, projectContext, cache } =
+        { project, projectContext, cache, fixedErrors } =
             computeProjectContextForProjectFiles
                 reviewOptions
                 projectVisitor
                 exceptions
                 ElmJson
-                { project = initialProject, projectContext = projectVisitor.initialProjectContext, cache = previousCache }
+                { project = initialProject, projectContext = projectVisitor.initialProjectContext, cache = previousCache, fixedErrors = Dict.empty }
 
         computeFoldedContext : () -> projectContext
         computeFoldedContext () =
@@ -4084,7 +4084,7 @@ runProjectVisitorHelp reviewOptions projectVisitor previousCache exceptions init
                 Nothing
     in
     { errors = errors
-    , fixedErrors = Dict.empty
+    , fixedErrors = fixedErrors
     , rule =
         Rule
             { name = projectVisitor.name
@@ -4160,8 +4160,14 @@ type alias ProjectRuleCache projectContext =
     }
 
 
-computeProjectContextForProjectFiles : ReviewOptionsData -> RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Step -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext } -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext }
-computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions step ({ project, projectContext, cache } as acc) =
+computeProjectContextForProjectFiles :
+    ReviewOptionsData
+    -> RunnableProjectVisitor projectContext moduleContext
+    -> Exceptions
+    -> Step
+    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : Dict String (List ReviewError) }
+    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : Dict String (List ReviewError) }
+computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions step ({ project, projectContext, cache, fixedErrors } as acc) =
     case step of
         ElmJson ->
             computeProjectContextForProjectFiles
@@ -4169,7 +4175,7 @@ computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ste
                 projectVisitor
                 exceptions
                 Readme
-                (computeElmJson projectVisitor exceptions project projectContext cache)
+                (computeElmJson projectVisitor exceptions project projectContext cache fixedErrors)
 
         Readme ->
             computeProjectContextForProjectFiles
@@ -4177,7 +4183,7 @@ computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ste
                 projectVisitor
                 exceptions
                 Dependencies
-                (computeReadme projectVisitor exceptions project projectContext cache)
+                (computeReadme projectVisitor exceptions project projectContext cache fixedErrors)
 
         Dependencies ->
             computeProjectContextForProjectFiles
@@ -4185,34 +4191,34 @@ computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ste
                 projectVisitor
                 exceptions
                 (Modules Nothing)
-                (computeDependencies projectVisitor exceptions project projectContext cache)
+                (computeDependencies projectVisitor exceptions project projectContext cache fixedErrors)
 
         Modules target ->
             -- TODO Can we find a way to scanl from the end, by keeping the modulezipper from last time we visited modules?
             let
-                result : { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, nextStep : Step }
+                result : { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : Dict String (List ReviewError) }
                 result =
-                    computeModules2 reviewOptions projectVisitor exceptions target project projectContext cache
+                    computeModules2 reviewOptions projectVisitor exceptions target project projectContext cache fixedErrors
             in
             computeProjectContextForProjectFiles
                 reviewOptions
                 projectVisitor
                 exceptions
                 result.nextStep
-                { project = result.project, projectContext = result.projectContext, cache = result.cache }
+                { project = result.project, projectContext = result.projectContext, cache = result.cache, fixedErrors = result.fixedErrors }
 
         FinalProjectEvaluation ->
             let
-                result : { project : Project, cache : ProjectRuleCache projectContext, nextStep : Step }
+                result : { project : Project, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : Dict String (List ReviewError) }
                 result =
-                    computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project projectContext cache
+                    computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project projectContext cache fixedErrors
             in
             computeProjectContextForProjectFiles
                 reviewOptions
                 projectVisitor
                 exceptions
                 result.nextStep
-                { project = result.project, projectContext = projectContext, cache = result.cache }
+                { project = result.project, projectContext = projectContext, cache = result.cache, fixedErrors = result.fixedErrors }
 
         End ->
             acc
@@ -4239,8 +4245,9 @@ computeElmJson :
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
-    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext }
-computeElmJson projectVisitor exceptions project inputContext cache =
+    -> Dict String (List ReviewError)
+    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : Dict String (List ReviewError) }
+computeElmJson projectVisitor exceptions project inputContext cache fixedErrors =
     let
         projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
         projectElmJson =
@@ -4252,7 +4259,7 @@ computeElmJson projectVisitor exceptions project inputContext cache =
     in
     case reuseProjectRuleCache cachePredicate .elmJson cache of
         Just entry ->
-            { project = project, projectContext = entry.outputContext, cache = cache }
+            { project = project, projectContext = entry.outputContext, cache = cache, fixedErrors = fixedErrors }
 
         Nothing ->
             let
@@ -4280,7 +4287,7 @@ computeElmJson projectVisitor exceptions project inputContext cache =
                     , outputContext = outputContext
                     }
             in
-            { project = project, projectContext = outputContext, cache = { cache | elmJson = Just elmJsonEntry } }
+            { project = project, projectContext = outputContext, cache = { cache | elmJson = Just elmJsonEntry }, fixedErrors = fixedErrors }
 
 
 computeReadme :
@@ -4289,8 +4296,9 @@ computeReadme :
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
-    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext }
-computeReadme projectVisitor exceptions project inputContext cache =
+    -> Dict String (List ReviewError)
+    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : Dict String (List ReviewError) }
+computeReadme projectVisitor exceptions project inputContext cache fixedErrors =
     let
         projectReadme : Maybe { path : String, content : String }
         projectReadme =
@@ -4305,7 +4313,7 @@ computeReadme projectVisitor exceptions project inputContext cache =
     in
     case reuseProjectRuleCache cachePredicate .readme cache of
         Just entry ->
-            { project = project, projectContext = entry.outputContext, cache = cache }
+            { project = project, projectContext = entry.outputContext, cache = cache, fixedErrors = fixedErrors }
 
         Nothing ->
             let
@@ -4333,7 +4341,7 @@ computeReadme projectVisitor exceptions project inputContext cache =
                     , outputContext = outputContext
                     }
             in
-            { project = project, projectContext = outputContext, cache = { cache | readme = Just readmeEntry } }
+            { project = project, projectContext = outputContext, cache = { cache | readme = Just readmeEntry }, fixedErrors = fixedErrors }
 
 
 computeDependencies :
@@ -4342,8 +4350,9 @@ computeDependencies :
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
-    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext }
-computeDependencies projectVisitor exceptions project inputContext cache =
+    -> Dict String (List ReviewError)
+    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : Dict String (List ReviewError) }
+computeDependencies projectVisitor exceptions project inputContext cache fixedErrors =
     let
         dependencies : Dict String Review.Project.Dependency.Dependency
         dependencies =
@@ -4358,7 +4367,7 @@ computeDependencies projectVisitor exceptions project inputContext cache =
     in
     case reuseProjectRuleCache cachePredicate .dependencies cache of
         Just entry ->
-            { project = project, projectContext = entry.outputContext, cache = cache }
+            { project = project, projectContext = entry.outputContext, cache = cache, fixedErrors = fixedErrors }
 
         Nothing ->
             let
@@ -4386,7 +4395,7 @@ computeDependencies projectVisitor exceptions project inputContext cache =
                     , outputContext = outputContext
                     }
             in
-            { project = project, projectContext = outputContext, cache = { cache | dependencies = Just dependenciesEntry } }
+            { project = project, projectContext = outputContext, cache = { cache | dependencies = Just dependenciesEntry }, fixedErrors = fixedErrors }
 
 
 computeModules2 :
@@ -4397,17 +4406,18 @@ computeModules2 :
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
-    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, nextStep : Step }
-computeModules2 reviewOptions projectVisitor exceptions target project inputContext cache =
+    -> Dict String (List ReviewError)
+    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : Dict String (List ReviewError) }
+computeModules2 reviewOptions projectVisitor exceptions target project inputContext cache fixedErrors =
     case projectVisitor.moduleVisitor of
         Nothing ->
-            { project = project, projectContext = inputContext, cache = cache, nextStep = FinalProjectEvaluation }
+            { project = project, projectContext = inputContext, cache = cache, nextStep = FinalProjectEvaluation, fixedErrors = fixedErrors }
 
         Just moduleVisitor ->
             -- TODO Avoid recomputing this unnecessarily
             case getModulesSortedByImport project of
                 Err _ ->
-                    { project = project, projectContext = inputContext, cache = cache, nextStep = FinalProjectEvaluation }
+                    { project = project, projectContext = inputContext, cache = cache, nextStep = FinalProjectEvaluation, fixedErrors = fixedErrors }
 
                 Ok moduleZipper ->
                     let
@@ -4433,6 +4443,7 @@ computeModules2 reviewOptions projectVisitor exceptions target project inputCont
                     , projectContext = inputContext
                     , cache = { cache | moduleContexts = result.moduleContexts }
                     , nextStep = result.nextStep
+                    , fixedErrors = fixedErrors
                     }
 
 
@@ -4443,10 +4454,11 @@ computeFinalProjectEvaluation :
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
-    -> { project : Project, cache : ProjectRuleCache projectContext, nextStep : Step }
-computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project inputContext cache =
+    -> Dict String (List ReviewError)
+    -> { project : Project, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : Dict String (List ReviewError) }
+computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project inputContext cache fixedErrors =
     if List.isEmpty projectVisitor.finalEvaluationFns then
-        { project = project, cache = cache, nextStep = End }
+        { project = project, cache = cache, nextStep = End, fixedErrors = fixedErrors }
 
     else
         let
@@ -4468,7 +4480,7 @@ computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project in
         in
         case reuseProjectRuleCache cachePredicate .finalEvaluationErrors cache of
             Just _ ->
-                { project = project, cache = cache, nextStep = End }
+                { project = project, cache = cache, nextStep = End, fixedErrors = fixedErrors }
 
             Nothing ->
                 let
@@ -4481,11 +4493,12 @@ computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project in
                             )
                             projectVisitor.finalEvaluationFns
 
-                    resultWhenNoFix : () -> { project : Project, cache : ProjectRuleCache projectContext, nextStep : Step }
+                    resultWhenNoFix : () -> { project : Project, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : Dict String (List ReviewError) }
                     resultWhenNoFix () =
                         { project = project
                         , cache = { cache | finalEvaluationErrors = Just { inputContext = finalContext, errors = errors } }
                         , nextStep = End
+                        , fixedErrors = fixedErrors
                         }
                 in
                 if reviewOptions.fixAll then
@@ -4505,6 +4518,7 @@ computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project in
 
                                     FixedReadme ->
                                         Readme
+                            , fixedErrors = fixedErrors
                             }
 
                         Nothing ->
