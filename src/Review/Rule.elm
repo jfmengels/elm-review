@@ -328,7 +328,7 @@ type Rule
         , exceptions : Exceptions
         , requestedData : RequestedData
         , extractsData : Bool
-        , ruleImplementation : ReviewOptions -> Exceptions -> Project -> Zipper (Graph.NodeContext ModuleName ()) -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
+        , ruleImplementation : ReviewOptions -> Exceptions -> Project -> Zipper GraphModule -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
         , configurationError : Maybe { message : String, details : List String }
         }
 
@@ -443,7 +443,7 @@ review rules project =
 
                         Ok nodesContexts ->
                             let
-                                sortedModules : List (Graph.NodeContext ModuleName ())
+                                sortedModules : List GraphModule
                                 sortedModules =
                                     Graph.topologicalSort nodesContexts
 
@@ -633,7 +633,7 @@ checkForDuplicateModules project =
             Ok ()
 
 
-getModulesSortedByImport : Project -> Result (List Review.Error.ReviewError) (List (Graph.NodeContext ModuleName ()))
+getModulesSortedByImport : Project -> Result (List Review.Error.ReviewError) (List GraphModule)
 getModulesSortedByImport project =
     let
         moduleGraph : Graph ModuleName ()
@@ -657,7 +657,7 @@ importCycleError moduleGraph edge =
         |> errorToReviewError
 
 
-runReviewForV2 : ReviewOptions -> Project -> List Rule -> List (Graph.NodeContext ModuleName ()) -> { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
+runReviewForV2 : ReviewOptions -> Project -> List Rule -> List GraphModule -> { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
 runReviewForV2 reviewOptions project rules nodeContexts =
     let
         runResult : { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
@@ -709,7 +709,7 @@ runRules :
     ReviewOptions
     -> List Rule
     -> Project
-    -> List (Graph.NodeContext ModuleName ())
+    -> List GraphModule
     -> { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
 runRules reviewOptions initialRules initialProject nodeContexts =
     case Zipper.fromList nodeContexts of
@@ -724,7 +724,7 @@ runRulesHelp :
     ReviewOptions
     -> List Rule
     -> Project
-    -> Zipper (Graph.NodeContext ModuleName ())
+    -> Zipper GraphModule
     -> { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
 runRulesHelp reviewOptions initialRules initialProject nodeContexts =
     List.foldl
@@ -4004,6 +4004,10 @@ type alias ProjectRuleCache projectContext =
     }
 
 
+type alias GraphModule =
+    Graph.NodeContext ModuleName ()
+
+
 type alias CacheEntry projectContext =
     { source : String
     , errors : List (Error {})
@@ -4024,7 +4028,7 @@ runProjectVisitor :
     -> Maybe (ProjectRuleCache projectContext)
     -> Exceptions
     -> Project
-    -> Zipper (Graph.NodeContext ModuleName ())
+    -> Zipper GraphModule
     -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
 runProjectVisitor (ReviewOptionsInternal reviewOptions) projectVisitor maybePreviousCache exceptions project nodeContexts =
     nodeContexts
@@ -4067,7 +4071,7 @@ runProjectVisitorHelp :
     -> Maybe (ProjectRuleCache projectContext)
     -> Exceptions
     -> Project
-    -> Zipper (Graph.NodeContext ModuleName ())
+    -> Zipper GraphModule
     -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
 runProjectVisitorHelp (ReviewOptionsInternal reviewOptions) projectVisitor maybePreviousCache exceptions project nodeContexts =
     -- IGNORE TCO
@@ -4399,7 +4403,7 @@ computeModules :
     -> Project
     -> Exceptions
     -> projectContext
-    -> Zipper (Graph.NodeContext ModuleName ())
+    -> Zipper GraphModule
     -> Dict String (CacheEntry projectContext)
     -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
 computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions initialProjectContext moduleZipper startCache =
@@ -4448,8 +4452,8 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
             ProjectModule
             -> projectContext
             -> Project
-            -> Zipper (Graph.NodeContext ModuleName ())
-            -> { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper (Graph.NodeContext ModuleName ())) }
+            -> Zipper GraphModule
+            -> { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper GraphModule) }
         computeModule module_ projectContext currentProject moduleZipper_ =
             let
                 (RequestedData requestedData) =
@@ -4497,7 +4501,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                         |> ListExtra.orderIndependentMap (setFilePathIfUnset module_)
                         |> filterExceptionsAndSetName exceptions projectVisitor.name
 
-                resultWhenNoFix : () -> { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper (Graph.NodeContext ModuleName ())) }
+                resultWhenNoFix : () -> { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper GraphModule) }
                 resultWhenNoFix () =
                     { project = newProject
                     , analysis =
@@ -4546,11 +4550,11 @@ runThroughModules :
         (ProjectModule
          -> projectContext
          -> Project
-         -> Zipper (Graph.NodeContext ModuleName ())
-         -> { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper (Graph.NodeContext ModuleName ())) }
+         -> Zipper GraphModule
+         -> { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper GraphModule) }
         )
     -> Dict ModuleName ProjectModule
-    -> Maybe (Zipper (Graph.NodeContext ModuleName ()))
+    -> Maybe (Zipper GraphModule)
     -> Project
     -> Dict String (CacheEntry projectContext)
     -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
@@ -4561,7 +4565,7 @@ runThroughModules computeProjectContext_ computeModule modules maybeModuleZipper
 
         Just moduleZipper ->
             let
-                result : { project : Project, moduleContexts : Dict String (CacheEntry projectContext), moduleZipper : Maybe (Zipper (Graph.NodeContext ModuleName ())) }
+                result : { project : Project, moduleContexts : Dict String (CacheEntry projectContext), moduleZipper : Maybe (Zipper GraphModule) }
                 result =
                     computeModuleAndCacheResult
                         computeProjectContext_
@@ -4618,15 +4622,15 @@ computeModuleAndCacheResult :
         (ProjectModule
          -> projectContext
          -> Project
-         -> Zipper (Graph.NodeContext ModuleName ())
-         -> { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper (Graph.NodeContext ModuleName ())) }
+         -> Zipper GraphModule
+         -> { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper GraphModule) }
         )
     -> Dict ModuleName ProjectModule
-    -> Graph.NodeContext ModuleName ()
-    -> Zipper (Graph.NodeContext ModuleName ())
+    -> GraphModule
+    -> Zipper GraphModule
     -> Project
     -> Dict String (CacheEntry projectContext)
-    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), moduleZipper : Maybe (Zipper (Graph.NodeContext ModuleName ())) }
+    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), moduleZipper : Maybe (Zipper GraphModule) }
 computeModuleAndCacheResult computeProjectContext_ computeModule modules { node, incoming } initialModuleZipper project moduleContexts =
     case Dict.get node.label modules of
         Nothing ->
@@ -4643,7 +4647,7 @@ computeModuleAndCacheResult computeProjectContext_ computeModule modules { node,
 
             else
                 let
-                    result : { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper (Graph.NodeContext ModuleName ())) }
+                    result : { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper GraphModule) }
                     result =
                         computeModule module_ projectContext project initialModuleZipper
                 in
