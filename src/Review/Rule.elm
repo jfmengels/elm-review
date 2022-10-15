@@ -3993,7 +3993,7 @@ type alias Folder projectContext moduleContext =
 
 type alias ProjectRuleCache projectContext =
     { elmJson : CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext
-    , readme : CacheEntryFor (Maybe { readmeKey : ReadmeKey, content : String }) projectContext
+    , readme : CacheEntryFor (Maybe { path : String, content : String }) projectContext
     , dependencies : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
     , moduleContexts : Dict String (CacheEntry projectContext)
     , foldedProjectContext : Maybe projectContext
@@ -4255,54 +4255,65 @@ computeElmJsonCacheEntry projectVisitor exceptions maybePreviousCache project in
             }
 
 
+computeReadmeCacheEntry :
+    RunnableProjectVisitor projectContext moduleContext
+    -> Exceptions
+    -> Maybe (ProjectRuleCache projectContext)
+    -> Project
+    -> projectContext
+    -> CacheEntryFor (Maybe { path : String, content : String }) projectContext
+computeReadmeCacheEntry projectVisitor exceptions maybePreviousCache project inputContext =
+    let
+        projectReadme : Maybe { path : String, content : String }
+        projectReadme =
+            Review.Project.readme project
+
+        cachePredicate : ProjectRuleCache projectContext -> Bool
+        cachePredicate previousCache =
+            -- If the previous context stayed the same
+            (previousCache.readme.inputContext == inputContext)
+                -- and the readme stayed the same
+                && (previousCache.readme.value == projectReadme)
+    in
+    case reuseProjectRuleCache cachePredicate maybePreviousCache of
+        Just previousCache ->
+            previousCache.readme
+
+        Nothing ->
+            let
+                readmeData : Maybe { readmeKey : ReadmeKey, content : String }
+                readmeData =
+                    Maybe.map
+                        (\readme ->
+                            { readmeKey = ReadmeKey { path = readme.path, content = readme.content }
+                            , content = readme.content
+                            }
+                        )
+                        projectReadme
+
+                ( errorsForVisitor, outputContext ) =
+                    ( [], inputContext )
+                        |> accumulateWithListOfVisitors projectVisitor.readmeVisitors readmeData
+            in
+            { value = projectReadme
+
+            -- TODO Find fixes after this step
+            , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
+            , inputContext = inputContext
+            , outputContext = outputContext
+            }
+
+
 computeProjectContextForProjectFiles : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Project -> Maybe (ProjectRuleCache projectContext) -> ProjectRuleCache projectContext
 computeProjectContextForProjectFiles projectVisitor exceptions project maybePreviousCache =
     let
-        readmeData : Maybe { readmeKey : ReadmeKey, content : String }
-        readmeData =
-            Review.Project.readme project
-                |> Maybe.map
-                    (\readme ->
-                        { readmeKey = ReadmeKey { path = readme.path, content = readme.content }
-                        , content = readme.content
-                        }
-                    )
-
         elmJsonCacheEntry : CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext
         elmJsonCacheEntry =
             computeElmJsonCacheEntry projectVisitor exceptions maybePreviousCache project projectVisitor.initialProjectContext
 
-        readmeCacheEntry : CacheEntryFor (Maybe { readmeKey : ReadmeKey, content : String }) projectContext
+        readmeCacheEntry : CacheEntryFor (Maybe { path : String, content : String }) projectContext
         readmeCacheEntry =
-            let
-                inputContext : projectContext
-                inputContext =
-                    elmJsonCacheEntry.outputContext
-
-                cachePredicate : ProjectRuleCache projectContext -> Bool
-                cachePredicate previousCache =
-                    -- If the previous context stayed the same
-                    (previousCache.readme.inputContext == inputContext)
-                        -- and the readme stayed the same
-                        && (previousCache.readme.value == readmeData)
-            in
-            case reuseProjectRuleCache cachePredicate maybePreviousCache of
-                Just previousCache ->
-                    previousCache.readme
-
-                Nothing ->
-                    let
-                        ( errorsForVisitor, outputContext ) =
-                            ( [], inputContext )
-                                |> accumulateWithListOfVisitors projectVisitor.readmeVisitors readmeData
-                    in
-                    { value = readmeData
-
-                    -- TODO Find fixes after this step
-                    , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
-                    , inputContext = inputContext
-                    , outputContext = outputContext
-                    }
+            computeReadmeCacheEntry projectVisitor exceptions maybePreviousCache project elmJsonCacheEntry.outputContext
 
         dependenciesCacheEntry : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
         dependenciesCacheEntry =
