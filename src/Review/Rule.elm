@@ -4065,7 +4065,7 @@ runProjectVisitorHelp reviewOptions projectVisitor cache exceptions project modu
     let
         cacheWithInitialContext : ProjectRuleCache2 projectContext
         cacheWithInitialContext =
-            computeProjectContextForProjectFiles projectVisitor exceptions project cache
+            computeProjectContextForProjectFiles projectVisitor exceptions project ElmJson cache
 
         initialContext : projectContext
         initialContext =
@@ -4214,8 +4214,8 @@ type alias ProjectRuleCache2 projectContext =
     }
 
 
-computeProjectContextForProjectFiles : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Project -> ProjectRuleCache2 projectContext -> ProjectRuleCache2 projectContext
-computeProjectContextForProjectFiles projectVisitor exceptions project cache =
+computeProjectContextForProjectFiles : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Project -> Step -> ProjectRuleCache2 projectContext -> ProjectRuleCache2 projectContext
+computeProjectContextForProjectFiles projectVisitor exceptions project step cache =
     let
         elmJsonCacheEntry : ProjectRuleCache2 projectContext
         elmJsonCacheEntry =
@@ -4238,6 +4238,13 @@ computeProjectContextForProjectFiles projectVisitor exceptions project cache =
             computeDependenciesCacheEntry projectVisitor exceptions project afterReadmeContext readmeCacheEntry
     in
     dependenciesCacheEntry
+
+
+type Step
+    = ElmJson
+    | Readme
+    | Dependencies
+    | End
 
 
 computeElmJsonCacheEntry :
