@@ -4108,7 +4108,7 @@ runProjectVisitorHelp reviewOptions projectVisitor maybePreviousCache exceptions
                 projectVisitor
                 computeFoldedContext
                 exceptions
-                maybePreviousCache
+                baseCache.finalEvaluationErrors
 
         tmpCache : ProjectRuleCache projectContext
         tmpCache =
@@ -5228,9 +5228,9 @@ computeErrorsForFinalEvaluation :
     RunnableProjectVisitor projectContext moduleContext
     -> (() -> projectContext)
     -> Exceptions
-    -> Maybe (ProjectRuleCache projectContext)
+    -> Maybe (FinalProjectEvaluationCache projectContext)
     -> ( List (Error {}), Maybe projectContext )
-computeErrorsForFinalEvaluation projectVisitor computeFoldedContext exceptions maybePreviousCache =
+computeErrorsForFinalEvaluation projectVisitor computeFoldedContext exceptions maybeCache =
     if List.isEmpty projectVisitor.finalEvaluationFns then
         ( [], Nothing )
 
@@ -5249,10 +5249,10 @@ computeErrorsForFinalEvaluation projectVisitor computeFoldedContext exceptions m
                     )
                     projectVisitor.finalEvaluationFns
         in
-        ( case maybePreviousCache of
-            Just previousCache ->
-                if Just finalContext == previousCache.foldedProjectContext then
-                    previousCache.finalEvaluationErrors
+        ( case maybeCache of
+            Just cache ->
+                if finalContext == cache.inputContext then
+                    cache.errors
 
                 else
                     errorsFromFinalEvaluationForProject ()
