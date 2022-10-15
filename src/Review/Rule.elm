@@ -4057,8 +4057,8 @@ runProjectVisitorHelp reviewOptions projectVisitor maybePreviousCache exceptions
             , readme = Maybe.map .readme maybePreviousCache
             , dependencies = Maybe.map .dependencies maybePreviousCache
             , moduleContexts = Dict.empty
-            , foldedProjectContext = Nothing
-            , finalEvaluationErrors = []
+            , foldedProjectContext = Maybe.andThen .foldedProjectContext maybePreviousCache
+            , finalEvaluationErrors = Maybe.map .finalEvaluationErrors maybePreviousCache |> Maybe.withDefault []
             }
 
         cacheWithInitialContext : ProjectRuleCache projectContext
