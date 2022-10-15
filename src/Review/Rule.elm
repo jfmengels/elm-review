@@ -4034,34 +4034,6 @@ runProjectVisitor (ReviewOptionsInternal reviewOptions) projectVisitor maybePrev
         |> Logger.log reviewOptions.logger (endedRule projectVisitor.name)
 
 
-startedRule : String -> String
-startedRule name =
-    Encode.object
-        [ ( "type", Encode.string "rule-start" )
-        , ( "ruleName", Encode.string name )
-        ]
-        |> Encode.encode 0
-
-
-endedRule : String -> String
-endedRule name =
-    Encode.object
-        [ ( "type", Encode.string "rule-end" )
-        , ( "ruleName", Encode.string name )
-        ]
-        |> Encode.encode 0
-
-
-fixedError : { ruleName : String, filePath : String } -> String
-fixedError data =
-    Encode.object
-        [ ( "type", Encode.string "apply-fix" )
-        , ( "ruleName", Encode.string data.ruleName )
-        , ( "filePath", Encode.string data.filePath )
-        ]
-        |> Encode.encode 0
-
-
 runProjectVisitorHelp :
     ReviewOptions
     -> RunnableProjectVisitor projectContext moduleContext
@@ -5747,3 +5719,35 @@ know whether the module is part of the tests or of the production code.
 isInSourceDirectories : Metadata -> Bool
 isInSourceDirectories (Metadata metadata) =
     metadata.isInSourceDirectories
+
+
+
+-- LOGS
+
+
+startedRule : String -> String
+startedRule name =
+    Encode.object
+        [ ( "type", Encode.string "rule-start" )
+        , ( "ruleName", Encode.string name )
+        ]
+        |> Encode.encode 0
+
+
+endedRule : String -> String
+endedRule name =
+    Encode.object
+        [ ( "type", Encode.string "rule-end" )
+        , ( "ruleName", Encode.string name )
+        ]
+        |> Encode.encode 0
+
+
+fixedError : { ruleName : String, filePath : String } -> String
+fixedError data =
+    Encode.object
+        [ ( "type", Encode.string "apply-fix" )
+        , ( "ruleName", Encode.string data.ruleName )
+        , ( "filePath", Encode.string data.filePath )
+        ]
+        |> Encode.encode 0
