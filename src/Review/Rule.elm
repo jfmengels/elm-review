@@ -4008,6 +4008,7 @@ type alias GraphModule =
 type alias CacheEntry projectContext =
     { source : String
     , errors : List (Error {})
+    , inputContext : projectContext
     , outputContext : projectContext
     }
 
@@ -4465,7 +4466,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                 initialModuleContext =
                     applyContextCreator availableData moduleContextCreator projectContext
 
-                ( moduleErrors, context ) =
+                ( moduleErrors, resultModuleContext ) =
                     visitModuleForProjectRule
                         moduleVisitor
                         initialModuleContext
@@ -4481,13 +4482,14 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                 analysis () =
                     { source = module_.source
                     , errors = errors
+                    , inputContext = projectContext
                     , outputContext =
                         case getFolderFromTraversal projectVisitor.traversalAndFolder of
                             Just { fromModuleToProject } ->
-                                applyContextCreator availableData fromModuleToProject context
+                                applyContextCreator availableData fromModuleToProject resultModuleContext
 
                             Nothing ->
-                                initialProjectContext
+                                projectContext
                     }
 
                 resultWhenNoFix : () -> { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper GraphModule) }
@@ -4639,7 +4641,7 @@ computeModuleAndCacheResult computeProjectContext_ computeModule modules { node,
                 projectContext =
                     computeProjectContext_ moduleContexts incoming
             in
-            if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.outputContext == projectContext) (Dict.get module_.path moduleContexts) then
+            if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.inputContext == projectContext) (Dict.get module_.path moduleContexts) then
                 { project = project, moduleContexts = moduleContexts, moduleZipper = Zipper.next initialModuleZipper }
 
             else
