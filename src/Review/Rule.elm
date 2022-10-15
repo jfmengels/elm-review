@@ -732,9 +732,7 @@ runRules :
 runRules (ReviewOptionsInternal reviewOptions) rules project =
     runRulesHelp
         reviewOptions
-        { initialRules = rules
-        , remainingRules = rules
-        }
+        rules
         { errors = []
         , fixedErrors = Dict.empty
         , rules = []
@@ -745,10 +743,10 @@ runRules (ReviewOptionsInternal reviewOptions) rules project =
 
 runRulesHelp :
     ReviewOptionsData
-    -> { initialRules : List Rule, remainingRules : List Rule }
+    -> List Rule
     -> { errors : List ReviewError, fixedErrors : Dict String (List ReviewError), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
     -> { errors : List ReviewError, fixedErrors : Dict String (List ReviewError), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
-runRulesHelp reviewOptions { initialRules, remainingRules } acc =
+runRulesHelp reviewOptions remainingRules acc =
     case remainingRules of
         [] ->
             acc
@@ -758,23 +756,37 @@ runRulesHelp reviewOptions { initialRules, remainingRules } acc =
                 result : { errors : List (Error {}), fixedErrors : Dict String (List ReviewError), rule : Rule, project : Project, extract : Maybe Extract }
                 result =
                     ruleImplementation reviewOptions exceptions acc.project
-            in
-            runRulesHelp reviewOptions
-                { initialRules = initialRules
-                , remainingRules = restOfRules
-                }
-                { errors = ListExtra.orderIndependentMapAppend errorToReviewError result.errors acc.errors
-                , fixedErrors = result.fixedErrors
-                , rules = result.rule :: acc.rules
-                , project = result.project
-                , extracts =
+
+                extracts : Dict String Encode.Value
+                extracts =
                     case result.extract of
                         Just (JsonExtract extract) ->
                             Dict.insert name extract acc.extracts
 
                         Nothing ->
                             acc.extracts
-                }
+            in
+            if reviewOptions.fixAll && result.fixedErrors /= acc.fixedErrors then
+                runRulesHelp
+                    reviewOptions
+                    (acc.rules ++ restOfRules)
+                    { errors = ListExtra.orderIndependentMapAppend errorToReviewError result.errors acc.errors
+                    , fixedErrors = result.fixedErrors
+                    , rules = [ result.rule ]
+                    , project = result.project
+                    , extracts = extracts
+                    }
+
+            else
+                runRulesHelp
+                    reviewOptions
+                    restOfRules
+                    { errors = ListExtra.orderIndependentMapAppend errorToReviewError result.errors acc.errors
+                    , fixedErrors = result.fixedErrors
+                    , rules = result.rule :: acc.rules
+                    , project = result.project
+                    , extracts = extracts
+                    }
 
 
 duplicateModuleNames : Dict ModuleName String -> List ProjectModule -> Maybe { moduleName : ModuleName, paths : List String }
