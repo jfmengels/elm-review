@@ -106,7 +106,7 @@ error node rangeToRemove =
         )
 
 
-handleWhenSingleArg : Range -> Context -> Node Expression -> ( List (Error {}), Context )
+handleWhenSingleArg : (() -> Range) -> Context -> Node Expression -> ( List (Error {}), Context )
 handleWhenSingleArg rangeToPotentiallyRemove context node =
     case Node.value node of
         Expression.Application (((Node logFunctionRange (Expression.FunctionOrValue _ "log")) as logFunctionNode) :: logArguments) ->
@@ -117,7 +117,7 @@ handleWhenSingleArg rangeToPotentiallyRemove context node =
                         rangeToRemove =
                             case logArguments of
                                 [ _ ] ->
-                                    Just rangeToPotentiallyRemove
+                                    Just (rangeToPotentiallyRemove ())
 
                                 _ ->
                                     Nothing
@@ -138,17 +138,21 @@ expressionVisitor node context =
     case Node.value node of
         Expression.OperatorApplication "|>" _ left right ->
             handleWhenSingleArg
-                { start = (Node.range left).end
-                , end = (Node.range right).end
-                }
+                (\() ->
+                    { start = (Node.range left).end
+                    , end = (Node.range right).end
+                    }
+                )
                 context
                 right
 
         Expression.OperatorApplication "<|" _ left right ->
             handleWhenSingleArg
-                { start = (Node.range left).start
-                , end = (Node.range right).start
-                }
+                (\() ->
+                    { start = (Node.range left).start
+                    , end = (Node.range right).start
+                    }
+                )
                 context
                 left
 
@@ -156,17 +160,21 @@ expressionVisitor node context =
             let
                 ( errorsLeft, contextAfterLeft ) =
                     handleWhenSingleArg
-                        { start = (Node.range left).start
-                        , end = (Node.range right).start
-                        }
+                        (\() ->
+                            { start = (Node.range left).start
+                            , end = (Node.range right).start
+                            }
+                        )
                         context
                         left
 
                 ( errorsRight, contextAfterRight ) =
                     handleWhenSingleArg
-                        { start = (Node.range left).end
-                        , end = (Node.range right).end
-                        }
+                        (\() ->
+                            { start = (Node.range left).end
+                            , end = (Node.range right).end
+                            }
+                        )
                         contextAfterLeft
                         right
             in
@@ -176,17 +184,21 @@ expressionVisitor node context =
             let
                 ( errorsLeft, contextAfterLeft ) =
                     handleWhenSingleArg
-                        { start = (Node.range left).start
-                        , end = (Node.range right).start
-                        }
+                        (\() ->
+                            { start = (Node.range left).start
+                            , end = (Node.range right).start
+                            }
+                        )
                         context
                         left
 
                 ( errorsRight, contextAfterRight ) =
                     handleWhenSingleArg
-                        { start = (Node.range left).end
-                        , end = (Node.range right).end
-                        }
+                        (\() ->
+                            { start = (Node.range left).end
+                            , end = (Node.range right).end
+                            }
+                        )
                         contextAfterLeft
                         right
             in
@@ -194,8 +206,8 @@ expressionVisitor node context =
 
         Expression.Application (((Node logFunctionRange (Expression.FunctionOrValue _ "log")) as logFunctionNode) :: logArguments) ->
             let
-                rangeToRemove : Maybe Range
-                rangeToRemove =
+                rangeToRemove : () -> Maybe Range
+                rangeToRemove () =
                     case logArguments of
                         [ _, valueToLog ] ->
                             Just
@@ -209,13 +221,13 @@ expressionVisitor node context =
             reportIfDebugLog logFunctionNode context rangeToRemove
 
         Expression.FunctionOrValue _ "log" ->
-            reportIfDebugLog node context Nothing
+            reportIfDebugLog node context (always Nothing)
 
         _ ->
             ( [], context )
 
 
-reportIfDebugLog : Node Expression -> Context -> Maybe Range -> ( List (Error {}), Context )
+reportIfDebugLog : Node Expression -> Context -> (() -> Maybe Range) -> ( List (Error {}), Context )
 reportIfDebugLog node context rangeToRemove =
     if List.member (Node.range node) context.rangesToIgnore then
         ( [], context )
@@ -223,7 +235,7 @@ reportIfDebugLog node context rangeToRemove =
     else
         case ModuleNameLookupTable.moduleNameFor context.lookupTable node of
             Just [ "Debug" ] ->
-                ( [ error node rangeToRemove ]
+                ( [ error node (rangeToRemove ()) ]
                 , { context | rangesToIgnore = Node.range node :: context.rangesToIgnore }
                 )
 
