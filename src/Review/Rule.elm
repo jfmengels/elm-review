@@ -23,6 +23,7 @@ module Review.Rule exposing
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , reviewV3, reviewV2, review, ProjectData, ruleName, ruleExtractsData, getConfigurationError
     , Required, Forbidden
+    , providesFixesForModuleRule, providesFixesForProjectRule
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -1112,6 +1113,11 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 |> fromProjectRuleSchema
 
 
+providesFixesForModuleRule : ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema schemaState moduleContext
+providesFixesForModuleRule (ModuleRuleSchema moduleRuleSchema) =
+    ModuleRuleSchema { moduleRuleSchema | providesFixes = True }
+
+
 compactProjectDataVisitors : (rawData -> data) -> List (data -> moduleContext -> moduleContext) -> List (rawData -> moduleContext -> ( List nothing, moduleContext ))
 compactProjectDataVisitors getData visitors =
     if List.isEmpty visitors then
@@ -1249,6 +1255,11 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     project
         , configurationError = Nothing
         }
+
+
+providesFixesForProjectRule : ProjectRuleSchema schemaState projectContext moduleContext -> ProjectRuleSchema schemaState projectContext moduleContext
+providesFixesForProjectRule (ProjectRuleSchema projectRuleSchema) =
+    ProjectRuleSchema { projectRuleSchema | providesFixes = True }
 
 
 emptyCache : ProjectRuleCache projectContext
