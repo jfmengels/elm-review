@@ -328,7 +328,7 @@ type Rule
         , exceptions : Exceptions
         , requestedData : RequestedData
         , extractsData : Bool
-        , ruleImplementation : ReviewOptions -> Exceptions -> Project -> Zipper GraphModule -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
+        , ruleImplementation : ReviewOptions -> Exceptions -> Project -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
         , configurationError : Maybe { message : String, details : List String }
         }
 
@@ -442,16 +442,12 @@ review rules project =
                             ( [ importCycleError moduleGraph edge ], rules )
 
                         Ok nodesContexts ->
-                            case
-                                Graph.topologicalSort nodesContexts
-                                    |> Zipper.fromList
-                                    |> Maybe.map (runRules ReviewOptions.defaults rules project)
-                            of
-                                Just runRulesResult ->
-                                    ( runRulesResult.errors, runRulesResult.rules )
-
-                                Nothing ->
-                                    ( [], rules )
+                            let
+                                runRulesResult : { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+                                runRulesResult =
+                                    runRules ReviewOptions.defaults rules project
+                            in
+                            ( runRulesResult.errors, runRulesResult.rules )
 
         modulesThatFailedToParse ->
             ( ListExtra.orderIndependentMap parsingError modulesThatFailedToParse, rules )
@@ -509,7 +505,7 @@ reviewV2 rules maybeProjectData project =
             let
                 runResult : { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
                 runResult =
-                    runReviewForV2 ReviewOptions.defaults project rules moduleZipper
+                    runReviewForV2 ReviewOptions.defaults project rules
             in
             { errors = runResult.errors
             , rules = runResult.rules
@@ -572,7 +568,7 @@ reviewV3 reviewOptions rules project =
             |> Result.andThen (\() -> getModulesSortedByImport project)
     of
         Ok moduleZipper ->
-            runRules reviewOptions rules project moduleZipper
+            runRules reviewOptions rules project
 
         Err errors ->
             { errors = errors
@@ -669,12 +665,12 @@ importCycleError moduleGraph edge =
         |> errorToReviewError
 
 
-runReviewForV2 : ReviewOptions -> Project -> List Rule -> Zipper GraphModule -> { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
-runReviewForV2 reviewOptions project rules moduleZipper =
+runReviewForV2 : ReviewOptions -> Project -> List Rule -> { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
+runReviewForV2 reviewOptions project rules =
     let
         runResult : { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
         runResult =
-            runRules reviewOptions rules project moduleZipper
+            runRules reviewOptions rules project
     in
     { errors = runResult.errors
     , rules = runResult.rules
@@ -721,15 +717,14 @@ runRules :
     ReviewOptions
     -> List Rule
     -> Project
-    -> Zipper GraphModule
     -> { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
-runRules reviewOptions initialRules initialProject moduleZipper =
+runRules reviewOptions initialRules initialProject =
     List.foldl
         (\(Rule { name, exceptions, ruleImplementation }) acc ->
             let
                 result : { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
                 result =
-                    ruleImplementation reviewOptions exceptions acc.project moduleZipper
+                    ruleImplementation reviewOptions exceptions acc.project
             in
             { errors = ListExtra.orderIndependentMapAppend errorToReviewError result.errors acc.errors
             , rules = result.rule :: acc.rules
@@ -1172,7 +1167,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
         , extractsData = schema.dataExtractor /= Nothing
         , ruleImplementation =
-            \reviewOptions exceptions project moduleZipper ->
+            \reviewOptions exceptions project ->
                 let
                     result : { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
                     result =
@@ -1182,7 +1177,6 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                             emptyCache
                             exceptions
                             project
-                            moduleZipper
                 in
                 { errors = result.errors
                 , project = result.project
@@ -1466,7 +1460,7 @@ configurationError name configurationError_ =
         , exceptions = Exceptions.init
         , requestedData = RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
         , extractsData = False
-        , ruleImplementation = \_ _ project _ -> { errors = [], rule = configurationError name configurationError_, project = project, extract = Nothing }
+        , ruleImplementation = \_ _ project -> { errors = [], rule = configurationError name configurationError_, project = project, extract = Nothing }
         , configurationError = Just configurationError_
         }
 
@@ -4033,12 +4027,11 @@ runProjectVisitor :
     -> ProjectRuleCache projectContext
     -> Exceptions
     -> Project
-    -> Zipper GraphModule
     -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
-runProjectVisitor (ReviewOptionsInternal reviewOptions) projectVisitor cache exceptions project moduleZipper =
-    moduleZipper
+runProjectVisitor (ReviewOptionsInternal reviewOptions) projectVisitor cache exceptions project =
+    project
         |> Logger.log reviewOptions.logger (startedRule projectVisitor.name)
-        |> runProjectVisitorHelp reviewOptions projectVisitor cache exceptions project
+        |> runProjectVisitorHelp reviewOptions projectVisitor cache exceptions
         |> Logger.log reviewOptions.logger (endedRule projectVisitor.name)
 
 
@@ -4048,9 +4041,8 @@ runProjectVisitorHelp :
     -> ProjectRuleCache projectContext
     -> Exceptions
     -> Project
-    -> Zipper GraphModule
     -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
-runProjectVisitorHelp reviewOptions projectVisitor cache exceptions initialProject moduleZipper =
+runProjectVisitorHelp reviewOptions projectVisitor cache exceptions initialProject =
     -- IGNORE TCO
     let
         ( newProject, projectContext, cacheWithInitialContext ) =
@@ -4103,7 +4095,7 @@ runProjectVisitorHelp reviewOptions projectVisitor cache exceptions initialProje
             , requestedData = projectVisitor.requestedData
             , extractsData = projectVisitor.dataExtractor /= Nothing
             , ruleImplementation =
-                \newReviewOptions newExceptions newProjectArg newModuleZipper ->
+                \newReviewOptions newExceptions newProjectArg ->
                     let
                         result : { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
                         result =
@@ -4113,7 +4105,6 @@ runProjectVisitorHelp reviewOptions projectVisitor cache exceptions initialProje
                                 newCache
                                 newExceptions
                                 newProjectArg
-                                newModuleZipper
                     in
                     { errors = result.errors
                     , rule = result.rule
