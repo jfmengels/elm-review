@@ -442,16 +442,16 @@ review rules project =
                             ( [ importCycleError moduleGraph edge ], rules )
 
                         Ok nodesContexts ->
-                            let
-                                sortedModules : List GraphModule
-                                sortedModules =
-                                    Graph.topologicalSort nodesContexts
+                            case
+                                Graph.topologicalSort nodesContexts
+                                    |> Zipper.fromList
+                                    |> Maybe.map (runRules ReviewOptions.defaults rules project)
+                            of
+                                Just runRulesResult ->
+                                    ( runRulesResult.errors, runRulesResult.rules )
 
-                                runRulesResult : { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
-                                runRulesResult =
-                                    runRules ReviewOptions.defaults rules project sortedModules
-                            in
-                            ( runRulesResult.errors, runRulesResult.rules )
+                                Nothing ->
+                                    ( [], rules )
 
         modulesThatFailedToParse ->
             ( ListExtra.orderIndependentMap parsingError modulesThatFailedToParse, rules )
@@ -505,11 +505,11 @@ reviewV2 rules maybeProjectData project =
             |> Result.andThen (\() -> checkForDuplicateModules project)
             |> Result.andThen (\() -> getModulesSortedByImport project)
     of
-        Ok nodeContexts ->
+        Ok moduleZipper ->
             let
                 runResult : { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
                 runResult =
-                    runReviewForV2 ReviewOptions.defaults project rules nodeContexts
+                    runReviewForV2 ReviewOptions.defaults project rules moduleZipper
             in
             { errors = runResult.errors
             , rules = runResult.rules
@@ -633,7 +633,7 @@ checkForDuplicateModules project =
             Ok ()
 
 
-getModulesSortedByImport : Project -> Result (List Review.Error.ReviewError) (List GraphModule)
+getModulesSortedByImport : Project -> Result (List ReviewError) (Zipper GraphModule)
 getModulesSortedByImport project =
     let
         moduleGraph : Graph ModuleName ()
@@ -643,7 +643,19 @@ getModulesSortedByImport project =
     in
     case Graph.checkAcyclic moduleGraph of
         Ok graph ->
-            Ok (Graph.topologicalSort graph)
+            case Zipper.fromList (Graph.topologicalSort graph) of
+                Just moduleZipper ->
+                    Ok moduleZipper
+
+                Nothing ->
+                    Err
+                        [ elmReviewGlobalError
+                            { message = "This project does not contain any Elm modules"
+                            , details = [ "I need to look at some Elm modules. Maybe you have specified folders that do not exist?" ]
+                            }
+                            |> setRuleName "Incorrect project"
+                            |> errorToReviewError
+                        ]
 
         Err edge ->
             Err [ importCycleError moduleGraph edge ]
@@ -657,12 +669,12 @@ importCycleError moduleGraph edge =
         |> errorToReviewError
 
 
-runReviewForV2 : ReviewOptions -> Project -> List Rule -> List GraphModule -> { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
-runReviewForV2 reviewOptions project rules nodeContexts =
+runReviewForV2 : ReviewOptions -> Project -> List Rule -> Zipper GraphModule -> { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
+runReviewForV2 reviewOptions project rules moduleZipper =
     let
         runResult : { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
         runResult =
-            runRules reviewOptions rules project nodeContexts
+            runRules reviewOptions rules project moduleZipper
     in
     { errors = runResult.errors
     , rules = runResult.rules
@@ -709,30 +721,15 @@ runRules :
     ReviewOptions
     -> List Rule
     -> Project
-    -> List GraphModule
-    -> { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
-runRules reviewOptions initialRules initialProject nodeContexts =
-    case Zipper.fromList nodeContexts of
-        Just zipper ->
-            runRulesHelp reviewOptions initialRules initialProject zipper
-
-        Nothing ->
-            { errors = [], rules = [], project = initialProject, extracts = Dict.empty }
-
-
-runRulesHelp :
-    ReviewOptions
-    -> List Rule
-    -> Project
     -> Zipper GraphModule
     -> { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
-runRulesHelp reviewOptions initialRules initialProject nodeContexts =
+runRules reviewOptions initialRules initialProject moduleZipper =
     List.foldl
         (\(Rule { name, exceptions, ruleImplementation }) acc ->
             let
                 result : { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
                 result =
-                    ruleImplementation reviewOptions exceptions acc.project nodeContexts
+                    ruleImplementation reviewOptions exceptions acc.project moduleZipper
             in
             { errors = ListExtra.orderIndependentMapAppend errorToReviewError result.errors acc.errors
             , rules = result.rule :: acc.rules
