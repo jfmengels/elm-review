@@ -327,6 +327,7 @@ type Rule
         { name : String
         , exceptions : Exceptions
         , requestedData : RequestedData
+        , providesFixes : Bool
         , extractsData : Bool
         , ruleImplementation : ReviewOptionsData -> Exceptions -> Dict String (List ReviewError) -> Project -> { errors : List (Error {}), fixedErrors : Dict String (List ReviewError), rule : Rule, project : Project, extract : Maybe Extract }
         , configurationError : Maybe { message : String, details : List String }
@@ -368,6 +369,7 @@ type alias ModuleRuleSchemaData moduleContext =
     , caseBranchVisitorsOnEnter : List (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
     , caseBranchVisitorsOnExit : List (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
     , finalEvaluationFns : List (moduleContext -> List (Error {}))
+    , providesFixes : Bool
 
     -- Project visitors
     , elmJsonVisitors : List (Maybe Elm.Project.Project -> moduleContext -> moduleContext)
@@ -841,6 +843,13 @@ ruleExtractsData (Rule rule) =
     rule.extractsData
 
 
+{-| Indicates whether the rule provides fixes.
+-}
+ruleProvidesFixes : Rule -> Bool
+ruleProvidesFixes (Rule rule) =
+    rule.providesFixes
+
+
 {-| Get the configuration error for a rule.
 
 You should not have to use this when writing a rule. You might be looking for [`configurationError`](#configurationError) instead.
@@ -976,6 +985,7 @@ newModuleRuleSchema name initialModuleContext =
         , readmeVisitors = []
         , dependenciesVisitors = []
         , directDependenciesVisitors = []
+        , providesFixes = False
         }
 
 
@@ -1042,6 +1052,7 @@ newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
         , readmeVisitors = []
         , dependenciesVisitors = []
         , directDependenciesVisitors = []
+        , providesFixes = False
         }
 
 
@@ -1062,6 +1073,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 , moduleVisitors = [ removeExtensibleRecordTypeVariable (always moduleVisitor) ]
                 , moduleContextCreator = Just (initContextCreator identity)
                 , folder = Nothing
+                , providesFixes = schema.providesFixes
                 , traversalType = AllModulesInParallel
                 , finalEvaluationFns = []
                 , dataExtractor = Nothing
@@ -1079,6 +1091,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 , moduleVisitors = [ removeExtensibleRecordTypeVariable (always moduleVisitor) ]
                 , moduleContextCreator = Just schema.moduleContextCreator
                 , folder = Nothing
+                , providesFixes = schema.providesFixes
                 , traversalType = AllModulesInParallel
                 , finalEvaluationFns = []
                 , dataExtractor = Nothing
@@ -1128,6 +1141,7 @@ type ProjectRuleSchema schemaState projectContext moduleContext
         , moduleVisitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
         , moduleContextCreator : Maybe (ContextCreator projectContext moduleContext)
         , folder : Maybe (Folder projectContext moduleContext)
+        , providesFixes : Bool
 
         -- TODO Jeroen Only allow to set it if there is a folder, but not several times
         , traversalType : TraversalType
@@ -1188,6 +1202,7 @@ newProjectRuleSchema name initialProjectContext =
         , moduleVisitors = []
         , moduleContextCreator = Nothing
         , folder = Nothing
+        , providesFixes = False
         , traversalType = AllModulesInParallel
         , finalEvaluationFns = []
         , dataExtractor = Nothing
@@ -1209,6 +1224,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                 Nothing ->
                     RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
         , extractsData = schema.dataExtractor /= Nothing
+        , providesFixes = schema.providesFixes
         , ruleImplementation =
             \reviewOptions exceptions fixedErrors project ->
                 runProjectVisitor
@@ -1252,6 +1268,7 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
             ( ImportedModulesFirst, Nothing ) ->
                 TraverseAllModulesInParallel Nothing
     , finalEvaluationFns = List.reverse schema.finalEvaluationFns
+    , providesFixes = schema.providesFixes
     , dataExtractor = schema.dataExtractor
     , requestedData =
         case schema.moduleContextCreator of
@@ -1340,6 +1357,7 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
                 , readmeVisitors = []
                 , dependenciesVisitors = []
                 , directDependenciesVisitors = []
+                , providesFixes = False
                 }
     in
     ( List.foldl
@@ -1495,6 +1513,7 @@ configurationError name configurationError_ =
         , exceptions = Exceptions.init
         , requestedData = RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
         , extractsData = False
+        , providesFixes = False
         , ruleImplementation = \_ _ fixedErrors project -> { errors = [], fixedErrors = fixedErrors, rule = configurationError name configurationError_, project = project, extract = Nothing }
         , configurationError = Just configurationError_
         }
@@ -3833,6 +3852,7 @@ ignoreErrorsForDirectories directories (Rule rule) =
         , exceptions = Exceptions.addDirectories directories rule.exceptions
         , requestedData = rule.requestedData
         , extractsData = rule.extractsData
+        , providesFixes = rule.providesFixes
         , ruleImplementation = rule.ruleImplementation
         , configurationError = rule.configurationError
         }
@@ -3902,6 +3922,7 @@ ignoreErrorsForFiles files (Rule rule) =
         , exceptions = Exceptions.addFiles files rule.exceptions
         , requestedData = rule.requestedData
         , extractsData = rule.extractsData
+        , providesFixes = rule.providesFixes
         , ruleImplementation = rule.ruleImplementation
         , configurationError = rule.configurationError
         }
@@ -3979,6 +4000,7 @@ filterErrorsForFiles condition (Rule rule) =
         , exceptions = Exceptions.addFilter condition rule.exceptions
         , requestedData = rule.requestedData
         , extractsData = rule.extractsData
+        , providesFixes = rule.providesFixes
         , ruleImplementation = rule.ruleImplementation
         , configurationError = rule.configurationError
         }
@@ -4001,6 +4023,7 @@ type alias RunnableProjectVisitor projectContext moduleContext =
     , finalEvaluationFns : List (projectContext -> List (Error {}))
     , dataExtractor : Maybe (projectContext -> Extract)
     , requestedData : RequestedData
+    , providesFixes : Bool
     }
 
 
@@ -4124,6 +4147,7 @@ runProjectVisitorHelp reviewOptions projectVisitor initialCache exceptions initi
             , exceptions = exceptions
             , requestedData = projectVisitor.requestedData
             , extractsData = projectVisitor.dataExtractor /= Nothing
+            , providesFixes = projectVisitor.providesFixes
             , ruleImplementation =
                 \newReviewOptions newExceptions newProjectArg ->
                     runProjectVisitor
