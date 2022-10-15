@@ -4427,7 +4427,7 @@ computeModules2 reviewOptions projectVisitor exceptions target project inputCont
                                 |> Maybe.andThen (\moduleName -> Zipper.focusr (\mod -> mod.node.label == moduleName) moduleZipper)
                                 |> Maybe.withDefault moduleZipper
 
-                        result : { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step }
+                        result : { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : Dict String (List ReviewError) }
                         result =
                             computeModules
                                 reviewOptions
@@ -4438,12 +4438,13 @@ computeModules2 reviewOptions projectVisitor exceptions target project inputCont
                                 inputContext
                                 targetModuleZipper
                                 cache.moduleContexts
+                                fixedErrors
                     in
                     { project = result.project
                     , projectContext = inputContext
                     , cache = { cache | moduleContexts = result.moduleContexts }
                     , nextStep = result.nextStep
-                    , fixedErrors = fixedErrors
+                    , fixedErrors = result.fixedErrors
                     }
 
 
@@ -4574,8 +4575,9 @@ computeModules :
     -> projectContext
     -> Zipper GraphModule
     -> Dict String (CacheEntry projectContext)
-    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step }
-computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions initialProjectContext moduleZipper startCache =
+    -> Dict String (List ReviewError)
+    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : Dict String (List ReviewError) }
+computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions initialProjectContext moduleZipper startCache fixedErrors =
     let
         graph : Graph ModuleName ()
         graph =
@@ -4622,8 +4624,9 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
             -> projectContext
             -> Project
             -> Zipper GraphModule
-            -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep }
-        computeModule module_ projectContext currentProject moduleZipper_ =
+            -> Dict String (List ReviewError)
+            -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : Dict String (List ReviewError) }
+        computeModule module_ projectContext currentProject moduleZipper_ fixedErrors_ =
             let
                 (RequestedData requestedData) =
                     projectVisitor.requestedData
@@ -4684,25 +4687,27 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                                 projectContext
                     }
 
-                resultWhenNoFix : () -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep }
+                resultWhenNoFix : () -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : Dict String (List ReviewError) }
                 resultWhenNoFix () =
                     { project = newProject
                     , analysis = analysis ()
                     , nextStep = ModuleVisitStep (Zipper.next moduleZipper_)
+                    , fixedErrors = fixedErrors_
                     }
             in
             if reviewOptions.fixAll then
                 case findFix (fixableFilesInProject newProject) errors newProject of
                     Just fixResult ->
                         case fixResult.fixedFile of
-                            FixedElmModule { filePath, source, ast } ->
+                            FixedElmModule { source, ast } ->
                                 -- TODO If the imports have changed (added imports), then maybe we should re-order the graph based on the project?
-                                if module_.path == filePath then
+                                if module_.path == errorFilePath fixResult.error then
                                     computeModule
                                         { module_ | source = source, ast = ast }
                                         projectContext
-                                        (Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = filePath }) fixResult.project)
+                                        (Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = module_.path }) fixResult.project)
                                         moduleZipper_
+                                        (insertFixedError fixResult.error fixedErrors_)
 
                                 else
                                     let
@@ -4715,8 +4720,9 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                                             { project = fixResult.project
                                             , analysis = analysis ()
                                             , nextStep = ModuleVisitStep (Just newModuleZipper)
+                                            , fixedErrors = insertFixedError fixResult.error fixedErrors_
                                             }
-                                                |> Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = filePath })
+                                                |> Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = errorFilePath fixResult.error })
 
                                         Nothing ->
                                             resultWhenNoFix ()
@@ -4725,12 +4731,14 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                                 { project = fixResult.project
                                 , analysis = analysis ()
                                 , nextStep = BackToElmJson
+                                , fixedErrors = insertFixedError fixResult.error fixedErrors_
                                 }
 
                             FixedReadme ->
                                 { project = fixResult.project
                                 , analysis = analysis ()
                                 , nextStep = BackToReadme
+                                , fixedErrors = insertFixedError fixResult.error fixedErrors_
                                 }
 
                     Nothing ->
@@ -4743,7 +4751,15 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
         computeProjectContext_ cache incoming =
             computeProjectContext projectVisitor.traversalAndFolder graph cache modules incoming initialProjectContext
     in
-    runThroughModules computeProjectContext_ computeModule modules (Just moduleZipper) project newStartCache
+    runThroughModules computeProjectContext_ computeModule modules (Just moduleZipper) project newStartCache fixedErrors
+
+
+insertFixedError : ReviewError -> Dict String (List ReviewError) -> Dict String (List ReviewError)
+insertFixedError error_ fixedErrors_ =
+    Dict.update
+        (errorFilePath error_)
+        (\errors -> Just (error_ :: Maybe.withDefault [] errors))
+        fixedErrors_
 
 
 runThroughModules :
@@ -4753,21 +4769,23 @@ runThroughModules :
          -> projectContext
          -> Project
          -> Zipper GraphModule
-         -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep }
+         -> Dict String (List ReviewError)
+         -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : Dict String (List ReviewError) }
         )
     -> Dict ModuleName ProjectModule
     -> Maybe (Zipper GraphModule)
     -> Project
     -> Dict String (CacheEntry projectContext)
-    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step }
-runThroughModules computeProjectContext_ computeModule modules maybeModuleZipper initialProject initialModuleContexts =
+    -> Dict String (List ReviewError)
+    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : Dict String (List ReviewError) }
+runThroughModules computeProjectContext_ computeModule modules maybeModuleZipper initialProject initialModuleContexts fixedErrors =
     case maybeModuleZipper of
         Nothing ->
-            { project = initialProject, moduleContexts = initialModuleContexts, nextStep = FinalProjectEvaluation }
+            { project = initialProject, moduleContexts = initialModuleContexts, nextStep = FinalProjectEvaluation, fixedErrors = fixedErrors }
 
         Just moduleZipper ->
             let
-                result : { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep }
+                result : { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep, fixedErrors : Dict String (List ReviewError) }
                 result =
                     computeModuleAndCacheResult
                         computeProjectContext_
@@ -4777,6 +4795,7 @@ runThroughModules computeProjectContext_ computeModule modules maybeModuleZipper
                         moduleZipper
                         initialProject
                         initialModuleContexts
+                        fixedErrors
             in
             case result.nextStep of
                 ModuleVisitStep newModuleZipper ->
@@ -4787,12 +4806,13 @@ runThroughModules computeProjectContext_ computeModule modules maybeModuleZipper
                         newModuleZipper
                         result.project
                         result.moduleContexts
+                        result.fixedErrors
 
                 BackToElmJson ->
-                    { project = result.project, moduleContexts = result.moduleContexts, nextStep = ElmJson }
+                    { project = result.project, moduleContexts = result.moduleContexts, nextStep = ElmJson, fixedErrors = result.fixedErrors }
 
                 BackToReadme ->
-                    { project = result.project, moduleContexts = result.moduleContexts, nextStep = Readme }
+                    { project = result.project, moduleContexts = result.moduleContexts, nextStep = Readme, fixedErrors = result.fixedErrors }
 
 
 computeProjectContext :
@@ -4833,18 +4853,20 @@ computeModuleAndCacheResult :
          -> projectContext
          -> Project
          -> Zipper GraphModule
-         -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep }
+         -> Dict String (List ReviewError)
+         -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : Dict String (List ReviewError) }
         )
     -> Dict ModuleName ProjectModule
     -> GraphModule
     -> Zipper GraphModule
     -> Project
     -> Dict String (CacheEntry projectContext)
-    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep }
-computeModuleAndCacheResult computeProjectContext_ computeModule modules { node, incoming } initialModuleZipper project moduleContexts =
+    -> Dict String (List ReviewError)
+    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep, fixedErrors : Dict String (List ReviewError) }
+computeModuleAndCacheResult computeProjectContext_ computeModule modules { node, incoming } initialModuleZipper project moduleContexts fixedErrors =
     case Dict.get node.label modules of
         Nothing ->
-            { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next initialModuleZipper) }
+            { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next initialModuleZipper), fixedErrors = fixedErrors }
 
         Just module_ ->
             let
@@ -4853,17 +4875,18 @@ computeModuleAndCacheResult computeProjectContext_ computeModule modules { node,
                     computeProjectContext_ moduleContexts incoming
             in
             if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.inputContext == projectContext) (Dict.get module_.path moduleContexts) then
-                { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next initialModuleZipper) }
+                { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next initialModuleZipper), fixedErrors = fixedErrors }
 
             else
                 let
-                    result : { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep }
+                    result : { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : Dict String (List ReviewError) }
                     result =
-                        computeModule module_ projectContext project initialModuleZipper
+                        computeModule module_ projectContext project initialModuleZipper fixedErrors
                 in
                 { project = result.project
                 , moduleContexts = Dict.insert module_.path result.analysis moduleContexts
                 , nextStep = result.nextStep
+                , fixedErrors = result.fixedErrors
                 }
 
 
@@ -4912,7 +4935,7 @@ fixableFilesInProject project =
 
 
 type FixedFile
-    = FixedElmModule { source : String, ast : File, filePath : String }
+    = FixedElmModule { source : String, ast : File }
     | FixedElmJson
     | FixedReadme
 
@@ -4921,7 +4944,7 @@ findFix :
     Dict String { path : String, source : String }
     -> List (Error a)
     -> Project
-    -> Maybe { project : Project, fixedFile : FixedFile }
+    -> Maybe { project : Project, fixedFile : FixedFile, error : ReviewError }
 findFix files errors project =
     case errors of
         [] ->
@@ -4942,12 +4965,8 @@ findFix files errors project =
                                 Just { source, ast } ->
                                     Just
                                         { project = Review.Project.addParsedModule { path = headError.filePath, source = source, ast = ast } project
-                                        , fixedFile =
-                                            FixedElmModule
-                                                { source = source
-                                                , ast = ast
-                                                , filePath = headError.filePath
-                                                }
+                                        , fixedFile = FixedElmModule { source = source, ast = ast }
+                                        , error = errorToReviewError (Error headError)
                                         }
 
                 ( Just fixes, Review.Error.ElmJson ) ->
@@ -4966,6 +4985,7 @@ findFix files errors project =
                                     Just
                                         { project = Review.Project.addElmJson { path = elmJson.path, raw = fixResult.raw, project = fixResult.project } project
                                         , fixedFile = FixedElmJson
+                                        , error = errorToReviewError (Error headError)
                                         }
 
                 ( Just fixes, Review.Error.Readme ) ->
@@ -4982,6 +5002,7 @@ findFix files errors project =
                                     Just
                                         { project = Review.Project.addReadme { path = readme.path, content = content } project
                                         , fixedFile = FixedReadme
+                                        , error = errorToReviewError (Error headError)
                                         }
 
                 _ ->
