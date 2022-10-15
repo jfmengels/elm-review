@@ -4548,6 +4548,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                                         }
                                     , moduleZipper = Just newModuleZipper
                                     }
+                                        |> Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = fixResult.filePath })
 
                                 Nothing ->
                                     resultWhenNoFix ()
