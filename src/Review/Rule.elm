@@ -4050,11 +4050,11 @@ runProjectVisitorHelp :
     -> Project
     -> Zipper GraphModule
     -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
-runProjectVisitorHelp reviewOptions projectVisitor cache exceptions project moduleZipper =
+runProjectVisitorHelp reviewOptions projectVisitor cache exceptions initialProject moduleZipper =
     -- IGNORE TCO
     let
-        ( initialContext, cacheWithInitialContext ) =
-            computeProjectContextForProjectFiles projectVisitor exceptions project ElmJson ( projectVisitor.initialProjectContext, cache )
+        ( project, initialContext, cacheWithInitialContext ) =
+            computeProjectContextForProjectFiles projectVisitor exceptions ElmJson ( initialProject, projectVisitor.initialProjectContext, cache )
 
         modulesVisitResult : { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
         modulesVisitResult =
@@ -4198,14 +4198,13 @@ type alias ProjectRuleCache projectContext =
     }
 
 
-computeProjectContextForProjectFiles : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Project -> Step -> ( projectContext, ProjectRuleCache projectContext ) -> ( projectContext, ProjectRuleCache projectContext )
-computeProjectContextForProjectFiles projectVisitor exceptions project step (( projectContext, cache ) as acc) =
+computeProjectContextForProjectFiles : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Step -> ( Project, projectContext, ProjectRuleCache projectContext ) -> ( Project, projectContext, ProjectRuleCache projectContext )
+computeProjectContextForProjectFiles projectVisitor exceptions step (( project, projectContext, cache ) as acc) =
     case step of
         ElmJson ->
             computeProjectContextForProjectFiles
                 projectVisitor
                 exceptions
-                project
                 Readme
                 (computeElmJson projectVisitor exceptions project projectContext cache)
 
@@ -4213,7 +4212,6 @@ computeProjectContextForProjectFiles projectVisitor exceptions project step (( p
             computeProjectContextForProjectFiles
                 projectVisitor
                 exceptions
-                project
                 Dependencies
                 (computeReadme projectVisitor exceptions project projectContext cache)
 
@@ -4221,7 +4219,6 @@ computeProjectContextForProjectFiles projectVisitor exceptions project step (( p
             computeProjectContextForProjectFiles
                 projectVisitor
                 exceptions
-                project
                 End
                 (computeDependencies projectVisitor exceptions project projectContext cache)
 
@@ -4242,7 +4239,7 @@ computeElmJson :
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
-    -> ( projectContext, ProjectRuleCache projectContext )
+    -> ( Project, projectContext, ProjectRuleCache projectContext )
 computeElmJson projectVisitor exceptions project inputContext cache =
     let
         projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
@@ -4255,7 +4252,7 @@ computeElmJson projectVisitor exceptions project inputContext cache =
     in
     case reuseProjectRuleCache cachePredicate .elmJson cache of
         Just entry ->
-            ( entry.outputContext, cache )
+            ( project, entry.outputContext, cache )
 
         Nothing ->
             let
@@ -4283,7 +4280,7 @@ computeElmJson projectVisitor exceptions project inputContext cache =
                     , outputContext = outputContext
                     }
             in
-            ( outputContext, { cache | elmJson = Just elmJsonEntry } )
+            ( project, outputContext, { cache | elmJson = Just elmJsonEntry } )
 
 
 computeReadme :
@@ -4292,7 +4289,7 @@ computeReadme :
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
-    -> ( projectContext, ProjectRuleCache projectContext )
+    -> ( Project, projectContext, ProjectRuleCache projectContext )
 computeReadme projectVisitor exceptions project inputContext cache =
     let
         projectReadme : Maybe { path : String, content : String }
@@ -4308,7 +4305,7 @@ computeReadme projectVisitor exceptions project inputContext cache =
     in
     case reuseProjectRuleCache cachePredicate .readme cache of
         Just entry ->
-            ( entry.outputContext, cache )
+            ( project, entry.outputContext, cache )
 
         Nothing ->
             let
@@ -4336,7 +4333,7 @@ computeReadme projectVisitor exceptions project inputContext cache =
                     , outputContext = outputContext
                     }
             in
-            ( outputContext, { cache | readme = Just readmeEntry } )
+            ( project, outputContext, { cache | readme = Just readmeEntry } )
 
 
 computeDependencies :
@@ -4345,7 +4342,7 @@ computeDependencies :
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
-    -> ( projectContext, ProjectRuleCache projectContext )
+    -> ( Project, projectContext, ProjectRuleCache projectContext )
 computeDependencies projectVisitor exceptions project inputContext cache =
     let
         dependencies : Dict String Review.Project.Dependency.Dependency
@@ -4361,7 +4358,7 @@ computeDependencies projectVisitor exceptions project inputContext cache =
     in
     case reuseProjectRuleCache cachePredicate .dependencies cache of
         Just entry ->
-            ( entry.outputContext, cache )
+            ( project, entry.outputContext, cache )
 
         Nothing ->
             let
@@ -4389,7 +4386,7 @@ computeDependencies projectVisitor exceptions project inputContext cache =
                     , outputContext = outputContext
                     }
             in
-            ( outputContext, { cache | dependencies = Just dependenciesEntry } )
+            ( project, outputContext, { cache | dependencies = Just dependenciesEntry } )
 
 
 reuseProjectRuleCache : (b -> Bool) -> (ProjectRuleCache a -> Maybe b) -> ProjectRuleCache a -> Maybe b
