@@ -328,7 +328,7 @@ type Rule
         , exceptions : Exceptions
         , requestedData : RequestedData
         , extractsData : Bool
-        , ruleImplementation : ReviewOptions -> Exceptions -> Project -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
+        , ruleImplementation : ReviewOptions -> Exceptions -> Project -> { errors : List (Error {}), fixedErrors : Dict String (List ReviewError), rule : Rule, project : Project, extract : Maybe Extract }
         , configurationError : Maybe { message : String, details : List String }
         }
 
@@ -443,7 +443,7 @@ review rules project =
 
                         Ok nodesContexts ->
                             let
-                                runRulesResult : { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+                                runRulesResult : { errors : List ReviewError, fixedErrors : Dict String (List ReviewError), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
                                 runRulesResult =
                                     runRules ReviewOptions.defaults rules project
                             in
@@ -559,7 +559,17 @@ exported/imported with `elm/browser`'s debugger, and may cause a crash if you tr
 to compare them or the model that holds them.
 
 -}
-reviewV3 : ReviewOptions -> List Rule -> Project -> { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+reviewV3 :
+    ReviewOptions
+    -> List Rule
+    -> Project
+    ->
+        { errors : List ReviewError
+        , fixedErrors : Dict String (List ReviewError)
+        , rules : List Rule
+        , project : Project
+        , extracts : Dict String Encode.Value
+        }
 reviewV3 reviewOptions rules project =
     case
         checkForConfigurationErrors rules
@@ -572,6 +582,7 @@ reviewV3 reviewOptions rules project =
 
         Err errors ->
             { errors = errors
+            , fixedErrors = Dict.empty
             , rules = rules
             , project = project
             , extracts = Dict.empty
@@ -668,7 +679,7 @@ importCycleError moduleGraph edge =
 runReviewForV2 : ReviewOptions -> Project -> List Rule -> { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
 runReviewForV2 reviewOptions project rules =
     let
-        runResult : { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+        runResult : { errors : List ReviewError, fixedErrors : Dict String (List ReviewError), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
         runResult =
             runRules reviewOptions rules project
     in
@@ -717,16 +728,17 @@ runRules :
     ReviewOptions
     -> List Rule
     -> Project
-    -> { errors : List ReviewError, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+    -> { errors : List ReviewError, fixedErrors : Dict String (List ReviewError), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
 runRules reviewOptions initialRules initialProject =
     List.foldl
         (\(Rule { name, exceptions, ruleImplementation }) acc ->
             let
-                result : { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
+                result : { errors : List (Error {}), fixedErrors : Dict String (List ReviewError), rule : Rule, project : Project, extract : Maybe Extract }
                 result =
                     ruleImplementation reviewOptions exceptions acc.project
             in
             { errors = ListExtra.orderIndependentMapAppend errorToReviewError result.errors acc.errors
+            , fixedErrors = result.fixedErrors
             , rules = result.rule :: acc.rules
             , project = result.project
             , extracts =
@@ -739,6 +751,7 @@ runRules reviewOptions initialRules initialProject =
             }
         )
         { errors = []
+        , fixedErrors = Dict.empty
         , rules = []
         , project = initialProject
         , extracts = Dict.empty
@@ -1169,7 +1182,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
         , ruleImplementation =
             \reviewOptions exceptions project ->
                 let
-                    result : { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
+                    result : { errors : List (Error {}), fixedErrors : Dict String (List ReviewError), rule : Rule, project : Project, extract : Maybe Extract }
                     result =
                         runProjectVisitor
                             reviewOptions
@@ -1179,6 +1192,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                             project
                 in
                 { errors = result.errors
+                , fixedErrors = result.fixedErrors
                 , project = result.project
                 , rule = result.rule
                 , extract = result.extract
@@ -1460,7 +1474,7 @@ configurationError name configurationError_ =
         , exceptions = Exceptions.init
         , requestedData = RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
         , extractsData = False
-        , ruleImplementation = \_ _ project -> { errors = [], rule = configurationError name configurationError_, project = project, extract = Nothing }
+        , ruleImplementation = \_ _ project -> { errors = [], fixedErrors = Dict.empty, rule = configurationError name configurationError_, project = project, extract = Nothing }
         , configurationError = Just configurationError_
         }
 
@@ -4027,7 +4041,7 @@ runProjectVisitor :
     -> ProjectRuleCache projectContext
     -> Exceptions
     -> Project
-    -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
+    -> { errors : List (Error {}), fixedErrors : Dict String (List ReviewError), rule : Rule, project : Project, extract : Maybe Extract }
 runProjectVisitor (ReviewOptionsInternal reviewOptions) projectVisitor cache exceptions project =
     project
         |> Logger.log reviewOptions.logger (startedRule projectVisitor.name)
@@ -4041,7 +4055,7 @@ runProjectVisitorHelp :
     -> ProjectRuleCache projectContext
     -> Exceptions
     -> Project
-    -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
+    -> { errors : List (Error {}), fixedErrors : Dict String (List ReviewError), rule : Rule, project : Project, extract : Maybe Extract }
 runProjectVisitorHelp reviewOptions projectVisitor previousCache exceptions initialProject =
     -- IGNORE TCO
     let
@@ -4075,6 +4089,7 @@ runProjectVisitorHelp reviewOptions projectVisitor previousCache exceptions init
                 Nothing
     in
     { errors = errors
+    , fixedErrors = Dict.empty
     , rule =
         Rule
             { name = projectVisitor.name
