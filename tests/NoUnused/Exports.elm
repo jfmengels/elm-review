@@ -64,6 +64,7 @@ rule =
             }
         |> Rule.withElmJsonProjectVisitor (\elmJson context -> ( [], elmJsonVisitor elmJson context ))
         |> Rule.withFinalProjectEvaluation finalEvaluationForProject
+        |> Rule.providesFixesForProjectRule
         |> Rule.fromProjectRuleSchema
 
 

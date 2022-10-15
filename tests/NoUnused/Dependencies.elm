@@ -52,6 +52,7 @@ rule =
             , foldProjectContexts = foldProjectContexts
             }
         |> Rule.withFinalProjectEvaluation finalEvaluationForProject
+        |> Rule.providesFixesForProjectRule
         |> Rule.fromProjectRuleSchema
 
 

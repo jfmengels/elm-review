@@ -70,6 +70,7 @@ rule =
         |> Rule.withCaseBranchEnterVisitor caseBranchEnterVisitor
         |> Rule.withCaseBranchExitVisitor caseBranchExitVisitor
         |> NameVisitor.withValueVisitor valueVisitor
+        |> Rule.providesFixesForModuleRule
         |> Rule.fromModuleRuleSchema
 
 
