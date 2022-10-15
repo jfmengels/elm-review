@@ -4477,20 +4477,23 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                         |> ListExtra.orderIndependentMap (setFilePathIfUnset module_)
                         |> filterExceptionsAndSetName exceptions projectVisitor.name
 
+                analysis : () -> CacheEntry projectContext
+                analysis () =
+                    { source = module_.source
+                    , errors = errors
+                    , outputContext =
+                        case getFolderFromTraversal projectVisitor.traversalAndFolder of
+                            Just { fromModuleToProject } ->
+                                applyContextCreator availableData fromModuleToProject context
+
+                            Nothing ->
+                                initialProjectContext
+                    }
+
                 resultWhenNoFix : () -> { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper GraphModule) }
                 resultWhenNoFix () =
                     { project = newProject
-                    , analysis =
-                        { source = module_.source
-                        , errors = errors
-                        , outputContext =
-                            case getFolderFromTraversal projectVisitor.traversalAndFolder of
-                                Just { fromModuleToProject } ->
-                                    applyContextCreator availableData fromModuleToProject context
-
-                                Nothing ->
-                                    initialProjectContext
-                        }
+                    , analysis = analysis ()
                     , moduleZipper = Zipper.next moduleZipper_
                     }
             in
@@ -4514,17 +4517,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                             case Zipper.focusl (\mod -> mod.node.label == fixedModuleName) moduleZipper_ of
                                 Just newModuleZipper ->
                                     { project = fixResult.project
-                                    , analysis =
-                                        { source = module_.source
-                                        , errors = errors
-                                        , outputContext =
-                                            case getFolderFromTraversal projectVisitor.traversalAndFolder of
-                                                Just { fromModuleToProject } ->
-                                                    applyContextCreator availableData fromModuleToProject context
-
-                                                Nothing ->
-                                                    initialProjectContext
-                                        }
+                                    , analysis = analysis ()
                                     , moduleZipper = Just newModuleZipper
                                     }
                                         |> Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = fixResult.filePath })
