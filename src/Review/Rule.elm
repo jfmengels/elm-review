@@ -4042,11 +4042,11 @@ runProjectVisitorHelp :
     -> Exceptions
     -> Project
     -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
-runProjectVisitorHelp reviewOptions projectVisitor cache exceptions initialProject =
+runProjectVisitorHelp reviewOptions projectVisitor previousCache exceptions initialProject =
     -- IGNORE TCO
     let
-        ( newProject, projectContext, cacheWithInitialContext ) =
-            computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ElmJson ( initialProject, projectVisitor.initialProjectContext, cache )
+        ( newProject, projectContext, cache ) =
+            computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ElmJson ( initialProject, projectVisitor.initialProjectContext, previousCache )
 
         computeFoldedContext : () -> projectContext
         computeFoldedContext () =
@@ -4055,37 +4055,24 @@ runProjectVisitorHelp reviewOptions projectVisitor cache exceptions initialProje
                     Dict.foldl
                         (\_ cacheEntry acc -> foldProjectContexts cacheEntry.outputContext acc)
                         projectContext
-                        cacheWithInitialContext.moduleContexts
+                        cache.moduleContexts
 
                 Nothing ->
                     projectContext
 
-        ( errorsFromFinalEvaluation, maybeFoldedContext ) =
-            -- TODO Find fixes after this step
-            computeErrorsForFinalEvaluation
-                projectVisitor
-                computeFoldedContext
-                exceptions
-                cache.finalEvaluationErrors
-
-        newCache : ProjectRuleCache projectContext
-        newCache =
-            { cacheWithInitialContext
-                | moduleContexts = cacheWithInitialContext.moduleContexts
-                , finalEvaluationErrors = Maybe.map (\inputContext -> { inputContext = inputContext, errors = errorsFromFinalEvaluation }) maybeFoldedContext
-            }
-
         errors : List (Error {})
         errors =
-            errorsFromCache newCache
+            errorsFromCache cache
 
-        ( extract, maybeFoldedContext2 ) =
-            -- TODO Cache the extract
+        extract : Maybe Extract
+        extract =
+            -- TODO Cache the extract and the context
             if reviewOptions.extract && not (List.any doesPreventExtract errors) then
-                computeExtract projectVisitor computeFoldedContext maybeFoldedContext
+                computeExtract projectVisitor computeFoldedContext Nothing
+                    |> Tuple.first
 
             else
-                ( Nothing, maybeFoldedContext )
+                Nothing
     in
     { errors = errors
     , rule =
@@ -4099,7 +4086,7 @@ runProjectVisitorHelp reviewOptions projectVisitor cache exceptions initialProje
                     runProjectVisitor
                         newReviewOptions
                         projectVisitor
-                        newCache
+                        cache
                         newExceptions
                         newProjectArg
             , configurationError = Nothing
@@ -4204,8 +4191,17 @@ computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ste
                 ( result.project, result.projectContext, result.cache )
 
         FinalProjectEvaluation ->
-            -- TODO
-            acc
+            let
+                result : { project : Project, cache : ProjectRuleCache projectContext, nextStep : Step }
+                result =
+                    computeFinalProjectEvaluation projectVisitor exceptions project projectContext cache
+            in
+            computeProjectContextForProjectFiles
+                reviewOptions
+                projectVisitor
+                exceptions
+                result.nextStep
+                ( result.project, projectContext, result.cache )
 
         End ->
             acc
@@ -4420,6 +4416,56 @@ computeModules2 reviewOptions projectVisitor exceptions project inputContext cac
                     , cache = { cache | moduleContexts = result.moduleContexts }
                     , nextStep = result.nextStep
                     }
+
+
+computeFinalProjectEvaluation :
+    RunnableProjectVisitor projectContext moduleContext
+    -> Exceptions
+    -> Project
+    -> projectContext
+    -> ProjectRuleCache projectContext
+    -> { project : Project, cache : ProjectRuleCache projectContext, nextStep : Step }
+computeFinalProjectEvaluation projectVisitor exceptions project inputContext cache =
+    if List.isEmpty projectVisitor.finalEvaluationFns then
+        { project = project, cache = cache, nextStep = End }
+
+    else
+        let
+            finalContext : projectContext
+            finalContext =
+                case getFolderFromTraversal projectVisitor.traversalAndFolder of
+                    Just { foldProjectContexts } ->
+                        Dict.foldl
+                            (\_ cacheEntry acc -> foldProjectContexts cacheEntry.outputContext acc)
+                            inputContext
+                            cache.moduleContexts
+
+                    Nothing ->
+                        inputContext
+
+            cachePredicate : FinalProjectEvaluationCache projectContext -> Bool
+            cachePredicate finalEvaluation =
+                finalEvaluation.inputContext == finalContext
+        in
+        case reuseProjectRuleCache cachePredicate .finalEvaluationErrors cache of
+            Just _ ->
+                { project = project, cache = cache, nextStep = End }
+
+            Nothing ->
+                let
+                    errors : List (Error {})
+                    errors =
+                        ListExtra.orderIndependentConcatMap
+                            (\finalEvaluationFn ->
+                                finalEvaluationFn finalContext
+                                    |> filterExceptionsAndSetName exceptions projectVisitor.name
+                            )
+                            projectVisitor.finalEvaluationFns
+                in
+                { project = project
+                , cache = { cache | finalEvaluationErrors = Just { inputContext = finalContext, errors = errors } }
+                , nextStep = End
+                }
 
 
 reuseProjectRuleCache : (b -> Bool) -> (ProjectRuleCache a -> Maybe b) -> ProjectRuleCache a -> Maybe b
@@ -4657,7 +4703,7 @@ runThroughModules :
 runThroughModules computeProjectContext_ computeModule modules maybeModuleZipper initialProject initialModuleContexts =
     case maybeModuleZipper of
         Nothing ->
-            { project = initialProject, moduleContexts = initialModuleContexts, nextStep = End }
+            { project = initialProject, moduleContexts = initialModuleContexts, nextStep = FinalProjectEvaluation }
 
         Just moduleZipper ->
             let
@@ -5307,49 +5353,6 @@ functionToExpression : Function -> Node Expression
 functionToExpression function =
     Node.value function.declaration
         |> .expression
-
-
-
--- FINAL EVALUATION
-
-
-computeErrorsForFinalEvaluation :
-    RunnableProjectVisitor projectContext moduleContext
-    -> (() -> projectContext)
-    -> Exceptions
-    -> Maybe (FinalProjectEvaluationCache projectContext)
-    -> ( List (Error {}), Maybe projectContext )
-computeErrorsForFinalEvaluation projectVisitor computeFoldedContext exceptions maybeCache =
-    if List.isEmpty projectVisitor.finalEvaluationFns then
-        ( [], Nothing )
-
-    else
-        let
-            finalContext : projectContext
-            finalContext =
-                computeFoldedContext ()
-
-            errorsFromFinalEvaluationForProject : () -> List (Error {})
-            errorsFromFinalEvaluationForProject () =
-                ListExtra.orderIndependentConcatMap
-                    (\finalEvaluationFn ->
-                        finalEvaluationFn finalContext
-                            |> filterExceptionsAndSetName exceptions projectVisitor.name
-                    )
-                    projectVisitor.finalEvaluationFns
-        in
-        ( case maybeCache of
-            Just cache ->
-                if finalContext == cache.inputContext then
-                    cache.errors
-
-                else
-                    errorsFromFinalEvaluationForProject ()
-
-            Nothing ->
-                errorsFromFinalEvaluationForProject ()
-        , Just finalContext
-        )
 
 
 moduleNameNode : Node Module -> Node ModuleName
