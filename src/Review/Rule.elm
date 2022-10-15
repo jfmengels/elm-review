@@ -4021,6 +4021,12 @@ type alias CacheEntryFor value projectContext =
     }
 
 
+type alias FinalProjectEvaluationCache projectContext =
+    { inputContext : projectContext
+    , errors : List (Error {})
+    }
+
+
 runProjectVisitor :
     ReviewOptionsInternal
     -> RunnableProjectVisitor projectContext moduleContext
@@ -4057,8 +4063,10 @@ runProjectVisitorHelp reviewOptions projectVisitor maybePreviousCache exceptions
             , readme = Maybe.map .readme maybePreviousCache
             , dependencies = Maybe.map .dependencies maybePreviousCache
             , moduleContexts = Maybe.map .moduleContexts maybePreviousCache |> Maybe.withDefault Dict.empty
-            , foldedProjectContext = Maybe.andThen .foldedProjectContext maybePreviousCache
-            , finalEvaluationErrors = Maybe.map .finalEvaluationErrors maybePreviousCache |> Maybe.withDefault []
+            , finalEvaluationErrors =
+                Maybe.map2 FinalProjectEvaluationCache
+                    (Maybe.andThen .foldedProjectContext maybePreviousCache)
+                    (Maybe.map .finalEvaluationErrors maybePreviousCache)
             }
 
         cacheWithInitialContext : ProjectRuleCache projectContext
@@ -4215,8 +4223,7 @@ type alias ProjectRuleCache2 projectContext =
     , readme : Maybe (CacheEntryFor (Maybe { path : String, content : String }) projectContext)
     , dependencies : Maybe (CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext)
     , moduleContexts : Dict String (CacheEntry projectContext)
-    , foldedProjectContext : Maybe projectContext
-    , finalEvaluationErrors : List (Error {})
+    , finalEvaluationErrors : Maybe (FinalProjectEvaluationCache projectContext)
     }
 
 
