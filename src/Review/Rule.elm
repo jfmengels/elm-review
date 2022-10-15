@@ -4552,7 +4552,7 @@ computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project in
 
                                     FixedReadme ->
                                         Readme
-                            , fixedErrors = fixedErrors
+                            , fixedErrors = insertFixedError fixResult.error fixedErrors
                             }
 
                         Nothing ->
