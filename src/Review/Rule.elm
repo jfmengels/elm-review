@@ -4209,6 +4209,30 @@ errorsFromCache cache =
 -- VISIT PROJECT
 
 
+computeProjectContextForProjectFiles : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Project -> Maybe (ProjectRuleCache projectContext) -> ProjectRuleCache projectContext
+computeProjectContextForProjectFiles projectVisitor exceptions project maybePreviousCache =
+    let
+        elmJsonCacheEntry : CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext
+        elmJsonCacheEntry =
+            computeElmJsonCacheEntry projectVisitor exceptions maybePreviousCache project projectVisitor.initialProjectContext
+
+        readmeCacheEntry : CacheEntryFor (Maybe { path : String, content : String }) projectContext
+        readmeCacheEntry =
+            computeReadmeCacheEntry projectVisitor exceptions maybePreviousCache project elmJsonCacheEntry.outputContext
+
+        dependenciesCacheEntry : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
+        dependenciesCacheEntry =
+            computeDependenciesCacheEntry projectVisitor exceptions maybePreviousCache project readmeCacheEntry.outputContext
+    in
+    { elmJson = elmJsonCacheEntry
+    , readme = readmeCacheEntry
+    , dependencies = dependenciesCacheEntry
+    , moduleContexts = Dict.empty
+    , foldedProjectContext = Nothing
+    , finalEvaluationErrors = []
+    }
+
+
 computeElmJsonCacheEntry :
     RunnableProjectVisitor projectContext moduleContext
     -> Exceptions
@@ -4351,30 +4375,6 @@ computeDependenciesCacheEntry projectVisitor exceptions maybePreviousCache proje
             , inputContext = inputContext
             , outputContext = outputContext
             }
-
-
-computeProjectContextForProjectFiles : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Project -> Maybe (ProjectRuleCache projectContext) -> ProjectRuleCache projectContext
-computeProjectContextForProjectFiles projectVisitor exceptions project maybePreviousCache =
-    let
-        elmJsonCacheEntry : CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext
-        elmJsonCacheEntry =
-            computeElmJsonCacheEntry projectVisitor exceptions maybePreviousCache project projectVisitor.initialProjectContext
-
-        readmeCacheEntry : CacheEntryFor (Maybe { path : String, content : String }) projectContext
-        readmeCacheEntry =
-            computeReadmeCacheEntry projectVisitor exceptions maybePreviousCache project elmJsonCacheEntry.outputContext
-
-        dependenciesCacheEntry : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
-        dependenciesCacheEntry =
-            computeDependenciesCacheEntry projectVisitor exceptions maybePreviousCache project readmeCacheEntry.outputContext
-    in
-    { elmJson = elmJsonCacheEntry
-    , readme = readmeCacheEntry
-    , dependencies = dependenciesCacheEntry
-    , moduleContexts = Dict.empty
-    , foldedProjectContext = Nothing
-    , finalEvaluationErrors = []
-    }
 
 
 reuseProjectRuleCache : (ProjectRuleCache a -> Bool) -> Maybe (ProjectRuleCache a) -> Maybe (ProjectRuleCache a)
