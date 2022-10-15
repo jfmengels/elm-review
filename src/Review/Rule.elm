@@ -4402,7 +4402,7 @@ computeModules :
     -> Zipper (Graph.NodeContext ModuleName ())
     -> Dict String (CacheEntry projectContext)
     -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
-computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions initialProjectContext nodeContexts startCache =
+computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions initialProjectContext moduleZipper startCache =
     let
         graph : Graph ModuleName ()
         graph =
@@ -4450,7 +4450,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
             -> Project
             -> Zipper (Graph.NodeContext ModuleName ())
             -> { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper (Graph.NodeContext ModuleName ())) }
-        computeModule module_ projectContext currentProject moduleZipper =
+        computeModule module_ projectContext currentProject moduleZipper_ =
             let
                 (RequestedData requestedData) =
                     projectVisitor.requestedData
@@ -4511,7 +4511,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                                 Nothing ->
                                     initialProjectContext
                         }
-                    , moduleZipper = Zipper.next moduleZipper
+                    , moduleZipper = Zipper.next moduleZipper_
                     }
             in
             if reviewOptions.fixAll then
@@ -4522,7 +4522,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                                 { module_ | source = fixResult.fixedSource, ast = fixResult.ast }
                                 projectContext
                                 (Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = fixResult.filePath }) fixResult.project)
-                                moduleZipper
+                                moduleZipper_
 
                         else
                             resultWhenNoFix ()
@@ -4537,7 +4537,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
         computeProjectContext_ cache incoming =
             computeProjectContext projectVisitor.traversalAndFolder graph cache modules incoming initialProjectContext
     in
-    runThroughModules computeProjectContext_ computeModule modules nodeContexts { project = project, moduleContexts = newStartCache }
+    runThroughModules computeProjectContext_ computeModule modules (Just moduleZipper) project newStartCache
 
 
 runThroughModules :
@@ -4550,21 +4550,35 @@ runThroughModules :
          -> { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper (Graph.NodeContext ModuleName ())) }
         )
     -> Dict ModuleName ProjectModule
-    -> Zipper (Graph.NodeContext ModuleName ())
+    -> Maybe (Zipper (Graph.NodeContext ModuleName ()))
+    -> Project
+    -> Dict String (CacheEntry projectContext)
     -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
-    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
-runThroughModules computeProjectContext_ computeModule modules nodeContexts initialValue =
-    Zipper.foldl
-        (\nodeContext acc ->
-            computeModuleAndCacheResult
+runThroughModules computeProjectContext_ computeModule modules maybeModuleZipper initialProject initialModuleContexts =
+    case maybeModuleZipper of
+        Nothing ->
+            { project = initialProject, moduleContexts = initialModuleContexts }
+
+        Just moduleZipper ->
+            let
+                result : { project : Project, moduleContexts : Dict String (CacheEntry projectContext), moduleZipper : Maybe (Zipper (Graph.NodeContext ModuleName ())) }
+                result =
+                    computeModuleAndCacheResult
+                        computeProjectContext_
+                        computeModule
+                        modules
+                        (Zipper.current moduleZipper)
+                        moduleZipper
+                        initialProject
+                        initialModuleContexts
+            in
+            runThroughModules
                 computeProjectContext_
                 computeModule
                 modules
-                nodeContext
-                acc
-        )
-        initialValue
-        nodeContexts
+                result.moduleZipper
+                result.project
+                result.moduleContexts
 
 
 computeProjectContext :
@@ -4610,9 +4624,10 @@ computeModuleAndCacheResult :
     -> Dict ModuleName ProjectModule
     -> Graph.NodeContext ModuleName ()
     -> Zipper (Graph.NodeContext ModuleName ())
-    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
+    -> Project
+    -> Dict String (CacheEntry projectContext)
     -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), moduleZipper : Maybe (Zipper (Graph.NodeContext ModuleName ())) }
-computeModuleAndCacheResult computeProjectContext_ computeModule modules { node, incoming } initialModuleZipper { project, moduleContexts } =
+computeModuleAndCacheResult computeProjectContext_ computeModule modules { node, incoming } initialModuleZipper project moduleContexts =
     case Dict.get node.label modules of
         Nothing ->
             { project = project, moduleContexts = moduleContexts, moduleZipper = Zipper.next initialModuleZipper }
