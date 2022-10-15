@@ -4192,7 +4192,7 @@ computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ste
 
         Modules ->
             let
-                result : { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext }
+                result : { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, nextStep : Step }
                 result =
                     computeModules2 reviewOptions projectVisitor exceptions project projectContext cache
             in
@@ -4200,7 +4200,7 @@ computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ste
                 reviewOptions
                 projectVisitor
                 exceptions
-                FinalProjectEvaluation
+                result.nextStep
                 ( result.project, result.projectContext, result.cache )
 
         FinalProjectEvaluation ->
@@ -4387,17 +4387,17 @@ computeModules2 :
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
-    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext }
+    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, nextStep : Step }
 computeModules2 reviewOptions projectVisitor exceptions project inputContext cache =
     case projectVisitor.moduleVisitor of
         Nothing ->
-            { project = project, projectContext = inputContext, cache = cache }
+            { project = project, projectContext = inputContext, cache = cache, nextStep = FinalProjectEvaluation }
 
         Just moduleVisitor ->
             -- TODO Avoid recomputing this unnecessarily
             case getModulesSortedByImport project of
                 Err _ ->
-                    { project = project, projectContext = inputContext, cache = cache }
+                    { project = project, projectContext = inputContext, cache = cache, nextStep = FinalProjectEvaluation }
 
                 Ok moduleZipper ->
                     let
@@ -4416,6 +4416,7 @@ computeModules2 reviewOptions projectVisitor exceptions project inputContext cac
                     { project = result.project
                     , projectContext = inputContext
                     , cache = { cache | moduleContexts = result.moduleContexts }
+                    , nextStep = result.nextStep
                     }
 
 
