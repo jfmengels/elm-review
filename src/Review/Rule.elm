@@ -4174,14 +4174,14 @@ computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ste
                 reviewOptions
                 projectVisitor
                 exceptions
-                Modules
+                (Modules Nothing)
                 (computeDependencies projectVisitor exceptions project projectContext cache)
 
-        Modules ->
+        Modules target ->
             let
                 result : { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, nextStep : Step }
                 result =
-                    computeModules2 reviewOptions projectVisitor exceptions project projectContext cache
+                    computeModules2 reviewOptions projectVisitor exceptions target project projectContext cache
             in
             computeProjectContextForProjectFiles
                 reviewOptions
@@ -4211,7 +4211,7 @@ type Step
     = ElmJson
     | Readme
     | Dependencies
-    | Modules
+    | Modules (Maybe { moduleName : ModuleName })
     | FinalProjectEvaluation
     | End
 
@@ -4382,11 +4382,12 @@ computeModules2 :
     ReviewOptionsData
     -> RunnableProjectVisitor projectContext moduleContext
     -> Exceptions
+    -> Maybe { moduleName : ModuleName }
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
     -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, nextStep : Step }
-computeModules2 reviewOptions projectVisitor exceptions project inputContext cache =
+computeModules2 reviewOptions projectVisitor exceptions target project inputContext cache =
     case projectVisitor.moduleVisitor of
         Nothing ->
             { project = project, projectContext = inputContext, cache = cache, nextStep = FinalProjectEvaluation }
@@ -4399,6 +4400,12 @@ computeModules2 reviewOptions projectVisitor exceptions project inputContext cac
 
                 Ok moduleZipper ->
                     let
+                        targetModuleZipper : Zipper GraphModule
+                        targetModuleZipper =
+                            target
+                                |> Maybe.andThen (\{ moduleName } -> Zipper.focusr (\mod -> mod.node.label == moduleName) moduleZipper)
+                                |> Maybe.withDefault moduleZipper
+
                         result : { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step }
                         result =
                             computeModules
@@ -4408,7 +4415,7 @@ computeModules2 reviewOptions projectVisitor exceptions project inputContext cac
                                 project
                                 exceptions
                                 inputContext
-                                moduleZipper
+                                targetModuleZipper
                                 cache.moduleContexts
                     in
                     { project = result.project
