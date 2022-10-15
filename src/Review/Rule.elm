@@ -734,13 +734,26 @@ runRules :
 runRules (ReviewOptionsInternal reviewOptions) rules project =
     runRulesHelp
         reviewOptions
-        rules
+        (moveFixableRulesFirst rules)
         { errors = []
         , fixedErrors = Dict.empty
         , rules = []
         , project = project
         , extracts = Dict.empty
         }
+
+
+moveFixableRulesFirst : List Rule -> List Rule
+moveFixableRulesFirst rules =
+    List.sortBy
+        (\(Rule rule) ->
+            if rule.providesFixes then
+                0
+
+            else
+                1
+        )
+        rules
 
 
 runRulesHelp :
