@@ -4064,7 +4064,7 @@ runProjectVisitorHelp reviewOptions projectVisitor cache exceptions project modu
     -- IGNORE TCO
     let
         ( initialContext, cacheWithInitialContext ) =
-            computeProjectContextForProjectFiles projectVisitor exceptions project ElmJson projectVisitor.initialProjectContext cache
+            computeProjectContextForProjectFiles projectVisitor exceptions project ElmJson ( projectVisitor.initialProjectContext, cache )
 
         modulesVisitResult : { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
         modulesVisitResult =
@@ -4208,16 +4208,35 @@ type alias ProjectRuleCache2 projectContext =
     }
 
 
-computeProjectContextForProjectFiles : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Project -> Step -> projectContext -> ProjectRuleCache2 projectContext -> ( projectContext, ProjectRuleCache2 projectContext )
-computeProjectContextForProjectFiles projectVisitor exceptions project step projectContext cache =
-    let
-        ( afterElmJsonContext, elmJsonCacheEntry ) =
-            computeElmJsonCacheEntry projectVisitor exceptions project projectContext cache
+computeProjectContextForProjectFiles : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Project -> Step -> ( projectContext, ProjectRuleCache2 projectContext ) -> ( projectContext, ProjectRuleCache2 projectContext )
+computeProjectContextForProjectFiles projectVisitor exceptions project step (( projectContext, cache ) as acc) =
+    case step of
+        ElmJson ->
+            computeProjectContextForProjectFiles
+                projectVisitor
+                exceptions
+                project
+                Readme
+                (computeElmJsonCacheEntry projectVisitor exceptions project projectContext cache)
 
-        ( afterReadmeContext, readmeCacheEntry ) =
-            computeReadmeCacheEntry projectVisitor exceptions project afterElmJsonContext elmJsonCacheEntry
-    in
-    computeDependenciesCacheEntry projectVisitor exceptions project afterReadmeContext readmeCacheEntry
+        Readme ->
+            computeProjectContextForProjectFiles
+                projectVisitor
+                exceptions
+                project
+                Dependencies
+                (computeReadmeCacheEntry projectVisitor exceptions project projectContext cache)
+
+        Dependencies ->
+            computeProjectContextForProjectFiles
+                projectVisitor
+                exceptions
+                project
+                End
+                (computeDependenciesCacheEntry projectVisitor exceptions project projectContext cache)
+
+        End ->
+            acc
 
 
 type Step
