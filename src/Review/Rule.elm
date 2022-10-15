@@ -4211,7 +4211,7 @@ type Step
     = ElmJson
     | Readme
     | Dependencies
-    | Modules (Maybe { moduleName : ModuleName })
+    | Modules (Maybe ModuleName)
     | FinalProjectEvaluation
     | End
 
@@ -4382,7 +4382,7 @@ computeModules2 :
     ReviewOptionsData
     -> RunnableProjectVisitor projectContext moduleContext
     -> Exceptions
-    -> Maybe { moduleName : ModuleName }
+    -> Maybe ModuleName
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
@@ -4403,7 +4403,7 @@ computeModules2 reviewOptions projectVisitor exceptions target project inputCont
                         targetModuleZipper : Zipper GraphModule
                         targetModuleZipper =
                             target
-                                |> Maybe.andThen (\{ moduleName } -> Zipper.focusr (\mod -> mod.node.label == moduleName) moduleZipper)
+                                |> Maybe.andThen (\moduleName -> Zipper.focusr (\mod -> mod.node.label == moduleName) moduleZipper)
                                 |> Maybe.withDefault moduleZipper
 
                         result : { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step }
