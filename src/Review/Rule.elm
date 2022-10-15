@@ -4053,25 +4053,8 @@ runProjectVisitorHelp :
 runProjectVisitorHelp reviewOptions projectVisitor cache exceptions initialProject moduleZipper =
     -- IGNORE TCO
     let
-        ( project, initialContext, cacheWithInitialContext ) =
+        ( newProject, projectContext, cacheWithInitialContext ) =
             computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ElmJson ( initialProject, projectVisitor.initialProjectContext, cache )
-
-        modulesVisitResult : { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
-        modulesVisitResult =
-            case projectVisitor.moduleVisitor of
-                Nothing ->
-                    { project = project, moduleContexts = Dict.empty }
-
-                Just moduleVisitor ->
-                    computeModules
-                        reviewOptions
-                        projectVisitor
-                        moduleVisitor
-                        project
-                        exceptions
-                        initialContext
-                        moduleZipper
-                        cache.moduleContexts
 
         computeFoldedContext : () -> projectContext
         computeFoldedContext () =
@@ -4079,11 +4062,11 @@ runProjectVisitorHelp reviewOptions projectVisitor cache exceptions initialProje
                 Just { foldProjectContexts } ->
                     Dict.foldl
                         (\_ cacheEntry acc -> foldProjectContexts cacheEntry.outputContext acc)
-                        initialContext
-                        modulesVisitResult.moduleContexts
+                        projectContext
+                        cacheWithInitialContext.moduleContexts
 
                 Nothing ->
-                    initialContext
+                    projectContext
 
         ( errorsFromFinalEvaluation, maybeFoldedContext ) =
             -- TODO Find fixes after this step
@@ -4096,7 +4079,7 @@ runProjectVisitorHelp reviewOptions projectVisitor cache exceptions initialProje
         newCache : ProjectRuleCache projectContext
         newCache =
             { cacheWithInitialContext
-                | moduleContexts = modulesVisitResult.moduleContexts
+                | moduleContexts = cacheWithInitialContext.moduleContexts
                 , finalEvaluationErrors = Maybe.map (\inputContext -> { inputContext = inputContext, errors = errorsFromFinalEvaluation }) maybeFoldedContext
             }
 
@@ -4139,7 +4122,7 @@ runProjectVisitorHelp reviewOptions projectVisitor cache exceptions initialProje
                     }
             , configurationError = Nothing
             }
-    , project = modulesVisitResult.project
+    , project = newProject
     , extract = extract
     }
 
@@ -4222,8 +4205,16 @@ computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ste
                 reviewOptions
                 projectVisitor
                 exceptions
-                End
+                Modules
                 (computeDependencies projectVisitor exceptions project projectContext cache)
+
+        Modules ->
+            computeProjectContextForProjectFiles
+                reviewOptions
+                projectVisitor
+                exceptions
+                End
+                (computeModules2 reviewOptions projectVisitor exceptions project projectContext cache)
 
         End ->
             acc
@@ -4233,6 +4224,7 @@ type Step
     = ElmJson
     | Readme
     | Dependencies
+    | Modules
     | End
 
 
@@ -4390,6 +4382,42 @@ computeDependencies projectVisitor exceptions project inputContext cache =
                     }
             in
             ( project, outputContext, { cache | dependencies = Just dependenciesEntry } )
+
+
+computeModules2 :
+    ReviewOptionsData
+    -> RunnableProjectVisitor projectContext moduleContext
+    -> Exceptions
+    -> Project
+    -> projectContext
+    -> ProjectRuleCache projectContext
+    -> ( Project, projectContext, ProjectRuleCache projectContext )
+computeModules2 reviewOptions projectVisitor exceptions project inputContext cache =
+    case projectVisitor.moduleVisitor of
+        Nothing ->
+            ( project, inputContext, cache )
+
+        Just moduleVisitor ->
+            -- TODO Avoid recomputing this unnecessarily
+            case getModulesSortedByImport project of
+                Ok moduleZipper ->
+                    let
+                        result : { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
+                        result =
+                            computeModules
+                                reviewOptions
+                                projectVisitor
+                                moduleVisitor
+                                project
+                                exceptions
+                                inputContext
+                                moduleZipper
+                                cache.moduleContexts
+                    in
+                    ( result.project, inputContext, { cache | moduleContexts = result.moduleContexts } )
+
+                Err _ ->
+                    ( project, inputContext, cache )
 
 
 reuseProjectRuleCache : (b -> Bool) -> (ProjectRuleCache a -> Maybe b) -> ProjectRuleCache a -> Maybe b
