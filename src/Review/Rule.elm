@@ -4304,6 +4304,55 @@ computeReadmeCacheEntry projectVisitor exceptions maybePreviousCache project inp
             }
 
 
+computeDependenciesCacheEntry :
+    RunnableProjectVisitor projectContext moduleContext
+    -> Exceptions
+    -> Maybe (ProjectRuleCache projectContext)
+    -> Project
+    -> projectContext
+    -> CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
+computeDependenciesCacheEntry projectVisitor exceptions maybePreviousCache project inputContext =
+    let
+        dependencies : Dict String Review.Project.Dependency.Dependency
+        dependencies =
+            Review.Project.dependencies project
+
+        cachePredicate : ProjectRuleCache projectContext -> Bool
+        cachePredicate previousCache =
+            -- If the previous context stayed the same
+            (previousCache.dependencies.inputContext == inputContext)
+                -- and the dependencies stayed the same
+                && (previousCache.dependencies.value == dependencies)
+    in
+    case reuseProjectRuleCache cachePredicate maybePreviousCache of
+        Just previousCache ->
+            previousCache.dependencies
+
+        Nothing ->
+            let
+                accumulateWithDirectDependencies : ( List (Error {}), projectContext ) -> ( List (Error {}), projectContext )
+                accumulateWithDirectDependencies =
+                    case projectVisitor.directDependenciesVisitors of
+                        [] ->
+                            identity
+
+                        visitors ->
+                            accumulateWithListOfVisitors visitors (Review.Project.directDependencies project)
+
+                ( errorsForVisitor, outputContext ) =
+                    ( [], inputContext )
+                        |> accumulateWithDirectDependencies
+                        |> accumulateWithListOfVisitors projectVisitor.dependenciesVisitors dependencies
+            in
+            { value = dependencies
+
+            -- TODO Find fixes after this step
+            , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
+            , inputContext = inputContext
+            , outputContext = outputContext
+            }
+
+
 computeProjectContextForProjectFiles : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Project -> Maybe (ProjectRuleCache projectContext) -> ProjectRuleCache projectContext
 computeProjectContextForProjectFiles projectVisitor exceptions project maybePreviousCache =
     let
@@ -4317,49 +4366,7 @@ computeProjectContextForProjectFiles projectVisitor exceptions project maybePrev
 
         dependenciesCacheEntry : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
         dependenciesCacheEntry =
-            let
-                dependencies : Dict String Review.Project.Dependency.Dependency
-                dependencies =
-                    Review.Project.dependencies project
-
-                inputContext : projectContext
-                inputContext =
-                    readmeCacheEntry.outputContext
-
-                cachePredicate : ProjectRuleCache projectContext -> Bool
-                cachePredicate previousCache =
-                    -- If the previous context stayed the same
-                    (previousCache.dependencies.inputContext == inputContext)
-                        -- and the dependencies stayed the same
-                        && (previousCache.dependencies.value == dependencies)
-            in
-            case reuseProjectRuleCache cachePredicate maybePreviousCache of
-                Just previousCache ->
-                    previousCache.dependencies
-
-                Nothing ->
-                    let
-                        accumulateWithDirectDependencies : ( List (Error {}), projectContext ) -> ( List (Error {}), projectContext )
-                        accumulateWithDirectDependencies =
-                            case projectVisitor.directDependenciesVisitors of
-                                [] ->
-                                    identity
-
-                                visitors ->
-                                    accumulateWithListOfVisitors visitors (Review.Project.directDependencies project)
-
-                        ( errorsForVisitor, outputContext ) =
-                            ( [], inputContext )
-                                |> accumulateWithDirectDependencies
-                                |> accumulateWithListOfVisitors projectVisitor.dependenciesVisitors dependencies
-                    in
-                    { value = dependencies
-
-                    -- TODO Find fixes after this step
-                    , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
-                    , inputContext = inputContext
-                    , outputContext = outputContext
-                    }
+            computeDependenciesCacheEntry projectVisitor exceptions maybePreviousCache project readmeCacheEntry.outputContext
     in
     { elmJson = elmJsonCacheEntry
     , readme = readmeCacheEntry
