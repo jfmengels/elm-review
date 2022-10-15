@@ -4207,7 +4207,7 @@ computeProjectContextForProjectFiles projectVisitor exceptions project step (( p
                 exceptions
                 project
                 Readme
-                (computeElmJsonCacheEntry projectVisitor exceptions project projectContext cache)
+                (computeElmJson projectVisitor exceptions project projectContext cache)
 
         Readme ->
             computeProjectContextForProjectFiles
@@ -4215,7 +4215,7 @@ computeProjectContextForProjectFiles projectVisitor exceptions project step (( p
                 exceptions
                 project
                 Dependencies
-                (computeReadmeCacheEntry projectVisitor exceptions project projectContext cache)
+                (computeReadme projectVisitor exceptions project projectContext cache)
 
         Dependencies ->
             computeProjectContextForProjectFiles
@@ -4223,7 +4223,7 @@ computeProjectContextForProjectFiles projectVisitor exceptions project step (( p
                 exceptions
                 project
                 End
-                (computeDependenciesCacheEntry projectVisitor exceptions project projectContext cache)
+                (computeDependencies projectVisitor exceptions project projectContext cache)
 
         End ->
             acc
@@ -4236,14 +4236,14 @@ type Step
     | End
 
 
-computeElmJsonCacheEntry :
+computeElmJson :
     RunnableProjectVisitor projectContext moduleContext
     -> Exceptions
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
     -> ( projectContext, ProjectRuleCache projectContext )
-computeElmJsonCacheEntry projectVisitor exceptions project inputContext cache =
+computeElmJson projectVisitor exceptions project inputContext cache =
     let
         projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
         projectElmJson =
@@ -4286,14 +4286,14 @@ computeElmJsonCacheEntry projectVisitor exceptions project inputContext cache =
             ( outputContext, { cache | elmJson = Just elmJsonEntry } )
 
 
-computeReadmeCacheEntry :
+computeReadme :
     RunnableProjectVisitor projectContext moduleContext
     -> Exceptions
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
     -> ( projectContext, ProjectRuleCache projectContext )
-computeReadmeCacheEntry projectVisitor exceptions project inputContext cache =
+computeReadme projectVisitor exceptions project inputContext cache =
     let
         projectReadme : Maybe { path : String, content : String }
         projectReadme =
@@ -4339,14 +4339,14 @@ computeReadmeCacheEntry projectVisitor exceptions project inputContext cache =
             ( outputContext, { cache | readme = Just readmeEntry } )
 
 
-computeDependenciesCacheEntry :
+computeDependencies :
     RunnableProjectVisitor projectContext moduleContext
     -> Exceptions
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
     -> ( projectContext, ProjectRuleCache projectContext )
-computeDependenciesCacheEntry projectVisitor exceptions project inputContext cache =
+computeDependencies projectVisitor exceptions project inputContext cache =
     let
         dependencies : Dict String Review.Project.Dependency.Dependency
         dependencies =
