@@ -4210,6 +4210,10 @@ type Step
     | End
 
 
+type NextStep
+    = ModuleVisitStep (Maybe (Zipper GraphModule))
+
+
 computeElmJson :
     RunnableProjectVisitor projectContext moduleContext
     -> Exceptions
@@ -4496,7 +4500,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
             -> projectContext
             -> Project
             -> Zipper GraphModule
-            -> { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper GraphModule) }
+            -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep }
         computeModule module_ projectContext currentProject moduleZipper_ =
             let
                 (RequestedData requestedData) =
@@ -4558,11 +4562,11 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                                 projectContext
                     }
 
-                resultWhenNoFix : () -> { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper GraphModule) }
+                resultWhenNoFix : () -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep }
                 resultWhenNoFix () =
                     { project = newProject
                     , analysis = analysis ()
-                    , moduleZipper = Zipper.next moduleZipper_
+                    , nextStep = ModuleVisitStep (Zipper.next moduleZipper_)
                     }
             in
             if reviewOptions.fixAll then
@@ -4586,7 +4590,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                                 Just newModuleZipper ->
                                     { project = fixResult.project
                                     , analysis = analysis ()
-                                    , moduleZipper = Just newModuleZipper
+                                    , nextStep = ModuleVisitStep (Just newModuleZipper)
                                     }
                                         |> Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = fixResult.filePath })
 
@@ -4616,7 +4620,7 @@ runThroughModules :
          -> projectContext
          -> Project
          -> Zipper GraphModule
-         -> { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper GraphModule) }
+         -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep }
         )
     -> Dict ModuleName ProjectModule
     -> Maybe (Zipper GraphModule)
@@ -4630,7 +4634,7 @@ runThroughModules computeProjectContext_ computeModule modules maybeModuleZipper
 
         Just moduleZipper ->
             let
-                result : { project : Project, moduleContexts : Dict String (CacheEntry projectContext), moduleZipper : Maybe (Zipper GraphModule) }
+                result : { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep }
                 result =
                     computeModuleAndCacheResult
                         computeProjectContext_
@@ -4641,13 +4645,15 @@ runThroughModules computeProjectContext_ computeModule modules maybeModuleZipper
                         initialProject
                         initialModuleContexts
             in
-            runThroughModules
-                computeProjectContext_
-                computeModule
-                modules
-                result.moduleZipper
-                result.project
-                result.moduleContexts
+            case result.nextStep of
+                ModuleVisitStep newModuleZipper ->
+                    runThroughModules
+                        computeProjectContext_
+                        computeModule
+                        modules
+                        newModuleZipper
+                        result.project
+                        result.moduleContexts
 
 
 computeProjectContext :
@@ -4688,18 +4694,18 @@ computeModuleAndCacheResult :
          -> projectContext
          -> Project
          -> Zipper GraphModule
-         -> { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper GraphModule) }
+         -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep }
         )
     -> Dict ModuleName ProjectModule
     -> GraphModule
     -> Zipper GraphModule
     -> Project
     -> Dict String (CacheEntry projectContext)
-    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), moduleZipper : Maybe (Zipper GraphModule) }
+    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep }
 computeModuleAndCacheResult computeProjectContext_ computeModule modules { node, incoming } initialModuleZipper project moduleContexts =
     case Dict.get node.label modules of
         Nothing ->
-            { project = project, moduleContexts = moduleContexts, moduleZipper = Zipper.next initialModuleZipper }
+            { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next initialModuleZipper) }
 
         Just module_ ->
             let
@@ -4708,17 +4714,17 @@ computeModuleAndCacheResult computeProjectContext_ computeModule modules { node,
                     computeProjectContext_ moduleContexts incoming
             in
             if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.inputContext == projectContext) (Dict.get module_.path moduleContexts) then
-                { project = project, moduleContexts = moduleContexts, moduleZipper = Zipper.next initialModuleZipper }
+                { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next initialModuleZipper) }
 
             else
                 let
-                    result : { project : Project, analysis : CacheEntry projectContext, moduleZipper : Maybe (Zipper GraphModule) }
+                    result : { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep }
                     result =
                         computeModule module_ projectContext project initialModuleZipper
                 in
                 { project = result.project
                 , moduleContexts = Dict.insert module_.path result.analysis moduleContexts
-                , moduleZipper = result.moduleZipper
+                , nextStep = result.nextStep
                 }
 
 
