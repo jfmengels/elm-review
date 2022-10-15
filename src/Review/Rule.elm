@@ -1179,7 +1179,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                         runProjectVisitor
                             reviewOptions
                             (fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema)
-                            Nothing
+                            emptyCache
                             exceptions
                             project
                             moduleZipper
@@ -1191,6 +1191,16 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                 }
         , configurationError = Nothing
         }
+
+
+emptyCache : ProjectRuleCache2 projectContext
+emptyCache =
+    { elmJson = Nothing
+    , readme = Nothing
+    , dependencies = Nothing
+    , moduleContexts = Dict.empty
+    , finalEvaluationErrors = Nothing
+    }
 
 
 fromProjectRuleSchemaToRunnableProjectVisitor : ProjectRuleSchema schemaState projectContext moduleContext -> RunnableProjectVisitor projectContext moduleContext
@@ -4030,44 +4040,32 @@ type alias FinalProjectEvaluationCache projectContext =
 runProjectVisitor :
     ReviewOptionsInternal
     -> RunnableProjectVisitor projectContext moduleContext
-    -> Maybe (ProjectRuleCache projectContext)
+    -> ProjectRuleCache2 projectContext
     -> Exceptions
     -> Project
     -> Zipper GraphModule
     -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
-runProjectVisitor (ReviewOptionsInternal reviewOptions) projectVisitor maybePreviousCache exceptions project moduleZipper =
+runProjectVisitor (ReviewOptionsInternal reviewOptions) projectVisitor cache exceptions project moduleZipper =
     moduleZipper
         |> Logger.log reviewOptions.logger (startedRule projectVisitor.name)
-        |> runProjectVisitorHelp reviewOptions projectVisitor maybePreviousCache exceptions project
+        |> runProjectVisitorHelp reviewOptions projectVisitor cache exceptions project
         |> Logger.log reviewOptions.logger (endedRule projectVisitor.name)
 
 
 runProjectVisitorHelp :
     ReviewOptionsData
     -> RunnableProjectVisitor projectContext moduleContext
-    -> Maybe (ProjectRuleCache projectContext)
+    -> ProjectRuleCache2 projectContext
     -> Exceptions
     -> Project
     -> Zipper GraphModule
     -> { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
-runProjectVisitorHelp reviewOptions projectVisitor maybePreviousCache exceptions project moduleZipper =
+runProjectVisitorHelp reviewOptions projectVisitor cache exceptions project moduleZipper =
     -- IGNORE TCO
     let
         initialContext : projectContext
         initialContext =
             cacheWithInitialContext.dependencies.outputContext
-
-        cache : ProjectRuleCache2 projectContext
-        cache =
-            { elmJson = Maybe.map .elmJson maybePreviousCache
-            , readme = Maybe.map .readme maybePreviousCache
-            , dependencies = Maybe.map .dependencies maybePreviousCache
-            , moduleContexts = Maybe.map .moduleContexts maybePreviousCache |> Maybe.withDefault Dict.empty
-            , finalEvaluationErrors =
-                Maybe.map2 FinalProjectEvaluationCache
-                    (Maybe.andThen .foldedProjectContext maybePreviousCache)
-                    (Maybe.map .finalEvaluationErrors maybePreviousCache)
-            }
 
         cacheWithInitialContext : ProjectRuleCache projectContext
         cacheWithInitialContext =
@@ -4156,7 +4154,16 @@ runProjectVisitorHelp reviewOptions projectVisitor maybePreviousCache exceptions
                             runProjectVisitor
                                 newReviewOptions
                                 projectVisitor
-                                (Just newCache)
+                                { elmJson = Just newCache.elmJson
+                                , readme = Just newCache.readme
+                                , dependencies = Just newCache.dependencies
+                                , moduleContexts = newCache.moduleContexts
+                                , finalEvaluationErrors =
+                                    Just
+                                        { inputContext = computeFoldedContext ()
+                                        , errors = newCache.finalEvaluationErrors
+                                        }
+                                }
                                 newExceptions
                                 newProjectArg
                                 newModuleZipper
