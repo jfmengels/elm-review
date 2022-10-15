@@ -4063,13 +4063,14 @@ runProjectVisitorHelp :
 runProjectVisitorHelp reviewOptions projectVisitor cache exceptions project moduleZipper =
     -- IGNORE TCO
     let
-        initialContext : projectContext
-        initialContext =
-            cacheWithInitialContext.dependencies.outputContext
-
-        cacheWithInitialContext : ProjectRuleCache projectContext
+        cacheWithInitialContext : ProjectRuleCache2 projectContext
         cacheWithInitialContext =
             computeProjectContextForProjectFiles projectVisitor exceptions project cache
+
+        initialContext : projectContext
+        initialContext =
+            Maybe.map .outputContext cacheWithInitialContext.dependencies
+                |> Maybe.withDefault projectVisitor.initialProjectContext
 
         modulesVisitResult : { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
         modulesVisitResult =
@@ -4108,36 +4109,24 @@ runProjectVisitorHelp reviewOptions projectVisitor cache exceptions project modu
                 exceptions
                 cache.finalEvaluationErrors
 
-        tmpCache : ProjectRuleCache projectContext
-        tmpCache =
-            { elmJson = cacheWithInitialContext.elmJson
-            , readme = cacheWithInitialContext.readme
-            , dependencies = cacheWithInitialContext.dependencies
-            , moduleContexts = modulesVisitResult.moduleContexts
-            , foldedProjectContext = maybeFoldedContext
-            , finalEvaluationErrors = errorsFromFinalEvaluation
+        newCache : ProjectRuleCache2 projectContext
+        newCache =
+            { cacheWithInitialContext
+                | moduleContexts = modulesVisitResult.moduleContexts
+                , finalEvaluationErrors = Maybe.map (\inputContext -> { inputContext = inputContext, errors = errorsFromFinalEvaluation }) maybeFoldedContext
             }
 
         errors : List (Error {})
         errors =
-            errorsFromCache tmpCache
+            errorsFromCache newCache
 
         ( extract, maybeFoldedContext2 ) =
+            -- TODO Cache the extract
             if reviewOptions.extract && not (List.any doesPreventExtract errors) then
                 computeExtract projectVisitor computeFoldedContext maybeFoldedContext
 
             else
                 ( Nothing, maybeFoldedContext )
-
-        newCache : ProjectRuleCache projectContext
-        newCache =
-            { elmJson = tmpCache.elmJson
-            , readme = tmpCache.readme
-            , dependencies = tmpCache.dependencies
-            , moduleContexts = tmpCache.moduleContexts
-            , foldedProjectContext = maybeFoldedContext2
-            , finalEvaluationErrors = tmpCache.finalEvaluationErrors
-            }
     in
     { errors = errors
     , rule =
@@ -4154,16 +4143,7 @@ runProjectVisitorHelp reviewOptions projectVisitor cache exceptions project modu
                             runProjectVisitor
                                 newReviewOptions
                                 projectVisitor
-                                { elmJson = Just newCache.elmJson
-                                , readme = Just newCache.readme
-                                , dependencies = Just newCache.dependencies
-                                , moduleContexts = newCache.moduleContexts
-                                , finalEvaluationErrors =
-                                    Just
-                                        { inputContext = computeFoldedContext ()
-                                        , errors = newCache.finalEvaluationErrors
-                                        }
-                                }
+                                newCache
                                 newExceptions
                                 newProjectArg
                                 newModuleZipper
@@ -4210,14 +4190,14 @@ setRuleName ruleName_ error_ =
     mapInternalError (\err -> { err | ruleName = ruleName_ }) error_
 
 
-errorsFromCache : ProjectRuleCache projectContext -> List (Error {})
+errorsFromCache : ProjectRuleCache2 projectContext -> List (Error {})
 errorsFromCache cache =
     ListExtra.orderIndependentConcat
         [ Dict.foldl (\_ cacheEntry acc -> ListExtra.orderIndependentAppend cacheEntry.errors acc) [] cache.moduleContexts
-        , cache.elmJson.errors
-        , cache.readme.errors
-        , cache.dependencies.errors
-        , cache.finalEvaluationErrors
+        , Maybe.map .errors cache.elmJson |> Maybe.withDefault []
+        , Maybe.map .errors cache.readme |> Maybe.withDefault []
+        , Maybe.map .errors cache.dependencies |> Maybe.withDefault []
+        , Maybe.map .errors cache.finalEvaluationErrors |> Maybe.withDefault []
         ]
 
 
@@ -4234,28 +4214,30 @@ type alias ProjectRuleCache2 projectContext =
     }
 
 
-computeProjectContextForProjectFiles : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Project -> ProjectRuleCache2 projectContext -> ProjectRuleCache projectContext
+computeProjectContextForProjectFiles : RunnableProjectVisitor projectContext moduleContext -> Exceptions -> Project -> ProjectRuleCache2 projectContext -> ProjectRuleCache2 projectContext
 computeProjectContextForProjectFiles projectVisitor exceptions project cache =
     let
-        elmJsonCacheEntry : CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext
+        elmJsonCacheEntry : ProjectRuleCache2 projectContext
         elmJsonCacheEntry =
             computeElmJsonCacheEntry projectVisitor exceptions cache project projectVisitor.initialProjectContext
 
-        readmeCacheEntry : CacheEntryFor (Maybe { path : String, content : String }) projectContext
-        readmeCacheEntry =
-            computeReadmeCacheEntry projectVisitor exceptions cache project elmJsonCacheEntry.outputContext
+        afterElmJsonContext : projectContext
+        afterElmJsonContext =
+            Maybe.map .outputContext elmJsonCacheEntry.elmJson |> Maybe.withDefault projectVisitor.initialProjectContext
 
-        dependenciesCacheEntry : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
+        readmeCacheEntry : ProjectRuleCache2 projectContext
+        readmeCacheEntry =
+            computeReadmeCacheEntry projectVisitor exceptions elmJsonCacheEntry project afterElmJsonContext
+
+        afterReadmeContext : projectContext
+        afterReadmeContext =
+            Maybe.map .outputContext readmeCacheEntry.readme |> Maybe.withDefault afterElmJsonContext
+
+        dependenciesCacheEntry : ProjectRuleCache2 projectContext
         dependenciesCacheEntry =
-            computeDependenciesCacheEntry projectVisitor exceptions cache project readmeCacheEntry.outputContext
+            computeDependenciesCacheEntry projectVisitor exceptions readmeCacheEntry project afterReadmeContext
     in
-    { elmJson = elmJsonCacheEntry
-    , readme = readmeCacheEntry
-    , dependencies = dependenciesCacheEntry
-    , moduleContexts = Dict.empty
-    , foldedProjectContext = Nothing
-    , finalEvaluationErrors = []
-    }
+    dependenciesCacheEntry
 
 
 computeElmJsonCacheEntry :
@@ -4264,7 +4246,7 @@ computeElmJsonCacheEntry :
     -> ProjectRuleCache2 projectContext
     -> Project
     -> projectContext
-    -> CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext
+    -> ProjectRuleCache2 projectContext
 computeElmJsonCacheEntry projectVisitor exceptions cache project inputContext =
     let
         projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
@@ -4276,8 +4258,8 @@ computeElmJsonCacheEntry projectVisitor exceptions cache project inputContext =
             elmJson.value == projectElmJson
     in
     case reuseProjectRuleCache cachePredicate .elmJson cache of
-        Just previousEntry ->
-            previousEntry
+        Just _ ->
+            cache
 
         Nothing ->
             let
@@ -4294,14 +4276,18 @@ computeElmJsonCacheEntry projectVisitor exceptions cache project inputContext =
                 ( errorsForVisitor, outputContext ) =
                     ( [], inputContext )
                         |> accumulateWithListOfVisitors projectVisitor.elmJsonVisitors elmJsonData
-            in
-            { value = projectElmJson
 
-            -- TODO Find fixes after this step
-            , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
-            , inputContext = inputContext
-            , outputContext = outputContext
-            }
+                elmJsonEntry : CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext
+                elmJsonEntry =
+                    { value = projectElmJson
+
+                    -- TODO Find fixes after this step
+                    , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
+                    , inputContext = inputContext
+                    , outputContext = outputContext
+                    }
+            in
+            { cache | elmJson = Just elmJsonEntry }
 
 
 computeReadmeCacheEntry :
@@ -4310,7 +4296,7 @@ computeReadmeCacheEntry :
     -> ProjectRuleCache2 projectContext
     -> Project
     -> projectContext
-    -> CacheEntryFor (Maybe { path : String, content : String }) projectContext
+    -> ProjectRuleCache2 projectContext
 computeReadmeCacheEntry projectVisitor exceptions cache project inputContext =
     let
         projectReadme : Maybe { path : String, content : String }
@@ -4325,8 +4311,8 @@ computeReadmeCacheEntry projectVisitor exceptions cache project inputContext =
                 && (readme.value == projectReadme)
     in
     case reuseProjectRuleCache cachePredicate .readme cache of
-        Just previousEntry ->
-            previousEntry
+        Just _ ->
+            cache
 
         Nothing ->
             let
@@ -4343,14 +4329,18 @@ computeReadmeCacheEntry projectVisitor exceptions cache project inputContext =
                 ( errorsForVisitor, outputContext ) =
                     ( [], inputContext )
                         |> accumulateWithListOfVisitors projectVisitor.readmeVisitors readmeData
-            in
-            { value = projectReadme
 
-            -- TODO Find fixes after this step
-            , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
-            , inputContext = inputContext
-            , outputContext = outputContext
-            }
+                readmeEntry : CacheEntryFor (Maybe { path : String, content : String }) projectContext
+                readmeEntry =
+                    { value = projectReadme
+
+                    -- TODO Find fixes after this step
+                    , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
+                    , inputContext = inputContext
+                    , outputContext = outputContext
+                    }
+            in
+            { cache | readme = Just readmeEntry }
 
 
 computeDependenciesCacheEntry :
@@ -4359,7 +4349,7 @@ computeDependenciesCacheEntry :
     -> ProjectRuleCache2 projectContext
     -> Project
     -> projectContext
-    -> CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
+    -> ProjectRuleCache2 projectContext
 computeDependenciesCacheEntry projectVisitor exceptions cache project inputContext =
     let
         dependencies : Dict String Review.Project.Dependency.Dependency
@@ -4374,8 +4364,8 @@ computeDependenciesCacheEntry projectVisitor exceptions cache project inputConte
                 && (deps.value == dependencies)
     in
     case reuseProjectRuleCache cachePredicate .dependencies cache of
-        Just previousEntry ->
-            previousEntry
+        Just _ ->
+            cache
 
         Nothing ->
             let
@@ -4392,14 +4382,18 @@ computeDependenciesCacheEntry projectVisitor exceptions cache project inputConte
                     ( [], inputContext )
                         |> accumulateWithDirectDependencies
                         |> accumulateWithListOfVisitors projectVisitor.dependenciesVisitors dependencies
-            in
-            { value = dependencies
 
-            -- TODO Find fixes after this step
-            , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
-            , inputContext = inputContext
-            , outputContext = outputContext
-            }
+                dependenciesEntry : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
+                dependenciesEntry =
+                    { value = dependencies
+
+                    -- TODO Find fixes after this step
+                    , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
+                    , inputContext = inputContext
+                    , outputContext = outputContext
+                    }
+            in
+            { cache | dependencies = Just dependenciesEntry }
 
 
 reuseProjectRuleCache : (b -> Bool) -> (ProjectRuleCache2 a -> Maybe b) -> ProjectRuleCache2 a -> Maybe b
