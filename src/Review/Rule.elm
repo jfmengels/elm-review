@@ -4047,13 +4047,36 @@ runProjectVisitorHelp :
 runProjectVisitorHelp reviewOptions projectVisitor maybePreviousCache exceptions project moduleZipper =
     -- IGNORE TCO
     let
-        cacheWithInitialContext : ProjectRuleCache projectContext
-        cacheWithInitialContext =
-            computeProjectContextForProjectFiles projectVisitor exceptions project maybePreviousCache
-
         initialContext : projectContext
         initialContext =
             cacheWithInitialContext.dependencies.outputContext
+
+        emptyCacheEntry : a -> projectContext -> CacheEntryFor a projectContext
+        emptyCacheEntry emptyValue context =
+            { value = emptyValue
+            , errors = []
+            , inputContext = context
+            , outputContext = context
+            }
+
+        cacheFromLastRun : ProjectRuleCache projectContext
+        cacheFromLastRun =
+            case maybePreviousCache of
+                Just previous ->
+                    previous
+
+                Nothing ->
+                    { elmJson = emptyCacheEntry Nothing initialContext
+                    , readme = emptyCacheEntry Nothing initialContext
+                    , dependencies = emptyCacheEntry Dict.empty initialContext
+                    , moduleContexts = Dict.empty
+                    , foldedProjectContext = Nothing
+                    , finalEvaluationErrors = []
+                    }
+
+        cacheWithInitialContext : ProjectRuleCache projectContext
+        cacheWithInitialContext =
+            computeProjectContextForProjectFiles projectVisitor exceptions project maybePreviousCache
 
         previousModuleContexts : Dict String (CacheEntry projectContext)
         previousModuleContexts =
