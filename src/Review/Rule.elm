@@ -4096,21 +4096,12 @@ runProjectVisitorHelp reviewOptions projectVisitor cache exceptions initialProje
             , extractsData = projectVisitor.dataExtractor /= Nothing
             , ruleImplementation =
                 \newReviewOptions newExceptions newProjectArg ->
-                    let
-                        result : { errors : List (Error {}), rule : Rule, project : Project, extract : Maybe Extract }
-                        result =
-                            runProjectVisitor
-                                newReviewOptions
-                                projectVisitor
-                                newCache
-                                newExceptions
-                                newProjectArg
-                    in
-                    { errors = result.errors
-                    , rule = result.rule
-                    , project = result.project
-                    , extract = result.extract
-                    }
+                    runProjectVisitor
+                        newReviewOptions
+                        projectVisitor
+                        newCache
+                        newExceptions
+                        newProjectArg
             , configurationError = Nothing
             }
     , project = newProject
