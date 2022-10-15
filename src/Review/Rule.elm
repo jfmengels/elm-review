@@ -1181,22 +1181,12 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
         , extractsData = schema.dataExtractor /= Nothing
         , ruleImplementation =
             \reviewOptions exceptions project ->
-                let
-                    result : { errors : List (Error {}), fixedErrors : Dict String (List ReviewError), rule : Rule, project : Project, extract : Maybe Extract }
-                    result =
-                        runProjectVisitor
-                            reviewOptions
-                            (fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema)
-                            emptyCache
-                            exceptions
-                            project
-                in
-                { errors = result.errors
-                , fixedErrors = result.fixedErrors
-                , project = result.project
-                , rule = result.rule
-                , extract = result.extract
-                }
+                runProjectVisitor
+                    reviewOptions
+                    (fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema)
+                    emptyCache
+                    exceptions
+                    project
         , configurationError = Nothing
         }
 
