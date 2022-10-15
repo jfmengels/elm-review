@@ -4191,12 +4191,17 @@ computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ste
                 (computeDependencies projectVisitor exceptions project projectContext cache)
 
         Modules ->
+            let
+                result : { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext }
+                result =
+                    computeModules2 reviewOptions projectVisitor exceptions project projectContext cache
+            in
             computeProjectContextForProjectFiles
                 reviewOptions
                 projectVisitor
                 exceptions
                 End
-                (computeModules2 reviewOptions projectVisitor exceptions project projectContext cache)
+                ( result.project, result.projectContext, result.cache )
 
         End ->
             acc
@@ -4377,18 +4382,21 @@ computeModules2 :
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
-    -> ( Project, projectContext, ProjectRuleCache projectContext )
+    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext }
 computeModules2 reviewOptions projectVisitor exceptions project inputContext cache =
     case projectVisitor.moduleVisitor of
         Nothing ->
-            ( project, inputContext, cache )
+            { project = project, projectContext = inputContext, cache = cache }
 
         Just moduleVisitor ->
             -- TODO Avoid recomputing this unnecessarily
             case getModulesSortedByImport project of
+                Err _ ->
+                    { project = project, projectContext = inputContext, cache = cache }
+
                 Ok moduleZipper ->
                     let
-                        result : { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
+                        result : { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step }
                         result =
                             computeModules
                                 reviewOptions
@@ -4400,10 +4408,10 @@ computeModules2 reviewOptions projectVisitor exceptions project inputContext cac
                                 moduleZipper
                                 cache.moduleContexts
                     in
-                    ( result.project, inputContext, { cache | moduleContexts = result.moduleContexts } )
-
-                Err _ ->
-                    ( project, inputContext, cache )
+                    { project = result.project
+                    , projectContext = inputContext
+                    , cache = { cache | moduleContexts = result.moduleContexts }
+                    }
 
 
 reuseProjectRuleCache : (b -> Bool) -> (ProjectRuleCache a -> Maybe b) -> ProjectRuleCache a -> Maybe b
@@ -4452,7 +4460,7 @@ computeModules :
     -> projectContext
     -> Zipper GraphModule
     -> Dict String (CacheEntry projectContext)
-    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
+    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step }
 computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions initialProjectContext moduleZipper startCache =
     let
         graph : Graph ModuleName ()
@@ -4626,11 +4634,11 @@ runThroughModules :
     -> Maybe (Zipper GraphModule)
     -> Project
     -> Dict String (CacheEntry projectContext)
-    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext) }
+    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step }
 runThroughModules computeProjectContext_ computeModule modules maybeModuleZipper initialProject initialModuleContexts =
     case maybeModuleZipper of
         Nothing ->
-            { project = initialProject, moduleContexts = initialModuleContexts }
+            { project = initialProject, moduleContexts = initialModuleContexts, nextStep = End }
 
         Just moduleZipper ->
             let
