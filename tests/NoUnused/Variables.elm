@@ -1086,11 +1086,11 @@ registerCustomType range { name, constructors } context =
         constructorNames =
             List.map (Node.value >> .name >> Node.value) constructors
 
-        constructorsForType : Dict String String
-        constructorsForType =
-            constructorNames
-                |> List.map (\constructorName -> ( constructorName, typeName ))
-                |> Dict.fromList
+        constructorNameToTypeName : Dict String String
+        constructorNameToTypeName =
+            List.foldl (\constructorName acc -> Dict.insert constructorName typeName acc)
+                context.constructorNameToTypeName
+                constructorNames
 
         customType : TypeData
         customType =
@@ -1106,7 +1106,7 @@ registerCustomType range { name, constructors } context =
                 (Node.value name)
                 customType
                 context.localTypes
-        , constructorNameToTypeName = Dict.union constructorsForType context.constructorNameToTypeName
+        , constructorNameToTypeName = constructorNameToTypeName
     }
 
 
