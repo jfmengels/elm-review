@@ -586,7 +586,7 @@ reviewV3 reviewOptions rules project =
 
         Err errors ->
             { errors = errors
-            , fixedErrors = Dict.empty
+            , fixedErrors = FixedErrors.empty
             , rules = rules
             , project = project
             , extracts = Dict.empty
@@ -738,7 +738,7 @@ runRules (ReviewOptionsInternal reviewOptions) rules project =
         reviewOptions
         (moveFixableRulesFirst rules)
         { errors = []
-        , fixedErrors = Dict.empty
+        , fixedErrors = FixedErrors.empty
         , rules = []
         , project = project
         , extracts = Dict.empty
