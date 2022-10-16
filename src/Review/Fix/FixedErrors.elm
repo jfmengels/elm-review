@@ -1,4 +1,4 @@
-module Review.Fix.FixedErrors exposing (FixedErrors, hasChanged, insert)
+module Review.Fix.FixedErrors exposing (FixedErrors, empty, hasChanged, insert)
 
 import Dict exposing (Dict)
 import Review.Error exposing (ReviewError)
@@ -6,6 +6,11 @@ import Review.Error exposing (ReviewError)
 
 type alias FixedErrors =
     Dict String (List ReviewError)
+
+
+empty : FixedErrors
+empty =
+    Dict.empty
 
 
 insert : ReviewError -> FixedErrors -> FixedErrors
