@@ -569,7 +569,7 @@ reviewV3 :
     -> Project
     ->
         { errors : List ReviewError
-        , fixedErrors : FixedErrors
+        , fixedErrors : Dict String (List ReviewError)
         , rules : List Rule
         , project : Project
         , extracts : Dict String Encode.Value
@@ -582,11 +582,21 @@ reviewV3 reviewOptions rules project =
             |> Result.andThen (\() -> getModulesSortedByImport project)
     of
         Ok moduleZipper ->
-            runRules reviewOptions rules project
+            let
+                result : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+                result =
+                    runRules reviewOptions rules project
+            in
+            { errors = result.errors
+            , fixedErrors = FixedErrors.toDict result.fixedErrors
+            , rules = result.rules
+            , project = result.project
+            , extracts = result.extracts
+            }
 
         Err errors ->
             { errors = errors
-            , fixedErrors = FixedErrors.empty
+            , fixedErrors = Dict.empty
             , rules = rules
             , project = project
             , extracts = Dict.empty
