@@ -299,6 +299,7 @@ import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix as Fix exposing (Fix)
+import Review.Fix.FixedErrors exposing (FixedErrors)
 import Review.Fix.Internal as InternalFix
 import Review.ImportCycle as ImportCycle
 import Review.Logger as Logger
@@ -330,7 +331,7 @@ type Rule
         , requestedData : RequestedData
         , providesFixes : Bool
         , extractsData : Bool
-        , ruleImplementation : ReviewOptionsData -> Exceptions -> Dict String (List ReviewError) -> Project -> { errors : List (Error {}), fixedErrors : Dict String (List ReviewError), rule : Rule, project : Project, extract : Maybe Extract }
+        , ruleImplementation : ReviewOptionsData -> Exceptions -> FixedErrors -> Project -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : Project, extract : Maybe Extract }
         , configurationError : Maybe { message : String, details : List String }
         }
 
@@ -446,7 +447,7 @@ review rules project =
 
                         Ok nodesContexts ->
                             let
-                                runRulesResult : { errors : List ReviewError, fixedErrors : Dict String (List ReviewError), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+                                runRulesResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
                                 runRulesResult =
                                     runRules ReviewOptions.defaults rules project
                             in
@@ -568,7 +569,7 @@ reviewV3 :
     -> Project
     ->
         { errors : List ReviewError
-        , fixedErrors : Dict String (List ReviewError)
+        , fixedErrors : FixedErrors
         , rules : List Rule
         , project : Project
         , extracts : Dict String Encode.Value
@@ -682,7 +683,7 @@ importCycleError moduleGraph edge =
 runReviewForV2 : ReviewOptions -> Project -> List Rule -> { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
 runReviewForV2 reviewOptions project rules =
     let
-        runResult : { errors : List ReviewError, fixedErrors : Dict String (List ReviewError), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+        runResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
         runResult =
             runRules reviewOptions rules project
     in
@@ -731,7 +732,7 @@ runRules :
     ReviewOptions
     -> List Rule
     -> Project
-    -> { errors : List ReviewError, fixedErrors : Dict String (List ReviewError), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
 runRules (ReviewOptionsInternal reviewOptions) rules project =
     runRulesHelp
         reviewOptions
@@ -760,8 +761,8 @@ moveFixableRulesFirst rules =
 runRulesHelp :
     ReviewOptionsData
     -> List Rule
-    -> { errors : List ReviewError, fixedErrors : Dict String (List ReviewError), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
-    -> { errors : List ReviewError, fixedErrors : Dict String (List ReviewError), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
 runRulesHelp reviewOptions remainingRules acc =
     case remainingRules of
         [] ->
@@ -769,7 +770,7 @@ runRulesHelp reviewOptions remainingRules acc =
 
         (Rule { name, exceptions, ruleImplementation }) :: restOfRules ->
             let
-                result : { errors : List (Error {}), fixedErrors : Dict String (List ReviewError), rule : Rule, project : Project, extract : Maybe Extract }
+                result : { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : Project, extract : Maybe Extract }
                 result =
                     ruleImplementation reviewOptions exceptions acc.fixedErrors acc.project
 
@@ -4108,9 +4109,9 @@ runProjectVisitor :
     -> RunnableProjectVisitor projectContext moduleContext
     -> ProjectRuleCache projectContext
     -> Exceptions
-    -> Dict String (List ReviewError)
+    -> FixedErrors
     -> Project
-    -> { errors : List (Error {}), fixedErrors : Dict String (List ReviewError), rule : Rule, project : Project, extract : Maybe Extract }
+    -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : Project, extract : Maybe Extract }
 runProjectVisitor reviewOptions projectVisitor cache exceptions fixedErrors project =
     project
         |> Logger.log reviewOptions.logger (startedRule projectVisitor.name)
@@ -4123,9 +4124,9 @@ runProjectVisitorHelp :
     -> RunnableProjectVisitor projectContext moduleContext
     -> ProjectRuleCache projectContext
     -> Exceptions
-    -> Dict String (List ReviewError)
+    -> FixedErrors
     -> Project
-    -> { errors : List (Error {}), fixedErrors : Dict String (List ReviewError), rule : Rule, project : Project, extract : Maybe Extract }
+    -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : Project, extract : Maybe Extract }
 runProjectVisitorHelp reviewOptions projectVisitor initialCache exceptions initialFixedErrors initialProject =
     -- IGNORE TCO
     let
@@ -4246,8 +4247,8 @@ computeProjectContextForProjectFiles :
     -> RunnableProjectVisitor projectContext moduleContext
     -> Exceptions
     -> Step
-    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : Dict String (List ReviewError) }
-    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : Dict String (List ReviewError) }
+    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
+    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
 computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions step ({ project, projectContext, cache, fixedErrors } as acc) =
     case step of
         ElmJson ->
@@ -4277,7 +4278,7 @@ computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ste
         Modules target ->
             -- TODO Can we find a way to scanl from the end, by keeping the modulezipper from last time we visited modules?
             let
-                result : { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : Dict String (List ReviewError) }
+                result : { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
                 result =
                     computeModules2 reviewOptions projectVisitor exceptions target project projectContext cache fixedErrors
             in
@@ -4290,7 +4291,7 @@ computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ste
 
         FinalProjectEvaluation ->
             let
-                result : { project : Project, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : Dict String (List ReviewError) }
+                result : { project : Project, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
                 result =
                     computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project projectContext cache fixedErrors
             in
@@ -4326,8 +4327,8 @@ computeElmJson :
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
-    -> Dict String (List ReviewError)
-    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : Dict String (List ReviewError) }
+    -> FixedErrors
+    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
 computeElmJson projectVisitor exceptions project inputContext cache fixedErrors =
     let
         projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
@@ -4377,8 +4378,8 @@ computeReadme :
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
-    -> Dict String (List ReviewError)
-    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : Dict String (List ReviewError) }
+    -> FixedErrors
+    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
 computeReadme projectVisitor exceptions project inputContext cache fixedErrors =
     let
         projectReadme : Maybe { path : String, content : String }
@@ -4431,8 +4432,8 @@ computeDependencies :
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
-    -> Dict String (List ReviewError)
-    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : Dict String (List ReviewError) }
+    -> FixedErrors
+    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
 computeDependencies projectVisitor exceptions project inputContext cache fixedErrors =
     let
         dependencies : Dict String Review.Project.Dependency.Dependency
@@ -4487,8 +4488,8 @@ computeModules2 :
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
-    -> Dict String (List ReviewError)
-    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : Dict String (List ReviewError) }
+    -> FixedErrors
+    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
 computeModules2 reviewOptions projectVisitor exceptions target project inputContext cache fixedErrors =
     case projectVisitor.moduleVisitor of
         Nothing ->
@@ -4508,7 +4509,7 @@ computeModules2 reviewOptions projectVisitor exceptions target project inputCont
                                 |> Maybe.andThen (\moduleName -> Zipper.focusr (\mod -> mod.node.label == moduleName) moduleZipper)
                                 |> Maybe.withDefault moduleZipper
 
-                        result : { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : Dict String (List ReviewError) }
+                        result : { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : FixedErrors }
                         result =
                             computeModules
                                 reviewOptions
@@ -4536,8 +4537,8 @@ computeFinalProjectEvaluation :
     -> Project
     -> projectContext
     -> ProjectRuleCache projectContext
-    -> Dict String (List ReviewError)
-    -> { project : Project, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : Dict String (List ReviewError) }
+    -> FixedErrors
+    -> { project : Project, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
 computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project inputContext cache fixedErrors =
     if List.isEmpty projectVisitor.finalEvaluationFns then
         { project = project, cache = cache, nextStep = End, fixedErrors = fixedErrors }
@@ -4575,7 +4576,7 @@ computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project in
                             )
                             projectVisitor.finalEvaluationFns
 
-                    resultWhenNoFix : () -> { project : Project, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : Dict String (List ReviewError) }
+                    resultWhenNoFix : () -> { project : Project, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
                     resultWhenNoFix () =
                         { project = project
                         , cache = { cache | finalEvaluationErrors = Just { inputContext = finalContext, errors = errors } }
@@ -4652,8 +4653,8 @@ computeModules :
     -> projectContext
     -> Zipper GraphModule
     -> Dict String (CacheEntry projectContext)
-    -> Dict String (List ReviewError)
-    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : Dict String (List ReviewError) }
+    -> FixedErrors
+    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : FixedErrors }
 computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions initialProjectContext moduleZipper startCache fixedErrors =
     let
         graph : Graph ModuleName ()
@@ -4701,8 +4702,8 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
             -> projectContext
             -> Project
             -> Zipper GraphModule
-            -> Dict String (List ReviewError)
-            -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : Dict String (List ReviewError) }
+            -> FixedErrors
+            -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
         computeModule module_ projectContext currentProject moduleZipper_ fixedErrors_ =
             let
                 (RequestedData requestedData) =
@@ -4764,7 +4765,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                                 projectContext
                     }
 
-                resultWhenNoFix : () -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : Dict String (List ReviewError) }
+                resultWhenNoFix : () -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
                 resultWhenNoFix () =
                     { project = newProject
                     , analysis = analysis ()
@@ -4842,15 +4843,15 @@ runThroughModules :
          -> projectContext
          -> Project
          -> Zipper GraphModule
-         -> Dict String (List ReviewError)
-         -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : Dict String (List ReviewError) }
+         -> FixedErrors
+         -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
         )
     -> Dict ModuleName ProjectModule
     -> Maybe (Zipper GraphModule)
     -> Project
     -> Dict String (CacheEntry projectContext)
-    -> Dict String (List ReviewError)
-    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : Dict String (List ReviewError) }
+    -> FixedErrors
+    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : FixedErrors }
 runThroughModules computeProjectContext_ computeModule modules maybeModuleZipper initialProject initialModuleContexts fixedErrors =
     case maybeModuleZipper of
         Nothing ->
@@ -4858,7 +4859,7 @@ runThroughModules computeProjectContext_ computeModule modules maybeModuleZipper
 
         Just moduleZipper ->
             let
-                result : { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep, fixedErrors : Dict String (List ReviewError) }
+                result : { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep, fixedErrors : FixedErrors }
                 result =
                     computeModuleAndCacheResult
                         computeProjectContext_
@@ -4926,16 +4927,16 @@ computeModuleAndCacheResult :
          -> projectContext
          -> Project
          -> Zipper GraphModule
-         -> Dict String (List ReviewError)
-         -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : Dict String (List ReviewError) }
+         -> FixedErrors
+         -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
         )
     -> Dict ModuleName ProjectModule
     -> GraphModule
     -> Zipper GraphModule
     -> Project
     -> Dict String (CacheEntry projectContext)
-    -> Dict String (List ReviewError)
-    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep, fixedErrors : Dict String (List ReviewError) }
+    -> FixedErrors
+    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep, fixedErrors : FixedErrors }
 computeModuleAndCacheResult computeProjectContext_ computeModule modules { node, incoming } initialModuleZipper project moduleContexts fixedErrors =
     case Dict.get node.label modules of
         Nothing ->
@@ -4952,7 +4953,7 @@ computeModuleAndCacheResult computeProjectContext_ computeModule modules { node,
 
             else
                 let
-                    result : { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : Dict String (List ReviewError) }
+                    result : { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
                     result =
                         computeModule module_ projectContext project initialModuleZipper fixedErrors
                 in
