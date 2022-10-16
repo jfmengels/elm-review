@@ -4594,7 +4594,7 @@ computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project in
                         , fixedErrors = fixedErrors
                         }
                 in
-                case findFix reviewOptions project errors of
+                case findFix reviewOptions projectVisitor.name project errors of
                     Just fixResult ->
                         { project = fixResult.project
 
@@ -4783,7 +4783,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                     , fixedErrors = fixedErrors_
                     }
             in
-            case findFix reviewOptions newProject errors of
+            case findFix reviewOptions projectVisitor.name newProject errors of
                 Just fixResult ->
                     case fixResult.fixedFile of
                         FixedElmModule { source, ast } ->
@@ -4992,78 +4992,100 @@ type FixedFile
     | FixedReadme
 
 
-findFix : ReviewOptionsData -> Project -> List (Error a) -> Maybe { project : Project, fixedFile : FixedFile, error : ReviewError }
-findFix reviewOptions project errors =
-    if reviewOptions.fixAll then
-        findFixHelp project errors
+findFix : ReviewOptionsData -> String -> Project -> List (Error a) -> Maybe { project : Project, fixedFile : FixedFile, error : ReviewError }
+findFix reviewOptions ruleName_ project errors =
+    case Review.Options.Internal.shouldFindFix ruleName_ reviewOptions of
+        Just fixablePredicate ->
+            findFixHelp project fixablePredicate errors
 
-    else
-        Nothing
+        Nothing ->
+            Nothing
 
 
-findFixHelp : Project -> List (Error a) -> Maybe { project : Project, fixedFile : FixedFile, error : ReviewError }
-findFixHelp project errors =
+findFixHelp : Project -> (String -> Bool) -> List (Error a) -> Maybe { project : Project, fixedFile : FixedFile, error : ReviewError }
+findFixHelp project fixablePredicate errors =
     case errors of
         [] ->
             Nothing
 
         (Error headError) :: restOfErrors ->
-            case ( headError.fixes, headError.target ) of
-                ( Just fixes, Review.Error.Module ) ->
-                    case Review.Project.Internal.getModuleByPath headError.filePath project of
-                        Nothing ->
-                            findFixHelp project restOfErrors
+            case isFixable fixablePredicate headError of
+                Nothing ->
+                    findFixHelp project fixablePredicate restOfErrors
 
-                        Just file ->
-                            case InternalFix.fixModule fixes file.source of
+                Just fixes ->
+                    case headError.target of
+                        Review.Error.Module ->
+                            case Review.Project.Internal.getModuleByPath headError.filePath project of
                                 Nothing ->
-                                    findFixHelp project restOfErrors
+                                    findFixHelp project fixablePredicate restOfErrors
 
-                                Just { source, ast } ->
-                                    Just
-                                        { project = Review.Project.addParsedModule { path = headError.filePath, source = source, ast = ast } project
-                                        , fixedFile = FixedElmModule { source = source, ast = ast }
-                                        , error = errorToReviewError (Error headError)
-                                        }
+                                Just file ->
+                                    case InternalFix.fixModule fixes file.source of
+                                        Nothing ->
+                                            findFixHelp project fixablePredicate restOfErrors
 
-                ( Just fixes, Review.Error.ElmJson ) ->
-                    case Review.Project.elmJson project of
-                        Nothing ->
-                            findFixHelp project restOfErrors
+                                        Just { source, ast } ->
+                                            Just
+                                                { project = Review.Project.addParsedModule { path = headError.filePath, source = source, ast = ast } project
+                                                , fixedFile = FixedElmModule { source = source, ast = ast }
+                                                , error = errorToReviewError (Error headError)
+                                                }
 
-                        Just elmJson ->
-                            case InternalFix.fixElmJson fixes elmJson.raw of
+                        Review.Error.ElmJson ->
+                            case Review.Project.elmJson project of
                                 Nothing ->
-                                    findFixHelp project restOfErrors
+                                    findFixHelp project fixablePredicate restOfErrors
 
-                                Just fixResult ->
-                                    -- TODO Don't apply the fix dependencies are added, or source-directories are changed
-                                    -- TODO Remove dependencies if there are less dependencies
-                                    Just
-                                        { project = Review.Project.addElmJson { path = elmJson.path, raw = fixResult.raw, project = fixResult.project } project
-                                        , fixedFile = FixedElmJson
-                                        , error = errorToReviewError (Error headError)
-                                        }
+                                Just elmJson ->
+                                    case InternalFix.fixElmJson fixes elmJson.raw of
+                                        Nothing ->
+                                            findFixHelp project fixablePredicate restOfErrors
 
-                ( Just fixes, Review.Error.Readme ) ->
-                    case Review.Project.readme project of
-                        Nothing ->
-                            findFixHelp project restOfErrors
+                                        Just fixResult ->
+                                            -- TODO Don't apply the fix dependencies are added, or source-directories are changed
+                                            -- TODO Remove dependencies if there are less dependencies
+                                            Just
+                                                { project = Review.Project.addElmJson { path = elmJson.path, raw = fixResult.raw, project = fixResult.project } project
+                                                , fixedFile = FixedElmJson
+                                                , error = errorToReviewError (Error headError)
+                                                }
 
-                        Just readme ->
-                            case InternalFix.fixReadme fixes readme.content of
+                        Review.Error.Readme ->
+                            case Review.Project.readme project of
                                 Nothing ->
-                                    findFixHelp project restOfErrors
+                                    findFixHelp project fixablePredicate restOfErrors
 
-                                Just content ->
-                                    Just
-                                        { project = Review.Project.addReadme { path = readme.path, content = content } project
-                                        , fixedFile = FixedReadme
-                                        , error = errorToReviewError (Error headError)
-                                        }
+                                Just readme ->
+                                    case InternalFix.fixReadme fixes readme.content of
+                                        Nothing ->
+                                            findFixHelp project fixablePredicate restOfErrors
 
-                _ ->
-                    findFixHelp project restOfErrors
+                                        Just content ->
+                                            Just
+                                                { project = Review.Project.addReadme { path = readme.path, content = content } project
+                                                , fixedFile = FixedReadme
+                                                , error = errorToReviewError (Error headError)
+                                                }
+
+                        _ ->
+                            findFixHelp project fixablePredicate restOfErrors
+
+
+isFixable : (String -> Bool) -> InternalError -> Maybe (List Fix)
+isFixable predicate { fixes, filePath } =
+    case fixes of
+        Just _ ->
+            -- It's cheaper to check for fixes first and also quite likely to return Nothing
+            -- so we do the fixes check first.
+            if predicate filePath then
+                fixes
+
+            else
+                Nothing
+
+        Nothing ->
+            Nothing
 
 
 visitModuleForProjectRule : RunnableModuleVisitor moduleContext -> moduleContext -> ProjectModule -> ( List (Error {}), moduleContext )

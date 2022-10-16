@@ -1,7 +1,7 @@
 module Review.Options exposing
     ( ReviewOptions
     , defaults
-    , withDataExtraction, withLogger, withFixAll
+    , withDataExtraction, withLogger, withFixAll, withSuppressedErrors
     )
 
 {-| Configure how `elm-review` runs.
@@ -11,10 +11,11 @@ process like the CLI.
 
 @docs ReviewOptions
 @docs defaults
-@docs withDataExtraction, withLogger, withFixAll
+@docs withDataExtraction, withLogger, withFixAll, withSuppressedErrors
 
 -}
 
+import Dict exposing (Dict)
 import Review.Logger as Logger
 import Review.Options.Internal exposing (ReviewOptionsInternal(..))
 
@@ -36,6 +37,7 @@ defaults =
         { extract = False
         , logger = Logger.none
         , fixAll = False
+        , suppressions = Dict.empty
         }
 
 
@@ -67,3 +69,10 @@ withLogger maybeLogger (ReviewOptionsInternal reviewOptions) =
 withFixAll : Bool -> ReviewOptions -> ReviewOptions
 withFixAll enableFixAll (ReviewOptionsInternal reviewOptions) =
     ReviewOptionsInternal { reviewOptions | fixAll = enableFixAll }
+
+
+{-| Add suppressions from the suppressed folder.
+-}
+withSuppressedErrors : Dict ( String, String ) Int -> ReviewOptions -> ReviewOptions
+withSuppressedErrors suppressions (ReviewOptionsInternal reviewOptions) =
+    ReviewOptionsInternal { reviewOptions | suppressions = suppressions }

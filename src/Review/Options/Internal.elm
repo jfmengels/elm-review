@@ -1,5 +1,6 @@
-module Review.Options.Internal exposing (ReviewOptionsData, ReviewOptionsInternal(..))
+module Review.Options.Internal exposing (ReviewOptionsData, ReviewOptionsInternal(..), shouldFindFix)
 
+import Dict exposing (Dict)
 import Review.Logger exposing (Logger)
 
 
@@ -11,4 +12,18 @@ type alias ReviewOptionsData =
     { extract : Bool
     , logger : Logger
     , fixAll : Bool
+    , suppressions : Dict ( String, String ) Int
     }
+
+
+shouldFindFix : String -> ReviewOptionsData -> Maybe (String -> Bool)
+shouldFindFix ruleName reviewOptionsData =
+    if reviewOptionsData.fixAll then
+        if Dict.isEmpty reviewOptionsData.suppressions then
+            Just (always True)
+
+        else
+            Just (\filePath -> not (Dict.member ( ruleName, filePath ) reviewOptionsData.suppressions))
+
+    else
+        Nothing
