@@ -5,17 +5,18 @@ import Review.Error exposing (ReviewError)
 
 
 type FixedErrors
-    = FixedErrors (Dict String (List ReviewError))
+    = FixedErrors Int (Dict String (List ReviewError))
 
 
 empty : FixedErrors
 empty =
-    FixedErrors Dict.empty
+    FixedErrors 0 Dict.empty
 
 
 insert : ReviewError -> FixedErrors -> FixedErrors
-insert ((Review.Error.ReviewError { filePath }) as error) (FixedErrors fixedErrors) =
+insert ((Review.Error.ReviewError { filePath }) as error) (FixedErrors count fixedErrors) =
     FixedErrors
+        (count + 1)
         (Dict.update
             filePath
             (\errors -> Just (error :: Maybe.withDefault [] errors))
@@ -24,5 +25,5 @@ insert ((Review.Error.ReviewError { filePath }) as error) (FixedErrors fixedErro
 
 
 hasChanged : FixedErrors -> FixedErrors -> Bool
-hasChanged (FixedErrors before) (FixedErrors after) =
-    before /= after
+hasChanged (FixedErrors beforeCount _) (FixedErrors afterCount _) =
+    beforeCount /= afterCount
