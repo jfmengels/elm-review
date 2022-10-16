@@ -785,7 +785,7 @@ runRulesHelp reviewOptions remainingRules acc =
             if reviewOptions.fixAll && result.fixedErrors /= acc.fixedErrors then
                 runRulesHelp
                     reviewOptions
-                    (acc.rules ++ restOfRules)
+                    (List.reverse acc.rules ++ restOfRules)
                     { errors = ListExtra.orderIndependentMapAppend errorToReviewError result.errors acc.errors
                     , fixedErrors = result.fixedErrors
                     , rules = [ result.rule ]
