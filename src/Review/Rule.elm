@@ -4584,7 +4584,7 @@ computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project in
                         }
                 in
                 if reviewOptions.fixAll then
-                    case findFix (fixableFilesInProject project) errors project of
+                    case findFix project errors of
                         Just fixResult ->
                             { project = fixResult.project
 
@@ -4777,7 +4777,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                     }
             in
             if reviewOptions.fixAll then
-                case findFix (fixableFilesInProject newProject) errors newProject of
+                case findFix newProject errors of
                     Just fixResult ->
                         case fixResult.fixedFile of
                             FixedElmModule { source, ast } ->
@@ -4991,42 +4991,14 @@ getFolderFromTraversal traversalAndFolder =
             Just folder
 
 
-fixableFilesInProject : Project -> Dict String { path : String, source : String }
-fixableFilesInProject project =
-    -- TODO Insert each element in dict directly, or avoid constructing this dict.
-    let
-        elmJson : { path : String, source : String }
-        elmJson =
-            Review.Project.elmJson project
-                |> Maybe.map (\r -> { path = r.path, source = r.raw })
-                |> Maybe.withDefault { path = "$$Not a valid module name$$", source = "" }
-
-        readme : { path : String, source : String }
-        readme =
-            Review.Project.readme project
-                |> Maybe.map (\r -> { path = r.path, source = r.content })
-                |> Maybe.withDefault { path = "$$Not a valid module name$$", source = "" }
-
-        moduleFiles : List ( String, { path : String, source : String } )
-        moduleFiles =
-            Review.Project.modules project
-                |> List.map (\module_ -> ( module_.path, { path = module_.path, source = module_.source } ))
-    in
-    Dict.fromList (( elmJson.path, elmJson ) :: ( readme.path, readme ) :: moduleFiles)
-
-
 type FixedFile
     = FixedElmModule { source : String, ast : File }
     | FixedElmJson
     | FixedReadme
 
 
-findFix :
-    Dict String { path : String, source : String }
-    -> List (Error a)
-    -> Project
-    -> Maybe { project : Project, fixedFile : FixedFile, error : ReviewError }
-findFix files errors project =
+findFix : Project -> List (Error a) -> Maybe { project : Project, fixedFile : FixedFile, error : ReviewError }
+findFix project errors =
     case errors of
         [] ->
             Nothing
@@ -5034,14 +5006,14 @@ findFix files errors project =
         (Error headError) :: restOfErrors ->
             case ( headError.fixes, headError.target ) of
                 ( Just fixes, Review.Error.Module ) ->
-                    case Dict.get headError.filePath files of
+                    case Review.Project.Internal.getModuleByPath headError.filePath project of
                         Nothing ->
-                            findFix files restOfErrors project
+                            findFix project restOfErrors
 
                         Just file ->
                             case InternalFix.fixModule fixes file.source of
                                 Nothing ->
-                                    findFix files restOfErrors project
+                                    findFix project restOfErrors
 
                                 Just { source, ast } ->
                                     Just
@@ -5053,12 +5025,12 @@ findFix files errors project =
                 ( Just fixes, Review.Error.ElmJson ) ->
                     case Review.Project.elmJson project of
                         Nothing ->
-                            findFix files restOfErrors project
+                            findFix project restOfErrors
 
                         Just elmJson ->
                             case InternalFix.fixElmJson fixes elmJson.raw of
                                 Nothing ->
-                                    findFix files restOfErrors project
+                                    findFix project restOfErrors
 
                                 Just fixResult ->
                                     -- TODO Don't apply the fix dependencies are added, or source-directories are changed
@@ -5072,12 +5044,12 @@ findFix files errors project =
                 ( Just fixes, Review.Error.Readme ) ->
                     case Review.Project.readme project of
                         Nothing ->
-                            findFix files restOfErrors project
+                            findFix project restOfErrors
 
                         Just readme ->
                             case InternalFix.fixReadme fixes readme.content of
                                 Nothing ->
-                                    findFix files restOfErrors project
+                                    findFix project restOfErrors
 
                                 Just content ->
                                     Just
@@ -5087,7 +5059,7 @@ findFix files errors project =
                                         }
 
                 _ ->
-                    findFix files restOfErrors project
+                    findFix project restOfErrors
 
 
 visitModuleForProjectRule : RunnableModuleVisitor moduleContext -> moduleContext -> ProjectModule -> ( List (Error {}), moduleContext )

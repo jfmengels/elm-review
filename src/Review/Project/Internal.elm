@@ -5,6 +5,7 @@ module Review.Project.Internal exposing
     , ProjectModule
     , buildModuleGraph
     , emptyDataCache
+    , getModuleByPath
     , moduleGraph
     , sourceDirectories
     )
@@ -67,6 +68,11 @@ type alias ProjectModule =
     , ast : Elm.Syntax.File.File
     , isInSourceDirectories : Bool
     }
+
+
+getModuleByPath : String -> Project -> Maybe ProjectModule
+getModuleByPath path (Project project) =
+    Dict.get path project.modules
 
 
 {-| Get the module graph for the project in the form of a
