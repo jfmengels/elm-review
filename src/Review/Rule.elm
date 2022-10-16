@@ -299,7 +299,7 @@ import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
 import Review.Fix as Fix exposing (Fix)
-import Review.Fix.FixedErrors exposing (FixedErrors)
+import Review.Fix.FixedErrors as FixedErrors exposing (FixedErrors)
 import Review.Fix.Internal as InternalFix
 import Review.ImportCycle as ImportCycle
 import Review.Logger as Logger
@@ -4600,7 +4600,7 @@ computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project in
 
                                 FixedReadme ->
                                     Readme
-                        , fixedErrors = insertFixedError fixResult.error fixedErrors
+                        , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
                         }
 
                     Nothing ->
@@ -4784,7 +4784,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                                     projectContext
                                     (Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = module_.path }) fixResult.project)
                                     moduleZipper_
-                                    (insertFixedError fixResult.error fixedErrors_)
+                                    (FixedErrors.insert fixResult.error fixedErrors_)
 
                             else
                                 let
@@ -4797,7 +4797,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                                         { project = fixResult.project
                                         , analysis = analysis ()
                                         , nextStep = ModuleVisitStep (Just newModuleZipper)
-                                        , fixedErrors = insertFixedError fixResult.error fixedErrors_
+                                        , fixedErrors = FixedErrors.insert fixResult.error fixedErrors_
                                         }
                                             |> Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = errorFilePath fixResult.error })
 
@@ -4808,14 +4808,14 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                             { project = fixResult.project
                             , analysis = analysis ()
                             , nextStep = BackToElmJson
-                            , fixedErrors = insertFixedError fixResult.error fixedErrors_
+                            , fixedErrors = FixedErrors.insert fixResult.error fixedErrors_
                             }
 
                         FixedReadme ->
                             { project = fixResult.project
                             , analysis = analysis ()
                             , nextStep = BackToReadme
-                            , fixedErrors = insertFixedError fixResult.error fixedErrors_
+                            , fixedErrors = FixedErrors.insert fixResult.error fixedErrors_
                             }
 
                 Nothing ->
@@ -4826,14 +4826,6 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
             computeProjectContext projectVisitor.traversalAndFolder graph cache modules incoming initialProjectContext
     in
     runThroughModules computeProjectContext_ computeModule modules (Just moduleZipper) project newStartCache fixedErrors
-
-
-insertFixedError : ReviewError -> Dict String (List ReviewError) -> Dict String (List ReviewError)
-insertFixedError error_ fixedErrors_ =
-    Dict.update
-        (errorFilePath error_)
-        (\errors -> Just (error_ :: Maybe.withDefault [] errors))
-        fixedErrors_
 
 
 runThroughModules :
