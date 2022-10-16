@@ -783,7 +783,7 @@ runRulesHelp reviewOptions remainingRules acc =
                         Nothing ->
                             acc.extracts
             in
-            if reviewOptions.fixAll && result.fixedErrors /= acc.fixedErrors then
+            if FixedErrors.hasChanged result.fixedErrors acc.fixedErrors then
                 runRulesHelp
                     reviewOptions
                     (List.reverse acc.rules ++ restOfRules)
