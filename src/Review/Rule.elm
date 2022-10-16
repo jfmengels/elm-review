@@ -4583,31 +4583,27 @@ computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project in
                         , fixedErrors = fixedErrors
                         }
                 in
-                if reviewOptions.fixAll then
-                    case findFix project errors of
-                        Just fixResult ->
-                            { project = fixResult.project
+                case findFix reviewOptions project errors of
+                    Just fixResult ->
+                        { project = fixResult.project
 
-                            -- Unnecessary to cache the final evaluation errors, since we'll end up with a different project context next time
-                            , cache = cache
-                            , nextStep =
-                                case fixResult.fixedFile of
-                                    FixedElmModule { ast } ->
-                                        Modules (Just (Module.moduleName (Node.value ast.moduleDefinition)))
+                        -- Unnecessary to cache the final evaluation errors, since we'll end up with a different project context next time
+                        , cache = cache
+                        , nextStep =
+                            case fixResult.fixedFile of
+                                FixedElmModule { ast } ->
+                                    Modules (Just (Module.moduleName (Node.value ast.moduleDefinition)))
 
-                                    FixedElmJson ->
-                                        ElmJson
+                                FixedElmJson ->
+                                    ElmJson
 
-                                    FixedReadme ->
-                                        Readme
-                            , fixedErrors = insertFixedError fixResult.error fixedErrors
-                            }
+                                FixedReadme ->
+                                    Readme
+                        , fixedErrors = insertFixedError fixResult.error fixedErrors
+                        }
 
-                        Nothing ->
-                            resultWhenNoFix ()
-
-                else
-                    resultWhenNoFix ()
+                    Nothing ->
+                        resultWhenNoFix ()
 
 
 reuseProjectRuleCache : (b -> Bool) -> (ProjectRuleCache a -> Maybe b) -> ProjectRuleCache a -> Maybe b
@@ -4776,57 +4772,53 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                     , fixedErrors = fixedErrors_
                     }
             in
-            if reviewOptions.fixAll then
-                case findFix newProject errors of
-                    Just fixResult ->
-                        case fixResult.fixedFile of
-                            FixedElmModule { source, ast } ->
-                                -- TODO If the imports have changed (added imports), then maybe we should re-order the graph based on the project?
-                                if module_.path == errorFilePath fixResult.error then
-                                    computeModule
-                                        { module_ | source = source, ast = ast }
-                                        projectContext
-                                        (Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = module_.path }) fixResult.project)
-                                        moduleZipper_
-                                        (insertFixedError fixResult.error fixedErrors_)
+            case findFix reviewOptions newProject errors of
+                Just fixResult ->
+                    case fixResult.fixedFile of
+                        FixedElmModule { source, ast } ->
+                            -- TODO If the imports have changed (added imports), then maybe we should re-order the graph based on the project?
+                            if module_.path == errorFilePath fixResult.error then
+                                computeModule
+                                    { module_ | source = source, ast = ast }
+                                    projectContext
+                                    (Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = module_.path }) fixResult.project)
+                                    moduleZipper_
+                                    (insertFixedError fixResult.error fixedErrors_)
 
-                                else
-                                    let
-                                        fixedModuleName : ModuleName
-                                        fixedModuleName =
-                                            Module.moduleName (Node.value ast.moduleDefinition)
-                                    in
-                                    case Zipper.focusl (\mod -> mod.node.label == fixedModuleName) moduleZipper_ of
-                                        Just newModuleZipper ->
-                                            { project = fixResult.project
-                                            , analysis = analysis ()
-                                            , nextStep = ModuleVisitStep (Just newModuleZipper)
-                                            , fixedErrors = insertFixedError fixResult.error fixedErrors_
-                                            }
-                                                |> Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = errorFilePath fixResult.error })
+                            else
+                                let
+                                    fixedModuleName : ModuleName
+                                    fixedModuleName =
+                                        Module.moduleName (Node.value ast.moduleDefinition)
+                                in
+                                case Zipper.focusl (\mod -> mod.node.label == fixedModuleName) moduleZipper_ of
+                                    Just newModuleZipper ->
+                                        { project = fixResult.project
+                                        , analysis = analysis ()
+                                        , nextStep = ModuleVisitStep (Just newModuleZipper)
+                                        , fixedErrors = insertFixedError fixResult.error fixedErrors_
+                                        }
+                                            |> Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = errorFilePath fixResult.error })
 
-                                        Nothing ->
-                                            resultWhenNoFix ()
+                                    Nothing ->
+                                        resultWhenNoFix ()
 
-                            FixedElmJson ->
-                                { project = fixResult.project
-                                , analysis = analysis ()
-                                , nextStep = BackToElmJson
-                                , fixedErrors = insertFixedError fixResult.error fixedErrors_
-                                }
+                        FixedElmJson ->
+                            { project = fixResult.project
+                            , analysis = analysis ()
+                            , nextStep = BackToElmJson
+                            , fixedErrors = insertFixedError fixResult.error fixedErrors_
+                            }
 
-                            FixedReadme ->
-                                { project = fixResult.project
-                                , analysis = analysis ()
-                                , nextStep = BackToReadme
-                                , fixedErrors = insertFixedError fixResult.error fixedErrors_
-                                }
+                        FixedReadme ->
+                            { project = fixResult.project
+                            , analysis = analysis ()
+                            , nextStep = BackToReadme
+                            , fixedErrors = insertFixedError fixResult.error fixedErrors_
+                            }
 
-                    Nothing ->
-                        resultWhenNoFix ()
-
-            else
-                resultWhenNoFix ()
+                Nothing ->
+                    resultWhenNoFix ()
 
         computeProjectContext_ : Dict String (CacheEntry projectContext) -> Graph.Adjacency () -> projectContext
         computeProjectContext_ cache incoming =
@@ -4997,8 +4989,17 @@ type FixedFile
     | FixedReadme
 
 
-findFix : Project -> List (Error a) -> Maybe { project : Project, fixedFile : FixedFile, error : ReviewError }
-findFix project errors =
+findFix : ReviewOptionsData -> Project -> List (Error a) -> Maybe { project : Project, fixedFile : FixedFile, error : ReviewError }
+findFix reviewOptions project errors =
+    if reviewOptions.fixAll then
+        findFixHelp project errors
+
+    else
+        Nothing
+
+
+findFixHelp : Project -> List (Error a) -> Maybe { project : Project, fixedFile : FixedFile, error : ReviewError }
+findFixHelp project errors =
     case errors of
         [] ->
             Nothing
@@ -5008,12 +5009,12 @@ findFix project errors =
                 ( Just fixes, Review.Error.Module ) ->
                     case Review.Project.Internal.getModuleByPath headError.filePath project of
                         Nothing ->
-                            findFix project restOfErrors
+                            findFixHelp project restOfErrors
 
                         Just file ->
                             case InternalFix.fixModule fixes file.source of
                                 Nothing ->
-                                    findFix project restOfErrors
+                                    findFixHelp project restOfErrors
 
                                 Just { source, ast } ->
                                     Just
@@ -5025,12 +5026,12 @@ findFix project errors =
                 ( Just fixes, Review.Error.ElmJson ) ->
                     case Review.Project.elmJson project of
                         Nothing ->
-                            findFix project restOfErrors
+                            findFixHelp project restOfErrors
 
                         Just elmJson ->
                             case InternalFix.fixElmJson fixes elmJson.raw of
                                 Nothing ->
-                                    findFix project restOfErrors
+                                    findFixHelp project restOfErrors
 
                                 Just fixResult ->
                                     -- TODO Don't apply the fix dependencies are added, or source-directories are changed
@@ -5044,12 +5045,12 @@ findFix project errors =
                 ( Just fixes, Review.Error.Readme ) ->
                     case Review.Project.readme project of
                         Nothing ->
-                            findFix project restOfErrors
+                            findFixHelp project restOfErrors
 
                         Just readme ->
                             case InternalFix.fixReadme fixes readme.content of
                                 Nothing ->
-                                    findFix project restOfErrors
+                                    findFixHelp project restOfErrors
 
                                 Just content ->
                                     Just
@@ -5059,7 +5060,7 @@ findFix project errors =
                                         }
 
                 _ ->
-                    findFix project restOfErrors
+                    findFixHelp project restOfErrors
 
 
 visitModuleForProjectRule : RunnableModuleVisitor moduleContext -> moduleContext -> ProjectModule -> ( List (Error {}), moduleContext )
