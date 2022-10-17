@@ -1483,7 +1483,7 @@ checkDetailsAreCorrect error_ (ExpectedError expectedError) =
 
 
 checkFixesAreCorrect : RuleCanProvideFixes -> CodeInspector -> ReviewError -> ExpectedError -> Expectation
-checkFixesAreCorrect ruleCanProvideFixes codeInspector ((Error.ReviewError err) as error_) ((ExpectedError expectedError_) as expectedError) =
+checkFixesAreCorrect (RuleCanProvideFixes ruleCanProvideFixes) codeInspector ((Error.ReviewError err) as error_) ((ExpectedError expectedError_) as expectedError) =
     case ( expectedError_.fixedSource, err.fixes ) of
         ( Nothing, Nothing ) ->
             Expect.pass
@@ -1500,7 +1500,11 @@ checkFixesAreCorrect ruleCanProvideFixes codeInspector ((Error.ReviewError err) 
             case Fix.fix err.target fixes codeInspector.source of
                 Fix.Successful fixedSource ->
                     if fixedSource == expectedFixedSource then
-                        Expect.pass
+                        if ruleCanProvideFixes then
+                            Expect.pass
+
+                        else
+                            Expect.fail FailureMessage.ruleNotMarkedAsFixableError
 
                     else if removeWhitespace fixedSource == removeWhitespace expectedFixedSource then
                         Expect.fail <| FailureMessage.fixedCodeWhitespaceMismatch fixedSource expectedFixedSource error_
