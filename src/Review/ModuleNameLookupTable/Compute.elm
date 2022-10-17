@@ -172,7 +172,7 @@ computeDependencies : Project -> Dict ModuleName Elm.Docs.Module
 computeDependencies project =
     project
         |> Review.Project.directDependencies
-        |> Dict.foldl (\_ dep acc -> ListExtra.orderIndependentAppend (Review.Project.Dependency.modules dep) acc) []
+        |> Dict.foldl (\_ dep acc -> List.append (Review.Project.Dependency.modules dep) acc) []
         |> List.foldl (\dependencyModule acc -> Dict.insert (String.split "." dependencyModule.name) dependencyModule acc) Dict.empty
 
 
@@ -460,7 +460,7 @@ registerExposedCustomType constructors name innerContext =
             , tags =
                 constructors
                     -- TODO Constructor args?
-                    |> ListExtra.orderIndependentMap (\constructor -> ( Node.value (Node.value constructor).name, [] ))
+                    |> List.map (\constructor -> ( Node.value (Node.value constructor).name, [] ))
             }
                 :: innerContext.exposedUnions
     }
@@ -868,7 +868,7 @@ collectNamesFromPattern variableType patternsToVisit acc =
                         )
 
                 Pattern.NamedPattern _ subPatterns ->
-                    collectNamesFromPattern variableType (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit) acc
+                    collectNamesFromPattern variableType (List.append subPatterns restOfPatternsToVisit) acc
 
                 Pattern.RecordPattern names ->
                     collectNamesFromPattern variableType
@@ -901,13 +901,13 @@ collectNamesFromPattern variableType patternsToVisit acc =
                         )
 
                 Pattern.TuplePattern subPatterns ->
-                    collectNamesFromPattern variableType (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit) acc
+                    collectNamesFromPattern variableType (List.append subPatterns restOfPatternsToVisit) acc
 
                 Pattern.UnConsPattern left right ->
                     collectNamesFromPattern variableType (left :: right :: restOfPatternsToVisit) acc
 
                 Pattern.ListPattern subPatterns ->
-                    collectNamesFromPattern variableType (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit) acc
+                    collectNamesFromPattern variableType (List.append subPatterns restOfPatternsToVisit) acc
 
                 _ ->
                     collectNamesFromPattern variableType restOfPatternsToVisit acc
@@ -924,14 +924,14 @@ collectModuleNamesFromPattern context patternsToVisit acc =
                 Pattern.NamedPattern { moduleName, name } subPatterns ->
                     collectModuleNamesFromPattern
                         context
-                        (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit)
+                        (List.append subPatterns restOfPatternsToVisit)
                         (ModuleNameLookupTableInternal.add (Node.range pattern) (moduleNameForValue context name moduleName) acc)
 
                 Pattern.UnConsPattern left right ->
                     collectModuleNamesFromPattern context (left :: right :: restOfPatternsToVisit) acc
 
                 Pattern.TuplePattern subPatterns ->
-                    collectModuleNamesFromPattern context (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit) acc
+                    collectModuleNamesFromPattern context (List.append subPatterns restOfPatternsToVisit) acc
 
                 Pattern.ParenthesizedPattern subPattern ->
                     collectModuleNamesFromPattern context (subPattern :: restOfPatternsToVisit) acc
@@ -940,7 +940,7 @@ collectModuleNamesFromPattern context patternsToVisit acc =
                     collectModuleNamesFromPattern context (subPattern :: restOfPatternsToVisit) acc
 
                 Pattern.ListPattern subPatterns ->
-                    collectModuleNamesFromPattern context (ListExtra.orderIndependentAppend subPatterns restOfPatternsToVisit) acc
+                    collectModuleNamesFromPattern context (List.append subPatterns restOfPatternsToVisit) acc
 
                 _ ->
                     collectModuleNamesFromPattern context restOfPatternsToVisit acc
@@ -1115,13 +1115,13 @@ collectModuleNamesFromTypeAnnotation context typeAnnotationsToVisit acc =
                 TypeAnnotation.Typed (Node range ( moduleName, name )) args ->
                     collectModuleNamesFromTypeAnnotation
                         context
-                        (ListExtra.orderIndependentAppend args remainingTypeAnnotationsToVisit)
+                        (List.append args remainingTypeAnnotationsToVisit)
                         (ModuleNameLookupTableInternal.add range (moduleNameForType context name moduleName) acc)
 
                 TypeAnnotation.Tupled nodes ->
                     collectModuleNamesFromTypeAnnotation
                         context
-                        (ListExtra.orderIndependentAppend nodes remainingTypeAnnotationsToVisit)
+                        (List.append nodes remainingTypeAnnotationsToVisit)
                         acc
 
                 TypeAnnotation.Record fields ->
