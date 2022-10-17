@@ -46,6 +46,7 @@ rule : Rule
 rule =
     Rule.newModuleRuleSchema "NoRedundantConcat" ()
         |> Rule.withSimpleExpressionVisitor expressionVisitor
+        |> Rule.providesFixesForModuleRule
         |> Rule.fromModuleRuleSchema
 
 

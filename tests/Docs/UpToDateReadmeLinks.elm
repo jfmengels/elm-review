@@ -54,6 +54,7 @@ rule =
     Rule.newProjectRuleSchema "Docs.UpToDateReadmeLinks" initialProjectContext
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
         |> Rule.withReadmeProjectVisitor readmeVisitor
+        |> Rule.providesFixesForProjectRule
         |> Rule.fromProjectRuleSchema
 
 

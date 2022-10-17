@@ -78,6 +78,7 @@ rule =
         |> Rule.withExpressionExitVisitor expressionExitVisitor
         |> Rule.withLetDeclarationEnterVisitor letDeclarationEnterVisitor
         |> Rule.withLetDeclarationExitVisitor letDeclarationExitVisitor
+        |> Rule.providesFixesForModuleRule
         |> Rule.fromModuleRuleSchema
 
 

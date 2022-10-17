@@ -68,6 +68,7 @@ rule : Rule
 rule =
     Rule.newModuleRuleSchemaUsingContextCreator "NoDebug.Log" initContext
         |> Rule.withExpressionEnterVisitor expressionVisitor
+        |> Rule.providesFixesForModuleRule
         |> Rule.fromModuleRuleSchema
 
 
