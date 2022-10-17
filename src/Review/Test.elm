@@ -460,7 +460,7 @@ runOnModulesWithProjectDataHelp project rule sources =
                                             |> List.filter (\error_ -> Rule.errorTarget error_ == Error.UserGlobal)
                                             |> List.map (\error_ -> { message = Rule.errorMessage error_, details = Rule.errorDetails error_ })
                                 in
-                                SuccessfulRun (RuleCanProvideFixes {- TODO -} True) foundGlobalErrors fileErrors extract
+                                SuccessfulRun (RuleCanProvideFixes (Rule.ruleProvidesFixes rule)) foundGlobalErrors fileErrors extract
 
 
 hasOneElement : List a -> Bool

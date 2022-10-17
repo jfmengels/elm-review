@@ -23,7 +23,7 @@ module Review.Rule exposing
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , reviewV3, reviewV2, review, ProjectData, ruleName, ruleExtractsData, getConfigurationError
     , Required, Forbidden
-    , providesFixesForModuleRule, providesFixesForProjectRule
+    , providesFixesForModuleRule, providesFixesForProjectRule, ruleProvidesFixes
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -869,6 +869,9 @@ ruleExtractsData (Rule rule) =
 
 
 {-| Indicates whether the rule provides fixes.
+
+You should not have to use this when writing a rule.
+
 -}
 ruleProvidesFixes : Rule -> Bool
 ruleProvidesFixes (Rule rule) =
