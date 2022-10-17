@@ -151,7 +151,7 @@ tryToApplyFix fixes sourceCode =
 containRangeCollisions : List Fix -> Bool
 containRangeCollisions fixes =
     fixes
-        |> ListExtra.orderIndependentMap getFixRange
+        |> List.map getFixRange
         |> ListExtra.anyCombination collide
 
 

@@ -454,7 +454,7 @@ review rules project =
                             ( runRulesResult.errors, runRulesResult.rules )
 
         modulesThatFailedToParse ->
-            ( ListExtra.orderIndependentMap parsingError modulesThatFailedToParse, rules )
+            ( List.map parsingError modulesThatFailedToParse, rules )
 
 
 {-| Review a project and gives back the errors raised by the given rules.
@@ -608,7 +608,7 @@ checkForConfigurationErrors rules =
     let
         errors : List ReviewError
         errors =
-            ListExtra.orderIndependentFilterMap
+            List.filterMap
                 (\rule ->
                     Maybe.map
                         (\{ message, details } ->
@@ -641,7 +641,7 @@ checkForModulesThatFailedToParse project =
             Ok ()
 
         modulesThatFailedToParse ->
-            Err (ListExtra.orderIndependentMap parsingError modulesThatFailedToParse)
+            Err (List.map parsingError modulesThatFailedToParse)
 
 
 checkForDuplicateModules : Project -> Result (List ReviewError) ()
@@ -1960,7 +1960,7 @@ withFinalProjectEvaluation visitor (ProjectRuleSchema schema) =
         removeErrorPhantomTypeFromEvaluation : projectContext -> List (Error {})
         removeErrorPhantomTypeFromEvaluation projectContext =
             visitor projectContext
-                |> ListExtra.orderIndependentMap removeErrorPhantomType
+                |> List.map removeErrorPhantomType
     in
     ProjectRuleSchema { schema | finalEvaluationFns = removeErrorPhantomTypeFromEvaluation :: schema.finalEvaluationFns }
 
@@ -1982,7 +1982,7 @@ withDataExtractor dataExtractor (ProjectRuleSchema schema) =
 removeErrorPhantomTypeFromVisitor : (element -> projectContext -> ( List (Error b), projectContext )) -> (element -> projectContext -> ( List (Error {}), projectContext ))
 removeErrorPhantomTypeFromVisitor function element projectContext =
     function element projectContext
-        |> Tuple.mapFirst (ListExtra.orderIndependentMap removeErrorPhantomType)
+        |> Tuple.mapFirst (List.map removeErrorPhantomType)
 
 
 {-| Allows the rule to have access to the context of the modules imported by the
@@ -4230,8 +4230,8 @@ setRuleName ruleName_ error_ =
 
 errorsFromCache : ProjectRuleCache projectContext -> List (Error {})
 errorsFromCache cache =
-    ListExtra.orderIndependentConcat
-        [ Dict.foldl (\_ cacheEntry acc -> ListExtra.orderIndependentAppend cacheEntry.errors acc) [] cache.moduleContexts
+    List.concat
+        [ Dict.foldl (\_ cacheEntry acc -> List.append cacheEntry.errors acc) [] cache.moduleContexts
         , Maybe.map .errors cache.elmJson |> Maybe.withDefault []
         , Maybe.map .errors cache.readme |> Maybe.withDefault []
         , Maybe.map .errors cache.dependencies |> Maybe.withDefault []
@@ -4579,7 +4579,7 @@ computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project in
                 let
                     errors : List (Error {})
                     errors =
-                        ListExtra.orderIndependentConcatMap
+                        List.concatMap
                             (\finalEvaluationFn ->
                                 finalEvaluationFn finalContext
                                     |> filterExceptionsAndSetName exceptions projectVisitor.name
@@ -4758,7 +4758,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                 errors : List (Error {})
                 errors =
                     moduleErrors
-                        |> ListExtra.orderIndependentMap (setFilePathIfUnset module_)
+                        |> List.map (setFilePathIfUnset module_)
                         |> filterExceptionsAndSetName exceptions projectVisitor.name
 
                 analysis : () -> CacheEntry projectContext
@@ -5619,7 +5619,7 @@ accumulate visitor ( previousErrors, previousContext ) =
         ( newErrors, newContext ) =
             visitor previousContext
     in
-    ( ListExtra.orderIndependentAppend newErrors previousErrors, newContext )
+    ( List.append newErrors previousErrors, newContext )
 
 
 
