@@ -11,9 +11,11 @@ module Review.Rule exposing
     , withExpressionEnterVisitor, withExpressionExitVisitor, withExpressionVisitor
     , withCaseBranchEnterVisitor, withCaseBranchExitVisitor
     , withLetDeclarationEnterVisitor, withLetDeclarationExitVisitor
+    , providesFixesForModuleRule
     , withFinalModuleEvaluation
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDirectDependenciesModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
+    , providesFixesForProjectRule
     , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
     , Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
@@ -21,9 +23,8 @@ module Review.Rule exposing
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , withDataExtractor, preventExtract
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
-    , reviewV3, reviewV2, review, ProjectData, ruleName, ruleExtractsData, getConfigurationError
+    , reviewV3, reviewV2, review, ProjectData, ruleName, ruleExtractsData, ruleProvidesFixes, getConfigurationError
     , Required, Forbidden
-    , providesFixesForModuleRule, providesFixesForProjectRule, ruleProvidesFixes
     )
 
 {-| This module contains functions that are used for writing rules.
@@ -203,6 +204,7 @@ Evaluating/visiting a node means two things:
 @docs withExpressionEnterVisitor, withExpressionExitVisitor, withExpressionVisitor
 @docs withCaseBranchEnterVisitor, withCaseBranchExitVisitor
 @docs withLetDeclarationEnterVisitor, withLetDeclarationExitVisitor
+@docs providesFixesForModuleRule
 @docs withFinalModuleEvaluation
 
 
@@ -225,6 +227,7 @@ If you are new to writing rules, I would recommend learning [how to build a modu
 first, as they are in practice a simpler version of project rules.
 
 @docs ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
+@docs providesFixesForProjectRule
 
 
 ## Requesting more information
@@ -272,7 +275,7 @@ reason or seemingly inappropriately.
 
 # Running rules
 
-@docs reviewV3, reviewV2, review, ProjectData, ruleName, ruleExtractsData, getConfigurationError
+@docs reviewV3, reviewV2, review, ProjectData, ruleName, ruleExtractsData, ruleProvidesFixes, getConfigurationError
 
 
 # Internals
@@ -847,6 +850,28 @@ duplicateModuleNames visitedModules projectModules =
                         }
 
 
+{-| Let `elm-review` know that this rule may provide fixes in the reported errors.
+
+This information is hard for `elm-review` to deduce on its own, but can be very useful for improving the performance of
+the tool while running in fix mode.
+
+-}
+providesFixesForModuleRule : ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema schemaState moduleContext
+providesFixesForModuleRule (ModuleRuleSchema moduleRuleSchema) =
+    ModuleRuleSchema { moduleRuleSchema | providesFixes = True }
+
+
+{-| Let `elm-review` know that this rule may provide fixes in the reported errors.
+
+This information is hard for `elm-review` to deduce on its own, but can be very useful for improving the performance of
+the tool while running in fix mode.
+
+-}
+providesFixesForProjectRule : ProjectRuleSchema schemaState projectContext moduleContext -> ProjectRuleSchema schemaState projectContext moduleContext
+providesFixesForProjectRule (ProjectRuleSchema projectRuleSchema) =
+    ProjectRuleSchema { projectRuleSchema | providesFixes = True }
+
+
 {-| Get the name of a rule.
 
 You should not have to use this when writing a rule.
@@ -1127,11 +1152,6 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 |> fromProjectRuleSchema
 
 
-providesFixesForModuleRule : ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema schemaState moduleContext
-providesFixesForModuleRule (ModuleRuleSchema moduleRuleSchema) =
-    ModuleRuleSchema { moduleRuleSchema | providesFixes = True }
-
-
 compactProjectDataVisitors : (rawData -> data) -> List (data -> moduleContext -> moduleContext) -> List (rawData -> moduleContext -> ( List nothing, moduleContext ))
 compactProjectDataVisitors getData visitors =
     if List.isEmpty visitors then
@@ -1269,11 +1289,6 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     project
         , configurationError = Nothing
         }
-
-
-providesFixesForProjectRule : ProjectRuleSchema schemaState projectContext moduleContext -> ProjectRuleSchema schemaState projectContext moduleContext
-providesFixesForProjectRule (ProjectRuleSchema projectRuleSchema) =
-    ProjectRuleSchema { projectRuleSchema | providesFixes = True }
 
 
 emptyCache : ProjectRuleCache projectContext
