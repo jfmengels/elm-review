@@ -96,6 +96,7 @@ rule =
             , fromModuleToProject = fromModuleToProjectContext
             , foldProjectContexts = foldProjectContexts
             }
+        |> Rule.providesFixesForProjectRule
         |> Rule.fromProjectRuleSchema
 
 

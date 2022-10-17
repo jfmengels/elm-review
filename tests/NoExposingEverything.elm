@@ -61,6 +61,7 @@ rule =
     Rule.newModuleRuleSchema "NoExposingEverything" ExposingOk
         |> Rule.withModuleDefinitionVisitor moduleDefinitionVisitor
         |> Rule.withDeclarationListVisitor declarationListVisitor
+        |> Rule.providesFixesForModuleRule
         |> Rule.fromModuleRuleSchema
 
 

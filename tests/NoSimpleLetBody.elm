@@ -81,6 +81,7 @@ rule : Rule
 rule =
     Rule.newModuleRuleSchema "NoSimpleLetBody" ()
         |> Rule.withSimpleExpressionVisitor expressionVisitor
+        |> Rule.providesFixesForModuleRule
         |> Rule.fromModuleRuleSchema
 
 

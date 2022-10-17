@@ -54,6 +54,7 @@ rule : Rule
 rule =
     Rule.newModuleRuleSchemaUsingContextCreator "NoNegationInIfCondition" initialContext
         |> Rule.withExpressionEnterVisitor expressionVisitor
+        |> Rule.providesFixesForModuleRule
         |> Rule.fromModuleRuleSchema
 
 

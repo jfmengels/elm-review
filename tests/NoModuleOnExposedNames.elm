@@ -97,6 +97,7 @@ rule =
             { valueVisitor = valueVisitor
             , typeVisitor = typeVisitor
             }
+        |> Rule.providesFixesForModuleRule
         |> Rule.fromModuleRuleSchema
 
 

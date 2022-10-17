@@ -25,6 +25,7 @@ rule config =
         |> Rule.withImportVisitor (importVisitor options)
         |> NameVisitor.withNameVisitor moduleCallVisitor
         |> Rule.withFinalModuleEvaluation (finalEvaluation options.lookupAlias)
+        |> Rule.providesFixesForModuleRule
         |> Rule.fromModuleRuleSchema
 
 
