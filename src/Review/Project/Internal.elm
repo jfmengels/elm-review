@@ -1,6 +1,7 @@
 module Review.Project.Internal exposing
     ( DataCache
     , ModuleCacheKey
+    , ModuleGraphErrors(..)
     , Project(..)
     , ProjectModule
     , acyclicModuleGraph
@@ -98,7 +99,11 @@ moduleGraph (Project project) =
             buildModuleGraph (Dict.values project.modules)
 
 
-acyclicModuleGraph : Project -> Result (List ModuleName) (Graph.AcyclicGraph ModuleName ())
+type ModuleGraphErrors
+    = ImportCycleError (List ModuleName)
+
+
+acyclicModuleGraph : Project -> Result ModuleGraphErrors (Graph.AcyclicGraph ModuleName ())
 acyclicModuleGraph project =
     let
         graph : Graph ModuleName ()
@@ -110,6 +115,7 @@ acyclicModuleGraph project =
             (\edge ->
                 ImportCycle.findCycle graph edge
                     |> List.reverse
+                    |> ImportCycleError
             )
 
 

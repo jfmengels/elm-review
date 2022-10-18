@@ -440,12 +440,12 @@ review rules project =
 
                 Nothing ->
                     let
-                        moduleGraphResult : Result (List ModuleName) (Graph.AcyclicGraph ModuleName ())
+                        moduleGraphResult : Result Review.Project.Internal.ModuleGraphErrors (Graph.AcyclicGraph ModuleName ())
                         moduleGraphResult =
                             Review.Project.Internal.acyclicModuleGraph project
                     in
                     case moduleGraphResult of
-                        Err cycle ->
+                        Err (Review.Project.Internal.ImportCycleError cycle) ->
                             ( [ importCycleError cycle ], rules )
 
                         Ok _ ->
@@ -659,13 +659,8 @@ checkForDuplicateModules project =
 
 getModulesSortedByImport : Project -> Result (List ReviewError) (Zipper GraphModule)
 getModulesSortedByImport project =
-    let
-        moduleGraphResult : Result (List ModuleName) (Graph.AcyclicGraph ModuleName ())
-        moduleGraphResult =
-            Review.Project.Internal.acyclicModuleGraph project
-    in
-    case moduleGraphResult of
-        Err cycle ->
+    case Review.Project.Internal.acyclicModuleGraph project of
+        Err (Review.Project.Internal.ImportCycleError cycle) ->
             Err [ importCycleError cycle ]
 
         Ok graph ->
