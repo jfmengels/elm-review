@@ -101,31 +101,68 @@ moduleGraph (Project project) =
 
 
 type ModuleGraphErrors
-    = ImportCycleError (List ModuleName)
+    = DuplicateModuleNames { moduleName : ModuleName, paths : List String }
+    | ImportCycleError (List ModuleName)
     | NoModulesError
 
 
 acyclicModuleGraph : Project -> Result ModuleGraphErrors ( Project, Zipper (Graph.NodeContext ModuleName ()) )
 acyclicModuleGraph ((Project p) as project) =
-    let
-        graph : Graph ModuleName ()
-        graph =
-            moduleGraph project
-    in
-    case Graph.checkAcyclic graph of
-        Err edge ->
-            ImportCycle.findCycle graph edge
-                |> List.reverse
-                |> ImportCycleError
-                |> Err
+    case duplicateModuleNames Dict.empty (Dict.values p.modules) of
+        Just duplicate ->
+            Err (DuplicateModuleNames duplicate)
 
-        Ok acyclicGraph ->
-            case Zipper.fromList (Graph.topologicalSort acyclicGraph) of
+        Nothing ->
+            let
+                graph : Graph ModuleName ()
+                graph =
+                    moduleGraph project
+            in
+            case Graph.checkAcyclic graph of
+                Err edge ->
+                    ImportCycle.findCycle graph edge
+                        |> List.reverse
+                        |> ImportCycleError
+                        |> Err
+
+                Ok acyclicGraph ->
+                    case Zipper.fromList (Graph.topologicalSort acyclicGraph) of
+                        Nothing ->
+                            Err NoModulesError
+
+                        Just zipper ->
+                            Ok ( project, zipper )
+
+
+duplicateModuleNames : Dict ModuleName String -> List ProjectModule -> Maybe { moduleName : ModuleName, paths : List String }
+duplicateModuleNames visitedModules projectModules =
+    case projectModules of
+        [] ->
+            Nothing
+
+        projectModule :: restOfModules ->
+            let
+                moduleName : ModuleName
+                moduleName =
+                    getModuleName projectModule
+            in
+            case Dict.get moduleName visitedModules of
                 Nothing ->
-                    Err NoModulesError
+                    duplicateModuleNames
+                        (Dict.insert moduleName projectModule.path visitedModules)
+                        restOfModules
 
-                Just zipper ->
-                    Ok ( project, zipper )
+                Just path ->
+                    Just
+                        { moduleName = moduleName
+                        , paths =
+                            path
+                                :: projectModule.path
+                                :: (restOfModules
+                                        |> List.filter (\p -> getModuleName p == moduleName)
+                                        |> List.map .path
+                                   )
+                        }
 
 
 sourceDirectories : Project -> List String

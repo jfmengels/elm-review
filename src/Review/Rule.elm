@@ -432,35 +432,31 @@ review : List Rule -> Project -> ( List ReviewError, List Rule )
 review rules project =
     case Review.Project.modulesThatFailedToParse project of
         [] ->
-            case Review.Project.modules project |> duplicateModuleNames Dict.empty of
-                Just duplicate ->
-                    ( [ duplicateModulesGlobalError duplicate ]
+            case Review.Project.Internal.acyclicModuleGraph project of
+                Err (Review.Project.Internal.DuplicateModuleNames duplicate) ->
+                    ( [ duplicateModulesGlobalError duplicate ], rules )
+
+                Err (Review.Project.Internal.ImportCycleError cycle) ->
+                    ( [ importCycleError cycle ], rules )
+
+                Err Review.Project.Internal.NoModulesError ->
+                    ( [ elmReviewGlobalError
+                            { message = "This project does not contain any Elm modules"
+                            , details = [ "I need to look at some Elm modules. Maybe you have specified folders that do not exist?" ]
+                            }
+                            |> setRuleName "Incorrect project"
+                            |> errorToReviewError
+                      ]
                     , rules
                     )
 
-                Nothing ->
-                    case Review.Project.Internal.acyclicModuleGraph project of
-                        Err (Review.Project.Internal.ImportCycleError cycle) ->
-                            ( [ importCycleError cycle ], rules )
-
-                        Err Review.Project.Internal.NoModulesError ->
-                            ( [ elmReviewGlobalError
-                                    { message = "This project does not contain any Elm modules"
-                                    , details = [ "I need to look at some Elm modules. Maybe you have specified folders that do not exist?" ]
-                                    }
-                                    |> setRuleName "Incorrect project"
-                                    |> errorToReviewError
-                              ]
-                            , rules
-                            )
-
-                        Ok _ ->
-                            let
-                                runRulesResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
-                                runRulesResult =
-                                    runRules ReviewOptions.defaults rules project
-                            in
-                            ( runRulesResult.errors, runRulesResult.rules )
+                Ok _ ->
+                    let
+                        runRulesResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+                        runRulesResult =
+                            runRules ReviewOptions.defaults rules project
+                    in
+                    ( runRulesResult.errors, runRulesResult.rules )
 
         modulesThatFailedToParse ->
             ( List.map parsingError modulesThatFailedToParse, rules )
@@ -511,7 +507,6 @@ reviewV2 rules maybeProjectData project =
     case
         checkForConfigurationErrors rules
             |> Result.andThen (\() -> checkForModulesThatFailedToParse project)
-            |> Result.andThen (\() -> checkForDuplicateModules project)
             |> Result.andThen (\() -> getModulesSortedByImport project)
     of
         Ok ( newProject, _ ) ->
@@ -587,7 +582,6 @@ reviewV3 reviewOptions rules project =
     case
         checkForConfigurationErrors rules
             |> Result.andThen (\() -> checkForModulesThatFailedToParse project)
-            |> Result.andThen (\() -> checkForDuplicateModules project)
             |> Result.andThen (\() -> getModulesSortedByImport project)
     of
         Ok ( newProject, moduleZipper ) ->
@@ -653,19 +647,12 @@ checkForModulesThatFailedToParse project =
             Err (List.map parsingError modulesThatFailedToParse)
 
 
-checkForDuplicateModules : Project -> Result (List ReviewError) ()
-checkForDuplicateModules project =
-    case Review.Project.modules project |> duplicateModuleNames Dict.empty of
-        Just duplicate ->
-            Err [ duplicateModulesGlobalError duplicate ]
-
-        Nothing ->
-            Ok ()
-
-
 getModulesSortedByImport : Project -> Result (List ReviewError) ( Project, Zipper (Graph.NodeContext ModuleName ()) )
 getModulesSortedByImport project =
     case Review.Project.Internal.acyclicModuleGraph project of
+        Err (Review.Project.Internal.DuplicateModuleNames duplicate) ->
+            Err [ duplicateModulesGlobalError duplicate ]
+
         Err (Review.Project.Internal.ImportCycleError cycle) ->
             Err [ importCycleError cycle ]
 
@@ -815,37 +802,6 @@ runRulesHelp reviewOptions remainingRules acc =
                     , project = result.project
                     , extracts = extracts
                     }
-
-
-duplicateModuleNames : Dict ModuleName String -> List ProjectModule -> Maybe { moduleName : ModuleName, paths : List String }
-duplicateModuleNames visitedModules projectModules =
-    case projectModules of
-        [] ->
-            Nothing
-
-        projectModule :: restOfModules ->
-            let
-                moduleName : ModuleName
-                moduleName =
-                    getModuleName projectModule
-            in
-            case Dict.get moduleName visitedModules of
-                Nothing ->
-                    duplicateModuleNames
-                        (Dict.insert moduleName projectModule.path visitedModules)
-                        restOfModules
-
-                Just path ->
-                    Just
-                        { moduleName = moduleName
-                        , paths =
-                            path
-                                :: projectModule.path
-                                :: (restOfModules
-                                        |> List.filter (\p -> getModuleName p == moduleName)
-                                        |> List.map .path
-                                   )
-                        }
 
 
 {-| Let `elm-review` know that this rule may provide fixes in the reported errors.
