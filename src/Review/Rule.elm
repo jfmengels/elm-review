@@ -790,7 +790,7 @@ runRulesHelp reviewOptions remainingRules acc =
                 extracts : Dict String Encode.Value
                 extracts =
                     case result.extract of
-                        Just (JsonExtract extract) ->
+                        Just (Extract extract) ->
                             Dict.insert name extract acc.extracts
 
                         Nothing ->
@@ -1984,7 +1984,7 @@ withFinalProjectEvaluation visitor (ProjectRuleSchema schema) =
 
 
 type Extract
-    = JsonExtract Encode.Value
+    = Extract Encode.Value
 
 
 {-| Extract data from `elm-review`.
@@ -1994,7 +1994,7 @@ withDataExtractor :
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema schemaState projectContext moduleContext
 withDataExtractor dataExtractor (ProjectRuleSchema schema) =
-    ProjectRuleSchema { schema | dataExtractor = Just (\context -> JsonExtract (dataExtractor context)) }
+    ProjectRuleSchema { schema | dataExtractor = Just (\context -> Extract (dataExtractor context)) }
 
 
 removeErrorPhantomTypeFromVisitor : (element -> projectContext -> ( List (Error b), projectContext )) -> (element -> projectContext -> ( List (Error {}), projectContext ))
