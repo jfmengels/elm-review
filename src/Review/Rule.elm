@@ -443,6 +443,7 @@ review rules project =
                         moduleGraph : Graph ModuleName ()
                         moduleGraph =
                             Review.Project.Internal.moduleGraph project
+                                |> Tuple.second
                     in
                     case Graph.checkAcyclic moduleGraph of
                         Err edge ->
@@ -664,6 +665,7 @@ getModulesSortedByImport project =
         moduleGraph =
             project
                 |> Review.Project.Internal.moduleGraph
+                |> Tuple.second
     in
     case Graph.checkAcyclic moduleGraph of
         Ok graph ->
@@ -4699,6 +4701,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
         graph : Graph ModuleName ()
         graph =
             Review.Project.Internal.moduleGraph project
+                |> Tuple.second
 
         modulesToAnalyze : List ProjectModule
         modulesToAnalyze =

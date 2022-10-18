@@ -86,14 +86,19 @@ to use.
 [`elm-community/graph` Graph]: https://package.elm-lang.org/packages/elm-community/graph/6.0.0/Graph#Graph
 
 -}
-moduleGraph : Project -> Graph ModuleName ()
-moduleGraph (Project project) =
+moduleGraph : Project -> ( Project, Graph ModuleName () )
+moduleGraph ((Project project) as untouched) =
     case project.moduleGraph of
         Just graph ->
-            graph
+            ( untouched, graph )
 
         Nothing ->
-            buildModuleGraph <| Dict.values project.modules
+            let
+                graph : Graph ModuleName ()
+                graph =
+                    buildModuleGraph (Dict.values project.modules)
+            in
+            ( Project { project | moduleGraph = Just graph }, graph )
 
 
 sourceDirectories : Project -> List String
