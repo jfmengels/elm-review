@@ -448,7 +448,7 @@ review rules project =
                         Err edge ->
                             ( [ importCycleError moduleGraph edge ], rules )
 
-                        Ok nodesContexts ->
+                        Ok _ ->
                             let
                                 runRulesResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
                                 runRulesResult =
