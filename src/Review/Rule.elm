@@ -442,8 +442,7 @@ review rules project =
                     let
                         moduleGraph : Graph ModuleName ()
                         moduleGraph =
-                            Review.Project.Internal.moduleGraph project
-                                |> Tuple.second
+                            Review.Project.Internal.acyclicModuleGraph project
                     in
                     case
                         Graph.checkAcyclic moduleGraph
@@ -667,8 +666,7 @@ getModulesSortedByImport project =
         moduleGraph : Graph ModuleName ()
         moduleGraph =
             project
-                |> Review.Project.Internal.moduleGraph
-                |> Tuple.second
+                |> Review.Project.Internal.acyclicModuleGraph
     in
     case
         Graph.checkAcyclic moduleGraph

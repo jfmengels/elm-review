@@ -3,6 +3,7 @@ module Review.Project.Internal exposing
     , ModuleCacheKey
     , Project(..)
     , ProjectModule
+    , acyclicModuleGraph
     , buildModuleGraph
     , emptyDataCache
     , getModuleByPath
@@ -99,6 +100,13 @@ moduleGraph ((Project project) as untouched) =
                     buildModuleGraph (Dict.values project.modules)
             in
             ( Project { project | moduleGraph = Just graph }, graph )
+
+
+acyclicModuleGraph : Project -> Graph ModuleName ()
+acyclicModuleGraph project =
+    project
+        |> moduleGraph
+        |> Tuple.second
 
 
 sourceDirectories : Project -> List String
