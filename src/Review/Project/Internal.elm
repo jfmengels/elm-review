@@ -113,7 +113,12 @@ acyclicModuleGraph ((Project p) as project) =
         Err (SomeModulesFailedToParse (List.map .path p.modulesThatFailedToParse))
 
     else
-        case duplicateModuleNames Dict.empty (Dict.values p.modules) of
+        let
+            projectModules : List ProjectModule
+            projectModules =
+                Dict.values p.modules
+        in
+        case duplicateModuleNames Dict.empty projectModules of
             Just duplicate ->
                 Err (DuplicateModuleNames duplicate)
 
@@ -121,7 +126,7 @@ acyclicModuleGraph ((Project p) as project) =
                 let
                     graph : Graph ModuleName ()
                     graph =
-                        moduleGraph project
+                        buildModuleGraph projectModules
                 in
                 case Graph.checkAcyclic graph of
                     Err edge ->
