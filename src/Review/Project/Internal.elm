@@ -27,6 +27,7 @@ import Review.ImportCycle as ImportCycle
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Project.Dependency exposing (Dependency)
 import Vendor.Graph as Graph exposing (Graph)
+import Vendor.Zipper as Zipper exposing (Zipper)
 
 
 type Project
@@ -104,20 +105,23 @@ type ModuleGraphErrors
     | NoModulesError
 
 
-acyclicModuleGraph : Project -> Result ModuleGraphErrors (Graph.AcyclicGraph ModuleName ())
+acyclicModuleGraph : Project -> Result ModuleGraphErrors (Zipper (Graph.NodeContext ModuleName ()))
 acyclicModuleGraph project =
     let
         graph : Graph ModuleName ()
         graph =
             moduleGraph project
     in
-    Graph.checkAcyclic graph
-        |> Result.mapError
-            (\edge ->
-                ImportCycle.findCycle graph edge
-                    |> List.reverse
-                    |> ImportCycleError
-            )
+    case Graph.checkAcyclic graph of
+        Err edge ->
+            ImportCycle.findCycle graph edge
+                |> List.reverse
+                |> ImportCycleError
+                |> Err
+
+        Ok acyclicGraph ->
+            Zipper.fromList (Graph.topologicalSort acyclicGraph)
+                |> Result.fromMaybe NoModulesError
 
 
 sourceDirectories : Project -> List String
