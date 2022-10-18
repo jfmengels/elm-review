@@ -86,7 +86,6 @@ representation.
 
 -}
 
-import Debug
 import Maybe as Maybe exposing (Maybe)
 import Vendor.Fifo as Fifo exposing (Fifo)
 import Vendor.Graph.Tree as Tree exposing (Forest, Tree)
