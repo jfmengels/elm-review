@@ -448,6 +448,17 @@ review rules project =
                         Err (Review.Project.Internal.ImportCycleError cycle) ->
                             ( [ importCycleError cycle ], rules )
 
+                        Err Review.Project.Internal.NoModulesError ->
+                            ( [ elmReviewGlobalError
+                                    { message = "This project does not contain any Elm modules"
+                                    , details = [ "I need to look at some Elm modules. Maybe you have specified folders that do not exist?" ]
+                                    }
+                                    |> setRuleName "Incorrect project"
+                                    |> errorToReviewError
+                              ]
+                            , rules
+                            )
+
                         Ok _ ->
                             let
                                 runRulesResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
@@ -662,6 +673,16 @@ getModulesSortedByImport project =
     case Review.Project.Internal.acyclicModuleGraph project of
         Err (Review.Project.Internal.ImportCycleError cycle) ->
             Err [ importCycleError cycle ]
+
+        Err Review.Project.Internal.NoModulesError ->
+            Err
+                [ elmReviewGlobalError
+                    { message = "This project does not contain any Elm modules"
+                    , details = [ "I need to look at some Elm modules. Maybe you have specified folders that do not exist?" ]
+                    }
+                    |> setRuleName "Incorrect project"
+                    |> errorToReviewError
+                ]
 
         Ok graph ->
             case Zipper.fromList (Graph.topologicalSort graph) of

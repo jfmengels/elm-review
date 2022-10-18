@@ -101,6 +101,7 @@ moduleGraph (Project project) =
 
 type ModuleGraphErrors
     = ImportCycleError (List ModuleName)
+    | NoModulesError
 
 
 acyclicModuleGraph : Project -> Result ModuleGraphErrors (Graph.AcyclicGraph ModuleName ())
