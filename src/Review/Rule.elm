@@ -4159,7 +4159,7 @@ runProjectVisitorHelp reviewOptions projectVisitor initialCache exceptions initi
     -- IGNORE TCO
     let
         { project, projectContext, cache, fixedErrors } =
-            computeProjectContextForProjectFiles
+            computeStepsForProject
                 reviewOptions
                 projectVisitor
                 exceptions
@@ -4270,17 +4270,17 @@ type alias ProjectRuleCache projectContext =
     }
 
 
-computeProjectContextForProjectFiles :
+computeStepsForProject :
     ReviewOptionsData
     -> RunnableProjectVisitor projectContext moduleContext
     -> Exceptions
     -> Step
     -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
     -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
-computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions step ({ project, projectContext, cache, fixedErrors } as acc) =
+computeStepsForProject reviewOptions projectVisitor exceptions step ({ project, projectContext, cache, fixedErrors } as acc) =
     case step of
         ElmJson ->
-            computeProjectContextForProjectFiles
+            computeStepsForProject
                 reviewOptions
                 projectVisitor
                 exceptions
@@ -4288,7 +4288,7 @@ computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ste
                 (computeElmJson projectVisitor exceptions project projectContext cache fixedErrors)
 
         Readme ->
-            computeProjectContextForProjectFiles
+            computeStepsForProject
                 reviewOptions
                 projectVisitor
                 exceptions
@@ -4296,7 +4296,7 @@ computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ste
                 (computeReadme projectVisitor exceptions project projectContext cache fixedErrors)
 
         Dependencies ->
-            computeProjectContextForProjectFiles
+            computeStepsForProject
                 reviewOptions
                 projectVisitor
                 exceptions
@@ -4310,7 +4310,7 @@ computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ste
                 result =
                     computeModules2 reviewOptions projectVisitor exceptions target project projectContext cache fixedErrors
             in
-            computeProjectContextForProjectFiles
+            computeStepsForProject
                 reviewOptions
                 projectVisitor
                 exceptions
@@ -4323,7 +4323,7 @@ computeProjectContextForProjectFiles reviewOptions projectVisitor exceptions ste
                 result =
                     computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project projectContext cache fixedErrors
             in
-            computeProjectContextForProjectFiles
+            computeStepsForProject
                 reviewOptions
                 projectVisitor
                 exceptions
