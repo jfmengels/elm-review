@@ -4179,11 +4179,7 @@ runProjectVisitorHelp reviewOptions projectVisitor initialCache exceptions initi
 
         cacheWithExtract : ProjectRuleCache projectContext
         cacheWithExtract =
-            if reviewOptions.extract && not (List.any doesPreventExtract errors) then
-                computeExtract projectVisitor projectContext cache
-
-            else
-                cache
+            computeExtract reviewOptions projectVisitor projectContext errors cache
     in
     { errors = errors
     , fixedErrors = fixedErrors
@@ -4210,35 +4206,41 @@ runProjectVisitorHelp reviewOptions projectVisitor initialCache exceptions initi
 
 
 computeExtract :
-    RunnableProjectVisitor projectContext moduleContext
+    ReviewOptionsData
+    -> RunnableProjectVisitor projectContext moduleContext
     -> projectContext
+    -> List (Error {})
     -> ProjectRuleCache projectContext
     -> ProjectRuleCache projectContext
-computeExtract projectVisitor projectContext cache =
+computeExtract reviewOptions projectVisitor projectContext errors cache =
     case projectVisitor.dataExtractor of
         Just dataExtractor ->
-            let
-                inputContext : projectContext
-                inputContext =
-                    case cache.finalEvaluationErrors of
-                        Just finalEvaluation ->
-                            finalEvaluation.inputContext
+            if reviewOptions.extract && not (List.any doesPreventExtract errors) then
+                let
+                    inputContext : projectContext
+                    inputContext =
+                        case cache.finalEvaluationErrors of
+                            Just finalEvaluation ->
+                                finalEvaluation.inputContext
 
-                        Nothing ->
-                            computeFinalContext projectVisitor cache projectContext
+                            Nothing ->
+                                computeFinalContext projectVisitor cache projectContext
 
-                cachePredicate : ExtractCache projectContext -> Bool
-                cachePredicate extract =
-                    extract.inputContext == inputContext
-            in
-            case reuseProjectRuleCache cachePredicate .extract cache of
-                Just _ ->
-                    cache
+                    cachePredicate : ExtractCache projectContext -> Bool
+                    cachePredicate extract =
+                        extract.inputContext == inputContext
+                in
+                case reuseProjectRuleCache cachePredicate .extract cache of
+                    Just _ ->
+                        cache
 
-                Nothing ->
-                    { cache
-                        | extract = Just { inputContext = inputContext, extract = dataExtractor inputContext }
-                    }
+                    Nothing ->
+                        { cache
+                            | extract = Just { inputContext = inputContext, extract = dataExtractor inputContext }
+                        }
+
+            else
+                cache
 
         Nothing ->
             cache
