@@ -4698,7 +4698,6 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
         graph : Graph ModuleName ()
         graph =
             Review.Project.Internal.moduleGraph project
-                |> Tuple.second
 
         modulesToAnalyze : List ProjectModule
         modulesToAnalyze =

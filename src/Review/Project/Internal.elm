@@ -88,19 +88,14 @@ to use.
 [`elm-community/graph` Graph]: https://package.elm-lang.org/packages/elm-community/graph/6.0.0/Graph#Graph
 
 -}
-moduleGraph : Project -> ( Project, Graph ModuleName () )
-moduleGraph ((Project project) as untouched) =
+moduleGraph : Project -> Graph ModuleName ()
+moduleGraph (Project project) =
     case project.moduleGraph of
         Just graph ->
-            ( untouched, graph )
+            graph
 
         Nothing ->
-            let
-                graph : Graph ModuleName ()
-                graph =
-                    buildModuleGraph (Dict.values project.modules)
-            in
-            ( Project { project | moduleGraph = Just graph }, graph )
+            buildModuleGraph (Dict.values project.modules)
 
 
 acyclicModuleGraph : Project -> Result (List ModuleName) (Graph.AcyclicGraph ModuleName ())
@@ -108,9 +103,7 @@ acyclicModuleGraph project =
     let
         graph : Graph ModuleName ()
         graph =
-            project
-                |> moduleGraph
-                |> Tuple.second
+            moduleGraph project
     in
     Graph.checkAcyclic graph
         |> Result.mapError
