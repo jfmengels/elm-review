@@ -440,16 +440,13 @@ review rules project =
 
                 Nothing ->
                     let
-                        moduleGraph : Graph ModuleName ()
-                        moduleGraph =
+                        moduleGraphResult : Result ( Graph ModuleName (), Graph.Edge () ) (Graph.AcyclicGraph ModuleName ())
+                        moduleGraphResult =
                             Review.Project.Internal.acyclicModuleGraph project
                     in
-                    case
-                        Graph.checkAcyclic moduleGraph
-                            |> Result.mapError (\edge -> importCycleError moduleGraph edge)
-                    of
-                        Err cycleError ->
-                            ( [ cycleError ], rules )
+                    case moduleGraphResult of
+                        Err ( moduleGraph, edge ) ->
+                            ( [ importCycleError moduleGraph edge ], rules )
 
                         Ok _ ->
                             let
@@ -663,15 +660,14 @@ checkForDuplicateModules project =
 getModulesSortedByImport : Project -> Result (List ReviewError) (Zipper GraphModule)
 getModulesSortedByImport project =
     let
-        moduleGraph : Graph ModuleName ()
-        moduleGraph =
-            project
-                |> Review.Project.Internal.acyclicModuleGraph
+        moduleGraphResult : Result ( Graph ModuleName (), Graph.Edge () ) (Graph.AcyclicGraph ModuleName ())
+        moduleGraphResult =
+            Review.Project.Internal.acyclicModuleGraph project
     in
-    case
-        Graph.checkAcyclic moduleGraph
-            |> Result.mapError (\edge -> importCycleError moduleGraph edge)
-    of
+    case moduleGraphResult of
+        Err ( moduleGraph, edge ) ->
+            Err [ importCycleError moduleGraph edge ]
+
         Ok graph ->
             case Zipper.fromList (Graph.topologicalSort graph) of
                 Just moduleZipper ->
@@ -686,9 +682,6 @@ getModulesSortedByImport project =
                             |> setRuleName "Incorrect project"
                             |> errorToReviewError
                         ]
-
-        Err cycleError ->
-            Err [ cycleError ]
 
 
 importCycleError : Graph ModuleName e -> Graph.Edge e -> ReviewError

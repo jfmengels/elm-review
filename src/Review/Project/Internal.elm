@@ -102,11 +102,17 @@ moduleGraph ((Project project) as untouched) =
             ( Project { project | moduleGraph = Just graph }, graph )
 
 
-acyclicModuleGraph : Project -> Graph ModuleName ()
+acyclicModuleGraph : Project -> Result ( Graph ModuleName (), Graph.Edge () ) (Graph.AcyclicGraph ModuleName ())
 acyclicModuleGraph project =
-    project
-        |> moduleGraph
-        |> Tuple.second
+    let
+        graph : Graph ModuleName ()
+        graph =
+            project
+                |> moduleGraph
+                |> Tuple.second
+    in
+    Graph.checkAcyclic graph
+        |> Result.mapError (\edge -> ( graph, edge ))
 
 
 sourceDirectories : Project -> List String
