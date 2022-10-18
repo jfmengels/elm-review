@@ -445,9 +445,12 @@ review rules project =
                             Review.Project.Internal.moduleGraph project
                                 |> Tuple.second
                     in
-                    case Graph.checkAcyclic moduleGraph of
-                        Err edge ->
-                            ( [ importCycleError moduleGraph edge ], rules )
+                    case
+                        Graph.checkAcyclic moduleGraph
+                            |> Result.mapError (\edge -> importCycleError moduleGraph edge)
+                    of
+                        Err cycleError ->
+                            ( [ cycleError ], rules )
 
                         Ok _ ->
                             let
@@ -667,7 +670,10 @@ getModulesSortedByImport project =
                 |> Review.Project.Internal.moduleGraph
                 |> Tuple.second
     in
-    case Graph.checkAcyclic moduleGraph of
+    case
+        Graph.checkAcyclic moduleGraph
+            |> Result.mapError (\edge -> importCycleError moduleGraph edge)
+    of
         Ok graph ->
             case Zipper.fromList (Graph.topologicalSort graph) of
                 Just moduleZipper ->
@@ -683,8 +689,8 @@ getModulesSortedByImport project =
                             |> errorToReviewError
                         ]
 
-        Err edge ->
-            Err [ importCycleError moduleGraph edge ]
+        Err cycleError ->
+            Err [ cycleError ]
 
 
 importCycleError : Graph ModuleName e -> Graph.Edge e -> ReviewError
