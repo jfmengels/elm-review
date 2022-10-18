@@ -514,11 +514,11 @@ reviewV2 rules maybeProjectData project =
             |> Result.andThen (\() -> checkForDuplicateModules project)
             |> Result.andThen (\() -> getModulesSortedByImport project)
     of
-        Ok moduleZipper ->
+        Ok ( newProject, _ ) ->
             let
                 runResult : { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
                 runResult =
-                    runReviewForV2 ReviewOptions.defaults project rules
+                    runReviewForV2 ReviewOptions.defaults newProject rules
             in
             { errors = runResult.errors
             , rules = runResult.rules
@@ -590,11 +590,11 @@ reviewV3 reviewOptions rules project =
             |> Result.andThen (\() -> checkForDuplicateModules project)
             |> Result.andThen (\() -> getModulesSortedByImport project)
     of
-        Ok moduleZipper ->
+        Ok ( newProject, moduleZipper ) ->
             let
                 result : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
                 result =
-                    runRules reviewOptions rules project
+                    runRules reviewOptions rules newProject
             in
             { errors = result.errors
             , fixedErrors = FixedErrors.toDict result.fixedErrors
@@ -663,7 +663,7 @@ checkForDuplicateModules project =
             Ok ()
 
 
-getModulesSortedByImport : Project -> Result (List ReviewError) (Zipper GraphModule)
+getModulesSortedByImport : Project -> Result (List ReviewError) ( Project, Zipper (Graph.NodeContext ModuleName ()) )
 getModulesSortedByImport project =
     case Review.Project.Internal.acyclicModuleGraph project of
         Err (Review.Project.Internal.ImportCycleError cycle) ->
@@ -679,8 +679,8 @@ getModulesSortedByImport project =
                     |> errorToReviewError
                 ]
 
-        Ok moduleZipper ->
-            Ok moduleZipper
+        Ok result ->
+            Ok result
 
 
 importCycleError : List ModuleName -> ReviewError
@@ -4546,7 +4546,7 @@ computeModules2 reviewOptions projectVisitor exceptions target project inputCont
                 Err _ ->
                     { project = project, projectContext = inputContext, cache = cache, nextStep = FinalProjectEvaluation, fixedErrors = fixedErrors }
 
-                Ok moduleZipper ->
+                Ok ( newProject, moduleZipper ) ->
                     let
                         targetModuleZipper : Zipper GraphModule
                         targetModuleZipper =
@@ -4560,7 +4560,7 @@ computeModules2 reviewOptions projectVisitor exceptions target project inputCont
                                 reviewOptions
                                 projectVisitor
                                 moduleVisitor
-                                project
+                                newProject
                                 exceptions
                                 inputContext
                                 targetModuleZipper

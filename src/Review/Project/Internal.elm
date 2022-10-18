@@ -105,8 +105,8 @@ type ModuleGraphErrors
     | NoModulesError
 
 
-acyclicModuleGraph : Project -> Result ModuleGraphErrors (Zipper (Graph.NodeContext ModuleName ()))
-acyclicModuleGraph project =
+acyclicModuleGraph : Project -> Result ModuleGraphErrors ( Project, Zipper (Graph.NodeContext ModuleName ()) )
+acyclicModuleGraph ((Project p) as project) =
     let
         graph : Graph ModuleName ()
         graph =
@@ -120,8 +120,12 @@ acyclicModuleGraph project =
                 |> Err
 
         Ok acyclicGraph ->
-            Zipper.fromList (Graph.topologicalSort acyclicGraph)
-                |> Result.fromMaybe NoModulesError
+            case Zipper.fromList (Graph.topologicalSort acyclicGraph) of
+                Nothing ->
+                    Err NoModulesError
+
+                Just zipper ->
+                    Ok ( project, zipper )
 
 
 sourceDirectories : Project -> List String
