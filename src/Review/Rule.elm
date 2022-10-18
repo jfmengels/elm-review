@@ -430,36 +430,34 @@ to compare them or the model that holds them.
 -}
 review : List Rule -> Project -> ( List ReviewError, List Rule )
 review rules project =
-    case Review.Project.modulesThatFailedToParse project of
-        [] ->
-            case Review.Project.Internal.acyclicModuleGraph project of
-                Err (Review.Project.Internal.DuplicateModuleNames duplicate) ->
-                    ( [ duplicateModulesGlobalError duplicate ], rules )
+    case Review.Project.Internal.acyclicModuleGraph project of
+        Err (Review.Project.Internal.SomeModulesFailedToParse pathsThatFailedToParse) ->
+            ( List.map parsingError pathsThatFailedToParse, rules )
 
-                Err (Review.Project.Internal.ImportCycleError cycle) ->
-                    ( [ importCycleError cycle ], rules )
+        Err (Review.Project.Internal.DuplicateModuleNames duplicate) ->
+            ( [ duplicateModulesGlobalError duplicate ], rules )
 
-                Err Review.Project.Internal.NoModulesError ->
-                    ( [ elmReviewGlobalError
-                            { message = "This project does not contain any Elm modules"
-                            , details = [ "I need to look at some Elm modules. Maybe you have specified folders that do not exist?" ]
-                            }
-                            |> setRuleName "Incorrect project"
-                            |> errorToReviewError
-                      ]
-                    , rules
-                    )
+        Err (Review.Project.Internal.ImportCycleError cycle) ->
+            ( [ importCycleError cycle ], rules )
 
-                Ok _ ->
-                    let
-                        runRulesResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
-                        runRulesResult =
-                            runRules ReviewOptions.defaults rules project
-                    in
-                    ( runRulesResult.errors, runRulesResult.rules )
+        Err Review.Project.Internal.NoModulesError ->
+            ( [ elmReviewGlobalError
+                    { message = "This project does not contain any Elm modules"
+                    , details = [ "I need to look at some Elm modules. Maybe you have specified folders that do not exist?" ]
+                    }
+                    |> setRuleName "Incorrect project"
+                    |> errorToReviewError
+              ]
+            , rules
+            )
 
-        modulesThatFailedToParse ->
-            ( List.map parsingError modulesThatFailedToParse, rules )
+        Ok _ ->
+            let
+                runRulesResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+                runRulesResult =
+                    runRules ReviewOptions.defaults rules project
+            in
+            ( runRulesResult.errors, runRulesResult.rules )
 
 
 {-| Review a project and gives back the errors raised by the given rules.
@@ -506,7 +504,6 @@ reviewV2 : List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewEr
 reviewV2 rules maybeProjectData project =
     case
         checkForConfigurationErrors rules
-            |> Result.andThen (\() -> checkForModulesThatFailedToParse project)
             |> Result.andThen (\() -> getModulesSortedByImport project)
     of
         Ok ( newProject, _ ) ->
@@ -581,7 +578,6 @@ reviewV3 :
 reviewV3 reviewOptions rules project =
     case
         checkForConfigurationErrors rules
-            |> Result.andThen (\() -> checkForModulesThatFailedToParse project)
             |> Result.andThen (\() -> getModulesSortedByImport project)
     of
         Ok ( newProject, moduleZipper ) ->
@@ -637,19 +633,12 @@ checkForConfigurationErrors rules =
         Err errors
 
 
-checkForModulesThatFailedToParse : Project -> Result (List ReviewError) ()
-checkForModulesThatFailedToParse project =
-    case Review.Project.modulesThatFailedToParse project of
-        [] ->
-            Ok ()
-
-        modulesThatFailedToParse ->
-            Err (List.map parsingError modulesThatFailedToParse)
-
-
 getModulesSortedByImport : Project -> Result (List ReviewError) ( Project, Zipper (Graph.NodeContext ModuleName ()) )
 getModulesSortedByImport project =
     case Review.Project.Internal.acyclicModuleGraph project of
+        Err (Review.Project.Internal.SomeModulesFailedToParse pathsThatFailedToParse) ->
+            Err (List.map parsingError pathsThatFailedToParse)
+
         Err (Review.Project.Internal.DuplicateModuleNames duplicate) ->
             Err [ duplicateModulesGlobalError duplicate ]
 
@@ -3659,12 +3648,12 @@ globalError { message, details } =
         }
 
 
-parsingError : { a | path : String } -> ReviewError
-parsingError rawFile =
+parsingError : String -> Review.Error.ReviewError
+parsingError path =
     Review.Error.ReviewError
-        { filePath = rawFile.path
+        { filePath = path
         , ruleName = "ParsingError"
-        , message = rawFile.path ++ " is not a correct Elm module"
+        , message = path ++ " is not a correct Elm module"
         , details =
             [ "I could not understand the content of this file, and this prevents me from analyzing it. It is highly likely that the contents of the file is not correct Elm code."
             , "I need this file to be fixed before analyzing the rest of the project. If I didn't, I would potentially report incorrect things."

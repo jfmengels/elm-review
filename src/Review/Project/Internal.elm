@@ -101,37 +101,42 @@ moduleGraph (Project project) =
 
 
 type ModuleGraphErrors
-    = DuplicateModuleNames { moduleName : ModuleName, paths : List String }
+    = SomeModulesFailedToParse (List String)
+    | DuplicateModuleNames { moduleName : ModuleName, paths : List String }
     | ImportCycleError (List ModuleName)
     | NoModulesError
 
 
 acyclicModuleGraph : Project -> Result ModuleGraphErrors ( Project, Zipper (Graph.NodeContext ModuleName ()) )
 acyclicModuleGraph ((Project p) as project) =
-    case duplicateModuleNames Dict.empty (Dict.values p.modules) of
-        Just duplicate ->
-            Err (DuplicateModuleNames duplicate)
+    if not (List.isEmpty p.modulesThatFailedToParse) then
+        Err (SomeModulesFailedToParse (List.map .path p.modulesThatFailedToParse))
 
-        Nothing ->
-            let
-                graph : Graph ModuleName ()
-                graph =
-                    moduleGraph project
-            in
-            case Graph.checkAcyclic graph of
-                Err edge ->
-                    ImportCycle.findCycle graph edge
-                        |> List.reverse
-                        |> ImportCycleError
-                        |> Err
+    else
+        case duplicateModuleNames Dict.empty (Dict.values p.modules) of
+            Just duplicate ->
+                Err (DuplicateModuleNames duplicate)
 
-                Ok acyclicGraph ->
-                    case Zipper.fromList (Graph.topologicalSort acyclicGraph) of
-                        Nothing ->
-                            Err NoModulesError
+            Nothing ->
+                let
+                    graph : Graph ModuleName ()
+                    graph =
+                        moduleGraph project
+                in
+                case Graph.checkAcyclic graph of
+                    Err edge ->
+                        ImportCycle.findCycle graph edge
+                            |> List.reverse
+                            |> ImportCycleError
+                            |> Err
 
-                        Just zipper ->
-                            Ok ( project, zipper )
+                    Ok acyclicGraph ->
+                        case Zipper.fromList (Graph.topologicalSort acyclicGraph) of
+                            Nothing ->
+                                Err NoModulesError
+
+                            Just zipper ->
+                                Ok ( project, zipper )
 
 
 duplicateModuleNames : Dict ModuleName String -> List ProjectModule -> Maybe { moduleName : ModuleName, paths : List String }
