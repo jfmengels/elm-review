@@ -1298,6 +1298,7 @@ emptyCache =
     , dependencies = Nothing
     , moduleContexts = Dict.empty
     , finalEvaluationErrors = Nothing
+    , extract = Nothing
     }
 
 
@@ -4132,6 +4133,12 @@ type alias FinalProjectEvaluationCache projectContext =
     }
 
 
+type alias ExtractCache projectContext =
+    { inputContext : projectContext
+    , extract : Extract
+    }
+
+
 runProjectVisitor :
     ReviewOptionsData
     -> RunnableProjectVisitor projectContext moduleContext
@@ -4166,31 +4173,17 @@ runProjectVisitorHelp reviewOptions projectVisitor initialCache exceptions initi
                 ElmJson
                 { project = initialProject, projectContext = projectVisitor.initialProjectContext, cache = initialCache, fixedErrors = initialFixedErrors }
 
-        computeFoldedContext : () -> projectContext
-        computeFoldedContext () =
-            case getFolderFromTraversal projectVisitor.traversalAndFolder of
-                Just { foldProjectContexts } ->
-                    Dict.foldl
-                        (\_ cacheEntry acc -> foldProjectContexts cacheEntry.outputContext acc)
-                        projectContext
-                        cache.moduleContexts
-
-                Nothing ->
-                    projectContext
-
         errors : List (Error {})
         errors =
             errorsFromCache cache
 
-        extract : Maybe Extract
-        extract =
-            -- TODO Cache the extract and the context
+        cacheWithExtract : ProjectRuleCache projectContext
+        cacheWithExtract =
             if reviewOptions.extract && not (List.any doesPreventExtract errors) then
-                computeExtract projectVisitor computeFoldedContext Nothing
-                    |> Tuple.first
+                computeExtract projectVisitor projectContext cache
 
             else
-                Nothing
+                cache
     in
     { errors = errors
     , fixedErrors = fixedErrors
@@ -4206,39 +4199,62 @@ runProjectVisitorHelp reviewOptions projectVisitor initialCache exceptions initi
                     runProjectVisitor
                         newReviewOptions
                         projectVisitor
-                        cache
+                        cacheWithExtract
                         newExceptions
                         newProjectArg
             , configurationError = Nothing
             }
     , project = project
-    , extract = extract
+    , extract = Maybe.map .extract cacheWithExtract.extract
     }
 
 
 computeExtract :
     RunnableProjectVisitor projectContext moduleContext
-    -> (() -> projectContext)
-    -> Maybe projectContext
-    -> ( Maybe Extract, Maybe projectContext )
-computeExtract projectVisitor computeFoldedContext maybeFoldedContext =
-    -- TODO Cache the extract
+    -> projectContext
+    -> ProjectRuleCache projectContext
+    -> ProjectRuleCache projectContext
+computeExtract projectVisitor projectContext cache =
     case projectVisitor.dataExtractor of
         Just dataExtractor ->
-            case maybeFoldedContext of
-                Just foldedContext ->
-                    ( Just (dataExtractor foldedContext), maybeFoldedContext )
+            let
+                inputContext : projectContext
+                inputContext =
+                    case cache.finalEvaluationErrors of
+                        Just finalEvaluation ->
+                            finalEvaluation.inputContext
+
+                        Nothing ->
+                            computeFinalContext projectVisitor cache projectContext
+
+                cachePredicate : ExtractCache projectContext -> Bool
+                cachePredicate extract =
+                    extract.inputContext == inputContext
+            in
+            case reuseProjectRuleCache cachePredicate .extract cache of
+                Just _ ->
+                    cache
 
                 Nothing ->
-                    let
-                        foldedContext : projectContext
-                        foldedContext =
-                            computeFoldedContext ()
-                    in
-                    ( Just (dataExtractor foldedContext), Just foldedContext )
+                    { cache
+                        | extract = Just { inputContext = inputContext, extract = dataExtractor inputContext }
+                    }
 
         Nothing ->
-            ( Nothing, maybeFoldedContext )
+            cache
+
+
+computeFinalContext : RunnableProjectVisitor projectContext moduleContext -> ProjectRuleCache projectContext -> projectContext -> projectContext
+computeFinalContext projectVisitor cache projectContext =
+    case getFolderFromTraversal projectVisitor.traversalAndFolder of
+        Just { foldProjectContexts } ->
+            Dict.foldl
+                (\_ cacheEntry acc -> foldProjectContexts cacheEntry.outputContext acc)
+                projectContext
+                cache.moduleContexts
+
+        Nothing ->
+            projectContext
 
 
 setRuleName : String -> Error scope -> Error scope
@@ -4267,6 +4283,7 @@ type alias ProjectRuleCache projectContext =
     , dependencies : Maybe (CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext)
     , moduleContexts : Dict String (CacheEntry projectContext)
     , finalEvaluationErrors : Maybe (FinalProjectEvaluationCache projectContext)
+    , extract : Maybe (ExtractCache projectContext)
     }
 
 
@@ -4575,15 +4592,7 @@ computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project in
         let
             finalContext : projectContext
             finalContext =
-                case getFolderFromTraversal projectVisitor.traversalAndFolder of
-                    Just { foldProjectContexts } ->
-                        Dict.foldl
-                            (\_ cacheEntry acc -> foldProjectContexts cacheEntry.outputContext acc)
-                            inputContext
-                            cache.moduleContexts
-
-                    Nothing ->
-                        inputContext
+                computeFinalContext projectVisitor cache inputContext
 
             cachePredicate : FinalProjectEvaluationCache projectContext -> Bool
             cachePredicate finalEvaluation =
