@@ -1,4 +1,4 @@
-module Review.ImportCycle exposing (error)
+module Review.ImportCycle exposing (error, findCycle)
 
 import Ansi
 import Elm.Syntax.ModuleName exposing (ModuleName)
@@ -6,14 +6,8 @@ import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
 
 
-error : Graph ModuleName e -> Graph.Edge e -> { message : String, details : List String }
-error moduleGraph edge =
-    let
-        cycle : List ModuleName
-        cycle =
-            findCycle moduleGraph edge
-                |> List.reverse
-    in
+error : List ModuleName -> { message : String, details : List String }
+error cycle =
     { message = "Your module imports form a cycle"
     , details =
         [ printCycle cycle

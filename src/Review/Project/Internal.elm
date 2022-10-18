@@ -22,6 +22,7 @@ import Elm.Syntax.File
 import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
+import Review.ImportCycle as ImportCycle
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Project.Dependency exposing (Dependency)
 import Vendor.Graph as Graph exposing (Graph)
@@ -102,7 +103,7 @@ moduleGraph ((Project project) as untouched) =
             ( Project { project | moduleGraph = Just graph }, graph )
 
 
-acyclicModuleGraph : Project -> Result ( Graph ModuleName (), Graph.Edge () ) (Graph.AcyclicGraph ModuleName ())
+acyclicModuleGraph : Project -> Result (List ModuleName) (Graph.AcyclicGraph ModuleName ())
 acyclicModuleGraph project =
     let
         graph : Graph ModuleName ()
@@ -112,7 +113,11 @@ acyclicModuleGraph project =
                 |> Tuple.second
     in
     Graph.checkAcyclic graph
-        |> Result.mapError (\edge -> ( graph, edge ))
+        |> Result.mapError
+            (\edge ->
+                ImportCycle.findCycle graph edge
+                    |> List.reverse
+            )
 
 
 sourceDirectories : Project -> List String

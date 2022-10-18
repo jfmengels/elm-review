@@ -440,13 +440,13 @@ review rules project =
 
                 Nothing ->
                     let
-                        moduleGraphResult : Result ( Graph ModuleName (), Graph.Edge () ) (Graph.AcyclicGraph ModuleName ())
+                        moduleGraphResult : Result (List ModuleName) (Graph.AcyclicGraph ModuleName ())
                         moduleGraphResult =
                             Review.Project.Internal.acyclicModuleGraph project
                     in
                     case moduleGraphResult of
-                        Err ( moduleGraph, edge ) ->
-                            ( [ importCycleError moduleGraph edge ], rules )
+                        Err cycle ->
+                            ( [ importCycleError cycle ], rules )
 
                         Ok _ ->
                             let
@@ -660,13 +660,13 @@ checkForDuplicateModules project =
 getModulesSortedByImport : Project -> Result (List ReviewError) (Zipper GraphModule)
 getModulesSortedByImport project =
     let
-        moduleGraphResult : Result ( Graph ModuleName (), Graph.Edge () ) (Graph.AcyclicGraph ModuleName ())
+        moduleGraphResult : Result (List ModuleName) (Graph.AcyclicGraph ModuleName ())
         moduleGraphResult =
             Review.Project.Internal.acyclicModuleGraph project
     in
     case moduleGraphResult of
-        Err ( moduleGraph, edge ) ->
-            Err [ importCycleError moduleGraph edge ]
+        Err cycle ->
+            Err [ importCycleError cycle ]
 
         Ok graph ->
             case Zipper.fromList (Graph.topologicalSort graph) of
@@ -684,9 +684,9 @@ getModulesSortedByImport project =
                         ]
 
 
-importCycleError : Graph ModuleName e -> Graph.Edge e -> ReviewError
-importCycleError moduleGraph edge =
-    ImportCycle.error moduleGraph edge
+importCycleError : List ModuleName -> ReviewError
+importCycleError cycle =
+    ImportCycle.error cycle
         |> elmReviewGlobalError
         |> setRuleName "Incorrect project"
         |> errorToReviewError
