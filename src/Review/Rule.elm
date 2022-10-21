@@ -16,7 +16,7 @@ module Review.Rule exposing
     , withElmJsonModuleVisitor, withReadmeModuleVisitor, withDirectDependenciesModuleVisitor, withDependenciesModuleVisitor
     , ProjectRuleSchema, newProjectRuleSchema, fromProjectRuleSchema, withModuleVisitor, withModuleContext, withModuleContextUsingContextCreator, withElmJsonProjectVisitor, withReadmeProjectVisitor, withDirectDependenciesProjectVisitor, withDependenciesProjectVisitor, withFinalProjectEvaluation, withContextFromImportedModules
     , providesFixesForProjectRule
-    , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
+    , ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
     , Metadata, withMetadata, moduleNameFromMetadata, moduleNameNodeFromMetadata, isInSourceDirectories
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , globalError, configurationError
@@ -232,7 +232,7 @@ first, as they are in practice a simpler version of project rules.
 
 ## Requesting more information
 
-@docs ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
+@docs ContextCreator, initContextCreator, withModuleName, withModuleNameNode, withIsInSourceDirectories, withFilePath, withIsFileIgnored, withModuleNameLookupTable, withModuleKey, withSourceCodeExtractor, withFullAst, withModuleDocumentation
 
 
 ### Requesting more information (DEPRECATED)
@@ -1364,6 +1364,7 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
             , extractSourceCode = always "dummy"
             , filePath = "dummy file path"
             , isInSourceDirectories = True
+            , isFileIgnored = False
             }
 
         initialModuleContext : moduleContext
@@ -4845,6 +4846,7 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
                     always ""
             , filePath = module_.path
             , isInSourceDirectories = module_.isInSourceDirectories
+            , isFileIgnored = Exceptions.isFileWeWantReportsFor dataToComputeModules.exceptions module_.path
             }
 
         initialModuleContext : moduleContext
@@ -5917,6 +5919,27 @@ withIsInSourceDirectories (ContextCreator fn requestedData) =
         requestedData
 
 
+{-| Request to know whether the errors for the current module has been ignored for this particular rule.
+
+    contextCreator : Rule.ContextCreator () Context
+    contextCreator =
+        Rule.initContextCreator
+            (\isFileIgnored () ->
+                { isFileIgnored = isFileIgnored
+
+                -- ...other fields
+                }
+            )
+            |> Rule.withIsFileIgnored
+
+-}
+withIsFileIgnored : ContextCreator Bool (from -> to) -> ContextCreator from to
+withIsFileIgnored (ContextCreator fn requestedData) =
+    ContextCreator
+        (\data -> fn data data.isFileIgnored)
+        requestedData
+
+
 {-| Requests the module name lookup table for the types and functions inside a module.
 
 When encountering a `Expression.FunctionOrValue ModuleName String` (among other nodes where we refer to a function or value),
@@ -6136,6 +6159,7 @@ type alias AvailableData =
     , extractSourceCode : Range -> String
     , filePath : String
     , isInSourceDirectories : Bool
+    , isFileIgnored : Bool
     }
 
 
