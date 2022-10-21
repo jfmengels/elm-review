@@ -766,15 +766,6 @@ runRulesHelp reviewOptions remainingRules acc =
                 result : { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : Project, extract : Maybe Extract }
                 result =
                     ruleImplementation reviewOptions exceptions acc.fixedErrors acc.project
-
-                extracts : Dict String Encode.Value
-                extracts =
-                    case result.extract of
-                        Just (Extract extract) ->
-                            Dict.insert name extract acc.extracts
-
-                        Nothing ->
-                            acc.extracts
             in
             if FixedErrors.hasChanged result.fixedErrors acc.fixedErrors then
                 runRulesHelp
@@ -784,7 +775,7 @@ runRulesHelp reviewOptions remainingRules acc =
                     , fixedErrors = result.fixedErrors
                     , rules = [ result.rule ]
                     , project = result.project
-                    , extracts = extracts
+                    , extracts = acc.extracts
                     }
 
             else
@@ -795,7 +786,13 @@ runRulesHelp reviewOptions remainingRules acc =
                     , fixedErrors = result.fixedErrors
                     , rules = result.rule :: acc.rules
                     , project = result.project
-                    , extracts = extracts
+                    , extracts =
+                        case result.extract of
+                            Just (Extract extract) ->
+                                Dict.insert name extract acc.extracts
+
+                            Nothing ->
+                                acc.extracts
                     }
 
 
