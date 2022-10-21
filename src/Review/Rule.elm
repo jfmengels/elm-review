@@ -736,11 +736,17 @@ moveFixableRulesFirst : List Rule -> List Rule
 moveFixableRulesFirst rules =
     List.sortBy
         (\(Rule rule) ->
-            if rule.providesFixes then
+            if rule.name == "NoUnused.Variables" then
                 0
 
-            else
+            else if rule.name == "NoUnused.Exports" then
                 1
+
+            else if rule.providesFixes then
+                2
+
+            else
+                3
         )
         rules
 
