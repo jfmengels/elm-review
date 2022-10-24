@@ -1,10 +1,17 @@
 module Review.Project.Valid exposing
     ( ValidProject
+    , dependencies
+    , directDependencies
+    , elmJson
+    , moduleGraph
+    , modules
     , parse
+    , readme
     , toRegularProject
     )
 
 import Dict exposing (Dict)
+import Elm.Package
 import Elm.Project
 import Elm.Syntax.File
 import Elm.Syntax.Module
@@ -202,3 +209,66 @@ getModuleName module_ =
     module_.ast.moduleDefinition
         |> Node.value
         |> Elm.Syntax.Module.moduleName
+
+
+
+-- ACCESSORS
+
+
+elmJson : ValidProject -> Maybe { path : String, raw : String, project : Elm.Project.Project }
+elmJson (ValidProject project) =
+    project.elmJson
+
+
+readme : ValidProject -> Maybe { path : String, content : String }
+readme (ValidProject project) =
+    project.readme
+
+
+dependencies : ValidProject -> Dict String Dependency
+dependencies (ValidProject project) =
+    project.dependencies
+
+
+{-| Get the direct [dependencies](./Review-Project-Dependency#Dependency) of the project.
+-}
+directDependencies : ValidProject -> Dict String Dependency
+directDependencies (ValidProject project) =
+    -- TODO Compute this in `parse` and store it in `ValidProject`
+    case Maybe.map .project project.elmJson of
+        Just (Elm.Project.Application { depsDirect, testDepsDirect }) ->
+            let
+                allDeps : List String
+                allDeps =
+                    List.map (\( name, _ ) -> Elm.Package.toString name) (depsDirect ++ testDepsDirect)
+            in
+            Dict.filter (\depName _ -> List.member depName allDeps) project.dependencies
+
+        Just (Elm.Project.Package { deps, testDeps }) ->
+            let
+                allDeps : List String
+                allDeps =
+                    List.map (\( name, _ ) -> Elm.Package.toString name) (deps ++ testDeps)
+            in
+            Dict.filter (\depName _ -> List.member depName allDeps) project.dependencies
+
+        Nothing ->
+            project.dependencies
+
+
+moduleGraph : ValidProject -> Graph ModuleName ()
+moduleGraph (ValidProject project) =
+    -- TODO Compute this in `parse` and store it in `ValidProject`
+    case project.moduleGraph of
+        Just graph ->
+            graph
+
+        Nothing ->
+            buildModuleGraph (Dict.values project.modules)
+
+
+{-| Get the list of modules in the project.
+-}
+modules : ValidProject -> List ProjectModule
+modules (ValidProject project) =
+    Dict.values project.modules
