@@ -51,6 +51,7 @@ import Review.FileParser as FileParser
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal as Internal exposing (Project)
 import Review.Project.ProjectCache as ProjectCache
+import Review.Project.ProjectModule as ProjectModule
 import Vendor.Graph exposing (Graph)
 
 
@@ -93,7 +94,7 @@ new =
 {-| Represents a parsed file.
 -}
 type alias ProjectModule =
-    Internal.ProjectModule
+    ProjectModule.ProjectModule
 
 
 {-| Add an Elm file to the project. If a file with the same path already exists,
@@ -267,7 +268,7 @@ addElmJson elmJson_ (Internal.Project project) =
         sourceDirectories =
             sourceDirectoriesForProject elmJson_.project
 
-        modules_ : Dict String Internal.ProjectModule
+        modules_ : Dict String ProjectModule.ProjectModule
         modules_ =
             if project.sourceDirectories == sourceDirectories then
                 project.modules

@@ -1,6 +1,5 @@
 module Review.Project.Internal exposing
     ( Project(..)
-    , ProjectModule
     , acyclicModuleGraph
     , buildModuleGraph
     , getModuleByPath
@@ -22,6 +21,7 @@ import Review.ImportCycle as ImportCycle
 import Review.Project.Dependency exposing (Dependency)
 import Review.Project.InvalidProjectError as InvalidProjectError exposing (InvalidProjectError)
 import Review.Project.ProjectCache exposing (DataCache)
+import Review.Project.ProjectModule exposing (ProjectModule)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.Zipper as Zipper exposing (Zipper)
 
@@ -37,16 +37,6 @@ type Project
         , sourceDirectories : List String
         , dataCache : DataCache
         }
-
-
-{-| Represents a parsed file.
--}
-type alias ProjectModule =
-    { path : String
-    , source : String
-    , ast : Elm.Syntax.File.File
-    , isInSourceDirectories : Bool
-    }
 
 
 getModuleByPath : String -> Project -> Maybe ProjectModule

@@ -21,8 +21,9 @@ import NonEmpty exposing (NonEmpty)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal exposing (ModuleNameLookupTable)
 import Review.Project
 import Review.Project.Dependency
-import Review.Project.Internal exposing (Project(..), ProjectModule)
+import Review.Project.Internal exposing (Project(..))
 import Review.Project.ProjectCache as ProjectCache
+import Review.Project.ProjectModule exposing (ProjectModule)
 import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
 
