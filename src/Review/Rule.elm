@@ -507,15 +507,7 @@ reviewV2 rules maybeProjectData project =
             |> Result.andThen (\() -> getModulesSortedByImport project)
     of
         Ok ( newProject, _ ) ->
-            let
-                runResult : { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
-                runResult =
-                    runReviewForV2 ReviewOptions.defaults newProject rules
-            in
-            { errors = runResult.errors
-            , rules = runResult.rules
-            , projectData = runResult.projectData
-            }
+            runReviewForV2 ReviewOptions.defaults newProject rules
 
         Err errors ->
             { errors = errors
@@ -667,7 +659,7 @@ importCycleError cycle =
         |> errorToReviewError
 
 
-runReviewForV2 : ReviewOptions -> Project -> List Rule -> { errors : List ReviewError, rules : List Rule, project : Project, projectData : Maybe ProjectData, extracts : Dict String Encode.Value }
+runReviewForV2 : ReviewOptions -> Project -> List Rule -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
 runReviewForV2 reviewOptions project rules =
     let
         runResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
@@ -676,9 +668,7 @@ runReviewForV2 reviewOptions project rules =
     in
     { errors = runResult.errors
     , rules = runResult.rules
-    , project = runResult.project
     , projectData = Nothing
-    , extracts = runResult.extracts
     }
 
 
