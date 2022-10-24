@@ -1,11 +1,8 @@
 module Review.Project.Internal exposing
-    ( DataCache
-    , ModuleCacheKey
-    , Project(..)
+    ( Project(..)
     , ProjectModule
     , acyclicModuleGraph
     , buildModuleGraph
-    , emptyDataCache
     , getModuleByPath
     , moduleGraph
     , sourceDirectories
@@ -16,16 +13,15 @@ the `elm.json` file, the project modules and the project dependencies.
 -}
 
 import Dict exposing (Dict)
-import Elm.Docs
 import Elm.Project
 import Elm.Syntax.File
 import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
 import Review.ImportCycle as ImportCycle
-import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Project.Dependency exposing (Dependency)
 import Review.Project.InvalidProjectError as InvalidProjectError exposing (InvalidProjectError)
+import Review.Project.ProjectCache exposing (DataCache)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.Zipper as Zipper exposing (Zipper)
 
@@ -41,27 +37,6 @@ type Project
         , sourceDirectories : List String
         , dataCache : DataCache
         }
-
-
-type alias DataCache =
-    { dependenciesModules : Maybe { elmJsonRaw : Maybe String, deps : Dict ModuleName Elm.Docs.Module }
-    , modules : Dict ModuleName Elm.Docs.Module
-    , lookupTables : Dict ModuleName { key : ModuleCacheKey, lookupTable : ModuleNameLookupTable }
-    }
-
-
-type alias ModuleCacheKey =
-    { imported : Dict ModuleName Elm.Docs.Module
-    , source : String
-    }
-
-
-emptyDataCache : DataCache
-emptyDataCache =
-    { dependenciesModules = Nothing
-    , modules = Dict.empty
-    , lookupTables = Dict.empty
-    }
 
 
 {-| Represents a parsed file.

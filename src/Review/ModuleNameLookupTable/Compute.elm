@@ -22,6 +22,7 @@ import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal ex
 import Review.Project
 import Review.Project.Dependency
 import Review.Project.Internal exposing (Project(..), ProjectModule)
+import Review.Project.ProjectCache as ProjectCache
 import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
 
@@ -122,7 +123,7 @@ compute moduleName module_ ((Project { dataCache }) as project) =
                 Dict.empty
                 (elmCorePrelude ++ module_.ast.imports)
 
-        cacheKey : Review.Project.Internal.ModuleCacheKey
+        cacheKey : ProjectCache.ModuleCacheKey
         cacheKey =
             { imported = imported, source = module_.source }
 
@@ -158,7 +159,7 @@ compute moduleName module_ ((Project { dataCache }) as project) =
                 Nothing ->
                     computeLookupTableForModule ()
 
-        newDataCache : Review.Project.Internal.DataCache
+        newDataCache : ProjectCache.DataCache
         newDataCache =
             { dependenciesModules = Just { elmJsonRaw = elmJsonRaw, deps = deps }
             , modules = modules
@@ -176,7 +177,7 @@ computeDependencies project =
         |> List.foldl (\dependencyModule acc -> Dict.insert (String.split "." dependencyModule.name) dependencyModule acc) Dict.empty
 
 
-updateProject : Review.Project.Internal.DataCache -> Project -> Project
+updateProject : ProjectCache.DataCache -> Project -> Project
 updateProject dataCache (Project project) =
     Project { project | dataCache = dataCache }
 

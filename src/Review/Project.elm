@@ -50,6 +50,7 @@ import Elm.Syntax.Node as Node
 import Review.FileParser as FileParser
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal as Internal exposing (Project)
+import Review.Project.ProjectCache as ProjectCache
 import Vendor.Graph exposing (Graph)
 
 
@@ -81,7 +82,7 @@ new =
         , dependencies = Dict.empty
         , moduleGraph = Nothing
         , sourceDirectories = [ "src/" ]
-        , dataCache = Internal.emptyDataCache
+        , dataCache = ProjectCache.empty
         }
 
 
