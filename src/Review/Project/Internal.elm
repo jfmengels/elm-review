@@ -1,7 +1,6 @@
 module Review.Project.Internal exposing
     ( DataCache
     , ModuleCacheKey
-    , ModuleGraphErrors(..)
     , Project(..)
     , ProjectModule
     , acyclicModuleGraph
@@ -26,6 +25,7 @@ import Elm.Syntax.Node as Node
 import Review.ImportCycle as ImportCycle
 import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.Project.Dependency exposing (Dependency)
+import Review.Project.InvalidProjectError as InvalidProjectError exposing (InvalidProjectError)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.Zipper as Zipper exposing (Zipper)
 
@@ -100,17 +100,10 @@ moduleGraph (Project project) =
             buildModuleGraph (Dict.values project.modules)
 
 
-type ModuleGraphErrors
-    = SomeModulesFailedToParse (List String)
-    | DuplicateModuleNames { moduleName : ModuleName, paths : List String }
-    | ImportCycleError (List ModuleName)
-    | NoModulesError
-
-
-acyclicModuleGraph : Project -> Result ModuleGraphErrors ( Project, Zipper (Graph.NodeContext ModuleName ()) )
+acyclicModuleGraph : Project -> Result InvalidProjectError ( Project, Zipper (Graph.NodeContext ModuleName ()) )
 acyclicModuleGraph ((Project p) as project) =
     if not (List.isEmpty p.modulesThatFailedToParse) then
-        Err (SomeModulesFailedToParse (List.map .path p.modulesThatFailedToParse))
+        Err (InvalidProjectError.SomeModulesFailedToParse (List.map .path p.modulesThatFailedToParse))
 
     else
         let
@@ -120,7 +113,7 @@ acyclicModuleGraph ((Project p) as project) =
         in
         case duplicateModuleNames Dict.empty projectModules of
             Just duplicate ->
-                Err (DuplicateModuleNames duplicate)
+                Err (InvalidProjectError.DuplicateModuleNames duplicate)
 
             Nothing ->
                 let
@@ -132,13 +125,13 @@ acyclicModuleGraph ((Project p) as project) =
                     Err edge ->
                         ImportCycle.findCycle graph edge
                             |> List.reverse
-                            |> ImportCycleError
+                            |> InvalidProjectError.ImportCycleError
                             |> Err
 
                     Ok acyclicGraph ->
                         case Zipper.fromList (Graph.topologicalSort acyclicGraph) of
                             Nothing ->
-                                Err NoModulesError
+                                Err InvalidProjectError.NoModulesError
 
                             Just zipper ->
                                 Ok ( project, zipper )

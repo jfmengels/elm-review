@@ -314,6 +314,7 @@ import Review.Options.Internal exposing (ReviewOptionsData, ReviewOptionsInterna
 import Review.Project exposing (ProjectModule)
 import Review.Project.Dependency
 import Review.Project.Internal exposing (Project)
+import Review.Project.InvalidProjectError as InvalidProjectError
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
@@ -431,16 +432,16 @@ to compare them or the model that holds them.
 review : List Rule -> Project -> ( List ReviewError, List Rule )
 review rules project =
     case Review.Project.Internal.acyclicModuleGraph project of
-        Err (Review.Project.Internal.SomeModulesFailedToParse pathsThatFailedToParse) ->
+        Err (InvalidProjectError.SomeModulesFailedToParse pathsThatFailedToParse) ->
             ( List.map parsingError pathsThatFailedToParse, rules )
 
-        Err (Review.Project.Internal.DuplicateModuleNames duplicate) ->
+        Err (InvalidProjectError.DuplicateModuleNames duplicate) ->
             ( [ duplicateModulesGlobalError duplicate ], rules )
 
-        Err (Review.Project.Internal.ImportCycleError cycle) ->
+        Err (InvalidProjectError.ImportCycleError cycle) ->
             ( [ importCycleError cycle ], rules )
 
-        Err Review.Project.Internal.NoModulesError ->
+        Err InvalidProjectError.NoModulesError ->
             ( [ elmReviewGlobalError
                     { message = "This project does not contain any Elm modules"
                     , details = [ "I need to look at some Elm modules. Maybe you have specified folders that do not exist?" ]
@@ -628,16 +629,16 @@ checkForConfigurationErrors rules =
 getModulesSortedByImport : Project -> Result (List ReviewError) ( Project, Zipper (Graph.NodeContext ModuleName ()) )
 getModulesSortedByImport project =
     case Review.Project.Internal.acyclicModuleGraph project of
-        Err (Review.Project.Internal.SomeModulesFailedToParse pathsThatFailedToParse) ->
+        Err (InvalidProjectError.SomeModulesFailedToParse pathsThatFailedToParse) ->
             Err (List.map parsingError pathsThatFailedToParse)
 
-        Err (Review.Project.Internal.DuplicateModuleNames duplicate) ->
+        Err (InvalidProjectError.DuplicateModuleNames duplicate) ->
             Err [ duplicateModulesGlobalError duplicate ]
 
-        Err (Review.Project.Internal.ImportCycleError cycle) ->
+        Err (InvalidProjectError.ImportCycleError cycle) ->
             Err [ importCycleError cycle ]
 
-        Err Review.Project.Internal.NoModulesError ->
+        Err InvalidProjectError.NoModulesError ->
             Err
                 [ elmReviewGlobalError
                     { message = "This project does not contain any Elm modules"
