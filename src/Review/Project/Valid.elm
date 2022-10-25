@@ -127,15 +127,6 @@ fromProjectAndGraph acyclicGraph (Project project) =
         directDependencies_ : Dict String Dependency
         directDependencies_ =
             computeDirectDependencies project
-
-        dependencyModules : Set ModuleName
-        dependencyModules =
-            Dict.foldl
-                (\_ v acc ->
-                    List.foldl (\mod subAcc -> Set.insert (String.split "." mod.name) subAcc) acc (Dependency.modules v)
-                )
-                Set.empty
-                directDependencies_
     in
     ValidProject
         { modules = project.modules
@@ -143,7 +134,7 @@ fromProjectAndGraph acyclicGraph (Project project) =
         , readme = project.readme
         , dependencies = project.dependencies
         , directDependencies = directDependencies_
-        , dependencyModules = dependencyModules
+        , dependencyModules = computeDependencyModules directDependencies_
         , moduleGraph = project.moduleGraph
         , sourceDirectories = project.sourceDirectories
         , projectCache = project.dataCache
@@ -172,6 +163,16 @@ computeDirectDependencies project =
 
         Nothing ->
             project.dependencies
+
+
+computeDependencyModules : Dict a Dependency -> Set ModuleName
+computeDependencyModules directDependencies_ =
+    Dict.foldl
+        (\_ v acc ->
+            List.foldl (\mod subAcc -> Set.insert (String.split "." mod.name) subAcc) acc (Dependency.modules v)
+        )
+        Set.empty
+        directDependencies_
 
 
 duplicateModuleNames : Dict ModuleName String -> List ProjectModule -> Maybe { moduleName : ModuleName, paths : List String }
