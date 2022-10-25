@@ -4,6 +4,7 @@ module Review.Project.Internal exposing
     , buildModuleGraph
     , getModuleByPath
     , moduleGraph
+    , sanitizeModule
     , sourceDirectories
     )
 
@@ -209,3 +210,21 @@ getModuleName module_ =
     module_.ast.moduleDefinition
         |> Node.value
         |> Elm.Syntax.Module.moduleName
+
+
+sanitizeModule : ProjectModule -> ProjectModule
+sanitizeModule module_ =
+    { module_ | ast = reorderComments module_.ast }
+
+
+reorderComments : Elm.Syntax.File.File -> Elm.Syntax.File.File
+reorderComments ast =
+    { ast | comments = List.sortBy (Node.range >> .start >> positionAsInt) ast.comments }
+
+
+positionAsInt : { row : Int, column : Int } -> Int
+positionAsInt { row, column } =
+    -- This is a quick and simple heuristic to be able to sort ranges.
+    -- It is entirely based on the assumption that no line is longer than
+    -- 1.000.000 characters long, which the compiler does not support for Elm 0.19.1.
+    row * 1000000 + column

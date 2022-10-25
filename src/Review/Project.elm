@@ -136,14 +136,6 @@ addModule { path, source } project =
                 |> forceModuleGraphRecomputation
 
 
-positionAsInt : { row : Int, column : Int } -> Int
-positionAsInt { row, column } =
-    -- This is a quick and simple heuristic to be able to sort ranges.
-    -- It is entirely based on the assumption that no line is longer than
-    -- 1.000.000 characters long, which the compiler does not support for Elm 0.19.1.
-    row * 1000000 + column
-
-
 {-| Add an already parsed module to the project. This module will then be analyzed by the rules.
 -}
 addParsedModule : { path : String, source : String, ast : Elm.Syntax.File.File } -> Project -> Project
@@ -166,17 +158,7 @@ addParsedModule { path, source, ast } project =
 
 addModuleToProject : ProjectModule -> Project -> Project
 addModuleToProject module_ (Internal.Project project) =
-    Internal.Project { project | modules = Dict.insert module_.path (sanitizeModule module_) project.modules }
-
-
-sanitizeModule : ProjectModule -> ProjectModule
-sanitizeModule module_ =
-    { module_ | ast = reorderComments module_.ast }
-
-
-reorderComments : Elm.Syntax.File.File -> Elm.Syntax.File.File
-reorderComments ast =
-    { ast | comments = List.sortBy (Node.range >> .start >> positionAsInt) ast.comments }
+    Internal.Project { project | modules = Dict.insert module_.path (Internal.sanitizeModule module_) project.modules }
 
 
 addFileThatFailedToParse : { path : String, source : String } -> Project -> Project
