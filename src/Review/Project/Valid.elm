@@ -26,7 +26,7 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
 import Path
 import Review.ImportCycle as ImportCycle
-import Review.Project.Dependency exposing (Dependency)
+import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
 import Review.Project.InvalidProjectError as InvalidProjectError exposing (InvalidProjectError)
 import Review.Project.ProjectCache exposing (DataCache)
@@ -46,6 +46,7 @@ type alias ValidProjectData =
     , readme : Maybe { path : String, content : String }
     , dependencies : Dict String Dependency
     , directDependencies : Dict String Dependency
+    , dependencyModules : Set ModuleName
     , moduleGraph : Maybe (Graph ModuleName ())
     , sourceDirectories : List String
     , projectCache : DataCache
@@ -144,6 +145,15 @@ fromProjectAndGraph acyclicGraph (Project project) =
 
                 Nothing ->
                     project.dependencies
+
+        dependencyModules : Set ModuleName
+        dependencyModules =
+            Dict.foldl
+                (\_ v acc ->
+                    List.foldl (\mod subAcc -> Set.insert (String.split "." mod.name) subAcc) acc (Dependency.modules v)
+                )
+                Set.empty
+                directDependencies_
     in
     ValidProject
         { modules = project.modules
@@ -151,6 +161,7 @@ fromProjectAndGraph acyclicGraph (Project project) =
         , readme = project.readme
         , dependencies = project.dependencies
         , directDependencies = directDependencies_
+        , dependencyModules = dependencyModules
         , moduleGraph = project.moduleGraph
         , sourceDirectories = project.sourceDirectories
         , projectCache = project.dataCache
