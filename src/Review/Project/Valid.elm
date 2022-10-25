@@ -3,6 +3,7 @@ module Review.Project.Valid exposing
     , dependencies
     , directDependencies
     , elmJson
+    , getModuleByPath
     , moduleGraph
     , modules
     , parse
@@ -274,6 +275,11 @@ moduleGraph (ValidProject project) =
 modules : ValidProject -> List ProjectModule
 modules (ValidProject project) =
     Dict.values project.modules
+
+
+getModuleByPath : String -> ValidProject -> Maybe ProjectModule
+getModuleByPath path (ValidProject project) =
+    Dict.get path project.modules
 
 
 projectCache : ValidProject -> DataCache
