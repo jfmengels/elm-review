@@ -99,6 +99,18 @@ parse ((Project p) as project) =
                                     Ok ( fromProjectAndGraph acyclicGraph project, zipper )
 
 
+{-| This is unsafe because we assume that there are some modules. We do check for this earlier in the exposed functions.
+-}
+unsafeCreateZipper : List a -> Zipper a
+unsafeCreateZipper sortedModules =
+    case Zipper.fromList sortedModules of
+        Just zipper ->
+            zipper
+
+        Nothing ->
+            unsafeCreateZipper sortedModules
+
+
 fromProjectAndGraph : Graph.AcyclicGraph ModuleName () -> Project -> ValidProject
 fromProjectAndGraph acyclicGraph (Project project) =
     ValidProject
