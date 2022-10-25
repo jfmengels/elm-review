@@ -16,6 +16,7 @@ module Review.Exceptions exposing
 
 -}
 
+import Path
 import Set exposing (Set)
 
 
@@ -40,7 +41,7 @@ addDirectories directories =
         cleanedDirectories =
             directories
                 |> List.map
-                    (makePathOSAgnostic
+                    (Path.makeOSAgnostic
                         >> (\dir ->
                                 if String.endsWith "/" dir then
                                     dir
@@ -59,7 +60,7 @@ addFiles files =
         cleanedFiles : Set String
         cleanedFiles =
             files
-                |> List.map makePathOSAgnostic
+                |> List.map Path.makeOSAgnostic
                 |> Set.fromList
     in
     addFilter (\file -> Set.member file cleanedFiles |> not)
@@ -73,15 +74,10 @@ isFileWeWantReportsFor (Exceptions conditions) filePath =
             List.all (\condition -> condition path) conditions
     in
     filePath
-        |> makePathOSAgnostic
+        |> Path.makeOSAgnostic
         |> allConditions
 
 
 isInAnIgnoredDirectory : List String -> String -> Bool
 isInAnIgnoredDirectory directories path =
     List.any (\dir -> String.startsWith dir path) directories
-
-
-makePathOSAgnostic : String -> String
-makePathOSAgnostic path =
-    String.replace "\\" "/" path

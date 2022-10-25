@@ -47,6 +47,7 @@ import Elm.Project
 import Elm.Syntax.File
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
+import Path
 import Review.FileParser as FileParser
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal as Internal exposing (Project)
@@ -113,14 +114,14 @@ addModule { path, source } project =
             let
                 osAgnosticPath : String
                 osAgnosticPath =
-                    makePathOSAgnostic path
+                    Path.makeOSAgnostic path
             in
             project
                 |> addModuleToProject
                     { path = path
                     , source = source
                     , ast = ast
-                    , isInSourceDirectories = List.any (\dir -> String.startsWith (makePathOSAgnostic dir) osAgnosticPath) (Internal.sourceDirectories project)
+                    , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) (Internal.sourceDirectories project)
                     }
                 |> removeFileFromFilesThatFailedToParse path
                 |> forceModuleGraphRecomputation
@@ -150,7 +151,7 @@ addParsedModule { path, source, ast } project =
     let
         osAgnosticPath : String
         osAgnosticPath =
-            makePathOSAgnostic path
+            Path.makeOSAgnostic path
     in
     project
         |> removeFileFromFilesThatFailedToParse path
@@ -158,7 +159,7 @@ addParsedModule { path, source, ast } project =
             { path = path
             , source = source
             , ast = ast
-            , isInSourceDirectories = List.any (\dir -> String.startsWith (makePathOSAgnostic dir) osAgnosticPath) (Internal.sourceDirectories project)
+            , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) (Internal.sourceDirectories project)
             }
         |> forceModuleGraphRecomputation
 
@@ -279,7 +280,7 @@ addElmJson elmJson_ (Internal.Project project) =
                         let
                             osAgnosticPath : String
                             osAgnosticPath =
-                                makePathOSAgnostic value.path
+                                Path.makeOSAgnostic value.path
                         in
                         { value | isInSourceDirectories = List.any (\dir -> String.startsWith dir osAgnosticPath) sourceDirectories }
                     )
@@ -297,7 +298,7 @@ sourceDirectoriesForProject : Elm.Project.Project -> List String
 sourceDirectoriesForProject elmJson_ =
     case elmJson_ of
         Elm.Project.Application { dirs } ->
-            List.map (removeDotSlashAtBeginning >> makePathOSAgnostic >> endWithSlash) dirs
+            List.map (removeDotSlashAtBeginning >> Path.makeOSAgnostic >> endWithSlash) dirs
 
         Elm.Project.Package _ ->
             [ "src/" ]
@@ -424,11 +425,6 @@ directDependencies (Internal.Project project) =
 
         Nothing ->
             project.dependencies
-
-
-makePathOSAgnostic : String -> String
-makePathOSAgnostic path =
-    String.replace "\\" "/" path
 
 
 
