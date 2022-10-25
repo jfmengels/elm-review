@@ -1,5 +1,6 @@
 module Review.Project.Valid exposing
     ( ValidProject
+    , addElmJson
     , addParsedModule
     , addReadme
     , dependencies
@@ -376,3 +377,38 @@ available for rules to access using
 addReadme : { path : String, content : String } -> ValidProject -> ValidProject
 addReadme readme_ (ValidProject project) =
     ValidProject { project | readme = Just readme_ }
+
+
+addElmJson : { path : String, raw : String, project : Elm.Project.Project } -> ValidProject -> ValidProject
+addElmJson elmJson_ (ValidProject project) =
+    let
+        sourceDirectories : List String
+        sourceDirectories =
+            Review.Project.Internal.sourceDirectoriesForProject elmJson_.project
+
+        modules_ : Dict String ProjectModule
+        modules_ =
+            if project.sourceDirectories == sourceDirectories then
+                project.modules
+
+            else
+                Dict.map
+                    (\_ value ->
+                        let
+                            osAgnosticPath : String
+                            osAgnosticPath =
+                                Path.makeOSAgnostic value.path
+                        in
+                        { value | isInSourceDirectories = List.any (\dir -> String.startsWith dir osAgnosticPath) sourceDirectories }
+                    )
+                    project.modules
+
+        -- TODO Re-evaluate dependencies as well.
+        -- Remove from `dependencies` if some have been removed, and return `Nothing` if some have been added
+    in
+    ValidProject
+        { project
+            | elmJson = Just elmJson_
+            , sourceDirectories = sourceDirectories
+            , modules = modules_
+        }
