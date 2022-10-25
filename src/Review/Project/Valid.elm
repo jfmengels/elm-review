@@ -5,6 +5,7 @@ module Review.Project.Valid exposing
     , elmJson
     , getModuleByPath
     , moduleGraph
+    , moduleZipper
     , modules
     , parse
     , projectCache
@@ -301,6 +302,11 @@ getModuleByPath path (ValidProject project) =
 projectCache : ValidProject -> DataCache
 projectCache (ValidProject project) =
     project.projectCache
+
+
+moduleZipper : ValidProject -> Zipper (Graph.NodeContext ModuleName ())
+moduleZipper (ValidProject project) =
+    unsafeCreateZipper project.sortedModules
 
 
 updateProjectCache : DataCache -> ValidProject -> ValidProject
