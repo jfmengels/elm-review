@@ -514,3 +514,20 @@ addElmJson elmJson_ (ValidProject project) =
             , sourceDirectories = sourceDirectories
             , modules = modules_
         }
+
+
+areDependenciesUnchanged : { before : Elm.Project.Project, after : Elm.Project.Project } -> Bool
+areDependenciesUnchanged { before, after } =
+    case ( before, after ) of
+        ( Elm.Project.Application beforeApp, Elm.Project.Application afterApp ) ->
+            (beforeApp.depsDirect == afterApp.depsDirect)
+                && (beforeApp.depsIndirect == afterApp.depsIndirect)
+                && (beforeApp.testDepsDirect == afterApp.testDepsDirect)
+                && (beforeApp.testDepsIndirect == afterApp.testDepsIndirect)
+
+        ( Elm.Project.Package beforePkg, Elm.Project.Package afterPkg ) ->
+            (beforePkg.deps == afterPkg.deps)
+                && (beforePkg.testDeps == afterPkg.testDeps)
+
+        _ ->
+            False
