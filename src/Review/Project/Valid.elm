@@ -40,7 +40,7 @@ type ValidProject
         , moduleGraph : Maybe (Graph ModuleName ())
         , sourceDirectories : List String
         , projectCache : DataCache
-        , acyclicGraph : Graph.AcyclicGraph ModuleName ()
+        , sortedModules : List (Graph.NodeContext ModuleName ())
         }
 
 
@@ -110,7 +110,7 @@ fromProjectAndGraph acyclicGraph (Project project) =
         , moduleGraph = project.moduleGraph
         , sourceDirectories = project.sourceDirectories
         , projectCache = project.dataCache
-        , acyclicGraph = acyclicGraph
+        , sortedModules = Graph.topologicalSort acyclicGraph
         }
 
 
