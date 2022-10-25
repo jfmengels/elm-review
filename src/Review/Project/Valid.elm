@@ -529,7 +529,8 @@ computeUpdatedDependencies previousElmJsonProject newElmJson project =
         let
             newDependencies : Dict String Dependency
             newDependencies =
-                -- TODO Remove from `dependencies` if some have been removed, and return `Nothing` if some have been added
+                -- TODO Remove from `dependencies` if some have been removed or their version has changed
+                -- and return `Nothing` if some have been added
                 project.dependencies
 
             directDependencies_ : Dict String Dependency
