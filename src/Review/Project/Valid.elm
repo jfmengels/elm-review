@@ -47,7 +47,7 @@ type alias ValidProjectData =
     , dependencies : Dict String Dependency
     , directDependencies : Dict String Dependency
     , dependencyModules : Set ModuleName
-    , moduleGraph : Maybe (Graph ModuleName ())
+    , moduleGraph : Graph ModuleName ()
     , sourceDirectories : List String
     , projectCache : DataCache
     , sortedModules : List (Graph.NodeContext ModuleName ())
@@ -62,7 +62,7 @@ toRegularProject (ValidProject validProject) =
         , elmJson = validProject.elmJson
         , readme = validProject.readme
         , dependencies = validProject.dependencies
-        , moduleGraph = validProject.moduleGraph
+        , moduleGraph = Just validProject.moduleGraph
         , sourceDirectories = validProject.sourceDirectories
         , dataCache = validProject.projectCache
         }
@@ -106,7 +106,7 @@ parse ((Project p) as project) =
                                     Err InvalidProjectError.NoModulesError
 
                                 Just zipper ->
-                                    Ok ( fromProjectAndGraph acyclicGraph project, zipper )
+                                    Ok ( fromProjectAndGraph graph acyclicGraph project, zipper )
 
 
 {-| This is unsafe because we assume that there are some modules. We do check for this earlier in the exposed functions.
@@ -121,8 +121,8 @@ unsafeCreateZipper sortedModules =
             unsafeCreateZipper sortedModules
 
 
-fromProjectAndGraph : Graph.AcyclicGraph ModuleName () -> Project -> ValidProject
-fromProjectAndGraph acyclicGraph (Project project) =
+fromProjectAndGraph : Graph ModuleName () -> Graph.AcyclicGraph ModuleName () -> Project -> ValidProject
+fromProjectAndGraph moduleGraph_ acyclicGraph (Project project) =
     let
         directDependencies_ : Dict String Dependency
         directDependencies_ =
@@ -135,9 +135,9 @@ fromProjectAndGraph acyclicGraph (Project project) =
         , dependencies = project.dependencies
         , directDependencies = directDependencies_
         , dependencyModules = computeDependencyModules directDependencies_
-        , moduleGraph = project.moduleGraph
         , sourceDirectories = project.sourceDirectories
         , projectCache = project.dataCache
+        , moduleGraph = moduleGraph_
         , sortedModules = Graph.topologicalSort acyclicGraph
         }
 
@@ -307,13 +307,7 @@ directDependencies (ValidProject project) =
 
 moduleGraph : ValidProject -> Graph ModuleName ()
 moduleGraph (ValidProject project) =
-    -- TODO Compute this in `parse` and store it in `ValidProject`
-    case project.moduleGraph of
-        Just graph ->
-            graph
-
-        Nothing ->
-            buildModuleGraph (Dict.values project.modules)
+    project.moduleGraph
 
 
 {-| Get the list of modules in the project.
