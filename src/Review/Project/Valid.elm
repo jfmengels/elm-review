@@ -1,5 +1,6 @@
 module Review.Project.Valid exposing
     ( ValidProject
+    , addParsedModule
     , dependencies
     , directDependencies
     , elmJson
@@ -21,27 +22,32 @@ import Elm.Syntax.File
 import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
+import Path
 import Review.ImportCycle as ImportCycle
 import Review.Project.Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
 import Review.Project.InvalidProjectError as InvalidProjectError exposing (InvalidProjectError)
 import Review.Project.ProjectCache exposing (DataCache)
 import Review.Project.ProjectModule exposing (ProjectModule)
+import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.Zipper as Zipper exposing (Zipper)
 
 
 type ValidProject
-    = ValidProject
-        { modules : Dict String ProjectModule
-        , elmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
-        , readme : Maybe { path : String, content : String }
-        , dependencies : Dict String Dependency
-        , moduleGraph : Maybe (Graph ModuleName ())
-        , sourceDirectories : List String
-        , projectCache : DataCache
-        , sortedModules : List (Graph.NodeContext ModuleName ())
-        }
+    = ValidProject ValidProjectData
+
+
+type alias ValidProjectData =
+    { modules : Dict String ProjectModule
+    , elmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
+    , readme : Maybe { path : String, content : String }
+    , dependencies : Dict String Dependency
+    , moduleGraph : Maybe (Graph ModuleName ())
+    , sourceDirectories : List String
+    , projectCache : DataCache
+    , sortedModules : List (Graph.NodeContext ModuleName ())
+    }
 
 
 toRegularProject : ValidProject -> Project
@@ -310,3 +316,52 @@ moduleZipper (ValidProject project) =
 updateProjectCache : DataCache -> ValidProject -> ValidProject
 updateProjectCache projectCache_ (ValidProject project) =
     ValidProject { project | projectCache = projectCache_ }
+
+
+{-| Add an already parsed module to the project. This module will then be analyzed by the rules.
+-}
+addParsedModule : { path : String, source : String, ast : Elm.Syntax.File.File } -> ValidProject -> Maybe ValidProject
+addParsedModule { path, source, ast } (ValidProject project) =
+    let
+        osAgnosticPath : String
+        osAgnosticPath =
+            Path.makeOSAgnostic path
+
+        module_ : ProjectModule
+        module_ =
+            { path = path
+            , source = source
+            , ast = ast
+            , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) project.sourceDirectories
+            }
+    in
+    case Dict.get path project.modules of
+        Just existingModule ->
+            if getModuleName existingModule == getModuleName module_ then
+                if importedModulesSet existingModule.ast == importedModulesSet ast then
+                    -- Imports haven't changed, we don't need to recompute the zipper or the graph
+                    Just (ValidProject { project | modules = Dict.insert path (Review.Project.Internal.sanitizeModule module_) project.modules })
+
+                else
+                    -- Imports have changed, we need to recompute the zipper
+                    -- TODO
+                    Just (ValidProject { project | modules = Dict.insert path (Review.Project.Internal.sanitizeModule module_) project.modules })
+
+            else
+                -- If the path has not changed but the module name has, then the fix necessarily introduced a compilation error
+                Nothing
+
+        Nothing ->
+            -- We don't support adding new files at the moment.
+            Nothing
+
+
+importedModulesSet : Elm.Syntax.File.File -> Set ModuleName
+importedModulesSet ast =
+    -- TODO Remove modules from dependencies
+    List.foldl
+        (\import_ set ->
+            Set.insert (Node.value (Node.value import_).moduleName) set
+        )
+        Set.empty
+        ast.imports
