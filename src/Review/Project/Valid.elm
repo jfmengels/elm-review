@@ -322,8 +322,12 @@ updateProjectCache projectCache_ (ValidProject project) =
 
 {-| Add an already parsed module to the project. This module will then be analyzed by the rules.
 -}
-addParsedModule : { path : String, source : String, ast : Elm.Syntax.File.File } -> ValidProject -> Maybe ValidProject
-addParsedModule { path, source, ast } (ValidProject project) =
+addParsedModule :
+    { path : String, source : String, ast : Elm.Syntax.File.File }
+    -> Maybe (Zipper (Graph.NodeContext ModuleName ()))
+    -> ValidProject
+    -> Maybe ( ValidProject, Zipper (Graph.NodeContext ModuleName ()) )
+addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
     let
         osAgnosticPath : String
         osAgnosticPath =
@@ -340,14 +344,37 @@ addParsedModule { path, source, ast } (ValidProject project) =
     case Dict.get path project.modules of
         Just existingModule ->
             if getModuleName existingModule == getModuleName module_ then
+                let
+                    newProject : ValidProjectData
+                    newProject =
+                        { project | modules = Dict.insert path (Review.Project.Internal.sanitizeModule module_) project.modules }
+                in
                 if importedModulesSet existingModule.ast == importedModulesSet ast then
-                    -- Imports haven't changed, we don't need to recompute the zipper or the graph
-                    Just (ValidProject { project | modules = Dict.insert path (Review.Project.Internal.sanitizeModule module_) project.modules })
+                    let
+                        -- Imports haven't changed, we don't need to recompute the zipper or the graph
+                        newModuleZipper : Zipper (Graph.NodeContext ModuleName ())
+                        newModuleZipper =
+                            case maybeModuleZipper of
+                                Just moduleZipper_ ->
+                                    moduleZipper_
+
+                                Nothing ->
+                                    unsafeCreateZipper newProject.sortedModules
+                    in
+                    Just ( ValidProject newProject, newModuleZipper )
 
                 else
-                    -- Imports have changed, we need to recompute the zipper
-                    -- TODO
-                    Just (ValidProject { project | modules = Dict.insert path (Review.Project.Internal.sanitizeModule module_) project.modules })
+                    let
+                        graph : Graph ModuleName ()
+                        graph =
+                            buildModuleGraph (Dict.values project.modules)
+                    in
+                    case Graph.checkAcyclic graph of
+                        Err _ ->
+                            Nothing
+
+                        Ok acyclicGraph ->
+                            Just ( ValidProject newProject, unsafeCreateZipper (Graph.topologicalSort acyclicGraph) )
 
             else
                 -- If the path has not changed but the module name has, then the fix necessarily introduced a compilation error
