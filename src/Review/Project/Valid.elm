@@ -47,9 +47,9 @@ type alias ValidProjectData =
     , dependencies : Dict String Dependency
     , directDependencies : Dict String Dependency
     , dependencyModules : Set ModuleName
-    , moduleGraph : Graph ModuleName ()
     , sourceDirectories : List String
     , projectCache : DataCache
+    , moduleGraph : Graph ModuleName ()
     , sortedModules : List (Graph.NodeContext ModuleName ())
     }
 
@@ -395,7 +395,7 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                     let
                         graph : Graph ModuleName ()
                         graph =
-                            buildModuleGraph (Dict.values project.modules)
+                            buildModuleGraph (Dict.values newProject.modules)
                     in
                     case Graph.checkAcyclic graph of
                         Err _ ->
@@ -403,9 +403,13 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
 
                         Ok acyclicGraph ->
                             let
+                                sortedModules : List (Graph.NodeContext ModuleName ())
+                                sortedModules =
+                                    Graph.topologicalSort acyclicGraph
+
                                 moduleZipper_ : Zipper (Graph.NodeContext ModuleName ())
                                 moduleZipper_ =
-                                    unsafeCreateZipper newProject.sortedModules
+                                    unsafeCreateZipper sortedModules
 
                                 newModuleZipper : Zipper (Graph.NodeContext ModuleName ())
                                 newModuleZipper =
@@ -421,7 +425,7 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                                                 -- Should not happen :/
                                                 |> Maybe.withDefault moduleZipper_
                             in
-                            Just ( ValidProject newProject, newModuleZipper )
+                            Just ( ValidProject { newProject | moduleGraph = graph, sortedModules = sortedModules }, newModuleZipper )
 
             else
                 -- If the path has not changed but the module name has, then the fix necessarily introduced a compilation error
