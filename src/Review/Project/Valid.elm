@@ -481,7 +481,7 @@ addReadme readme_ (ValidProject project) =
     ValidProject { project | readme = Just readme_ }
 
 
-addElmJson : { path : String, raw : String, project : Elm.Project.Project } -> ValidProject -> ValidProject
+addElmJson : { path : String, raw : String, project : Elm.Project.Project } -> ValidProject -> Maybe ValidProject
 addElmJson elmJson_ (ValidProject project) =
     let
         sourceDirectories : List String
@@ -529,15 +529,17 @@ addElmJson elmJson_ (ValidProject project) =
                 , dependencyModules = computeDependencyModules directDependencies_
                 }
     in
-    ValidProject
-        { project
-            | elmJson = Just elmJson_
-            , sourceDirectories = sourceDirectories
-            , modules = modules_
-            , dependencies = updateDependencies.dependencies
-            , directDependencies = updateDependencies.directDependencies
-            , dependencyModules = updateDependencies.dependencyModules
-        }
+    Just
+        (ValidProject
+            { project
+                | elmJson = Just elmJson_
+                , sourceDirectories = sourceDirectories
+                , modules = modules_
+                , dependencies = updateDependencies.dependencies
+                , directDependencies = updateDependencies.directDependencies
+                , dependencyModules = updateDependencies.dependencyModules
+            }
+        )
 
 
 areDependenciesUnchanged : { before : Maybe Elm.Project.Project, after : Elm.Project.Project } -> Bool

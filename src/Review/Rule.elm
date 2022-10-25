@@ -5000,15 +5000,21 @@ findFixHelp project fixablePredicate errors maybeModuleZipper =
                                     findFixHelp project fixablePredicate restOfErrors maybeModuleZipper
 
                                 Just elmJson ->
-                                    case InternalFix.fixElmJson fixes elmJson.raw of
+                                    case
+                                        InternalFix.fixElmJson fixes elmJson.raw
+                                            |> Maybe.andThen
+                                                (\fixResult ->
+                                                    ValidProject.addElmJson { path = elmJson.path, raw = fixResult.raw, project = fixResult.project } project
+                                                )
+                                    of
                                         Nothing ->
                                             findFixHelp project fixablePredicate restOfErrors maybeModuleZipper
 
-                                        Just fixResult ->
+                                        Just newProject ->
                                             -- TODO Don't apply the fix dependencies are added, or source-directories are changed
                                             -- TODO Remove dependencies if there are less dependencies
                                             Just
-                                                { project = ValidProject.addElmJson { path = elmJson.path, raw = fixResult.raw, project = fixResult.project } project
+                                                { project = newProject
                                                 , fixedFile = FixedElmJson
                                                 , error = errorToReviewError (Error headError)
                                                 }
