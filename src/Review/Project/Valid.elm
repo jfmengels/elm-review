@@ -498,24 +498,6 @@ addElmJson elmJson_ (ValidProject project) =
                 Nothing
 
             else
-                let
-                    modules_ : Dict String ProjectModule
-                    modules_ =
-                        if project.sourceDirectories == sourceDirectories then
-                            project.modules
-
-                        else
-                            Dict.map
-                                (\_ value ->
-                                    let
-                                        osAgnosticPath : String
-                                        osAgnosticPath =
-                                            Path.makeOSAgnostic value.path
-                                    in
-                                    { value | isInSourceDirectories = List.any (\dir -> String.startsWith dir osAgnosticPath) sourceDirectories }
-                                )
-                                project.modules
-                in
                 computeUpdatedDependencies previousElmJson.project elmJson_ project
                     |> Maybe.map
                         (\updatedDependencies ->
@@ -523,7 +505,6 @@ addElmJson elmJson_ (ValidProject project) =
                                 { project
                                     | elmJson = Just elmJson_
                                     , sourceDirectories = sourceDirectories
-                                    , modules = modules_
                                     , dependencies = updatedDependencies.dependencies
                                     , directDependencies = updatedDependencies.directDependencies
                                     , dependencyModules = updatedDependencies.dependencyModules
