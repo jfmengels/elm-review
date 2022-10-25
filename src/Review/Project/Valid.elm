@@ -1,6 +1,7 @@
 module Review.Project.Valid exposing
     ( ValidProject
     , addParsedModule
+    , addReadme
     , dependencies
     , directDependencies
     , elmJson
@@ -365,3 +366,13 @@ importedModulesSet ast =
         )
         Set.empty
         ast.imports
+
+
+{-| Add the content of the `README.md` file to the project, making it
+available for rules to access using
+[`Review.Rule.withReadmeModuleVisitor`](./Review-Rule#withReadmeModuleVisitor) and
+[`Review.Rule.withReadmeProjectVisitor`](./Review-Rule#withReadmeProjectVisitor).
+-}
+addReadme : { path : String, content : String } -> ValidProject -> ValidProject
+addReadme readme_ (ValidProject project) =
+    ValidProject { project | readme = Just readme_ }
