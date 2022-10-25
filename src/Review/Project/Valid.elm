@@ -515,35 +515,34 @@ addElmJson elmJson_ (ValidProject project) =
                                     { value | isInSourceDirectories = List.any (\dir -> String.startsWith dir osAgnosticPath) sourceDirectories }
                                 )
                                 project.modules
-
-                    updatedDependencies : { dependencies : Dict String Dependency, directDependencies : Dict String Dependency, dependencyModules : Set ModuleName }
-                    updatedDependencies =
-                        computeUpdatedDependencies previousElmJson.project elmJson_ project
                 in
-                Just
-                    (ValidProject
-                        { project
-                            | elmJson = Just elmJson_
-                            , sourceDirectories = sourceDirectories
-                            , modules = modules_
-                            , dependencies = updatedDependencies.dependencies
-                            , directDependencies = updatedDependencies.directDependencies
-                            , dependencyModules = updatedDependencies.dependencyModules
-                        }
-                    )
+                computeUpdatedDependencies previousElmJson.project elmJson_ project
+                    |> Maybe.map
+                        (\updatedDependencies ->
+                            ValidProject
+                                { project
+                                    | elmJson = Just elmJson_
+                                    , sourceDirectories = sourceDirectories
+                                    , modules = modules_
+                                    , dependencies = updatedDependencies.dependencies
+                                    , directDependencies = updatedDependencies.directDependencies
+                                    , dependencyModules = updatedDependencies.dependencyModules
+                                }
+                        )
 
 
 computeUpdatedDependencies :
     Elm.Project.Project
     -> { path : String, raw : String, project : Elm.Project.Project }
     -> ValidProjectData
-    -> { dependencies : Dict String Dependency, directDependencies : Dict String Dependency, dependencyModules : Set ModuleName }
+    -> Maybe { dependencies : Dict String Dependency, directDependencies : Dict String Dependency, dependencyModules : Set ModuleName }
 computeUpdatedDependencies previousElmJsonProject newElmJson project =
     if areDependenciesUnchanged { before = previousElmJsonProject, after = newElmJson.project } then
-        { dependencies = project.dependencies
-        , directDependencies = project.directDependencies
-        , dependencyModules = project.dependencyModules
-        }
+        Just
+            { dependencies = project.dependencies
+            , directDependencies = project.directDependencies
+            , dependencyModules = project.dependencyModules
+            }
 
     else
         let
@@ -556,10 +555,11 @@ computeUpdatedDependencies previousElmJsonProject newElmJson project =
             directDependencies_ =
                 computeDirectDependencies { elmJson = Just newElmJson, dependencies = newDependencies }
         in
-        { dependencies = newDependencies
-        , directDependencies = directDependencies_
-        , dependencyModules = computeDependencyModules directDependencies_
-        }
+        Just
+            { dependencies = newDependencies
+            , directDependencies = directDependencies_
+            , dependencyModules = computeDependencyModules directDependencies_
+            }
 
 
 areDependenciesUnchanged : { before : Elm.Project.Project, after : Elm.Project.Project } -> Bool
