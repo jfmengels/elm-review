@@ -483,75 +483,95 @@ addReadme readme_ (ValidProject project) =
 
 addElmJson : { path : String, raw : String, project : Elm.Project.Project } -> ValidProject -> Maybe ValidProject
 addElmJson elmJson_ (ValidProject project) =
-    let
-        sourceDirectories : List String
-        sourceDirectories =
-            Review.Project.Internal.sourceDirectoriesForProject elmJson_.project
+    case project.elmJson of
+        Nothing ->
+            -- Can't add an elm.json on the fly
+            Nothing
 
-        modules_ : Dict String ProjectModule
-        modules_ =
-            if project.sourceDirectories == sourceDirectories then
-                project.modules
-
-            else
-                Dict.map
-                    (\_ value ->
-                        let
-                            osAgnosticPath : String
-                            osAgnosticPath =
-                                Path.makeOSAgnostic value.path
-                        in
-                        { value | isInSourceDirectories = List.any (\dir -> String.startsWith dir osAgnosticPath) sourceDirectories }
-                    )
-                    project.modules
-
-        updateDependencies : { dependencies : Dict String Dependency, directDependencies : Dict String Dependency, dependencyModules : Set ModuleName }
-        updateDependencies =
-            if areDependenciesUnchanged { before = Maybe.map .project project.elmJson, after = elmJson_.project } then
-                { dependencies = project.dependencies
-                , directDependencies = project.directDependencies
-                , dependencyModules = project.dependencyModules
-                }
+        Just previousElmJson ->
+            let
+                sourceDirectories : List String
+                sourceDirectories =
+                    Review.Project.Internal.sourceDirectoriesForProject elmJson_.project
+            in
+            if sourceDirectories /= Review.Project.Internal.sourceDirectoriesForProject previousElmJson.project then
+                Nothing
 
             else
                 let
-                    newDependencies : Dict String Dependency
-                    newDependencies =
-                        -- TODO Remove from `dependencies` if some have been removed, and return `Nothing` if some have been added
-                        project.dependencies
+                    modules_ : Dict String ProjectModule
+                    modules_ =
+                        if project.sourceDirectories == sourceDirectories then
+                            project.modules
 
-                    directDependencies_ : Dict String Dependency
-                    directDependencies_ =
-                        computeDirectDependencies { elmJson = Just elmJson_, dependencies = newDependencies }
+                        else
+                            Dict.map
+                                (\_ value ->
+                                    let
+                                        osAgnosticPath : String
+                                        osAgnosticPath =
+                                            Path.makeOSAgnostic value.path
+                                    in
+                                    { value | isInSourceDirectories = List.any (\dir -> String.startsWith dir osAgnosticPath) sourceDirectories }
+                                )
+                                project.modules
+
+                    updatedDependencies : { dependencies : Dict String Dependency, directDependencies : Dict String Dependency, dependencyModules : Set ModuleName }
+                    updatedDependencies =
+                        computeUpdatedDependencies previousElmJson.project elmJson_ project
                 in
-                { dependencies = newDependencies
-                , directDependencies = directDependencies_
-                , dependencyModules = computeDependencyModules directDependencies_
-                }
-    in
-    Just
-        (ValidProject
-            { project
-                | elmJson = Just elmJson_
-                , sourceDirectories = sourceDirectories
-                , modules = modules_
-                , dependencies = updateDependencies.dependencies
-                , directDependencies = updateDependencies.directDependencies
-                , dependencyModules = updateDependencies.dependencyModules
-            }
-        )
+                Just
+                    (ValidProject
+                        { project
+                            | elmJson = Just elmJson_
+                            , sourceDirectories = sourceDirectories
+                            , modules = modules_
+                            , dependencies = updatedDependencies.dependencies
+                            , directDependencies = updatedDependencies.directDependencies
+                            , dependencyModules = updatedDependencies.dependencyModules
+                        }
+                    )
 
 
-areDependenciesUnchanged : { before : Maybe Elm.Project.Project, after : Elm.Project.Project } -> Bool
+computeUpdatedDependencies :
+    Elm.Project.Project
+    -> { path : String, raw : String, project : Elm.Project.Project }
+    -> ValidProjectData
+    -> { dependencies : Dict String Dependency, directDependencies : Dict String Dependency, dependencyModules : Set ModuleName }
+computeUpdatedDependencies previousElmJsonProject newElmJson project =
+    if areDependenciesUnchanged { before = previousElmJsonProject, after = newElmJson.project } then
+        { dependencies = project.dependencies
+        , directDependencies = project.directDependencies
+        , dependencyModules = project.dependencyModules
+        }
+
+    else
+        let
+            newDependencies : Dict String Dependency
+            newDependencies =
+                -- TODO Remove from `dependencies` if some have been removed, and return `Nothing` if some have been added
+                project.dependencies
+
+            directDependencies_ : Dict String Dependency
+            directDependencies_ =
+                computeDirectDependencies { elmJson = Just newElmJson, dependencies = newDependencies }
+        in
+        { dependencies = newDependencies
+        , directDependencies = directDependencies_
+        , dependencyModules = computeDependencyModules directDependencies_
+        }
+
+
+areDependenciesUnchanged : { before : Elm.Project.Project, after : Elm.Project.Project } -> Bool
 areDependenciesUnchanged { before, after } =
     case ( before, after ) of
-        ( Just (Elm.Project.Application beforeApp), Elm.Project.Application afterApp ) ->
+        ( Elm.Project.Application beforeApp, Elm.Project.Application afterApp ) ->
             (beforeApp.depsDirect == afterApp.depsDirect)
                 && (beforeApp.depsIndirect == afterApp.depsIndirect)
                 && (beforeApp.testDepsDirect == afterApp.testDepsDirect)
                 && (beforeApp.testDepsIndirect == afterApp.testDepsIndirect)
 
-        ( Just (Elm.Project.Package beforePkg), Elm.Project.Package afterPkg ) ->
+        ( Elm.Project.Package beforePkg, Elm.Project.Package afterPkg ) ->
             (beforePkg.deps == afterPkg.deps)
                 && (beforePkg.testDeps == afterPkg.testDeps)
 
