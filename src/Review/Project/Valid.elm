@@ -370,7 +370,7 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                     newProject =
                         { project | modules = Dict.insert path (Review.Project.Internal.sanitizeModule module_) project.modules }
                 in
-                if importedModulesSet existingModule.ast == importedModulesSet ast then
+                if importedModulesSet existingModule.ast project.dependencyModules == importedModulesSet ast project.dependencyModules then
                     let
                         -- Imports haven't changed, we don't need to recompute the zipper or the graph
                         newModuleZipper : Zipper (Graph.NodeContext ModuleName ())
@@ -432,15 +432,17 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
             Nothing
 
 
-importedModulesSet : Elm.Syntax.File.File -> Set ModuleName
-importedModulesSet ast =
-    -- TODO Remove modules from dependencies
-    List.foldl
-        (\import_ set ->
-            Set.insert (Node.value (Node.value import_).moduleName) set
+importedModulesSet : Elm.Syntax.File.File -> Set ModuleName -> Set ModuleName
+importedModulesSet ast dependencyModules =
+    Set.diff
+        (List.foldl
+            (\import_ set ->
+                Set.insert (Node.value (Node.value import_).moduleName) set
+            )
+            Set.empty
+            ast.imports
         )
-        Set.empty
-        ast.imports
+        dependencyModules
 
 
 advanceZipper : ModuleName -> Zipper (Graph.NodeContext ModuleName ()) -> Zipper (Graph.NodeContext ModuleName ()) -> Zipper (Graph.NodeContext ModuleName ())
