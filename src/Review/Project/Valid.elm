@@ -36,7 +36,7 @@ type ValidProject
         , dependencies : Dict String Dependency
         , moduleGraph : Maybe (Graph ModuleName ())
         , sourceDirectories : List String
-        , dataCache : DataCache
+        , projectCache : DataCache
         , acyclicGraph : Graph.AcyclicGraph ModuleName ()
         }
 
@@ -51,7 +51,7 @@ toRegularProject (ValidProject validProject) =
         , dependencies = validProject.dependencies
         , moduleGraph = validProject.moduleGraph
         , sourceDirectories = validProject.sourceDirectories
-        , dataCache = validProject.dataCache
+        , dataCache = validProject.projectCache
         }
 
 
@@ -102,7 +102,7 @@ fromProjectAndGraph acyclicGraph (Project project) =
         , dependencies = project.dependencies
         , moduleGraph = project.moduleGraph
         , sourceDirectories = project.sourceDirectories
-        , dataCache = project.dataCache
+        , projectCache = project.dataCache
         , acyclicGraph = acyclicGraph
         }
 
