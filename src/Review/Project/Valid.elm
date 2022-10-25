@@ -34,7 +34,6 @@ import Vendor.Zipper as Zipper exposing (Zipper)
 type ValidProject
     = ValidProject
         { modules : Dict String ProjectModule
-        , modulesThatFailedToParse : List { path : String, source : String }
         , elmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
         , readme : Maybe { path : String, content : String }
         , dependencies : Dict String Dependency
@@ -49,7 +48,7 @@ toRegularProject : ValidProject -> Project
 toRegularProject (ValidProject validProject) =
     Project
         { modules = validProject.modules
-        , modulesThatFailedToParse = validProject.modulesThatFailedToParse
+        , modulesThatFailedToParse = []
         , elmJson = validProject.elmJson
         , readme = validProject.readme
         , dependencies = validProject.dependencies
@@ -116,7 +115,6 @@ fromProjectAndGraph : Graph.AcyclicGraph ModuleName () -> Project -> ValidProjec
 fromProjectAndGraph acyclicGraph (Project project) =
     ValidProject
         { modules = project.modules
-        , modulesThatFailedToParse = project.modulesThatFailedToParse
         , elmJson = project.elmJson
         , readme = project.readme
         , dependencies = project.dependencies
