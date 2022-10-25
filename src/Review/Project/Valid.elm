@@ -126,25 +126,7 @@ fromProjectAndGraph acyclicGraph (Project project) =
     let
         directDependencies_ : Dict String Dependency
         directDependencies_ =
-            case Maybe.map .project project.elmJson of
-                Just (Elm.Project.Application { depsDirect, testDepsDirect }) ->
-                    let
-                        allDeps : List String
-                        allDeps =
-                            List.map (\( name, _ ) -> Elm.Package.toString name) (depsDirect ++ testDepsDirect)
-                    in
-                    Dict.filter (\depName _ -> List.member depName allDeps) project.dependencies
-
-                Just (Elm.Project.Package { deps, testDeps }) ->
-                    let
-                        allDeps : List String
-                        allDeps =
-                            List.map (\( name, _ ) -> Elm.Package.toString name) (deps ++ testDeps)
-                    in
-                    Dict.filter (\depName _ -> List.member depName allDeps) project.dependencies
-
-                Nothing ->
-                    project.dependencies
+            computeDirectDependencies project
 
         dependencyModules : Set ModuleName
         dependencyModules =
@@ -167,6 +149,29 @@ fromProjectAndGraph acyclicGraph (Project project) =
         , projectCache = project.dataCache
         , sortedModules = Graph.topologicalSort acyclicGraph
         }
+
+
+computeDirectDependencies : { a | elmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }, dependencies : Dict String Dependency } -> Dict String Dependency
+computeDirectDependencies project =
+    case Maybe.map .project project.elmJson of
+        Just (Elm.Project.Application { depsDirect, testDepsDirect }) ->
+            let
+                allDeps : List String
+                allDeps =
+                    List.map (\( name, _ ) -> Elm.Package.toString name) (depsDirect ++ testDepsDirect)
+            in
+            Dict.filter (\depName _ -> List.member depName allDeps) project.dependencies
+
+        Just (Elm.Project.Package { deps, testDeps }) ->
+            let
+                allDeps : List String
+                allDeps =
+                    List.map (\( name, _ ) -> Elm.Package.toString name) (deps ++ testDeps)
+            in
+            Dict.filter (\depName _ -> List.member depName allDeps) project.dependencies
+
+        Nothing ->
+            project.dependencies
 
 
 duplicateModuleNames : Dict ModuleName String -> List ProjectModule -> Maybe { moduleName : ModuleName, paths : List String }
