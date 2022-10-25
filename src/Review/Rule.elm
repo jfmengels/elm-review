@@ -4257,15 +4257,14 @@ computeStepsForProject reviewOptions projectVisitor exceptions step ({ project, 
                 reviewOptions
                 projectVisitor
                 exceptions
-                (Modules Nothing)
+                (Modules (ValidProject.moduleZipper project))
                 (computeDependencies projectVisitor exceptions project projectContext cache fixedErrors)
 
-        Modules target ->
-            -- TODO Can we find a way to scanl from the end, by keeping the modulezipper from last time we visited modules?
+        Modules moduleZipper ->
             let
                 result : { project : ValidProject, projectContext : projectContext, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
                 result =
-                    computeModules2 reviewOptions projectVisitor exceptions target project projectContext cache fixedErrors
+                    computeModules2 reviewOptions projectVisitor exceptions moduleZipper project projectContext cache fixedErrors
             in
             computeStepsForProject
                 reviewOptions
@@ -4295,7 +4294,7 @@ type Step
     = ElmJson
     | Readme
     | Dependencies
-    | Modules (Maybe ModuleName)
+    | Modules (Zipper GraphModule)
     | FinalProjectEvaluation
     | End
 
@@ -4469,30 +4468,19 @@ computeModules2 :
     ReviewOptionsData
     -> RunnableProjectVisitor projectContext moduleContext
     -> Exceptions
-    -> Maybe ModuleName
+    -> Zipper GraphModule
     -> ValidProject
     -> projectContext
     -> ProjectRuleCache projectContext
     -> FixedErrors
     -> { project : ValidProject, projectContext : projectContext, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
-computeModules2 reviewOptions projectVisitor exceptions target project inputContext cache fixedErrors =
+computeModules2 reviewOptions projectVisitor exceptions moduleZipper project inputContext cache fixedErrors =
     case projectVisitor.moduleVisitor of
         Nothing ->
             { project = project, projectContext = inputContext, cache = cache, nextStep = FinalProjectEvaluation, fixedErrors = fixedErrors }
 
         Just moduleVisitor ->
-            -- TODO Avoid recomputing this unnecessarily
             let
-                moduleZipper : Zipper (Graph.NodeContext ModuleName ())
-                moduleZipper =
-                    ValidProject.moduleZipper project
-
-                targetModuleZipper : Zipper GraphModule
-                targetModuleZipper =
-                    target
-                        |> Maybe.andThen (\moduleName -> Zipper.focusr (\mod -> mod.node.label == moduleName) moduleZipper)
-                        |> Maybe.withDefault moduleZipper
-
                 result : { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : FixedErrors }
                 result =
                     computeModules
@@ -4502,7 +4490,7 @@ computeModules2 reviewOptions projectVisitor exceptions target project inputCont
                         project
                         exceptions
                         inputContext
-                        targetModuleZipper
+                        moduleZipper
                         cache.moduleContexts
                         fixedErrors
             in
@@ -4568,8 +4556,8 @@ computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project in
                         , cache = cache
                         , nextStep =
                             case fixResult.fixedFile of
-                                FixedElmModule { ast } moduleZipper ->
-                                    Modules (Just (Module.moduleName (Node.value ast.moduleDefinition)))
+                                FixedElmModule _ moduleZipper ->
+                                    Modules moduleZipper
 
                                 FixedElmJson ->
                                     ElmJson
