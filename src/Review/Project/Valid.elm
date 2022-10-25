@@ -505,27 +505,51 @@ addElmJson elmJson_ (ValidProject project) =
                     )
                     project.modules
 
-        -- TODO Re-evaluate dependencies as well.
-        -- Remove from `dependencies` if some have been removed, and return `Nothing` if some have been added
+        updateDependencies : { dependencies : Dict String Dependency, directDependencies : Dict String Dependency, dependencyModules : Set ModuleName }
+        updateDependencies =
+            if areDependenciesUnchanged { before = Maybe.map .project project.elmJson, after = elmJson_.project } then
+                { dependencies = project.dependencies
+                , directDependencies = project.directDependencies
+                , dependencyModules = project.dependencyModules
+                }
+
+            else
+                let
+                    newDependencies : Dict String Dependency
+                    newDependencies =
+                        -- TODO Remove from `dependencies` if some have been removed, and return `Nothing` if some have been added
+                        project.dependencies
+
+                    directDependencies_ : Dict String Dependency
+                    directDependencies_ =
+                        computeDirectDependencies { elmJson = Just elmJson_, dependencies = newDependencies }
+                in
+                { dependencies = newDependencies
+                , directDependencies = directDependencies_
+                , dependencyModules = computeDependencyModules directDependencies_
+                }
     in
     ValidProject
         { project
             | elmJson = Just elmJson_
             , sourceDirectories = sourceDirectories
             , modules = modules_
+            , dependencies = updateDependencies.dependencies
+            , directDependencies = updateDependencies.directDependencies
+            , dependencyModules = updateDependencies.dependencyModules
         }
 
 
-areDependenciesUnchanged : { before : Elm.Project.Project, after : Elm.Project.Project } -> Bool
+areDependenciesUnchanged : { before : Maybe Elm.Project.Project, after : Elm.Project.Project } -> Bool
 areDependenciesUnchanged { before, after } =
     case ( before, after ) of
-        ( Elm.Project.Application beforeApp, Elm.Project.Application afterApp ) ->
+        ( Just (Elm.Project.Application beforeApp), Elm.Project.Application afterApp ) ->
             (beforeApp.depsDirect == afterApp.depsDirect)
                 && (beforeApp.depsIndirect == afterApp.depsIndirect)
                 && (beforeApp.testDepsDirect == afterApp.testDepsDirect)
                 && (beforeApp.testDepsIndirect == afterApp.testDepsIndirect)
 
-        ( Elm.Project.Package beforePkg, Elm.Project.Package afterPkg ) ->
+        ( Just (Elm.Project.Package beforePkg), Elm.Project.Package afterPkg ) ->
             (beforePkg.deps == afterPkg.deps)
                 && (beforePkg.testDeps == afterPkg.testDeps)
 
