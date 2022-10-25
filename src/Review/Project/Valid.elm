@@ -6,8 +6,10 @@ module Review.Project.Valid exposing
     , moduleGraph
     , modules
     , parse
+    , projectCache
     , readme
     , toRegularProject
+    , updateProjectCache
     )
 
 import Dict exposing (Dict)
@@ -272,3 +274,13 @@ moduleGraph (ValidProject project) =
 modules : ValidProject -> List ProjectModule
 modules (ValidProject project) =
     Dict.values project.modules
+
+
+projectCache : ValidProject -> DataCache
+projectCache (ValidProject project) =
+    project.projectCache
+
+
+updateProjectCache : DataCache -> ValidProject -> ValidProject
+updateProjectCache projectCache_ (ValidProject project) =
+    ValidProject { project | projectCache = projectCache_ }
