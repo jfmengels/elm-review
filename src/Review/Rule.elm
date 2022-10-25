@@ -315,6 +315,7 @@ import Review.Project exposing (ProjectModule)
 import Review.Project.Dependency
 import Review.Project.Internal exposing (Project)
 import Review.Project.InvalidProjectError as InvalidProjectError
+import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
@@ -335,7 +336,7 @@ type Rule
         , requestedData : RequestedData
         , providesFixes : Bool
         , extractsData : Bool
-        , ruleImplementation : ReviewOptionsData -> Exceptions -> FixedErrors -> Project -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : Project, extract : Maybe Extract }
+        , ruleImplementation : ReviewOptionsData -> Exceptions -> FixedErrors -> ValidProject -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
         , configurationError : Maybe { message : String, details : List String }
         }
 
@@ -431,7 +432,7 @@ to compare them or the model that holds them.
 -}
 review : List Rule -> Project -> ( List ReviewError, List Rule )
 review rules project =
-    case Review.Project.Internal.acyclicModuleGraph project of
+    case ValidProject.parse project of
         Err (InvalidProjectError.SomeModulesFailedToParse pathsThatFailedToParse) ->
             ( List.map parsingError pathsThatFailedToParse, rules )
 
@@ -452,11 +453,11 @@ review rules project =
             , rules
             )
 
-        Ok _ ->
+        Ok ( validProject, _ ) ->
             let
-                runRulesResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+                runRulesResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
                 runRulesResult =
-                    runRules ReviewOptions.defaults rules project
+                    runRules ReviewOptions.defaults rules validProject
             in
             ( runRulesResult.errors, runRulesResult.rules )
 
@@ -507,8 +508,8 @@ reviewV2 rules maybeProjectData project =
         checkForConfigurationErrors rules
             |> Result.andThen (\() -> getModulesSortedByImport project)
     of
-        Ok ( newProject, _ ) ->
-            runReviewForV2 ReviewOptions.defaults newProject rules
+        Ok ( validProject, _ ) ->
+            runReviewForV2 ReviewOptions.defaults validProject rules
 
         Err errors ->
             { errors = errors
@@ -573,16 +574,16 @@ reviewV3 reviewOptions rules project =
         checkForConfigurationErrors rules
             |> Result.andThen (\() -> getModulesSortedByImport project)
     of
-        Ok ( newProject, moduleZipper ) ->
+        Ok ( validProject, moduleZipper ) ->
             let
-                result : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+                result : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
                 result =
-                    runRules reviewOptions rules newProject
+                    runRules reviewOptions rules validProject
             in
             { errors = result.errors
             , fixedErrors = FixedErrors.toDict result.fixedErrors
             , rules = result.rules
-            , project = result.project
+            , project = ValidProject.toRegularProject result.project
             , extracts = result.extracts
             }
 
@@ -626,9 +627,9 @@ checkForConfigurationErrors rules =
         Err errors
 
 
-getModulesSortedByImport : Project -> Result (List ReviewError) ( Project, Zipper (Graph.NodeContext ModuleName ()) )
+getModulesSortedByImport : Project -> Result (List ReviewError) ( ValidProject, Zipper (Graph.NodeContext ModuleName ()) )
 getModulesSortedByImport project =
-    case Review.Project.Internal.acyclicModuleGraph project of
+    case ValidProject.parse project of
         Err (InvalidProjectError.SomeModulesFailedToParse pathsThatFailedToParse) ->
             Err (List.map parsingError pathsThatFailedToParse)
 
@@ -660,10 +661,10 @@ importCycleError cycle =
         |> errorToReviewError
 
 
-runReviewForV2 : ReviewOptions -> Project -> List Rule -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
+runReviewForV2 : ReviewOptions -> ValidProject -> List Rule -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
 runReviewForV2 reviewOptions project rules =
     let
-        runResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+        runResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
         runResult =
             runRules reviewOptions rules project
     in
@@ -709,8 +710,8 @@ duplicateModulesGlobalError duplicate =
 runRules :
     ReviewOptions
     -> List Rule
-    -> Project
-    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+    -> ValidProject
+    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
 runRules (ReviewOptionsInternal reviewOptions) rules project =
     runRulesHelp
         reviewOptions
@@ -745,8 +746,8 @@ moveFixableRulesFirst rules =
 runRulesHelp :
     ReviewOptionsData
     -> List Rule
-    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
-    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : Project, extracts : Dict String Encode.Value }
+    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
+    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
 runRulesHelp reviewOptions remainingRules acc =
     case remainingRules of
         [] ->
@@ -754,7 +755,7 @@ runRulesHelp reviewOptions remainingRules acc =
 
         (Rule { name, exceptions, ruleImplementation }) :: restOfRules ->
             let
-                result : { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : Project, extract : Maybe Extract }
+                result : { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
                 result =
                     ruleImplementation reviewOptions exceptions acc.fixedErrors acc.project
             in
@@ -4082,8 +4083,8 @@ runProjectVisitor :
     -> ProjectRuleCache projectContext
     -> Exceptions
     -> FixedErrors
-    -> Project
-    -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : Project, extract : Maybe Extract }
+    -> ValidProject
+    -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
 runProjectVisitor reviewOptions projectVisitor cache exceptions fixedErrors project =
     project
         |> Logger.log reviewOptions.logger (startedRule projectVisitor.name)
@@ -4097,8 +4098,8 @@ runProjectVisitorHelp :
     -> ProjectRuleCache projectContext
     -> Exceptions
     -> FixedErrors
-    -> Project
-    -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : Project, extract : Maybe Extract }
+    -> ValidProject
+    -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
 runProjectVisitorHelp reviewOptions projectVisitor initialCache exceptions initialFixedErrors initialProject =
     -- IGNORE TCO
     let
@@ -4231,8 +4232,8 @@ computeStepsForProject :
     -> RunnableProjectVisitor projectContext moduleContext
     -> Exceptions
     -> Step
-    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
-    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
+    -> { project : ValidProject, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
+    -> { project : ValidProject, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
 computeStepsForProject reviewOptions projectVisitor exceptions step ({ project, projectContext, cache, fixedErrors } as acc) =
     case step of
         ElmJson ->
@@ -4262,7 +4263,7 @@ computeStepsForProject reviewOptions projectVisitor exceptions step ({ project, 
         Modules target ->
             -- TODO Can we find a way to scanl from the end, by keeping the modulezipper from last time we visited modules?
             let
-                result : { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
+                result : { project : ValidProject, projectContext : projectContext, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
                 result =
                     computeModules2 reviewOptions projectVisitor exceptions target project projectContext cache fixedErrors
             in
@@ -4275,7 +4276,7 @@ computeStepsForProject reviewOptions projectVisitor exceptions step ({ project, 
 
         FinalProjectEvaluation ->
             let
-                result : { project : Project, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
+                result : { project : ValidProject, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
                 result =
                     computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project projectContext cache fixedErrors
             in
@@ -4308,16 +4309,16 @@ type NextStep
 computeElmJson :
     RunnableProjectVisitor projectContext moduleContext
     -> Exceptions
-    -> Project
+    -> ValidProject
     -> projectContext
     -> ProjectRuleCache projectContext
     -> FixedErrors
-    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
+    -> { project : ValidProject, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
 computeElmJson projectVisitor exceptions project inputContext cache fixedErrors =
     let
         projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
         projectElmJson =
-            Review.Project.elmJson project
+            ValidProject.elmJson project
 
         cachePredicate : CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext -> Bool
         cachePredicate elmJson =
@@ -4359,16 +4360,16 @@ computeElmJson projectVisitor exceptions project inputContext cache fixedErrors 
 computeReadme :
     RunnableProjectVisitor projectContext moduleContext
     -> Exceptions
-    -> Project
+    -> ValidProject
     -> projectContext
     -> ProjectRuleCache projectContext
     -> FixedErrors
-    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
+    -> { project : ValidProject, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
 computeReadme projectVisitor exceptions project inputContext cache fixedErrors =
     let
         projectReadme : Maybe { path : String, content : String }
         projectReadme =
-            Review.Project.readme project
+            ValidProject.readme project
 
         cachePredicate : CacheEntryFor (Maybe { path : String, content : String }) projectContext -> Bool
         cachePredicate readme =
@@ -4413,16 +4414,16 @@ computeReadme projectVisitor exceptions project inputContext cache fixedErrors =
 computeDependencies :
     RunnableProjectVisitor projectContext moduleContext
     -> Exceptions
-    -> Project
+    -> ValidProject
     -> projectContext
     -> ProjectRuleCache projectContext
     -> FixedErrors
-    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
+    -> { project : ValidProject, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
 computeDependencies projectVisitor exceptions project inputContext cache fixedErrors =
     let
         dependencies : Dict String Review.Project.Dependency.Dependency
         dependencies =
-            Review.Project.dependencies project
+            ValidProject.dependencies project
 
         cachePredicate : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext -> Bool
         cachePredicate deps =
@@ -4444,7 +4445,7 @@ computeDependencies projectVisitor exceptions project inputContext cache fixedEr
                             identity
 
                         visitors ->
-                            accumulateWithListOfVisitors visitors (Review.Project.directDependencies project)
+                            accumulateWithListOfVisitors visitors (ValidProject.directDependencies project)
 
                 ( errorsForVisitor, outputContext ) =
                     ( [], inputContext )
@@ -4469,11 +4470,11 @@ computeModules2 :
     -> RunnableProjectVisitor projectContext moduleContext
     -> Exceptions
     -> Maybe ModuleName
-    -> Project
+    -> ValidProject
     -> projectContext
     -> ProjectRuleCache projectContext
     -> FixedErrors
-    -> { project : Project, projectContext : projectContext, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
+    -> { project : ValidProject, projectContext : projectContext, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
 computeModules2 reviewOptions projectVisitor exceptions target project inputContext cache fixedErrors =
     case projectVisitor.moduleVisitor of
         Nothing ->
@@ -4481,48 +4482,47 @@ computeModules2 reviewOptions projectVisitor exceptions target project inputCont
 
         Just moduleVisitor ->
             -- TODO Avoid recomputing this unnecessarily
-            case getModulesSortedByImport project of
-                Err _ ->
-                    { project = project, projectContext = inputContext, cache = cache, nextStep = FinalProjectEvaluation, fixedErrors = fixedErrors }
+            let
+                moduleZipper : Zipper (Graph.NodeContext ModuleName ())
+                moduleZipper =
+                    ValidProject.moduleZipper project
 
-                Ok ( newProject, moduleZipper ) ->
-                    let
-                        targetModuleZipper : Zipper GraphModule
-                        targetModuleZipper =
-                            target
-                                |> Maybe.andThen (\moduleName -> Zipper.focusr (\mod -> mod.node.label == moduleName) moduleZipper)
-                                |> Maybe.withDefault moduleZipper
+                targetModuleZipper : Zipper GraphModule
+                targetModuleZipper =
+                    target
+                        |> Maybe.andThen (\moduleName -> Zipper.focusr (\mod -> mod.node.label == moduleName) moduleZipper)
+                        |> Maybe.withDefault moduleZipper
 
-                        result : { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : FixedErrors }
-                        result =
-                            computeModules
-                                reviewOptions
-                                projectVisitor
-                                moduleVisitor
-                                newProject
-                                exceptions
-                                inputContext
-                                targetModuleZipper
-                                cache.moduleContexts
-                                fixedErrors
-                    in
-                    { project = result.project
-                    , projectContext = inputContext
-                    , cache = { cache | moduleContexts = result.moduleContexts }
-                    , nextStep = result.nextStep
-                    , fixedErrors = result.fixedErrors
-                    }
+                result : { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : FixedErrors }
+                result =
+                    computeModules
+                        reviewOptions
+                        projectVisitor
+                        moduleVisitor
+                        project
+                        exceptions
+                        inputContext
+                        targetModuleZipper
+                        cache.moduleContexts
+                        fixedErrors
+            in
+            { project = result.project
+            , projectContext = inputContext
+            , cache = { cache | moduleContexts = result.moduleContexts }
+            , nextStep = result.nextStep
+            , fixedErrors = result.fixedErrors
+            }
 
 
 computeFinalProjectEvaluation :
     ReviewOptionsData
     -> RunnableProjectVisitor projectContext moduleContext
     -> Exceptions
-    -> Project
+    -> ValidProject
     -> projectContext
     -> ProjectRuleCache projectContext
     -> FixedErrors
-    -> { project : Project, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
+    -> { project : ValidProject, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
 computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project inputContext cache fixedErrors =
     if List.isEmpty projectVisitor.finalEvaluationFns then
         { project = project, cache = cache, nextStep = End, fixedErrors = fixedErrors }
@@ -4552,7 +4552,7 @@ computeFinalProjectEvaluation reviewOptions projectVisitor exceptions project in
                             )
                             projectVisitor.finalEvaluationFns
 
-                    resultWhenNoFix : () -> { project : Project, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
+                    resultWhenNoFix : () -> { project : ValidProject, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
                     resultWhenNoFix () =
                         { project = project
                         , cache = { cache | finalEvaluationErrors = Just { inputContext = finalContext, errors = errors } }
@@ -4624,18 +4624,18 @@ computeModules :
     ReviewOptionsData
     -> RunnableProjectVisitor projectContext moduleContext
     -> ( RunnableModuleVisitor moduleContext, ContextCreator projectContext moduleContext )
-    -> Project
+    -> ValidProject
     -> Exceptions
     -> projectContext
     -> Zipper GraphModule
     -> Dict String (CacheEntry projectContext)
     -> FixedErrors
-    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : FixedErrors }
+    -> { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : FixedErrors }
 computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions initialProjectContext moduleZipper startCache fixedErrors =
     let
         graph : Graph ModuleName ()
         graph =
-            Review.Project.Internal.moduleGraph project
+            ValidProject.moduleGraph project
 
         modulesToAnalyze : List ProjectModule
         modulesToAnalyze =
@@ -4645,13 +4645,13 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                     -- can't influence the rest of the review.
                     List.filter
                         (\{ path } -> Exceptions.isFileWeWantReportsFor exceptions path)
-                        (Review.Project.modules project)
+                        (ValidProject.modules project)
 
                 TraverseAllModulesInParallel (Just _) ->
-                    Review.Project.modules project
+                    ValidProject.modules project
 
                 TraverseImportedModulesFirst _ ->
-                    Review.Project.modules project
+                    ValidProject.modules project
 
         projectModulePaths : Set String
         projectModulePaths =
@@ -4676,10 +4676,10 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
         computeModule :
             ProjectModule
             -> projectContext
-            -> Project
+            -> ValidProject
             -> Zipper GraphModule
             -> FixedErrors
-            -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
+            -> { project : ValidProject, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
         computeModule module_ projectContext currentProject moduleZipper_ fixedErrors_ =
             let
                 (RequestedData requestedData) =
@@ -4741,7 +4741,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                                 projectContext
                     }
 
-                resultWhenNoFix : () -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
+                resultWhenNoFix : () -> { project : ValidProject, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
                 resultWhenNoFix () =
                     { project = newProject
                     , analysis = analysis ()
@@ -4753,7 +4753,6 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                 Just fixResult ->
                     case fixResult.fixedFile of
                         FixedElmModule { source, ast } ->
-                            -- TODO If the imports have changed (added imports), then maybe we should re-order the graph based on the project?
                             if module_.path == errorFilePath fixResult.error then
                                 computeModule
                                     { module_ | source = source, ast = ast }
@@ -4809,17 +4808,17 @@ runThroughModules :
     ->
         (ProjectModule
          -> projectContext
-         -> Project
+         -> ValidProject
          -> Zipper GraphModule
          -> FixedErrors
-         -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
+         -> { project : ValidProject, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
         )
     -> Dict ModuleName ProjectModule
     -> Maybe (Zipper GraphModule)
-    -> Project
+    -> ValidProject
     -> Dict String (CacheEntry projectContext)
     -> FixedErrors
-    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : FixedErrors }
+    -> { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : FixedErrors }
 runThroughModules computeProjectContext_ computeModule modules maybeModuleZipper initialProject initialModuleContexts fixedErrors =
     case maybeModuleZipper of
         Nothing ->
@@ -4827,7 +4826,7 @@ runThroughModules computeProjectContext_ computeModule modules maybeModuleZipper
 
         Just moduleZipper ->
             let
-                result : { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep, fixedErrors : FixedErrors }
+                result : { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep, fixedErrors : FixedErrors }
                 result =
                     computeModuleAndCacheResult
                         computeProjectContext_
@@ -4893,18 +4892,18 @@ computeModuleAndCacheResult :
     ->
         (ProjectModule
          -> projectContext
-         -> Project
+         -> ValidProject
          -> Zipper GraphModule
          -> FixedErrors
-         -> { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
+         -> { project : ValidProject, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
         )
     -> Dict ModuleName ProjectModule
     -> GraphModule
     -> Zipper GraphModule
-    -> Project
+    -> ValidProject
     -> Dict String (CacheEntry projectContext)
     -> FixedErrors
-    -> { project : Project, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep, fixedErrors : FixedErrors }
+    -> { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep, fixedErrors : FixedErrors }
 computeModuleAndCacheResult computeProjectContext_ computeModule modules { node, incoming } initialModuleZipper project moduleContexts fixedErrors =
     case Dict.get node.label modules of
         Nothing ->
@@ -4921,7 +4920,7 @@ computeModuleAndCacheResult computeProjectContext_ computeModule modules { node,
 
             else
                 let
-                    result : { project : Project, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
+                    result : { project : ValidProject, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
                     result =
                         computeModule module_ projectContext project initialModuleZipper fixedErrors
                 in
@@ -4958,7 +4957,7 @@ type FixedFile
     | FixedReadme
 
 
-findFix : ReviewOptionsData -> String -> Project -> List (Error a) -> Maybe { project : Project, fixedFile : FixedFile, error : ReviewError }
+findFix : ReviewOptionsData -> String -> ValidProject -> List (Error a) -> Maybe { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
 findFix reviewOptions ruleName_ project errors =
     case Review.Options.Internal.shouldFindFix ruleName_ reviewOptions of
         Just fixablePredicate ->
@@ -4968,7 +4967,7 @@ findFix reviewOptions ruleName_ project errors =
             Nothing
 
 
-findFixHelp : Project -> (String -> Bool) -> List (Error a) -> Maybe { project : Project, fixedFile : FixedFile, error : ReviewError }
+findFixHelp : ValidProject -> (String -> Bool) -> List (Error a) -> Maybe { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
 findFixHelp project fixablePredicate errors =
     case errors of
         [] ->
@@ -4982,24 +4981,33 @@ findFixHelp project fixablePredicate errors =
                 Just fixes ->
                     case headError.target of
                         Review.Error.Module ->
-                            case Review.Project.Internal.getModuleByPath headError.filePath project of
+                            case ValidProject.getModuleByPath headError.filePath project of
                                 Nothing ->
                                     findFixHelp project fixablePredicate restOfErrors
 
                                 Just file ->
-                                    case InternalFix.fixModule fixes file.source of
+                                    case
+                                        InternalFix.fixModule fixes file.source
+                                            |> Maybe.andThen
+                                                (\fixResult ->
+                                                    ValidProject.addParsedModule { path = headError.filePath, source = fixResult.source, ast = fixResult.ast } project
+                                                        |> Maybe.map
+                                                            (\newProject ->
+                                                                { project = newProject
+                                                                , fixedFile = FixedElmModule fixResult
+                                                                , error = errorToReviewError (Error headError)
+                                                                }
+                                                            )
+                                                )
+                                    of
                                         Nothing ->
                                             findFixHelp project fixablePredicate restOfErrors
 
-                                        Just { source, ast } ->
-                                            Just
-                                                { project = Review.Project.addParsedModule { path = headError.filePath, source = source, ast = ast } project
-                                                , fixedFile = FixedElmModule { source = source, ast = ast }
-                                                , error = errorToReviewError (Error headError)
-                                                }
+                                        Just fixResult ->
+                                            Just fixResult
 
                         Review.Error.ElmJson ->
-                            case Review.Project.elmJson project of
+                            case ValidProject.elmJson project of
                                 Nothing ->
                                     findFixHelp project fixablePredicate restOfErrors
 
@@ -5012,13 +5020,13 @@ findFixHelp project fixablePredicate errors =
                                             -- TODO Don't apply the fix dependencies are added, or source-directories are changed
                                             -- TODO Remove dependencies if there are less dependencies
                                             Just
-                                                { project = Review.Project.addElmJson { path = elmJson.path, raw = fixResult.raw, project = fixResult.project } project
+                                                { project = ValidProject.addElmJson { path = elmJson.path, raw = fixResult.raw, project = fixResult.project } project
                                                 , fixedFile = FixedElmJson
                                                 , error = errorToReviewError (Error headError)
                                                 }
 
                         Review.Error.Readme ->
-                            case Review.Project.readme project of
+                            case ValidProject.readme project of
                                 Nothing ->
                                     findFixHelp project fixablePredicate restOfErrors
 
@@ -5029,7 +5037,7 @@ findFixHelp project fixablePredicate errors =
 
                                         Just content ->
                                             Just
-                                                { project = Review.Project.addReadme { path = readme.path, content = content } project
+                                                { project = ValidProject.addReadme { path = readme.path, content = content } project
                                                 , fixedFile = FixedReadme
                                                 , error = errorToReviewError (Error headError)
                                                 }

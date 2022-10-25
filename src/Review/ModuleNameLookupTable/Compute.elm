@@ -24,6 +24,7 @@ import Review.Project.Dependency
 import Review.Project.Internal exposing (Project(..))
 import Review.Project.ProjectCache as ProjectCache
 import Review.Project.ProjectModule exposing (ProjectModule)
+import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
 
@@ -74,18 +75,22 @@ emptyScope =
     }
 
 
-compute : ModuleName -> ProjectModule -> Project -> ( ModuleNameLookupTable, Project )
-compute moduleName module_ ((Project { dataCache }) as project) =
+compute : ModuleName -> ProjectModule -> ValidProject -> ( ModuleNameLookupTable, ValidProject )
+compute moduleName module_ project =
     let
+        projectCache : ProjectCache.DataCache
+        projectCache =
+            ValidProject.projectCache project
+
         elmJsonRaw : Maybe String
         elmJsonRaw =
-            Maybe.map .raw (Review.Project.elmJson project)
+            Maybe.map .raw (ValidProject.elmJson project)
 
         deps : Dict ModuleName Elm.Docs.Module
         deps =
             -- TODO Invalidate all the lookuptables if elm.json has changed? Or be smarter about it, but at least
             -- avoid outdated results
-            case dataCache.dependenciesModules of
+            case projectCache.dependenciesModules of
                 Just cache ->
                     if elmJsonRaw == cache.elmJsonRaw then
                         cache.deps
@@ -107,7 +112,7 @@ compute moduleName module_ ((Project { dataCache }) as project) =
 
                         maybeImportedModule : Maybe Elm.Docs.Module
                         maybeImportedModule =
-                            case Dict.get importedModuleName dataCache.modules of
+                            case Dict.get importedModuleName projectCache.modules of
                                 Just importedModule ->
                                     Just importedModule
 
@@ -145,14 +150,14 @@ compute moduleName module_ ((Project { dataCache }) as project) =
                 , values = moduleContext.exposedValues
                 , binops = []
                 }
-                dataCache.modules
+                projectCache.modules
             )
 
         ( lookupTable, modules ) =
-            case Dict.get moduleName dataCache.lookupTables of
+            case Dict.get moduleName projectCache.lookupTables of
                 Just cache ->
                     if cache.key == cacheKey then
-                        ( cache.lookupTable, dataCache.modules )
+                        ( cache.lookupTable, projectCache.modules )
 
                     else
                         computeLookupTableForModule ()
@@ -160,27 +165,22 @@ compute moduleName module_ ((Project { dataCache }) as project) =
                 Nothing ->
                     computeLookupTableForModule ()
 
-        newDataCache : ProjectCache.DataCache
-        newDataCache =
+        newProjectCache : ProjectCache.DataCache
+        newProjectCache =
             { dependenciesModules = Just { elmJsonRaw = elmJsonRaw, deps = deps }
             , modules = modules
-            , lookupTables = Dict.insert moduleName { key = cacheKey, lookupTable = lookupTable } dataCache.lookupTables
+            , lookupTables = Dict.insert moduleName { key = cacheKey, lookupTable = lookupTable } projectCache.lookupTables
             }
     in
-    ( lookupTable, updateProject newDataCache project )
+    ( lookupTable, ValidProject.updateProjectCache newProjectCache project )
 
 
-computeDependencies : Project -> Dict ModuleName Elm.Docs.Module
+computeDependencies : ValidProject -> Dict ModuleName Elm.Docs.Module
 computeDependencies project =
     project
-        |> Review.Project.directDependencies
+        |> ValidProject.directDependencies
         |> Dict.foldl (\_ dep acc -> List.append (Review.Project.Dependency.modules dep) acc) []
         |> List.foldl (\dependencyModule acc -> Dict.insert (String.split "." dependencyModule.name) dependencyModule acc) Dict.empty
-
-
-updateProject : ProjectCache.DataCache -> Project -> Project
-updateProject dataCache (Project project) =
-    Project { project | dataCache = dataCache }
 
 
 fromProjectToModule : ModuleName -> Dict ModuleName Elm.Docs.Module -> Context
