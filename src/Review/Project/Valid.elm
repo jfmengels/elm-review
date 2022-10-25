@@ -45,6 +45,7 @@ type alias ValidProjectData =
     , elmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
     , readme : Maybe { path : String, content : String }
     , dependencies : Dict String Dependency
+    , directDependencies : Dict String Dependency
     , moduleGraph : Maybe (Graph ModuleName ())
     , sourceDirectories : List String
     , projectCache : DataCache
@@ -121,11 +122,35 @@ unsafeCreateZipper sortedModules =
 
 fromProjectAndGraph : Graph.AcyclicGraph ModuleName () -> Project -> ValidProject
 fromProjectAndGraph acyclicGraph (Project project) =
+    let
+        directDependencies_ : Dict String Dependency
+        directDependencies_ =
+            case Maybe.map .project project.elmJson of
+                Just (Elm.Project.Application { depsDirect, testDepsDirect }) ->
+                    let
+                        allDeps : List String
+                        allDeps =
+                            List.map (\( name, _ ) -> Elm.Package.toString name) (depsDirect ++ testDepsDirect)
+                    in
+                    Dict.filter (\depName _ -> List.member depName allDeps) project.dependencies
+
+                Just (Elm.Project.Package { deps, testDeps }) ->
+                    let
+                        allDeps : List String
+                        allDeps =
+                            List.map (\( name, _ ) -> Elm.Package.toString name) (deps ++ testDeps)
+                    in
+                    Dict.filter (\depName _ -> List.member depName allDeps) project.dependencies
+
+                Nothing ->
+                    project.dependencies
+    in
     ValidProject
         { modules = project.modules
         , elmJson = project.elmJson
         , readme = project.readme
         , dependencies = project.dependencies
+        , directDependencies = directDependencies_
         , moduleGraph = project.moduleGraph
         , sourceDirectories = project.sourceDirectories
         , projectCache = project.dataCache
@@ -260,26 +285,7 @@ dependencies (ValidProject project) =
 -}
 directDependencies : ValidProject -> Dict String Dependency
 directDependencies (ValidProject project) =
-    -- TODO Compute this in `parse` and store it in `ValidProject`
-    case Maybe.map .project project.elmJson of
-        Just (Elm.Project.Application { depsDirect, testDepsDirect }) ->
-            let
-                allDeps : List String
-                allDeps =
-                    List.map (\( name, _ ) -> Elm.Package.toString name) (depsDirect ++ testDepsDirect)
-            in
-            Dict.filter (\depName _ -> List.member depName allDeps) project.dependencies
-
-        Just (Elm.Project.Package { deps, testDeps }) ->
-            let
-                allDeps : List String
-                allDeps =
-                    List.map (\( name, _ ) -> Elm.Package.toString name) (deps ++ testDeps)
-            in
-            Dict.filter (\depName _ -> List.member depName allDeps) project.dependencies
-
-        Nothing ->
-            project.dependencies
+    project.directDependencies
 
 
 moduleGraph : ValidProject -> Graph ModuleName ()
