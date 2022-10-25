@@ -46,7 +46,6 @@ import Elm.Package
 import Elm.Project
 import Elm.Syntax.File
 import Elm.Syntax.ModuleName exposing (ModuleName)
-import Elm.Syntax.Node as Node
 import Path
 import Review.FileParser as FileParser
 import Review.Project.Dependency as Dependency exposing (Dependency)
@@ -249,7 +248,7 @@ addElmJson elmJson_ (Internal.Project project) =
     let
         sourceDirectories : List String
         sourceDirectories =
-            sourceDirectoriesForProject elmJson_.project
+            Internal.sourceDirectoriesForProject elmJson_.project
 
         modules_ : Dict String ProjectModule.ProjectModule
         modules_ =
@@ -274,34 +273,6 @@ addElmJson elmJson_ (Internal.Project project) =
             , sourceDirectories = sourceDirectories
             , modules = modules_
         }
-
-
-sourceDirectoriesForProject : Elm.Project.Project -> List String
-sourceDirectoriesForProject elmJson_ =
-    case elmJson_ of
-        Elm.Project.Application { dirs } ->
-            List.map (removeDotSlashAtBeginning >> Path.makeOSAgnostic >> endWithSlash) dirs
-
-        Elm.Project.Package _ ->
-            [ "src/" ]
-
-
-removeDotSlashAtBeginning : String -> String
-removeDotSlashAtBeginning dir =
-    if String.startsWith "./" dir then
-        String.dropLeft 2 dir
-
-    else
-        dir
-
-
-endWithSlash : String -> String
-endWithSlash dir =
-    if String.endsWith "/" dir then
-        dir
-
-    else
-        dir ++ "/"
 
 
 {-| Get the contents of the `elm.json` file, if available.
