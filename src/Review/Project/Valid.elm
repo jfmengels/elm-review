@@ -340,10 +340,14 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
             , ast = ast
             , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) project.sourceDirectories
             }
+
+        moduleName : ModuleName
+        moduleName =
+            getModuleName module_
     in
     case Dict.get path project.modules of
         Just existingModule ->
-            if getModuleName existingModule == getModuleName module_ then
+            if getModuleName existingModule == moduleName then
                 let
                     newProject : ValidProjectData
                     newProject =
@@ -359,7 +363,14 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                                     moduleZipper_
 
                                 Nothing ->
-                                    unsafeCreateZipper newProject.sortedModules
+                                    let
+                                        moduleZipper_ : Zipper (Graph.NodeContext ModuleName ())
+                                        moduleZipper_ =
+                                            unsafeCreateZipper newProject.sortedModules
+                                    in
+                                    Zipper.focusr (\mod -> mod.node.label == moduleName) moduleZipper_
+                                        -- Should not happen :/
+                                        |> Maybe.withDefault moduleZipper_
                     in
                     Just ( ValidProject newProject, newModuleZipper )
 
@@ -374,7 +385,26 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                             Nothing
 
                         Ok acyclicGraph ->
-                            Just ( ValidProject newProject, unsafeCreateZipper (Graph.topologicalSort acyclicGraph) )
+                            let
+                                moduleZipper_ : Zipper (Graph.NodeContext ModuleName ())
+                                moduleZipper_ =
+                                    unsafeCreateZipper newProject.sortedModules
+
+                                newModuleZipper : Zipper (Graph.NodeContext ModuleName ())
+                                newModuleZipper =
+                                    case maybeModuleZipper of
+                                        Just prevModuleZipper ->
+                                            -- We were evaluating modules. Take the new zipper but move it to the first
+                                            -- of either the touched module or the first module that is different for the 2 zippers
+                                            advanceZipper moduleName (Zipper.start prevModuleZipper) moduleZipper_
+
+                                        Nothing ->
+                                            -- We were not evaluating modules. Create a zipper and move to the touched module name
+                                            Zipper.focusr (\mod -> mod.node.label == moduleName) moduleZipper_
+                                                -- Should not happen :/
+                                                |> Maybe.withDefault moduleZipper_
+                            in
+                            Just ( ValidProject newProject, newModuleZipper )
 
             else
                 -- If the path has not changed but the module name has, then the fix necessarily introduced a compilation error
@@ -394,6 +424,26 @@ importedModulesSet ast =
         )
         Set.empty
         ast.imports
+
+
+advanceZipper : ModuleName -> Zipper (Graph.NodeContext ModuleName ()) -> Zipper (Graph.NodeContext ModuleName ()) -> Zipper (Graph.NodeContext ModuleName ())
+advanceZipper moduleName oldZipper newZipper =
+    let
+        current : ModuleName
+        current =
+            (Zipper.current newZipper).node.label
+    in
+    if current == moduleName || current /= (Zipper.current oldZipper).node.label then
+        newZipper
+
+    else
+        case Maybe.map2 Tuple.pair (Zipper.next oldZipper) (Zipper.next newZipper) of
+            Just ( old, new ) ->
+                advanceZipper moduleName old new
+
+            Nothing ->
+                -- Should not happen
+                newZipper
 
 
 {-| Add the content of the `README.md` file to the project, making it

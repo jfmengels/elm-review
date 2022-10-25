@@ -19,9 +19,7 @@ import Elm.Syntax.TypeAnnotation as TypeAnnotation exposing (TypeAnnotation)
 import Elm.Type
 import NonEmpty exposing (NonEmpty)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal exposing (ModuleNameLookupTable)
-import Review.Project
 import Review.Project.Dependency
-import Review.Project.Internal exposing (Project(..))
 import Review.Project.ProjectCache as ProjectCache
 import Review.Project.ProjectModule exposing (ProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
