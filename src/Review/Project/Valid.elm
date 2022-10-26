@@ -64,7 +64,7 @@ toRegularProject (ValidProject validProject) =
         , dependencies = validProject.dependencies
         , moduleGraph = Just validProject.moduleGraph
         , sourceDirectories = validProject.sourceDirectories
-        , dataCache = validProject.projectCache
+        , cache = validProject.projectCache
         }
 
 
@@ -136,7 +136,7 @@ fromProjectAndGraph moduleGraph_ acyclicGraph (Project project) =
         , directDependencies = directDependencies_
         , dependencyModules = computeDependencyModules directDependencies_
         , sourceDirectories = project.sourceDirectories
-        , projectCache = project.dataCache
+        , projectCache = project.cache
         , moduleGraph = moduleGraph_
         , sortedModules = Graph.topologicalSort acyclicGraph
         }

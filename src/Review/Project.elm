@@ -83,7 +83,7 @@ new =
         , dependencies = Dict.empty
         , moduleGraph = Nothing
         , sourceDirectories = [ "src/" ]
-        , dataCache = ProjectCache.empty
+        , cache = ProjectCache.empty
         }
 
 

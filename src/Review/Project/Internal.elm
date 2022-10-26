@@ -38,7 +38,7 @@ type Project
         , dependencies : Dict String Dependency
         , moduleGraph : Maybe (Graph ModuleName ())
         , sourceDirectories : List String
-        , dataCache : ProjectCache
+        , cache : ProjectCache
         }
 
 
