@@ -23,7 +23,7 @@ import Path
 import Review.ImportCycle as ImportCycle
 import Review.Project.Dependency exposing (Dependency)
 import Review.Project.InvalidProjectError as InvalidProjectError exposing (InvalidProjectError)
-import Review.Project.ProjectCache exposing (DataCache)
+import Review.Project.ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule exposing (ProjectModule)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.Zipper as Zipper exposing (Zipper)
@@ -38,7 +38,7 @@ type Project
         , dependencies : Dict String Dependency
         , moduleGraph : Maybe (Graph ModuleName ())
         , sourceDirectories : List String
-        , dataCache : DataCache
+        , dataCache : ProjectCache
         }
 
 

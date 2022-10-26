@@ -20,7 +20,7 @@ import Elm.Type
 import NonEmpty exposing (NonEmpty)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal exposing (ModuleNameLookupTable)
 import Review.Project.Dependency
-import Review.Project.ProjectCache as ProjectCache
+import Review.Project.ProjectCache as ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule exposing (ProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Set exposing (Set)
@@ -76,7 +76,7 @@ emptyScope =
 compute : ModuleName -> ProjectModule -> ValidProject -> ( ModuleNameLookupTable, ValidProject )
 compute moduleName module_ project =
     let
-        projectCache : ProjectCache.DataCache
+        projectCache : ProjectCache
         projectCache =
             ValidProject.projectCache project
 
@@ -163,7 +163,7 @@ compute moduleName module_ project =
                 Nothing ->
                     computeLookupTableForModule ()
 
-        newProjectCache : ProjectCache.DataCache
+        newProjectCache : ProjectCache
         newProjectCache =
             { dependenciesModules = Just { elmJsonRaw = elmJsonRaw, deps = deps }
             , modules = modules

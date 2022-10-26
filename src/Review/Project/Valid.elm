@@ -29,7 +29,7 @@ import Review.ImportCycle as ImportCycle
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
 import Review.Project.InvalidProjectError as InvalidProjectError exposing (InvalidProjectError)
-import Review.Project.ProjectCache exposing (DataCache)
+import Review.Project.ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule exposing (ProjectModule)
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
@@ -48,7 +48,7 @@ type alias ValidProjectData =
     , directDependencies : Dict String Dependency
     , dependencyModules : Set ModuleName
     , sourceDirectories : List String
-    , projectCache : DataCache
+    , projectCache : ProjectCache
     , moduleGraph : Graph ModuleName ()
     , sortedModules : List (Graph.NodeContext ModuleName ())
     }
@@ -322,7 +322,7 @@ getModuleByPath path (ValidProject project) =
     Dict.get path project.modules
 
 
-projectCache : ValidProject -> DataCache
+projectCache : ValidProject -> ProjectCache
 projectCache (ValidProject project) =
     project.projectCache
 
@@ -332,7 +332,7 @@ moduleZipper (ValidProject project) =
     unsafeCreateZipper project.sortedModules
 
 
-updateProjectCache : DataCache -> ValidProject -> ValidProject
+updateProjectCache : ProjectCache -> ValidProject -> ValidProject
 updateProjectCache projectCache_ (ValidProject project) =
     ValidProject { project | projectCache = projectCache_ }
 
