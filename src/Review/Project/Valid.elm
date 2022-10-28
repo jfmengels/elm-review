@@ -363,25 +363,25 @@ addParsedModule :
     -> Maybe ( ValidProject, Zipper (Graph.NodeContext ModuleName ()) )
 addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
     let
-        osAgnosticPath : String
-        osAgnosticPath =
-            Path.makeOSAgnostic path
-
-        module_ : ProjectModule
-        module_ =
-            { path = path
-            , source = source
-            , ast = ast
-            , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) project.sourceDirectories
-            }
-
         moduleName : ModuleName
         moduleName =
-            getModuleName module_
+            Elm.Syntax.Module.moduleName (Node.value ast.moduleDefinition)
     in
     case Dict.get moduleName project.modulesByModuleName of
         Just existingModule ->
             let
+                osAgnosticPath : String
+                osAgnosticPath =
+                    Path.makeOSAgnostic path
+
+                module_ : ProjectModule
+                module_ =
+                    { path = path
+                    , source = source
+                    , ast = ast
+                    , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) project.sourceDirectories
+                    }
+
                 newModule : ProjectModule
                 newModule =
                     Review.Project.Internal.sanitizeModule module_
