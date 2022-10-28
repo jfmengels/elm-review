@@ -4641,10 +4641,6 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                 TraverseImportedModulesFirst _ ->
                     ValidProject.modules project
 
-        projectModulePaths : Set String
-        projectModulePaths =
-            List.foldl (\{ path } acc -> Set.insert path acc) Set.empty modulesToAnalyze
-
         modules : Dict ModuleName ProjectModule
         modules =
             List.foldl
@@ -4656,10 +4652,6 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                 )
                 Dict.empty
                 modulesToAnalyze
-
-        newStartCache : Dict String (CacheEntry projectContext)
-        newStartCache =
-            Dict.filter (\path _ -> Set.member path projectModulePaths) startCache
 
         computeModule :
             ProjectModule
@@ -4788,7 +4780,7 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
         computeProjectContext_ cache incoming =
             computeProjectContext projectVisitor.traversalAndFolder graph cache modules incoming initialProjectContext
     in
-    runThroughModules computeProjectContext_ computeModule modules (Just moduleZipper) project newStartCache fixedErrors
+    runThroughModules computeProjectContext_ computeModule modules (Just moduleZipper) project startCache fixedErrors
 
 
 runThroughModules :
