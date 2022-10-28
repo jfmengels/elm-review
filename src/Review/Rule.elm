@@ -4276,15 +4276,10 @@ computeStepsForProject dataToComputeProject step ({ project, projectContext, cac
         Modules contexts moduleZipper ->
             case dataToComputeProject.projectVisitor.moduleVisitor of
                 Nothing ->
-                    let
-                        result : { project : ValidProject, cache : ProjectRuleCache projectContext, nextStep : Step projectContext, fixedErrors : FixedErrors }
-                        result =
-                            { project = project, cache = cache, nextStep = FinalProjectEvaluation contexts, fixedErrors = fixedErrors }
-                    in
                     computeStepsForProject
                         dataToComputeProject
-                        result.nextStep
-                        { project = result.project, projectContext = projectContext, cache = result.cache, fixedErrors = result.fixedErrors }
+                        (FinalProjectEvaluation contexts)
+                        acc
 
                 Just ( moduleVisitor, moduleContextCreator ) ->
                     let
