@@ -4241,7 +4241,7 @@ computeStepsForProject reviewOptions projectVisitor exceptions step ({ project, 
                 projectVisitor
                 exceptions
                 Readme
-                (computeElmJson projectVisitor exceptions project projectContext cache fixedErrors)
+                (computeElmJson reviewOptions projectVisitor exceptions project projectContext cache fixedErrors)
 
         Readme ->
             computeStepsForProject
@@ -4331,14 +4331,15 @@ type NextStep
 
 
 computeElmJson :
-    RunnableProjectVisitor projectContext moduleContext
+    ReviewOptionsData
+    -> RunnableProjectVisitor projectContext moduleContext
     -> Exceptions
     -> ValidProject
     -> projectContext
     -> ProjectRuleCache projectContext
     -> FixedErrors
     -> { project : ValidProject, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
-computeElmJson projectVisitor exceptions project inputContext cache fixedErrors =
+computeElmJson reviewOptions projectVisitor exceptions project inputContext cache fixedErrors =
     let
         projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
         projectElmJson =
@@ -4368,17 +4369,25 @@ computeElmJson projectVisitor exceptions project inputContext cache fixedErrors 
                     ( [], inputContext )
                         |> accumulateWithListOfVisitors projectVisitor.elmJsonVisitors elmJsonData
 
-                elmJsonEntry : CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext
-                elmJsonEntry =
-                    { value = projectElmJson
-
-                    -- TODO Find fixes after this step
-                    , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
-                    , inputContext = inputContext
-                    , outputContext = outputContext
-                    }
+                errors : List (Error {})
+                errors =
+                    filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
             in
-            { project = project, projectContext = outputContext, cache = { cache | elmJson = Just elmJsonEntry }, fixedErrors = fixedErrors }
+            case findFix reviewOptions projectVisitor.name project errors Nothing of
+                Just fixResult ->
+                    computeElmJson reviewOptions projectVisitor exceptions fixResult.project inputContext cache (FixedErrors.insert fixResult.error fixedErrors)
+
+                Nothing ->
+                    let
+                        elmJsonEntry : CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext
+                        elmJsonEntry =
+                            { value = projectElmJson
+                            , errors = errors
+                            , inputContext = inputContext
+                            , outputContext = outputContext
+                            }
+                    in
+                    { project = project, projectContext = outputContext, cache = { cache | elmJson = Just elmJsonEntry }, fixedErrors = fixedErrors }
 
 
 computeReadme :
