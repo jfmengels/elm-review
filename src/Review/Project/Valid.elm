@@ -379,81 +379,76 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
         moduleName =
             getModuleName module_
     in
-    case Dict.get path project.modulesByPath of
+    case Dict.get moduleName project.modulesByModuleName of
         Just existingModule ->
-            if getModuleName existingModule == moduleName then
+            let
+                newModule : ProjectModule
+                newModule =
+                    Review.Project.Internal.sanitizeModule module_
+
+                newProject : ValidProjectData
+                newProject =
+                    { project
+                        | modulesByPath = Dict.insert path newModule project.modulesByPath
+                        , modulesByModuleName = Dict.insert moduleName newModule project.modulesByModuleName
+                    }
+            in
+            if importedModulesSet existingModule.ast project.dependencyModules == importedModulesSet ast project.dependencyModules then
                 let
-                    newModule : ProjectModule
-                    newModule =
-                        Review.Project.Internal.sanitizeModule module_
+                    -- Imports haven't changed, we don't need to recompute the zipper or the graph
+                    newModuleZipper : Zipper (Graph.NodeContext ModuleName ())
+                    newModuleZipper =
+                        case maybeModuleZipper of
+                            Just moduleZipper_ ->
+                                moduleZipper_
 
-                    newProject : ValidProjectData
-                    newProject =
-                        { project
-                            | modulesByPath = Dict.insert path newModule project.modulesByPath
-                            , modulesByModuleName = Dict.insert moduleName newModule project.modulesByModuleName
-                        }
+                            Nothing ->
+                                let
+                                    moduleZipper_ : Zipper (Graph.NodeContext ModuleName ())
+                                    moduleZipper_ =
+                                        unsafeCreateZipper newProject.sortedModules
+                                in
+                                Zipper.focusr (\mod -> mod.node.label == moduleName) moduleZipper_
+                                    -- Should not happen :/
+                                    |> Maybe.withDefault moduleZipper_
                 in
-                if importedModulesSet existingModule.ast project.dependencyModules == importedModulesSet ast project.dependencyModules then
-                    let
-                        -- Imports haven't changed, we don't need to recompute the zipper or the graph
-                        newModuleZipper : Zipper (Graph.NodeContext ModuleName ())
-                        newModuleZipper =
-                            case maybeModuleZipper of
-                                Just moduleZipper_ ->
-                                    moduleZipper_
-
-                                Nothing ->
-                                    let
-                                        moduleZipper_ : Zipper (Graph.NodeContext ModuleName ())
-                                        moduleZipper_ =
-                                            unsafeCreateZipper newProject.sortedModules
-                                    in
-                                    Zipper.focusr (\mod -> mod.node.label == moduleName) moduleZipper_
-                                        -- Should not happen :/
-                                        |> Maybe.withDefault moduleZipper_
-                    in
-                    Just ( ValidProject newProject, newModuleZipper )
-
-                else
-                    let
-                        graph : Graph ModuleName ()
-                        graph =
-                            buildModuleGraph (Dict.values newProject.modulesByPath)
-                    in
-                    case Graph.checkAcyclic graph of
-                        Err _ ->
-                            Nothing
-
-                        Ok acyclicGraph ->
-                            let
-                                sortedModules : List (Graph.NodeContext ModuleName ())
-                                sortedModules =
-                                    Graph.topologicalSort acyclicGraph
-
-                                moduleZipper_ : Zipper (Graph.NodeContext ModuleName ())
-                                moduleZipper_ =
-                                    unsafeCreateZipper sortedModules
-
-                                newModuleZipper : Zipper (Graph.NodeContext ModuleName ())
-                                newModuleZipper =
-                                    case maybeModuleZipper of
-                                        Just prevModuleZipper ->
-                                            -- We were evaluating modules. Take the new zipper but move it to the first
-                                            -- of either the touched module or the first module that is different for the 2 zippers
-                                            advanceZipper moduleName (Zipper.start prevModuleZipper) moduleZipper_
-
-                                        Nothing ->
-                                            -- We were not evaluating modules. Create a zipper and move to the touched module name
-                                            Zipper.focusr (\mod -> mod.node.label == moduleName) moduleZipper_
-                                                -- Should not happen :/
-                                                |> Maybe.withDefault moduleZipper_
-                            in
-                            Just ( ValidProject { newProject | moduleGraph = graph, sortedModules = sortedModules }, newModuleZipper )
+                Just ( ValidProject newProject, newModuleZipper )
 
             else
-                -- If the path has not changed but the module name has, then the fix necessarily introduced a compilation error
-                Nothing
+                let
+                    graph : Graph ModuleName ()
+                    graph =
+                        buildModuleGraph (Dict.values newProject.modulesByPath)
+                in
+                case Graph.checkAcyclic graph of
+                    Err _ ->
+                        Nothing
+
+                    Ok acyclicGraph ->
+                        let
+                            sortedModules : List (Graph.NodeContext ModuleName ())
+                            sortedModules =
+                                Graph.topologicalSort acyclicGraph
+
+                            moduleZipper_ : Zipper (Graph.NodeContext ModuleName ())
+                            moduleZipper_ =
+                                unsafeCreateZipper sortedModules
+
+                            newModuleZipper : Zipper (Graph.NodeContext ModuleName ())
+                            newModuleZipper =
+                                case maybeModuleZipper of
+                                    Just prevModuleZipper ->
+                                        -- We were evaluating modules. Take the new zipper but move it to the first
+                                        -- of either the touched module or the first module that is different for the 2 zippers
+                                        advanceZipper moduleName (Zipper.start prevModuleZipper) moduleZipper_
+
+                                    Nothing ->
+                                        -- We were not evaluating modules. Create a zipper and move to the touched module name
+                                        Zipper.focusr (\mod -> mod.node.label == moduleName) moduleZipper_
+                                            -- Should not happen :/
+                                            |> Maybe.withDefault moduleZipper_
+                        in
+                        Just ( ValidProject { newProject | moduleGraph = graph, sortedModules = sortedModules }, newModuleZipper )
 
         Nothing ->
             -- We don't support adding new files at the moment.
