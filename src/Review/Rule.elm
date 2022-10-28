@@ -4648,134 +4648,15 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
                 )
                 Dict.empty
                 modulesToAnalyze
-
-        computeModule :
-            ProjectModule
-            -> projectContext
-            -> ValidProject
-            -> Zipper GraphModule
-            -> FixedErrors
-            -> { project : ValidProject, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
-        computeModule module_ projectContext currentProject moduleZipper_ fixedErrors_ =
-            let
-                (RequestedData requestedData) =
-                    projectVisitor.requestedData
-
-                moduleName : ModuleName
-                moduleName =
-                    Node.value (moduleNameNode module_.ast.moduleDefinition)
-
-                ( moduleNameLookupTable, newProject ) =
-                    if requestedData.moduleNameLookupTable then
-                        Review.ModuleNameLookupTable.Compute.compute moduleName module_ currentProject
-
-                    else
-                        ( ModuleNameLookupTableInternal.empty moduleName, currentProject )
-
-                availableData : AvailableData
-                availableData =
-                    { ast = module_.ast
-                    , moduleKey = ModuleKey module_.path
-                    , moduleNameLookupTable = moduleNameLookupTable
-                    , extractSourceCode =
-                        if requestedData.sourceCodeExtractor then
-                            extractSourceCode (String.lines module_.source)
-
-                        else
-                            always ""
-                    , filePath = module_.path
-                    , isInSourceDirectories = module_.isInSourceDirectories
-                    }
-
-                initialModuleContext : moduleContext
-                initialModuleContext =
-                    applyContextCreator availableData moduleContextCreator projectContext
-
-                ( moduleErrors, resultModuleContext ) =
-                    visitModuleForProjectRule
-                        moduleVisitor
-                        initialModuleContext
-                        module_
-
-                errors : List (Error {})
-                errors =
-                    moduleErrors
-                        |> List.map (setFilePathIfUnset module_)
-                        |> filterExceptionsAndSetName exceptions projectVisitor.name
-
-                analysis : () -> CacheEntry projectContext
-                analysis () =
-                    { source = module_.source
-                    , errors = errors
-                    , inputContext = projectContext
-                    , outputContext =
-                        case getFolderFromTraversal projectVisitor.traversalAndFolder of
-                            Just { fromModuleToProject } ->
-                                applyContextCreator availableData fromModuleToProject resultModuleContext
-
-                            Nothing ->
-                                projectContext
-                    }
-
-                resultWhenNoFix : () -> { project : ValidProject, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
-                resultWhenNoFix () =
-                    { project = newProject
-                    , analysis = analysis ()
-                    , nextStep = ModuleVisitStep (Zipper.next moduleZipper_)
-                    , fixedErrors = fixedErrors_
-                    }
-            in
-            case findFix reviewOptions projectVisitor.name newProject errors (Just moduleZipper_) of
-                Just fixResult ->
-                    case fixResult.fixedFile of
-                        FixedElmModule { source, ast } newModuleZipper_ ->
-                            if module_.path == errorFilePath fixResult.error then
-                                computeModule
-                                    { module_ | source = source, ast = ast }
-                                    projectContext
-                                    (Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = module_.path }) fixResult.project)
-                                    newModuleZipper_
-                                    (FixedErrors.insert fixResult.error fixedErrors_)
-
-                            else
-                                let
-                                    fixedModuleName : ModuleName
-                                    fixedModuleName =
-                                        Module.moduleName (Node.value ast.moduleDefinition)
-                                in
-                                case Zipper.focusl (\mod -> mod.node.label == fixedModuleName) moduleZipper_ of
-                                    Just newModuleZipper ->
-                                        { project = fixResult.project
-                                        , analysis = analysis ()
-                                        , nextStep = ModuleVisitStep (Just newModuleZipper)
-                                        , fixedErrors = FixedErrors.insert fixResult.error fixedErrors_
-                                        }
-                                            |> Logger.log reviewOptions.logger (fixedError { ruleName = projectVisitor.name, filePath = errorFilePath fixResult.error })
-
-                                    Nothing ->
-                                        resultWhenNoFix ()
-
-                        FixedElmJson ->
-                            { project = fixResult.project
-                            , analysis = analysis ()
-                            , nextStep = BackToElmJson
-                            , fixedErrors = FixedErrors.insert fixResult.error fixedErrors_
-                            }
-
-                        FixedReadme ->
-                            { project = fixResult.project
-                            , analysis = analysis ()
-                            , nextStep = BackToReadme
-                            , fixedErrors = FixedErrors.insert fixResult.error fixedErrors_
-                            }
-
-                Nothing ->
-                    resultWhenNoFix ()
     in
     runThroughModules
-        projectVisitor.traversalAndFolder
+        { reviewOptions = reviewOptions
+        , projectVisitor = projectVisitor
+        , moduleVisitor = moduleVisitor
+        , moduleContextCreator = moduleContextCreator
+        , exceptions = exceptions
+        }
         initialProjectContext
-        computeModule
         modules
         (Just moduleZipper)
         project
@@ -4783,24 +4664,151 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
         fixedErrors
 
 
-runThroughModules :
-    TraversalAndFolder projectContext moduleContext
+type alias DataToComputeModules projectContext moduleContext =
+    { reviewOptions : ReviewOptionsData
+    , projectVisitor : RunnableProjectVisitor projectContext moduleContext
+    , moduleVisitor : RunnableModuleVisitor moduleContext
+    , moduleContextCreator : ContextCreator projectContext moduleContext
+    , exceptions : Exceptions
+    }
+
+
+computeModule :
+    DataToComputeModules projectContext moduleContext
+    -> ProjectModule
     -> projectContext
-    ->
-        (ProjectModule
-         -> projectContext
-         -> ValidProject
-         -> Zipper GraphModule
-         -> FixedErrors
-         -> { project : ValidProject, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
-        )
+    -> ValidProject
+    -> Zipper GraphModule
+    -> FixedErrors
+    -> { project : ValidProject, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
+computeModule dataToComputeModules module_ projectContext project moduleZipper fixedErrors_ =
+    let
+        (RequestedData requestedData) =
+            dataToComputeModules.projectVisitor.requestedData
+
+        moduleName : ModuleName
+        moduleName =
+            Node.value (moduleNameNode module_.ast.moduleDefinition)
+
+        ( moduleNameLookupTable, newProject ) =
+            if requestedData.moduleNameLookupTable then
+                Review.ModuleNameLookupTable.Compute.compute moduleName module_ project
+
+            else
+                ( ModuleNameLookupTableInternal.empty moduleName, project )
+
+        availableData : AvailableData
+        availableData =
+            { ast = module_.ast
+            , moduleKey = ModuleKey module_.path
+            , moduleNameLookupTable = moduleNameLookupTable
+            , extractSourceCode =
+                if requestedData.sourceCodeExtractor then
+                    extractSourceCode (String.lines module_.source)
+
+                else
+                    always ""
+            , filePath = module_.path
+            , isInSourceDirectories = module_.isInSourceDirectories
+            }
+
+        initialModuleContext : moduleContext
+        initialModuleContext =
+            applyContextCreator availableData dataToComputeModules.moduleContextCreator projectContext
+
+        ( moduleErrors, resultModuleContext ) =
+            visitModuleForProjectRule
+                dataToComputeModules.moduleVisitor
+                initialModuleContext
+                module_
+
+        errors : List (Error {})
+        errors =
+            moduleErrors
+                |> List.map (setFilePathIfUnset module_)
+                |> filterExceptionsAndSetName dataToComputeModules.exceptions dataToComputeModules.projectVisitor.name
+
+        analysis : () -> CacheEntry projectContext
+        analysis () =
+            { source = module_.source
+            , errors = errors
+            , inputContext = projectContext
+            , outputContext =
+                case getFolderFromTraversal dataToComputeModules.projectVisitor.traversalAndFolder of
+                    Just { fromModuleToProject } ->
+                        applyContextCreator availableData fromModuleToProject resultModuleContext
+
+                    Nothing ->
+                        projectContext
+            }
+
+        resultWhenNoFix : () -> { project : ValidProject, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
+        resultWhenNoFix () =
+            { project = newProject
+            , analysis = analysis ()
+            , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
+            , fixedErrors = fixedErrors_
+            }
+    in
+    case findFix dataToComputeModules.reviewOptions dataToComputeModules.projectVisitor.name newProject errors (Just moduleZipper) of
+        Just fixResult ->
+            case fixResult.fixedFile of
+                FixedElmModule { source, ast } newModuleZipper_ ->
+                    if module_.path == errorFilePath fixResult.error then
+                        computeModule
+                            dataToComputeModules
+                            { module_ | source = source, ast = ast }
+                            projectContext
+                            (Logger.log dataToComputeModules.reviewOptions.logger (fixedError { ruleName = dataToComputeModules.projectVisitor.name, filePath = module_.path }) fixResult.project)
+                            newModuleZipper_
+                            (FixedErrors.insert fixResult.error fixedErrors_)
+
+                    else
+                        let
+                            fixedModuleName : ModuleName
+                            fixedModuleName =
+                                Module.moduleName (Node.value ast.moduleDefinition)
+                        in
+                        case Zipper.focusl (\mod -> mod.node.label == fixedModuleName) moduleZipper of
+                            Just newModuleZipper ->
+                                { project = fixResult.project
+                                , analysis = analysis ()
+                                , nextStep = ModuleVisitStep (Just newModuleZipper)
+                                , fixedErrors = FixedErrors.insert fixResult.error fixedErrors_
+                                }
+                                    |> Logger.log dataToComputeModules.reviewOptions.logger (fixedError { ruleName = dataToComputeModules.projectVisitor.name, filePath = errorFilePath fixResult.error })
+
+                            Nothing ->
+                                resultWhenNoFix ()
+
+                FixedElmJson ->
+                    { project = fixResult.project
+                    , analysis = analysis ()
+                    , nextStep = BackToElmJson
+                    , fixedErrors = FixedErrors.insert fixResult.error fixedErrors_
+                    }
+
+                FixedReadme ->
+                    { project = fixResult.project
+                    , analysis = analysis ()
+                    , nextStep = BackToReadme
+                    , fixedErrors = FixedErrors.insert fixResult.error fixedErrors_
+                    }
+
+        Nothing ->
+            resultWhenNoFix ()
+
+
+runThroughModules :
+    DataToComputeModules projectContext moduleContext
+    -> projectContext
     -> Dict ModuleName ProjectModule
     -> Maybe (Zipper GraphModule)
     -> ValidProject
     -> Dict String (CacheEntry projectContext)
     -> FixedErrors
     -> { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : FixedErrors }
-runThroughModules traversalAndFolder inputProjectContext computeModule modules maybeModuleZipper initialProject initialModuleContexts fixedErrors =
+runThroughModules dataToComputeModules inputProjectContext modules maybeModuleZipper initialProject initialModuleContexts fixedErrors =
     case maybeModuleZipper of
         Nothing ->
             { project = initialProject, moduleContexts = initialModuleContexts, nextStep = FinalProjectEvaluation, fixedErrors = fixedErrors }
@@ -4810,9 +4818,8 @@ runThroughModules traversalAndFolder inputProjectContext computeModule modules m
                 result : { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep, fixedErrors : FixedErrors }
                 result =
                     computeModuleAndCacheResult
-                        traversalAndFolder
+                        dataToComputeModules
                         inputProjectContext
-                        computeModule
                         modules
                         moduleZipper
                         initialProject
@@ -4822,9 +4829,8 @@ runThroughModules traversalAndFolder inputProjectContext computeModule modules m
             case result.nextStep of
                 ModuleVisitStep newModuleZipper ->
                     runThroughModules
-                        traversalAndFolder
+                        dataToComputeModules
                         inputProjectContext
-                        computeModule
                         modules
                         newModuleZipper
                         result.project
@@ -4870,23 +4876,15 @@ computeProjectContext traversalAndFolder graph cache modules incoming initial =
 
 
 computeModuleAndCacheResult :
-    TraversalAndFolder projectContext moduleContext
+    DataToComputeModules projectContext moduleContext
     -> projectContext
-    ->
-        (ProjectModule
-         -> projectContext
-         -> ValidProject
-         -> Zipper GraphModule
-         -> FixedErrors
-         -> { project : ValidProject, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
-        )
     -> Dict ModuleName ProjectModule
     -> Zipper GraphModule
     -> ValidProject
     -> Dict String (CacheEntry projectContext)
     -> FixedErrors
     -> { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep, fixedErrors : FixedErrors }
-computeModuleAndCacheResult traversalAndFolder inputProjectContext computeModule modules moduleZipper project moduleContexts fixedErrors =
+computeModuleAndCacheResult dataToComputeModules inputProjectContext modules moduleZipper project moduleContexts fixedErrors =
     let
         { node, incoming } =
             Zipper.current moduleZipper
@@ -4899,7 +4897,7 @@ computeModuleAndCacheResult traversalAndFolder inputProjectContext computeModule
             let
                 projectContext : projectContext
                 projectContext =
-                    computeProjectContext traversalAndFolder (ValidProject.moduleGraph project) moduleContexts modules incoming inputProjectContext
+                    computeProjectContext dataToComputeModules.projectVisitor.traversalAndFolder (ValidProject.moduleGraph project) moduleContexts modules incoming inputProjectContext
             in
             if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.inputContext == projectContext) (Dict.get module_.path moduleContexts) then
                 { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next moduleZipper), fixedErrors = fixedErrors }
@@ -4908,7 +4906,7 @@ computeModuleAndCacheResult traversalAndFolder inputProjectContext computeModule
                 let
                     result : { project : ValidProject, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
                     result =
-                        computeModule module_ projectContext project moduleZipper fixedErrors
+                        computeModule dataToComputeModules module_ projectContext project moduleZipper fixedErrors
                 in
                 { project = result.project
                 , moduleContexts = Dict.insert module_.path result.analysis moduleContexts
