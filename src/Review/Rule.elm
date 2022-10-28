@@ -4812,7 +4812,6 @@ runThroughModules computeProjectContext_ computeModule modules maybeModuleZipper
                         computeProjectContext_
                         computeModule
                         modules
-                        (Zipper.current moduleZipper)
                         moduleZipper
                         initialProject
                         initialModuleContexts
@@ -4878,13 +4877,16 @@ computeModuleAndCacheResult :
          -> { project : ValidProject, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
         )
     -> Dict ModuleName ProjectModule
-    -> GraphModule
     -> Zipper GraphModule
     -> ValidProject
     -> Dict String (CacheEntry projectContext)
     -> FixedErrors
     -> { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep, fixedErrors : FixedErrors }
-computeModuleAndCacheResult computeProjectContext_ computeModule modules { node, incoming } initialModuleZipper project moduleContexts fixedErrors =
+computeModuleAndCacheResult computeProjectContext_ computeModule modules initialModuleZipper project moduleContexts fixedErrors =
+    let
+        { node, incoming } =
+            Zipper.current initialModuleZipper
+    in
     case Dict.get node.label modules of
         Nothing ->
             { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next initialModuleZipper), fixedErrors = fixedErrors }
