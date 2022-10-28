@@ -376,12 +376,11 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
 
                 module_ : ProjectModule
                 module_ =
-                    Review.Project.Internal.sanitizeModule
-                        { path = path
-                        , source = source
-                        , ast = ast
-                        , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) project.sourceDirectories
-                        }
+                    { path = path
+                    , source = source
+                    , ast = Review.Project.Internal.sanitizeModule ast
+                    , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) project.sourceDirectories
+                    }
 
                 newProject : ValidProjectData
                 newProject =

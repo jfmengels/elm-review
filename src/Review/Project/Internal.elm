@@ -18,7 +18,7 @@ import Elm.Project
 import Elm.Syntax.File
 import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
-import Elm.Syntax.Node as Node
+import Elm.Syntax.Node as Node exposing (Node(..))
 import Path
 import Review.ImportCycle as ImportCycle
 import Review.Project.Dependency exposing (Dependency)
@@ -214,14 +214,9 @@ getModuleName module_ =
         |> Elm.Syntax.Module.moduleName
 
 
-sanitizeModule : ProjectModule -> ProjectModule
-sanitizeModule module_ =
-    { module_ | ast = reorderComments module_.ast }
-
-
-reorderComments : Elm.Syntax.File.File -> Elm.Syntax.File.File
-reorderComments ast =
-    { ast | comments = List.sortBy (Node.range >> .start >> positionAsInt) ast.comments }
+sanitizeModule : Elm.Syntax.File.File -> Elm.Syntax.File.File
+sanitizeModule ast =
+    { ast | comments = List.sortBy (\(Node range _) -> positionAsInt range.start) ast.comments }
 
 
 positionAsInt : { row : Int, column : Int } -> Int

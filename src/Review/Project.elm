@@ -157,7 +157,7 @@ addParsedModule { path, source, ast } project =
 
 addModuleToProject : ProjectModule -> Project -> Project
 addModuleToProject module_ (Internal.Project project) =
-    Internal.Project { project | modules = Dict.insert module_.path (Internal.sanitizeModule module_) project.modules }
+    Internal.Project { project | modules = Dict.insert module_.path { module_ | ast = Internal.sanitizeModule module_.ast } project.modules }
 
 
 addFileThatFailedToParse : { path : String, source : String } -> Project -> Project
