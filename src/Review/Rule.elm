@@ -4262,7 +4262,7 @@ computeStepsForProject reviewOptions projectVisitor exceptions step ({ project, 
 
         Modules moduleZipper ->
             let
-                result : { project : ValidProject, projectContext : projectContext, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
+                result : { project : ValidProject, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
                 result =
                     computeModules2 reviewOptions projectVisitor exceptions moduleZipper project projectContext cache fixedErrors
             in
@@ -4271,7 +4271,7 @@ computeStepsForProject reviewOptions projectVisitor exceptions step ({ project, 
                 projectVisitor
                 exceptions
                 result.nextStep
-                { project = result.project, projectContext = result.projectContext, cache = result.cache, fixedErrors = result.fixedErrors }
+                { project = result.project, projectContext = projectContext, cache = result.cache, fixedErrors = result.fixedErrors }
 
         FinalProjectEvaluation ->
             let
@@ -4473,11 +4473,11 @@ computeModules2 :
     -> projectContext
     -> ProjectRuleCache projectContext
     -> FixedErrors
-    -> { project : ValidProject, projectContext : projectContext, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
+    -> { project : ValidProject, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
 computeModules2 reviewOptions projectVisitor exceptions moduleZipper project inputContext cache fixedErrors =
     case projectVisitor.moduleVisitor of
         Nothing ->
-            { project = project, projectContext = inputContext, cache = cache, nextStep = FinalProjectEvaluation, fixedErrors = fixedErrors }
+            { project = project, cache = cache, nextStep = FinalProjectEvaluation, fixedErrors = fixedErrors }
 
         Just ( moduleVisitor, moduleContextCreator ) ->
             let
@@ -4497,7 +4497,6 @@ computeModules2 reviewOptions projectVisitor exceptions moduleZipper project inp
                         fixedErrors
             in
             { project = result.project
-            , projectContext = inputContext
             , cache = { cache | moduleContexts = result.moduleContexts }
             , nextStep = result.nextStep
             , fixedErrors = result.fixedErrors
