@@ -207,27 +207,12 @@ modulesThatFailedToParse (Internal.Project project) =
 
 {-| Precomputes the module graph.
 
-This is to avoid a potentially long computation at every review run. Once the graph
-is precomputed, it will be recomputed every time a module is changed, meaning
-you won't need to reuse this call `precomputeModuleGraph` again.
-
-You should use this function if and when you know you loaded all the files in
-the project.
+**@deprecated** This is not useful anymore.
 
 -}
 precomputeModuleGraph : Project -> Project
-precomputeModuleGraph ((Internal.Project p) as project) =
-    case p.moduleGraph of
-        Just _ ->
-            project
-
-        Nothing ->
-            let
-                moduleGraph : Graph ModuleName ()
-                moduleGraph =
-                    Internal.buildModuleGraph <| Dict.values p.modules
-            in
-            Internal.Project { p | moduleGraph = Just moduleGraph }
+precomputeModuleGraph project =
+    project
 
 
 
