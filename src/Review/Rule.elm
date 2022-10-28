@@ -4261,17 +4261,43 @@ computeStepsForProject reviewOptions projectVisitor exceptions step ({ project, 
                 (computeDependencies projectVisitor exceptions project projectContext cache fixedErrors)
 
         Modules moduleZipper ->
-            let
-                result : { project : ValidProject, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
-                result =
-                    computeModules2 reviewOptions projectVisitor exceptions moduleZipper project projectContext cache fixedErrors
-            in
-            computeStepsForProject
-                reviewOptions
-                projectVisitor
-                exceptions
-                result.nextStep
-                { project = result.project, projectContext = projectContext, cache = result.cache, fixedErrors = result.fixedErrors }
+            case projectVisitor.moduleVisitor of
+                Nothing ->
+                    let
+                        result : { project : ValidProject, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
+                        result =
+                            { project = project, cache = cache, nextStep = FinalProjectEvaluation, fixedErrors = fixedErrors }
+                    in
+                    computeStepsForProject
+                        reviewOptions
+                        projectVisitor
+                        exceptions
+                        result.nextStep
+                        { project = result.project, projectContext = projectContext, cache = result.cache, fixedErrors = result.fixedErrors }
+
+                Just ( moduleVisitor, moduleContextCreator ) ->
+                    let
+                        result : { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : FixedErrors }
+                        result =
+                            computeModules
+                                { reviewOptions = reviewOptions
+                                , projectVisitor = projectVisitor
+                                , moduleVisitor = moduleVisitor
+                                , moduleContextCreator = moduleContextCreator
+                                , exceptions = exceptions
+                                }
+                                projectContext
+                                (Just moduleZipper)
+                                project
+                                cache.moduleContexts
+                                fixedErrors
+                    in
+                    computeStepsForProject
+                        reviewOptions
+                        projectVisitor
+                        exceptions
+                        result.nextStep
+                        { project = result.project, projectContext = projectContext, cache = { cache | moduleContexts = result.moduleContexts }, fixedErrors = result.fixedErrors }
 
         FinalProjectEvaluation ->
             let
@@ -4462,45 +4488,6 @@ computeDependencies projectVisitor exceptions project inputContext cache fixedEr
                     }
             in
             { project = project, projectContext = outputContext, cache = { cache | dependencies = Just dependenciesEntry }, fixedErrors = fixedErrors }
-
-
-computeModules2 :
-    ReviewOptionsData
-    -> RunnableProjectVisitor projectContext moduleContext
-    -> Exceptions
-    -> Zipper GraphModule
-    -> ValidProject
-    -> projectContext
-    -> ProjectRuleCache projectContext
-    -> FixedErrors
-    -> { project : ValidProject, cache : ProjectRuleCache projectContext, nextStep : Step, fixedErrors : FixedErrors }
-computeModules2 reviewOptions projectVisitor exceptions moduleZipper project inputContext cache fixedErrors =
-    case projectVisitor.moduleVisitor of
-        Nothing ->
-            { project = project, cache = cache, nextStep = FinalProjectEvaluation, fixedErrors = fixedErrors }
-
-        Just ( moduleVisitor, moduleContextCreator ) ->
-            let
-                result : { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : FixedErrors }
-                result =
-                    computeModules
-                        { reviewOptions = reviewOptions
-                        , projectVisitor = projectVisitor
-                        , moduleVisitor = moduleVisitor
-                        , moduleContextCreator = moduleContextCreator
-                        , exceptions = exceptions
-                        }
-                        inputContext
-                        (Just moduleZipper)
-                        project
-                        cache.moduleContexts
-                        fixedErrors
-            in
-            { project = result.project
-            , cache = { cache | moduleContexts = result.moduleContexts }
-            , nextStep = result.nextStep
-            , fixedErrors = result.fixedErrors
-            }
 
 
 computeFinalProjectEvaluation :
