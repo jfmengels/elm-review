@@ -1,4 +1,4 @@
-module Review.Project.ProjectModule exposing (..)
+module Review.Project.ProjectModule exposing (ProjectModule)
 
 {-| Represents a parsed file.
 -}

@@ -10,7 +10,6 @@ module Review.Project.Valid exposing
     , getModuleByPath
     , moduleGraph
     , moduleZipper
-    , modules
     , parse
     , projectCache
     , readme
@@ -320,13 +319,6 @@ directDependencies (ValidProject project) =
 moduleGraph : ValidProject -> Graph ModuleName ()
 moduleGraph (ValidProject project) =
     project.moduleGraph
-
-
-{-| Get the list of modules in the project.
--}
-modules : ValidProject -> List ProjectModule
-modules (ValidProject project) =
-    Dict.values project.modulesByPath
 
 
 getModuleByPath : String -> ValidProject -> Maybe ProjectModule

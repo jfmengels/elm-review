@@ -316,7 +316,6 @@ import Review.Project.Dependency
 import Review.Project.Internal exposing (Project)
 import Review.Project.InvalidProjectError as InvalidProjectError
 import Review.Project.Valid as ValidProject exposing (ValidProject)
-import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
 import Vendor.ListExtra as ListExtra
@@ -574,7 +573,7 @@ reviewV3 reviewOptions rules project =
         checkForConfigurationErrors rules
             |> Result.andThen (\() -> getModulesSortedByImport project)
     of
-        Ok ( validProject, moduleZipper ) ->
+        Ok ( validProject, _ ) ->
             let
                 result : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
                 result =
@@ -5443,13 +5442,6 @@ moduleNameNode node =
 
         Module.EffectModule data ->
             data.moduleName
-
-
-getModuleName : ProjectModule -> ModuleName
-getModuleName module_ =
-    module_.ast.moduleDefinition
-        |> Node.value
-        |> Module.moduleName
 
 
 accumulateWithListOfVisitors :

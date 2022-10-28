@@ -45,14 +45,12 @@ import Dict exposing (Dict)
 import Elm.Package
 import Elm.Project
 import Elm.Syntax.File
-import Elm.Syntax.ModuleName exposing (ModuleName)
 import Path
 import Review.FileParser as FileParser
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal as Internal exposing (Project)
 import Review.Project.ProjectCache as ProjectCache
 import Review.Project.ProjectModule as ProjectModule
-import Vendor.Graph exposing (Graph)
 
 
 
