@@ -4882,14 +4882,14 @@ computeModuleAndCacheResult :
     -> Dict String (CacheEntry projectContext)
     -> FixedErrors
     -> { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep, fixedErrors : FixedErrors }
-computeModuleAndCacheResult computeProjectContext_ computeModule modules initialModuleZipper project moduleContexts fixedErrors =
+computeModuleAndCacheResult computeProjectContext_ computeModule modules moduleZipper project moduleContexts fixedErrors =
     let
         { node, incoming } =
-            Zipper.current initialModuleZipper
+            Zipper.current moduleZipper
     in
     case Dict.get node.label modules of
         Nothing ->
-            { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next initialModuleZipper), fixedErrors = fixedErrors }
+            { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next moduleZipper), fixedErrors = fixedErrors }
 
         Just module_ ->
             let
@@ -4898,13 +4898,13 @@ computeModuleAndCacheResult computeProjectContext_ computeModule modules initial
                     computeProjectContext_ moduleContexts incoming
             in
             if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.inputContext == projectContext) (Dict.get module_.path moduleContexts) then
-                { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next initialModuleZipper), fixedErrors = fixedErrors }
+                { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next moduleZipper), fixedErrors = fixedErrors }
 
             else
                 let
                     result : { project : ValidProject, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
                     result =
-                        computeModule module_ projectContext project initialModuleZipper fixedErrors
+                        computeModule module_ projectContext project moduleZipper fixedErrors
                 in
                 { project = result.project
                 , moduleContexts = Dict.insert module_.path result.analysis moduleContexts
