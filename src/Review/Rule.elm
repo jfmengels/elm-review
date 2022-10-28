@@ -4959,8 +4959,6 @@ findFixHelp project fixablePredicate errors maybeModuleZipper =
                                             findFixHelp project fixablePredicate restOfErrors maybeModuleZipper
 
                                         Just newProject ->
-                                            -- TODO Don't apply the fix dependencies are added, or source-directories are changed
-                                            -- TODO Remove dependencies if there are less dependencies
                                             Just
                                                 { project = newProject
                                                 , fixedFile = FixedElmJson
