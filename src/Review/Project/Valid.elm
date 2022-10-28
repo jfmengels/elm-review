@@ -376,21 +376,18 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
 
                 module_ : ProjectModule
                 module_ =
-                    { path = path
-                    , source = source
-                    , ast = ast
-                    , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) project.sourceDirectories
-                    }
-
-                newModule : ProjectModule
-                newModule =
-                    Review.Project.Internal.sanitizeModule module_
+                    Review.Project.Internal.sanitizeModule
+                        { path = path
+                        , source = source
+                        , ast = ast
+                        , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) project.sourceDirectories
+                        }
 
                 newProject : ValidProjectData
                 newProject =
                     { project
-                        | modulesByPath = Dict.insert path newModule project.modulesByPath
-                        , modulesByModuleName = Dict.insert moduleName newModule project.modulesByModuleName
+                        | modulesByPath = Dict.insert path module_ project.modulesByPath
+                        , modulesByModuleName = Dict.insert moduleName module_ project.modulesByModuleName
                     }
             in
             if importedModulesSet existingModule.ast project.dependencyModules == importedModulesSet ast project.dependencyModules then
