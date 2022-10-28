@@ -4479,18 +4479,20 @@ computeModules2 reviewOptions projectVisitor exceptions moduleZipper project inp
         Nothing ->
             { project = project, projectContext = inputContext, cache = cache, nextStep = FinalProjectEvaluation, fixedErrors = fixedErrors }
 
-        Just moduleVisitor ->
+        Just ( moduleVisitor, moduleContextCreator ) ->
             let
                 result : { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : FixedErrors }
                 result =
                     computeModules
-                        reviewOptions
-                        projectVisitor
-                        moduleVisitor
-                        project
-                        exceptions
+                        { reviewOptions = reviewOptions
+                        , projectVisitor = projectVisitor
+                        , moduleVisitor = moduleVisitor
+                        , moduleContextCreator = moduleContextCreator
+                        , exceptions = exceptions
+                        }
                         inputContext
-                        moduleZipper
+                        (Just moduleZipper)
+                        project
                         cache.moduleContexts
                         fixedErrors
             in
@@ -4606,32 +4608,6 @@ errorFilePathInternal (Error err) =
 
 
 -- VISIT MODULES
-
-
-computeModules :
-    ReviewOptionsData
-    -> RunnableProjectVisitor projectContext moduleContext
-    -> ( RunnableModuleVisitor moduleContext, ContextCreator projectContext moduleContext )
-    -> ValidProject
-    -> Exceptions
-    -> projectContext
-    -> Zipper GraphModule
-    -> Dict String (CacheEntry projectContext)
-    -> FixedErrors
-    -> { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : FixedErrors }
-computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions initialProjectContext moduleZipper startCache fixedErrors =
-    runThroughModules
-        { reviewOptions = reviewOptions
-        , projectVisitor = projectVisitor
-        , moduleVisitor = moduleVisitor
-        , moduleContextCreator = moduleContextCreator
-        , exceptions = exceptions
-        }
-        initialProjectContext
-        (Just moduleZipper)
-        project
-        startCache
-        fixedErrors
 
 
 type alias DataToComputeModules projectContext moduleContext =
@@ -4769,7 +4745,7 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
             resultWhenNoFix ()
 
 
-runThroughModules :
+computeModules :
     DataToComputeModules projectContext moduleContext
     -> projectContext
     -> Maybe (Zipper GraphModule)
@@ -4777,7 +4753,7 @@ runThroughModules :
     -> Dict String (CacheEntry projectContext)
     -> FixedErrors
     -> { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : FixedErrors }
-runThroughModules dataToComputeModules inputProjectContext maybeModuleZipper initialProject initialModuleContexts fixedErrors =
+computeModules dataToComputeModules inputProjectContext maybeModuleZipper initialProject initialModuleContexts fixedErrors =
     case maybeModuleZipper of
         Nothing ->
             { project = initialProject, moduleContexts = initialModuleContexts, nextStep = FinalProjectEvaluation, fixedErrors = fixedErrors }
@@ -4796,7 +4772,7 @@ runThroughModules dataToComputeModules inputProjectContext maybeModuleZipper ini
             in
             case result.nextStep of
                 ModuleVisitStep newModuleZipper ->
-                    runThroughModules
+                    computeModules
                         dataToComputeModules
                         inputProjectContext
                         newModuleZipper
