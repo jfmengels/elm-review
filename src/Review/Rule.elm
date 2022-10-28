@@ -4826,25 +4826,42 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
             { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next moduleZipper), fixedErrors = fixedErrors }
 
         Just module_ ->
-            let
-                projectContext : projectContext
-                projectContext =
-                    computeProjectContext dataToComputeModules.projectVisitor.traversalAndFolder project moduleContexts incoming inputProjectContext
-            in
-            if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.inputContext == projectContext) (Dict.get module_.path moduleContexts) then
+            if shouldIgnoreModule dataToComputeModules module_.path then
                 { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next moduleZipper), fixedErrors = fixedErrors }
 
             else
                 let
-                    result : { project : ValidProject, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
-                    result =
-                        computeModule dataToComputeModules module_ projectContext project moduleZipper fixedErrors
+                    projectContext : projectContext
+                    projectContext =
+                        computeProjectContext dataToComputeModules.projectVisitor.traversalAndFolder project moduleContexts incoming inputProjectContext
                 in
-                { project = result.project
-                , moduleContexts = Dict.insert module_.path result.analysis moduleContexts
-                , nextStep = result.nextStep
-                , fixedErrors = result.fixedErrors
-                }
+                if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.inputContext == projectContext) (Dict.get module_.path moduleContexts) then
+                    { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next moduleZipper), fixedErrors = fixedErrors }
+
+                else
+                    let
+                        result : { project : ValidProject, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
+                        result =
+                            computeModule dataToComputeModules module_ projectContext project moduleZipper fixedErrors
+                    in
+                    { project = result.project
+                    , moduleContexts = Dict.insert module_.path result.analysis moduleContexts
+                    , nextStep = result.nextStep
+                    , fixedErrors = result.fixedErrors
+                    }
+
+
+shouldIgnoreModule : DataToComputeModules projectContext moduleContext -> String -> Bool
+shouldIgnoreModule dataToComputeModules path =
+    case dataToComputeModules.projectVisitor.traversalAndFolder of
+        TraverseAllModulesInParallel Nothing ->
+            not (Exceptions.isFileWeWantReportsFor dataToComputeModules.exceptions path)
+
+        TraverseAllModulesInParallel (Just _) ->
+            False
+
+        TraverseImportedModulesFirst _ ->
+            False
 
 
 reuseCache : (CacheEntry v -> Bool) -> Maybe (CacheEntry v) -> Bool
