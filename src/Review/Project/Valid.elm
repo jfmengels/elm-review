@@ -91,7 +91,7 @@ parse ((Project p) as project) =
                 let
                     graph : Graph ModuleName ()
                     graph =
-                        buildModuleGraph projectModules
+                        buildModuleGraph p.modules
                 in
                 case Graph.checkAcyclic graph of
                     Err edge ->
@@ -216,21 +216,23 @@ duplicateModuleNames visitedModules projectModules =
                         }
 
 
-buildModuleGraph : List ProjectModule -> Graph ModuleName ()
+buildModuleGraph : Dict a ProjectModule -> Graph ModuleName ()
 buildModuleGraph mods =
     let
         moduleIds : Dict ModuleName Int
         moduleIds =
-            mods
-                |> List.indexedMap Tuple.pair
-                |> List.foldl
-                    (\( index, module_ ) dict ->
-                        Dict.insert
-                            (getModuleName module_)
-                            index
-                            dict
+            Dict.foldl
+                (\_ module_ ( index, dict ) ->
+                    ( index + 1
+                    , Dict.insert
+                        (getModuleName module_)
+                        index
+                        dict
                     )
-                    Dict.empty
+                )
+                ( 0, Dict.empty )
+                mods
+                |> Tuple.second
 
         getModuleId : ModuleName -> Int
         getModuleId moduleName =
@@ -242,19 +244,19 @@ buildModuleGraph mods =
                     getModuleId moduleName
 
         ( nodes, edges ) =
-            mods
-                |> List.foldl
-                    (\module_ ( resNodes, resEdges ) ->
-                        let
-                            ( moduleNode, modulesEdges ) =
-                                nodesAndEdges
-                                    (\moduleName -> Dict.get moduleName moduleIds)
-                                    module_
-                                    (getModuleId <| getModuleName module_)
-                        in
-                        ( moduleNode :: resNodes, List.concat [ modulesEdges, resEdges ] )
-                    )
-                    ( [], [] )
+            Dict.foldl
+                (\_ module_ ( resNodes, resEdges ) ->
+                    let
+                        ( moduleNode, modulesEdges ) =
+                            nodesAndEdges
+                                (\moduleName -> Dict.get moduleName moduleIds)
+                                module_
+                                (getModuleId <| getModuleName module_)
+                    in
+                    ( moduleNode :: resNodes, List.concat [ modulesEdges, resEdges ] )
+                )
+                ( [], [] )
+                mods
     in
     Graph.fromNodesAndEdges nodes edges
 
@@ -405,7 +407,7 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                 let
                     graph : Graph ModuleName ()
                     graph =
-                        buildModuleGraph (Dict.values newProject.modulesByPath)
+                        buildModuleGraph newProject.modulesByPath
                 in
                 case Graph.checkAcyclic graph of
                     Err _ ->
