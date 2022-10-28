@@ -4620,35 +4620,6 @@ computeModules :
     -> FixedErrors
     -> { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : FixedErrors }
 computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions initialProjectContext moduleZipper startCache fixedErrors =
-    let
-        modulesToAnalyze : List ProjectModule
-        modulesToAnalyze =
-            case projectVisitor.traversalAndFolder of
-                TraverseAllModulesInParallel Nothing ->
-                    -- Performance: avoid visiting modules when they're ignored and they
-                    -- can't influence the rest of the review.
-                    List.filter
-                        (\{ path } -> Exceptions.isFileWeWantReportsFor exceptions path)
-                        (ValidProject.modules project)
-
-                TraverseAllModulesInParallel (Just _) ->
-                    ValidProject.modules project
-
-                TraverseImportedModulesFirst _ ->
-                    ValidProject.modules project
-
-        modules : Dict ModuleName ProjectModule
-        modules =
-            List.foldl
-                (\module_ dict ->
-                    Dict.insert
-                        (getModuleName module_)
-                        module_
-                        dict
-                )
-                Dict.empty
-                modulesToAnalyze
-    in
     runThroughModules
         { reviewOptions = reviewOptions
         , projectVisitor = projectVisitor
@@ -4657,7 +4628,6 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
         , exceptions = exceptions
         }
         initialProjectContext
-        modules
         (Just moduleZipper)
         project
         startCache
@@ -4802,13 +4772,12 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
 runThroughModules :
     DataToComputeModules projectContext moduleContext
     -> projectContext
-    -> Dict ModuleName ProjectModule
     -> Maybe (Zipper GraphModule)
     -> ValidProject
     -> Dict String (CacheEntry projectContext)
     -> FixedErrors
     -> { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : FixedErrors }
-runThroughModules dataToComputeModules inputProjectContext modules maybeModuleZipper initialProject initialModuleContexts fixedErrors =
+runThroughModules dataToComputeModules inputProjectContext maybeModuleZipper initialProject initialModuleContexts fixedErrors =
     case maybeModuleZipper of
         Nothing ->
             { project = initialProject, moduleContexts = initialModuleContexts, nextStep = FinalProjectEvaluation, fixedErrors = fixedErrors }
@@ -4820,7 +4789,6 @@ runThroughModules dataToComputeModules inputProjectContext modules maybeModuleZi
                     computeModuleAndCacheResult
                         dataToComputeModules
                         inputProjectContext
-                        modules
                         moduleZipper
                         initialProject
                         initialModuleContexts
@@ -4831,7 +4799,6 @@ runThroughModules dataToComputeModules inputProjectContext modules maybeModuleZi
                     runThroughModules
                         dataToComputeModules
                         inputProjectContext
-                        modules
                         newModuleZipper
                         result.project
                         result.moduleContexts
@@ -4878,14 +4845,41 @@ computeProjectContext traversalAndFolder graph cache modules incoming initial =
 computeModuleAndCacheResult :
     DataToComputeModules projectContext moduleContext
     -> projectContext
-    -> Dict ModuleName ProjectModule
     -> Zipper GraphModule
     -> ValidProject
     -> Dict String (CacheEntry projectContext)
     -> FixedErrors
     -> { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep, fixedErrors : FixedErrors }
-computeModuleAndCacheResult dataToComputeModules inputProjectContext modules moduleZipper project moduleContexts fixedErrors =
+computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZipper project moduleContexts fixedErrors =
     let
+        modulesToAnalyze : List ProjectModule
+        modulesToAnalyze =
+            case dataToComputeModules.projectVisitor.traversalAndFolder of
+                TraverseAllModulesInParallel Nothing ->
+                    -- Performance: avoid visiting modules when they're ignored and they
+                    -- can't influence the rest of the review.
+                    List.filter
+                        (\{ path } -> Exceptions.isFileWeWantReportsFor dataToComputeModules.exceptions path)
+                        (ValidProject.modules project)
+
+                TraverseAllModulesInParallel (Just _) ->
+                    ValidProject.modules project
+
+                TraverseImportedModulesFirst _ ->
+                    ValidProject.modules project
+
+        modules : Dict ModuleName ProjectModule
+        modules =
+            List.foldl
+                (\module_ dict ->
+                    Dict.insert
+                        (getModuleName module_)
+                        module_
+                        dict
+                )
+                Dict.empty
+                modulesToAnalyze
+
         { node, incoming } =
             Zipper.current moduleZipper
     in
