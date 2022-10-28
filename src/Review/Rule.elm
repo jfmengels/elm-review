@@ -4820,14 +4820,18 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
     let
         { node, incoming } =
             Zipper.current moduleZipper
+
+        ignoreModule : () -> { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep, fixedErrors : FixedErrors }
+        ignoreModule () =
+            { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next moduleZipper), fixedErrors = fixedErrors }
     in
     case ValidProject.getModuleByModuleName node.label project of
         Nothing ->
-            { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next moduleZipper), fixedErrors = fixedErrors }
+            ignoreModule ()
 
         Just module_ ->
             if shouldIgnoreModule dataToComputeModules module_.path then
-                { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next moduleZipper), fixedErrors = fixedErrors }
+                ignoreModule ()
 
             else
                 let
@@ -4836,7 +4840,7 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                         computeProjectContext dataToComputeModules.projectVisitor.traversalAndFolder project moduleContexts incoming inputProjectContext
                 in
                 if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.inputContext == projectContext) (Dict.get module_.path moduleContexts) then
-                    { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next moduleZipper), fixedErrors = fixedErrors }
+                    ignoreModule ()
 
                 else
                     let
