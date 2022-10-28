@@ -4613,7 +4613,7 @@ computeModule :
     -> Zipper GraphModule
     -> FixedErrors
     -> { project : ValidProject, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
-computeModule dataToComputeModules module_ projectContext project moduleZipper fixedErrors_ =
+computeModule dataToComputeModules module_ projectContext project moduleZipper fixedErrors =
     let
         (RequestedData requestedData) =
             dataToComputeModules.projectVisitor.requestedData
@@ -4679,7 +4679,7 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
             { project = newProject
             , analysis = analysis ()
             , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
-            , fixedErrors = fixedErrors_
+            , fixedErrors = fixedErrors
             }
     in
     case findFix dataToComputeModules.reviewOptions dataToComputeModules.projectVisitor.name newProject errors (Just moduleZipper) of
@@ -4693,7 +4693,7 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
                             projectContext
                             (Logger.log dataToComputeModules.reviewOptions.logger (fixedError { ruleName = dataToComputeModules.projectVisitor.name, filePath = module_.path }) fixResult.project)
                             newModuleZipper_
-                            (FixedErrors.insert fixResult.error fixedErrors_)
+                            (FixedErrors.insert fixResult.error fixedErrors)
 
                     else
                         let
@@ -4706,7 +4706,7 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
                                 { project = fixResult.project
                                 , analysis = analysis ()
                                 , nextStep = ModuleVisitStep (Just newModuleZipper)
-                                , fixedErrors = FixedErrors.insert fixResult.error fixedErrors_
+                                , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
                                 }
                                     |> Logger.log dataToComputeModules.reviewOptions.logger (fixedError { ruleName = dataToComputeModules.projectVisitor.name, filePath = errorFilePath fixResult.error })
 
@@ -4717,14 +4717,14 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
                     { project = fixResult.project
                     , analysis = analysis ()
                     , nextStep = BackToElmJson
-                    , fixedErrors = FixedErrors.insert fixResult.error fixedErrors_
+                    , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
                     }
 
                 FixedReadme ->
                     { project = fixResult.project
                     , analysis = analysis ()
                     , nextStep = BackToReadme
-                    , fixedErrors = FixedErrors.insert fixResult.error fixedErrors_
+                    , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
                     }
 
         Nothing ->
