@@ -4621,10 +4621,6 @@ computeModules :
     -> { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : FixedErrors }
 computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreator ) project exceptions initialProjectContext moduleZipper startCache fixedErrors =
     let
-        graph : Graph ModuleName ()
-        graph =
-            ValidProject.moduleGraph project
-
         modulesToAnalyze : List ProjectModule
         modulesToAnalyze =
             case projectVisitor.traversalAndFolder of
@@ -4775,16 +4771,21 @@ computeModules reviewOptions projectVisitor ( moduleVisitor, moduleContextCreato
 
                 Nothing ->
                     resultWhenNoFix ()
-
-        computeProjectContext_ : Dict String (CacheEntry projectContext) -> Graph.Adjacency () -> projectContext
-        computeProjectContext_ cache incoming =
-            computeProjectContext projectVisitor.traversalAndFolder graph cache modules incoming initialProjectContext
     in
-    runThroughModules computeProjectContext_ computeModule modules (Just moduleZipper) project startCache fixedErrors
+    runThroughModules
+        projectVisitor.traversalAndFolder
+        initialProjectContext
+        computeModule
+        modules
+        (Just moduleZipper)
+        project
+        startCache
+        fixedErrors
 
 
 runThroughModules :
-    (Dict String (CacheEntry projectContext) -> Graph.Adjacency () -> projectContext)
+    TraversalAndFolder projectContext moduleContext
+    -> projectContext
     ->
         (ProjectModule
          -> projectContext
@@ -4799,7 +4800,7 @@ runThroughModules :
     -> Dict String (CacheEntry projectContext)
     -> FixedErrors
     -> { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step, fixedErrors : FixedErrors }
-runThroughModules computeProjectContext_ computeModule modules maybeModuleZipper initialProject initialModuleContexts fixedErrors =
+runThroughModules traversalAndFolder inputProjectContext computeModule modules maybeModuleZipper initialProject initialModuleContexts fixedErrors =
     case maybeModuleZipper of
         Nothing ->
             { project = initialProject, moduleContexts = initialModuleContexts, nextStep = FinalProjectEvaluation, fixedErrors = fixedErrors }
@@ -4809,7 +4810,8 @@ runThroughModules computeProjectContext_ computeModule modules maybeModuleZipper
                 result : { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep, fixedErrors : FixedErrors }
                 result =
                     computeModuleAndCacheResult
-                        computeProjectContext_
+                        traversalAndFolder
+                        inputProjectContext
                         computeModule
                         modules
                         moduleZipper
@@ -4820,7 +4822,8 @@ runThroughModules computeProjectContext_ computeModule modules maybeModuleZipper
             case result.nextStep of
                 ModuleVisitStep newModuleZipper ->
                     runThroughModules
-                        computeProjectContext_
+                        traversalAndFolder
+                        inputProjectContext
                         computeModule
                         modules
                         newModuleZipper
@@ -4867,7 +4870,8 @@ computeProjectContext traversalAndFolder graph cache modules incoming initial =
 
 
 computeModuleAndCacheResult :
-    (Dict String (CacheEntry projectContext) -> Graph.Adjacency () -> projectContext)
+    TraversalAndFolder projectContext moduleContext
+    -> projectContext
     ->
         (ProjectModule
          -> projectContext
@@ -4882,7 +4886,7 @@ computeModuleAndCacheResult :
     -> Dict String (CacheEntry projectContext)
     -> FixedErrors
     -> { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep, fixedErrors : FixedErrors }
-computeModuleAndCacheResult computeProjectContext_ computeModule modules moduleZipper project moduleContexts fixedErrors =
+computeModuleAndCacheResult traversalAndFolder inputProjectContext computeModule modules moduleZipper project moduleContexts fixedErrors =
     let
         { node, incoming } =
             Zipper.current moduleZipper
@@ -4895,7 +4899,7 @@ computeModuleAndCacheResult computeProjectContext_ computeModule modules moduleZ
             let
                 projectContext : projectContext
                 projectContext =
-                    computeProjectContext_ moduleContexts incoming
+                    computeProjectContext traversalAndFolder (ValidProject.moduleGraph project) moduleContexts modules incoming inputProjectContext
             in
             if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.inputContext == projectContext) (Dict.get module_.path moduleContexts) then
                 { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next moduleZipper), fixedErrors = fixedErrors }
