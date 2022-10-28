@@ -41,7 +41,7 @@ type ValidProject
 
 
 type alias ValidProjectData =
-    { modules : Dict String ProjectModule
+    { modulesByPath : Dict String ProjectModule
     , elmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
     , readme : Maybe { path : String, content : String }
     , dependencies : Dict String Dependency
@@ -57,7 +57,7 @@ type alias ValidProjectData =
 toRegularProject : ValidProject -> Project
 toRegularProject (ValidProject validProject) =
     Project
-        { modules = validProject.modules
+        { modules = validProject.modulesByPath
         , modulesThatFailedToParse = []
         , elmJson = validProject.elmJson
         , readme = validProject.readme
@@ -129,7 +129,7 @@ fromProjectAndGraph moduleGraph_ acyclicGraph (Project project) =
             computeDirectDependencies project
     in
     ValidProject
-        { modules = project.modules
+        { modulesByPath = project.modules
         , elmJson = project.elmJson
         , readme = project.readme
         , dependencies = project.dependencies
@@ -314,12 +314,12 @@ moduleGraph (ValidProject project) =
 -}
 modules : ValidProject -> List ProjectModule
 modules (ValidProject project) =
-    Dict.values project.modules
+    Dict.values project.modulesByPath
 
 
 getModuleByPath : String -> ValidProject -> Maybe ProjectModule
 getModuleByPath path (ValidProject project) =
-    Dict.get path project.modules
+    Dict.get path project.modulesByPath
 
 
 projectCache : ValidProject -> ProjectCache
@@ -362,13 +362,13 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
         moduleName =
             getModuleName module_
     in
-    case Dict.get path project.modules of
+    case Dict.get path project.modulesByPath of
         Just existingModule ->
             if getModuleName existingModule == moduleName then
                 let
                     newProject : ValidProjectData
                     newProject =
-                        { project | modules = Dict.insert path (Review.Project.Internal.sanitizeModule module_) project.modules }
+                        { project | modulesByPath = Dict.insert path (Review.Project.Internal.sanitizeModule module_) project.modulesByPath }
                 in
                 if importedModulesSet existingModule.ast project.dependencyModules == importedModulesSet ast project.dependencyModules then
                     let
@@ -395,7 +395,7 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                     let
                         graph : Graph ModuleName ()
                         graph =
-                            buildModuleGraph (Dict.values newProject.modules)
+                            buildModuleGraph (Dict.values newProject.modulesByPath)
                     in
                     case Graph.checkAcyclic graph of
                         Err _ ->
