@@ -4775,23 +4775,27 @@ computeModules dataToComputeModules inputProjectContext maybeModuleZipper initia
 
 computeProjectContext :
     TraversalAndFolder projectContext moduleContext
-    -> Graph ModuleName ()
+    -> ValidProject
     -> Dict String (CacheEntry projectContext)
-    -> Dict ModuleName ProjectModule
     -> Graph.Adjacency ()
     -> projectContext
     -> projectContext
-computeProjectContext traversalAndFolder graph cache modules incoming initial =
+computeProjectContext traversalAndFolder project cache incoming initial =
     case traversalAndFolder of
         TraverseAllModulesInParallel _ ->
             initial
 
         TraverseImportedModulesFirst { foldProjectContexts } ->
+            let
+                graph : Graph ModuleName ()
+                graph =
+                    ValidProject.moduleGraph project
+            in
             IntDict.foldl
                 (\key _ accContext ->
                     case
                         Graph.get key graph
-                            |> Maybe.andThen (\graphModule -> Dict.get graphModule.node.label modules)
+                            |> Maybe.andThen (\graphModule -> ValidProject.getModuleByModuleName graphModule.node.label project)
                             |> Maybe.andThen (\mod -> Dict.get mod.path cache)
                     of
                         Just importedModuleCache ->
@@ -4814,34 +4818,6 @@ computeModuleAndCacheResult :
     -> { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep, fixedErrors : FixedErrors }
 computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZipper project moduleContexts fixedErrors =
     let
-        modulesToAnalyze : List ProjectModule
-        modulesToAnalyze =
-            case dataToComputeModules.projectVisitor.traversalAndFolder of
-                TraverseAllModulesInParallel Nothing ->
-                    -- Performance: avoid visiting modules when they're ignored and they
-                    -- can't influence the rest of the review.
-                    List.filter
-                        (\{ path } -> Exceptions.isFileWeWantReportsFor dataToComputeModules.exceptions path)
-                        (ValidProject.modules project)
-
-                TraverseAllModulesInParallel (Just _) ->
-                    ValidProject.modules project
-
-                TraverseImportedModulesFirst _ ->
-                    ValidProject.modules project
-
-        modules : Dict ModuleName ProjectModule
-        modules =
-            List.foldl
-                (\module_ dict ->
-                    Dict.insert
-                        (getModuleName module_)
-                        module_
-                        dict
-                )
-                Dict.empty
-                modulesToAnalyze
-
         { node, incoming } =
             Zipper.current moduleZipper
     in
@@ -4853,7 +4829,7 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
             let
                 projectContext : projectContext
                 projectContext =
-                    computeProjectContext dataToComputeModules.projectVisitor.traversalAndFolder (ValidProject.moduleGraph project) moduleContexts modules incoming inputProjectContext
+                    computeProjectContext dataToComputeModules.projectVisitor.traversalAndFolder project moduleContexts incoming inputProjectContext
             in
             if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.inputContext == projectContext) (Dict.get module_.path moduleContexts) then
                 { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next moduleZipper), fixedErrors = fixedErrors }
