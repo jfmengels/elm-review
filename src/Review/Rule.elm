@@ -4845,7 +4845,7 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
         { node, incoming } =
             Zipper.current moduleZipper
     in
-    case Dict.get node.label modules of
+    case ValidProject.getModuleByModuleName node.label project of
         Nothing ->
             { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next moduleZipper), fixedErrors = fixedErrors }
 
