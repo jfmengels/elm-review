@@ -4253,13 +4253,13 @@ computeStepsForProject dataToComputeProject step ({ project, cache, fixedErrors 
 
         Readme contexts ->
             let
-                result : { project : ValidProject, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
+                result : { project : ValidProject, nextStep : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
                 result =
-                    computeReadme dataToComputeProject project contexts.elmJson cache fixedErrors
+                    computeReadme dataToComputeProject project contexts cache fixedErrors
             in
             computeStepsForProject
                 dataToComputeProject
-                (Dependencies { initial = contexts.initial, elmJson = contexts.elmJson, readme = result.projectContext })
+                result.nextStep
                 { project = result.project
                 , cache = result.cache
                 , fixedErrors = result.fixedErrors
@@ -4415,15 +4415,19 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
 computeReadme :
     DataToComputeProject projectContext moduleContext
     -> ValidProject
-    -> projectContext
+    -> { initial : projectContext, elmJson : projectContext }
     -> ProjectRuleCache projectContext
     -> FixedErrors
-    -> { project : ValidProject, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
-computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputeProject) project inputContext cache fixedErrors =
+    -> { project : ValidProject, nextStep : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
+computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputeProject) project contexts cache fixedErrors =
     let
         projectReadme : Maybe { path : String, content : String }
         projectReadme =
             ValidProject.readme project
+
+        inputContext : projectContext
+        inputContext =
+            contexts.elmJson
 
         cachePredicate : CacheEntryFor (Maybe { path : String, content : String }) projectContext -> Bool
         cachePredicate readme =
@@ -4434,7 +4438,11 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
     in
     case reuseProjectRuleCache cachePredicate .readme cache of
         Just entry ->
-            { project = project, projectContext = entry.outputContext, cache = cache, fixedErrors = fixedErrors }
+            { project = project
+            , nextStep = Dependencies { initial = contexts.initial, elmJson = contexts.elmJson, readme = entry.outputContext }
+            , cache = cache
+            , fixedErrors = fixedErrors
+            }
 
         Nothing ->
             let
@@ -4456,7 +4464,7 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                 errors =
                     filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
 
-                resultWhenNoFix : () -> { project : ValidProject, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
+                resultWhenNoFix : () -> { project : ValidProject, nextStep : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
                 resultWhenNoFix () =
                     let
                         readmeEntry : CacheEntryFor (Maybe { path : String, content : String }) projectContext
@@ -4468,7 +4476,7 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                             }
                     in
                     { project = project
-                    , projectContext = outputContext
+                    , nextStep = Dependencies { initial = contexts.initial, elmJson = contexts.elmJson, readme = outputContext }
                     , cache = { cache | readme = Just readmeEntry }
                     , fixedErrors = fixedErrors
                     }
@@ -4477,13 +4485,14 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                 Just fixResult ->
                     case fixResult.fixedFile of
                         FixedReadme ->
-                            computeReadme dataToComputeProject fixResult.project inputContext cache (FixedErrors.insert fixResult.error fixedErrors)
+                            computeReadme dataToComputeProject fixResult.project contexts cache (FixedErrors.insert fixResult.error fixedErrors)
 
                         FixedElmJson ->
-                            -- TODO Support fixes in the elm.json
-                            -- The issue here is that we do not have the input project context for the elm.json, we only have the one computed AFTER the elm.json was visited
-                            -- This is actually already a problem if we go back to the README from the final evaluation for instance
-                            resultWhenNoFix ()
+                            { project = fixResult.project
+                            , nextStep = ElmJson { initial = contexts.initial }
+                            , cache = cache
+                            , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
+                            }
 
                         FixedElmModule _ _ ->
                             -- Not possible, users don't have the module key to provide fixes for an Elm module
