@@ -42,6 +42,7 @@ type ValidProject
 
 type alias ValidProjectData =
     { modulesByPath : Dict String ProjectModule
+    , modulesByModuleName : Dict ModuleName ProjectModule
     , elmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
     , readme : Maybe { path : String, content : String }
     , dependencies : Dict String Dependency
@@ -130,6 +131,16 @@ fromProjectAndGraph moduleGraph_ acyclicGraph (Project project) =
     in
     ValidProject
         { modulesByPath = project.modules
+        , modulesByModuleName =
+            Dict.foldl
+                (\_ module_ dict ->
+                    Dict.insert
+                        (getModuleName module_)
+                        module_
+                        dict
+                )
+                Dict.empty
+                project.modules
         , elmJson = project.elmJson
         , readme = project.readme
         , dependencies = project.dependencies
@@ -366,9 +377,16 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
         Just existingModule ->
             if getModuleName existingModule == moduleName then
                 let
+                    newModule : ProjectModule
+                    newModule =
+                        Review.Project.Internal.sanitizeModule module_
+
                     newProject : ValidProjectData
                     newProject =
-                        { project | modulesByPath = Dict.insert path (Review.Project.Internal.sanitizeModule module_) project.modulesByPath }
+                        { project
+                            | modulesByPath = Dict.insert path newModule project.modulesByPath
+                            , modulesByModuleName = Dict.insert moduleName newModule project.modulesByModuleName
+                        }
                 in
                 if importedModulesSet existingModule.ast project.dependencyModules == importedModulesSet ast project.dependencyModules then
                     let
