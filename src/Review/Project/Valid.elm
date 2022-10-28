@@ -74,40 +74,39 @@ parse ((Project p) as project) =
     if not (List.isEmpty p.modulesThatFailedToParse) then
         Err (InvalidProjectError.SomeModulesFailedToParse (List.map .path p.modulesThatFailedToParse))
 
+    else if Dict.isEmpty p.modules then
+        Err InvalidProjectError.NoModulesError
+
     else
         let
             projectModules : List ProjectModule
             projectModules =
                 Dict.values p.modules
         in
-        if List.isEmpty projectModules then
-            Err InvalidProjectError.NoModulesError
+        case duplicateModuleNames Dict.empty projectModules of
+            Just duplicate ->
+                Err (InvalidProjectError.DuplicateModuleNames duplicate)
 
-        else
-            case duplicateModuleNames Dict.empty projectModules of
-                Just duplicate ->
-                    Err (InvalidProjectError.DuplicateModuleNames duplicate)
+            Nothing ->
+                let
+                    graph : Graph ModuleName ()
+                    graph =
+                        buildModuleGraph projectModules
+                in
+                case Graph.checkAcyclic graph of
+                    Err edge ->
+                        ImportCycle.findCycle graph edge
+                            |> List.reverse
+                            |> InvalidProjectError.ImportCycleError
+                            |> Err
 
-                Nothing ->
-                    let
-                        graph : Graph ModuleName ()
-                        graph =
-                            buildModuleGraph projectModules
-                    in
-                    case Graph.checkAcyclic graph of
-                        Err edge ->
-                            ImportCycle.findCycle graph edge
-                                |> List.reverse
-                                |> InvalidProjectError.ImportCycleError
-                                |> Err
+                    Ok acyclicGraph ->
+                        case Zipper.fromList (Graph.topologicalSort acyclicGraph) of
+                            Nothing ->
+                                Err InvalidProjectError.NoModulesError
 
-                        Ok acyclicGraph ->
-                            case Zipper.fromList (Graph.topologicalSort acyclicGraph) of
-                                Nothing ->
-                                    Err InvalidProjectError.NoModulesError
-
-                                Just zipper ->
-                                    Ok ( fromProjectAndGraph graph acyclicGraph project, zipper )
+                            Just zipper ->
+                                Ok ( fromProjectAndGraph graph acyclicGraph project, zipper )
 
 
 {-| This is unsafe because we assume that there are some modules. We do check for this earlier in the exposed functions.
