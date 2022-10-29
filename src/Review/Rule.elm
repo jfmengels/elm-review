@@ -841,6 +841,7 @@ You should not have to use this when writing a rule.
 -}
 ruleProvidesFixes : Rule -> Bool
 ruleProvidesFixes (Rule rule) =
+    -- TODO Breaking change: This should be an internal detail, not shown to the user
     rule.providesFixes
 
 
