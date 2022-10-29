@@ -4394,6 +4394,8 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
             in
             case findFix reviewOptions projectVisitor.name project errors Nothing of
                 Just fixResult ->
+                    -- THe only possible thing we can fix here is the `elm.json` file, so we don't need to check
+                    -- what the fixed file was.
                     computeElmJson dataToComputeProject fixResult.project inputContext cache (FixedErrors.insert fixResult.error fixedErrors)
 
                 Nothing ->
@@ -4481,15 +4483,15 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
             case findFix reviewOptions projectVisitor.name project errors Nothing of
                 Just fixResult ->
                     case fixResult.fixedFile of
-                        FixedReadme ->
-                            computeReadme dataToComputeProject fixResult.project contexts cache (FixedErrors.insert fixResult.error fixedErrors)
-
                         FixedElmJson ->
                             { project = fixResult.project
                             , nextStep = ElmJson { initial = contexts.initial }
                             , cache = cache
                             , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
                             }
+
+                        FixedReadme ->
+                            computeReadme dataToComputeProject fixResult.project contexts cache (FixedErrors.insert fixResult.error fixedErrors)
 
                         FixedElmModule _ _ ->
                             -- Not possible, users don't have the module key to provide fixes for an Elm module
@@ -4506,7 +4508,7 @@ computeDependencies :
     -> ProjectRuleCache projectContext
     -> FixedErrors
     -> { project : ValidProject, nextStep : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
-computeDependencies { projectVisitor, exceptions } project contexts cache fixedErrors =
+computeDependencies ({ reviewOptions, projectVisitor, exceptions } as dataToComputeProject) project contexts cache fixedErrors =
     let
         inputContext : projectContext
         inputContext =
@@ -4549,17 +4551,50 @@ computeDependencies { projectVisitor, exceptions } project contexts cache fixedE
                         |> accumulateWithDirectDependencies
                         |> accumulateWithListOfVisitors projectVisitor.dependenciesVisitors dependencies
 
-                dependenciesEntry : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
-                dependenciesEntry =
-                    { value = dependencies
+                errors : List (Error {})
+                errors =
+                    filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
 
-                    -- TODO Find fixes after this step
-                    , errors = filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
-                    , inputContext = inputContext
-                    , outputContext = outputContext
+                resultWhenNoFix : () -> { project : ValidProject, nextStep : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
+                resultWhenNoFix () =
+                    let
+                        dependenciesEntry : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
+                        dependenciesEntry =
+                            { value = dependencies
+                            , errors = errors
+                            , inputContext = inputContext
+                            , outputContext = outputContext
+                            }
+                    in
+                    { project = project
+                    , nextStep = modulesAsNextStep outputContext
+                    , cache = { cache | dependencies = Just dependenciesEntry }
+                    , fixedErrors = fixedErrors
                     }
             in
-            { project = project, nextStep = modulesAsNextStep outputContext, cache = { cache | dependencies = Just dependenciesEntry }, fixedErrors = fixedErrors }
+            case findFix reviewOptions projectVisitor.name project errors Nothing of
+                Just fixResult ->
+                    case fixResult.fixedFile of
+                        FixedElmJson ->
+                            { project = fixResult.project
+                            , nextStep = ElmJson { initial = contexts.initial }
+                            , cache = cache
+                            , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
+                            }
+
+                        FixedReadme ->
+                            { project = fixResult.project
+                            , nextStep = Readme { initial = contexts.initial, elmJson = contexts.elmJson }
+                            , cache = cache
+                            , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
+                            }
+
+                        FixedElmModule _ _ ->
+                            -- Not possible, users don't have the module key to provide fixes for an Elm module
+                            resultWhenNoFix ()
+
+                Nothing ->
+                    resultWhenNoFix ()
 
 
 computeFinalProjectEvaluation :
