@@ -4267,16 +4267,13 @@ computeStepsForProject dataToComputeProject step ({ project, cache, fixedErrors 
 
         Dependencies contexts ->
             let
-                result : { project : ValidProject, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
+                result : { project : ValidProject, nextStep : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
                 result =
-                    computeDependencies dataToComputeProject project contexts.readme cache fixedErrors
+                    computeDependencies dataToComputeProject project contexts cache fixedErrors
             in
             computeStepsForProject
                 dataToComputeProject
-                (Modules
-                    { initial = contexts.initial, elmJson = contexts.elmJson, readme = contexts.readme, deps = result.projectContext }
-                    (ValidProject.moduleZipper project)
-                )
+                result.nextStep
                 { project = result.project
                 , cache = result.cache
                 , fixedErrors = result.fixedErrors
@@ -4505,12 +4502,16 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
 computeDependencies :
     DataToComputeProject projectContext moduleContext
     -> ValidProject
-    -> projectContext
+    -> { initial : projectContext, elmJson : projectContext, readme : projectContext }
     -> ProjectRuleCache projectContext
     -> FixedErrors
-    -> { project : ValidProject, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
-computeDependencies { projectVisitor, exceptions } project inputContext cache fixedErrors =
+    -> { project : ValidProject, nextStep : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
+computeDependencies { projectVisitor, exceptions } project contexts cache fixedErrors =
     let
+        inputContext : projectContext
+        inputContext =
+            contexts.readme
+
         dependencies : Dict String Review.Project.Dependency.Dependency
         dependencies =
             ValidProject.dependencies project
@@ -4521,10 +4522,16 @@ computeDependencies { projectVisitor, exceptions } project inputContext cache fi
             (deps.inputContext == inputContext)
                 -- and the dependencies stayed the same
                 && (deps.value == dependencies)
+
+        modulesAsNextStep : projectContext -> Step projectContext
+        modulesAsNextStep projectContext =
+            Modules
+                { initial = contexts.initial, elmJson = contexts.elmJson, readme = contexts.readme, deps = projectContext }
+                (ValidProject.moduleZipper project)
     in
     case reuseProjectRuleCache cachePredicate .dependencies cache of
         Just entry ->
-            { project = project, projectContext = entry.outputContext, cache = cache, fixedErrors = fixedErrors }
+            { project = project, nextStep = modulesAsNextStep entry.outputContext, cache = cache, fixedErrors = fixedErrors }
 
         Nothing ->
             let
@@ -4552,7 +4559,7 @@ computeDependencies { projectVisitor, exceptions } project inputContext cache fi
                     , outputContext = outputContext
                     }
             in
-            { project = project, projectContext = outputContext, cache = { cache | dependencies = Just dependenciesEntry }, fixedErrors = fixedErrors }
+            { project = project, nextStep = modulesAsNextStep outputContext, cache = { cache | dependencies = Just dependenciesEntry }, fixedErrors = fixedErrors }
 
 
 computeFinalProjectEvaluation :
