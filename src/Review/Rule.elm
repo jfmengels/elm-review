@@ -792,6 +792,8 @@ runRulesHelp reviewOptions remainingRules acc =
 This information is hard for `elm-review` to deduce on its own, but can be very useful for improving the performance of
 the tool while running in fix mode.
 
+If your rule is a project rule, then you should use [`providesFixesForProjectRule`](#providesFixesForProjectRule) instead.
+
 -}
 providesFixesForModuleRule : ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema schemaState moduleContext
 providesFixesForModuleRule (ModuleRuleSchema moduleRuleSchema) =
@@ -802,6 +804,8 @@ providesFixesForModuleRule (ModuleRuleSchema moduleRuleSchema) =
 
 This information is hard for `elm-review` to deduce on its own, but can be very useful for improving the performance of
 the tool while running in fix mode.
+
+If your rule is a module rule, then you should use [`providesFixesForModuleRule`](#providesFixesForModuleRule) instead.
 
 -}
 providesFixesForProjectRule : ProjectRuleSchema schemaState projectContext moduleContext -> ProjectRuleSchema schemaState projectContext moduleContext
