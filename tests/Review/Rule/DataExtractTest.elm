@@ -21,7 +21,6 @@ type alias ModuleContext =
 rule : Maybe (Rule.Error { useErrorForModule : () }) -> Rule
 rule maybeError =
     Rule.newProjectRuleSchema "TestRule" Dict.empty
-        |> Rule.withElmJsonProjectVisitor (\_ context -> ( [], context ))
         |> Rule.withModuleVisitor moduleVisitor
         |> Rule.withModuleContextUsingContextCreator
             { fromProjectToModule = fromProjectToModule
