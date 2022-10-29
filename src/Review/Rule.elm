@@ -4102,8 +4102,11 @@ runProjectVisitorHelp ({ reviewOptions, projectVisitor, exceptions } as dataToCo
         { project, projectContext, cache, fixedErrors } =
             computeStepsForProject
                 dataToComputeProject
-                (ElmJson { initial = projectVisitor.initialProjectContext })
-                { project = initialProject, cache = initialCache, fixedErrors = initialFixedErrors }
+                { step = ElmJson { initial = projectVisitor.initialProjectContext }
+                , project = initialProject
+                , cache = initialCache
+                , fixedErrors = initialFixedErrors
+                }
 
         errors : List (Error {})
         errors =
@@ -4232,10 +4235,9 @@ type alias DataToComputeProject projectContext moduleContext =
 
 computeStepsForProject :
     DataToComputeProject projectContext moduleContext
-    -> Step projectContext
-    -> { project : ValidProject, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
-    -> { project : ValidProject, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
-computeStepsForProject dataToComputeProject step ({ project, cache, fixedErrors } as acc) =
+    -> { project : ValidProject, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors, step : Step projectContext }
+    -> { project : ValidProject, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors, projectContext : projectContext }
+computeStepsForProject dataToComputeProject ({ project, cache, fixedErrors, step } as acc) =
     case step of
         ElmJson contexts ->
             let
@@ -4245,51 +4247,36 @@ computeStepsForProject dataToComputeProject step ({ project, cache, fixedErrors 
             in
             computeStepsForProject
                 dataToComputeProject
-                (Readme { initial = contexts.initial, elmJson = result.projectContext })
                 { project = result.project
                 , cache = result.cache
                 , fixedErrors = result.fixedErrors
+                , step = Readme { initial = contexts.initial, elmJson = result.projectContext }
                 }
 
         Readme contexts ->
-            let
-                result : { project : ValidProject, nextStep : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
-                result =
-                    computeReadme dataToComputeProject project contexts cache fixedErrors
-            in
             computeStepsForProject
                 dataToComputeProject
-                result.nextStep
-                { project = result.project
-                , cache = result.cache
-                , fixedErrors = result.fixedErrors
-                }
+                (computeReadme dataToComputeProject project contexts cache fixedErrors)
 
         Dependencies contexts ->
-            let
-                result : { project : ValidProject, nextStep : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
-                result =
-                    computeDependencies dataToComputeProject project contexts cache fixedErrors
-            in
             computeStepsForProject
                 dataToComputeProject
-                result.nextStep
-                { project = result.project
-                , cache = result.cache
-                , fixedErrors = result.fixedErrors
-                }
+                (computeDependencies dataToComputeProject project contexts cache fixedErrors)
 
         Modules contexts moduleZipper ->
             case dataToComputeProject.projectVisitor.moduleVisitor of
                 Nothing ->
                     computeStepsForProject
                         dataToComputeProject
-                        (FinalProjectEvaluation contexts)
-                        acc
+                        { project = acc.project
+                        , cache = acc.cache
+                        , fixedErrors = acc.fixedErrors
+                        , step = FinalProjectEvaluation contexts
+                        }
 
                 Just ( moduleVisitor, moduleContextCreator ) ->
                     let
-                        result : { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step projectContext, fixedErrors : FixedErrors }
+                        result : { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), step : Step projectContext, fixedErrors : FixedErrors }
                         result =
                             computeModules
                                 { reviewOptions = dataToComputeProject.reviewOptions
@@ -4306,19 +4293,16 @@ computeStepsForProject dataToComputeProject step ({ project, cache, fixedErrors 
                     in
                     computeStepsForProject
                         dataToComputeProject
-                        result.nextStep
-                        { project = result.project, cache = { cache | moduleContexts = result.moduleContexts }, fixedErrors = result.fixedErrors }
+                        { project = result.project
+                        , cache = { cache | moduleContexts = result.moduleContexts }
+                        , fixedErrors = result.fixedErrors
+                        , step = result.step
+                        }
 
         FinalProjectEvaluation contexts ->
-            let
-                result : { project : ValidProject, cache : ProjectRuleCache projectContext, nextStep : Step projectContext, fixedErrors : FixedErrors }
-                result =
-                    computeFinalProjectEvaluation dataToComputeProject project contexts cache fixedErrors
-            in
             computeStepsForProject
                 dataToComputeProject
-                result.nextStep
-                { project = result.project, cache = result.cache, fixedErrors = result.fixedErrors }
+                (computeFinalProjectEvaluation dataToComputeProject project contexts cache fixedErrors)
 
         End contexts ->
             { project = acc.project
@@ -4417,7 +4401,7 @@ computeReadme :
     -> { initial : projectContext, elmJson : projectContext }
     -> ProjectRuleCache projectContext
     -> FixedErrors
-    -> { project : ValidProject, nextStep : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
+    -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
 computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputeProject) project contexts cache fixedErrors =
     let
         projectReadme : Maybe { path : String, content : String }
@@ -4438,7 +4422,7 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
     case reuseProjectRuleCache cachePredicate .readme cache of
         Just entry ->
             { project = project
-            , nextStep = Dependencies { initial = contexts.initial, elmJson = contexts.elmJson, readme = entry.outputContext }
+            , step = Dependencies { initial = contexts.initial, elmJson = contexts.elmJson, readme = entry.outputContext }
             , cache = cache
             , fixedErrors = fixedErrors
             }
@@ -4463,7 +4447,7 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                 errors =
                     filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
 
-                resultWhenNoFix : () -> { project : ValidProject, nextStep : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
+                resultWhenNoFix : () -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
                 resultWhenNoFix () =
                     let
                         readmeEntry : CacheEntryFor (Maybe { path : String, content : String }) projectContext
@@ -4475,7 +4459,7 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                             }
                     in
                     { project = project
-                    , nextStep = Dependencies { initial = contexts.initial, elmJson = contexts.elmJson, readme = outputContext }
+                    , step = Dependencies { initial = contexts.initial, elmJson = contexts.elmJson, readme = outputContext }
                     , cache = { cache | readme = Just readmeEntry }
                     , fixedErrors = fixedErrors
                     }
@@ -4485,7 +4469,7 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                     case fixResult.fixedFile of
                         FixedElmJson ->
                             { project = fixResult.project
-                            , nextStep = ElmJson { initial = contexts.initial }
+                            , step = ElmJson { initial = contexts.initial }
                             , cache = cache
                             , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
                             }
@@ -4507,7 +4491,7 @@ computeDependencies :
     -> { initial : projectContext, elmJson : projectContext, readme : projectContext }
     -> ProjectRuleCache projectContext
     -> FixedErrors
-    -> { project : ValidProject, nextStep : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
+    -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
 computeDependencies ({ reviewOptions, projectVisitor, exceptions } as dataToComputeProject) project contexts cache fixedErrors =
     let
         inputContext : projectContext
@@ -4533,7 +4517,7 @@ computeDependencies ({ reviewOptions, projectVisitor, exceptions } as dataToComp
     in
     case reuseProjectRuleCache cachePredicate .dependencies cache of
         Just entry ->
-            { project = project, nextStep = modulesAsNextStep entry.outputContext, cache = cache, fixedErrors = fixedErrors }
+            { project = project, step = modulesAsNextStep entry.outputContext, cache = cache, fixedErrors = fixedErrors }
 
         Nothing ->
             let
@@ -4555,7 +4539,7 @@ computeDependencies ({ reviewOptions, projectVisitor, exceptions } as dataToComp
                 errors =
                     filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
 
-                resultWhenNoFix : () -> { project : ValidProject, nextStep : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
+                resultWhenNoFix : () -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
                 resultWhenNoFix () =
                     let
                         dependenciesEntry : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
@@ -4567,7 +4551,7 @@ computeDependencies ({ reviewOptions, projectVisitor, exceptions } as dataToComp
                             }
                     in
                     { project = project
-                    , nextStep = modulesAsNextStep outputContext
+                    , step = modulesAsNextStep outputContext
                     , cache = { cache | dependencies = Just dependenciesEntry }
                     , fixedErrors = fixedErrors
                     }
@@ -4577,14 +4561,14 @@ computeDependencies ({ reviewOptions, projectVisitor, exceptions } as dataToComp
                     case fixResult.fixedFile of
                         FixedElmJson ->
                             { project = fixResult.project
-                            , nextStep = ElmJson { initial = contexts.initial }
+                            , step = ElmJson { initial = contexts.initial }
                             , cache = cache
                             , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
                             }
 
                         FixedReadme ->
                             { project = fixResult.project
-                            , nextStep = Readme { initial = contexts.initial, elmJson = contexts.elmJson }
+                            , step = Readme { initial = contexts.initial, elmJson = contexts.elmJson }
                             , cache = cache
                             , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
                             }
@@ -4603,10 +4587,10 @@ computeFinalProjectEvaluation :
     -> ProjectContextAfterProjectFiles projectContext
     -> ProjectRuleCache projectContext
     -> FixedErrors
-    -> { project : ValidProject, cache : ProjectRuleCache projectContext, nextStep : Step projectContext, fixedErrors : FixedErrors }
+    -> { project : ValidProject, cache : ProjectRuleCache projectContext, step : Step projectContext, fixedErrors : FixedErrors }
 computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } project projectContexts cache fixedErrors =
     if List.isEmpty projectVisitor.finalEvaluationFns then
-        { project = project, cache = cache, nextStep = End { final = projectContexts.deps }, fixedErrors = fixedErrors }
+        { project = project, cache = cache, step = End { final = projectContexts.deps }, fixedErrors = fixedErrors }
 
     else
         let
@@ -4620,7 +4604,7 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
         in
         case reuseProjectRuleCache cachePredicate .finalEvaluationErrors cache of
             Just _ ->
-                { project = project, cache = cache, nextStep = End { final = projectContexts.deps }, fixedErrors = fixedErrors }
+                { project = project, cache = cache, step = End { final = projectContexts.deps }, fixedErrors = fixedErrors }
 
             Nothing ->
                 let
@@ -4633,11 +4617,11 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
                             )
                             projectVisitor.finalEvaluationFns
 
-                    resultWhenNoFix : () -> { project : ValidProject, cache : ProjectRuleCache projectContext, nextStep : Step projectContext, fixedErrors : FixedErrors }
+                    resultWhenNoFix : () -> { project : ValidProject, cache : ProjectRuleCache projectContext, step : Step projectContext, fixedErrors : FixedErrors }
                     resultWhenNoFix () =
                         { project = project
                         , cache = { cache | finalEvaluationErrors = Just { inputContext = finalContext, errors = errors } }
-                        , nextStep = End { final = projectContexts.deps }
+                        , step = End { final = projectContexts.deps }
                         , fixedErrors = fixedErrors
                         }
                 in
@@ -4647,7 +4631,7 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
 
                         -- Unnecessary to cache the final evaluation errors, since we'll end up with a different project context next time
                         , cache = cache
-                        , nextStep =
+                        , step =
                             case fixResult.fixedFile of
                                 FixedElmModule _ moduleZipper ->
                                     Modules projectContexts moduleZipper
@@ -4843,11 +4827,11 @@ computeModules :
     -> ValidProject
     -> Dict String (CacheEntry projectContext)
     -> FixedErrors
-    -> { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : Step projectContext, fixedErrors : FixedErrors }
+    -> { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), step : Step projectContext, fixedErrors : FixedErrors }
 computeModules dataToComputeModules projectContexts maybeModuleZipper initialProject initialModuleContexts fixedErrors =
     case maybeModuleZipper of
         Nothing ->
-            { project = initialProject, moduleContexts = initialModuleContexts, nextStep = FinalProjectEvaluation projectContexts, fixedErrors = fixedErrors }
+            { project = initialProject, moduleContexts = initialModuleContexts, step = FinalProjectEvaluation projectContexts, fixedErrors = fixedErrors }
 
         Just moduleZipper ->
             let
@@ -4874,14 +4858,14 @@ computeModules dataToComputeModules projectContexts maybeModuleZipper initialPro
                 BackToElmJson ->
                     { project = result.project
                     , moduleContexts = result.moduleContexts
-                    , nextStep = ElmJson { initial = projectContexts.initial }
+                    , step = ElmJson { initial = projectContexts.initial }
                     , fixedErrors = result.fixedErrors
                     }
 
                 BackToReadme ->
                     { project = result.project
                     , moduleContexts = result.moduleContexts
-                    , nextStep = Readme { initial = projectContexts.initial, elmJson = projectContexts.elmJson }
+                    , step = Readme { initial = projectContexts.initial, elmJson = projectContexts.elmJson }
                     , fixedErrors = result.fixedErrors
                     }
 
