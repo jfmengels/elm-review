@@ -4492,7 +4492,7 @@ computeDependencies :
     -> ProjectRuleCache projectContext
     -> FixedErrors
     -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
-computeDependencies ({ reviewOptions, projectVisitor, exceptions } as dataToComputeProject) project contexts cache fixedErrors =
+computeDependencies { reviewOptions, projectVisitor, exceptions } project contexts cache fixedErrors =
     let
         inputContext : projectContext
         inputContext =
