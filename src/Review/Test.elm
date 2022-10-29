@@ -1917,7 +1917,7 @@ If you expect only errors for `README.md`, then you may want to use [`expectErro
                                 |> Project.addReadme { path = "README.md", context = "# Project\n..." }
                     in
                     """module ModuleA exposing (a)
-                    a = 1"""
+    a = 1"""
                         |> Review.Test.runWithProjectData project rule
                         |> Review.Test.expect
                             [ Review.Test.readme
