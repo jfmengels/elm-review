@@ -623,7 +623,7 @@ ruleNotMarkedAsFixableError : String
 ruleNotMarkedAsFixableError =
     failureMessage "RULE WAS NOT MARKED AS FIXABLE"
         """I expected that the rule would use either
-`Rule.providesFixesForModuleRule` or `providesFixesForProjectRule` to
+`Rule.providesFixesForModuleRule` or `Rule.providesFixesForProjectRule` to
 indicate that it may provide fixes. This is valuable for improving the
 performance of running `elm-review` in fix mode."""
 
