@@ -4236,18 +4236,9 @@ computeStepsForProject :
 computeStepsForProject dataToComputeProject ({ project, cache, fixedErrors, step } as acc) =
     case step of
         ElmJson contexts ->
-            let
-                result : { project : ValidProject, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
-                result =
-                    computeElmJson dataToComputeProject project contexts.initial cache fixedErrors
-            in
             computeStepsForProject
                 dataToComputeProject
-                { project = result.project
-                , cache = result.cache
-                , fixedErrors = result.fixedErrors
-                , step = Readme { initial = contexts.initial, elmJson = result.projectContext }
-                }
+                (computeElmJson dataToComputeProject project contexts.initial cache fixedErrors)
 
         Readme contexts ->
             computeStepsForProject
@@ -4346,7 +4337,7 @@ computeElmJson :
     -> projectContext
     -> ProjectRuleCache projectContext
     -> FixedErrors
-    -> { project : ValidProject, projectContext : projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
+    -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
 computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputeProject) project inputContext cache fixedErrors =
     let
         projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
@@ -4359,7 +4350,7 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
     in
     case reuseProjectRuleCache cachePredicate .elmJson cache of
         Just entry ->
-            { project = project, projectContext = entry.outputContext, cache = cache, fixedErrors = fixedErrors }
+            { project = project, step = Readme { initial = inputContext, elmJson = entry.outputContext }, cache = cache, fixedErrors = fixedErrors }
 
         Nothing ->
             let
@@ -4397,7 +4388,7 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                             , outputContext = outputContext
                             }
                     in
-                    { project = project, projectContext = outputContext, cache = { cache | elmJson = Just elmJsonEntry }, fixedErrors = fixedErrors }
+                    { project = project, step = Readme { initial = inputContext, elmJson = outputContext }, cache = { cache | elmJson = Just elmJsonEntry }, fixedErrors = fixedErrors }
 
 
 computeReadme :
