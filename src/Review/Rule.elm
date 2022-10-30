@@ -4307,6 +4307,13 @@ computeStepsForProject dataToComputeProject ({ project, cache, fixedErrors, step
             , fixedErrors = acc.fixedErrors
             }
 
+        Abort ->
+            { project = acc.project
+            , errors = []
+            , cache = cache
+            , fixedErrors = acc.fixedErrors
+            }
+
 
 type Step projectContext
     = ElmJson { initial : projectContext }
@@ -4315,6 +4322,7 @@ type Step projectContext
     | Modules (ProjectContextAfterProjectFiles projectContext) (Zipper GraphModule)
     | FinalProjectEvaluation (ProjectContextAfterProjectFiles projectContext)
     | DataExtract { final : projectContext }
+    | Abort
 
 
 type alias ProjectContextAfterProjectFiles projectContext =
