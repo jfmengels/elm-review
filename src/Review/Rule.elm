@@ -757,12 +757,24 @@ runRulesHelp reviewOptions remainingRules acc =
                 result : { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
                 result =
                     ruleImplementation reviewOptions exceptions acc.fixedErrors acc.project
+
+                errors : List ReviewError
+                errors =
+                    ListExtra.orderIndependentMapAppend errorToReviewError result.errors acc.errors
             in
-            if FixedErrors.hasChanged result.fixedErrors acc.fixedErrors then
+            if shouldAbort reviewOptions result.fixedErrors then
+                { errors = errors
+                , fixedErrors = result.fixedErrors
+                , rules = restOfRules ++ (result.rule :: acc.rules)
+                , project = result.project
+                , extracts = acc.extracts
+                }
+
+            else if FixedErrors.hasChanged result.fixedErrors acc.fixedErrors then
                 runRulesHelp
                     reviewOptions
                     (List.reverse acc.rules ++ restOfRules)
-                    { errors = ListExtra.orderIndependentMapAppend errorToReviewError result.errors acc.errors
+                    { errors = errors
                     , fixedErrors = result.fixedErrors
                     , rules = [ result.rule ]
                     , project = result.project
@@ -773,7 +785,7 @@ runRulesHelp reviewOptions remainingRules acc =
                 runRulesHelp
                     reviewOptions
                     restOfRules
-                    { errors = ListExtra.orderIndependentMapAppend errorToReviewError result.errors acc.errors
+                    { errors = errors
                     , fixedErrors = result.fixedErrors
                     , rules = result.rule :: acc.rules
                     , project = result.project
