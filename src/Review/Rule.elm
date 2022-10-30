@@ -4836,54 +4836,67 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
     in
     case findFix dataToComputeModules.reviewOptions dataToComputeModules.projectVisitor.name newProject errors (Just moduleZipper) of
         Just fixResult ->
-            case fixResult.fixedFile of
-                FixedElmModule { source, ast } newModuleZipper_ ->
-                    if module_.path == errorFilePath fixResult.error then
-                        computeModule
-                            dataToComputeModules
-                            { module_ | source = source, ast = ast }
-                            projectContext
-                            (Logger.log
-                                dataToComputeModules.reviewOptions.logger
-                                (fixedError fixedErrors { ruleName = dataToComputeModules.projectVisitor.name, filePath = module_.path })
-                                fixResult.project
-                            )
-                            newModuleZipper_
-                            (FixedErrors.insert fixResult.error fixedErrors)
+            let
+                newFixedErrors : FixedErrors
+                newFixedErrors =
+                    FixedErrors.insert fixResult.error fixedErrors
+            in
+            if shouldAbort dataToComputeModules.reviewOptions newFixedErrors then
+                { project = fixResult.project
+                , analysis = analysis ()
+                , nextStep = NextStepAbort
+                , fixedErrors = newFixedErrors
+                }
 
-                    else
-                        let
-                            fixedModuleName : ModuleName
-                            fixedModuleName =
-                                Module.moduleName (Node.value ast.moduleDefinition)
-                        in
-                        case Zipper.focusl (\mod -> mod.node.label == fixedModuleName) moduleZipper of
-                            Just newModuleZipper ->
-                                Logger.log
+            else
+                case fixResult.fixedFile of
+                    FixedElmModule { source, ast } newModuleZipper_ ->
+                        if module_.path == errorFilePath fixResult.error then
+                            computeModule
+                                dataToComputeModules
+                                { module_ | source = source, ast = ast }
+                                projectContext
+                                (Logger.log
                                     dataToComputeModules.reviewOptions.logger
-                                    (fixedError fixedErrors { ruleName = dataToComputeModules.projectVisitor.name, filePath = errorFilePath fixResult.error })
-                                    { project = fixResult.project
-                                    , analysis = analysis ()
-                                    , nextStep = ModuleVisitStep (Just newModuleZipper)
-                                    , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
-                                    }
+                                    (fixedError fixedErrors { ruleName = dataToComputeModules.projectVisitor.name, filePath = module_.path })
+                                    fixResult.project
+                                )
+                                newModuleZipper_
+                                newFixedErrors
 
-                            Nothing ->
-                                resultWhenNoFix ()
+                        else
+                            let
+                                fixedModuleName : ModuleName
+                                fixedModuleName =
+                                    Module.moduleName (Node.value ast.moduleDefinition)
+                            in
+                            case Zipper.focusl (\mod -> mod.node.label == fixedModuleName) moduleZipper of
+                                Just newModuleZipper ->
+                                    Logger.log
+                                        dataToComputeModules.reviewOptions.logger
+                                        (fixedError newFixedErrors { ruleName = dataToComputeModules.projectVisitor.name, filePath = errorFilePath fixResult.error })
+                                        { project = fixResult.project
+                                        , analysis = analysis ()
+                                        , nextStep = ModuleVisitStep (Just newModuleZipper)
+                                        , fixedErrors = newFixedErrors
+                                        }
 
-                FixedElmJson ->
-                    { project = fixResult.project
-                    , analysis = analysis ()
-                    , nextStep = BackToElmJson
-                    , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
-                    }
+                                Nothing ->
+                                    resultWhenNoFix ()
 
-                FixedReadme ->
-                    { project = fixResult.project
-                    , analysis = analysis ()
-                    , nextStep = BackToReadme
-                    , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
-                    }
+                    FixedElmJson ->
+                        { project = fixResult.project
+                        , analysis = analysis ()
+                        , nextStep = BackToElmJson
+                        , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
+                        }
+
+                    FixedReadme ->
+                        { project = fixResult.project
+                        , analysis = analysis ()
+                        , nextStep = BackToReadme
+                        , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
+                        }
 
         Nothing ->
             resultWhenNoFix ()
