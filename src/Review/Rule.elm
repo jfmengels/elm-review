@@ -310,7 +310,7 @@ import Review.ModuleNameLookupTable exposing (ModuleNameLookupTable)
 import Review.ModuleNameLookupTable.Compute
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Options as ReviewOptions exposing (ReviewOptions)
-import Review.Options.Internal exposing (ReviewOptionsData, ReviewOptionsInternal(..))
+import Review.Options.Internal as InternalOptions exposing (ReviewOptionsData, ReviewOptionsInternal(..))
 import Review.Project exposing (ProjectModule)
 import Review.Project.Dependency
 import Review.Project.Internal exposing (Project)
@@ -762,7 +762,7 @@ runRulesHelp reviewOptions remainingRules acc =
                 errors =
                     ListExtra.orderIndependentMapAppend errorToReviewError result.errors acc.errors
             in
-            if shouldAbort reviewOptions result.fixedErrors then
+            if InternalOptions.shouldAbort reviewOptions result.fixedErrors then
                 { errors = errors
                 , fixedErrors = result.fixedErrors
                 , rules = restOfRules ++ (result.rule :: acc.rules)
@@ -4400,7 +4400,7 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                         newFixedErrors =
                             FixedErrors.insert fixResult.error fixedErrors
                     in
-                    if shouldAbort reviewOptions newFixedErrors then
+                    if InternalOptions.shouldAbort reviewOptions newFixedErrors then
                         { project = fixResult.project, step = Abort, cache = cache, fixedErrors = newFixedErrors }
 
                     else
@@ -4419,16 +4419,6 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                             }
                     in
                     { project = project, step = Readme { initial = inputContext, elmJson = outputContext }, cache = { cache | elmJson = Just elmJsonEntry }, fixedErrors = fixedErrors }
-
-
-shouldAbort : ReviewOptionsData -> FixedErrors -> Bool
-shouldAbort reviewOptionsData fixedErrors =
-    case reviewOptionsData.fixLimit of
-        Just fixLimit ->
-            fixLimit <= FixedErrors.count fixedErrors
-
-        Nothing ->
-            False
 
 
 computeReadme :
@@ -4507,7 +4497,7 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                         newFixedErrors =
                             FixedErrors.insert fixResult.error fixedErrors
                     in
-                    if shouldAbort reviewOptions newFixedErrors then
+                    if InternalOptions.shouldAbort reviewOptions newFixedErrors then
                         { project = fixResult.project, step = Abort, cache = cache, fixedErrors = newFixedErrors }
 
                     else
@@ -4608,7 +4598,7 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                         newFixedErrors =
                             FixedErrors.insert fixResult.error fixedErrors
                     in
-                    if shouldAbort reviewOptions newFixedErrors then
+                    if InternalOptions.shouldAbort reviewOptions newFixedErrors then
                         { project = fixResult.project, step = Abort, cache = cache, fixedErrors = newFixedErrors }
 
                     else
@@ -4691,7 +4681,7 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
                         -- Unnecessary to cache the final evaluation errors, since we'll end up with a different project context next time
                         , cache = cache
                         , step =
-                            if shouldAbort reviewOptions newFixedErrors then
+                            if InternalOptions.shouldAbort reviewOptions newFixedErrors then
                                 Abort
 
                             else
@@ -4841,7 +4831,7 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
                 newFixedErrors =
                     FixedErrors.insert fixResult.error fixedErrors
             in
-            if shouldAbort dataToComputeModules.reviewOptions newFixedErrors then
+            if InternalOptions.shouldAbort dataToComputeModules.reviewOptions newFixedErrors then
                 { project = fixResult.project
                 , analysis = analysis ()
                 , nextStep = NextStepAbort
@@ -5082,7 +5072,7 @@ type FixedFile
 
 findFix : ReviewOptionsData -> String -> ValidProject -> List (Error a) -> Maybe (Zipper (Graph.NodeContext ModuleName ())) -> Maybe { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
 findFix reviewOptions ruleName_ project errors maybeModuleZipper =
-    case Review.Options.Internal.shouldFindFix ruleName_ reviewOptions of
+    case InternalOptions.shouldFindFix ruleName_ reviewOptions of
         Just fixablePredicate ->
             findFixHelp project fixablePredicate errors maybeModuleZipper
 

@@ -2,6 +2,7 @@ module Review.Options exposing
     ( ReviewOptions
     , defaults
     , withDataExtraction, withLogger, withFixes, withSuppressedErrors
+    , FixMode, fixedDisabled, fixesEnabledWithLimit, fixesEnabledWithoutLimits
     )
 
 {-| Configure how `elm-review` runs.
@@ -36,8 +37,7 @@ defaults =
     ReviewOptionsInternal
         { extract = False
         , logger = Logger.none
-        , fixes = Internal.Disabled
-        , fixLimit = Nothing
+        , fixMode = Internal.Disabled
         , suppressions = Dict.empty
         }
 
@@ -65,23 +65,30 @@ withLogger maybeLogger (ReviewOptionsInternal reviewOptions) =
         }
 
 
-{-| Indicate whether to apply fixes, and if so, how many fixes should be applied before we abort the review process.
-
-If the limit is `Nothing`, then all available fixes will be applied.
-
+{-| Set the fix mode.
 -}
-withFixes : Bool -> Maybe Int -> ReviewOptions -> ReviewOptions
-withFixes enableFixes limit (ReviewOptionsInternal reviewOptions) =
-    let
-        fixes : Internal.Fixes
-        fixes =
-            if enableFixes then
-                Internal.Enabled limit
+withFixes : FixMode -> ReviewOptions -> ReviewOptions
+withFixes fixMode (ReviewOptionsInternal reviewOptions) =
+    ReviewOptionsInternal { reviewOptions | fixMode = fixMode }
 
-            else
-                Internal.Disabled
-    in
-    ReviewOptionsInternal { reviewOptions | fixes = fixes }
+
+type alias FixMode =
+    Internal.FixMode
+
+
+fixesEnabledWithoutLimits : Internal.FixMode
+fixesEnabledWithoutLimits =
+    Internal.Enabled Nothing
+
+
+fixesEnabledWithLimit : Int -> Internal.FixMode
+fixesEnabledWithLimit limit =
+    Internal.Enabled (Just limit)
+
+
+fixedDisabled : Internal.FixMode
+fixedDisabled =
+    Internal.Disabled
 
 
 {-| Add suppressions from the suppressed folder.
