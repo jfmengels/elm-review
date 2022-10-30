@@ -12,6 +12,7 @@ type alias ReviewOptionsData =
     { extract : Bool
     , logger : Logger
     , fixAll : Bool
+    , fixLimit : Maybe Int
     , suppressions : Dict ( String, String ) Int
     }
 

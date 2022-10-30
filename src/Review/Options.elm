@@ -1,7 +1,7 @@
 module Review.Options exposing
     ( ReviewOptions
     , defaults
-    , withDataExtraction, withLogger, withFixAll, withSuppressedErrors
+    , withDataExtraction, withLogger, withFixAll, withFixLimit, withSuppressedErrors
     )
 
 {-| Configure how `elm-review` runs.
@@ -11,7 +11,7 @@ process like the CLI.
 
 @docs ReviewOptions
 @docs defaults
-@docs withDataExtraction, withLogger, withFixAll, withSuppressedErrors
+@docs withDataExtraction, withLogger, withFixAll, withFixLimit, withSuppressedErrors
 
 -}
 
@@ -37,6 +37,7 @@ defaults =
         { extract = False
         , logger = Logger.none
         , fixAll = False
+        , fixLimit = Nothing
         , suppressions = Dict.empty
         }
 
@@ -69,6 +70,16 @@ withLogger maybeLogger (ReviewOptionsInternal reviewOptions) =
 withFixAll : Bool -> ReviewOptions -> ReviewOptions
 withFixAll enableFixAll (ReviewOptionsInternal reviewOptions) =
     ReviewOptionsInternal { reviewOptions | fixAll = enableFixAll }
+
+
+{-| Specify how many fixes should be applied before we abort the review process.
+
+This only makes sense when [`withFixAll`](#withFixAll) has been set to `True`.
+
+-}
+withFixLimit : Int -> ReviewOptions -> ReviewOptions
+withFixLimit fixLimit (ReviewOptionsInternal reviewOptions) =
+    ReviewOptionsInternal { reviewOptions | fixLimit = Just fixLimit }
 
 
 {-| Add suppressions from the suppressed folder.
