@@ -4102,7 +4102,6 @@ runProjectVisitorHelp :
     -> ValidProject
     -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
 runProjectVisitorHelp ({ reviewOptions, projectVisitor, exceptions } as dataToComputeProject) initialCache initialFixedErrors initialProject =
-    -- IGNORE TCO
     let
         { project, projectContext, cache, fixedErrors } =
             computeStepsForProject
