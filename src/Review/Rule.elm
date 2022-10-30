@@ -4382,9 +4382,18 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
             in
             case findFix reviewOptions projectVisitor.name project errors Nothing of
                 Just fixResult ->
-                    -- THe only possible thing we can fix here is the `elm.json` file, so we don't need to check
-                    -- what the fixed file was.
-                    computeElmJson dataToComputeProject fixResult.project inputContext cache (FixedErrors.insert fixResult.error fixedErrors)
+                    let
+                        newFixedErrors : FixedErrors
+                        newFixedErrors =
+                            FixedErrors.insert fixResult.error fixedErrors
+                    in
+                    if shouldAbort reviewOptions newFixedErrors then
+                        { project = fixResult.project, step = Abort, cache = cache, fixedErrors = newFixedErrors }
+
+                    else
+                        -- The only possible thing we can fix here is the `elm.json` file, so we don't need to check
+                        -- what the fixed file was.
+                        computeElmJson dataToComputeProject fixResult.project inputContext cache newFixedErrors
 
                 Nothing ->
                     let
@@ -4397,6 +4406,16 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                             }
                     in
                     { project = project, step = Readme { initial = inputContext, elmJson = outputContext }, cache = { cache | elmJson = Just elmJsonEntry }, fixedErrors = fixedErrors }
+
+
+shouldAbort : ReviewOptionsData -> FixedErrors -> Bool
+shouldAbort reviewOptionsData fixedErrors =
+    case reviewOptionsData.fixLimit of
+        Just fixLimit ->
+            fixLimit <= FixedErrors.count fixedErrors
+
+        Nothing ->
+            False
 
 
 computeReadme :
@@ -4470,20 +4489,29 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
             in
             case findFix reviewOptions projectVisitor.name project errors Nothing of
                 Just fixResult ->
-                    case fixResult.fixedFile of
-                        FixedElmJson ->
-                            { project = fixResult.project
-                            , step = ElmJson { initial = contexts.initial }
-                            , cache = cache
-                            , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
-                            }
+                    let
+                        newFixedErrors : FixedErrors
+                        newFixedErrors =
+                            FixedErrors.insert fixResult.error fixedErrors
+                    in
+                    if shouldAbort reviewOptions newFixedErrors then
+                        { project = fixResult.project, step = Abort, cache = cache, fixedErrors = newFixedErrors }
 
-                        FixedReadme ->
-                            computeReadme dataToComputeProject fixResult.project contexts cache (FixedErrors.insert fixResult.error fixedErrors)
+                    else
+                        case fixResult.fixedFile of
+                            FixedElmJson ->
+                                { project = fixResult.project
+                                , step = ElmJson { initial = contexts.initial }
+                                , cache = cache
+                                , fixedErrors = newFixedErrors
+                                }
 
-                        FixedElmModule _ _ ->
-                            -- Not possible, users don't have the module key to provide fixes for an Elm module
-                            resultWhenNoFix ()
+                            FixedReadme ->
+                                computeReadme dataToComputeProject fixResult.project contexts cache newFixedErrors
+
+                            FixedElmModule _ _ ->
+                                -- Not possible, users don't have the module key to provide fixes for an Elm module
+                                resultWhenNoFix ()
 
                 Nothing ->
                     resultWhenNoFix ()
@@ -4562,24 +4590,33 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
             in
             case findFix reviewOptions projectVisitor.name project errors Nothing of
                 Just fixResult ->
-                    case fixResult.fixedFile of
-                        FixedElmJson ->
-                            { project = fixResult.project
-                            , step = ElmJson { initial = contexts.initial }
-                            , cache = cache
-                            , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
-                            }
+                    let
+                        newFixedErrors : FixedErrors
+                        newFixedErrors =
+                            FixedErrors.insert fixResult.error fixedErrors
+                    in
+                    if shouldAbort reviewOptions newFixedErrors then
+                        { project = fixResult.project, step = Abort, cache = cache, fixedErrors = newFixedErrors }
 
-                        FixedReadme ->
-                            { project = fixResult.project
-                            , step = Readme { initial = contexts.initial, elmJson = contexts.elmJson }
-                            , cache = cache
-                            , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
-                            }
+                    else
+                        case fixResult.fixedFile of
+                            FixedElmJson ->
+                                { project = fixResult.project
+                                , step = ElmJson { initial = contexts.initial }
+                                , cache = cache
+                                , fixedErrors = newFixedErrors
+                                }
 
-                        FixedElmModule _ _ ->
-                            -- Not possible, users don't have the module key to provide fixes for an Elm module
-                            resultWhenNoFix ()
+                            FixedReadme ->
+                                { project = fixResult.project
+                                , step = Readme { initial = contexts.initial, elmJson = contexts.elmJson }
+                                , cache = cache
+                                , fixedErrors = newFixedErrors
+                                }
+
+                            FixedElmModule _ _ ->
+                                -- Not possible, users don't have the module key to provide fixes for an Elm module
+                                resultWhenNoFix ()
 
                 Nothing ->
                     resultWhenNoFix ()
@@ -4631,21 +4668,30 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
                 in
                 case findFix reviewOptions projectVisitor.name project errors Nothing of
                     Just fixResult ->
+                        let
+                            newFixedErrors : FixedErrors
+                            newFixedErrors =
+                                FixedErrors.insert fixResult.error fixedErrors
+                        in
                         { project = fixResult.project
 
                         -- Unnecessary to cache the final evaluation errors, since we'll end up with a different project context next time
                         , cache = cache
                         , step =
-                            case fixResult.fixedFile of
-                                FixedElmModule _ moduleZipper ->
-                                    Modules projectContexts moduleZipper
+                            if shouldAbort reviewOptions newFixedErrors then
+                                Abort
 
-                                FixedElmJson ->
-                                    ElmJson { initial = projectContexts.initial }
+                            else
+                                case fixResult.fixedFile of
+                                    FixedElmModule _ moduleZipper ->
+                                        Modules projectContexts moduleZipper
 
-                                FixedReadme ->
-                                    Readme { initial = projectContexts.initial, elmJson = projectContexts.elmJson }
-                        , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
+                                    FixedElmJson ->
+                                        ElmJson { initial = projectContexts.initial }
+
+                                    FixedReadme ->
+                                        Readme { initial = projectContexts.initial, elmJson = projectContexts.elmJson }
+                        , fixedErrors = newFixedErrors
                         }
 
                     Nothing ->
