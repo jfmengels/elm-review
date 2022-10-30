@@ -4349,6 +4349,7 @@ type NextStep
     = ModuleVisitStep (Maybe (Zipper GraphModule))
     | BackToElmJson
     | BackToReadme
+    | NextStepAbort
 
 
 computeElmJson :
@@ -4934,6 +4935,13 @@ computeModules dataToComputeModules projectContexts maybeModuleZipper initialPro
                     { project = result.project
                     , moduleContexts = result.moduleContexts
                     , step = Readme { initial = projectContexts.initial, elmJson = projectContexts.elmJson }
+                    , fixedErrors = result.fixedErrors
+                    }
+
+                NextStepAbort ->
+                    { project = result.project
+                    , moduleContexts = result.moduleContexts
+                    , step = Abort
                     , fixedErrors = result.fixedErrors
                     }
 
