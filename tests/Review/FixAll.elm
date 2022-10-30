@@ -26,7 +26,7 @@ b = 1
 """
                                 }
                 in
-                Rule.reviewV3 (Review.Options.defaults |> Review.Options.withFixAll False)
+                Rule.reviewV3 (Review.Options.defaults |> Review.Options.withFixes False)
                     [ NoUnused.Variables.rule ]
                     project
                     |> .project
@@ -47,7 +47,7 @@ b = 1
 """
                                 }
                 in
-                Rule.reviewV3 (Review.Options.defaults |> Review.Options.withFixAll True)
+                Rule.reviewV3 (Review.Options.defaults |> Review.Options.withFixes True)
                     [ NoUnused.Variables.rule ]
                     project
                     |> .project

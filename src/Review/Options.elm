@@ -1,7 +1,7 @@
 module Review.Options exposing
     ( ReviewOptions
     , defaults
-    , withDataExtraction, withLogger, withFixAll, withFixLimit, withSuppressedErrors
+    , withDataExtraction, withLogger, withFixes, withSuppressedErrors
     )
 
 {-| Configure how `elm-review` runs.
@@ -11,13 +11,13 @@ process like the CLI.
 
 @docs ReviewOptions
 @docs defaults
-@docs withDataExtraction, withLogger, withFixAll, withFixLimit, withSuppressedErrors
+@docs withDataExtraction, withLogger, withFixes, withSuppressedErrors
 
 -}
 
 import Dict exposing (Dict)
 import Review.Logger as Logger
-import Review.Options.Internal exposing (ReviewOptionsInternal(..))
+import Review.Options.Internal as Internal exposing (ReviewOptionsInternal(..))
 
 
 {-| Represents the different options you can use to run the review process.
@@ -36,7 +36,7 @@ defaults =
     ReviewOptionsInternal
         { extract = False
         , logger = Logger.none
-        , fixAll = False
+        , fixes = Internal.Disabled
         , fixLimit = Nothing
         , suppressions = Dict.empty
         }
@@ -65,21 +65,23 @@ withLogger maybeLogger (ReviewOptionsInternal reviewOptions) =
         }
 
 
-{-| Enable fix all mode.
--}
-withFixAll : Bool -> ReviewOptions -> ReviewOptions
-withFixAll enableFixAll (ReviewOptionsInternal reviewOptions) =
-    ReviewOptionsInternal { reviewOptions | fixAll = enableFixAll }
+{-| Indicate whether to apply fixes, and if so, how many fixes should be applied before we abort the review process.
 
-
-{-| Specify how many fixes should be applied before we abort the review process.
-
-This only makes sense when [`withFixAll`](#withFixAll) has been set to `True`.
+If the limit is `Nothing`, then all available fixes will be applied.
 
 -}
-withFixLimit : Int -> ReviewOptions -> ReviewOptions
-withFixLimit fixLimit (ReviewOptionsInternal reviewOptions) =
-    ReviewOptionsInternal { reviewOptions | fixLimit = Just fixLimit }
+withFixes : Bool -> Maybe Int -> ReviewOptions -> ReviewOptions
+withFixes enableFixes limit (ReviewOptionsInternal reviewOptions) =
+    let
+        fixes : Internal.Fixes
+        fixes =
+            if enableFixes then
+                Internal.Enabled limit
+
+            else
+                Internal.Disabled
+    in
+    ReviewOptionsInternal { reviewOptions | fixes = fixes }
 
 
 {-| Add suppressions from the suppressed folder.
