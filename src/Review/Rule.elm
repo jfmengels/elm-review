@@ -4785,7 +4785,11 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
                             dataToComputeModules
                             { module_ | source = source, ast = ast }
                             projectContext
-                            (Logger.log dataToComputeModules.reviewOptions.logger (fixedError { ruleName = dataToComputeModules.projectVisitor.name, filePath = module_.path }) fixResult.project)
+                            (Logger.log
+                                dataToComputeModules.reviewOptions.logger
+                                (fixedError fixedErrors { ruleName = dataToComputeModules.projectVisitor.name, filePath = module_.path })
+                                fixResult.project
+                            )
                             newModuleZipper_
                             (FixedErrors.insert fixResult.error fixedErrors)
 
@@ -4797,12 +4801,14 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
                         in
                         case Zipper.focusl (\mod -> mod.node.label == fixedModuleName) moduleZipper of
                             Just newModuleZipper ->
-                                { project = fixResult.project
-                                , analysis = analysis ()
-                                , nextStep = ModuleVisitStep (Just newModuleZipper)
-                                , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
-                                }
-                                    |> Logger.log dataToComputeModules.reviewOptions.logger (fixedError { ruleName = dataToComputeModules.projectVisitor.name, filePath = errorFilePath fixResult.error })
+                                Logger.log
+                                    dataToComputeModules.reviewOptions.logger
+                                    (fixedError fixedErrors { ruleName = dataToComputeModules.projectVisitor.name, filePath = errorFilePath fixResult.error })
+                                    { project = fixResult.project
+                                    , analysis = analysis ()
+                                    , nextStep = ModuleVisitStep (Just newModuleZipper)
+                                    , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
+                                    }
 
                             Nothing ->
                                 resultWhenNoFix ()
@@ -6066,11 +6072,12 @@ endedRule name =
         |> Encode.encode 0
 
 
-fixedError : { ruleName : String, filePath : String } -> String
-fixedError data =
+fixedError : FixedErrors -> { ruleName : String, filePath : String } -> String
+fixedError fixedErrors data =
     Encode.object
         [ ( "type", Encode.string "apply-fix" )
         , ( "ruleName", Encode.string data.ruleName )
         , ( "filePath", Encode.string data.filePath )
+        , ( "count", Encode.int (FixedErrors.count fixedErrors) )
         ]
         |> Encode.encode 0
