@@ -4393,7 +4393,7 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                 errors =
                     filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
             in
-            case findFix reviewOptions projectVisitor.name project errors Nothing of
+            case findFix reviewOptions projectVisitor.name project errors fixedErrors Nothing of
                 Just fixResult ->
                     let
                         newFixedErrors : FixedErrors
@@ -4490,7 +4490,7 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                     , fixedErrors = fixedErrors
                     }
             in
-            case findFix reviewOptions projectVisitor.name project errors Nothing of
+            case findFix reviewOptions projectVisitor.name project errors fixedErrors Nothing of
                 Just fixResult ->
                     let
                         newFixedErrors : FixedErrors
@@ -4591,7 +4591,7 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                     , fixedErrors = fixedErrors
                     }
             in
-            case findFix reviewOptions projectVisitor.name project errors Nothing of
+            case findFix reviewOptions projectVisitor.name project errors fixedErrors Nothing of
                 Just fixResult ->
                     let
                         newFixedErrors : FixedErrors
@@ -4669,7 +4669,7 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
                         , fixedErrors = fixedErrors
                         }
                 in
-                case findFix reviewOptions projectVisitor.name project errors Nothing of
+                case findFix reviewOptions projectVisitor.name project errors fixedErrors Nothing of
                     Just fixResult ->
                         let
                             newFixedErrors : FixedErrors
@@ -4824,7 +4824,7 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
             , fixedErrors = fixedErrors
             }
     in
-    case findFix dataToComputeModules.reviewOptions dataToComputeModules.projectVisitor.name newProject errors (Just moduleZipper) of
+    case findFix dataToComputeModules.reviewOptions dataToComputeModules.projectVisitor.name newProject errors fixedErrors (Just moduleZipper) of
         Just fixResult ->
             let
                 newFixedErrors : FixedErrors
@@ -5070,8 +5070,8 @@ type FixedFile
     | FixedReadme
 
 
-findFix : ReviewOptionsData -> String -> ValidProject -> List (Error a) -> Maybe (Zipper (Graph.NodeContext ModuleName ())) -> Maybe { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
-findFix reviewOptions ruleName_ project errors maybeModuleZipper =
+findFix : ReviewOptionsData -> String -> ValidProject -> List (Error a) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext ModuleName ())) -> Maybe { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
+findFix reviewOptions ruleName_ project errors fixedErrors maybeModuleZipper =
     case InternalOptions.shouldFindFix ruleName_ reviewOptions of
         Just fixablePredicate ->
             findFixHelp project fixablePredicate errors maybeModuleZipper
