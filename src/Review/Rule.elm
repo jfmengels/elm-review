@@ -4394,19 +4394,15 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                     filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
             in
             case findFix reviewOptions projectVisitor.name project errors fixedErrors Nothing of
-                Just fixResult ->
-                    let
-                        newFixedErrors : FixedErrors
-                        newFixedErrors =
-                            FixedErrors.insert fixResult.error fixedErrors
-                    in
-                    if InternalOptions.shouldAbort reviewOptions newFixedErrors then
-                        { project = fixResult.project, step = Abort, cache = cache, fixedErrors = newFixedErrors }
+                Just ( postFixStatus, fixResult ) ->
+                    case postFixStatus of
+                        ShouldAbort newFixedErrors ->
+                            { project = fixResult.project, step = Abort, cache = cache, fixedErrors = newFixedErrors }
 
-                    else
-                        -- The only possible thing we can fix here is the `elm.json` file, so we don't need to check
-                        -- what the fixed file was.
-                        computeElmJson dataToComputeProject fixResult.project inputContext cache newFixedErrors
+                        ShouldContinue newFixedErrors ->
+                            -- The only possible thing we can fix here is the `elm.json` file, so we don't need to check
+                            -- what the fixed file was.
+                            computeElmJson dataToComputeProject fixResult.project inputContext cache newFixedErrors
 
                 Nothing ->
                     let
@@ -4491,30 +4487,26 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                     }
             in
             case findFix reviewOptions projectVisitor.name project errors fixedErrors Nothing of
-                Just fixResult ->
-                    let
-                        newFixedErrors : FixedErrors
-                        newFixedErrors =
-                            FixedErrors.insert fixResult.error fixedErrors
-                    in
-                    if InternalOptions.shouldAbort reviewOptions newFixedErrors then
-                        { project = fixResult.project, step = Abort, cache = cache, fixedErrors = newFixedErrors }
+                Just ( postFixStatus, fixResult ) ->
+                    case postFixStatus of
+                        ShouldAbort newFixedErrors ->
+                            { project = fixResult.project, step = Abort, cache = cache, fixedErrors = newFixedErrors }
 
-                    else
-                        case fixResult.fixedFile of
-                            FixedElmJson ->
-                                { project = fixResult.project
-                                , step = ElmJson { initial = contexts.initial }
-                                , cache = cache
-                                , fixedErrors = newFixedErrors
-                                }
+                        ShouldContinue newFixedErrors ->
+                            case fixResult.fixedFile of
+                                FixedElmJson ->
+                                    { project = fixResult.project
+                                    , step = ElmJson { initial = contexts.initial }
+                                    , cache = cache
+                                    , fixedErrors = newFixedErrors
+                                    }
 
-                            FixedReadme ->
-                                computeReadme dataToComputeProject fixResult.project contexts cache newFixedErrors
+                                FixedReadme ->
+                                    computeReadme dataToComputeProject fixResult.project contexts cache newFixedErrors
 
-                            FixedElmModule _ _ ->
-                                -- Not possible, users don't have the module key to provide fixes for an Elm module
-                                resultWhenNoFix ()
+                                FixedElmModule _ _ ->
+                                    -- Not possible, users don't have the module key to provide fixes for an Elm module
+                                    resultWhenNoFix ()
 
                 Nothing ->
                     resultWhenNoFix ()
@@ -4592,34 +4584,30 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                     }
             in
             case findFix reviewOptions projectVisitor.name project errors fixedErrors Nothing of
-                Just fixResult ->
-                    let
-                        newFixedErrors : FixedErrors
-                        newFixedErrors =
-                            FixedErrors.insert fixResult.error fixedErrors
-                    in
-                    if InternalOptions.shouldAbort reviewOptions newFixedErrors then
-                        { project = fixResult.project, step = Abort, cache = cache, fixedErrors = newFixedErrors }
+                Just ( postFixStatus, fixResult ) ->
+                    case postFixStatus of
+                        ShouldAbort newFixedErrors ->
+                            { project = fixResult.project, step = Abort, cache = cache, fixedErrors = newFixedErrors }
 
-                    else
-                        case fixResult.fixedFile of
-                            FixedElmJson ->
-                                { project = fixResult.project
-                                , step = ElmJson { initial = contexts.initial }
-                                , cache = cache
-                                , fixedErrors = newFixedErrors
-                                }
+                        ShouldContinue newFixedErrors ->
+                            case fixResult.fixedFile of
+                                FixedElmJson ->
+                                    { project = fixResult.project
+                                    , step = ElmJson { initial = contexts.initial }
+                                    , cache = cache
+                                    , fixedErrors = newFixedErrors
+                                    }
 
-                            FixedReadme ->
-                                { project = fixResult.project
-                                , step = Readme { initial = contexts.initial, elmJson = contexts.elmJson }
-                                , cache = cache
-                                , fixedErrors = newFixedErrors
-                                }
+                                FixedReadme ->
+                                    { project = fixResult.project
+                                    , step = Readme { initial = contexts.initial, elmJson = contexts.elmJson }
+                                    , cache = cache
+                                    , fixedErrors = newFixedErrors
+                                    }
 
-                            FixedElmModule _ _ ->
-                                -- Not possible, users don't have the module key to provide fixes for an Elm module
-                                resultWhenNoFix ()
+                                FixedElmModule _ _ ->
+                                    -- Not possible, users don't have the module key to provide fixes for an Elm module
+                                    resultWhenNoFix ()
 
                 Nothing ->
                     resultWhenNoFix ()
@@ -4670,30 +4658,30 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
                         }
                 in
                 case findFix reviewOptions projectVisitor.name project errors fixedErrors Nothing of
-                    Just fixResult ->
+                    Just ( postFixStatus, fixResult ) ->
                         let
-                            newFixedErrors : FixedErrors
-                            newFixedErrors =
-                                FixedErrors.insert fixResult.error fixedErrors
+                            ( newFixedErrors, step ) =
+                                -- Unnecessary to cache the final evaluation errors, since we'll end up with a different project context next time
+                                case postFixStatus of
+                                    ShouldAbort newFixedErrors_ ->
+                                        ( newFixedErrors_, Abort )
+
+                                    ShouldContinue newFixedErrors_ ->
+                                        ( newFixedErrors_
+                                        , case fixResult.fixedFile of
+                                            FixedElmModule _ moduleZipper ->
+                                                Modules projectContexts moduleZipper
+
+                                            FixedElmJson ->
+                                                ElmJson { initial = projectContexts.initial }
+
+                                            FixedReadme ->
+                                                Readme { initial = projectContexts.initial, elmJson = projectContexts.elmJson }
+                                        )
                         in
                         { project = fixResult.project
-
-                        -- Unnecessary to cache the final evaluation errors, since we'll end up with a different project context next time
                         , cache = cache
-                        , step =
-                            if InternalOptions.shouldAbort reviewOptions newFixedErrors then
-                                Abort
-
-                            else
-                                case fixResult.fixedFile of
-                                    FixedElmModule _ moduleZipper ->
-                                        Modules projectContexts moduleZipper
-
-                                    FixedElmJson ->
-                                        ElmJson { initial = projectContexts.initial }
-
-                                    FixedReadme ->
-                                        Readme { initial = projectContexts.initial, elmJson = projectContexts.elmJson }
+                        , step = step
                         , fixedErrors = newFixedErrors
                         }
 
@@ -4825,68 +4813,64 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
             }
     in
     case findFix dataToComputeModules.reviewOptions dataToComputeModules.projectVisitor.name newProject errors fixedErrors (Just moduleZipper) of
-        Just fixResult ->
-            let
-                newFixedErrors : FixedErrors
-                newFixedErrors =
-                    FixedErrors.insert fixResult.error fixedErrors
-            in
-            if InternalOptions.shouldAbort dataToComputeModules.reviewOptions newFixedErrors then
-                { project = fixResult.project
-                , analysis = analysis ()
-                , nextStep = NextStepAbort
-                , fixedErrors = newFixedErrors
-                }
+        Just ( postFixStatus, fixResult ) ->
+            case postFixStatus of
+                ShouldAbort newFixedErrors ->
+                    { project = fixResult.project
+                    , analysis = analysis ()
+                    , nextStep = NextStepAbort
+                    , fixedErrors = newFixedErrors
+                    }
 
-            else
-                case fixResult.fixedFile of
-                    FixedElmModule { source, ast } newModuleZipper_ ->
-                        if module_.path == errorFilePath fixResult.error then
-                            computeModule
-                                dataToComputeModules
-                                { module_ | source = source, ast = ast }
-                                projectContext
-                                (Logger.log
-                                    dataToComputeModules.reviewOptions.logger
-                                    (fixedError fixedErrors { ruleName = dataToComputeModules.projectVisitor.name, filePath = module_.path })
-                                    fixResult.project
-                                )
-                                newModuleZipper_
-                                newFixedErrors
-
-                        else
-                            let
-                                fixedModuleName : ModuleName
-                                fixedModuleName =
-                                    Module.moduleName (Node.value ast.moduleDefinition)
-                            in
-                            case Zipper.focusl (\mod -> mod.node.label == fixedModuleName) moduleZipper of
-                                Just newModuleZipper ->
-                                    Logger.log
+                ShouldContinue newFixedErrors ->
+                    case fixResult.fixedFile of
+                        FixedElmModule { source, ast } newModuleZipper_ ->
+                            if module_.path == errorFilePath fixResult.error then
+                                computeModule
+                                    dataToComputeModules
+                                    { module_ | source = source, ast = ast }
+                                    projectContext
+                                    (Logger.log
                                         dataToComputeModules.reviewOptions.logger
-                                        (fixedError newFixedErrors { ruleName = dataToComputeModules.projectVisitor.name, filePath = errorFilePath fixResult.error })
-                                        { project = fixResult.project
-                                        , analysis = analysis ()
-                                        , nextStep = ModuleVisitStep (Just newModuleZipper)
-                                        , fixedErrors = newFixedErrors
-                                        }
+                                        (fixedError fixedErrors { ruleName = dataToComputeModules.projectVisitor.name, filePath = module_.path })
+                                        fixResult.project
+                                    )
+                                    newModuleZipper_
+                                    newFixedErrors
 
-                                Nothing ->
-                                    resultWhenNoFix ()
+                            else
+                                let
+                                    fixedModuleName : ModuleName
+                                    fixedModuleName =
+                                        Module.moduleName (Node.value ast.moduleDefinition)
+                                in
+                                case Zipper.focusl (\mod -> mod.node.label == fixedModuleName) moduleZipper of
+                                    Just newModuleZipper ->
+                                        Logger.log
+                                            dataToComputeModules.reviewOptions.logger
+                                            (fixedError newFixedErrors { ruleName = dataToComputeModules.projectVisitor.name, filePath = errorFilePath fixResult.error })
+                                            { project = fixResult.project
+                                            , analysis = analysis ()
+                                            , nextStep = ModuleVisitStep (Just newModuleZipper)
+                                            , fixedErrors = newFixedErrors
+                                            }
 
-                    FixedElmJson ->
-                        { project = fixResult.project
-                        , analysis = analysis ()
-                        , nextStep = BackToElmJson
-                        , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
-                        }
+                                    Nothing ->
+                                        resultWhenNoFix ()
 
-                    FixedReadme ->
-                        { project = fixResult.project
-                        , analysis = analysis ()
-                        , nextStep = BackToReadme
-                        , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
-                        }
+                        FixedElmJson ->
+                            { project = fixResult.project
+                            , analysis = analysis ()
+                            , nextStep = BackToElmJson
+                            , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
+                            }
+
+                        FixedReadme ->
+                            { project = fixResult.project
+                            , analysis = analysis ()
+                            , nextStep = BackToReadme
+                            , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
+                            }
 
         Nothing ->
             resultWhenNoFix ()
@@ -5070,11 +5054,30 @@ type FixedFile
     | FixedReadme
 
 
-findFix : ReviewOptionsData -> String -> ValidProject -> List (Error a) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext ModuleName ())) -> Maybe { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
+type PostFixStatus
+    = ShouldAbort FixedErrors
+    | ShouldContinue FixedErrors
+
+
+findFix : ReviewOptionsData -> String -> ValidProject -> List (Error a) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext ModuleName ())) -> Maybe ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
 findFix reviewOptions ruleName_ project errors fixedErrors maybeModuleZipper =
     case InternalOptions.shouldFindFix ruleName_ reviewOptions of
         Just fixablePredicate ->
-            findFixHelp project fixablePredicate errors maybeModuleZipper
+            case findFixHelp project fixablePredicate errors maybeModuleZipper of
+                Just fixResult ->
+                    let
+                        newFixedErrors : FixedErrors
+                        newFixedErrors =
+                            FixedErrors.insert fixResult.error fixedErrors
+                    in
+                    if InternalOptions.shouldAbort reviewOptions newFixedErrors then
+                        Just ( ShouldAbort newFixedErrors, fixResult )
+
+                    else
+                        Just ( ShouldContinue newFixedErrors, fixResult )
+
+                Nothing ->
+                    Nothing
 
         Nothing ->
             Nothing
