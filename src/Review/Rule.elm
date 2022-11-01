@@ -4830,11 +4830,7 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
                                     dataToComputeModules
                                     { module_ | source = source, ast = ast }
                                     projectContext
-                                    (Logger.log
-                                        dataToComputeModules.reviewOptions.logger
-                                        (fixedError fixedErrors { ruleName = dataToComputeModules.projectVisitor.name, filePath = module_.path })
-                                        fixResult.project
-                                    )
+                                    fixResult.project
                                     newModuleZipper_
                                     newFixedErrors
 
@@ -5061,26 +5057,24 @@ type PostFixStatus
 
 findFix : ReviewOptionsData -> String -> ValidProject -> List (Error a) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext ModuleName ())) -> Maybe ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
 findFix reviewOptions ruleName_ project errors fixedErrors maybeModuleZipper =
-    case InternalOptions.shouldFindFix ruleName_ reviewOptions of
-        Just fixablePredicate ->
-            case findFixHelp project fixablePredicate errors maybeModuleZipper of
-                Just fixResult ->
-                    let
-                        newFixedErrors : FixedErrors
-                        newFixedErrors =
-                            FixedErrors.insert fixResult.error fixedErrors
-                    in
-                    if InternalOptions.shouldAbort reviewOptions newFixedErrors then
-                        Just ( ShouldAbort newFixedErrors, fixResult )
+    InternalOptions.shouldFindFix ruleName_ reviewOptions
+        |> Maybe.andThen (\fixablePredicate -> findFixHelp project fixablePredicate errors maybeModuleZipper)
+        |> Maybe.map
+            (\fixResult ->
+                let
+                    newFixedErrors : FixedErrors
+                    newFixedErrors =
+                        FixedErrors.insert fixResult.error fixedErrors
+                in
+                if InternalOptions.shouldAbort reviewOptions newFixedErrors then
+                    ( ShouldAbort newFixedErrors, fixResult )
 
-                    else
-                        Just ( ShouldContinue newFixedErrors, fixResult )
-
-                Nothing ->
-                    Nothing
-
-        Nothing ->
-            Nothing
+                else
+                    ( ShouldContinue newFixedErrors, fixResult )
+                        |> Logger.log
+                            reviewOptions.logger
+                            (fixedError newFixedErrors { ruleName = ruleName_, filePath = errorFilePath fixResult.error })
+            )
 
 
 findFixHelp : ValidProject -> (String -> Bool) -> List (Error a) -> Maybe (Zipper (Graph.NodeContext ModuleName ())) -> Maybe { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
