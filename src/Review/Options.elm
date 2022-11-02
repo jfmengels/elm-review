@@ -1,8 +1,10 @@
 module Review.Options exposing
     ( ReviewOptions
     , defaults
-    , withDataExtraction, withLogger, withFixes, withSuppressedErrors
+    , withDataExtraction, withLogger, withSuppressedErrors
+    , withFixes
     , FixMode, fixedDisabled, fixesEnabledWithLimit, fixesEnabledWithoutLimits
+    , withIgnoredFixes
     )
 
 {-| Configure how `elm-review` runs.
@@ -12,11 +14,16 @@ process like the CLI.
 
 @docs ReviewOptions
 @docs defaults
-@docs withDataExtraction, withLogger, withFixes, withSuppressedErrors
+@docs withDataExtraction, withLogger, withSuppressedErrors
+
+@docs withFixes
+@docs FixMode, fixedDisabled, fixesEnabledWithLimit, fixesEnabledWithoutLimits
+@docs withIgnoredFixes
 
 -}
 
 import Dict exposing (Dict)
+import Elm.Syntax.Range exposing (Range)
 import Review.Logger as Logger
 import Review.Options.Internal as Internal exposing (ReviewOptionsInternal(..))
 
@@ -39,6 +46,7 @@ defaults =
         , logger = Logger.none
         , fixMode = Internal.Disabled
         , suppressions = Dict.empty
+        , ignoreFix = always False
         }
 
 
@@ -70,6 +78,13 @@ withLogger maybeLogger (ReviewOptionsInternal reviewOptions) =
 withFixes : FixMode -> ReviewOptions -> ReviewOptions
 withFixes fixMode (ReviewOptionsInternal reviewOptions) =
     ReviewOptionsInternal { reviewOptions | fixMode = fixMode }
+
+
+{-| Provide a predicate for ignoring fixes to apply. This is useful to ignore previously refused fixes in `elm-review --fix`.
+-}
+withIgnoredFixes : ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> ReviewOptions -> ReviewOptions
+withIgnoredFixes ignoreFix (ReviewOptionsInternal reviewOptions) =
+    ReviewOptionsInternal { reviewOptions | ignoreFix = ignoreFix }
 
 
 type alias FixMode =

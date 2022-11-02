@@ -5057,7 +5057,7 @@ type PostFixStatus
 
 findFix : ReviewOptionsData -> String -> ValidProject -> List (Error a) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext ModuleName ())) -> Maybe ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
 findFix reviewOptions ruleName_ project errors fixedErrors maybeModuleZipper =
-    InternalOptions.shouldFindFix ruleName_ reviewOptions
+    InternalOptions.shouldApplyFix ruleName_ reviewOptions
         |> Maybe.andThen (\fixablePredicate -> findFixHelp project fixablePredicate errors maybeModuleZipper)
         |> Maybe.map
             (\fixResult ->
@@ -5077,7 +5077,12 @@ findFix reviewOptions ruleName_ project errors fixedErrors maybeModuleZipper =
             )
 
 
-findFixHelp : ValidProject -> (String -> Bool) -> List (Error a) -> Maybe (Zipper (Graph.NodeContext ModuleName ())) -> Maybe { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
+findFixHelp :
+    ValidProject
+    -> ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool)
+    -> List (Error a)
+    -> Maybe (Zipper (Graph.NodeContext ModuleName ()))
+    -> Maybe { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
 findFixHelp project fixablePredicate errors maybeModuleZipper =
     case errors of
         [] ->
@@ -5160,14 +5165,14 @@ findFixHelp project fixablePredicate errors maybeModuleZipper =
                             findFixHelp project fixablePredicate restOfErrors maybeModuleZipper
 
 
-isFixable : (String -> Bool) -> InternalError -> Maybe (List Fix)
-isFixable predicate { fixes, filePath } =
-    case fixes of
+isFixable : ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool) -> InternalError -> Maybe (List Fix)
+isFixable predicate err =
+    case err.fixes of
         Just _ ->
             -- It's cheaper to check for fixes first and also quite likely to return Nothing
             -- so we do the fixes check first.
-            if predicate filePath then
-                fixes
+            if predicate { ruleName = err.ruleName, filePath = err.filePath, message = err.message, details = err.details, range = err.range } then
+                err.fixes
 
             else
                 Nothing
