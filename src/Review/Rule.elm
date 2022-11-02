@@ -4483,6 +4483,14 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
 
                 resultWhenNoFix : () -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
                 resultWhenNoFix () =
+                    { project = project
+                    , step = Dependencies { initial = contexts.initial, elmJson = contexts.elmJson, readme = outputContext }
+                    , cache = updateCache ()
+                    , fixedErrors = fixedErrors
+                    }
+
+                updateCache : () -> ProjectRuleCache projectContext
+                updateCache () =
                     let
                         readmeEntry : CacheEntryFor (Maybe { path : String, content : String }) projectContext
                         readmeEntry =
@@ -4492,29 +4500,25 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                             , outputContext = outputContext
                             }
                     in
-                    { project = project
-                    , step = Dependencies { initial = contexts.initial, elmJson = contexts.elmJson, readme = outputContext }
-                    , cache = { cache | readme = Just readmeEntry }
-                    , fixedErrors = fixedErrors
-                    }
+                    { cache | readme = Just readmeEntry }
             in
             case findFix reviewOptions projectVisitor.name project errors fixedErrors Nothing of
                 Just ( postFixStatus, fixResult ) ->
                     case postFixStatus of
                         ShouldAbort newFixedErrors ->
-                            { project = fixResult.project, step = Abort, cache = cache, fixedErrors = newFixedErrors }
+                            { project = fixResult.project, step = Abort, cache = updateCache (), fixedErrors = newFixedErrors }
 
                         ShouldContinue newFixedErrors ->
                             case fixResult.fixedFile of
                                 FixedElmJson ->
                                     { project = fixResult.project
                                     , step = ElmJson { initial = contexts.initial }
-                                    , cache = cache
+                                    , cache = updateCache ()
                                     , fixedErrors = newFixedErrors
                                     }
 
                                 FixedReadme ->
-                                    computeReadme dataToComputeProject fixResult.project contexts cache newFixedErrors
+                                    computeReadme dataToComputeProject fixResult.project contexts (updateCache ()) newFixedErrors
 
                                 FixedElmModule _ _ ->
                                     -- Not possible, users don't have the module key to provide fixes for an Elm module
