@@ -4584,6 +4584,14 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
 
                 resultWhenNoFix : () -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
                 resultWhenNoFix () =
+                    { project = project
+                    , step = modulesAsNextStep outputContext
+                    , cache = updateCache ()
+                    , fixedErrors = fixedErrors
+                    }
+
+                updateCache : () -> ProjectRuleCache projectContext
+                updateCache () =
                     let
                         dependenciesEntry : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
                         dependenciesEntry =
@@ -4593,31 +4601,27 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                             , outputContext = outputContext
                             }
                     in
-                    { project = project
-                    , step = modulesAsNextStep outputContext
-                    , cache = { cache | dependencies = Just dependenciesEntry }
-                    , fixedErrors = fixedErrors
-                    }
+                    { cache | dependencies = Just dependenciesEntry }
             in
             case findFix reviewOptions projectVisitor.name project errors fixedErrors Nothing of
                 Just ( postFixStatus, fixResult ) ->
                     case postFixStatus of
                         ShouldAbort newFixedErrors ->
-                            { project = fixResult.project, step = Abort, cache = cache, fixedErrors = newFixedErrors }
+                            { project = fixResult.project, step = Abort, cache = updateCache (), fixedErrors = newFixedErrors }
 
                         ShouldContinue newFixedErrors ->
                             case fixResult.fixedFile of
                                 FixedElmJson ->
                                     { project = fixResult.project
                                     , step = ElmJson { initial = contexts.initial }
-                                    , cache = cache
+                                    , cache = updateCache ()
                                     , fixedErrors = newFixedErrors
                                     }
 
                                 FixedReadme ->
                                     { project = fixResult.project
                                     , step = Readme { initial = contexts.initial, elmJson = contexts.elmJson }
-                                    , cache = cache
+                                    , cache = updateCache ()
                                     , fixedErrors = newFixedErrors
                                     }
 
