@@ -4392,19 +4392,9 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                 errors : List (Error {})
                 errors =
                     filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
-            in
-            case findFix reviewOptions projectVisitor.name project errors fixedErrors Nothing of
-                Just ( postFixStatus, fixResult ) ->
-                    case postFixStatus of
-                        ShouldAbort newFixedErrors ->
-                            { project = fixResult.project, step = Abort, cache = cache, fixedErrors = newFixedErrors }
 
-                        ShouldContinue newFixedErrors ->
-                            -- The only possible thing we can fix here is the `elm.json` file, so we don't need to check
-                            -- what the fixed file was.
-                            computeElmJson dataToComputeProject fixResult.project inputContext cache newFixedErrors
-
-                Nothing ->
+                updateCache : () -> ProjectRuleCache projectContext
+                updateCache () =
                     let
                         elmJsonEntry : CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext
                         elmJsonEntry =
@@ -4414,7 +4404,29 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                             , outputContext = outputContext
                             }
                     in
-                    { project = project, step = Readme { initial = inputContext, elmJson = outputContext }, cache = { cache | elmJson = Just elmJsonEntry }, fixedErrors = fixedErrors }
+                    { cache | elmJson = Just elmJsonEntry }
+            in
+            case findFix reviewOptions projectVisitor.name project errors fixedErrors Nothing of
+                Just ( postFixStatus, fixResult ) ->
+                    case postFixStatus of
+                        ShouldContinue newFixedErrors ->
+                            -- The only possible thing we can fix here is the `elm.json` file, so we don't need to check
+                            -- what the fixed file was.
+                            computeElmJson dataToComputeProject fixResult.project inputContext cache newFixedErrors
+
+                        ShouldAbort newFixedErrors ->
+                            { project = fixResult.project
+                            , step = Abort
+                            , cache = updateCache ()
+                            , fixedErrors = newFixedErrors
+                            }
+
+                Nothing ->
+                    { project = project
+                    , step = Readme { initial = inputContext, elmJson = outputContext }
+                    , cache = updateCache ()
+                    , fixedErrors = fixedErrors
+                    }
 
 
 computeReadme :
