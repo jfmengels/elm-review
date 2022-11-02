@@ -4661,7 +4661,6 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
                     Just ( postFixStatus, fixResult ) ->
                         let
                             ( newFixedErrors, step ) =
-                                -- Unnecessary to cache the final evaluation errors, since we'll end up with a different project context next time
                                 case postFixStatus of
                                     ShouldAbort newFixedErrors_ ->
                                         ( newFixedErrors_, Abort )
@@ -4680,7 +4679,7 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
                                         )
                         in
                         { project = fixResult.project
-                        , cache = cache
+                        , cache = { cache | finalEvaluationErrors = Just { inputContext = finalContext, errors = errors } }
                         , step = step
                         , fixedErrors = newFixedErrors
                         }
