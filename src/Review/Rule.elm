@@ -6143,30 +6143,24 @@ isInSourceDirectories (Metadata metadata) =
 -- LOGS
 
 
-startedRule : String -> String
+startedRule : String -> List ( String, Encode.Value )
 startedRule name =
-    Encode.object
-        [ ( "type", Encode.string "rule-start" )
-        , ( "ruleName", Encode.string name )
-        ]
-        |> Encode.encode 0
+    [ ( "type", Encode.string "rule-start" )
+    , ( "ruleName", Encode.string name )
+    ]
 
 
-endedRule : String -> String
+endedRule : String -> List ( String, Encode.Value )
 endedRule name =
-    Encode.object
-        [ ( "type", Encode.string "rule-end" )
-        , ( "ruleName", Encode.string name )
-        ]
-        |> Encode.encode 0
+    [ ( "type", Encode.string "rule-end" )
+    , ( "ruleName", Encode.string name )
+    ]
 
 
-fixedError : FixedErrors -> { ruleName : String, filePath : String } -> String
+fixedError : FixedErrors -> { ruleName : String, filePath : String } -> List ( String, Encode.Value )
 fixedError fixedErrors data =
-    Encode.object
-        [ ( "type", Encode.string "apply-fix" )
-        , ( "ruleName", Encode.string data.ruleName )
-        , ( "filePath", Encode.string data.filePath )
-        , ( "count", Encode.int (FixedErrors.count fixedErrors) )
-        ]
-        |> Encode.encode 0
+    [ ( "type", Encode.string "apply-fix" )
+    , ( "ruleName", Encode.string data.ruleName )
+    , ( "filePath", Encode.string data.filePath )
+    , ( "count", Encode.int (FixedErrors.count fixedErrors) )
+    ]

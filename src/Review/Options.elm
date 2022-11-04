@@ -24,6 +24,7 @@ process like the CLI.
 
 import Dict exposing (Dict)
 import Elm.Syntax.Range exposing (Range)
+import Json.Encode as Encode
 import Review.Logger as Logger
 import Review.Options.Internal as Internal exposing (ReviewOptionsInternal(..))
 
@@ -59,7 +60,7 @@ withDataExtraction extract (ReviewOptionsInternal reviewOptions) =
 
 {-| Add a logger.
 -}
-withLogger : Maybe (String -> String) -> ReviewOptions -> ReviewOptions
+withLogger : Maybe (List ( String, Encode.Value ) -> List ( String, Encode.Value )) -> ReviewOptions -> ReviewOptions
 withLogger maybeLogger (ReviewOptionsInternal reviewOptions) =
     ReviewOptionsInternal
         { reviewOptions
