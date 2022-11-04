@@ -4113,7 +4113,7 @@ runProjectVisitorHelp :
     -> FixedErrors
     -> ValidProject
     -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
-runProjectVisitorHelp ({ reviewOptions, projectVisitor, exceptions } as dataToComputeProject) initialCache initialFixedErrors initialProject =
+runProjectVisitorHelp ({ projectVisitor, exceptions } as dataToComputeProject) initialCache initialFixedErrors initialProject =
     let
         { project, errors, cache, fixedErrors } =
             computeStepsForProject
