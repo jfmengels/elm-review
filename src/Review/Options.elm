@@ -87,21 +87,29 @@ withIgnoredFixes ignoreFix (ReviewOptionsInternal reviewOptions) =
     ReviewOptionsInternal { reviewOptions | ignoreFix = ignoreFix }
 
 
+{-| Represents whether `elm-review` should apply fixes found in the reported errors.
+-}
 type alias FixMode =
     Internal.FixMode
 
 
-fixesEnabledWithoutLimits : Internal.FixMode
+{-| Apply the fixes for every error whenever possible.
+-}
+fixesEnabledWithoutLimits : FixMode
 fixesEnabledWithoutLimits =
     Internal.Enabled Nothing
 
 
-fixesEnabledWithLimit : Int -> Internal.FixMode
+{-| Apply the fixes for every error whenever possible, but abort the whole review process once a number of errors have been fixed.
+-}
+fixesEnabledWithLimit : Int -> FixMode
 fixesEnabledWithLimit limit =
     Internal.Enabled (Just limit)
 
 
-fixedDisabled : Internal.FixMode
+{-| Don't apply fixes.
+-}
+fixedDisabled : FixMode
 fixedDisabled =
     Internal.Disabled
 
