@@ -6145,15 +6145,15 @@ isInSourceDirectories (Metadata metadata) =
 
 startedRule : String -> List ( String, Encode.Value )
 startedRule name =
-    [ ( "type", Encode.string "rule-start" )
-    , ( "ruleName", Encode.string name )
+    [ ( "type", Encode.string "timer-start" )
+    , ( "metric", Encode.string ("Running " ++ name) )
     ]
 
 
 endedRule : String -> List ( String, Encode.Value )
 endedRule name =
-    [ ( "type", Encode.string "rule-end" )
-    , ( "ruleName", Encode.string name )
+    [ ( "type", Encode.string "timer-end" )
+    , ( "metric", Encode.string ("Running " ++ name) )
     ]
 
 
