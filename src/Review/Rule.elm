@@ -23,7 +23,7 @@ module Review.Rule exposing
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , withDataExtractor, preventExtract
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
-    , reviewV3, reviewV2, review, ProjectData, ruleName, ruleExtractsData, ruleProvidesFixes, getConfigurationError
+    , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, getConfigurationError
     , Required, Forbidden
     )
 
@@ -275,7 +275,7 @@ reason or seemingly inappropriately.
 
 # Running rules
 
-@docs reviewV3, reviewV2, review, ProjectData, ruleName, ruleExtractsData, ruleProvidesFixes, getConfigurationError
+@docs reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, getConfigurationError
 
 
 # Internals
@@ -833,17 +833,6 @@ You should not have to use this when writing a rule.
 ruleName : Rule -> String
 ruleName (Rule rule) =
     rule.name
-
-
-{-| Indicates whether the rule has a data extractor.
-
-You should not have to use this when writing a rule.
-
--}
-ruleExtractsData : Rule -> Bool
-ruleExtractsData (Rule rule) =
-    -- TODO Breaking change: This should be an internal detail, not shown to the user
-    rule.extractsData
 
 
 {-| Indicates whether the rule provides fixes.

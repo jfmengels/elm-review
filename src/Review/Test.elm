@@ -181,9 +181,8 @@ type alias CodeInspector =
     }
 
 
-type ExtractResult
-    = RuleHasNoExtractor
-    | Extracted (Maybe Encode.Value)
+type alias ExtractResult =
+    Maybe Encode.Value
 
 
 {-| An expectation for an error. Use [`error`](#error) to create one.
@@ -434,11 +433,7 @@ runOnModulesWithProjectDataHelp project rule sources =
 
                             extract : ExtractResult
                             extract =
-                                if Rule.ruleExtractsData rule then
-                                    Extracted (Dict.get (Rule.ruleName rule) extracts)
-
-                                else
-                                    RuleHasNoExtractor
+                                Dict.get (Rule.ruleName rule) extracts
                         in
                         case ListExtra.find (\err -> Rule.errorTarget err == Error.Global) errors of
                             Just globalError_ ->
@@ -1581,13 +1576,10 @@ expectConfigurationErrorDetailsMatch expectedError configurationError =
 expectNoDataExtract : ExtractResult -> Expectation
 expectNoDataExtract maybeExtract =
     case maybeExtract of
-        Extracted (Just _) ->
+        Just _ ->
             Expect.fail FailureMessage.needToUsedExpectErrorsForModules
 
-        Extracted Nothing ->
-            Expect.pass
-
-        RuleHasNoExtractor ->
+        Nothing ->
             Expect.pass
 
 
@@ -1637,13 +1629,10 @@ expectDataExtract expectedExtract reviewResult =
 expectDataExtractContent : String -> ExtractResult -> Expectation
 expectDataExtractContent rawExpected maybeActualExtract =
     case maybeActualExtract of
-        RuleHasNoExtractor ->
+        Nothing ->
             Expect.fail FailureMessage.missingExtract
 
-        Extracted Nothing ->
-            Expect.fail FailureMessage.missingExtract
-
-        Extracted (Just actual) ->
+        Just actual ->
             case Decode.decodeString Decode.value rawExpected of
                 Err parsingError ->
                     Expect.fail (FailureMessage.invalidJsonForExpectedDataExtract parsingError)
