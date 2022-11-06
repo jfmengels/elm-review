@@ -21,8 +21,8 @@ module Review.Rule exposing
     , Error, error, errorWithFix, ModuleKey, errorForModule, errorForModuleWithFix, ElmJsonKey, errorForElmJson, errorForElmJsonWithFix, ReadmeKey, errorForReadme, errorForReadmeWithFix
     , globalError, configurationError
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
-    , withDataExtractor, preventExtract
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
+    , withDataExtractor, preventExtract
     , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, getConfigurationError
     , Required, Forbidden
     )
@@ -247,11 +247,6 @@ first, as they are in practice a simpler version of project rules.
 @docs ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
 
 
-## Extract information
-
-@docs withDataExtractor, preventExtract
-
-
 ## Configuring exceptions
 
 There are situations where you don't want review rules to report errors:
@@ -271,6 +266,20 @@ communicate with your colleagues if you see them adding exceptions without
 reason or seemingly inappropriately.
 
 @docs ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
+
+
+## Extract information
+
+As you might have seen so far, `elm-review` has quite a nice way of traversing the files of a project and collecting data.
+
+While you have only seen the tool be used to report errors, you can also use it to extract information from
+the codebase. You can use this to gain insight into your codebase, or provide information to other tools to enable
+powerful integrations.
+
+You can read more about how to use this in [_Extract information_ in the README](./#extract-information), and you can
+find the tools to extract data below.
+
+@docs withDataExtractor, preventExtract
 
 
 # Running rules
@@ -1932,7 +1941,35 @@ type Extract
     = Extract Encode.Value
 
 
-{-| Extract data from `elm-review`.
+{-| Extract arbitrary data from the codebase, which can be accessed by running
+
+```bash
+elm-review --report=json --extract
+```
+
+and by reading the value at `<output>.extracts["YourRuleName"]` in the output.
+
+    import Json.Encode
+    import Review.Rule as Rule exposing (Rule)
+
+    rule : Rule
+    rule =
+        Rule.newProjectRuleSchema "Some.Rule.Name" initialContext
+            -- visitors to collect information...
+            |> Rule.withDataExtractor dataExtractor
+            |> Rule.fromProjectRuleSchema
+
+    dataExtractor : ProjectContext -> Encode.Value
+    dataExtractor projectContext =
+        Json.Encode.list
+            (\thing ->
+                Json.Encode.object
+                    [ ( "name", Json.Encode.string thing.name )
+                    , ( "value", Json.Encode.int thing.value )
+                    ]
+            )
+            projectContext.things
+
 -}
 withDataExtractor :
     (projectContext -> Encode.Value)
@@ -3289,14 +3326,12 @@ type Error scope
 Use this if the rule extracts data and an issue is discovered that would make the extraction
 output incorrect data.
 
-    error : Error {}
-    error =
-        Rule.error
-            { message = "..."
-            , details = [ "..." ]
-            }
-            (Node.range node)
-            |> Rule.preventExtract
+    Rule.error
+        { message = "..."
+        , details = [ "..." ]
+        }
+        (Node.range node)
+        |> Rule.preventExtract
 
 -}
 preventExtract : Error a -> Error a

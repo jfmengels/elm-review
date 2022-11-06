@@ -270,3 +270,36 @@ the feature.
 
 Note that to avoid uncommitted suppression files in your project's main branch, it is recommended to use
 `elm-review suppress --check-after-tests` at the end of your test suite.
+
+
+## Extract information
+
+`elm-review` has quite a nice way of traversing the files of a project and collecting data, especially when things
+aren't as simple as grepping or applying a regex on the code.
+
+While the tool is mainly designed around reporting issues, you can also use it to extract information from
+the codebase. You can use this to gain insight into your codebase, or provide information to other tools to enable
+powerful integrations.
+
+To make use of this feature, run `elm-review --extract --report=json` with a configuration containing a rule that uses
+[`Rule.withDataExtractor`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.9.2/Review-Rule#withDataExtractor)
+
+The result for a rule will be stored under `<json>.extracts.<YourRuleName>`. To access it, you can then pipe the result
+into either a `Node.js` script, a tool that expects JSON, or [`jq`](https://stedolan.github.io/jq/) as in the example below.
+
+```bash
+elm-review --extract --report=json |
+    jq -r '.extracts["YourRuleName"]'
+
+# or to be slightly faster
+elm-review --extract --report=json --rules YourRuleName |
+    jq -r '.extracts["YourRuleName"]'
+```
+
+Combine the above out with `--watch` for fast feedback when editing your code!
+
+```bash
+elm-review --report=json --extract
+```
+
+and by reading the value at `<output>.extracts["YourRuleName"]` in the output.
