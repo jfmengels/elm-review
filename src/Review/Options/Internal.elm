@@ -24,15 +24,18 @@ type FixMode
     | Enabled (Maybe Int)
 
 
-shouldApplyFix : String -> ReviewOptionsData -> Maybe ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool)
-shouldApplyFix ruleName reviewOptionsData =
+shouldApplyFix : { a | name : String, providesFixes : Bool } -> ReviewOptionsData -> Maybe ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool)
+shouldApplyFix projectVisitor reviewOptionsData =
     case reviewOptionsData.fixMode of
         Enabled _ ->
-            if Dict.isEmpty reviewOptionsData.suppressions then
+            if not projectVisitor.providesFixes then
+                Nothing
+
+            else if Dict.isEmpty reviewOptionsData.suppressions then
                 Just (\err -> not (reviewOptionsData.ignoreFix err))
 
             else
-                Just (\err -> not (Dict.member ( ruleName, err.filePath ) reviewOptionsData.suppressions) && not (reviewOptionsData.ignoreFix err))
+                Just (\err -> not (Dict.member ( projectVisitor.name, err.filePath ) reviewOptionsData.suppressions) && not (reviewOptionsData.ignoreFix err))
 
         Disabled ->
             Nothing

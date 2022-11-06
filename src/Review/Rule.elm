@@ -4395,7 +4395,7 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                     in
                     { cache | elmJson = Just elmJsonEntry }
             in
-            case findFix reviewOptions projectVisitor.name project errors fixedErrors Nothing of
+            case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
                 Just ( postFixStatus, fixResult ) ->
                     case postFixStatus of
                         ShouldContinue newFixedErrors ->
@@ -4491,7 +4491,7 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                     in
                     { cache | readme = Just readmeEntry }
             in
-            case findFix reviewOptions projectVisitor.name project errors fixedErrors Nothing of
+            case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
                 Just ( postFixStatus, fixResult ) ->
                     case postFixStatus of
                         ShouldAbort newFixedErrors ->
@@ -4592,7 +4592,7 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                     in
                     { cache | dependencies = Just dependenciesEntry }
             in
-            case findFix reviewOptions projectVisitor.name project errors fixedErrors Nothing of
+            case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
                 Just ( postFixStatus, fixResult ) ->
                     case postFixStatus of
                         ShouldAbort newFixedErrors ->
@@ -4666,7 +4666,7 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
                         , fixedErrors = fixedErrors
                         }
                 in
-                case findFix reviewOptions projectVisitor.name project errors fixedErrors Nothing of
+                case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
                     Just ( postFixStatus, fixResult ) ->
                         let
                             ( newFixedErrors, step ) =
@@ -4820,7 +4820,7 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
             , fixedErrors = fixedErrors
             }
     in
-    case findFix dataToComputeModules.reviewOptions dataToComputeModules.projectVisitor.name newProject errors fixedErrors (Just moduleZipper) of
+    case findFix dataToComputeModules.reviewOptions dataToComputeModules.projectVisitor newProject errors fixedErrors (Just moduleZipper) of
         Just ( postFixStatus, fixResult ) ->
             case postFixStatus of
                 ShouldAbort newFixedErrors ->
@@ -5063,9 +5063,9 @@ type PostFixStatus
     | ShouldContinue FixedErrors
 
 
-findFix : ReviewOptionsData -> String -> ValidProject -> List (Error a) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext ModuleName ())) -> Maybe ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
-findFix reviewOptions ruleName_ project errors fixedErrors maybeModuleZipper =
-    InternalOptions.shouldApplyFix ruleName_ reviewOptions
+findFix : ReviewOptionsData -> RunnableProjectVisitor projectContext moduleContext -> ValidProject -> List (Error a) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext ModuleName ())) -> Maybe ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
+findFix reviewOptions projectVisitor project errors fixedErrors maybeModuleZipper =
+    InternalOptions.shouldApplyFix projectVisitor reviewOptions
         |> Maybe.andThen (\fixablePredicate -> findFixHelp project fixablePredicate errors maybeModuleZipper)
         |> Maybe.map
             (\fixResult ->
@@ -5081,7 +5081,7 @@ findFix reviewOptions ruleName_ project errors fixedErrors maybeModuleZipper =
                     ( ShouldContinue newFixedErrors, fixResult )
                         |> Logger.log
                             reviewOptions.logger
-                            (fixedError newFixedErrors { ruleName = ruleName_, filePath = errorFilePath fixResult.error })
+                            (fixedError newFixedErrors { ruleName = projectVisitor.name, filePath = errorFilePath fixResult.error })
             )
 
 
