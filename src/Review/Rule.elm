@@ -1239,11 +1239,16 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     , projectVisitor = fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema
                     , exceptions = exceptions
                     }
-                    emptyCache
+                    (initialCacheMarker schema.name emptyCache)
                     fixedErrors
                     project
         , configurationError = Nothing
         }
+
+
+initialCacheMarker : String -> ProjectRuleCache projectContext -> ProjectRuleCache projectContext
+initialCacheMarker name cache =
+    cache
 
 
 emptyCache : ProjectRuleCache projectContext
@@ -4172,8 +4177,13 @@ runProjectVisitorHelp ({ projectVisitor, exceptions } as dataToComputeProject) i
             , configurationError = Nothing
             }
     , project = project
-    , extract = Maybe.map .extract cache.extract
+    , extract = Maybe.map .extract (finalCacheMarker projectVisitor.name cache).extract
     }
+
+
+finalCacheMarker : String -> ProjectRuleCache projectContext -> ProjectRuleCache projectContext
+finalCacheMarker name cache =
+    cache
 
 
 computeExtract :
