@@ -1,5 +1,37 @@
 # Changelog
 
+## [2.10.0] - 2022-11-08
+
+### Faster fixes
+
+Includes a large rework of the internals to include fixes (instead of in the CLI) which results in much faster fixes.
+See the [announcement blog post](https://jfmengels.net/much-faster-fixes/) on the topic.
+
+Breaking change (in the sense that tests will fail): Rules that provide fixes now have to indicate that they will do so,
+by using `Rule.providesFixesForModuleRule` or `Rule.providesFixesForProjectRule`.
+
+
+### Extract feature
+
+Rules can now include a "data extractor" using `Rule.withDataExtractor`, which allows you to extract information from a
+project if you run `elm-review --extract --report=json`. See the "Extract information" section in the README for more
+information.
+
+
+### New testing functions
+
+The testing API provided in `Review.Test` worked well, but in cases where you had to report multiple different things,
+for instance errors for modules + global errors, then you would have to switch to using `expectGlobalAndModuleErrors`.
+If you reported local errors + global errors, you would have to use `expectGlobalAndLocalErrors`, and so on.
+
+With the addition of data extracts, this approach would require a few new functions, because we'd need a combination of
+all the possible things a rule would report for any given test.
+
+Since this looked like a combinatorial explosion, we are now switching to a different approach. The two functions I just
+mentioned are now deprecated, and some new functions are introduced to replace them using a more flexible approach,
+center around the new `Review.Test.expect` function.
+
+
 ## [2.9.2] - 2022-10-12
 
 Bumps the dependency to [`elm-explorations/test`](https://package.elm-lang.org/packages/elm-explorations/test/latest/) to v2.
@@ -65,6 +97,7 @@ Help would be appreciated to fill the blanks!
 
 [`NoDeprecated`]: (https://package.elm-lang.org/packages/jfmengels/elm-review-common/latest/NoDeprecated)
 
+[2.10.0]: https://github.com/jfmengels/elm-review/releases/tag/2.10.0
 [2.9.2]: https://github.com/jfmengels/elm-review/releases/tag/2.9.2
 [2.9.1]: https://github.com/jfmengels/elm-review/releases/tag/2.9.1
 [2.9.0]: https://github.com/jfmengels/elm-review/releases/tag/2.9.0
