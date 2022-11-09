@@ -4104,11 +4104,7 @@ type alias CacheEntry projectContext =
 
 
 type alias CacheEntryMaybe projectContext =
-    { contentHash : Maybe ContentHash
-    , inputContext : projectContext
-    , errors : List (Error {})
-    , outputContext : projectContext
-    }
+    Cache.EntryMaybe (Error {}) projectContext
 
 
 type alias FinalProjectEvaluationCache projectContext =
@@ -4247,9 +4243,9 @@ errorsFromCache : ProjectRuleCache projectContext -> List (Error {})
 errorsFromCache cache =
     List.concat
         [ Dict.foldl (\_ cacheEntry acc -> List.append (Cache.errors cacheEntry) acc) [] cache.moduleContexts
-        , Maybe.map .errors cache.elmJson |> Maybe.withDefault []
-        , Maybe.map .errors cache.readme |> Maybe.withDefault []
-        , Maybe.map .errors cache.dependencies |> Maybe.withDefault []
+        , Cache.errorsMaybe cache.elmJson
+        , Cache.errorsMaybe cache.readme
+        , Cache.errorsMaybe cache.dependencies
         , Maybe.map .errors cache.finalEvaluationErrors |> Maybe.withDefault []
         ]
 
@@ -4397,11 +4393,11 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
     let
         cachePredicate : CacheEntryMaybe projectContext -> Bool
         cachePredicate elmJson =
-            elmJson.contentHash == ValidProject.elmJsonHash project
+            Cache.matchMaybe (ValidProject.elmJsonHash project) (ContextHash.create inputContext) elmJson
     in
     case reuseProjectRuleCache cachePredicate .elmJson cache of
         Just entry ->
-            { project = project, step = Readme { initial = inputContext, elmJson = entry.outputContext }, cache = cache, fixedErrors = fixedErrors }
+            { project = project, step = Readme { initial = inputContext, elmJson = Cache.outputContextMaybe entry }, cache = cache, fixedErrors = fixedErrors }
 
         Nothing ->
             let
@@ -4432,11 +4428,12 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                     let
                         elmJsonEntry : CacheEntryMaybe projectContext
                         elmJsonEntry =
-                            { contentHash = ValidProject.elmJsonHash project
-                            , errors = errors
-                            , inputContext = inputContext
-                            , outputContext = outputContext
-                            }
+                            Cache.createEntryMaybe
+                                { contentHash = ValidProject.elmJsonHash project
+                                , errors = errors
+                                , inputContext = inputContext
+                                , outputContext = outputContext
+                                }
                     in
                     { cache | elmJson = Just elmJsonEntry }
             in
@@ -4477,16 +4474,13 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
             contexts.elmJson
 
         cachePredicate : CacheEntryMaybe projectContext -> Bool
-        cachePredicate readme =
-            -- If the previous context stayed the same
-            (readme.inputContext == inputContext)
-                -- and the readme stayed the same
-                && ContentHash.areEqualForMaybe readme.contentHash (ValidProject.readmeHash project)
+        cachePredicate entry =
+            Cache.matchMaybe (ValidProject.readmeHash project) (ContextHash.create inputContext) entry
     in
     case reuseProjectRuleCache cachePredicate .readme cache of
         Just entry ->
             { project = project
-            , step = Dependencies { initial = contexts.initial, elmJson = contexts.elmJson, readme = entry.outputContext }
+            , step = Dependencies { initial = contexts.initial, elmJson = contexts.elmJson, readme = Cache.outputContextMaybe entry }
             , cache = cache
             , fixedErrors = fixedErrors
             }
@@ -4528,11 +4522,12 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                     let
                         readmeEntry : CacheEntryMaybe projectContext
                         readmeEntry =
-                            { contentHash = ValidProject.readmeHash project
-                            , errors = errors
-                            , inputContext = inputContext
-                            , outputContext = outputContext
-                            }
+                            Cache.createEntryMaybe
+                                { contentHash = ValidProject.readmeHash project
+                                , errors = errors
+                                , inputContext = inputContext
+                                , outputContext = outputContext
+                                }
                     in
                     { cache | readme = Just readmeEntry }
             in
@@ -4576,11 +4571,8 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
             contexts.readme
 
         cachePredicate : CacheEntryMaybe projectContext -> Bool
-        cachePredicate deps =
-            -- If the previous context stayed the same
-            (deps.inputContext == inputContext)
-                -- and the dependencies stayed the same
-                && (deps.contentHash == ValidProject.dependenciesHash project)
+        cachePredicate entry =
+            Cache.matchMaybe (ValidProject.dependenciesHash project) (ContextHash.create inputContext) entry
 
         modulesAsNextStep : projectContext -> Step projectContext
         modulesAsNextStep projectContext =
@@ -4590,7 +4582,7 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
     in
     case reuseProjectRuleCache cachePredicate .dependencies cache of
         Just entry ->
-            { project = project, step = modulesAsNextStep entry.outputContext, cache = cache, fixedErrors = fixedErrors }
+            { project = project, step = modulesAsNextStep (Cache.outputContextMaybe entry), cache = cache, fixedErrors = fixedErrors }
 
         Nothing ->
             let
@@ -4629,11 +4621,12 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                     let
                         dependenciesEntry : CacheEntryMaybe projectContext
                         dependenciesEntry =
-                            { contentHash = ValidProject.dependenciesHash project
-                            , errors = errors
-                            , inputContext = inputContext
-                            , outputContext = outputContext
-                            }
+                            Cache.createEntryMaybe
+                                { contentHash = ValidProject.dependenciesHash project
+                                , errors = errors
+                                , inputContext = inputContext
+                                , outputContext = outputContext
+                                }
                     in
                     { cache | dependencies = Just dependenciesEntry }
             in
