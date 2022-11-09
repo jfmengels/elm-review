@@ -1,4 +1,4 @@
-module Review.Cache exposing (Entry, EntryMaybe, createEntry, createEntryMaybe, errors, errorsMaybe, match, matchMaybe, outputContext, outputContextMaybe)
+module Review.Cache exposing (Entry, EntryMaybe, EntryNoOutputContext, createEntry, createEntryMaybe, createNoOutput, errors, errorsMaybe, match, matchMaybe, matchNoOutput, outputContext, outputContextMaybe, outputForNoOutput)
 
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash as ContextHash exposing (ContextHash)
@@ -45,10 +45,8 @@ match contentHash context (Entry entry) =
         && (context == entry.inputContext)
 
 
-
---- Variant where the content may be absent
-
-
+{-| Variant where the content may be absent
+-}
 type EntryMaybe error context
     = EntryMaybe
         { contentHash : Maybe ContentHash
@@ -93,3 +91,30 @@ matchMaybe : Maybe ContentHash -> ContextHash context -> EntryMaybe error contex
 matchMaybe contentHash context (EntryMaybe entry) =
     ContentHash.areEqualForMaybe contentHash entry.contentHash
         && (context == entry.inputContext)
+
+
+{-| Variant for final operations like the final evaluation or the extract
+-}
+type EntryNoOutputContext output context
+    = EntryNoOutputContext
+        { context : ContextHash context
+        , output : output
+        }
+
+
+createNoOutput : context -> output -> EntryNoOutputContext output context
+createNoOutput inputContext output =
+    EntryNoOutputContext
+        { context = ContextHash.create inputContext
+        , output = output
+        }
+
+
+matchNoOutput : ContextHash context -> EntryNoOutputContext error context -> Bool
+matchNoOutput context (EntryNoOutputContext entry) =
+    context == entry.context
+
+
+outputForNoOutput : EntryNoOutputContext output context -> output
+outputForNoOutput (EntryNoOutputContext entry) =
+    entry.output
