@@ -1,6 +1,6 @@
-module Review.Cache exposing (Entry, createEntry, errors, outputContext)
+module Review.Cache exposing (Entry, Key, createEntry, errors, match, outputContext)
 
-import Review.Project.CacheHash exposing (CacheHash)
+import Review.Project.CacheHash as CacheHash exposing (CacheHash)
 
 
 type alias Entry error projectContext =
@@ -30,3 +30,15 @@ outputContext entry =
 errors : Entry error projectContext -> List error
 errors entry =
     entry.errors
+
+
+type alias Key projectContext =
+    { cacheHash : CacheHash
+    , context : projectContext
+    }
+
+
+match : CacheHash -> projectContext -> Entry error projectContext -> Bool
+match cacheHash context entry =
+    CacheHash.areEqual cacheHash entry.cacheHash
+        && (context == entry.inputContext)
