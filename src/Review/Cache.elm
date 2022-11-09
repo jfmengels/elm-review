@@ -3,12 +3,13 @@ module Review.Cache exposing (Entry, Key, createEntry, errors, match, outputCont
 import Review.Project.CacheHash as CacheHash exposing (CacheHash)
 
 
-type alias Entry error projectContext =
-    { cacheHash : CacheHash
-    , inputContext : projectContext
-    , errors : List error
-    , outputContext : projectContext
-    }
+type Entry error projectContext
+    = Entry
+        { cacheHash : CacheHash
+        , inputContext : projectContext
+        , errors : List error
+        , outputContext : projectContext
+        }
 
 
 createEntry :
@@ -19,16 +20,16 @@ createEntry :
     }
     -> Entry error projectContext
 createEntry entry =
-    entry
+    Entry entry
 
 
 outputContext : Entry error projectContext -> projectContext
-outputContext entry =
+outputContext (Entry entry) =
     entry.outputContext
 
 
 errors : Entry error projectContext -> List error
-errors entry =
+errors (Entry entry) =
     entry.errors
 
 
@@ -39,6 +40,6 @@ type alias Key projectContext =
 
 
 match : CacheHash -> projectContext -> Entry error projectContext -> Bool
-match cacheHash context entry =
+match cacheHash context (Entry entry) =
     CacheHash.areEqual cacheHash entry.cacheHash
         && (context == entry.inputContext)
