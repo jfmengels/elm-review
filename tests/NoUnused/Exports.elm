@@ -26,6 +26,7 @@ import List.Extra
 import NoUnused.LamderaSupport as LamderaSupport
 import Review.Fix as Fix
 import Review.ModuleNameLookupTable as ModuleNameLookupTable exposing (ModuleNameLookupTable)
+import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Rule as Rule exposing (Error, Rule)
 import Set exposing (Set)
 
@@ -63,6 +64,7 @@ rule =
             , foldProjectContexts = foldProjectContexts
             }
         |> Rule.withElmJsonProjectVisitor (\elmJson context -> ( [], elmJsonVisitor elmJson context ))
+        |> Rule.withDirectDependenciesProjectVisitor (\dependencies context -> ( [], dependenciesVisitor dependencies context ))
         |> Rule.withFinalProjectEvaluation finalEvaluationForProject
         |> Rule.providesFixesForProjectRule
         |> Rule.fromProjectRuleSchema
@@ -82,6 +84,7 @@ moduleVisitor schema =
 
 type alias ProjectContext =
     { projectType : ProjectType
+    , dependencyModules : Set ModuleName
     , modules :
         Dict
             ModuleName
@@ -120,6 +123,7 @@ type ExposedElementType
 
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
+    , dependencyModules : Set ModuleName
     , exposed : Dict String ExposedElement
     , used : Set ( ModuleName, String )
     , elementsNotToReport : Set String
@@ -132,6 +136,7 @@ type alias ModuleContext =
 initialProjectContext : ProjectContext
 initialProjectContext =
     { projectType = IsApplication ElmApplication
+    , dependencyModules = Set.empty
     , modules = Dict.empty
     , usedModules = Set.singleton [ "ReviewConfig" ]
     , used = Set.empty
@@ -154,6 +159,7 @@ fromProjectToModule =
                             collectExposedElements moduleDocumentation explicitlyExposed ast.declarations
             in
             { lookupTable = lookupTable
+            , dependencyModules = projectContext.dependencyModules
             , exposed = exposed
             , used = Set.empty
             , elementsNotToReport = Set.empty
@@ -172,6 +178,7 @@ fromModuleToProject =
     Rule.initContextCreator
         (\moduleKey (Node moduleNameRange moduleName) moduleContext ->
             { projectType = IsApplication ElmApplication
+            , dependencyModules = Set.empty
             , modules =
                 Dict.singleton
                     moduleName
@@ -214,6 +221,7 @@ fromModuleToProject =
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts newContext previousContext =
     { projectType = previousContext.projectType
+    , dependencyModules = previousContext.dependencyModules
     , modules = Dict.union newContext.modules previousContext.modules
     , usedModules = Set.union newContext.usedModules previousContext.usedModules
     , used = Set.union newContext.used previousContext.used
@@ -269,6 +277,18 @@ elmJsonVisitor maybeProject projectContext =
 
         Nothing ->
             { projectContext | projectType = IsApplication ElmApplication }
+
+
+dependenciesVisitor : Dict String Dependency -> ProjectContext -> ProjectContext
+dependenciesVisitor dependencies projectContext =
+    { projectContext
+        | dependencyModules =
+            dependencies
+                |> Dict.values
+                |> List.concatMap Dependency.modules
+                |> List.map (.name >> String.split ".")
+                |> Set.fromList
+    }
 
 
 
