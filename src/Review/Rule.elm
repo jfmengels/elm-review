@@ -4229,7 +4229,7 @@ computeFinalContext projectVisitor cache projectContext =
     case getFolderFromTraversal projectVisitor.traversalAndFolder of
         Just { foldProjectContexts } ->
             Dict.foldl
-                (\_ cacheEntry acc -> foldProjectContexts cacheEntry.outputContext acc)
+                (\_ cacheEntry acc -> foldProjectContexts (Cache.outputContext cacheEntry) acc)
                 projectContext
                 cache.moduleContexts
 
@@ -4844,17 +4844,18 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
 
         analysis : () -> CacheEntry projectContext
         analysis () =
-            { cacheHash = module_.cacheHash
-            , errors = errors
-            , inputContext = projectContext
-            , outputContext =
-                case getFolderFromTraversal dataToComputeModules.projectVisitor.traversalAndFolder of
-                    Just { fromModuleToProject } ->
-                        applyContextCreator availableData fromModuleToProject resultModuleContext
+            Cache.createEntry
+                { cacheHash = module_.cacheHash
+                , errors = errors
+                , inputContext = projectContext
+                , outputContext =
+                    case getFolderFromTraversal dataToComputeModules.projectVisitor.traversalAndFolder of
+                        Just { fromModuleToProject } ->
+                            applyContextCreator availableData fromModuleToProject resultModuleContext
 
-                    Nothing ->
-                        projectContext
-            }
+                        Nothing ->
+                            projectContext
+                }
 
         resultWhenNoFix : () -> { project : ValidProject, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
         resultWhenNoFix () =
@@ -5006,7 +5007,7 @@ computeProjectContext traversalAndFolder project cache incoming initial =
                             |> Maybe.andThen (\graphModule -> Dict.get graphModule.node.label cache)
                     of
                         Just importedModuleCache ->
-                            foldProjectContexts importedModuleCache.outputContext accContext
+                            foldProjectContexts (Cache.outputContext importedModuleCache) accContext
 
                         Nothing ->
                             accContext
@@ -5046,7 +5047,7 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                     projectContext =
                         computeProjectContext dataToComputeModules.projectVisitor.traversalAndFolder project moduleContexts incoming inputProjectContext
                 in
-                if reuseCache (\cacheEntry -> CacheHash.areEqual cacheEntry.cacheHash module_.cacheHash && cacheEntry.inputContext == projectContext) (Dict.get module_.path moduleContexts) then
+                if reuseCache (\cacheEntry -> Cache.match module_.cacheHash projectContext cacheEntry) (Dict.get module_.path moduleContexts) then
                     ignoreModule ()
 
                 else
