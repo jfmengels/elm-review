@@ -307,6 +307,7 @@ import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
 import Json.Encode as Encode
+import Review.Cache as Cache
 import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
@@ -4098,11 +4099,7 @@ type alias GraphModule =
 
 
 type alias CacheEntry projectContext =
-    { cacheHash : CacheHash
-    , inputContext : projectContext
-    , errors : List (Error {})
-    , outputContext : projectContext
-    }
+    Cache.Entry (Error {}) projectContext
 
 
 type alias CacheEntryMaybe projectContext =
