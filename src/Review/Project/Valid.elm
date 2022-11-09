@@ -4,14 +4,17 @@ module Review.Project.Valid exposing
     , addParsedModule
     , addReadme
     , dependencies
+    , dependenciesHash
     , directDependencies
     , elmJson
+    , elmJsonHash
     , getModuleByPath
     , moduleGraph
     , moduleZipper
     , parse
     , projectCache
     , readme
+    , readmeHash
     , toRegularProject
     , updateProjectCache
     )
@@ -285,14 +288,30 @@ elmJson (ValidProject project) =
     Maybe.map Tuple.first project.elmJson
 
 
+elmJsonHash : ValidProject -> Maybe FileHash
+elmJsonHash (ValidProject project) =
+    Maybe.map Tuple.second project.elmJson
+
+
 readme : ValidProject -> Maybe { path : String, content : String }
 readme (ValidProject project) =
     Maybe.map Tuple.first project.readme
 
 
+readmeHash : ValidProject -> Maybe FileHash
+readmeHash (ValidProject project) =
+    Maybe.map Tuple.second project.readme
+
+
 dependencies : ValidProject -> Dict String Dependency
 dependencies (ValidProject project) =
     project.dependencies
+
+
+dependenciesHash : ValidProject -> Maybe FileHash
+dependenciesHash =
+    -- Re-using the elm.json hash because these 2 should always be in sync
+    elmJsonHash
 
 
 {-| Get the direct [dependencies](./Review-Project-Dependency#Dependency) of the project.
