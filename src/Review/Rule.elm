@@ -323,7 +323,7 @@ import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Options as ReviewOptions exposing (ReviewOptions)
 import Review.Options.Internal as InternalOptions exposing (ReviewOptionsData, ReviewOptionsInternal(..))
 import Review.Project exposing (ProjectModule)
-import Review.Project.CacheHash as CacheHash exposing (CacheHash)
+import Review.Project.ContentHash as ContentHash exposing (ContentHash)
 import Review.Project.Dependency
 import Review.Project.Internal exposing (Project)
 import Review.Project.InvalidProjectError as InvalidProjectError
@@ -4103,7 +4103,7 @@ type alias CacheEntry projectContext =
 
 
 type alias CacheEntryMaybe projectContext =
-    { cacheHash : Maybe CacheHash
+    { contentHash : Maybe ContentHash
     , inputContext : projectContext
     , errors : List (Error {})
     , outputContext : projectContext
@@ -4396,7 +4396,7 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
     let
         cachePredicate : CacheEntryMaybe projectContext -> Bool
         cachePredicate elmJson =
-            elmJson.cacheHash == ValidProject.elmJsonHash project
+            elmJson.contentHash == ValidProject.elmJsonHash project
     in
     case reuseProjectRuleCache cachePredicate .elmJson cache of
         Just entry ->
@@ -4431,7 +4431,7 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                     let
                         elmJsonEntry : CacheEntryMaybe projectContext
                         elmJsonEntry =
-                            { cacheHash = ValidProject.elmJsonHash project
+                            { contentHash = ValidProject.elmJsonHash project
                             , errors = errors
                             , inputContext = inputContext
                             , outputContext = outputContext
@@ -4480,7 +4480,7 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
             -- If the previous context stayed the same
             (readme.inputContext == inputContext)
                 -- and the readme stayed the same
-                && CacheHash.areEqualForMaybe readme.cacheHash (ValidProject.readmeHash project)
+                && ContentHash.areEqualForMaybe readme.contentHash (ValidProject.readmeHash project)
     in
     case reuseProjectRuleCache cachePredicate .readme cache of
         Just entry ->
@@ -4527,7 +4527,7 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                     let
                         readmeEntry : CacheEntryMaybe projectContext
                         readmeEntry =
-                            { cacheHash = ValidProject.readmeHash project
+                            { contentHash = ValidProject.readmeHash project
                             , errors = errors
                             , inputContext = inputContext
                             , outputContext = outputContext
@@ -4579,7 +4579,7 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
             -- If the previous context stayed the same
             (deps.inputContext == inputContext)
                 -- and the dependencies stayed the same
-                && (deps.cacheHash == ValidProject.dependenciesHash project)
+                && (deps.contentHash == ValidProject.dependenciesHash project)
 
         modulesAsNextStep : projectContext -> Step projectContext
         modulesAsNextStep projectContext =
@@ -4628,7 +4628,7 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                     let
                         dependenciesEntry : CacheEntryMaybe projectContext
                         dependenciesEntry =
-                            { cacheHash = ValidProject.dependenciesHash project
+                            { contentHash = ValidProject.dependenciesHash project
                             , errors = errors
                             , inputContext = inputContext
                             , outputContext = outputContext
@@ -4845,7 +4845,7 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
         analysis : () -> CacheEntry projectContext
         analysis () =
             Cache.createEntry
-                { cacheHash = module_.cacheHash
+                { contentHash = module_.contentHash
                 , errors = errors
                 , inputContext = projectContext
                 , outputContext =
@@ -5047,7 +5047,7 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                     projectContext =
                         computeProjectContext dataToComputeModules.projectVisitor.traversalAndFolder project moduleContexts incoming inputProjectContext
                 in
-                if reuseCache (\cacheEntry -> Cache.match module_.cacheHash projectContext cacheEntry) (Dict.get module_.path moduleContexts) then
+                if reuseCache (\cacheEntry -> Cache.match module_.contentHash projectContext cacheEntry) (Dict.get module_.path moduleContexts) then
                     ignoreModule ()
 
                 else
