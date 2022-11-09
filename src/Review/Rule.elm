@@ -323,6 +323,7 @@ import Review.Options as ReviewOptions exposing (ReviewOptions)
 import Review.Options.Internal as InternalOptions exposing (ReviewOptionsData, ReviewOptionsInternal(..))
 import Review.Project exposing (ProjectModule)
 import Review.Project.Dependency
+import Review.Project.FileHash as FileHash exposing (FileHash)
 import Review.Project.Internal exposing (Project)
 import Review.Project.InvalidProjectError as InvalidProjectError
 import Review.Project.Valid as ValidProject exposing (ValidProject)
@@ -4092,7 +4093,7 @@ type alias GraphModule =
 
 
 type alias CacheEntry projectContext =
-    { source : String
+    { fileHash : FileHash
     , errors : List (Error {})
     , inputContext : projectContext
     , outputContext : projectContext
@@ -4836,7 +4837,7 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
 
         analysis : () -> CacheEntry projectContext
         analysis () =
-            { source = module_.source
+            { fileHash = module_.fileHash
             , errors = errors
             , inputContext = projectContext
             , outputContext =
@@ -5038,7 +5039,7 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                     projectContext =
                         computeProjectContext dataToComputeModules.projectVisitor.traversalAndFolder project moduleContexts incoming inputProjectContext
                 in
-                if reuseCache (\cacheEntry -> cacheEntry.source == module_.source && cacheEntry.inputContext == projectContext) (Dict.get module_.path moduleContexts) then
+                if reuseCache (\cacheEntry -> FileHash.areEqual cacheEntry.fileHash module_.fileHash && cacheEntry.inputContext == projectContext) (Dict.get module_.path moduleContexts) then
                     ignoreModule ()
 
                 else
