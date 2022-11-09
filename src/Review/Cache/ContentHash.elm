@@ -1,4 +1,4 @@
-module Review.Project.ContentHash exposing (ContentHash, areEqual, areEqualForMaybe, hash)
+module Review.Cache.ContentHash exposing (ContentHash, areEqual, areEqualForMaybe, hash)
 
 import Vendor.Murmur3 as Murmur3
 
