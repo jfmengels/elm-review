@@ -47,8 +47,8 @@ import Elm.Project
 import Elm.Syntax.File
 import Path
 import Review.FileParser as FileParser
+import Review.Project.CacheHash as CacheHash
 import Review.Project.Dependency as Dependency exposing (Dependency)
-import Review.Project.FileHash as FileHash
 import Review.Project.Internal as Internal exposing (Project)
 import Review.Project.ProjectCache as ProjectCache
 import Review.Project.ProjectModule as ProjectModule
@@ -119,7 +119,7 @@ addModule { path, source } project =
                     { path = path
                     , source = source
                     , ast = ast
-                    , fileHash = FileHash.hash source
+                    , cacheHash = CacheHash.hash source
                     , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) (Internal.sourceDirectories project)
                     }
                 |> removeFileFromFilesThatFailedToParse path
@@ -150,7 +150,7 @@ addParsedModule { path, source, ast } project =
             { path = path
             , source = source
             , ast = ast
-            , fileHash = FileHash.hash source
+            , cacheHash = CacheHash.hash source
             , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) (Internal.sourceDirectories project)
             }
         |> forceModuleGraphRecomputation
@@ -255,7 +255,7 @@ addElmJson elmJson_ (Internal.Project project) =
     in
     Internal.Project
         { project
-            | elmJson = Just ( elmJson_, FileHash.hash elmJson_.raw )
+            | elmJson = Just ( elmJson_, CacheHash.hash elmJson_.raw )
             , sourceDirectories = sourceDirectories
             , modules = modules_
         }
@@ -285,7 +285,7 @@ available for rules to access using
 -}
 addReadme : { path : String, content : String } -> Project -> Project
 addReadme readme_ (Internal.Project project) =
-    Internal.Project { project | readme = Just ( readme_, FileHash.hash readme_.content ) }
+    Internal.Project { project | readme = Just ( readme_, CacheHash.hash readme_.content ) }
 
 
 {-| Get the contents of the `README.md` file, if available.

@@ -15,8 +15,8 @@ import Elm.Syntax.File
 import Elm.Syntax.Node exposing (Node(..))
 import Path
 import Review.FilePath exposing (FilePath)
+import Review.Project.CacheHash exposing (CacheHash)
 import Review.Project.Dependency exposing (Dependency)
-import Review.Project.FileHash exposing (FileHash)
 import Review.Project.ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule exposing (ProjectModule)
 import Vendor.Graph exposing (Graph)
@@ -26,8 +26,8 @@ type Project
     = Project
         { modules : Dict String ProjectModule
         , modulesThatFailedToParse : List { path : String, source : String }
-        , elmJson : Maybe ( { path : String, raw : String, project : Elm.Project.Project }, FileHash )
-        , readme : Maybe ( { path : String, content : String }, FileHash )
+        , elmJson : Maybe ( { path : String, raw : String, project : Elm.Project.Project }, CacheHash )
+        , readme : Maybe ( { path : String, content : String }, CacheHash )
         , dependencies : Dict String Dependency
         , moduleGraph : Maybe (Graph FilePath ())
         , sourceDirectories : List String
