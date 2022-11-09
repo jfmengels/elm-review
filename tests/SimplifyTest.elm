@@ -32,6 +32,7 @@ all =
         , parserTests
         , jsonDecodeTests
         , recordAccessTests
+        , letTests
         ]
 
 
@@ -1194,6 +1195,72 @@ a = case value of
 a = x
 """
                         ]
+        , test "should replace case expression that destructures a tuple by a let declaration" <|
+            \() ->
+                """module A exposing (..)
+a =
+    case value of
+        ( x, y ) ->
+            1
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use a let expression to destructure data"
+                            , details = [ "It is more idiomatic in Elm to use a let expression to define a new variable rather than to use pattern matching. This will also make the code less indented, therefore easier to read." ]
+                            , under = "( x, y )"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+    let ( x, y ) = value
+    in
+            1
+"""
+                        ]
+        , test "should replace case expression that destructures a record by a let declaration" <|
+            \() ->
+                """module A exposing (..)
+a =
+    case value of
+        { x, y } ->
+            1
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use a let expression to destructure data"
+                            , details = [ "It is more idiomatic in Elm to use a let expression to define a new variable rather than to use pattern matching. This will also make the code less indented, therefore easier to read." ]
+                            , under = "{ x, y }"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+    let { x, y } = value
+    in
+            1
+"""
+                        ]
+        , test "should replace case expression that destructures a variable by a let declaration" <|
+            \() ->
+                """module A exposing (..)
+a =
+    case value of
+        var ->
+            1
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Use a let expression to destructure data"
+                            , details = [ "It is more idiomatic in Elm to use a let expression to define a new variable rather than to use pattern matching. This will also make the code less indented, therefore easier to read." ]
+                            , under = "var"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+    let var = value
+    in
+            1
+"""
+                        ]
         ]
 
 
@@ -1500,6 +1567,22 @@ a = 0 - n
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = -n
+"""
+                        ]
+        , test "should simplify 0 - List.length list to -(List.length list)" <|
+            \() ->
+                """module A exposing (..)
+a = 0 - List.length list
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Unnecessary subtracting from 0"
+                            , details = [ "You can negate the expression on the right like `-n`." ]
+                            , under = "0 - "
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = -(List.length list)
 """
                         ]
         ]
@@ -10484,49 +10567,81 @@ a = d.c
         , test "should simplify record accesses for let/in expressions" <|
             \() ->
                 """module A exposing (..)
+a = (let b = c in { e = 3 }).e
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Field access can be simplified"
+                            , details = [ "Accessing the field outside a let/in expression can be simplified to access the field inside it" ]
+                            , under = ".e"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (let b = c in { e = 3 }.e)
+"""
+                        ]
+        , test "should simplify record accesses for let/in expressions, even if the leaf is not a record expression" <|
+            \() ->
+                """module A exposing (..)
 a = (let b = c in f x).e
 """
                     |> Review.Test.run (rule defaults)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Field access can be simplified"
-                            , details = [ "Accessing the field outside a let expression can be simplified to access the field inside it" ]
-                            , under = "(let b = c in f x).e"
+                            , details = [ "Accessing the field outside a let/in expression can be simplified to access the field inside it" ]
+                            , under = ".e"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = (let b = c in (f x).e)
 """
                         ]
-        , test "should simplify record accesses for let/in expressions in parentheses" <|
+        , test "should simplify record accesses for let/in expressions, even if the leaf is not a record expression, without adding unnecessary parentheses" <|
             \() ->
                 """module A exposing (..)
-a = (((let b = c in f x))).e
+a = (let b = c in x).e
 """
                     |> Review.Test.run (rule defaults)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Field access can be simplified"
-                            , details = [ "Accessing the field outside a let expression can be simplified to access the field inside it" ]
-                            , under = "(((let b = c in f x))).e"
+                            , details = [ "Accessing the field outside a let/in expression can be simplified to access the field inside it" ]
+                            , under = ".e"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (((let b = c in (f x).e)))
+a = (let b = c in x.e)
+"""
+                        ]
+        , test "should simplify record accesses for let/in expressions in parentheses" <|
+            \() ->
+                """module A exposing (..)
+a = (((let b = c in {e = 2}))).e
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Field access can be simplified"
+                            , details = [ "Accessing the field outside a let/in expression can be simplified to access the field inside it" ]
+                            , under = ".e"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (((let b = c in {e = 2}.e)))
 """
                         ]
         , test "should simplify nested record accesses for let/in expressions (inner)" <|
             \() ->
                 """module A exposing (..)
-a = (let b = c in f x).e.f
+a = (let b = c in { e = { f = 2 } }).e.f
 """
                     |> Review.Test.run (rule defaults)
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Field access can be simplified"
-                            , details = [ "Accessing the field outside a let expression can be simplified to access the field inside it" ]
-                            , under = "(let b = c in f x).e"
+                            , details = [ "Accessing the field outside a let/in expression can be simplified to access the field inside it" ]
+                            , under = ".e"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
-a = (let b = c in (f x).e).f
+a = (let b = c in { e = { f = 2 } }.e).f
 """
                         ]
         , test "should simplify nested record accesses for let/in expressions (outer)" <|
@@ -10538,11 +10653,156 @@ a = (let b = c in (f x).e).f
                     |> Review.Test.expectErrors
                         [ Review.Test.error
                             { message = "Field access can be simplified"
-                            , details = [ "Accessing the field outside a let expression can be simplified to access the field inside it" ]
-                            , under = "(let b = c in (f x).e).f"
+                            , details = [ "Accessing the field outside a let/in expression can be simplified to access the field inside it" ]
+                            , under = ".f"
                             }
                             |> Review.Test.whenFixed """module A exposing (..)
 a = (let b = c in (f x).e.f)
+"""
+                        ]
+        , test "should simplify record accesses for if/then/else expressions" <|
+            \() ->
+                """module A exposing (..)
+a = (if x then { f = 3 } else { z | f = 3 }).f
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Field access can be simplified"
+                            , details = [ "Accessing the field outside an if/then/else expression can be simplified to access the field inside it" ]
+                            , under = ".f"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (if x then { f = 3 }.f else { z | f = 3 }.f)
+"""
+                        ]
+        , test "should not simplify record accesses if some branches are not records" <|
+            \() ->
+                """module A exposing (..)
+a = (if x then a else { f = 3 }).f
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectNoErrors
+        , test "should simplify record accesses for nested if/then/else expressions" <|
+            \() ->
+                """module A exposing (..)
+a = (if x then { f = 3 } else if y then { z | f = 4 } else { z | f = 3 }).f
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Field access can be simplified"
+                            , details = [ "Accessing the field outside an if/then/else expression can be simplified to access the field inside it" ]
+                            , under = ".f"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (if x then { f = 3 }.f else if y then { z | f = 4 }.f else { z | f = 3 }.f)
+"""
+                        ]
+        , test "should simplify record accesses for mixed if/then/else and case expressions" <|
+            \() ->
+                """module A exposing (..)
+a = (if x then { f = 3 } else if y then {f = 2} else
+            case b of Nothing -> { f = 4 }
+                      Just _ -> { f = 5 }).f
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Field access can be simplified"
+                            , details = [ "Accessing the field outside an if/then/else expression can be simplified to access the field inside it" ]
+                            , under = ".f"
+                            }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a = (if x then { f = 3 }.f else if y then {f = 2}.f else
+            case b of Nothing -> { f = 4 }.f
+                      Just _ -> { f = 5 }.f)
+"""
+                        ]
+        ]
+
+
+letTests : Test
+letTests =
+    describe "Let declarations"
+        [ test "should merge two adjacent let declarations" <|
+            \() ->
+                """module A exposing (..)
+a =
+    let
+        b =
+            1
+    in
+    let
+        c =
+            1
+    in
+    b + c
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Let blocks can be joined together"
+                            , details = [ "Let blocks can contain multiple declarations, and there is no advantage to having multiple chained let expressions rather than one longer let expression." ]
+                            , under = "let"
+                            }
+                            |> Review.Test.atExactly { start = { row = 7, column = 5 }, end = { row = 7, column = 8 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+    let
+        b =
+            1
+
+        c =
+            1
+    in
+    b + c
+"""
+                        ]
+        , test "should merge two adjacent let declarations with multiple declarations" <|
+            \() ->
+                """module A exposing (..)
+a =
+    let
+        b =
+            1
+
+        c =
+            1
+    in
+    let
+        d =
+            1
+
+        e =
+            1
+    in
+    b + c + d + e
+"""
+                    |> Review.Test.run (rule defaults)
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Let blocks can be joined together"
+                            , details = [ "Let blocks can contain multiple declarations, and there is no advantage to having multiple chained let expressions rather than one longer let expression." ]
+                            , under = "let"
+                            }
+                            |> Review.Test.atExactly { start = { row = 10, column = 5 }, end = { row = 10, column = 8 } }
+                            |> Review.Test.whenFixed """module A exposing (..)
+a =
+    let
+        b =
+            1
+
+        c =
+            1
+
+        d =
+            1
+
+        e =
+            1
+    in
+    b + c + d + e
 """
                         ]
         ]

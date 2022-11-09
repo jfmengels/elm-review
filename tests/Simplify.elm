@@ -122,6 +122,42 @@ Below is the list of all kinds of simplifications this rule applies.
         Nothing -> x
     --> x
 
+Destructuring using case expressions
+
+    case value of
+        ( x, y ) ->
+            x + y
+
+    -->
+    let
+        ( x, y ) =
+            value
+    in
+    x + y
+
+
+### Let expressions
+
+    let
+        a =
+            1
+    in
+    let
+        b =
+            1
+    in
+    a + b
+
+    -->
+    let
+        a =
+            1
+
+        b =
+            1
+    in
+    a + b
+
 
 ### Record updates
 
@@ -693,6 +729,7 @@ type alias ModuleContext =
     , constructorsToIgnore : Set ( ModuleName, String )
     , inferredConstantsDict : RangeDict Infer.Inferred
     , inferredConstants : ( Infer.Inferred, List Infer.Inferred )
+    , extractSourceCode : Range -> String
     }
 
 
@@ -721,7 +758,7 @@ fromModuleToProject =
 fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable metadata projectContext ->
+        (\lookupTable metadata extractSourceCode projectContext ->
             { lookupTable = lookupTable
             , moduleName = Rule.moduleNameFromMetadata metadata
             , rangesToIgnore = []
@@ -731,10 +768,12 @@ fromProjectToModule =
             , constructorsToIgnore = Set.empty
             , inferredConstantsDict = RangeDict.empty
             , inferredConstants = ( Infer.empty, [] )
+            , extractSourceCode = extractSourceCode
             }
         )
         |> Rule.withModuleNameLookupTable
         |> Rule.withMetadata
+        |> Rule.withSourceCodeExtractor
 
 
 
@@ -1009,6 +1048,12 @@ expressionVisitorHelp node context =
         Expression.CaseExpression caseBlock ->
             onlyErrors (caseOfChecks context (Node.range node) caseBlock)
 
+        ------------
+        -- LET IN --
+        ------------
+        Expression.LetExpression caseBlock ->
+            onlyErrors (letInChecks caseBlock)
+
         ----------
         -- (<|) --
         ----------
@@ -1216,13 +1261,94 @@ expressionVisitorHelp node context =
                     onlyErrors (recordAccessChecks (Node.range node) (Just recordNameRange) (Node.value field) setters)
 
                 Expression.LetExpression { expression } ->
-                    onlyErrors (recordAccessLetInChecks (Node.range node) field expression)
+                    onlyErrors [ injectRecordAccessIntoLetExpression (Node.range record) expression field ]
+
+                Expression.IfBlock _ thenBranch elseBranch ->
+                    onlyErrors (distributeFieldAccess "an if/then/else" (Node.range record) [ thenBranch, elseBranch ] field)
+
+                Expression.CaseExpression { cases } ->
+                    onlyErrors (distributeFieldAccess "a case/of" (Node.range record) (List.map Tuple.second cases) field)
 
                 _ ->
                     onlyErrors []
 
         _ ->
             onlyErrors []
+
+
+distributeFieldAccess : String -> Range -> List (Node Expression) -> Node String -> List (Error {})
+distributeFieldAccess kind recordRange branches (Node fieldRange fieldName) =
+    case recordLeavesRanges branches of
+        Just records ->
+            [ let
+                fieldAccessRange : Range
+                fieldAccessRange =
+                    { start = recordRange.end, end = fieldRange.end }
+              in
+              Rule.errorWithFix
+                { message = "Field access can be simplified"
+                , details = [ "Accessing the field outside " ++ kind ++ " expression can be simplified to access the field inside it" ]
+                }
+                fieldAccessRange
+                (Fix.removeRange fieldAccessRange
+                    :: List.map (\leafRange -> Fix.insertAt leafRange.end ("." ++ fieldName)) records
+                )
+            ]
+
+        Nothing ->
+            []
+
+
+injectRecordAccessIntoLetExpression : Range -> Node Expression -> Node String -> Rule.Error {}
+injectRecordAccessIntoLetExpression recordRange letBody (Node fieldRange fieldName) =
+    let
+        removalRange : Range
+        removalRange =
+            { start = recordRange.end, end = fieldRange.end }
+    in
+    Rule.errorWithFix
+        { message = "Field access can be simplified"
+        , details = [ "Accessing the field outside a let/in expression can be simplified to access the field inside it" ]
+        }
+        removalRange
+        (Fix.removeRange removalRange
+            :: replaceSubExpressionByRecordAccessFix fieldName letBody
+        )
+
+
+recordLeavesRanges : List (Node Expression) -> Maybe (List Range)
+recordLeavesRanges nodes =
+    recordLeavesRangesHelp nodes []
+
+
+recordLeavesRangesHelp : List (Node Expression) -> List Range -> Maybe (List Range)
+recordLeavesRangesHelp nodes foundRanges =
+    case nodes of
+        [] ->
+            Just foundRanges
+
+        (Node range expr) :: rest ->
+            case expr of
+                Expression.IfBlock _ thenBranch elseBranch ->
+                    recordLeavesRangesHelp (thenBranch :: elseBranch :: rest) foundRanges
+
+                Expression.LetExpression { expression } ->
+                    recordLeavesRangesHelp (expression :: rest) foundRanges
+
+                Expression.ParenthesizedExpression child ->
+                    recordLeavesRangesHelp (child :: rest) foundRanges
+
+                Expression.CaseExpression { cases } ->
+                    recordLeavesRangesHelp (List.map Tuple.second cases ++ rest) foundRanges
+
+                Expression.RecordExpr _ ->
+                    recordLeavesRangesHelp rest (range :: foundRanges)
+
+                Expression.RecordUpdateExpression _ _ ->
+                    recordLeavesRangesHelp rest (range :: foundRanges)
+
+                _ ->
+                    Nothing
 
 
 recordAccessChecks : Range -> Maybe Range -> String -> List (Node RecordSetter) -> List (Error {})
@@ -1277,6 +1403,17 @@ replaceBySubExpressionFix outerRange (Node exprRange exprValue) =
         ]
 
 
+replaceSubExpressionByRecordAccessFix : String -> Node Expression -> List Fix
+replaceSubExpressionByRecordAccessFix fieldName (Node exprRange exprValue) =
+    if needsParens exprValue then
+        [ Fix.insertAt exprRange.start "("
+        , Fix.insertAt exprRange.end (")." ++ fieldName)
+        ]
+
+    else
+        [ Fix.insertAt exprRange.end ("." ++ fieldName) ]
+
+
 needsParens : Expression -> Bool
 needsParens expr =
     case expr of
@@ -1303,39 +1440,6 @@ needsParens expr =
 
         _ ->
             False
-
-
-recordAccessLetInChecks : Range -> Node String -> Node Expression -> List (Error {})
-recordAccessLetInChecks nodeRange (Node fieldRange fieldName) expr =
-    let
-        fieldRangeStart : Location
-        fieldRangeStart =
-            fieldRange.start
-
-        fieldRemovalFix : Fix
-        fieldRemovalFix =
-            Fix.removeRange
-                { start = { row = fieldRangeStart.row, column = fieldRangeStart.column - 1 }
-                , end = fieldRange.end
-                }
-    in
-    [ Rule.errorWithFix
-        { message = "Field access can be simplified"
-        , details = [ "Accessing the field outside a let expression can be simplified to access the field inside it" ]
-        }
-        nodeRange
-        (if needsParens (Node.value expr) then
-            [ Fix.insertAt (Node.range expr).start "("
-            , Fix.insertAt (Node.range expr).end (")." ++ fieldName)
-            , fieldRemovalFix
-            ]
-
-         else
-            [ Fix.insertAt (Node.range expr).end ("." ++ fieldName)
-            , fieldRemovalFix
-            ]
-        )
-    ]
 
 
 type alias CheckInfo =
@@ -1605,7 +1709,12 @@ minusChecks { leftRange, rightRange, left, right } =
             , details = [ "You can negate the expression on the right like `-n`." ]
             }
             range
-            [ Fix.replaceRangeBy range "-" ]
+            (if needsParens (Node.value right) then
+                [ Fix.replaceRangeBy range "-(", Fix.insertAt rightRange.end ")" ]
+
+             else
+                [ Fix.replaceRangeBy range "-" ]
+            )
         ]
 
     else
@@ -4803,6 +4912,7 @@ caseOfChecks context parentRange caseBlock =
     firstThatReportsError
         [ \() -> sameBodyForCaseOfChecks context parentRange caseBlock.cases
         , \() -> booleanCaseOfChecks context.lookupTable parentRange caseBlock
+        , \() -> destructuringCaseOfChecks context.extractSourceCode parentRange caseBlock
         ]
         ()
 
@@ -4929,6 +5039,62 @@ booleanCaseOfChecks lookupTable parentRange { expression, cases } =
             []
 
 
+destructuringCaseOfChecks : (Range -> String) -> Range -> Expression.CaseBlock -> List (Error {})
+destructuringCaseOfChecks extractSourceCode parentRange { expression, cases } =
+    case cases of
+        [ ( rawSinglePattern, Node bodyRange _ ) ] ->
+            let
+                singlePattern : Node Pattern
+                singlePattern =
+                    AstHelpers.removeParensFromPattern rawSinglePattern
+            in
+            if isSimpleDestructurePattern singlePattern then
+                let
+                    exprRange : Range
+                    exprRange =
+                        Node.range expression
+
+                    caseIndentation : String
+                    caseIndentation =
+                        String.repeat (parentRange.start.column - 1) " "
+
+                    bodyIndentation : String
+                    bodyIndentation =
+                        String.repeat (bodyRange.start.column - 1) " "
+                in
+                [ Rule.errorWithFix
+                    { message = "Use a let expression to destructure data"
+                    , details = [ "It is more idiomatic in Elm to use a let expression to define a new variable rather than to use pattern matching. This will also make the code less indented, therefore easier to read." ]
+                    }
+                    (Node.range singlePattern)
+                    [ Fix.replaceRangeBy { start = parentRange.start, end = exprRange.start } ("let " ++ extractSourceCode (Node.range singlePattern) ++ " = ")
+                    , Fix.replaceRangeBy { start = exprRange.end, end = bodyRange.start } ("\n" ++ caseIndentation ++ "in\n" ++ bodyIndentation)
+                    ]
+                ]
+
+            else
+                []
+
+        _ ->
+            []
+
+
+isSimpleDestructurePattern : Node Pattern -> Bool
+isSimpleDestructurePattern pattern =
+    case Node.value pattern of
+        Pattern.TuplePattern _ ->
+            True
+
+        Pattern.RecordPattern _ ->
+            True
+
+        Pattern.VarPattern _ ->
+            True
+
+        _ ->
+            False
+
+
 isSpecificFunction : ModuleName -> String -> ModuleNameLookupTable -> Node Expression -> Bool
 isSpecificFunction moduleName fnName lookupTable node =
     case AstHelpers.removeParens node of
@@ -4968,6 +5134,53 @@ getUncomputedNumberValue node =
 
         _ ->
             Nothing
+
+
+letInChecks : Expression.LetBlock -> List (Error {})
+letInChecks letBlock =
+    case Node.value letBlock.expression of
+        Expression.LetExpression _ ->
+            let
+                letRange : Range
+                letRange =
+                    letKeyWordRange (Node.range letBlock.expression)
+            in
+            [ Rule.errorWithFix
+                { message = "Let blocks can be joined together"
+                , details = [ "Let blocks can contain multiple declarations, and there is no advantage to having multiple chained let expressions rather than one longer let expression." ]
+                }
+                letRange
+                (case lastElementRange letBlock.declarations of
+                    Just lastDeclRange ->
+                        [ Fix.replaceRangeBy { start = lastDeclRange.end, end = letRange.end } "\n" ]
+
+                    Nothing ->
+                        []
+                )
+            ]
+
+        _ ->
+            []
+
+
+letKeyWordRange : Range -> Range
+letKeyWordRange range =
+    { start = range.start
+    , end = { row = range.start.row, column = range.start.column + 3 }
+    }
+
+
+lastElementRange : List (Node a) -> Maybe Range
+lastElementRange nodes =
+    case nodes of
+        [] ->
+            Nothing
+
+        last :: [] ->
+            Just (Node.range last)
+
+        _ :: rest ->
+            lastElementRange rest
 
 
 
