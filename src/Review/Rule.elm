@@ -4100,8 +4100,8 @@ type alias CacheEntry projectContext =
     }
 
 
-type alias CacheEntryFor value projectContext =
-    { value : value
+type alias CacheEntryMaybe projectContext =
+    { fileHash : Maybe FileHash
     , errors : List (Error {})
     , inputContext : projectContext
     , outputContext : projectContext
@@ -4251,9 +4251,9 @@ errorsFromCache cache =
 
 
 type alias ProjectRuleCache projectContext =
-    { elmJson : Maybe (CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext)
-    , readme : Maybe (CacheEntryFor (Maybe { path : String, content : String }) projectContext)
-    , dependencies : Maybe (CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext)
+    { elmJson : Maybe (CacheEntryMaybe projectContext)
+    , readme : Maybe (CacheEntryMaybe projectContext)
+    , dependencies : Maybe (CacheEntryMaybe projectContext)
     , moduleContexts : Dict String (CacheEntry projectContext)
     , finalEvaluationErrors : Maybe (FinalProjectEvaluationCache projectContext)
     , extract : Maybe (ExtractCache projectContext)
@@ -4387,13 +4387,9 @@ computeElmJson :
     -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
 computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputeProject) project inputContext cache fixedErrors =
     let
-        projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
-        projectElmJson =
-            ValidProject.elmJson project
-
-        cachePredicate : CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext -> Bool
+        cachePredicate : CacheEntryMaybe projectContext -> Bool
         cachePredicate elmJson =
-            elmJson.value == projectElmJson
+            elmJson.fileHash == ValidProject.elmJsonHash project
     in
     case reuseProjectRuleCache cachePredicate .elmJson cache of
         Just entry ->
@@ -4401,6 +4397,10 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
 
         Nothing ->
             let
+                projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
+                projectElmJson =
+                    ValidProject.elmJson project
+
                 elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
                 elmJsonData =
                     Maybe.map
@@ -4422,9 +4422,9 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                 updateCache : () -> ProjectRuleCache projectContext
                 updateCache () =
                     let
-                        elmJsonEntry : CacheEntryFor (Maybe { path : String, raw : String, project : Elm.Project.Project }) projectContext
+                        elmJsonEntry : CacheEntryMaybe projectContext
                         elmJsonEntry =
-                            { value = projectElmJson
+                            { fileHash = ValidProject.elmJsonHash project
                             , errors = errors
                             , inputContext = inputContext
                             , outputContext = outputContext
@@ -4464,20 +4464,16 @@ computeReadme :
     -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
 computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputeProject) project contexts cache fixedErrors =
     let
-        projectReadme : Maybe { path : String, content : String }
-        projectReadme =
-            ValidProject.readme project
-
         inputContext : projectContext
         inputContext =
             contexts.elmJson
 
-        cachePredicate : CacheEntryFor (Maybe { path : String, content : String }) projectContext -> Bool
+        cachePredicate : CacheEntryMaybe projectContext -> Bool
         cachePredicate readme =
             -- If the previous context stayed the same
             (readme.inputContext == inputContext)
                 -- and the readme stayed the same
-                && (readme.value == projectReadme)
+                && FileHash.areEqualForMaybe readme.fileHash (ValidProject.readmeHash project)
     in
     case reuseProjectRuleCache cachePredicate .readme cache of
         Just entry ->
@@ -4489,6 +4485,10 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
 
         Nothing ->
             let
+                projectReadme : Maybe { path : String, content : String }
+                projectReadme =
+                    ValidProject.readme project
+
                 readmeData : Maybe { readmeKey : ReadmeKey, content : String }
                 readmeData =
                     Maybe.map
@@ -4518,9 +4518,9 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                 updateCache : () -> ProjectRuleCache projectContext
                 updateCache () =
                     let
-                        readmeEntry : CacheEntryFor (Maybe { path : String, content : String }) projectContext
+                        readmeEntry : CacheEntryMaybe projectContext
                         readmeEntry =
-                            { value = projectReadme
+                            { fileHash = ValidProject.readmeHash project
                             , errors = errors
                             , inputContext = inputContext
                             , outputContext = outputContext
@@ -4567,16 +4567,12 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
         inputContext =
             contexts.readme
 
-        dependencies : Dict String Review.Project.Dependency.Dependency
-        dependencies =
-            ValidProject.dependencies project
-
-        cachePredicate : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext -> Bool
+        cachePredicate : CacheEntryMaybe projectContext -> Bool
         cachePredicate deps =
             -- If the previous context stayed the same
             (deps.inputContext == inputContext)
                 -- and the dependencies stayed the same
-                && (deps.value == dependencies)
+                && (deps.fileHash == ValidProject.dependenciesHash project)
 
         modulesAsNextStep : projectContext -> Step projectContext
         modulesAsNextStep projectContext =
@@ -4590,6 +4586,10 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
 
         Nothing ->
             let
+                dependencies : Dict String Review.Project.Dependency.Dependency
+                dependencies =
+                    ValidProject.dependencies project
+
                 accumulateWithDirectDependencies : ( List (Error {}), projectContext ) -> ( List (Error {}), projectContext )
                 accumulateWithDirectDependencies =
                     case projectVisitor.directDependenciesVisitors of
@@ -4619,9 +4619,9 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                 updateCache : () -> ProjectRuleCache projectContext
                 updateCache () =
                     let
-                        dependenciesEntry : CacheEntryFor (Dict String Review.Project.Dependency.Dependency) projectContext
+                        dependenciesEntry : CacheEntryMaybe projectContext
                         dependenciesEntry =
-                            { value = dependencies
+                            { fileHash = ValidProject.dependenciesHash project
                             , errors = errors
                             , inputContext = inputContext
                             , outputContext = outputContext
