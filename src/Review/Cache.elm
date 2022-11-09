@@ -1,4 +1,4 @@
-module Review.Cache exposing (Entry, createEntry)
+module Review.Cache exposing (Entry, createEntry, outputContext)
 
 import Review.Project.CacheHash exposing (CacheHash)
 
@@ -18,5 +18,10 @@ createEntry :
     , outputContext : projectContext
     }
     -> Entry error projectContext
-createEntry record =
-    record
+createEntry entry =
+    entry
+
+
+outputContext : Entry error projectContext -> projectContext
+outputContext entry =
+    entry.outputContext
