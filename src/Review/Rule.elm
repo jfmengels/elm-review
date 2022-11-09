@@ -4194,12 +4194,12 @@ computeExtract reviewOptions projectVisitor projectContext errors cache =
                 let
                     inputContext : projectContext
                     inputContext =
-                        case cache.finalEvaluationErrors of
-                            Just finalEvaluation ->
-                                finalEvaluation.inputContext
-
-                            Nothing ->
-                                computeFinalContext projectVisitor cache projectContext
+                        --case cache.finalEvaluationErrors of
+                        --    Just finalEvaluation ->
+                        --        projectContext
+                        --
+                        --    Nothing ->
+                        computeFinalContext projectVisitor cache projectContext
 
                     cachePredicate : ExtractCache projectContext -> Bool
                     cachePredicate extract =
