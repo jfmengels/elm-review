@@ -4099,16 +4099,16 @@ type alias GraphModule =
 
 type alias CacheEntry projectContext =
     { cacheHash : CacheHash
-    , errors : List (Error {})
     , inputContext : projectContext
+    , errors : List (Error {})
     , outputContext : projectContext
     }
 
 
 type alias CacheEntryMaybe projectContext =
     { cacheHash : Maybe CacheHash
-    , errors : List (Error {})
     , inputContext : projectContext
+    , errors : List (Error {})
     , outputContext : projectContext
     }
 
