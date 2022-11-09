@@ -4,13 +4,13 @@ module Review.Project.ProjectModule exposing (ProjectModule)
 -}
 
 import Elm.Syntax.File
-import Review.Project.CacheHash exposing (CacheHash)
+import Review.Project.ContentHash exposing (ContentHash)
 
 
 type alias ProjectModule =
     { path : String
     , source : String
     , ast : Elm.Syntax.File.File
-    , cacheHash : CacheHash
+    , contentHash : ContentHash
     , isInSourceDirectories : Bool
     }
