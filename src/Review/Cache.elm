@@ -1,12 +1,13 @@
 module Review.Cache exposing (Entry, Key, createEntry, errors, match, outputContext)
 
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
+import Review.Cache.ContextHash as ContextHash exposing (ContextHash)
 
 
 type Entry error projectContext
     = Entry
         { contentHash : ContentHash
-        , inputContext : projectContext
+        , inputContext : ContextHash projectContext
         , errors : List error
         , outputContext : projectContext
         }
@@ -20,7 +21,12 @@ createEntry :
     }
     -> Entry error projectContext
 createEntry entry =
-    Entry entry
+    Entry
+        { contentHash = entry.contentHash
+        , inputContext = ContextHash.create entry.inputContext
+        , errors = entry.errors
+        , outputContext = entry.outputContext
+        }
 
 
 outputContext : Entry error projectContext -> projectContext
@@ -35,11 +41,11 @@ errors (Entry entry) =
 
 type alias Key projectContext =
     { contentHash : ContentHash
-    , context : projectContext
+    , contextHash : projectContext
     }
 
 
-match : ContentHash -> projectContext -> Entry error projectContext -> Bool
+match : ContentHash -> ContextHash projectContext -> Entry error projectContext -> Bool
 match contentHash context (Entry entry) =
     ContentHash.areEqual contentHash entry.contentHash
         && (context == entry.inputContext)

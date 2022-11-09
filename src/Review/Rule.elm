@@ -309,6 +309,7 @@ import Elm.Syntax.Range as Range exposing (Range)
 import Json.Encode as Encode
 import Review.Cache as Cache
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
+import Review.Cache.ContextHash as ContextHash
 import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
@@ -5047,7 +5048,7 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                     projectContext =
                         computeProjectContext dataToComputeModules.projectVisitor.traversalAndFolder project moduleContexts incoming inputProjectContext
                 in
-                if reuseCache (\cacheEntry -> Cache.match module_.contentHash projectContext cacheEntry) (Dict.get module_.path moduleContexts) then
+                if reuseCache (\cacheEntry -> Cache.match module_.contentHash (ContextHash.create projectContext) cacheEntry) (Dict.get module_.path moduleContexts) then
                     ignoreModule ()
 
                 else
