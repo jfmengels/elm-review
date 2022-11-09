@@ -1,6 +1,6 @@
 module Review.Project.CacheHash exposing (CacheHash, areEqual, areEqualForMaybe, hash)
 
-import Murmur3
+import Vendor.Murmur3 as Murmur3
 
 
 type CacheHash
