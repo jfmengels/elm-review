@@ -4245,7 +4245,7 @@ setRuleName ruleName_ error_ =
 errorsFromCache : ProjectRuleCache projectContext -> List (Error {})
 errorsFromCache cache =
     List.concat
-        [ Dict.foldl (\_ cacheEntry acc -> List.append cacheEntry.errors acc) [] cache.moduleContexts
+        [ Dict.foldl (\_ cacheEntry acc -> List.append (Cache.errors cacheEntry) acc) [] cache.moduleContexts
         , Maybe.map .errors cache.elmJson |> Maybe.withDefault []
         , Maybe.map .errors cache.readme |> Maybe.withDefault []
         , Maybe.map .errors cache.dependencies |> Maybe.withDefault []
