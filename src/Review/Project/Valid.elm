@@ -27,7 +27,7 @@ import Path
 import Review.FilePath exposing (FilePath)
 import Review.ImportCycle as ImportCycle
 import Review.Project.Dependency as Dependency exposing (Dependency)
-import Review.Project.FileHash as FileHash
+import Review.Project.FileHash as FileHash exposing (FileHash)
 import Review.Project.Internal exposing (Project(..))
 import Review.Project.InvalidProjectError as InvalidProjectError exposing (InvalidProjectError)
 import Review.Project.ProjectCache exposing (ProjectCache)
@@ -43,8 +43,8 @@ type ValidProject
 
 type alias ValidProjectData =
     { modulesByPath : Dict String ProjectModule
-    , elmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
-    , readme : Maybe { path : String, content : String }
+    , elmJson : Maybe ( { path : String, raw : String, project : Elm.Project.Project }, FileHash )
+    , readme : Maybe ( { path : String, content : String }, FileHash )
     , dependencies : Dict String Dependency
     , directDependencies : Dict String Dependency
     , dependencyModules : Set ModuleName
@@ -142,9 +142,9 @@ fromProjectAndGraph moduleGraph_ acyclicGraph (Project project) =
         }
 
 
-computeDirectDependencies : { a | elmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }, dependencies : Dict String Dependency } -> Dict String Dependency
+computeDirectDependencies : { a | elmJson : Maybe ( { path : String, raw : String, project : Elm.Project.Project }, FileHash ), dependencies : Dict String Dependency } -> Dict String Dependency
 computeDirectDependencies project =
-    case Maybe.map .project project.elmJson of
+    case Maybe.map (\( elmJson_, _ ) -> elmJson_.project) project.elmJson of
         Just (Elm.Project.Application { depsDirect, testDepsDirect }) ->
             let
                 allDeps : List String
@@ -282,12 +282,12 @@ getModuleName module_ =
 
 elmJson : ValidProject -> Maybe { path : String, raw : String, project : Elm.Project.Project }
 elmJson (ValidProject project) =
-    project.elmJson
+    Maybe.map Tuple.first project.elmJson
 
 
 readme : ValidProject -> Maybe { path : String, content : String }
 readme (ValidProject project) =
-    project.readme
+    Maybe.map Tuple.first project.readme
 
 
 dependencies : ValidProject -> Dict String Dependency
@@ -457,12 +457,12 @@ available for rules to access using
 -}
 addReadme : { path : String, content : String } -> ValidProject -> ValidProject
 addReadme readme_ (ValidProject project) =
-    ValidProject { project | readme = Just readme_ }
+    ValidProject { project | readme = Just ( readme_, FileHash.hash readme_.content ) }
 
 
 addElmJson : { path : String, raw : String, project : Elm.Project.Project } -> ValidProject -> Maybe ValidProject
 addElmJson elmJson_ (ValidProject project) =
-    case project.elmJson of
+    case Maybe.map (\( e, _ ) -> e.project) project.elmJson of
         Nothing ->
             -- Can't add an elm.json on the fly
             Nothing
@@ -473,16 +473,16 @@ addElmJson elmJson_ (ValidProject project) =
                 sourceDirectories =
                     Review.Project.Internal.sourceDirectoriesForProject elmJson_.project
             in
-            if sourceDirectories /= Review.Project.Internal.sourceDirectoriesForProject previousElmJson.project then
+            if sourceDirectories /= Review.Project.Internal.sourceDirectoriesForProject previousElmJson then
                 Nothing
 
             else
-                computeUpdatedDependencies previousElmJson.project elmJson_ project
+                computeUpdatedDependencies previousElmJson elmJson_ project
                     |> Maybe.map
                         (\updatedDependencies ->
                             ValidProject
                                 { project
-                                    | elmJson = Just elmJson_
+                                    | elmJson = Just ( elmJson_, FileHash.hash elmJson_.raw )
                                     , sourceDirectories = sourceDirectories
                                     , dependencies = updatedDependencies.dependencies
                                     , directDependencies = updatedDependencies.directDependencies
@@ -514,7 +514,7 @@ computeUpdatedDependencies previousElmJsonProject newElmJson project =
 
             directDependencies_ : Dict String Dependency
             directDependencies_ =
-                computeDirectDependencies { elmJson = Just newElmJson, dependencies = newDependencies }
+                computeDirectDependencies { elmJson = Just ( newElmJson, FileHash.hash newElmJson.raw ), dependencies = newDependencies }
         in
         Just
             { dependencies = newDependencies
