@@ -6,7 +6,6 @@ module Review.Project.Valid exposing
     , dependencies
     , directDependencies
     , elmJson
-    , getModuleByModuleName
     , getModuleByPath
     , moduleGraph
     , moduleZipper
@@ -25,6 +24,7 @@ import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
 import Path
+import Review.FilePath exposing (FilePath)
 import Review.ImportCycle as ImportCycle
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
@@ -42,7 +42,6 @@ type ValidProject
 
 type alias ValidProjectData =
     { modulesByPath : Dict String ProjectModule
-    , modulesByModuleName : Dict ModuleName ProjectModule
     , elmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
     , readme : Maybe { path : String, content : String }
     , dependencies : Dict String Dependency
@@ -50,8 +49,8 @@ type alias ValidProjectData =
     , dependencyModules : Set ModuleName
     , sourceDirectories : List String
     , projectCache : ProjectCache
-    , moduleGraph : Graph ModuleName ()
-    , sortedModules : List (Graph.NodeContext ModuleName ())
+    , moduleGraph : Graph FilePath ()
+    , sortedModules : List (Graph.NodeContext FilePath ())
     }
 
 
@@ -69,7 +68,7 @@ toRegularProject (ValidProject validProject) =
         }
 
 
-parse : Project -> Result InvalidProjectError ( ValidProject, Zipper (Graph.NodeContext ModuleName ()) )
+parse : Project -> Result InvalidProjectError ( ValidProject, Zipper (Graph.NodeContext FilePath ()) )
 parse ((Project p) as project) =
     if not (List.isEmpty p.modulesThatFailedToParse) then
         Err (InvalidProjectError.SomeModulesFailedToParse (List.map .path p.modulesThatFailedToParse))
@@ -89,14 +88,14 @@ parse ((Project p) as project) =
 
             Nothing ->
                 let
-                    graph : Graph ModuleName ()
+                    graph : Graph FilePath ()
                     graph =
                         buildModuleGraph p.modules
                 in
                 case Graph.checkAcyclic graph of
                     Err edge ->
                         ImportCycle.findCycle graph edge
-                            |> List.reverse
+                            |> List.filterMap (\path -> Dict.get path p.modules |> Maybe.map getModuleName)
                             |> InvalidProjectError.ImportCycleError
                             |> Err
 
@@ -121,7 +120,7 @@ unsafeCreateZipper sortedModules =
             unsafeCreateZipper sortedModules
 
 
-fromProjectAndGraph : Graph ModuleName () -> Graph.AcyclicGraph ModuleName () -> Project -> ValidProject
+fromProjectAndGraph : Graph FilePath () -> Graph.AcyclicGraph FilePath () -> Project -> ValidProject
 fromProjectAndGraph moduleGraph_ acyclicGraph (Project project) =
     let
         directDependencies_ : Dict String Dependency
@@ -130,16 +129,6 @@ fromProjectAndGraph moduleGraph_ acyclicGraph (Project project) =
     in
     ValidProject
         { modulesByPath = project.modules
-        , modulesByModuleName =
-            Dict.foldl
-                (\_ module_ dict ->
-                    Dict.insert
-                        (getModuleName module_)
-                        module_
-                        dict
-                )
-                Dict.empty
-                project.modules
         , elmJson = project.elmJson
         , readme = project.readme
         , dependencies = project.dependencies
@@ -216,7 +205,7 @@ duplicateModuleNames visitedModules projectModules =
                         }
 
 
-buildModuleGraph : Dict a ProjectModule -> Graph ModuleName ()
+buildModuleGraph : Dict a ProjectModule -> Graph FilePath ()
 buildModuleGraph mods =
     let
         moduleIds : Dict ModuleName Int
@@ -253,7 +242,7 @@ buildModuleGraph mods =
                                 module_
                                 (getModuleId <| getModuleName module_)
                     in
-                    ( moduleNode :: resNodes, List.concat [ modulesEdges, resEdges ] )
+                    ( moduleNode :: resNodes, modulesEdges ++ resEdges )
                 )
                 ( [], [] )
                 mods
@@ -261,14 +250,9 @@ buildModuleGraph mods =
     Graph.fromNodesAndEdges nodes edges
 
 
-nodesAndEdges : (ModuleName -> Maybe Int) -> ProjectModule -> Int -> ( Graph.Node ModuleName, List (Graph.Edge ()) )
+nodesAndEdges : (ModuleName -> Maybe Int) -> ProjectModule -> Int -> ( Graph.Node FilePath, List (Graph.Edge ()) )
 nodesAndEdges getModuleId module_ moduleId =
-    let
-        moduleName : ModuleName
-        moduleName =
-            getModuleName module_
-    in
-    ( Graph.Node moduleId moduleName
+    ( Graph.Node moduleId module_.path
     , importedModules module_
         |> List.filterMap getModuleId
         |> List.map
@@ -317,7 +301,7 @@ directDependencies (ValidProject project) =
     project.directDependencies
 
 
-moduleGraph : ValidProject -> Graph ModuleName ()
+moduleGraph : ValidProject -> Graph FilePath ()
 moduleGraph (ValidProject project) =
     project.moduleGraph
 
@@ -327,17 +311,12 @@ getModuleByPath path (ValidProject project) =
     Dict.get path project.modulesByPath
 
 
-getModuleByModuleName : ModuleName -> ValidProject -> Maybe ProjectModule
-getModuleByModuleName moduleName (ValidProject project) =
-    Dict.get moduleName project.modulesByModuleName
-
-
 projectCache : ValidProject -> ProjectCache
 projectCache (ValidProject project) =
     project.projectCache
 
 
-moduleZipper : ValidProject -> Zipper (Graph.NodeContext ModuleName ())
+moduleZipper : ValidProject -> Zipper (Graph.NodeContext FilePath ())
 moduleZipper (ValidProject project) =
     unsafeCreateZipper project.sortedModules
 
@@ -350,17 +329,12 @@ updateProjectCache projectCache_ (ValidProject project) =
 {-| Add an already parsed module to the project. This module will then be analyzed by the rules.
 -}
 addParsedModule :
-    { path : String, source : String, ast : Elm.Syntax.File.File }
-    -> Maybe (Zipper (Graph.NodeContext ModuleName ()))
+    { path : FilePath, source : String, ast : Elm.Syntax.File.File }
+    -> Maybe (Zipper (Graph.NodeContext FilePath ()))
     -> ValidProject
-    -> Maybe ( ValidProject, Zipper (Graph.NodeContext ModuleName ()) )
+    -> Maybe ( ValidProject, Zipper (Graph.NodeContext FilePath ()) )
 addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
-    let
-        moduleName : ModuleName
-        moduleName =
-            Elm.Syntax.Module.moduleName (Node.value ast.moduleDefinition)
-    in
-    case Dict.get moduleName project.modulesByModuleName of
+    case Dict.get path project.modulesByPath of
         Just existingModule ->
             let
                 osAgnosticPath : String
@@ -377,15 +351,12 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
 
                 newProject : ValidProjectData
                 newProject =
-                    { project
-                        | modulesByPath = Dict.insert path module_ project.modulesByPath
-                        , modulesByModuleName = Dict.insert moduleName module_ project.modulesByModuleName
-                    }
+                    { project | modulesByPath = Dict.insert path module_ project.modulesByPath }
             in
             if importedModulesSet existingModule.ast project.dependencyModules == importedModulesSet ast project.dependencyModules then
                 let
                     -- Imports haven't changed, we don't need to recompute the zipper or the graph
-                    newModuleZipper : Zipper (Graph.NodeContext ModuleName ())
+                    newModuleZipper : Zipper (Graph.NodeContext FilePath ())
                     newModuleZipper =
                         case maybeModuleZipper of
                             Just moduleZipper_ ->
@@ -393,11 +364,11 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
 
                             Nothing ->
                                 let
-                                    moduleZipper_ : Zipper (Graph.NodeContext ModuleName ())
+                                    moduleZipper_ : Zipper (Graph.NodeContext FilePath ())
                                     moduleZipper_ =
                                         unsafeCreateZipper newProject.sortedModules
                                 in
-                                Zipper.focusr (\mod -> mod.node.label == moduleName) moduleZipper_
+                                Zipper.focusr (\mod -> mod.node.label == path) moduleZipper_
                                     -- Should not happen :/
                                     |> Maybe.withDefault moduleZipper_
                 in
@@ -405,7 +376,7 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
 
             else
                 let
-                    graph : Graph ModuleName ()
+                    graph : Graph FilePath ()
                     graph =
                         buildModuleGraph newProject.modulesByPath
                 in
@@ -415,25 +386,25 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
 
                     Ok acyclicGraph ->
                         let
-                            sortedModules : List (Graph.NodeContext ModuleName ())
+                            sortedModules : List (Graph.NodeContext FilePath ())
                             sortedModules =
                                 Graph.topologicalSort acyclicGraph
 
-                            moduleZipper_ : Zipper (Graph.NodeContext ModuleName ())
+                            moduleZipper_ : Zipper (Graph.NodeContext FilePath ())
                             moduleZipper_ =
                                 unsafeCreateZipper sortedModules
 
-                            newModuleZipper : Zipper (Graph.NodeContext ModuleName ())
+                            newModuleZipper : Zipper (Graph.NodeContext FilePath ())
                             newModuleZipper =
                                 case maybeModuleZipper of
                                     Just prevModuleZipper ->
                                         -- We were evaluating modules. Take the new zipper but move it to the first
                                         -- of either the touched module or the first module that is different for the 2 zippers
-                                        advanceZipper moduleName (Zipper.start prevModuleZipper) moduleZipper_
+                                        advanceZipper path (Zipper.start prevModuleZipper) moduleZipper_
 
                                     Nothing ->
                                         -- We were not evaluating modules. Create a zipper and move to the touched module name
-                                        Zipper.focusr (\mod -> mod.node.label == moduleName) moduleZipper_
+                                        Zipper.focusr (\mod -> mod.node.label == path) moduleZipper_
                                             -- Should not happen :/
                                             |> Maybe.withDefault moduleZipper_
                         in
@@ -457,20 +428,20 @@ importedModulesSet ast dependencyModules =
         dependencyModules
 
 
-advanceZipper : ModuleName -> Zipper (Graph.NodeContext ModuleName ()) -> Zipper (Graph.NodeContext ModuleName ()) -> Zipper (Graph.NodeContext ModuleName ())
-advanceZipper moduleName oldZipper newZipper =
+advanceZipper : FilePath -> Zipper (Graph.NodeContext FilePath ()) -> Zipper (Graph.NodeContext FilePath ()) -> Zipper (Graph.NodeContext FilePath ())
+advanceZipper path oldZipper newZipper =
     let
-        current : ModuleName
+        current : FilePath
         current =
             (Zipper.current newZipper).node.label
     in
-    if current == moduleName || current /= (Zipper.current oldZipper).node.label then
+    if current == path || current /= (Zipper.current oldZipper).node.label then
         newZipper
 
     else
         case Maybe.map2 Tuple.pair (Zipper.next oldZipper) (Zipper.next newZipper) of
             Just ( old, new ) ->
-                advanceZipper moduleName old new
+                advanceZipper path old new
 
             Nothing ->
                 -- Should not happen

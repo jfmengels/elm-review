@@ -310,6 +310,7 @@ import Json.Encode as Encode
 import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
+import Review.FilePath exposing (FilePath)
 import Review.Fix as Fix exposing (Fix)
 import Review.Fix.FixedErrors as FixedErrors exposing (FixedErrors)
 import Review.Fix.Internal as InternalFix
@@ -635,7 +636,7 @@ checkForConfigurationErrors rules =
         Err errors
 
 
-getModulesSortedByImport : Project -> Result (List ReviewError) ( ValidProject, Zipper (Graph.NodeContext ModuleName ()) )
+getModulesSortedByImport : Project -> Result (List ReviewError) ( ValidProject, Zipper (Graph.NodeContext FilePath ()) )
 getModulesSortedByImport project =
     case ValidProject.parse project of
         Err (InvalidProjectError.SomeModulesFailedToParse pathsThatFailedToParse) ->
@@ -4087,7 +4088,7 @@ type alias Folder projectContext moduleContext =
 
 
 type alias GraphModule =
-    Graph.NodeContext ModuleName ()
+    Graph.NodeContext FilePath ()
 
 
 type alias CacheEntry projectContext =
@@ -4868,7 +4869,12 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
                 ShouldContinue newFixedErrors ->
                     case fixResult.fixedFile of
                         FixedElmModule { source, ast } newModuleZipper_ ->
-                            if module_.path == errorFilePath fixResult.error then
+                            let
+                                filePath : FilePath
+                                filePath =
+                                    errorFilePath fixResult.error
+                            in
+                            if module_.path == filePath then
                                 computeModule
                                     dataToComputeModules
                                     { module_ | source = source, ast = ast }
@@ -4878,16 +4884,11 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
                                     newFixedErrors
 
                             else
-                                let
-                                    fixedModuleName : ModuleName
-                                    fixedModuleName =
-                                        Module.moduleName (Node.value ast.moduleDefinition)
-                                in
-                                case Zipper.focusl (\mod -> mod.node.label == fixedModuleName) moduleZipper of
+                                case Zipper.focusl (\mod -> mod.node.label == filePath) moduleZipper of
                                     Just newModuleZipper ->
                                         Logger.log
                                             dataToComputeModules.reviewOptions.logger
-                                            (fixedError newFixedErrors { ruleName = dataToComputeModules.projectVisitor.name, filePath = errorFilePath fixResult.error })
+                                            (fixedError newFixedErrors { ruleName = dataToComputeModules.projectVisitor.name, filePath = filePath })
                                             { project = fixResult.project
                                             , analysis = analysis ()
                                             , nextStep = ModuleVisitStep (Just newModuleZipper)
@@ -4986,7 +4987,7 @@ computeProjectContext traversalAndFolder project cache incoming initial =
 
         TraverseImportedModulesFirst { foldProjectContexts } ->
             let
-                graph : Graph ModuleName ()
+                graph : Graph FilePath ()
                 graph =
                     ValidProject.moduleGraph project
             in
@@ -4994,8 +4995,7 @@ computeProjectContext traversalAndFolder project cache incoming initial =
                 (\key _ accContext ->
                     case
                         Graph.get key graph
-                            |> Maybe.andThen (\graphModule -> ValidProject.getModuleByModuleName graphModule.node.label project)
-                            |> Maybe.andThen (\mod -> Dict.get mod.path cache)
+                            |> Maybe.andThen (\graphModule -> Dict.get graphModule.node.label cache)
                     of
                         Just importedModuleCache ->
                             foldProjectContexts importedModuleCache.outputContext accContext
@@ -5024,7 +5024,7 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
         ignoreModule () =
             { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next moduleZipper), fixedErrors = fixedErrors }
     in
-    case ValidProject.getModuleByModuleName node.label project of
+    case ValidProject.getModuleByPath node.label project of
         Nothing ->
             ignoreModule ()
 
@@ -5088,7 +5088,7 @@ getFolderFromTraversal traversalAndFolder =
 
 
 type FixedFile
-    = FixedElmModule { source : String, ast : File } (Zipper (Graph.NodeContext ModuleName ()))
+    = FixedElmModule { source : String, ast : File } (Zipper (Graph.NodeContext FilePath ()))
     | FixedElmJson
     | FixedReadme
 
@@ -5098,7 +5098,7 @@ type PostFixStatus
     | ShouldContinue FixedErrors
 
 
-findFix : ReviewOptionsData -> RunnableProjectVisitor projectContext moduleContext -> ValidProject -> List (Error a) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext ModuleName ())) -> Maybe ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
+findFix : ReviewOptionsData -> RunnableProjectVisitor projectContext moduleContext -> ValidProject -> List (Error a) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Maybe ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
 findFix reviewOptions projectVisitor project errors fixedErrors maybeModuleZipper =
     InternalOptions.shouldApplyFix projectVisitor reviewOptions
         |> Maybe.andThen (\fixablePredicate -> findFixHelp project fixablePredicate errors maybeModuleZipper)
@@ -5124,7 +5124,7 @@ findFixHelp :
     ValidProject
     -> ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool)
     -> List (Error a)
-    -> Maybe (Zipper (Graph.NodeContext ModuleName ()))
+    -> Maybe (Zipper (Graph.NodeContext FilePath ()))
     -> Maybe { project : ValidProject, fixedFile : FixedFile, error : ReviewError }
 findFixHelp project fixablePredicate errors maybeModuleZipper =
     case errors of
