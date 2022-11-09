@@ -1249,7 +1249,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
 
 
 initialCacheMarker : String -> ProjectRuleCache projectContext -> ProjectRuleCache projectContext
-initialCacheMarker name cache =
+initialCacheMarker _ cache =
     cache
 
 
@@ -4174,7 +4174,7 @@ runProjectVisitorHelp ({ projectVisitor, exceptions } as dataToComputeProject) i
 
 
 finalCacheMarker : String -> ProjectRuleCache projectContext -> ProjectRuleCache projectContext
-finalCacheMarker name cache =
+finalCacheMarker _ cache =
     cache
 
 
