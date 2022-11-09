@@ -4108,9 +4108,7 @@ type alias CacheEntryMaybe projectContext =
 
 
 type alias FinalProjectEvaluationCache projectContext =
-    { inputContext : projectContext
-    , errors : List (Error {})
-    }
+    Cache.EntryNoOutputContext (List (Error {})) projectContext
 
 
 type alias ExtractCache projectContext =
@@ -4246,7 +4244,7 @@ errorsFromCache cache =
         , Cache.errorsMaybe cache.elmJson
         , Cache.errorsMaybe cache.readme
         , Cache.errorsMaybe cache.dependencies
-        , Maybe.map .errors cache.finalEvaluationErrors |> Maybe.withDefault []
+        , Maybe.map Cache.outputForNoOutput cache.finalEvaluationErrors |> Maybe.withDefault []
         ]
 
 
@@ -4678,8 +4676,8 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
                 computeFinalContext projectVisitor cache projectContexts.deps
 
             cachePredicate : FinalProjectEvaluationCache projectContext -> Bool
-            cachePredicate finalEvaluation =
-                finalEvaluation.inputContext == finalContext
+            cachePredicate entry =
+                Cache.matchNoOutput (ContextHash.create finalContext) entry
         in
         case reuseProjectRuleCache cachePredicate .finalEvaluationErrors cache of
             Just _ ->
@@ -4699,7 +4697,7 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
                     resultWhenNoFix : () -> { project : ValidProject, cache : ProjectRuleCache projectContext, step : Step projectContext, fixedErrors : FixedErrors }
                     resultWhenNoFix () =
                         { project = project
-                        , cache = { cache | finalEvaluationErrors = Just { inputContext = finalContext, errors = errors } }
+                        , cache = { cache | finalEvaluationErrors = Just (Cache.createNoOutput finalContext errors) }
                         , step = DataExtract { final = projectContexts.deps }
                         , fixedErrors = fixedErrors
                         }
@@ -4726,7 +4724,7 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
                                         )
                         in
                         { project = fixResult.project
-                        , cache = { cache | finalEvaluationErrors = Just { inputContext = finalContext, errors = errors } }
+                        , cache = { cache | finalEvaluationErrors = Just (Cache.createNoOutput finalContext errors) }
                         , step = step
                         , fixedErrors = newFixedErrors
                         }
