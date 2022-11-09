@@ -308,6 +308,7 @@ import Elm.Syntax.Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
 import Json.Encode as Encode
 import Review.Cache as Cache
+import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
@@ -323,7 +324,6 @@ import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Options as ReviewOptions exposing (ReviewOptions)
 import Review.Options.Internal as InternalOptions exposing (ReviewOptionsData, ReviewOptionsInternal(..))
 import Review.Project exposing (ProjectModule)
-import Review.Project.ContentHash as ContentHash exposing (ContentHash)
 import Review.Project.Dependency
 import Review.Project.Internal exposing (Project)
 import Review.Project.InvalidProjectError as InvalidProjectError

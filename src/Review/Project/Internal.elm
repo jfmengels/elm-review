@@ -14,8 +14,8 @@ import Elm.Project
 import Elm.Syntax.File
 import Elm.Syntax.Node exposing (Node(..))
 import Path
+import Review.Cache.ContentHash exposing (ContentHash)
 import Review.FilePath exposing (FilePath)
-import Review.Project.ContentHash exposing (ContentHash)
 import Review.Project.Dependency exposing (Dependency)
 import Review.Project.ProjectCache exposing (ProjectCache)
 import Review.Project.ProjectModule exposing (ProjectModule)

@@ -4,7 +4,7 @@ module Review.Project.ProjectModule exposing (ProjectModule)
 -}
 
 import Elm.Syntax.File
-import Review.Project.ContentHash exposing (ContentHash)
+import Review.Cache.ContentHash exposing (ContentHash)
 
 
 type alias ProjectModule =

@@ -46,8 +46,8 @@ import Elm.Package
 import Elm.Project
 import Elm.Syntax.File
 import Path
+import Review.Cache.ContentHash as ContentHash
 import Review.FileParser as FileParser
-import Review.Project.ContentHash as ContentHash
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal as Internal exposing (Project)
 import Review.Project.ProjectCache as ProjectCache

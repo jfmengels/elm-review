@@ -27,9 +27,9 @@ import Elm.Syntax.Module
 import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
 import Path
+import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.FilePath exposing (FilePath)
 import Review.ImportCycle as ImportCycle
-import Review.Project.ContentHash as ContentHash exposing (ContentHash)
 import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
 import Review.Project.InvalidProjectError as InvalidProjectError exposing (InvalidProjectError)

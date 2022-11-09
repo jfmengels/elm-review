@@ -1,6 +1,6 @@
 module Review.Cache exposing (Entry, Key, createEntry, errors, match, outputContext)
 
-import Review.Project.ContentHash as ContentHash exposing (ContentHash)
+import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 
 
 type Entry error projectContext
