@@ -255,7 +255,7 @@ addElmJson elmJson_ (Internal.Project project) =
     in
     Internal.Project
         { project
-            | elmJson = Just elmJson_
+            | elmJson = Just ( elmJson_, FileHash.hash elmJson_.raw )
             , sourceDirectories = sourceDirectories
             , modules = modules_
         }
@@ -271,7 +271,7 @@ information from the `elm.json` file.
 -}
 elmJson : Project -> Maybe { path : String, raw : String, project : Elm.Project.Project }
 elmJson (Internal.Project project) =
-    project.elmJson
+    Maybe.map Tuple.first project.elmJson
 
 
 
@@ -285,14 +285,14 @@ available for rules to access using
 -}
 addReadme : { path : String, content : String } -> Project -> Project
 addReadme readme_ (Internal.Project project) =
-    Internal.Project { project | readme = Just readme_ }
+    Internal.Project { project | readme = Just ( readme_, FileHash.hash readme_.content ) }
 
 
 {-| Get the contents of the `README.md` file, if available.
 -}
 readme : Project -> Maybe { path : String, content : String }
 readme (Internal.Project project) =
-    project.readme
+    Maybe.map Tuple.first project.readme
 
 
 {-| Add a dependency to the project. These will be available for rules to make
@@ -345,7 +345,7 @@ dependencies (Internal.Project project) =
 -}
 directDependencies : Project -> Dict String Dependency
 directDependencies (Internal.Project project) =
-    case Maybe.map .project project.elmJson of
+    case Maybe.map (\( elmJson_, _ ) -> elmJson_.project) project.elmJson of
         Just (Elm.Project.Application { depsDirect, testDepsDirect }) ->
             let
                 allDeps : List String
