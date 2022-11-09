@@ -27,6 +27,7 @@ import Path
 import Review.FilePath exposing (FilePath)
 import Review.ImportCycle as ImportCycle
 import Review.Project.Dependency as Dependency exposing (Dependency)
+import Review.Project.FileHash as FileHash
 import Review.Project.Internal exposing (Project(..))
 import Review.Project.InvalidProjectError as InvalidProjectError exposing (InvalidProjectError)
 import Review.Project.ProjectCache exposing (ProjectCache)
@@ -346,6 +347,7 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                     { path = path
                     , source = source
                     , ast = Review.Project.Internal.sanitizeModule ast
+                    , fileHash = FileHash.hash source
                     , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) project.sourceDirectories
                     }
 

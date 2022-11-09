@@ -48,6 +48,7 @@ import Elm.Syntax.File
 import Path
 import Review.FileParser as FileParser
 import Review.Project.Dependency as Dependency exposing (Dependency)
+import Review.Project.FileHash as FileHash
 import Review.Project.Internal as Internal exposing (Project)
 import Review.Project.ProjectCache as ProjectCache
 import Review.Project.ProjectModule as ProjectModule
@@ -118,6 +119,7 @@ addModule { path, source } project =
                     { path = path
                     , source = source
                     , ast = ast
+                    , fileHash = FileHash.hash source
                     , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) (Internal.sourceDirectories project)
                     }
                 |> removeFileFromFilesThatFailedToParse path
@@ -148,6 +150,7 @@ addParsedModule { path, source, ast } project =
             { path = path
             , source = source
             , ast = ast
+            , fileHash = FileHash.hash source
             , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) (Internal.sourceDirectories project)
             }
         |> forceModuleGraphRecomputation
