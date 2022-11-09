@@ -229,9 +229,13 @@ foldProjectContexts newContext previousContext =
     }
 
 
-registerAsUsed : ( ModuleName, String ) -> ModuleContext -> ModuleContext
-registerAsUsed ( moduleName, name ) moduleContext =
-    { moduleContext | used = Set.insert ( moduleName, name ) moduleContext.used }
+registerAsUsed : ModuleName -> String -> ModuleContext -> ModuleContext
+registerAsUsed moduleName name moduleContext =
+    if Set.member moduleName moduleContext.dependencyModules then
+        moduleContext
+
+    else
+        { moduleContext | used = Set.insert ( moduleName, name ) moduleContext.used }
 
 
 
@@ -894,9 +898,7 @@ expressionVisitor node moduleContext =
         Expression.FunctionOrValue _ name ->
             case ModuleNameLookupTable.moduleNameFor moduleContext.lookupTable node of
                 Just moduleName ->
-                    registerAsUsed
-                        ( moduleName, name )
-                        moduleContext
+                    registerAsUsed moduleName name moduleContext
 
                 Nothing ->
                     moduleContext
@@ -904,9 +906,7 @@ expressionVisitor node moduleContext =
         Expression.RecordUpdateExpression (Node range name) _ ->
             case ModuleNameLookupTable.moduleNameAt moduleContext.lookupTable range of
                 Just moduleName ->
-                    registerAsUsed
-                        ( moduleName, name )
-                        moduleContext
+                    registerAsUsed moduleName name moduleContext
 
                 Nothing ->
                     moduleContext
