@@ -82,7 +82,7 @@ dependenciesVisitor dependencies projectContext =
     in
     ( []
     , { projectContext
-        | dependencies = dependencies
+        | dependencies = Dict.map (\_ dep -> getDependencyList dep) dependencies
         , moduleNameToDependency = moduleNameToDependency
       }
     )
@@ -94,13 +94,17 @@ dependenciesVisitor dependencies projectContext =
 
 type alias ProjectContext =
     { moduleNameToDependency : Dict String String
-    , dependencies : Dict String Dependency
+    , dependencies : Dict String DependencyList
     , directProjectDependencies : Set String
     , directTestDependencies : Set String
     , usedDependencies : Set String
     , usedDependenciesFromTest : Set String
     , elmJsonKey : Maybe Rule.ElmJsonKey
     }
+
+
+type alias DependencyList =
+    List Elm.Package.Name
 
 
 type alias ModuleContext =
@@ -202,6 +206,16 @@ elmJsonVisitor maybeProject projectContext =
             ( [], projectContext )
 
 
+getDependencyList : Dependency -> DependencyList
+getDependencyList dependency =
+    case Dependency.elmJson dependency of
+        Elm.Project.Application _ ->
+            []
+
+        Elm.Project.Package package ->
+            List.map (\( depName, _ ) -> depName) package.deps
+
+
 listDependencies : List ( Elm.Package.Name, a ) -> Set String
 listDependencies deps =
     List.foldl
@@ -283,7 +297,7 @@ packagesNotToReport =
 -- ERROR FUNCTIONS
 
 
-unusedProjectDependencyError : Rule.ElmJsonKey -> Dict String Dependency -> String -> Error scope
+unusedProjectDependencyError : Rule.ElmJsonKey -> Dict String DependencyList -> String -> Error scope
 unusedProjectDependencyError elmJsonKey dependencies packageName =
     Rule.errorForElmJsonWithFix elmJsonKey
         (\elmJson ->
@@ -298,7 +312,7 @@ unusedProjectDependencyError elmJsonKey dependencies packageName =
         (fromProject dependencies InProjectDeps packageName >> Maybe.map (removeProjectDependency >> toProject))
 
 
-moveDependencyToTestError : Rule.ElmJsonKey -> Dict String Dependency -> String -> Error scope
+moveDependencyToTestError : Rule.ElmJsonKey -> Dict String DependencyList -> String -> Error scope
 moveDependencyToTestError elmJsonKey dependencies packageName =
     Rule.errorForElmJsonWithFix elmJsonKey
         (\elmJson ->
@@ -313,7 +327,7 @@ moveDependencyToTestError elmJsonKey dependencies packageName =
         (fromProject dependencies InProjectDeps packageName >> Maybe.map (removeProjectDependency >> addTestDependency >> toProject))
 
 
-unusedTestDependencyError : Rule.ElmJsonKey -> Dict String Dependency -> String -> Error scope
+unusedTestDependencyError : Rule.ElmJsonKey -> Dict String DependencyList -> String -> Error scope
 unusedTestDependencyError elmJsonKey dependencies packageName =
     Rule.errorForElmJsonWithFix elmJsonKey
         (\elmJson ->
@@ -385,7 +399,7 @@ type DependencyLocation
     | InTestDeps
 
 
-fromProject : Dict String Dependency -> DependencyLocation -> String -> Project -> Maybe ProjectAndDependencyIdentifier
+fromProject : Dict String DependencyList -> DependencyLocation -> String -> Project -> Maybe ProjectAndDependencyIdentifier
 fromProject dependenciesDict dependencyLocation packageNameStr project =
     case project of
         Elm.Project.Application application ->
@@ -410,7 +424,7 @@ fromProject dependenciesDict dependencyLocation packageNameStr project =
                     Nothing
 
 
-fromApplication : Dict String Dependency -> DependencyLocation -> String -> Elm.Project.ApplicationInfo -> Maybe ProjectAndDependencyIdentifier
+fromApplication : Dict String DependencyList -> DependencyLocation -> String -> Elm.Project.ApplicationInfo -> Maybe ProjectAndDependencyIdentifier
 fromApplication dependenciesDict dependencyLocation packageNameStr application =
     let
         dependencies : Elm.Project.Deps Elm.Version.Version
@@ -437,14 +451,7 @@ fromApplication dependenciesDict dependencyLocation packageNameStr application =
         getDependenciesAndVersion name =
             case Dict.get (Elm.Package.toString name) dependenciesDict of
                 Just deps ->
-                    deps
-                        |> Dependency.elmJson
-                        |> packageDependencies
-                        |> List.filterMap
-                            (\depName ->
-                                Dict.get (Elm.Package.toString depName) dependencyVersionDict
-                                    |> Maybe.map (Tuple.pair depName)
-                            )
+                    packageDependencies dependencyVersionDict deps
 
                 Nothing ->
                     []
@@ -529,14 +536,14 @@ listIndirectDependenciesHelp getDependenciesAndVersion dependenciesToLookAt visi
                 (( name, version ) :: indirectDependencies)
 
 
-packageDependencies : Project -> List Elm.Package.Name
-packageDependencies project =
-    case project of
-        Elm.Project.Application _ ->
-            []
-
-        Elm.Project.Package package ->
-            List.map Tuple.first package.deps
+packageDependencies : Dict String Elm.Version.Version -> DependencyList -> List ( Elm.Package.Name, Elm.Version.Version )
+packageDependencies dependencyVersionDict dependencies =
+    dependencies
+        |> List.filterMap
+            (\name ->
+                Dict.get (Elm.Package.toString name) dependencyVersionDict
+                    |> Maybe.map (Tuple.pair name)
+            )
 
 
 addTestDependency : ProjectAndDependencyIdentifier -> ProjectAndDependencyIdentifier

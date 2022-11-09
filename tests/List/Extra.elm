@@ -31,9 +31,13 @@ indexedFilterMap predicate index list acc =
             acc
 
         x :: xs ->
-            case predicate index x of
-                Just b ->
-                    indexedFilterMap predicate (index + 1) xs (b :: acc)
+            indexedFilterMap predicate
+                (index + 1)
+                xs
+                (case predicate index x of
+                    Just b ->
+                        b :: acc
 
-                Nothing ->
-                    indexedFilterMap predicate (index + 1) xs acc
+                    Nothing ->
+                        acc
+                )
