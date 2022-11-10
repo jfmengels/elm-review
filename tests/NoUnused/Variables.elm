@@ -141,7 +141,7 @@ type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
     , scopes : Nonempty Scope
     , inTheDeclarationOf : List String
-    , exposesEverything : Bool
+    , exposes : Exposes
     , isApplication : Bool
     , constructorNameToTypeName : Dict String String
     , declaredModules : List DeclaredModule
@@ -152,6 +152,11 @@ type alias ModuleContext =
     , localTypes : Dict String TypeData
     , customTypes : Dict ModuleName (Dict String (List String))
     }
+
+
+type Exposes
+    = ExposesEverything
+    | ExposesConstructorsOfTypes (List String)
 
 
 type alias DeclaredModule =
@@ -235,7 +240,7 @@ fromProjectToModule =
             { lookupTable = lookupTable
             , scopes = NonemptyList.fromElement emptyScope
             , inTheDeclarationOf = []
-            , exposesEverything = False
+            , exposes = ExposesEverything
             , isApplication = isApplication
             , constructorNameToTypeName = Dict.empty
             , declaredModules = []
@@ -354,7 +359,7 @@ moduleDefinitionVisitor : Node Module -> ModuleContext -> ModuleContext
 moduleDefinitionVisitor (Node _ moduleNode) context =
     case Module.exposingList moduleNode of
         Exposing.All _ ->
-            { context | exposesEverything = True }
+            { context | exposes = ExposesEverything }
 
         Exposing.Explicit list ->
             let
@@ -362,7 +367,7 @@ moduleDefinitionVisitor (Node _ moduleNode) context =
                 names =
                     List.map getExposingName list
             in
-            markAllAsUsed names context
+            markAllAsUsed names { context | exposes = ExposesConstructorsOfTypes (List.filterMap exposedTypeName list) }
 
 
 getExposingName : Node Exposing.TopLevelExpose -> String
@@ -379,6 +384,16 @@ getExposingName node =
 
         Exposing.InfixExpose name ->
             name
+
+
+exposedTypeName : Node Exposing.TopLevelExpose -> Maybe String
+exposedTypeName node =
+    case Node.value node of
+        Exposing.TypeExpose { name } ->
+            Just name
+
+        _ ->
+            Nothing
 
 
 importVisitor : Node Import -> ModuleContext -> ( List (Error {}), ModuleContext )
@@ -1124,18 +1139,19 @@ registerTypeAlias range { name, typeAnnotation } context =
     in
     case Node.value typeAnnotation of
         TypeAnnotation.Record _ ->
-            if context.exposesEverything then
-                newContext
-
-            else
-                registerVariable
-                    { typeName = "Type"
-                    , under = Node.range name
-                    , rangeToRemove = Just (untilStartOfNextLine range)
-                    , warning = ""
-                    }
-                    (Node.value name)
+            case context.exposes of
+                ExposesEverything ->
                     newContext
+
+                ExposesConstructorsOfTypes _ ->
+                    registerVariable
+                        { typeName = "Type"
+                        , under = Node.range name
+                        , rangeToRemove = Just (untilStartOfNextLine range)
+                        , warning = ""
+                        }
+                        (Node.value name)
+                        newContext
 
         _ ->
             let
@@ -1191,22 +1207,24 @@ declarationEnterVisitor node context =
 
                 newContextWhereFunctionIsRegistered : ModuleContext
                 newContextWhereFunctionIsRegistered =
-                    if
-                        context.exposesEverything
-                            -- The main function is "exposed" by default for applications
-                            || (context.isApplication && functionName == "main")
-                    then
-                        context
-
-                    else
-                        registerVariable
-                            { typeName = "Top-level variable"
-                            , under = Node.range functionImplementation.name
-                            , rangeToRemove = Just (untilStartOfNextLine (Node.range node))
-                            , warning = ""
-                            }
-                            functionName
+                    case context.exposes of
+                        ExposesEverything ->
                             context
+
+                        ExposesConstructorsOfTypes _ ->
+                            if context.isApplication && functionName == "main" then
+                                -- The main function is "exposed" by default for applications
+                                context
+
+                            else
+                                registerVariable
+                                    { typeName = "Top-level variable"
+                                    , under = Node.range functionImplementation.name
+                                    , rangeToRemove = Just (untilStartOfNextLine (Node.range node))
+                                    , warning = ""
+                                    }
+                                    functionName
+                                    context
 
                 newContext : ModuleContext
                 newContext =
@@ -1254,18 +1272,19 @@ declarationEnterVisitor node context =
                     collectNamesFromTypeAnnotation Nothing [ typeAnnotation ] context
             in
             ( []
-            , if context.exposesEverything then
-                contextWithUsedElements
-
-              else
-                registerVariable
-                    { typeName = "Port"
-                    , under = Node.range name
-                    , rangeToRemove = Nothing
-                    , warning = " (Warning: Removing this port may break your application if it is used in the JS code)"
-                    }
-                    (Node.value name)
+            , case context.exposes of
+                ExposesEverything ->
                     contextWithUsedElements
+
+                ExposesConstructorsOfTypes _ ->
+                    registerVariable
+                        { typeName = "Port"
+                        , under = Node.range name
+                        , rangeToRemove = Nothing
+                        , warning = " (Warning: Removing this port may break your application if it is used in the JS code)"
+                        }
+                        (Node.value name)
+                        contextWithUsedElements
             )
 
         Declaration.InfixDeclaration { operator, function } ->
@@ -1454,14 +1473,15 @@ finalEvaluation context =
 
         customTypeErrors : List (Error {})
         customTypeErrors =
-            if context.exposesEverything then
-                []
+            case context.exposes of
+                ExposesEverything ->
+                    []
 
-            else
-                context.localTypes
-                    |> Dict.toList
-                    |> List.filter (\( name, _ ) -> not <| Set.member name usedLocally)
-                    |> List.map errorForLocalType
+                ExposesConstructorsOfTypes _ ->
+                    context.localTypes
+                        |> Dict.toList
+                        |> List.filter (\( name, _ ) -> not <| Set.member name usedLocally)
+                        |> List.map errorForLocalType
     in
     List.concat
         [ makeReportHelp newRootScope
