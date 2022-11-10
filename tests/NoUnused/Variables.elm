@@ -516,12 +516,9 @@ registerExposedElements customTypesFromModule importedElement context =
                     { context
                         | unusedImportedCustomTypes = Dict.insert name variableInfo context.unusedImportedCustomTypes
                         , importedCustomTypeLookup =
-                            Dict.union
-                                (constructorNames
-                                    |> List.map (\constructorName -> ( constructorName, name ))
-                                    |> Dict.fromList
-                                )
+                            List.foldl (\constructorName acc -> Dict.insert constructorName name acc)
                                 context.importedCustomTypeLookup
+                                constructorNames
                     }
 
                 Nothing ->
