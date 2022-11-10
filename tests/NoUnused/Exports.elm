@@ -84,7 +84,7 @@ moduleVisitor schema =
 
 type alias ProjectContext =
     { projectType : ProjectType
-    , dependencyModules : Set ModuleName
+    , ignoredModules : Set ModuleName
     , modules :
         Dict
             ModuleName
@@ -123,7 +123,7 @@ type ExposedElementType
 
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
-    , dependencyModules : Set ModuleName
+    , ignoredModules : Set ModuleName
     , exposed : Dict String ExposedElement
     , used : Set ( ModuleName, String )
     , elementsNotToReport : Set String
@@ -136,7 +136,7 @@ type alias ModuleContext =
 initialProjectContext : ProjectContext
 initialProjectContext =
     { projectType = IsApplication ElmApplication
-    , dependencyModules = Set.empty
+    , ignoredModules = Set.empty
     , modules = Dict.empty
     , usedModules = Set.singleton [ "ReviewConfig" ]
     , used = Set.empty
@@ -159,7 +159,7 @@ fromProjectToModule =
                             collectExposedElements moduleDocumentation explicitlyExposed ast.declarations
             in
             { lookupTable = lookupTable
-            , dependencyModules = projectContext.dependencyModules
+            , ignoredModules = projectContext.ignoredModules
             , exposed = exposed
             , used = Set.empty
             , elementsNotToReport = Set.empty
@@ -178,7 +178,7 @@ fromModuleToProject =
     Rule.initContextCreator
         (\moduleKey (Node moduleNameRange moduleName) moduleContext ->
             { projectType = IsApplication ElmApplication
-            , dependencyModules = Set.empty
+            , ignoredModules = Set.empty
             , modules =
                 Dict.singleton
                     moduleName
@@ -221,7 +221,7 @@ fromModuleToProject =
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
 foldProjectContexts newContext previousContext =
     { projectType = previousContext.projectType
-    , dependencyModules = previousContext.dependencyModules
+    , ignoredModules = previousContext.ignoredModules
     , modules = Dict.union newContext.modules previousContext.modules
     , usedModules = Set.union newContext.usedModules previousContext.usedModules
     , used = Set.union newContext.used previousContext.used
@@ -231,7 +231,7 @@ foldProjectContexts newContext previousContext =
 
 registerAsUsed : ModuleName -> String -> ModuleContext -> ModuleContext
 registerAsUsed moduleName name moduleContext =
-    if Set.member moduleName moduleContext.dependencyModules then
+    if Set.member moduleName moduleContext.ignoredModules then
         moduleContext
 
     else
@@ -286,12 +286,14 @@ elmJsonVisitor maybeProject projectContext =
 dependenciesVisitor : Dict String Dependency -> ProjectContext -> ProjectContext
 dependenciesVisitor dependencies projectContext =
     { projectContext
-        | dependencyModules =
+        | ignoredModules =
             dependencies
                 |> Dict.values
                 |> List.concatMap Dependency.modules
                 |> List.map (.name >> String.split ".")
                 |> Set.fromList
+                -- Including the "local" module
+                |> Set.insert []
     }
 
 
