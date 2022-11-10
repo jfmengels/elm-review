@@ -261,6 +261,7 @@ fromModuleToProject =
         (\moduleName moduleContext ->
             { customTypes =
                 moduleContext.localTypes
+                    |> filterOnExposed moduleContext.exposes
                     |> Dict.map (\_ customType -> customType.variants)
                     |> Dict.singleton moduleName
 
@@ -269,6 +270,16 @@ fromModuleToProject =
             }
         )
         |> Rule.withModuleName
+
+
+filterOnExposed : Exposes -> Dict String a -> Dict String a
+filterOnExposed exposed dict =
+    case exposed of
+        ExposesEverything ->
+            dict
+
+        ExposesConstructorsOfTypes typeNames ->
+            Dict.filter (\name _ -> List.member name typeNames) dict
 
 
 foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
