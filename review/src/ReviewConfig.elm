@@ -62,7 +62,6 @@ config =
     , NoUnused.Exports.rule
     , NoUnused.Parameters.rule
     , NoUnused.Patterns.rule
-    , NoSimpleLetBody.rule
 
     --, NoUnnecessaryTrailingUnderscore.rule
     , NoUnused.Variables.rule
