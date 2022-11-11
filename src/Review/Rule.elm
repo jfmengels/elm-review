@@ -23,7 +23,7 @@ module Review.Rule exposing
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , withDataExtractor, preventExtract
-    , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, getConfigurationError
+    , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, withRuleId, getConfigurationError
     , Required, Forbidden
     )
 
@@ -284,7 +284,7 @@ find the tools to extract data below.
 
 # Running rules
 
-@docs reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, getConfigurationError
+@docs reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, withRuleId, getConfigurationError
 
 
 # Internals
@@ -344,11 +344,12 @@ You can create [module rules](#creating-a-module-rule) or [project rules](#creat
 type Rule
     = Rule
         { name : String
+        , id : Int
         , exceptions : Exceptions
         , requestedData : RequestedData
         , providesFixes : Bool
         , extractsData : Bool
-        , ruleImplementation : ReviewOptionsData -> Exceptions -> FixedErrors -> ValidProject -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
+        , ruleImplementation : ReviewOptionsData -> Int -> Exceptions -> FixedErrors -> ValidProject -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
         , configurationError : Maybe { message : String, details : List String }
         }
 
@@ -765,11 +766,11 @@ runRulesHelp reviewOptions remainingRules acc =
         [] ->
             acc
 
-        (Rule { name, exceptions, ruleImplementation }) :: restOfRules ->
+        (Rule { name, id, exceptions, ruleImplementation }) :: restOfRules ->
             let
                 result : { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
                 result =
-                    ruleImplementation reviewOptions exceptions acc.fixedErrors acc.project
+                    ruleImplementation reviewOptions id exceptions acc.fixedErrors acc.project
 
                 errors : List ReviewError
                 errors =
@@ -857,6 +858,20 @@ ruleProvidesFixes : Rule -> Bool
 ruleProvidesFixes (Rule rule) =
     -- TODO Breaking change: This should be an internal detail, not shown to the user
     rule.providesFixes
+
+
+{-| Assign a unique to a rule.
+
+    config =
+        [ rule1, rule2, rule3 ]
+            |> List.indexedMap Rule.withUniqueId
+
+You should not have to use this when writing a rule.
+
+-}
+withRuleId : Int -> Rule -> Rule
+withRuleId id (Rule rule) =
+    Rule { rule | id = id }
 
 
 {-| Get the configuration error for a rule.
@@ -1224,6 +1239,7 @@ fromProjectRuleSchema : ProjectRuleSchema { schemaState | withModuleContext : Fo
 fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
     Rule
         { name = schema.name
+        , id = 0
         , exceptions = Exceptions.init
         , requestedData =
             case schema.moduleContextCreator of
@@ -1235,21 +1251,22 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
         , extractsData = schema.dataExtractor /= Nothing
         , providesFixes = schema.providesFixes
         , ruleImplementation =
-            \reviewOptions exceptions fixedErrors project ->
+            \reviewOptions ruleId exceptions fixedErrors project ->
                 runProjectVisitor
                     { reviewOptions = reviewOptions
                     , projectVisitor = fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema
                     , exceptions = exceptions
                     }
-                    (initialCacheMarker schema.name emptyCache)
+                    ruleId
+                    (initialCacheMarker schema.name ruleId emptyCache)
                     fixedErrors
                     project
         , configurationError = Nothing
         }
 
 
-initialCacheMarker : String -> ProjectRuleCache projectContext -> ProjectRuleCache projectContext
-initialCacheMarker _ cache =
+initialCacheMarker : String -> Int -> ProjectRuleCache projectContext -> ProjectRuleCache projectContext
+initialCacheMarker _ _ cache =
     cache
 
 
@@ -1526,11 +1543,12 @@ configurationError name configurationError_ =
     -- IGNORE TCO
     Rule
         { name = name
+        , id = 0
         , exceptions = Exceptions.init
         , requestedData = RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
         , extractsData = False
         , providesFixes = False
-        , ruleImplementation = \_ _ fixedErrors project -> { errors = [], fixedErrors = fixedErrors, rule = configurationError name configurationError_, project = project, extract = Nothing }
+        , ruleImplementation = \_ _ _ fixedErrors project -> { errors = [], fixedErrors = fixedErrors, rule = configurationError name configurationError_, project = project, extract = Nothing }
         , configurationError = Just configurationError_
         }
 
@@ -3891,6 +3909,7 @@ ignoreErrorsForDirectories : List String -> Rule -> Rule
 ignoreErrorsForDirectories directories (Rule rule) =
     Rule
         { name = rule.name
+        , id = rule.id
         , exceptions = Exceptions.addDirectories directories rule.exceptions
         , requestedData = rule.requestedData
         , extractsData = rule.extractsData
@@ -3961,6 +3980,7 @@ ignoreErrorsForFiles : List String -> Rule -> Rule
 ignoreErrorsForFiles files (Rule rule) =
     Rule
         { name = rule.name
+        , id = rule.id
         , exceptions = Exceptions.addFiles files rule.exceptions
         , requestedData = rule.requestedData
         , extractsData = rule.extractsData
@@ -4039,6 +4059,7 @@ filterErrorsForFiles : (String -> Bool) -> Rule -> Rule
 filterErrorsForFiles condition (Rule rule) =
     Rule
         { name = rule.name
+        , id = rule.id
         , exceptions = Exceptions.addFilter condition rule.exceptions
         , requestedData = rule.requestedData
         , extractsData = rule.extractsData
@@ -4119,24 +4140,26 @@ type alias ExtractCache projectContext =
 
 runProjectVisitor :
     DataToComputeProject projectContext moduleContext
+    -> Int
     -> ProjectRuleCache projectContext
     -> FixedErrors
     -> ValidProject
     -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
-runProjectVisitor dataToComputeProject cache fixedErrors project =
+runProjectVisitor dataToComputeProject ruleId cache fixedErrors project =
     project
         |> Logger.log dataToComputeProject.reviewOptions.logger (startedRule dataToComputeProject.projectVisitor.name)
-        |> runProjectVisitorHelp dataToComputeProject cache fixedErrors
+        |> runProjectVisitorHelp dataToComputeProject ruleId cache fixedErrors
         |> Logger.log dataToComputeProject.reviewOptions.logger (endedRule dataToComputeProject.projectVisitor.name)
 
 
 runProjectVisitorHelp :
     DataToComputeProject projectContext moduleContext
+    -> Int
     -> ProjectRuleCache projectContext
     -> FixedErrors
     -> ValidProject
     -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
-runProjectVisitorHelp ({ projectVisitor, exceptions } as dataToComputeProject) initialCache initialFixedErrors initialProject =
+runProjectVisitorHelp ({ projectVisitor, exceptions } as dataToComputeProject) ruleId initialCache initialFixedErrors initialProject =
     let
         { project, errors, cache, fixedErrors } =
             computeStepsForProject
@@ -4152,29 +4175,31 @@ runProjectVisitorHelp ({ projectVisitor, exceptions } as dataToComputeProject) i
     , rule =
         Rule
             { name = projectVisitor.name
+            , id = ruleId
             , exceptions = exceptions
             , requestedData = projectVisitor.requestedData
             , extractsData = projectVisitor.dataExtractor /= Nothing
             , providesFixes = projectVisitor.providesFixes
             , ruleImplementation =
-                \newReviewOptions newExceptions newFixedErrors newProjectArg ->
+                \newReviewOptions newRuleId newExceptions newFixedErrors newProjectArg ->
                     runProjectVisitor
                         { reviewOptions = newReviewOptions
                         , projectVisitor = projectVisitor
                         , exceptions = newExceptions
                         }
+                        newRuleId
                         cache
                         newFixedErrors
                         newProjectArg
             , configurationError = Nothing
             }
     , project = project
-    , extract = Maybe.map .extract (finalCacheMarker projectVisitor.name cache).extract
+    , extract = Maybe.map .extract (finalCacheMarker projectVisitor.name ruleId cache).extract
     }
 
 
-finalCacheMarker : String -> ProjectRuleCache projectContext -> ProjectRuleCache projectContext
-finalCacheMarker _ cache =
+finalCacheMarker : String -> Int -> ProjectRuleCache projectContext -> ProjectRuleCache projectContext
+finalCacheMarker _ _ cache =
     cache
 
 
