@@ -6,6 +6,7 @@ module Review.Project.Valid exposing
     , dependencies
     , dependenciesHash
     , directDependencies
+    , doesModuleExist
     , elmJson
     , elmJsonHash
     , getModuleByPath
@@ -329,6 +330,11 @@ moduleGraph (ValidProject project) =
 getModuleByPath : String -> ValidProject -> Maybe ProjectModule
 getModuleByPath path (ValidProject project) =
     Dict.get path project.modulesByPath
+
+
+doesModuleExist : String -> ValidProject -> Bool
+doesModuleExist path (ValidProject project) =
+    Dict.member path project.modulesByPath
 
 
 projectCache : ValidProject -> ProjectCache
