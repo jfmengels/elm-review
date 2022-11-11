@@ -1258,7 +1258,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     , exceptions = exceptions
                     }
                     ruleId
-                    (initialCacheMarker schema.name ruleId emptyCache)
+                    (removeUnknownModulesFromInitialCache project (initialCacheMarker schema.name ruleId emptyCache))
                     fixedErrors
                     project
         , configurationError = Nothing
@@ -1268,6 +1268,11 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
 initialCacheMarker : String -> Int -> ProjectRuleCache projectContext -> ProjectRuleCache projectContext
 initialCacheMarker _ _ cache =
     cache
+
+
+removeUnknownModulesFromInitialCache : ValidProject -> ProjectRuleCache projectContext -> ProjectRuleCache projectContext
+removeUnknownModulesFromInitialCache validProject projectRuleCache =
+    { projectRuleCache | moduleContexts = Dict.filter (\path _ -> ValidProject.doesModuleExist path validProject) projectRuleCache.moduleContexts }
 
 
 emptyCache : ProjectRuleCache projectContext
