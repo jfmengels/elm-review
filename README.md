@@ -282,7 +282,7 @@ the codebase. You can use this to gain insight into your codebase, or provide in
 powerful integrations.
 
 To make use of this feature, run `elm-review --extract --report=json` with a configuration containing a rule that uses
-[`Rule.withDataExtractor`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.10.0/Review-Rule/#withDataExtractor)
+[`Rule.withDataExtractor`](https://package.elm-lang.org/packages/jfmengels/elm-review/2.10.0/Review-Rule/#withDataExtractor).
 
 The result for a rule will be stored under `<json>.extracts.<YourRuleName>`. To access it, you can then pipe the result
 into either a `Node.js` script, a tool that expects JSON, or [`jq`](https://stedolan.github.io/jq/) as in the example below.
