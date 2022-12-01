@@ -1180,9 +1180,11 @@ unexpectedExtractTest =
                 |> expectMessageEqual """
 \u{001B}[31m\u{001B}[1mUNEXPECTED EXTRACT\u{001B}[22m\u{001B}[39m
 
-This rule returned an extract which I did not expect.
+This rule returned an extract but I did not expect one.
 
-You should use `REPLACEME` to assert that the extract fits what you had.
+You should use `Review.Test.expectDataExtract` or
+`Review.Test.expect`+`Review.Test.dataExtract` to assert that the extract
+fits what you expected.
 
 {
   "foo": "bar",

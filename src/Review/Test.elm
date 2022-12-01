@@ -1576,8 +1576,8 @@ expectConfigurationErrorDetailsMatch expectedError configurationError =
 expectNoDataExtract : ExtractResult -> Expectation
 expectNoDataExtract maybeExtract =
     case maybeExtract of
-        Just _ ->
-            Expect.fail FailureMessage.needToUsedExpectErrorsForModules
+        Just extract ->
+            Expect.fail (FailureMessage.unexpectedExtract extract)
 
         Nothing ->
             Expect.pass

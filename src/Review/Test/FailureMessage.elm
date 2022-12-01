@@ -653,9 +653,11 @@ but I could not find it.""")
 unexpectedExtract : Encode.Value -> String
 unexpectedExtract value =
     failureMessage "UNEXPECTED EXTRACT"
-        ("""This rule returned an extract which I did not expect.
+        ("""This rule returned an extract but I did not expect one.
 
-You should use `REPLACEME` to assert that the extract fits what you had.
+You should use `Review.Test.expectDataExtract` or
+`Review.Test.expect`+`Review.Test.dataExtract` to assert that the extract
+fits what you expected.
 
 """ ++ formatJson value)
 
