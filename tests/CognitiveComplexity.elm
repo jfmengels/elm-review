@@ -64,7 +64,7 @@ an insight rule instead.
 ## Use as an insight rule
 
 If instead of enforcing a threshold, you wish to have an overview of the complexity for each function, you can run the
-rule using as an insight rule (using `elm-review --report=json --extract`), which would yield an output like the following:
+rule as an insight rule (using `elm-review --report=json --extract`), which would yield an output like the following:
 
 ```json
 {
