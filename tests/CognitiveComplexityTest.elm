@@ -16,7 +16,13 @@ all =
 a = 1
 """
                     |> Review.Test.run (rule 1)
-                    |> Review.Test.expectNoErrors
+                    |> Review.Test.expectDataExtract
+                        """
+{
+  "A": {
+    "a": 0
+  }
+}"""
         , test "should report an error when the complexity is higher than the threshold" <|
             \() ->
                 """module A exposing (..)
@@ -46,6 +52,12 @@ Line 6: +4 for the if expression (including 3 for nesting)
 """ ]
                           }
                         ]
+                        """
+{
+  "A": {
+    "fun": 10
+  }
+}"""
         , test "should count a simple value or operation as 0" <|
             \() ->
                 """module A exposing (..)
@@ -53,6 +65,12 @@ fun n =
     n + 1
 """
                     |> expect [ { name = "fun", complexity = 0, details = [] } ]
+                        """
+{
+  "A": {
+    "fun": 0
+  }
+}"""
         , test "should count if expression as 1" <|
             \() ->
                 """module A exposing (..)
@@ -68,6 +86,12 @@ fun n =
                           , details = [ "Line 3: +1 for the if expression" ]
                           }
                         ]
+                        """
+{
+  "A": {
+    "fun": 1
+  }
+}"""
         , test "should count if else expressions" <|
             \() ->
                 """module A exposing (..)
@@ -88,6 +112,12 @@ Line 5: +1 for the else if expression
 """ ]
                           }
                         ]
+                        """
+{
+  "A": {
+    "fun": 2
+  }
+}"""
         , test "should properly decrement when exiting else expression" <|
             \() ->
                 """module A exposing (..)
@@ -116,6 +146,12 @@ Line 12: +1 for the if expression
 """ ]
                           }
                         ]
+                        """
+{
+  "A": {
+    "fun": 3
+  }
+}"""
         , test "should increment nesting when inside a let function" <|
             \() ->
                 """module A exposing (..)
@@ -137,6 +173,12 @@ Line 5: +2 for the if expression (including 1 for nesting)
 """ ]
                           }
                         ]
+                        """
+{
+  "A": {
+    "fun": 2
+  }
+}"""
         , test "should properly decrement nesting when exiting a let function" <|
             \() ->
                 """module A exposing (..)
@@ -161,6 +203,12 @@ Line 8: +1 for the if expression
 """ ]
                           }
                         ]
+                        """
+{
+  "A": {
+    "fun": 1
+  }
+}"""
         , test "should count case expression as 1" <|
             \() ->
                 """module A exposing (..)
@@ -178,6 +226,12 @@ fun n =
                           , details = [ "Line 3: +1 for the case expression" ]
                           }
                         ]
+                        """
+{
+  "A": {
+    "fun": 1
+  }
+}"""
         , test "should count nesting of case expressions" <|
             \() ->
                 """module A exposing (..)
@@ -199,6 +253,12 @@ Line 6: +2 for the case expression (including 1 for nesting)
 """ ]
                           }
                         ]
+                        """
+{
+  "A": {
+    "fun": 3
+  }
+}"""
         , test "should decrement the nesting when leaving a nested structure" <|
             \() ->
                 """module A exposing (..)
@@ -226,6 +286,12 @@ Line 12: +2 for the case expression (including 1 for nesting)
 """ ]
                           }
                         ]
+                        """
+{
+  "A": {
+    "fun": 8
+  }
+}"""
         , test "should increment once when using the && boolean operator" <|
             \() ->
                 """module A exposing (..)
@@ -246,6 +312,12 @@ Line 4: +1 for the use of `&&`
 """ ]
                           }
                         ]
+                        """
+{
+  "A": {
+    "fun": 2
+  }
+}"""
         , test "should increment once when using the || boolean operator" <|
             \() ->
                 """module A exposing (..)
@@ -266,6 +338,12 @@ Line 4: +1 for the use of `||`
 """ ]
                           }
                         ]
+                        """
+{
+  "A": {
+    "fun": 2
+  }
+}"""
         , test "should increment when mixing boolean operators" <|
             \() ->
                 """module A exposing (..)
@@ -290,6 +368,12 @@ Line 5: +1 for the use of `&&`
 """ ]
                           }
                         ]
+                        """
+{
+  "A": {
+    "fun": 4
+  }
+}"""
         , test "should not increment for anonymous functions" <|
             \() ->
                 """module A exposing (..)
@@ -302,6 +386,12 @@ fun n =
                           , details = []
                           }
                         ]
+                        """
+{
+  "A": {
+    "fun": 0
+  }
+}"""
         , test "should increment the nesting inside anonymous functions" <|
             \() ->
                 """module A exposing (..)
@@ -322,6 +412,12 @@ fun n =
                           , details = [ "Line 5: +2 for the if expression (including 1 for nesting)" ]
                           }
                         ]
+                        """
+{
+  "A": {
+    "fun": 2
+  }
+}"""
         , test "should properly decrement the nesting when exiting an anonymous function" <|
             \() ->
                 """module A exposing (..)
@@ -340,6 +436,12 @@ fun n =
                           , details = [ "Line 6: +1 for the if expression" ]
                           }
                         ]
+                        """
+{
+  "A": {
+    "fun": 1
+  }
+}"""
         , test "should increment when finding a recursive call" <|
             \() ->
                 """module A exposing (..)
@@ -359,6 +461,12 @@ Line 4: +1 for the recursive call
 """ ]
                           }
                         ]
+                        """
+{
+  "A": {
+    "fun": 2
+  }
+}"""
         , test "should only increment once, even if there are multiple recursive calls" <|
             \() ->
                 """module A exposing (..)
@@ -379,6 +487,12 @@ Line 4: +1 for the recursive call
 """ ]
                           }
                         ]
+                        """
+{
+  "A": {
+    "fib": 2
+  }
+}"""
         , test "should increment the complexity for every recursive call in a chain" <|
             \() ->
                 """module A exposing (..)
@@ -404,6 +518,12 @@ Line 6: +1 for the indirect recursive call to fun1
 """ ]
                           }
                         ]
+                        """{
+                         "A": {
+                           "fun1": 1,
+                           "fun2": 1
+                         }
+                       }"""
         , test "should increment the complexity for every recursive call in a chain, for each different function call" <|
             \() ->
                 """module A exposing (..)
@@ -434,6 +554,12 @@ Line 8: +1 for the indirect recursive call to fun1
 """ ]
                           }
                         ]
+                        """    {
+                                 "A": {
+                                   "fun1": 2,
+                                   "fun2": 1
+                                 }
+                               }"""
         , test "should increment the complexity for every recursive call in a chain, for long chains" <|
             \() ->
                 """module A exposing (..)
@@ -475,6 +601,16 @@ fun5 n =
                           , details = [ "Line 11: +1 for the indirect recursive call to fun1" ]
                           }
                         ]
+                        """
+                        {
+                          "A": {
+                            "fun1": 1,
+                            "fun2": 1,
+                            "fun3": 1,
+                            "fun4": 1,
+                            "fun5": 1
+                          }
+                       }"""
         , test "the complexity of a function should not affect another function's computed complexity" <|
             \() ->
                 """module A exposing (..)
@@ -512,42 +648,55 @@ Line 6: +2 for the if expression (including 1 for nesting)
                           , details = [ "Line 14: +1 for the if expression" ]
                           }
                         ]
+                        """{
+ "A": {
+   "fun": 3,
+   "alsoSimple": 1,
+   "simple": 0
+ }
+}"""
         ]
 
 
-expect : List { name : String, complexity : Int, details : List String } -> String -> Expectation
-expect functionComplexities source =
+expect : List { name : String, complexity : Int, details : List String } -> String -> String -> Expectation
+expect functionComplexities dataExtract source =
     source
         |> Review.Test.run (rule -1)
-        |> Review.Test.expectErrors
-            (List.map
-                (\{ name, complexity, details } ->
-                    Review.Test.error
-                        { message = name ++ " has a cognitive complexity of " ++ String.fromInt complexity ++ ", higher than the allowed -1"
-                        , details = explanation ++ details
-                        , under = name
-                        }
+        |> Review.Test.expect
+            [ Review.Test.moduleErrors "A"
+                (List.map
+                    (\{ name, complexity, details } ->
+                        Review.Test.error
+                            { message = name ++ " has a cognitive complexity of " ++ String.fromInt complexity ++ ", higher than the allowed -1"
+                            , details = explanation ++ details
+                            , under = name
+                            }
+                    )
+                    functionComplexities
                 )
-                functionComplexities
-            )
+            , Review.Test.dataExtract dataExtract
+            ]
 
 
-expectAtExactly : List { name : String, complexity : Int, details : List String, atExactly : Range } -> String -> Expectation
-expectAtExactly functionComplexities source =
+expectAtExactly : List { name : String, complexity : Int, details : List String, atExactly : Range } -> String -> String -> Expectation
+expectAtExactly functionComplexities dataExtract source =
     source
         |> Review.Test.run (rule -1)
-        |> Review.Test.expectErrors
-            (List.map
-                (\{ name, complexity, details, atExactly } ->
-                    Review.Test.error
-                        { message = name ++ " has a cognitive complexity of " ++ String.fromInt complexity ++ ", higher than the allowed -1"
-                        , details = explanation ++ details
-                        , under = name
-                        }
-                        |> Review.Test.atExactly atExactly
+        |> Review.Test.expect
+            [ Review.Test.moduleErrors "A"
+                (List.map
+                    (\{ name, complexity, details, atExactly } ->
+                        Review.Test.error
+                            { message = name ++ " has a cognitive complexity of " ++ String.fromInt complexity ++ ", higher than the allowed -1"
+                            , details = explanation ++ details
+                            , under = name
+                            }
+                            |> Review.Test.atExactly atExactly
+                    )
+                    functionComplexities
                 )
-                functionComplexities
-            )
+            , Review.Test.dataExtract dataExtract
+            ]
 
 
 explanation : List String

@@ -11,6 +11,7 @@ import Elm.Syntax.Declaration as Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Location, Range)
+import Json.Encode as Encode
 import Review.Rule as Rule exposing (Rule)
 import Set exposing (Set)
 
@@ -56,7 +57,26 @@ I would for now recommend to use it with a very high threshold to find places in
 and eventually to enable it in your configuration to make sure no new extremely complex functions appear. As you refactor more
 and more of your codebase, you can gradually lower the threshold until you reach a level that you feel happy with.
 
-Please let me know how enabling this rule works out for you!
+Please let me know how enabling this rule works out for you! If enforcing doesn't work for you, then you can use this as
+an insight rule instead.
+
+
+## Use as an insight rule
+
+If instead of enforcing a threshold, you wish to have an overview of the complexity for each function, you can run the
+rule using as an insight rule (using `elm-review --report=json --extract`), which would yield an output like the following:
+
+```json
+{
+  "Some.Module": {
+    "someFunction": 16,
+    "someOtherFunction": 0
+  },
+  "Some.Other.Module": {
+    "awesomeFunction": 2
+  }
+}
+```
 
 
 ## Complexity breakdown
@@ -171,6 +191,13 @@ elm-review --template jfmengels/elm-review-cognitive-complexity/example --rules 
 
 The cognitive complexity is set to 15 in the configuration used by the example.
 
+If instead of enforcing a threshold, you wish to have an overview of the complexity for each function, you can run the
+rule like this (requires [`jq`](https://stedolan.github.io/jq/)):
+
+```bash
+elm-review --template jfmengels/elm-review-cognitive-complexity/example --extract --report=json --rules CognitiveComplexity | jq -r '.extracts.CognitiveComplexity'
+```
+
 
 ## Thanks
 
@@ -180,15 +207,35 @@ Thanks to G. Ann Campbell for the different talks she made on the subject.
 -}
 rule : Int -> Rule
 rule threshold =
-    Rule.newModuleRuleSchema "CognitiveComplexity" initialContext
+    Rule.newProjectRuleSchema "CognitiveComplexity" initialContext
+        |> Rule.withModuleVisitor (moduleVisitor threshold)
+        |> Rule.withModuleContextUsingContextCreator
+            { fromProjectToModule = fromProjectToModule
+            , fromModuleToProject = fromModuleToProject
+            , foldProjectContexts = foldProjectContexts
+            }
+        |> Rule.withDataExtractor dataExtractor
+        |> Rule.fromProjectRuleSchema
+
+
+moduleVisitor : Int -> Rule.ModuleRuleSchema schemaState ModuleContext -> Rule.ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } ModuleContext
+moduleVisitor threshold schema =
+    schema
         |> Rule.withDeclarationExitVisitor declarationExitVisitor
         |> Rule.withExpressionEnterVisitor expressionEnterVisitor
         |> Rule.withExpressionExitVisitor expressionExitVisitor
-        |> Rule.withFinalModuleEvaluation (finalEvaluation threshold)
-        |> Rule.fromModuleRuleSchema
+        |> Rule.withFinalModuleEvaluation (finalModuleEvaluation threshold)
 
 
-type alias Context =
+type alias ProjectContext =
+    Dict String ComplexityDict
+
+
+type alias ComplexityDict =
+    Dict String Int
+
+
+type alias ModuleContext =
     { nesting : Int
     , operandsToIgnore : List Range
     , elseIfToIgnore : List Range
@@ -223,19 +270,61 @@ type IncreaseKind
     | IndirectRecursiveCall String
 
 
-initialContext : Context
+initialContext : ProjectContext
 initialContext =
-    { nesting = 0
-    , operandsToIgnore = []
-    , elseIfToIgnore = []
-    , rangesWhereNestingIncreases = []
-    , references = Dict.empty
-    , increases = []
-    , functionsToReport = []
-    }
+    Dict.empty
 
 
-expressionEnterVisitor : Node Expression -> Context -> ( List nothing, Context )
+fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
+fromProjectToModule =
+    Rule.initContextCreator
+        (always
+            { nesting = 0
+            , operandsToIgnore = []
+            , elseIfToIgnore = []
+            , rangesWhereNestingIncreases = []
+            , references = Dict.empty
+            , increases = []
+            , functionsToReport = []
+            }
+        )
+
+
+fromModuleToProject : Rule.ContextCreator ModuleContext ProjectContext
+fromModuleToProject =
+    Rule.initContextCreator
+        (\moduleName moduleContext ->
+            let
+                recursiveCalls : RecursiveCalls
+                recursiveCalls =
+                    computeRecursiveCalls moduleContext
+            in
+            List.foldl
+                (\functionToReport acc ->
+                    let
+                        allIncreases : List Increase
+                        allIncreases =
+                            computeIncreases recursiveCalls functionToReport
+
+                        finalComplexity : Int
+                        finalComplexity =
+                            List.foldl (\{ increase } complexity -> increase + complexity) 0 allIncreases
+                    in
+                    Dict.insert (Node.value functionToReport.functionName) finalComplexity acc
+                )
+                Dict.empty
+                moduleContext.functionsToReport
+                |> Dict.singleton (String.join "." moduleName)
+        )
+        |> Rule.withModuleName
+
+
+foldProjectContexts : ProjectContext -> ProjectContext -> ProjectContext
+foldProjectContexts =
+    Dict.union
+
+
+expressionEnterVisitor : Node Expression -> ModuleContext -> ( List nothing, ModuleContext )
 expressionEnterVisitor node context =
     if List.member (Node.range node) context.rangesWhereNestingIncreases then
         ( [], expressionEnterVisitorHelp node { context | nesting = context.nesting + 1 } )
@@ -244,7 +333,7 @@ expressionEnterVisitor node context =
         ( [], expressionEnterVisitorHelp node context )
 
 
-expressionEnterVisitorHelp : Node Expression -> Context -> Context
+expressionEnterVisitorHelp : Node Expression -> ModuleContext -> ModuleContext
 expressionEnterVisitorHelp node context =
     case Node.value node of
         Expression.IfBlock _ _ else_ ->
@@ -398,7 +487,7 @@ incrementAndIgnore parentOperator node =
             ( [], [] )
 
 
-expressionExitVisitor : Node Expression -> Context -> ( List nothing, Context )
+expressionExitVisitor : Node Expression -> ModuleContext -> ( List nothing, ModuleContext )
 expressionExitVisitor node context =
     if List.member (Node.range node) context.rangesWhereNestingIncreases then
         ( [], expressionExitVisitorHelp node { context | nesting = context.nesting - 1 } )
@@ -407,7 +496,7 @@ expressionExitVisitor node context =
         ( [], expressionExitVisitorHelp node context )
 
 
-expressionExitVisitorHelp : Node Expression -> Context -> Context
+expressionExitVisitorHelp : Node Expression -> ModuleContext -> ModuleContext
 expressionExitVisitorHelp node context =
     case Node.value node of
         Expression.IfBlock _ _ _ ->
@@ -427,7 +516,7 @@ expressionExitVisitorHelp node context =
             context
 
 
-declarationExitVisitor : Node Declaration -> Context -> ( List (Rule.Error {}), Context )
+declarationExitVisitor : Node Declaration -> ModuleContext -> ( List (Rule.Error {}), ModuleContext )
 declarationExitVisitor node context =
     let
         functionsToReport : List FunctionToReport
@@ -455,66 +544,28 @@ declarationExitVisitor node context =
     )
 
 
-finalEvaluation : Int -> Context -> List (Rule.Error {})
-finalEvaluation threshold context =
+finalModuleEvaluation : Int -> ModuleContext -> List (Rule.Error {})
+finalModuleEvaluation threshold context =
     let
-        potentialRecursiveFunctions : Set String
-        potentialRecursiveFunctions =
-            List.map (.functionName >> Node.value) context.functionsToReport
-                |> Set.fromList
-
         recursiveCalls : RecursiveCalls
         recursiveCalls =
-            context.functionsToReport
-                |> List.map
-                    (\{ functionName, references } ->
-                        ( Node.value functionName, Dict.filter (\name _ -> Set.member name potentialRecursiveFunctions) references )
-                    )
-                |> Dict.fromList
-                |> findRecursiveCalls
+            computeRecursiveCalls context
     in
     List.filterMap
-        (\{ functionName, increases, references } ->
+        (\functionToReport ->
             let
-                recursiveCallsForFunctionName : List String
-                recursiveCallsForFunctionName =
-                    Dict.get (Node.value functionName) recursiveCalls
-                        |> Maybe.withDefault Set.empty
-                        |> Set.toList
-
                 allIncreases : List Increase
                 allIncreases =
-                    List.concat
-                        [ increases
-                        , recursiveCallsForFunctionName
-                            |> List.filterMap
-                                (\referenceToRecursiveFunction ->
-                                    Dict.get referenceToRecursiveFunction references
-                                        |> Maybe.map (Tuple.pair referenceToRecursiveFunction)
-                                )
-                            |> List.map
-                                (\( reference, location ) ->
-                                    { line = location
-                                    , increase = 1
-                                    , nesting = 0
-                                    , kind =
-                                        if Node.value functionName == reference then
-                                            RecursiveCall
-
-                                        else
-                                            IndirectRecursiveCall reference
-                                    }
-                                )
-                        ]
+                    computeIncreases recursiveCalls functionToReport
 
                 finalComplexity : Int
                 finalComplexity =
-                    List.sum (List.map .increase allIncreases)
+                    List.foldl (\{ increase } acc -> increase + acc) 0 allIncreases
             in
             if finalComplexity > threshold then
                 Just
                     (Rule.error
-                        { message = Node.value functionName ++ " has a cognitive complexity of " ++ String.fromInt finalComplexity ++ ", higher than the allowed " ++ String.fromInt threshold
+                        { message = Node.value functionToReport.functionName ++ " has a cognitive complexity of " ++ String.fromInt finalComplexity ++ ", higher than the allowed " ++ String.fromInt threshold
                         , details =
                             if List.isEmpty allIncreases then
                                 explanation
@@ -527,13 +578,65 @@ finalEvaluation threshold context =
                                             |> String.join "\n"
                                        ]
                         }
-                        (Node.range functionName)
+                        (Node.range functionToReport.functionName)
                     )
 
             else
                 Nothing
         )
         context.functionsToReport
+
+
+computeIncreases : RecursiveCalls -> FunctionToReport -> List Increase
+computeIncreases allRecursiveCalls { functionName, increases, references } =
+    case Dict.get (Node.value functionName) allRecursiveCalls of
+        Just recursiveCalls ->
+            Set.foldl
+                (\reference acc ->
+                    case Dict.get reference references of
+                        Just location ->
+                            { line = location
+                            , increase = 1
+                            , nesting = 0
+                            , kind =
+                                if Node.value functionName == reference then
+                                    RecursiveCall
+
+                                else
+                                    IndirectRecursiveCall reference
+                            }
+                                :: acc
+
+                        Nothing ->
+                            acc
+                )
+                increases
+                recursiveCalls
+
+        Nothing ->
+            increases
+
+
+computeRecursiveCalls : ModuleContext -> RecursiveCalls
+computeRecursiveCalls context =
+    let
+        potentialRecursiveFunctions : Set String
+        potentialRecursiveFunctions =
+            List.foldl
+                (\fn acc -> Set.insert (Node.value fn.functionName) acc)
+                Set.empty
+                context.functionsToReport
+    in
+    context.functionsToReport
+        |> List.foldl
+            (\{ functionName, references } acc ->
+                Dict.insert
+                    (Node.value functionName)
+                    (Dict.filter (\name _ -> Set.member name potentialRecursiveFunctions) references)
+                    acc
+            )
+            Dict.empty
+        |> findRecursiveCalls
 
 
 explanation : List String
@@ -600,9 +703,8 @@ type VisitState
 findRecursiveCalls : Dict String (Dict String a) -> RecursiveCalls
 findRecursiveCalls graph =
     graph
-        |> Dict.keys
-        |> List.foldl
-            (\vertice ( recursiveCalls, visited ) ->
+        |> Dict.foldl
+            (\vertice _ ( recursiveCalls, visited ) ->
                 let
                     res : { recursiveCalls : RecursiveCalls, visited : Visited, stack : List String }
                     res =
@@ -669,6 +771,20 @@ processDFSTree graph stack visited =
                 , stack = List.drop 1 stack
                 }
            )
+
+
+dataExtractor : ProjectContext -> Encode.Value
+dataExtractor projectContext =
+    Encode.dict identity encodeComplexityDict projectContext
+
+
+encodeComplexityDict : ComplexityDict -> Encode.Value
+encodeComplexityDict dict =
+    dict
+        |> Dict.toList
+        |> List.sortBy (Tuple.second >> negate)
+        |> List.map (\( name, complexity ) -> ( name, Encode.int complexity ))
+        |> Encode.object
 
 
 insertCycle : List String -> String -> RecursiveCalls -> RecursiveCalls
