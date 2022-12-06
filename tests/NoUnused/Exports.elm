@@ -287,13 +287,18 @@ dependenciesVisitor : Dict String Dependency -> ProjectContext -> ProjectContext
 dependenciesVisitor dependencies projectContext =
     { projectContext
         | ignoredModules =
-            dependencies
-                |> Dict.values
-                |> List.concatMap Dependency.modules
-                |> List.map (.name >> String.split ".")
-                |> Set.fromList
+            Dict.foldl
+                (\_ dep acc ->
+                    List.foldl
+                        (\mod subAcc ->
+                            Set.insert (String.split "." mod.name) subAcc
+                        )
+                        acc
+                        (Dependency.modules dep)
+                )
                 -- Including the "local" module
-                |> Set.insert []
+                (Set.singleton [])
+                dependencies
     }
 
 
