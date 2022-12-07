@@ -308,7 +308,6 @@ import Elm.Syntax.Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
 import Json.Encode as Encode
 import Review.Cache as Cache
-import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash as ContextHash
 import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
