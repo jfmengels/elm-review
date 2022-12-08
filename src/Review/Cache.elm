@@ -42,7 +42,7 @@ errors (Entry entry) =
 match : ContentHash -> ContextHash context -> Entry error context -> Bool
 match contentHash context (Entry entry) =
     ContentHash.areEqual contentHash entry.contentHash
-        && (context == entry.inputContext)
+        && ContextHash.areEqual context entry.inputContext
 
 
 {-| Variant where the content may be absent
@@ -90,7 +90,7 @@ errorsMaybe maybeEntry =
 matchMaybe : Maybe ContentHash -> ContextHash context -> EntryMaybe error context -> Bool
 matchMaybe contentHash context (EntryMaybe entry) =
     ContentHash.areEqualForMaybe contentHash entry.contentHash
-        && (context == entry.inputContext)
+        && ContextHash.areEqual context entry.inputContext
 
 
 {-| Variant for final operations like the final evaluation or the extract
@@ -112,7 +112,7 @@ createNoOutput inputContext output =
 
 matchNoOutput : ContextHash context -> EntryNoOutputContext error context -> Bool
 matchNoOutput context (EntryNoOutputContext entry) =
-    context == entry.context
+    ContextHash.areEqual context entry.context
 
 
 outputForNoOutput : EntryNoOutputContext output context -> output
