@@ -113,35 +113,53 @@ all =
             \() ->
                 sourceCode
                     |> Review.Test.run (rule { allowed = [], forbidden = [] })
-                    |> Review.Test.expectNoErrors
+                    |> Review.Test.expectDataExtract """
+{
+  "elm/core": "BSD-3-Clause"
+}"""
         , test "should not report anything if all dependencies have a license that is allowed" <|
             \() ->
                 sourceCode
                     |> Review.Test.runWithProjectData (createProject "MIT") (rule { allowed = [ "MIT" ], forbidden = [] })
-                    |> Review.Test.expectNoErrors
+                    |> Review.Test.expectDataExtract """
+{
+  "author/dependency": "MIT"
+}"""
         , test "should report an error if a dependency has an unknown license" <|
             \() ->
                 sourceCode
                     |> Review.Test.runWithProjectData (createProject "BSD-3-Clause") (rule { allowed = [ "MIT" ], forbidden = [] })
-                    |> Review.Test.expectErrorsForElmJson
-                        [ Review.Test.error
-                            { message = "Unknown license `BSD-3-Clause` for dependency `author/dependency`"
-                            , details =
-                                [ "Talk to your legal team and see if this license is allowed. If it is allowed, add it to the list of allowed licenses. Otherwise, add it to the list of forbidden licenses and remove this dependency."
-                                , "More info about licenses at https://spdx.org/licenses."
-                                ]
-                            , under = "author/dependency"
-                            }
+                    |> Review.Test.expect
+                        [ Review.Test.elmJsonErrors
+                            [ Review.Test.error
+                                { message = "Unknown license `BSD-3-Clause` for dependency `author/dependency`"
+                                , details =
+                                    [ "Talk to your legal team and see if this license is allowed. If it is allowed, add it to the list of allowed licenses. Otherwise, add it to the list of forbidden licenses and remove this dependency."
+                                    , "More info about licenses at https://spdx.org/licenses."
+                                    ]
+                                , under = "author/dependency"
+                                }
+                            ]
+                        , Review.Test.dataExtract """
+{
+  "author/dependency": "BSD-3-Clause"
+}"""
                         ]
         , test "should report an error if a dependency has a forbidden license" <|
             \() ->
                 sourceCode
                     |> Review.Test.runWithProjectData (createProject "BSD-3-Clause") (rule { allowed = [ "MIT" ], forbidden = [ "BSD-3-Clause" ] })
-                    |> Review.Test.expectErrorsForElmJson
-                        [ Review.Test.error
-                            { message = "Forbidden license `BSD-3-Clause` for dependency `author/dependency`"
-                            , details = [ "This license has been marked as forbidden and you should therefore not use this package." ]
-                            , under = "author/dependency"
-                            }
+                    |> Review.Test.expect
+                        [ Review.Test.elmJsonErrors
+                            [ Review.Test.error
+                                { message = "Forbidden license `BSD-3-Clause` for dependency `author/dependency`"
+                                , details = [ "This license has been marked as forbidden and you should therefore not use this package." ]
+                                , under = "author/dependency"
+                                }
+                            ]
+                        , Review.Test.dataExtract """
+{
+  "author/dependency": "BSD-3-Clause"
+}"""
                         ]
         ]

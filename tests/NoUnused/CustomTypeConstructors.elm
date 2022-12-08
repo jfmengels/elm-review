@@ -149,7 +149,6 @@ moduleVisitor schema =
         |> Rule.withExpressionEnterVisitor (\node context -> ( [], expressionVisitor node context ))
         |> Rule.withCaseBranchEnterVisitor (\caseBlock casePattern context -> ( [], caseBranchEnterVisitor caseBlock casePattern context ))
         |> Rule.withCaseBranchExitVisitor (\caseBlock casePattern context -> ( [], caseBranchExitVisitor caseBlock casePattern context ))
-        |> Rule.withFinalModuleEvaluation finalModuleEvaluation
 
 
 
@@ -197,7 +196,6 @@ type alias ProjectContext =
 type alias ModuleContext =
     { lookupTable : ModuleNameLookupTable
     , exposedCustomTypesWithConstructors : Set CustomTypeName
-    , exposedCustomTypesWithoutConstructors : Set CustomTypeName
     , isExposed : Bool
     , exposesEverything : Bool
     , exposedConstructors : Dict ModuleNameAsString ExposedConstructors
@@ -238,7 +236,6 @@ fromProjectToModule =
         (\lookupTable moduleName projectContext ->
             { lookupTable = lookupTable
             , exposedCustomTypesWithConstructors = Set.empty
-            , exposedCustomTypesWithoutConstructors = Set.empty
             , isExposed = Set.member (String.join "." moduleName) projectContext.exposedModules
             , exposedConstructors = projectContext.declaredConstructors
             , exposesEverything = False
@@ -291,11 +288,7 @@ fromModuleToProject =
                                 { moduleKey = moduleKey
                                 , customTypes =
                                     moduleContext.declaredTypesWithConstructors
-                                        |> Dict.filter
-                                            (\typeName _ ->
-                                                not (Set.member typeName moduleContext.exposedCustomTypesWithConstructors)
-                                                    && not (Set.member typeName moduleContext.exposedCustomTypesWithoutConstructors)
-                                            )
+                                        |> Dict.filter (\typeName _ -> not <| Set.member typeName moduleContext.exposedCustomTypesWithConstructors)
                                 }
                             )
 
@@ -304,13 +297,7 @@ fromModuleToProject =
                         moduleNameAsString
                         (ExposedConstructors
                             { moduleKey = moduleKey
-                            , customTypes =
-                                moduleContext.declaredTypesWithConstructors
-                                    |> Dict.filter
-                                        (\typeName _ ->
-                                            Set.member typeName moduleContext.exposedCustomTypesWithConstructors
-                                                || Set.member typeName moduleContext.exposedCustomTypesWithoutConstructors
-                                        )
+                            , customTypes = moduleContext.declaredTypesWithConstructors
                             }
                         )
             , usedConstructors =
@@ -470,26 +457,21 @@ moduleDefinitionVisitor moduleNode context =
 
         Exposing.Explicit list ->
             let
-                ( exposedCustomTypesWithConstructors, exposedCustomTypesWithoutConstructors ) =
+                exposedCustomTypesWithConstructors : Set String
+                exposedCustomTypesWithConstructors =
                     List.foldl
-                        (\node (( withConstructors, withoutConstructors ) as acc) ->
+                        (\node acc ->
                             case Node.value node of
                                 Exposing.TypeExpose { name } ->
-                                    ( Set.insert name withConstructors, withoutConstructors )
-
-                                Exposing.TypeOrAliasExpose name ->
-                                    ( withConstructors, Set.insert name withoutConstructors )
+                                    Set.insert name acc
 
                                 _ ->
                                     acc
                         )
-                        ( context.exposedCustomTypesWithConstructors, context.exposedCustomTypesWithoutConstructors )
+                        context.exposedCustomTypesWithConstructors
                         list
             in
-            { context
-                | exposedCustomTypesWithConstructors = exposedCustomTypesWithConstructors
-                , exposedCustomTypesWithoutConstructors = exposedCustomTypesWithoutConstructors
-            }
+            { context | exposedCustomTypesWithConstructors = exposedCustomTypesWithConstructors }
 
 
 
@@ -1090,44 +1072,6 @@ isCapitalized name =
 
 
 
--- FINAL MODULE EVALUATION
-
-
-finalModuleEvaluation : ModuleContext -> List (Error {})
-finalModuleEvaluation moduleContext =
-    let
-        customTypes : Dict CustomTypeName (Dict ConstructorName ConstructorInformation)
-        customTypes =
-            if moduleContext.isExposed then
-                moduleContext.declaredTypesWithConstructors
-                    |> Dict.filter
-                        (\typeName _ ->
-                            Set.member typeName moduleContext.exposedCustomTypesWithoutConstructors
-                        )
-
-            else
-                moduleContext.declaredTypesWithConstructors
-                    |> Dict.filter
-                        (\typeName _ ->
-                            not (Set.member typeName moduleContext.exposedCustomTypesWithConstructors)
-                                && not (Set.member typeName moduleContext.exposedCustomTypesWithoutConstructors)
-                        )
-
-        getFixes : ConstructorName -> List Fix
-        getFixes name =
-            Dict.get name moduleContext.fixesForRemovingConstructor |> Maybe.withDefault []
-    in
-    errorsForCustomTypes
-        moduleContext
-        Rule.errorWithFix
-        getFixes
-        (Dict.get "" moduleContext.usedFunctionsOrValues |> Maybe.withDefault Set.empty)
-        ""
-        customTypes
-        []
-
-
-
 -- FINAL PROJECT EVALUATION
 
 
@@ -1136,76 +1080,41 @@ finalProjectEvaluation projectContext =
     Dict.foldl
         (\moduleName (ExposedConstructors { moduleKey, customTypes }) acc ->
             let
-                getFixes : ConstructorName -> List Fix
-                getFixes name =
-                    Dict.get ( moduleName, name ) projectContext.fixesForRemovingConstructor |> Maybe.withDefault []
-
                 usedConstructors : Set ConstructorName
                 usedConstructors =
                     Dict.get moduleName projectContext.usedConstructors
                         |> Maybe.withDefault Set.empty
             in
-            errorsForCustomTypes
-                projectContext
-                (Rule.errorForModuleWithFix moduleKey)
-                getFixes
-                usedConstructors
-                moduleName
-                customTypes
-                acc
+            errorsForCustomTypes projectContext usedConstructors moduleName moduleKey customTypes acc
         )
         []
         projectContext.declaredConstructors
 
 
-type alias DataForReportingConstructors a =
-    { a
-        | wasUsedInLocationThatNeedsItself : Set ( ModuleNameAsString, String )
-        , wasUsedInComparisons : Set ( ModuleNameAsString, String )
-        , wasUsedInOtherModules : Set ( ModuleNameAsString, String )
-    }
-
-
-errorsForCustomTypes :
-    DataForReportingConstructors a
-    -> ({ message : String, details : List String } -> Range -> List Fix -> Error scope)
-    -> (ConstructorName -> List Fix)
-    -> Set String
-    -> String
-    -> Dict CustomTypeName (Dict ConstructorName ConstructorInformation)
-    -> List (Error scope)
-    -> List (Error scope)
-errorsForCustomTypes projectContext createError getFixes usedConstructors moduleName customTypes acc =
+errorsForCustomTypes : ProjectContext -> Set String -> String -> Rule.ModuleKey -> Dict CustomTypeName (Dict ConstructorName ConstructorInformation) -> List (Error scope) -> List (Error scope)
+errorsForCustomTypes projectContext usedConstructors moduleName moduleKey customTypes acc =
     Dict.foldl
         (\_ constructors subAcc ->
-            errorsForConstructors projectContext createError getFixes usedConstructors moduleName constructors subAcc
+            errorsForConstructors projectContext usedConstructors moduleName moduleKey constructors subAcc
         )
         acc
         customTypes
 
 
-errorsForConstructors :
-    DataForReportingConstructors a
-    -> ({ message : String, details : List String } -> Range -> List Fix -> Error scope)
-    -> (ConstructorName -> List Fix)
-    -> Set String
-    -> String
-    -> Dict ConstructorName ConstructorInformation
-    -> List (Error scope)
-    -> List (Error scope)
-errorsForConstructors projectContext createError getFixes usedConstructors moduleName constructors acc =
+errorsForConstructors : ProjectContext -> Set String -> String -> Rule.ModuleKey -> Dict ConstructorName ConstructorInformation -> List (Error scope) -> List (Error scope)
+errorsForConstructors projectContext usedConstructors moduleName moduleKey constructors acc =
     Dict.foldl
         (\constructorName constructorInformation subAcc ->
             if Set.member constructorName usedConstructors then
                 subAcc
 
             else
-                reportError
-                    createError
-                    { wasUsedInLocationThatNeedsItself = Set.member ( moduleName, constructorName ) projectContext.wasUsedInLocationThatNeedsItself
-                    , wasUsedInComparisons = Set.member ( moduleName, constructorName ) projectContext.wasUsedInComparisons
-                    , isUsedInOtherModules = Set.member ( moduleName, constructorName ) projectContext.wasUsedInOtherModules
-                    , fixesForRemovingConstructor = getFixes constructorName
+                errorForModule
+                    moduleKey
+                    { wasUsedInLocationThatNeedsItself = Set.member ( moduleName, constructorInformation.name ) projectContext.wasUsedInLocationThatNeedsItself
+                    , wasUsedInComparisons = Set.member ( moduleName, constructorInformation.name ) projectContext.wasUsedInComparisons
+                    , isUsedInOtherModules = Set.member ( moduleName, constructorInformation.name ) projectContext.wasUsedInOtherModules
+                    , fixesForRemovingConstructor = Dict.get ( moduleName, constructorInformation.name ) projectContext.fixesForRemovingConstructor |> Maybe.withDefault []
                     }
                     constructorInformation
                     :: subAcc
@@ -1236,8 +1145,8 @@ defaultDetails =
     "This type constructor is never used. It might be handled everywhere it might appear, but there is no location where this value actually gets created."
 
 
-reportError :
-    ({ message : String, details : List String } -> Range -> List Fix -> Error scope)
+errorForModule :
+    Rule.ModuleKey
     ->
         { wasUsedInLocationThatNeedsItself : Bool
         , wasUsedInComparisons : Bool
@@ -1246,8 +1155,9 @@ reportError :
         }
     -> ConstructorInformation
     -> Error scope
-reportError createError params constructorInformation =
-    createError
+errorForModule moduleKey params constructorInformation =
+    Rule.errorForModuleWithFix
+        moduleKey
         (errorInformation
             { wasUsedInLocationThatNeedsItself = params.wasUsedInLocationThatNeedsItself
             , wasUsedInComparisons = params.wasUsedInComparisons

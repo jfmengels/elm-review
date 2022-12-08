@@ -924,6 +924,18 @@ module MyModule exposing (..)
 type Foo = Bar
 """
                         ]
+        , test "should not report used type constructors when an application module is exposing all but it's used elsewhere" <|
+            \() ->
+                [ """
+module MyModule exposing (..)
+type Foo = Bar | Baz
+""", """
+module Main exposing (main)
+import MyModule
+main = [MyModule.Bar, MyModule.Baz]
+""" ]
+                    |> Review.Test.runOnModulesWithProjectData applicationProject (rule [])
+                    |> Review.Test.expectNoErrors
         , test "should not report unused type constructors when package module is exposing the constructors of that type and module is exposed" <|
             \() ->
                 """

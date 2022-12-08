@@ -66,7 +66,7 @@ This function won't be reported because it has not been tagged.
 
     -- With opt-in configuration
     config =
-        [ NoUnoptimizedRecursion.rule (NoUnoptimizedRecursion.optInWithComment "CHECK TCO")
+        [ NoUnoptimizedRecursion.rule (NoUnoptimizedRecursion.optInWithComment "ENSURE TCO")
         ]
 
     fun n =
@@ -272,13 +272,13 @@ optOutWithComment comment =
 {-| Reports only the functions tagged with a comment.
 
     config =
-        [ NoUnoptimizedRecursion.rule (NoUnoptimizedRecursion.optInWithComment "CHECK TCO")
+        [ NoUnoptimizedRecursion.rule (NoUnoptimizedRecursion.optInWithComment "ENSURE TCO")
         ]
 
 With the configuration above, the following function would be reported.
 
     fun n =
-        -- CHECK TCO
+        -- ENSURE TCO
         if condition n then
             fun n * n
 
@@ -291,19 +291,28 @@ optInWithComment comment =
     OptIn comment
 
 
-shouldReportFunction : Configuration -> Context -> Range -> Bool
-shouldReportFunction configuration context range =
-    let
-        foundComment : Bool
-        foundComment =
-            Set.member (range.start.row + 1) context.comments
-    in
-    case configuration of
-        OptOut _ ->
-            not foundComment
+hasNoArguments : Expression.FunctionImplementation -> Bool
+hasNoArguments declaration =
+    List.isEmpty declaration.arguments
 
-        OptIn _ ->
-            foundComment
+
+shouldReportFunction : Configuration -> Context -> Node Expression.FunctionImplementation -> Bool
+shouldReportFunction configuration context (Node range declaration) =
+    if hasNoArguments declaration then
+        False
+
+    else
+        let
+            foundComment : Bool
+            foundComment =
+                Set.member (range.start.row + 1) context.comments
+        in
+        case configuration of
+            OptOut _ ->
+                not foundComment
+
+            OptIn _ ->
+                foundComment
 
 
 
@@ -361,10 +370,16 @@ commentsVisitor configuration comments context =
     ( []
     , { context
         | comments =
-            comments
-                |> List.filter (Node.value >> String.contains commentTag)
-                |> List.map (Node.range >> .start >> .row)
-                |> Set.fromList
+            List.foldl
+                (\(Node range value) acc ->
+                    if String.contains commentTag value then
+                        Set.insert range.start.row acc
+
+                    else
+                        acc
+                )
+                Set.empty
+                comments
       }
     )
 
@@ -375,16 +390,7 @@ declarationVisitor configuration node context =
         Declaration.FunctionDeclaration function ->
             ( []
             , { currentFunctionName =
-                    let
-                        hasArguments : Bool
-                        hasArguments =
-                            function.declaration
-                                |> Node.value
-                                |> .arguments
-                                |> List.isEmpty
-                                |> not
-                    in
-                    if hasArguments && shouldReportFunction configuration context (Node.range function.declaration) then
+                    if shouldReportFunction configuration context function.declaration then
                         function.declaration
                             |> Node.value
                             |> .name
@@ -503,53 +509,7 @@ addAllowedLocation configuration node context =
             }
 
         Expression.LetExpression { declarations, expression } ->
-            let
-                newScopes : List ( Range, String )
-                newScopes =
-                    List.filterMap
-                        (\decl ->
-                            case Node.value decl of
-                                Expression.LetFunction function ->
-                                    let
-                                        functionDeclaration : Expression.FunctionImplementation
-                                        functionDeclaration =
-                                            Node.value function.declaration
-
-                                        hasArguments : Bool
-                                        hasArguments =
-                                            function.declaration
-                                                |> Node.value
-                                                |> .arguments
-                                                |> List.isEmpty
-                                                |> not
-                                    in
-                                    Just
-                                        ( Node.range functionDeclaration.expression
-                                        , if hasArguments && shouldReportFunction configuration context (Node.range function.declaration) then
-                                            Node.value functionDeclaration.name
-
-                                          else
-                                            ""
-                                        )
-
-                                Expression.LetDestructuring _ _ ->
-                                    Nothing
-                        )
-                        declarations
-            in
-            { context
-                | newScopesForLet = newScopes
-
-                {- The following translates to TCO code
-
-                   let
-                       fun x =
-                          fun x
-                   in
-                   fun 1
-                -}
-                , tcoLocations = Node.range expression :: context.tcoLocations
-            }
+            addAllowedLocationForLetExpression configuration context declarations expression
 
         Expression.ParenthesizedExpression expr ->
             {- The following translates to TCO code
@@ -561,12 +521,12 @@ addAllowedLocation configuration node context =
 
         Expression.CaseExpression { cases } ->
             let
-                caseBodies : List Range
-                caseBodies =
-                    List.map (Tuple.second >> Node.range) cases
+                tcoLocations : List Range
+                tcoLocations =
+                    List.foldl (\( _, Node range _ ) acc -> range :: acc) context.tcoLocations cases
             in
             { context
-                | tcoLocations = caseBodies ++ context.tcoLocations
+                | tcoLocations = tcoLocations
                 , deOptimizationRange = Just (Node.range node)
                 , deOptimizationReason = [ "Among other possible reasons, the recursive call should not appear in the pattern to evaluate for a case expression." ]
             }
@@ -654,6 +614,49 @@ expressionExitVisitor node context =
 
             else
                 ( [], removeDeOptimizationRangeIfNeeded node context )
+
+
+addAllowedLocationForLetExpression : Configuration -> Context -> List (Node Expression.LetDeclaration) -> Node a -> Context
+addAllowedLocationForLetExpression configuration context declarations expression =
+    let
+        newScopes : List ( Range, String )
+        newScopes =
+            List.filterMap
+                (\decl ->
+                    case Node.value decl of
+                        Expression.LetFunction function ->
+                            let
+                                functionDeclaration : Expression.FunctionImplementation
+                                functionDeclaration =
+                                    Node.value function.declaration
+                            in
+                            Just
+                                ( Node.range functionDeclaration.expression
+                                , if shouldReportFunction configuration context function.declaration then
+                                    Node.value functionDeclaration.name
+
+                                  else
+                                    ""
+                                )
+
+                        Expression.LetDestructuring _ _ ->
+                            Nothing
+                )
+                declarations
+    in
+    { context
+        | newScopesForLet = newScopes
+
+        {- The following translates to TCO code
+
+           let
+               fun x =
+                  fun x
+           in
+           fun 1
+        -}
+        , tcoLocations = Node.range expression :: context.tcoLocations
+    }
 
 
 removeDeOptimizationRangeIfNeeded : Node Expression -> Context -> Context
