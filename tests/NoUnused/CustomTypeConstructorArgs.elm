@@ -81,10 +81,11 @@ rule =
     Rule.newProjectRuleSchema "NoUnused.CustomTypeConstructorArgs" initialProjectContext
         |> Rule.withElmJsonProjectVisitor elmJsonVisitor
         |> Rule.withModuleVisitor moduleVisitor
-        |> Rule.withModuleContextUsingContextCreator
+        |> Rule.withModuleContextUsingContextCreatorWithBetterCache
             { fromProjectToModule = fromProjectToModule
             , fromModuleToProject = fromModuleToProject
             , foldProjectContexts = foldProjectContexts
+            , refineProjectContext = refineProjectContext
             }
         |> Rule.withFinalProjectEvaluation finalEvaluation
         |> Rule.fromProjectRuleSchema
@@ -111,6 +112,10 @@ type alias ModuleContext =
     , usedArguments : Dict ( ModuleName, String ) (Set Int)
     , customTypesNotToReport : Set ( ModuleName, String )
     }
+
+
+type alias RefinedProjectContext =
+    Set ModuleName
 
 
 moduleVisitor : Rule.ModuleRuleSchema {} ModuleContext -> Rule.ModuleRuleSchema { hasAtLeastOneVisitor : () } ModuleContext
@@ -156,12 +161,17 @@ initialProjectContext =
     }
 
 
-fromProjectToModule : Rule.ContextCreator ProjectContext ModuleContext
+refineProjectContext : ProjectContext -> RefinedProjectContext
+refineProjectContext { exposedModules } =
+    exposedModules
+
+
+fromProjectToModule : Rule.ContextCreator RefinedProjectContext ModuleContext
 fromProjectToModule =
     Rule.initContextCreator
-        (\lookupTable moduleName projectContext ->
+        (\lookupTable moduleName exposedModules ->
             { lookupTable = lookupTable
-            , isModuleExposed = Set.member moduleName projectContext.exposedModules
+            , isModuleExposed = Set.member moduleName exposedModules
             , exposed = Exposing.Explicit []
             , customTypeArgs = []
             , usedArguments = Dict.empty
