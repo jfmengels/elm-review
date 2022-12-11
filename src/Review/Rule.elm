@@ -1246,7 +1246,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     requestedData
 
                 Nothing ->
-                    RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
+                    noRequestedData
         , extractsData = schema.dataExtractor /= Nothing
         , providesFixes = schema.providesFixes
         , ruleImplementation =
@@ -1313,7 +1313,7 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
                 requestedData
 
             Nothing ->
-                RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
+                noRequestedData
     }
 
 
@@ -1550,7 +1550,7 @@ configurationError name configurationError_ =
         { name = name
         , id = 0
         , exceptions = Exceptions.init
-        , requestedData = RequestedData { moduleNameLookupTable = False, sourceCodeExtractor = False }
+        , requestedData = noRequestedData
         , extractsData = False
         , providesFixes = False
         , ruleImplementation = \_ _ _ fixedErrors project -> { errors = [], fixedErrors = fixedErrors, rule = configurationError name configurationError_, project = project, extract = Nothing }
@@ -5799,6 +5799,7 @@ type RequestedData
     = RequestedData
         { moduleNameLookupTable : Bool
         , sourceCodeExtractor : Bool
+        , ignoredFiles : Bool
         }
 
 
@@ -5821,11 +5822,16 @@ initContextCreator fromProjectToModule =
     -- TODO Try to get rid of the ()/from when using in a module rule
     ContextCreator
         (always fromProjectToModule)
-        (RequestedData
-            { moduleNameLookupTable = False
-            , sourceCodeExtractor = False
-            }
-        )
+        noRequestedData
+
+
+noRequestedData : RequestedData
+noRequestedData =
+    RequestedData
+        { moduleNameLookupTable = False
+        , sourceCodeExtractor = False
+        , ignoredFiles = False
+        }
 
 
 applyContextCreator : AvailableData -> ContextCreator from to -> from -> to
@@ -5934,10 +5940,10 @@ withIsInSourceDirectories (ContextCreator fn requestedData) =
 
 -}
 withIsFileIgnored : ContextCreator Bool (from -> to) -> ContextCreator from to
-withIsFileIgnored (ContextCreator fn requestedData) =
+withIsFileIgnored (ContextCreator fn (RequestedData requested)) =
     ContextCreator
         (\data -> fn data data.isFileIgnored)
-        requestedData
+        (RequestedData { requested | ignoredFiles = True })
 
 
 {-| Requests the module name lookup table for the types and functions inside a module.
