@@ -8,6 +8,7 @@ type ModuleEntry error context
     = ModuleEntry
         { contentHash : ContentHash
         , inputContext : ContextHash context
+        , isFileIgnored : Bool
         , errors : List error
         , outputContext : context
         }
@@ -16,6 +17,7 @@ type ModuleEntry error context
 createModuleEntry :
     { contentHash : ContentHash
     , inputContext : context
+    , isFileIgnored : Bool
     , errors : List error
     , outputContext : context
     }
@@ -24,6 +26,7 @@ createModuleEntry entry =
     ModuleEntry
         { contentHash = entry.contentHash
         , inputContext = ContextHash.create entry.inputContext
+        , isFileIgnored = entry.isFileIgnored
         , errors = entry.errors
         , outputContext = entry.outputContext
         }
@@ -39,10 +42,11 @@ errors (ModuleEntry entry) =
     entry.errors
 
 
-match : ContentHash -> ContextHash context -> ModuleEntry error context -> Bool
-match contentHash context (ModuleEntry entry) =
+match : ContentHash -> ContextHash context -> ModuleEntry error context -> { isFileIgnored : Bool } -> Bool
+match contentHash context (ModuleEntry entry) { isFileIgnored } =
     ContentHash.areEqual contentHash entry.contentHash
         && ContextHash.areEqual context entry.inputContext
+        && (isFileIgnored == entry.isFileIgnored)
 
 
 {-| Variant where the content may be absent
