@@ -1,11 +1,11 @@
-module Review.Cache exposing (Entry, EntryMaybe, EntryNoOutputContext, createEntry, createEntryMaybe, createNoOutput, errors, errorsMaybe, match, matchMaybe, matchNoOutput, outputContext, outputContextMaybe, outputForNoOutput)
+module Review.Cache exposing (EntryMaybe, EntryNoOutputContext, ModuleEntry, createEntryMaybe, createModuleEntry, createNoOutput, errors, errorsMaybe, match, matchMaybe, matchNoOutput, outputContext, outputContextMaybe, outputForNoOutput)
 
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash as ContextHash exposing (ContextHash)
 
 
-type Entry error context
-    = Entry
+type ModuleEntry error context
+    = ModuleEntry
         { contentHash : ContentHash
         , inputContext : ContextHash context
         , errors : List error
@@ -13,15 +13,15 @@ type Entry error context
         }
 
 
-createEntry :
+createModuleEntry :
     { contentHash : ContentHash
     , inputContext : context
     , errors : List error
     , outputContext : context
     }
-    -> Entry error context
-createEntry entry =
-    Entry
+    -> ModuleEntry error context
+createModuleEntry entry =
+    ModuleEntry
         { contentHash = entry.contentHash
         , inputContext = ContextHash.create entry.inputContext
         , errors = entry.errors
@@ -29,18 +29,18 @@ createEntry entry =
         }
 
 
-outputContext : Entry error context -> context
-outputContext (Entry entry) =
+outputContext : ModuleEntry error context -> context
+outputContext (ModuleEntry entry) =
     entry.outputContext
 
 
-errors : Entry error context -> List error
-errors (Entry entry) =
+errors : ModuleEntry error context -> List error
+errors (ModuleEntry entry) =
     entry.errors
 
 
-match : ContentHash -> ContextHash context -> Entry error context -> Bool
-match contentHash context (Entry entry) =
+match : ContentHash -> ContextHash context -> ModuleEntry error context -> Bool
+match contentHash context (ModuleEntry entry) =
     ContentHash.areEqual contentHash entry.contentHash
         && ContextHash.areEqual context entry.inputContext
 
