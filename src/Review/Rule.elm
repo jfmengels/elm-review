@@ -4812,12 +4812,13 @@ type alias DataToComputeModules projectContext moduleContext =
 computeModule :
     DataToComputeModules projectContext moduleContext
     -> ProjectModule
+    -> Bool
     -> projectContext
     -> ValidProject
     -> Zipper GraphModule
     -> FixedErrors
     -> { project : ValidProject, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
-computeModule dataToComputeModules module_ projectContext project moduleZipper fixedErrors =
+computeModule dataToComputeModules module_ isFileIgnored projectContext project moduleZipper fixedErrors =
     let
         (RequestedData requestedData) =
             dataToComputeModules.projectVisitor.requestedData
@@ -4846,7 +4847,7 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
                     always ""
             , filePath = module_.path
             , isInSourceDirectories = module_.isInSourceDirectories
-            , isFileIgnored = Exceptions.isFileWeWantReportsFor dataToComputeModules.exceptions module_.path
+            , isFileIgnored = isFileIgnored
             }
 
         initialModuleContext : moduleContext
@@ -4871,6 +4872,7 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
                 { contentHash = module_.contentHash
                 , errors = errors
                 , inputContext = projectContext
+                , isFileIgnored = isFileIgnored
                 , outputContext =
                     case getFolderFromTraversal dataToComputeModules.projectVisitor.traversalAndFolder of
                         Just { fromModuleToProject } ->
@@ -4910,6 +4912,7 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
                                 computeModule
                                     dataToComputeModules
                                     { module_ | source = source, ast = ast }
+                                    isFileIgnored
                                     projectContext
                                     fixResult.project
                                     newModuleZipper_
@@ -5069,15 +5072,30 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                     projectContext : projectContext
                     projectContext =
                         computeProjectContext dataToComputeModules.projectVisitor.traversalAndFolder project moduleContexts incoming inputProjectContext
+
+                    isFileIgnored : Bool
+                    isFileIgnored =
+                        Exceptions.isFileWeWantReportsFor dataToComputeModules.exceptions module_.path
                 in
-                if reuseCache (\cacheEntry -> Cache.match module_.contentHash (ContextHash.create projectContext) cacheEntry) (Dict.get module_.path moduleContexts) then
+                if
+                    reuseCache
+                        (\cacheEntry ->
+                            Cache.match
+                                module_.contentHash
+                                (ContextHash.create projectContext)
+                                cacheEntry
+                                { isFileIgnored = isFileIgnored
+                                }
+                        )
+                        (Dict.get module_.path moduleContexts)
+                then
                     ignoreModule ()
 
                 else
                     let
                         result : { project : ValidProject, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
                         result =
-                            computeModule dataToComputeModules module_ projectContext project moduleZipper fixedErrors
+                            computeModule dataToComputeModules module_ isFileIgnored projectContext project moduleZipper fixedErrors
                     in
                     { project = result.project
                     , moduleContexts = Dict.insert module_.path result.analysis moduleContexts
