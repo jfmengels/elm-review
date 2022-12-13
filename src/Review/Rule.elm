@@ -5073,6 +5073,9 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                     projectContext =
                         computeProjectContext dataToComputeModules.projectVisitor.traversalAndFolder project moduleContexts incoming inputProjectContext
 
+                    (RequestedData requestedData) =
+                        dataToComputeModules.projectVisitor.requestedData
+
                     isFileIgnored : Bool
                     isFileIgnored =
                         Exceptions.isFileWeWantReportsFor dataToComputeModules.exceptions module_.path
@@ -5085,6 +5088,7 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                                 (ContextHash.create projectContext)
                                 cacheEntry
                                 { isFileIgnored = isFileIgnored
+                                , rulesCareAboutIgnoredFiles = requestedData.ignoredFiles
                                 }
                         )
                         (Dict.get module_.path moduleContexts)

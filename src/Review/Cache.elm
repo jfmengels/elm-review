@@ -42,11 +42,11 @@ errors (ModuleEntry entry) =
     entry.errors
 
 
-match : ContentHash -> ContextHash context -> ModuleEntry error context -> { isFileIgnored : Bool } -> Bool
-match contentHash context (ModuleEntry entry) { isFileIgnored } =
+match : ContentHash -> ContextHash context -> ModuleEntry error context -> { isFileIgnored : Bool, rulesCareAboutIgnoredFiles : Bool } -> Bool
+match contentHash context (ModuleEntry entry) { isFileIgnored, rulesCareAboutIgnoredFiles } =
     ContentHash.areEqual contentHash entry.contentHash
         && ContextHash.areEqual context entry.inputContext
-        && (isFileIgnored == entry.isFileIgnored)
+        && (not rulesCareAboutIgnoredFiles || isFileIgnored == entry.isFileIgnored)
 
 
 {-| Variant where the content may be absent
