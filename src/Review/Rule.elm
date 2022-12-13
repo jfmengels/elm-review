@@ -4125,8 +4125,8 @@ type alias GraphModule =
     Graph.NodeContext FilePath ()
 
 
-type alias CacheEntry projectContext =
-    Cache.Entry (Error {}) projectContext
+type alias ModuleCacheEntry projectContext =
+    Cache.ModuleEntry (Error {}) projectContext
 
 
 type alias CacheEntryMaybe projectContext =
@@ -4286,7 +4286,7 @@ type alias ProjectRuleCache projectContext =
     { elmJson : Maybe (CacheEntryMaybe projectContext)
     , readme : Maybe (CacheEntryMaybe projectContext)
     , dependencies : Maybe (CacheEntryMaybe projectContext)
-    , moduleContexts : Dict String (CacheEntry projectContext)
+    , moduleContexts : Dict String (ModuleCacheEntry projectContext)
     , finalEvaluationErrors : Maybe (FinalProjectEvaluationCache projectContext)
     , extract : Maybe (ExtractCache projectContext)
     }
@@ -4333,7 +4333,7 @@ computeStepsForProject dataToComputeProject ({ project, cache, fixedErrors, step
 
                 Just ( moduleVisitor, moduleContextCreator ) ->
                     let
-                        result : { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), step : Step projectContext, fixedErrors : FixedErrors }
+                        result : { project : ValidProject, moduleContexts : Dict String (ModuleCacheEntry projectContext), step : Step projectContext, fixedErrors : FixedErrors }
                         result =
                             computeModules
                                 { reviewOptions = dataToComputeProject.reviewOptions
@@ -4816,7 +4816,7 @@ computeModule :
     -> ValidProject
     -> Zipper GraphModule
     -> FixedErrors
-    -> { project : ValidProject, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
+    -> { project : ValidProject, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
 computeModule dataToComputeModules module_ projectContext project moduleZipper fixedErrors =
     let
         (RequestedData requestedData) =
@@ -4865,9 +4865,9 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
                 |> List.map (setFilePathIfUnset module_)
                 |> filterExceptionsAndSetName dataToComputeModules.exceptions dataToComputeModules.projectVisitor.name
 
-        analysis : () -> CacheEntry projectContext
+        analysis : () -> ModuleCacheEntry projectContext
         analysis () =
-            Cache.createEntry
+            Cache.createModuleEntry
                 { contentHash = module_.contentHash
                 , errors = errors
                 , inputContext = projectContext
@@ -4880,7 +4880,7 @@ computeModule dataToComputeModules module_ projectContext project moduleZipper f
                             projectContext
                 }
 
-        resultWhenNoFix : () -> { project : ValidProject, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
+        resultWhenNoFix : () -> { project : ValidProject, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
         resultWhenNoFix () =
             { project = newProject
             , analysis = analysis ()
@@ -4953,9 +4953,9 @@ computeModules :
     -> ProjectContextAfterProjectFiles projectContext
     -> Maybe (Zipper GraphModule)
     -> ValidProject
-    -> Dict String (CacheEntry projectContext)
+    -> Dict String (ModuleCacheEntry projectContext)
     -> FixedErrors
-    -> { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), step : Step projectContext, fixedErrors : FixedErrors }
+    -> { project : ValidProject, moduleContexts : Dict String (ModuleCacheEntry projectContext), step : Step projectContext, fixedErrors : FixedErrors }
 computeModules dataToComputeModules projectContexts maybeModuleZipper initialProject initialModuleContexts fixedErrors =
     case maybeModuleZipper of
         Nothing ->
@@ -4963,7 +4963,7 @@ computeModules dataToComputeModules projectContexts maybeModuleZipper initialPro
 
         Just moduleZipper ->
             let
-                result : { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep, fixedErrors : FixedErrors }
+                result : { project : ValidProject, moduleContexts : Dict String (ModuleCacheEntry projectContext), nextStep : NextStep, fixedErrors : FixedErrors }
                 result =
                     computeModuleAndCacheResult
                         dataToComputeModules
@@ -5008,7 +5008,7 @@ computeModules dataToComputeModules projectContexts maybeModuleZipper initialPro
 computeProjectContext :
     TraversalAndFolder projectContext moduleContext
     -> ValidProject
-    -> Dict String (CacheEntry projectContext)
+    -> Dict String (ModuleCacheEntry projectContext)
     -> Graph.Adjacency ()
     -> projectContext
     -> projectContext
@@ -5044,15 +5044,15 @@ computeModuleAndCacheResult :
     -> projectContext
     -> Zipper GraphModule
     -> ValidProject
-    -> Dict String (CacheEntry projectContext)
+    -> Dict String (ModuleCacheEntry projectContext)
     -> FixedErrors
-    -> { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep, fixedErrors : FixedErrors }
+    -> { project : ValidProject, moduleContexts : Dict String (ModuleCacheEntry projectContext), nextStep : NextStep, fixedErrors : FixedErrors }
 computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZipper project moduleContexts fixedErrors =
     let
         { node, incoming } =
             Zipper.current moduleZipper
 
-        ignoreModule : () -> { project : ValidProject, moduleContexts : Dict String (CacheEntry projectContext), nextStep : NextStep, fixedErrors : FixedErrors }
+        ignoreModule : () -> { project : ValidProject, moduleContexts : Dict String (ModuleCacheEntry projectContext), nextStep : NextStep, fixedErrors : FixedErrors }
         ignoreModule () =
             { project = project, moduleContexts = moduleContexts, nextStep = ModuleVisitStep (Zipper.next moduleZipper), fixedErrors = fixedErrors }
     in
@@ -5075,7 +5075,7 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
 
                 else
                     let
-                        result : { project : ValidProject, analysis : CacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
+                        result : { project : ValidProject, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
                         result =
                             computeModule dataToComputeModules module_ projectContext project moduleZipper fixedErrors
                     in
@@ -5099,7 +5099,7 @@ shouldIgnoreModule dataToComputeModules path =
             False
 
 
-reuseCache : (CacheEntry v -> Bool) -> Maybe (CacheEntry v) -> Bool
+reuseCache : (ModuleCacheEntry v -> Bool) -> Maybe (ModuleCacheEntry v) -> Bool
 reuseCache predicate maybeCacheEntry =
     case maybeCacheEntry of
         Nothing ->
