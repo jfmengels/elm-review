@@ -308,7 +308,7 @@ import Elm.Syntax.Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
 import Json.Encode as Encode
 import Review.Cache as Cache
-import Review.Cache.ContextHash as ContextHash
+import Review.Cache.ContextHash as ContextHash exposing (ContextHash)
 import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
 import Review.Exceptions as Exceptions exposing (Exceptions)
@@ -4138,7 +4138,7 @@ type alias FinalProjectEvaluationCache projectContext =
 
 
 type alias ExtractCache projectContext =
-    { inputContext : projectContext
+    { inputContext : ContextHash projectContext
     , extract : Extract
     }
 
@@ -4222,16 +4222,11 @@ computeExtract reviewOptions projectVisitor projectContext errors cache =
                 let
                     inputContext : projectContext
                     inputContext =
-                        --case cache.finalEvaluationErrors of
-                        --    Just finalEvaluation ->
-                        --        projectContext
-                        --
-                        --    Nothing ->
                         computeFinalContext projectVisitor cache projectContext
 
                     cachePredicate : ExtractCache projectContext -> Bool
                     cachePredicate extract =
-                        extract.inputContext == inputContext
+                        extract.inputContext == ContextHash.create inputContext
                 in
                 case reuseProjectRuleCache cachePredicate .extract cache of
                     Just _ ->
@@ -4239,7 +4234,7 @@ computeExtract reviewOptions projectVisitor projectContext errors cache =
 
                     Nothing ->
                         { cache
-                            | extract = Just { inputContext = inputContext, extract = dataExtractor inputContext }
+                            | extract = Just { inputContext = ContextHash.create inputContext, extract = dataExtractor inputContext }
                         }
 
             else
