@@ -5948,6 +5948,10 @@ withIsInSourceDirectories (ContextCreator fn requestedData) =
 
 
 {-| Request to know whether the errors for the current module has been ignored for this particular rule.
+This may be useful to reduce the amount of work related to ignored files — like collecting unnecessary data or reporting
+errors — when that will ignored anyway.
+
+Note that for module rules, ignored files will be skipped automatically anyway.
 
     contextCreator : Rule.ContextCreator () Context
     contextCreator =
