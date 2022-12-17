@@ -3,8 +3,8 @@
 ## [2.11.0] - 2022-12-17
 
 - Adds [`Review.Rule.withIsFileIgnored`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withIsFileIgnored) ([#145](https://github.com/jfmengels/elm-review/pull/145))
-- Behind the scenes work to make allow the CLI to save the internal cache to the file system.
-- Fixed the test failure message reported when a test was missing an expected extract (it reported the error message for a different problem).
+- Behind the scenes work to allow the CLI to save the internal result cache to the file system.
+- Fixed the test failure message reported when a test was missing an expected extract (it reported the failure message for a different problem).
 
 ## [2.10.0] - 2022-11-08
 
