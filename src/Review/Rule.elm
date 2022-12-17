@@ -4728,14 +4728,6 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
                                     |> filterExceptionsAndSetName exceptions projectVisitor.name
                             )
                             projectVisitor.finalEvaluationFns
-
-                    resultWhenNoFix : () -> { project : ValidProject, cache : ProjectRuleCache projectContext, step : Step projectContext, fixedErrors : FixedErrors }
-                    resultWhenNoFix () =
-                        { project = project
-                        , cache = { cache | finalEvaluationErrors = Just (Cache.createNoOutput finalContext errors) }
-                        , step = DataExtract (Combined finalContext)
-                        , fixedErrors = fixedErrors
-                        }
                 in
                 case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
                     Just ( postFixStatus, fixResult ) ->
@@ -4765,7 +4757,11 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
                         }
 
                     Nothing ->
-                        resultWhenNoFix ()
+                        { project = project
+                        , cache = { cache | finalEvaluationErrors = Just (Cache.createNoOutput finalContext errors) }
+                        , step = DataExtract (Combined finalContext)
+                        , fixedErrors = fixedErrors
+                        }
 
 
 reuseProjectRuleCache : (b -> Bool) -> (ProjectRuleCache a -> Maybe b) -> ProjectRuleCache a -> Maybe b
