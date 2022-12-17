@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.11.0] - 2022-12-17
+
+- Adds [`Review.Rule.withIsFileIgnored`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withIsFileIgnored) ([#145](https://github.com/jfmengels/elm-review/pull/145))
+- Behind the scenes work to make allow the CLI to save the internal cache to the file system.
+- Fixed the test failure message reported when a test was missing an expected extract (it reported the error message for a different problem).
+
 ## [2.10.0] - 2022-11-08
 
 ### Faster fixes
@@ -97,6 +103,7 @@ Help would be appreciated to fill the blanks!
 
 [`NoDeprecated`]: (https://package.elm-lang.org/packages/jfmengels/elm-review-common/latest/NoDeprecated)
 
+[2.11.0]: https://github.com/jfmengels/elm-review/releases/tag/2.11.0
 [2.10.0]: https://github.com/jfmengels/elm-review/releases/tag/2.10.0
 [2.9.2]: https://github.com/jfmengels/elm-review/releases/tag/2.9.2
 [2.9.1]: https://github.com/jfmengels/elm-review/releases/tag/2.9.1
