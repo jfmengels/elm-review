@@ -4211,18 +4211,23 @@ finalCacheMarker _ _ cache =
 computeExtract :
     ReviewOptionsData
     -> RunnableProjectVisitor projectContext moduleContext
-    -> projectContext
+    -> DataExtractInputContext projectContext
     -> List (Error {})
     -> ProjectRuleCache projectContext
     -> ProjectRuleCache projectContext
-computeExtract reviewOptions projectVisitor projectContext errors cache =
+computeExtract reviewOptions projectVisitor context errors cache =
     case projectVisitor.dataExtractor of
         Just dataExtractor ->
             if reviewOptions.extract && not (List.any doesPreventExtract errors) then
                 let
                     inputContext : projectContext
                     inputContext =
-                        computeFinalContext projectVisitor cache projectContext
+                        case context of
+                            Combined projectContext ->
+                                projectContext
+
+                            ToCombineStartingFrom projectContext ->
+                                computeFinalContext projectVisitor cache projectContext
 
                     cachePredicate : ExtractCache projectContext -> Bool
                     cachePredicate extract =
@@ -4356,7 +4361,7 @@ computeStepsForProject dataToComputeProject ({ project, cache, fixedErrors, step
                 dataToComputeProject
                 (computeFinalProjectEvaluation dataToComputeProject project contexts cache fixedErrors)
 
-        DataExtract contexts ->
+        DataExtract context ->
             let
                 errors : List (Error {})
                 errors =
@@ -4364,7 +4369,7 @@ computeStepsForProject dataToComputeProject ({ project, cache, fixedErrors, step
 
                 cacheWithExtract : ProjectRuleCache projectContext
                 cacheWithExtract =
-                    computeExtract dataToComputeProject.reviewOptions dataToComputeProject.projectVisitor contexts.final errors cache
+                    computeExtract dataToComputeProject.reviewOptions dataToComputeProject.projectVisitor context errors cache
             in
             { project = acc.project
             , errors = errors
@@ -4386,8 +4391,13 @@ type Step projectContext
     | Dependencies { initial : projectContext, elmJson : projectContext, readme : projectContext }
     | Modules (ProjectContextAfterProjectFiles projectContext) (Zipper GraphModule)
     | FinalProjectEvaluation (ProjectContextAfterProjectFiles projectContext)
-    | DataExtract { final : projectContext }
+    | DataExtract (DataExtractInputContext projectContext)
     | Abort
+
+
+type DataExtractInputContext projectContext
+    = Combined projectContext
+    | ToCombineStartingFrom projectContext
 
 
 type alias ProjectContextAfterProjectFiles projectContext =
@@ -4692,7 +4702,7 @@ computeFinalProjectEvaluation :
     -> { project : ValidProject, cache : ProjectRuleCache projectContext, step : Step projectContext, fixedErrors : FixedErrors }
 computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } project projectContexts cache fixedErrors =
     if List.isEmpty projectVisitor.finalEvaluationFns then
-        { project = project, cache = cache, step = DataExtract { final = projectContexts.deps }, fixedErrors = fixedErrors }
+        { project = project, cache = cache, step = DataExtract (ToCombineStartingFrom projectContexts.deps), fixedErrors = fixedErrors }
 
     else
         let
@@ -4706,7 +4716,7 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
         in
         case reuseProjectRuleCache cachePredicate .finalEvaluationErrors cache of
             Just _ ->
-                { project = project, cache = cache, step = DataExtract { final = projectContexts.deps }, fixedErrors = fixedErrors }
+                { project = project, cache = cache, step = DataExtract (Combined finalContext), fixedErrors = fixedErrors }
 
             Nothing ->
                 let
@@ -4723,7 +4733,7 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
                     resultWhenNoFix () =
                         { project = project
                         , cache = { cache | finalEvaluationErrors = Just (Cache.createNoOutput finalContext errors) }
-                        , step = DataExtract { final = projectContexts.deps }
+                        , step = DataExtract (Combined finalContext)
                         , fixedErrors = fixedErrors
                         }
                 in
