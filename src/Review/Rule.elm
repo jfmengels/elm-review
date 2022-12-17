@@ -859,7 +859,7 @@ ruleProvidesFixes (Rule rule) =
     rule.providesFixes
 
 
-{-| Assign a unique to a rule.
+{-| Assign an id to a rule. This id should be unique.
 
     config =
         [ rule1, rule2, rule3 ]
