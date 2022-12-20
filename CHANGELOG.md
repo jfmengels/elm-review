@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.11.1] - 2022-12-20
+
+- Fix [`Review.Rule.withIsFileIgnored`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withIsFileIgnored) returning the wrong value.
+
 ## [2.11.0] - 2022-12-17
 
 - Adds [`Review.Rule.withIsFileIgnored`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withIsFileIgnored) ([#145](https://github.com/jfmengels/elm-review/pull/145))
@@ -103,6 +107,7 @@ Help would be appreciated to fill the blanks!
 
 [`NoDeprecated`]: (https://package.elm-lang.org/packages/jfmengels/elm-review-common/latest/NoDeprecated)
 
+[2.11.1]: https://github.com/jfmengels/elm-review/releases/tag/2.11.1
 [2.11.0]: https://github.com/jfmengels/elm-review/releases/tag/2.11.0
 [2.10.0]: https://github.com/jfmengels/elm-review/releases/tag/2.10.0
 [2.9.2]: https://github.com/jfmengels/elm-review/releases/tag/2.9.2
