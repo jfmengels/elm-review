@@ -1,9 +1,12 @@
-module Review.Rule.IgnoredFilesTest exposing (all)
+module Review.Rule.IgnoredFilesTest exposing (ignoreFilesTests, isFileIgnoredTests)
 
+import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node
+import Json.Encode as Encode
 import Review.Project
 import Review.Rule as Rule exposing (Rule)
 import Review.Test
+import Set exposing (Set)
 import Test exposing (Test, describe, test)
 
 
@@ -47,8 +50,8 @@ projectRule =
         |> Rule.fromProjectRuleSchema
 
 
-all : Test
-all =
+ignoreFilesTests : Test
+ignoreFilesTests =
     describe "should ignore files"
         [ test "Using ignoreErrorsForFiles" <|
             \() ->
@@ -178,3 +181,67 @@ a = ()
                           )
                         ]
         ]
+
+
+isFileIgnoredTests : Test
+isFileIgnoredTests =
+    test "Rule.withIsFileIgnored" <|
+        \() ->
+            [ """module A exposing (a)
+a = ()
+""" ]
+                |> Review.Test.runOnModulesWithProjectData
+                    (Review.Project.new
+                        |> Review.Project.addModule { path = "src/B.elm", source = """
+module B exposing (a)
+a = ()
+""" }
+                        |> Review.Project.addModule { path = "src-ignored/C.elm", source = """
+module C exposing (a)
+a = ()
+""" }
+                        |> Review.Project.addModule { path = "tests/D.elm", source = """
+module D exposing (a)
+a = ()
+""" }
+                        |> Review.Project.addModule { path = "tests/E.elm", source = """
+module E exposing (a)
+a = ()
+""" }
+                        |> Review.Project.addModule { path = "src-other-ignored/folder/F.elm", source = """
+module F exposing (a)
+a = ()
+""" }
+                    )
+                    (ruleThatListsIgnoredFiles
+                        |> Rule.ignoreErrorsForDirectories [ "src-ignored/", "tests" ]
+                        |> Rule.ignoreErrorsForDirectories [ "src-other-ignored\\folder\\" ]
+                    )
+                |> Review.Test.expectDataExtract """["C", "D", "E", "F"]"""
+
+
+ruleThatListsIgnoredFiles : Rule
+ruleThatListsIgnoredFiles =
+    Rule.newProjectRuleSchema "ListIgnoredFiles" Set.empty
+        |> Rule.withModuleVisitor (Rule.withSimpleExpressionVisitor (always []))
+        |> Rule.withModuleContextUsingContextCreator
+            { fromProjectToModule = Rule.initContextCreator (\_ -> ())
+            , fromModuleToProject = fromModuleToProject
+            , foldProjectContexts = Set.union
+            }
+        |> Rule.withDataExtractor (\set -> set |> Set.toList |> List.sort |> Encode.list (String.join "." >> Encode.string))
+        |> Rule.fromProjectRuleSchema
+
+
+fromModuleToProject : Rule.ContextCreator () (Set ModuleName)
+fromModuleToProject =
+    Rule.initContextCreator
+        (\moduleName isIgnored () ->
+            if isIgnored then
+                Set.singleton moduleName
+
+            else
+                Set.empty
+        )
+        |> Rule.withModuleName
+        |> Rule.withIsFileIgnored

@@ -5079,7 +5079,7 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
 
                     isFileIgnored : Bool
                     isFileIgnored =
-                        Exceptions.isFileWeWantReportsFor dataToComputeModules.exceptions module_.path
+                        not (Exceptions.isFileWeWantReportsFor dataToComputeModules.exceptions module_.path)
                 in
                 if
                     reuseCache
