@@ -23,7 +23,7 @@ module Review.Rule exposing
     , ReviewError, errorRuleName, errorMessage, errorDetails, errorRange, errorFixes, errorFilePath, errorTarget
     , ignoreErrorsForDirectories, ignoreErrorsForFiles, filterErrorsForFiles
     , withDataExtractor, preventExtract
-    , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, withRuleId, getConfigurationError
+    , reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, withRuleId, getConfigurationError
     , Required, Forbidden
     )
 
@@ -284,7 +284,7 @@ find the tools to extract data below.
 
 # Running rules
 
-@docs reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, withRuleId, getConfigurationError
+@docs reviewV3, reviewV2, review, ProjectData, ruleName, ruleProvidesFixes, ruleKnowsAboutIgnoredFiles, withRuleId, getConfigurationError
 
 
 # Internals
@@ -858,6 +858,21 @@ ruleProvidesFixes : Rule -> Bool
 ruleProvidesFixes (Rule rule) =
     -- TODO Breaking change: This should be an internal detail, not shown to the user
     rule.providesFixes
+
+
+{-| Indicates whether the rule knows about which files are ignored.
+
+You should not have to use this when writing a rule.
+
+-}
+ruleKnowsAboutIgnoredFiles : Rule -> Bool
+ruleKnowsAboutIgnoredFiles (Rule rule) =
+    -- TODO Breaking change: This should be an internal detail, not shown to the user
+    let
+        (RequestedData requestedData) =
+            rule.requestedData
+    in
+    requestedData.ignoredFiles
 
 
 {-| Assign an id to a rule. This id should be unique.
