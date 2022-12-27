@@ -66,7 +66,7 @@ expressionVisitor node =
         Expression.Literal string ->
             [ Rule.error
                 { message = "Some message including " ++ string
-                , details = [ "Some details" ]
+                , details = [ "Some details including " ++ string ]
                 }
                 (Node.range node)
             ]
@@ -132,33 +132,22 @@ Hint: Maybe you forgot to add the module definition at the top, like:
 
 didNotExpectErrorsTest : Test
 didNotExpectErrorsTest =
-    test "didNotExpectErrors" <|
+    test "Unexpected errors" <|
         \() ->
-            let
-                errors : List ReviewError
-                errors =
-                    [ Review.Error.error
-                        { message = "Some error"
-                        , details = [ "Some details" ]
-                        }
-                        dummyRange
-                    , Review.Error.error
-                        { message = "Some other error"
-                        , details = [ "Some other details" ]
-                        }
-                        dummyRange
-                    ]
-            in
-            FailureMessage.didNotExpectErrors "ModuleName" errors
-                |> expectMessageEqual """
-\u{001B}[31m\u{001B}[1mDID NOT EXPECT ERRORS\u{001B}[22m\u{001B}[39m
+            """module MyModule exposing (..)
+a = "abc"
+b = "def"
+"""
+                |> Review.Test.run testRule
+                |> Review.Test.expectNoErrors
+                |> expectFailure """DID NOT EXPECT ERRORS
 
-I expected no errors for module `ModuleName` but found:
+I expected no errors for module `MyModule` but found:
 
-  - `Some error`
-    at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
-  - `Some other error`
-    at { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
+  - `Some message including abc`
+    at { start = { row = 2, column = 5 }, end = { row = 2, column = 10 } }
+  - `Some message including def`
+    at { start = { row = 3, column = 5 }, end = { row = 3, column = 10 } }
 """
 
 
@@ -1324,7 +1313,7 @@ dummyRange =
 
 expectFailure : String -> Expectation -> Expectation
 expectFailure expectedFailureMessage actualResult =
-    expectFailureModifiedBy expectedFailureMessage actualResult
+    expectFailureModifiedBy (String.trim expectedFailureMessage) actualResult
 
 
 expectFailureModifiedBy : String -> Expectation -> Expectation
