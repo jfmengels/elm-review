@@ -167,23 +167,19 @@ I expected no errors for module `MyModule` but found:
 
 didNotExpectGlobalErrorsTest : Test
 didNotExpectGlobalErrorsTest =
-    test "didNotExpectGlobalErrors" <|
+    test "Unexpected global errors" <|
         \() ->
-            let
-                errors : List { message : String }
-                errors =
-                    [ { message = "Some error" }
-                    , { message = "Some other error" }
-                    ]
-            in
-            FailureMessage.didNotExpectGlobalErrors errors
-                |> expectMessageEqual """
-\u{001B}[31m\u{001B}[1mDID NOT EXPECT GLOBAL ERRORS\u{001B}[22m\u{001B}[39m
+            """module MyModule exposing (..)
+a = "abc"
+b = "def"
+"""
+                |> Review.Test.run testRuleReportsGlobal
+                |> Review.Test.expectNoErrors
+                |> expectFailure """DID NOT EXPECT GLOBAL ERRORS
 
 I expected no global errors but found:
 
-  - `Some error`
-  - `Some other error`
+  - `Some global error`
 """
 
 
