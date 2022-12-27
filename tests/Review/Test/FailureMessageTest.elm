@@ -1,13 +1,18 @@
 module Review.Test.FailureMessageTest exposing (all)
 
+import Elm.Syntax.Expression as Expression exposing (Expression)
+import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Review.Error exposing (ReviewError)
 import Review.Fix as Fix
+import Review.Rule as Rule exposing (Error, Rule)
+import Review.Test
 import Review.Test.FailureMessage as FailureMessage exposing (ExpectedErrorData)
 import Test exposing (Test, describe, test)
+import Test.Runner
 import Vendor.Diff as Diff
 
 
@@ -48,6 +53,28 @@ all =
         ]
 
 
+testRule : Rule
+testRule =
+    Rule.newModuleRuleSchema "TestRule" ()
+        |> Rule.withSimpleExpressionVisitor expressionVisitor
+        |> Rule.fromModuleRuleSchema
+
+
+expressionVisitor : Node Expression -> List (Error {})
+expressionVisitor node =
+    case Node.value node of
+        Expression.Literal string ->
+            [ Rule.error
+                { message = "Some message including " ++ string
+                , details = [ "Some details" ]
+                }
+                (Node.range node)
+            ]
+
+        _ ->
+            []
+
+
 expectMessageEqual : String -> String -> Expectation
 expectMessageEqual expectedMessage =
     Expect.all
@@ -71,9 +98,10 @@ parsingFailureTest =
     describe "parsingFailure"
         [ test "when there is only one file" <|
             \() ->
-                FailureMessage.parsingFailure True { index = 0, source = "module MyModule exposing (.." }
-                    |> expectMessageEqual """
-\u{001B}[31m\u{001B}[1mTEST SOURCE CODE PARSING ERROR\u{001B}[22m\u{001B}[39m
+                "module MyModule exposing (.."
+                    |> Review.Test.run testRule
+                    |> Review.Test.expectNoErrors
+                    |> expectFailure """TEST SOURCE CODE PARSING ERROR
 
 I could not parse the test source code, because it was not valid Elm code.
 
@@ -82,14 +110,17 @@ Hint: Maybe you forgot to add the module definition at the top, like:
   `module A exposing (..)`"""
         , test "when there are multiple files" <|
             \() ->
-                FailureMessage.parsingFailure False { index = 32, source = "module MyModule exposing (.." }
-                    |> expectMessageEqual """
-\u{001B}[31m\u{001B}[1mTEST SOURCE CODE PARSING ERROR\u{001B}[22m\u{001B}[39m
+                [ "module MyModule exposing (.."
+                , "module MyOtherModule exposing (..)"
+                ]
+                    |> Review.Test.runOnModules testRule
+                    |> Review.Test.expectNoErrors
+                    |> expectFailure """TEST SOURCE CODE PARSING ERROR
 
 I could not parse one of the test source codes, because it was not valid
 Elm code.
 
-The source code in question is the one at index 32 starting with:
+The source code in question is the one at index 0 starting with:
 
   `module MyModule exposing (..`
 
@@ -1289,3 +1320,32 @@ Here are the differences:
 dummyRange : Range
 dummyRange =
     { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
+
+
+expectFailure : String -> Expectation -> Expectation
+expectFailure expectedFailureMessage actualResult =
+    expectFailureModifiedBy expectedFailureMessage actualResult
+
+
+expectFailureModifiedBy : String -> Expectation -> Expectation
+expectFailureModifiedBy expectedFailureMessage actualResult =
+    case Test.Runner.getFailureReason actualResult of
+        Nothing ->
+            Expect.fail "Expected a failure, but got a pass"
+
+        Just actualInfo ->
+            removeColors actualInfo.description
+                |> Expect.equal (removeColors expectedFailureMessage)
+
+
+removeColors : String -> String
+removeColors str =
+    str
+        |> String.replace "\u{001B}[0m" ""
+        |> String.replace "\u{001B}[1m" ""
+        |> String.replace "\u{001B}[2m" ""
+        |> String.replace "\u{001B}[22m" ""
+        |> String.replace "\u{001B}[31m" ""
+        |> String.replace "\u{001B}[32m" ""
+        |> String.replace "\u{001B}[37m" ""
+        |> String.replace "\u{001B}[39m" ""
