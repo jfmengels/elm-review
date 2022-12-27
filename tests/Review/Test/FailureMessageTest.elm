@@ -187,25 +187,18 @@ messageMismatchTest : Test
 messageMismatchTest =
     test "messageMismatch" <|
         \() ->
-            let
-                expectedError : ExpectedErrorData
-                expectedError =
-                    { message = "Remove the use of `Debug` before shipping to production"
-                    , details = [ "Some details" ]
-                    , under = "Debug.log"
-                    }
-
-                error : ReviewError
-                error =
-                    Review.Error.error
-                        { message = "Some error"
+            """module MyModule exposing (..)
+a = "abc"
+"""
+                |> Review.Test.run testRuleReportsLiterals
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Remove the use of `Debug` before shipping to production"
                         , details = [ "Some details" ]
+                        , under = "abc"
                         }
-                        dummyRange
-            in
-            FailureMessage.messageMismatch expectedError error
-                |> expectMessageEqual """
-\u{001B}[31m\u{001B}[1mUNEXPECTED ERROR MESSAGE\u{001B}[22m\u{001B}[39m
+                    ]
+                |> expectFailure """UNEXPECTED ERROR MESSAGE
 
 I was looking for the error with the following message:
 
@@ -213,7 +206,7 @@ I was looking for the error with the following message:
 
 but I found the following error message:
 
-  `Some error`"""
+  `Some message including abc`"""
 
 
 messageMismatchForGlobalErrorTest : Test
