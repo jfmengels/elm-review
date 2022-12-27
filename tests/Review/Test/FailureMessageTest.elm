@@ -53,8 +53,8 @@ all =
         ]
 
 
-testRule : Rule
-testRule =
+testRuleReportsLiterals : Rule
+testRuleReportsLiterals =
     Rule.newModuleRuleSchema "TestRule" ()
         |> Rule.withSimpleExpressionVisitor expressionVisitor
         |> Rule.fromModuleRuleSchema
@@ -73,6 +73,20 @@ expressionVisitor node =
 
         _ ->
             []
+
+
+testRuleReportsGlobal : Rule
+testRuleReportsGlobal =
+    Rule.newModuleRuleSchema "TestRule" ()
+        |> Rule.withSimpleModuleDefinitionVisitor
+            (\_ ->
+                [ Rule.globalError
+                    { message = "Some global error"
+                    , details = [ "Some details for global error" ]
+                    }
+                ]
+            )
+        |> Rule.fromModuleRuleSchema
 
 
 expectMessageEqual : String -> String -> Expectation
@@ -99,7 +113,7 @@ parsingFailureTest =
         [ test "when there is only one file" <|
             \() ->
                 "module MyModule exposing (.."
-                    |> Review.Test.run testRule
+                    |> Review.Test.run testRuleReportsLiterals
                     |> Review.Test.expectNoErrors
                     |> expectFailure """TEST SOURCE CODE PARSING ERROR
 
@@ -113,7 +127,7 @@ Hint: Maybe you forgot to add the module definition at the top, like:
                 [ "module MyModule exposing (.."
                 , "module MyOtherModule exposing (..)"
                 ]
-                    |> Review.Test.runOnModules testRule
+                    |> Review.Test.runOnModules testRuleReportsLiterals
                     |> Review.Test.expectNoErrors
                     |> expectFailure """TEST SOURCE CODE PARSING ERROR
 
@@ -138,7 +152,7 @@ didNotExpectErrorsTest =
 a = "abc"
 b = "def"
 """
-                |> Review.Test.run testRule
+                |> Review.Test.run testRuleReportsLiterals
                 |> Review.Test.expectNoErrors
                 |> expectFailure """DID NOT EXPECT ERRORS
 
