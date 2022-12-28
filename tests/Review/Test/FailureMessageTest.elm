@@ -403,32 +403,28 @@ unexpectedGlobalErrorDetailsTest : Test
 unexpectedGlobalErrorDetailsTest =
     test "unexpectedGlobalErrorDetails" <|
         \() ->
-            let
-                expectedDetails : List String
-                expectedDetails =
-                    [ "Some details" ]
-
-                error : { message : String, details : List String }
-                error =
-                    { message = "Some error"
-                    , details = [ "Some other details" ]
-                    }
-            in
-            FailureMessage.unexpectedGlobalErrorDetails expectedDetails error
-                |> expectMessageEqual """
-\u{001B}[31m\u{001B}[1mUNEXPECTED GLOBAL ERROR DETAILS\u{001B}[22m\u{001B}[39m
+            """module MyModule exposing (..)
+a = "abc"
+"""
+                |> Review.Test.run testRuleReportsGlobal
+                |> Review.Test.expectGlobalErrors
+                    [ { message = "Some global error"
+                      , details = [ "Not the same details" ]
+                      }
+                    ]
+                |> expectFailure """UNEXPECTED GLOBAL ERROR DETAILS
 
 I found a global error with the following message:
 
-  `Some error`
+  `Some global error`
 
 and I was expecting its details to be:
 
-  `Some details`
+  `Not the same details`
 
 but I found these details:
 
-  `Some other details`"""
+  `Some details for global error`"""
 
 
 unexpectedConfigurationErrorDetailsTest : Test
