@@ -1316,8 +1316,23 @@ expectFailureModifiedBy expectedFailureMessage actualResult =
             Expect.fail "Expected a failure, but got a pass"
 
         Just actualInfo ->
-            removeColors actualInfo.description
-                |> Expect.equal (removeColors expectedFailureMessage)
+            Expect.all
+                [ \receivedMessage ->
+                    receivedMessage
+                        |> Expect.equal (removeColors (String.trim expectedFailureMessage))
+                , \receivedMessage ->
+                    Expect.all
+                        (String.lines receivedMessage
+                            |> List.map
+                                (\line () ->
+                                    String.length line
+                                        |> Expect.atMost 76
+                                        |> Expect.onFail ("Message has line longer than 76 characters:\n\n" ++ line)
+                                )
+                        )
+                        ()
+                ]
+                (removeColors actualInfo.description)
 
 
 removeColors : String -> String
