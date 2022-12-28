@@ -195,7 +195,7 @@ a = "abc"
                     [ Review.Test.error
                         { message = "Remove the use of `Debug` before shipping to production"
                         , details = [ "Some details" ]
-                        , under = "abc"
+                        , under = "\"abc\""
                         }
                     ]
                 |> expectFailure """UNEXPECTED ERROR MESSAGE
@@ -238,77 +238,71 @@ underMismatchTest =
     describe "underMismatch"
         [ test "with single-line extracts" <|
             \() ->
-                let
-                    error : ReviewError
-                    error =
-                        Review.Error.error
-                            { message = "Some error"
+                """module MyModule exposing (..)
+a = "abc"
+"""
+                    |> Review.Test.run testRuleReportsLiterals
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Some message including abc"
                             , details = [ "Some details" ]
+                            , under = "a = \"abc\""
                             }
-                            dummyRange
-                in
-                FailureMessage.underMismatch
-                    error
-                    { under = "abcd"
-                    , codeAtLocation = "abcd = 1"
-                    }
-                    |> expectMessageEqual """
-\u{001B}[31m\u{001B}[1mUNEXPECTED ERROR LOCATION\u{001B}[22m\u{001B}[39m
+                        ]
+                    |> expectFailure """UNEXPECTED ERROR LOCATION
 
 I found an error with the following message:
 
-  `Some error`
+  `Some message including abc`
 
 and I was expecting it to be under:
 
-  `abcd`
+  `a = "abc"`
 
 but I found it under:
 
-  `abcd = 1`
+  `"abc"`
 
 Hint: Maybe you're passing the `Range` of a wrong node when
 calling `Rule.error`."""
         , test "with multi-line extracts" <|
             \() ->
-                let
-                    error : ReviewError
-                    error =
-                        Review.Error.error
-                            { message = "Some other error"
-                            , details = [ "Some other details" ]
+                """module MyModule exposing (..)
+a = \"\"\"some
+  string\"\"\"
+"""
+                    |> Review.Test.run testRuleReportsLiterals
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Some message including some\n  string"
+                            , details = [ "Some details" ]
+                            , under = "a = \"\"\"some\n  string\"\"\""
                             }
-                            dummyRange
-                in
-                FailureMessage.underMismatch
-                    error
-                    { under = "abcd =\n  1\n  + 2"
-                    , codeAtLocation = "abcd =\n  1"
-                    }
-                    |> expectMessageEqual """
-\u{001B}[31m\u{001B}[1mUNEXPECTED ERROR LOCATION\u{001B}[22m\u{001B}[39m
+                        ]
+                    |> expectFailure """UNEXPECTED ERROR LOCATION
 
 I found an error with the following message:
 
-  `Some other error`
+  `Some message including some
+  string`
 
 and I was expecting it to be under:
 
   ```
-    abcd =
-      1
-      + 2
+    a = \"\"\"some
+      string\"\"\"
   ```
 
 but I found it under:
 
   ```
-    abcd =
-      1
+    \"\"\"some
+      string\"\"\"
   ```
 
 Hint: Maybe you're passing the `Range` of a wrong node when
-calling `Rule.error`."""
+calling `Rule.error`.
+"""
         ]
 
 
