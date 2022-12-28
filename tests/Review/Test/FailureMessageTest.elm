@@ -432,23 +432,23 @@ unexpectedConfigurationErrorDetailsTest =
     test "unexpectedConfigurationErrorDetails" <|
         \() ->
             let
-                expectedDetails : List String
-                expectedDetails =
-                    [ "Some details" ]
-
-                error : { message : String, details : List String }
-                error =
-                    { message = "Some error"
-                    , details = [ "Some other details" ]
-                    }
+                rule : Rule
+                rule =
+                    Rule.configurationError "TestRule"
+                        { message = "Some configuration message"
+                        , details = [ "Some other details" ]
+                        }
             in
-            FailureMessage.unexpectedConfigurationErrorDetails expectedDetails error
-                |> expectMessageEqual """
-\u{001B}[31m\u{001B}[1mUNEXPECTED CONFIGURATION ERROR DETAILS\u{001B}[22m\u{001B}[39m
+            rule
+                |> Review.Test.expectConfigurationError
+                    { message = "Some configuration message"
+                    , details = [ "Some details" ]
+                    }
+                |> expectFailure """UNEXPECTED CONFIGURATION ERROR DETAILS
 
 I found a configuration error with the following message:
 
-  `Some error`
+  `Some configuration message`
 
 and I was expecting its details to be:
 
