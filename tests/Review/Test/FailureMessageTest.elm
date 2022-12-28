@@ -86,18 +86,22 @@ expressionVisitor createMessage node =
             []
 
 
+testRuleWithError : (Range -> Error {}) -> Rule
+testRuleWithError error =
+    Rule.newModuleRuleSchema "TestRule" ()
+        |> Rule.withSimpleExpressionVisitor (\node -> [ error (Node.range node) ])
+        |> Rule.fromModuleRuleSchema
+
+
 testRuleReportsGlobal : Rule
 testRuleReportsGlobal =
-    Rule.newModuleRuleSchema "TestRule" ()
-        |> Rule.withSimpleModuleDefinitionVisitor
-            (\_ ->
-                [ Rule.globalError
-                    { message = "Some global error"
-                    , details = [ "Some details for global error" ]
-                    }
-                ]
-            )
-        |> Rule.fromModuleRuleSchema
+    testRuleWithError
+        (\_ ->
+            Rule.globalError
+                { message = "Some global error"
+                , details = [ "Some details for global error" ]
+                }
+        )
 
 
 expectMessageEqual : String -> String -> Expectation
@@ -182,7 +186,6 @@ didNotExpectGlobalErrorsTest =
         \() ->
             """module MyModule exposing (..)
 a = "abc"
-b = "def"
 """
                 |> Review.Test.run testRuleReportsGlobal
                 |> Review.Test.expectNoErrors
@@ -518,25 +521,26 @@ but I found these details:
 
 emptyDetailsTest : Test
 emptyDetailsTest =
-    test "emptyDetails" <|
-        \() ->
-            let
-                rule : Rule
-                rule =
-                    testRuleWithMessage (\_ -> { message = "Some message", details = [] })
-            in
-            """module MyModule exposing (..)
+    describe "Empty details"
+        [ test "Regular error" <|
+            \() ->
+                let
+                    rule : Rule
+                    rule =
+                        testRuleWithError (\range -> Rule.error { message = "Some message", details = [] } range)
+                in
+                """module MyModule exposing (..)
 a = "abc"
 """
-                |> Review.Test.run rule
-                |> Review.Test.expectErrors
-                    [ Review.Test.error
-                        { message = "Some message"
-                        , details = []
-                        , under = "\"abc\""
-                        }
-                    ]
-                |> expectFailure """EMPTY ERROR DETAILS
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Some message"
+                            , details = []
+                            , under = "\"abc\""
+                            }
+                        ]
+                    |> expectFailure """EMPTY ERROR DETAILS
 
 I found an error with the following message:
 
@@ -549,6 +553,36 @@ The details could:
 - explain what the problem is
 - explain the reasoning behind the problem
 - give suggestions on how to solve the problem or alternatives"""
+        , test "Global error" <|
+            \() ->
+                let
+                    rule : Rule
+                    rule =
+                        testRuleWithError (\_ -> Rule.globalError { message = "Some message", details = [] })
+                in
+                """module MyModule exposing (..)
+a = "abc"
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectGlobalErrors
+                        [ { message = "Some message"
+                          , details = []
+                          }
+                        ]
+                    |> expectFailure """EMPTY ERROR DETAILS
+
+I found an error with the following message:
+
+  `Some message`
+
+but its details were empty. I require having details as I believe they will
+help the user who encounters the problem.
+
+The details could:
+- explain what the problem is
+- explain the reasoning behind the problem
+- give suggestions on how to solve the problem or alternatives"""
+        ]
 
 
 wrongLocationTest : Test
