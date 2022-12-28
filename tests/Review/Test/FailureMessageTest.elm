@@ -582,6 +582,26 @@ The details could:
 - explain what the problem is
 - explain the reasoning behind the problem
 - give suggestions on how to solve the problem or alternatives"""
+        , test "Configuration error" <|
+            \() ->
+                Rule.configurationError "TestRule" { message = "Some message", details = [] }
+                    |> Review.Test.expectConfigurationError
+                        { message = "Some message"
+                        , details = []
+                        }
+                    |> expectFailure """EMPTY ERROR DETAILS
+
+I found an error with the following message:
+
+  `Some message`
+
+but its details were empty. I require having details as I believe they will
+help the user who encounters the problem.
+
+The details could:
+- explain what the problem is
+- explain the reasoning behind the problem
+- give suggestions on how to solve the problem or alternatives"""
         ]
 
 
