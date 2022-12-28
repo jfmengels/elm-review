@@ -55,23 +55,32 @@ all =
         ]
 
 
-testRuleReportsLiterals : Rule
-testRuleReportsLiterals =
+testRuleWithMessage : (String -> { message : String, details : List String }) -> Rule
+testRuleWithMessage createMessage =
     Rule.newModuleRuleSchema "TestRule" ()
-        |> Rule.withSimpleExpressionVisitor expressionVisitor
+        |> Rule.withSimpleExpressionVisitor (expressionVisitor createMessage)
         |> Rule.fromModuleRuleSchema
 
 
-expressionVisitor : Node Expression -> List (Error {})
-expressionVisitor node =
+testRuleReportsLiterals : Rule
+testRuleReportsLiterals =
+    Rule.newModuleRuleSchema "TestRule" ()
+        |> Rule.withSimpleExpressionVisitor
+            (expressionVisitor
+                (\string ->
+                    { message = "Some message including " ++ string
+                    , details = [ "Some details including " ++ string ]
+                    }
+                )
+            )
+        |> Rule.fromModuleRuleSchema
+
+
+expressionVisitor : (String -> { message : String, details : List String }) -> Node Expression -> List (Error {})
+expressionVisitor createMessage node =
     case Node.value node of
         Expression.Literal string ->
-            [ Rule.error
-                { message = "Some message including " ++ string
-                , details = [ "Some details including " ++ string ]
-                }
-                (Node.range node)
-            ]
+            [ Rule.error (createMessage string) (Node.range node) ]
 
         _ ->
             []
@@ -343,23 +352,12 @@ but I found these details:
                 let
                     testRule : Rule
                     testRule =
-                        Rule.newModuleRuleSchema "TestRule" ()
-                            |> Rule.withSimpleExpressionVisitor visitor
-                            |> Rule.fromModuleRuleSchema
-
-                    visitor : Node Expression -> List (Error {})
-                    visitor node =
-                        case Node.value node of
-                            Expression.Literal _ ->
-                                [ Rule.error
-                                    { message = "Some message"
-                                    , details = [ "Some", "details" ]
-                                    }
-                                    (Node.range node)
-                                ]
-
-                            _ ->
-                                []
+                        testRuleWithMessage
+                            (\_ ->
+                                { message = "Some message"
+                                , details = [ "Some", "details" ]
+                                }
+                            )
                 in
                 """module MyModule exposing (..)
 a = "abc"
