@@ -311,66 +311,74 @@ unexpectedDetailsTest =
     describe "unexpectedDetails"
         [ test "with single-line details" <|
             \() ->
-                let
-                    expectedDetails : List String
-                    expectedDetails =
-                        [ "Expected details" ]
-
-                    error : ReviewError
-                    error =
-                        Review.Error.error
-                            { message = "Some error"
-                            , details = [ "Some other details" ]
+                """module MyModule exposing (..)
+a = "abc"
+"""
+                    |> Review.Test.run testRuleReportsLiterals
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Some message including abc"
+                            , details = [ "Not the same details" ]
+                            , under = "\"abc\""
                             }
-                            dummyRange
-                in
-                FailureMessage.unexpectedDetails
-                    expectedDetails
-                    error
-                    |> expectMessageEqual """
-\u{001B}[31m\u{001B}[1mUNEXPECTED ERROR DETAILS\u{001B}[22m\u{001B}[39m
+                        ]
+                    |> expectFailure """UNEXPECTED ERROR DETAILS
 
 I found an error for a file with the following message:
 
-  `Some error`
+  `Some message including abc`
 
 and I was expecting its details to be:
 
-  `Expected details`
+  `Not the same details`
 
 but I found these details:
 
-  `Some other details`"""
+  `Some details including abc`
+"""
         , test "with multi-line details" <|
             \() ->
                 let
-                    expectedDetails : List String
-                    expectedDetails =
-                        [ "Expected"
-                        , "details"
-                        ]
+                    testRule : Rule
+                    testRule =
+                        Rule.newModuleRuleSchema "TestRule" ()
+                            |> Rule.withSimpleExpressionVisitor visitor
+                            |> Rule.fromModuleRuleSchema
 
-                    error : ReviewError
-                    error =
-                        Review.Error.error
-                            { message = "Some other error"
+                    visitor : Node Expression -> List (Error {})
+                    visitor node =
+                        case Node.value node of
+                            Expression.Literal _ ->
+                                [ Rule.error
+                                    { message = "Some message"
+                                    , details = [ "Some", "details" ]
+                                    }
+                                    (Node.range node)
+                                ]
+
+                            _ ->
+                                []
+                in
+                """module MyModule exposing (..)
+a = "abc"
+"""
+                    |> Review.Test.run testRule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = "Some message"
                             , details =
-                                [ "Some"
-                                , "other"
+                                [ "Expected"
                                 , "details"
                                 ]
+                            , under = "\"abc\""
                             }
-                            dummyRange
-                in
-                FailureMessage.unexpectedDetails
-                    expectedDetails
-                    error
-                    |> expectMessageEqual """
+                        ]
+                    |> expectFailure """
 \u{001B}[31m\u{001B}[1mUNEXPECTED ERROR DETAILS\u{001B}[22m\u{001B}[39m
 
 I found an error for a file with the following message:
 
-  `Some other error`
+  `Some message`
 
 and I was expecting its details to be:
 
@@ -384,8 +392,6 @@ but I found these details:
 
   ```
   Some
-
-  other
 
   details
   ```
@@ -1297,11 +1303,6 @@ Here are the differences:
 \u{001B}[31m  "actual": null\u{001B}[39m
 \u{001B}[32m  "expected": {}\u{001B}[39m
 }"""
-
-
-dummyRange : Range
-dummyRange =
-    { start = { row = 2, column = 1 }, end = { row = 2, column = 5 } }
 
 
 expectFailure : String -> Expectation -> Expectation
