@@ -518,16 +518,29 @@ but I found these details:
 
 emptyDetailsTest : Test
 emptyDetailsTest =
-    describe "emptyDetails"
-        [ test "with single-line details" <|
-            \() ->
-                FailureMessage.emptyDetails "Some error"
-                    |> expectMessageEqual """
-\u{001B}[31m\u{001B}[1mEMPTY ERROR DETAILS\u{001B}[22m\u{001B}[39m
+    test "emptyDetails" <|
+        \() ->
+            let
+                rule : Rule
+                rule =
+                    testRuleWithMessage (\_ -> { message = "Some message", details = [] })
+            in
+            """module MyModule exposing (..)
+a = "abc"
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectErrors
+                    [ Review.Test.error
+                        { message = "Some message"
+                        , details = []
+                        , under = "\"abc\""
+                        }
+                    ]
+                |> expectFailure """EMPTY ERROR DETAILS
 
 I found an error with the following message:
 
-  `Some error`
+  `Some message`
 
 but its details were empty. I require having details as I believe they will
 help the user who encounters the problem.
@@ -536,7 +549,6 @@ The details could:
 - explain what the problem is
 - explain the reasoning behind the problem
 - give suggestions on how to solve the problem or alternatives"""
-        ]
 
 
 wrongLocationTest : Test
