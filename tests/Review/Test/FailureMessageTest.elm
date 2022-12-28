@@ -213,20 +213,16 @@ messageMismatchForGlobalErrorTest : Test
 messageMismatchForGlobalErrorTest =
     test "messageMismatchForGlobalError" <|
         \() ->
-            let
-                expectedError : { message : String }
-                expectedError =
-                    { message = "Remove the use of `Debug` before shipping to production"
-                    }
-
-                error : { message : String }
-                error =
-                    { message = "Some error"
-                    }
-            in
-            FailureMessage.messageMismatchForGlobalError expectedError error
-                |> expectMessageEqual """
-\u{001B}[31m\u{001B}[1mUNEXPECTED GLOBAL ERROR MESSAGE\u{001B}[22m\u{001B}[39m
+            """module MyModule exposing (..)
+a = "abc"
+"""
+                |> Review.Test.run testRuleReportsGlobal
+                |> Review.Test.expectGlobalErrors
+                    [ { message = "Remove the use of `Debug` before shipping to production"
+                      , details = [ "Some details" ]
+                      }
+                    ]
+                |> expectFailure """UNEXPECTED GLOBAL ERROR MESSAGE
 
 I was looking for the global error with the following message:
 
@@ -234,7 +230,7 @@ I was looking for the global error with the following message:
 
 but I found the following error message:
 
-  `Some error`"""
+  `Some global error`"""
 
 
 underMismatchTest : Test
