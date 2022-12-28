@@ -27,6 +27,7 @@ all =
         , underMismatchTest
         , unexpectedDetailsTest
         , unexpectedGlobalErrorDetailsTest
+        , unexpectedConfigurationErrorTest
         , unexpectedConfigurationErrorMessageTest
         , unexpectedConfigurationErrorDetailsTest
         , emptyDetailsTest
@@ -426,6 +427,35 @@ and I was expecting its details to be:
 but I found these details:
 
   `Some details for global error`"""
+
+
+unexpectedConfigurationErrorTest : Test
+unexpectedConfigurationErrorTest =
+    test "unexpectedConfigurationError" <|
+        \() ->
+            let
+                rule : Rule
+                rule =
+                    Rule.configurationError "TestRule"
+                        { message = "Some unexpected configuration message"
+                        , details = [ "Some details" ]
+                        }
+            in
+            """module MyModule exposing (..)
+a = "abc"
+"""
+                |> Review.Test.run rule
+                |> Review.Test.expectNoErrors
+                |> expectFailure """UNEXPECTED CONFIGURATION ERROR
+
+I found a configuration error for this test:
+
+  `Some unexpected configuration message`
+
+  `Some details`
+
+You should use `Review.Test.expectConfigurationError` to expect this
+configuration error."""
 
 
 unexpectedConfigurationErrorMessageTest : Test

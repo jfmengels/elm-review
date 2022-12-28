@@ -637,7 +637,8 @@ unexpectedConfigurationError error =
 
   """ ++ formatDetails error.details ++ """
 
-You should use `expectConfigurationError` to expect this configuration error.""")
+You should use `Review.Test.expectConfigurationError` to expect this
+configuration error.""")
 
 
 missingConfigurationError : String -> String
