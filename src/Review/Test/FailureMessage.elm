@@ -394,7 +394,7 @@ needToUsedExpectErrorsForModules =
         """You gave me several modules, and you expect some errors. I need to know for
 which module you expect these errors to be reported.
 
-You should use `expectErrorsForModules` to do this:
+You should use `Review.Test.expectErrorsForModules` to do this:
 
   test "..." <|
     \\() ->
