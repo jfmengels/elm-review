@@ -843,7 +843,7 @@ expectGlobalAndModuleErrors { global, modules } reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun { ruleCanProvideFixes, foundGlobalErrors, runResults, extract } _ _ ->
+        SuccessfulRun { ruleCanProvideFixes, foundGlobalErrors, runResults, extract } rule project ->
             Expect.all
                 [ \() ->
                     if List.isEmpty global then
@@ -853,8 +853,36 @@ expectGlobalAndModuleErrors { global, modules } reviewResult =
                         checkAllGlobalErrorsMatch (List.length global) { expected = global, actual = foundGlobalErrors }
                 , \() -> expectErrorsForModulesHelp ruleCanProvideFixes modules runResults
                 , \() -> expectNoDataExtract extract
+                , \() -> tryAgain { global = global, modules = modules } rule project
                 ]
                 ()
+
+
+tryAgain : { global : List { message : String, details : List String }, modules : List ( String, List ExpectedError ) } -> Rule -> Project -> Expectation
+tryAgain { global, modules } rule project =
+    if not (Rule.ruleKnowsAboutIgnoredFiles rule) then
+        Expect.pass
+
+    else
+        let
+            filePaths : List String
+            filePaths =
+                Project.modules project
+                    |> List.map .path
+                    |> maybeCons .path (Project.elmJson project)
+                    |> maybeCons .path (Project.readme project)
+        in
+        Expect.pass
+
+
+maybeCons : (b -> a) -> Maybe b -> List a -> List a
+maybeCons mapper maybe list =
+    case maybe of
+        Just b ->
+            mapper b :: list
+
+        Nothing ->
+            list
 
 
 expectErrorsForModulesHelp : RuleCanProvideFixes -> List ( String, List ExpectedError ) -> List SuccessfulRunResult -> Expectation
