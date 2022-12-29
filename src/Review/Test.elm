@@ -895,8 +895,14 @@ checkResultsAreTheSameWhenIgnoringFilesHelp rule project allErrors filesToIgnore
         [ Rule.ignoreErrorsForFiles filesToIgnore rule ]
         project
         |> .errors
-        -- TODO Apply filtering on allErrors to remove ignored files
-        |> Expect.equal allErrors
+        |> Expect.equal (removeErrorsForIgnoredFiles filesToIgnore allErrors)
+
+
+removeErrorsForIgnoredFiles : List String -> List ReviewError -> List ReviewError
+removeErrorsForIgnoredFiles filesToIgnore errors =
+    List.filter
+        (\err -> not (List.member (Rule.errorFilePath err) filesToIgnore))
+        errors
 
 
 allCombinations : List a -> List (List a)
