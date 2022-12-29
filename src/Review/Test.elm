@@ -895,7 +895,37 @@ checkResultsAreTheSameWhenIgnoringFilesHelp rule project allErrors filesToIgnore
         [ Rule.ignoreErrorsForFiles filesToIgnore rule ]
         project
         |> .errors
-        |> Expect.equal (removeErrorsForIgnoredFiles filesToIgnore allErrors)
+        |> removeInCommon (removeErrorsForIgnoredFiles filesToIgnore allErrors) []
+        |> Expect.equal ( [], [] )
+
+
+removeInCommon : List a -> List a -> List a -> ( List a, List a )
+removeInCommon expected excessFromActual actual =
+    case actual of
+        [] ->
+            ( expected, excessFromActual )
+
+        first :: restOfActual ->
+            case removeFirst first expected [] of
+                Just newExpected ->
+                    removeInCommon newExpected excessFromActual restOfActual
+
+                Nothing ->
+                    removeInCommon expected (first :: excessFromActual) restOfActual
+
+
+removeFirst : a -> List a -> List a -> Maybe (List a)
+removeFirst a list prev =
+    case list of
+        [] ->
+            Nothing
+
+        x :: xs ->
+            if x == a then
+                Just (prev ++ xs)
+
+            else
+                removeFirst a xs (x :: prev)
 
 
 removeErrorsForIgnoredFiles : List String -> List ReviewError -> List ReviewError
