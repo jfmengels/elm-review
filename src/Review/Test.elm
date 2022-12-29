@@ -855,14 +855,15 @@ expectGlobalAndModuleErrors { global, modules } reviewResult =
                         checkAllGlobalErrorsMatch (List.length global) { expected = global, actual = foundGlobalErrors }
                 , \() -> expectErrorsForModulesHelp ruleCanProvideFixes modules runResults
                 , \() -> expectNoDataExtract extract
-                , \() -> tryAgain allErrors rule project
+                , \() -> checkResultsAreTheSameWhenIgnoringFiles allErrors rule project
                 ]
                 ()
 
 
 {-| Add this to other `expect` functions
 -}
-tryAgain allErrors rule project =
+checkResultsAreTheSameWhenIgnoringFiles : List ReviewError -> Rule -> Project -> Expectation
+checkResultsAreTheSameWhenIgnoringFiles allErrors rule project =
     if not (Rule.ruleKnowsAboutIgnoredFiles rule) then
         Expect.pass
 
@@ -880,12 +881,12 @@ tryAgain allErrors rule project =
                 allCombinations filePaths
         in
         Expect.all
-            (List.map (\filesToIgnore () -> checkResultsAreTheSameWhenIgnoringFiles rule project allErrors filesToIgnore) combinationsOfFilesToIgnore)
+            (List.map (\filesToIgnore () -> checkResultsAreTheSameWhenIgnoringFilesHelp rule project allErrors filesToIgnore) combinationsOfFilesToIgnore)
             ()
 
 
-checkResultsAreTheSameWhenIgnoringFiles : Rule -> Project -> List ReviewError -> List String -> Expectation
-checkResultsAreTheSameWhenIgnoringFiles rule project allErrors filesToIgnore =
+checkResultsAreTheSameWhenIgnoringFilesHelp : Rule -> Project -> List ReviewError -> List String -> Expectation
+checkResultsAreTheSameWhenIgnoringFilesHelp rule project allErrors filesToIgnore =
     Rule.reviewV3
         (ReviewOptions.withDataExtraction False ReviewOptions.defaults)
         [ Rule.ignoreErrorsForFiles filesToIgnore rule ]
