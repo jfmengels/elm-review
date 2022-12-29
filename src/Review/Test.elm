@@ -153,7 +153,15 @@ import Vendor.ListExtra as ListExtra
 type ReviewResult
     = ConfigurationError { message : String, details : List String }
     | FailedRun String
-    | SuccessfulRun RuleCanProvideFixes (List GlobalError) (List SuccessfulRunResult) ExtractResult
+    | SuccessfulRun SuccessfulRunData
+
+
+type alias SuccessfulRunData =
+    { ruleCanProvideFixes : RuleCanProvideFixes
+    , foundGlobalErrors : List GlobalError
+    , runResults : List SuccessfulRunResult
+    , extract : ExtractResult
+    }
 
 
 type RuleCanProvideFixes
@@ -455,7 +463,12 @@ runOnModulesWithProjectDataHelp project rule sources =
                                             |> List.filter (\error_ -> Rule.errorTarget error_ == Error.UserGlobal)
                                             |> List.map (\error_ -> { message = Rule.errorMessage error_, details = Rule.errorDetails error_ })
                                 in
-                                SuccessfulRun (RuleCanProvideFixes (Rule.ruleProvidesFixes rule)) foundGlobalErrors fileErrors extract
+                                SuccessfulRun
+                                    { ruleCanProvideFixes = RuleCanProvideFixes (Rule.ruleProvidesFixes rule)
+                                    , foundGlobalErrors = foundGlobalErrors
+                                    , runResults = fileErrors
+                                    , extract = extract
+                                    }
 
 
 hasOneElement : List a -> Bool
@@ -783,7 +796,7 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun ruleCanProvideFixes foundGlobalErrors runResults extract ->
+        SuccessfulRun { ruleCanProvideFixes, foundGlobalErrors, runResults, extract } ->
             Expect.all
                 [ \() ->
                     if List.isEmpty global then
@@ -828,7 +841,7 @@ expectGlobalAndModuleErrors { global, modules } reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun ruleCanProvideFixes foundGlobalErrors runResults extract ->
+        SuccessfulRun { ruleCanProvideFixes, foundGlobalErrors, runResults, extract } ->
             Expect.all
                 [ \() ->
                     if List.isEmpty global then
@@ -1617,7 +1630,7 @@ expectDataExtract expectedExtract reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun _ foundGlobalErrors runResults extract ->
+        SuccessfulRun { foundGlobalErrors, runResults, extract } ->
             Expect.all
                 [ \() -> expectNoGlobalErrors foundGlobalErrors
                 , \() -> expectNoModuleErrors runResults
@@ -1725,7 +1738,7 @@ expect expectations reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun ruleCanProvideFixes foundGlobalErrors runResults extract ->
+        SuccessfulRun { ruleCanProvideFixes, foundGlobalErrors, runResults, extract } ->
             let
                 expected : CompiledExpectations
                 expected =
