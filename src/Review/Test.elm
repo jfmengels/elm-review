@@ -800,7 +800,7 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun { ruleCanProvideFixes, foundGlobalErrors, runResults, extract } _ _ ->
+        SuccessfulRun { ruleCanProvideFixes, foundGlobalErrors, runResults, extract, allErrors } rule project ->
             Expect.all
                 [ \() ->
                     if List.isEmpty global then
@@ -820,6 +820,7 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
                             _ ->
                                 Expect.fail FailureMessage.needToUsedExpectErrorsForModules
                 , \() -> expectNoDataExtract extract
+                , \() -> checkResultsAreTheSameWhenIgnoringFiles allErrors rule project
                 ]
                 ()
 
@@ -860,8 +861,6 @@ expectGlobalAndModuleErrors { global, modules } reviewResult =
                 ()
 
 
-{-| Add this to other `expect` functions
--}
 checkResultsAreTheSameWhenIgnoringFiles : List ReviewError -> Rule -> Project -> Expectation
 checkResultsAreTheSameWhenIgnoringFiles allErrors rule project =
     if not (Rule.ruleKnowsAboutIgnoredFiles rule) then
@@ -1709,11 +1708,12 @@ expectDataExtract expectedExtract reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun { foundGlobalErrors, runResults, extract } _ _ ->
+        SuccessfulRun { foundGlobalErrors, runResults, extract, allErrors } rule project ->
             Expect.all
                 [ \() -> expectNoGlobalErrors foundGlobalErrors
                 , \() -> expectNoModuleErrors runResults
                 , \() -> expectDataExtractContent expectedExtract extract
+                , \() -> checkResultsAreTheSameWhenIgnoringFiles allErrors rule project
                 ]
                 ()
 
@@ -1817,7 +1817,7 @@ expect expectations reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun { ruleCanProvideFixes, foundGlobalErrors, runResults, extract } _ _ ->
+        SuccessfulRun { ruleCanProvideFixes, foundGlobalErrors, runResults, extract, allErrors } rule project ->
             let
                 expected : CompiledExpectations
                 expected =
@@ -1841,6 +1841,7 @@ expect expectations reviewResult =
 
                         MultipleDataExtractExpected ->
                             Expect.fail FailureMessage.specifiedMultipleExtracts
+                , \() -> checkResultsAreTheSameWhenIgnoringFiles allErrors rule project
                 ]
                 ()
 
