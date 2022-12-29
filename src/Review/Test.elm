@@ -877,15 +877,15 @@ tryAgain allErrors rule project =
 
             combinationsOfFilesToIgnore : List (List String)
             combinationsOfFilesToIgnore =
-                findAllCombinations filePaths
+                allCombinations filePaths
         in
         Expect.all
-            (List.map (\filesToIgnore () -> tryAgainHelp rule project allErrors filesToIgnore) combinationsOfFilesToIgnore)
+            (List.map (\filesToIgnore () -> checkResultsAreTheSameWhenIgnoringFiles rule project allErrors filesToIgnore) combinationsOfFilesToIgnore)
             ()
 
 
-tryAgainHelp : Rule -> Project -> List ReviewError -> List String -> Expectation
-tryAgainHelp rule project allErrors filesToIgnore =
+checkResultsAreTheSameWhenIgnoringFiles : Rule -> Project -> List ReviewError -> List String -> Expectation
+checkResultsAreTheSameWhenIgnoringFiles rule project allErrors filesToIgnore =
     Rule.reviewV3
         (ReviewOptions.withDataExtraction False ReviewOptions.defaults)
         [ Rule.ignoreErrorsForFiles filesToIgnore rule ]
@@ -895,10 +895,32 @@ tryAgainHelp rule project allErrors filesToIgnore =
         |> Expect.equal allErrors
 
 
-findAllCombinations list =
-    -- TODO Implement
-    -- TODO Remove empty list
-    [ list ]
+allCombinations : List a -> List (List a)
+allCombinations list =
+    case list of
+        [] ->
+            []
+
+        [ _ ] ->
+            []
+
+        _ ->
+            allCombinationsHelp list
+
+
+allCombinationsHelp : List a -> List (List a)
+allCombinationsHelp list =
+    case list of
+        [] ->
+            []
+
+        first :: rest ->
+            let
+                addFirst : List a -> List (List a) -> List (List a)
+                addFirst subList acc =
+                    subList :: (first :: subList) :: acc
+            in
+            [ first ] :: List.foldr addFirst [] (allCombinationsHelp rest)
 
 
 maybeCons : (b -> a) -> Maybe b -> List a -> List a
