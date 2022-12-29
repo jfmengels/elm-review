@@ -845,7 +845,7 @@ expectGlobalAndModuleErrors { global, modules } reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun { ruleCanProvideFixes, foundGlobalErrors, runResults, extract } rule project ->
+        SuccessfulRun { ruleCanProvideFixes, foundGlobalErrors, runResults, extract, allErrors } rule project ->
             Expect.all
                 [ \() ->
                     if List.isEmpty global then
@@ -855,13 +855,14 @@ expectGlobalAndModuleErrors { global, modules } reviewResult =
                         checkAllGlobalErrorsMatch (List.length global) { expected = global, actual = foundGlobalErrors }
                 , \() -> expectErrorsForModulesHelp ruleCanProvideFixes modules runResults
                 , \() -> expectNoDataExtract extract
-                , \() -> tryAgain { global = global, modules = modules } rule project
+                , \() -> tryAgain allErrors rule project
                 ]
                 ()
 
 
-tryAgain : { global : List { message : String, details : List String }, modules : List ( String, List ExpectedError ) } -> Rule -> Project -> Expectation
-tryAgain { global, modules } rule project =
+{-| Add this to other `expect` functions
+-}
+tryAgain allErrors rule project =
     if not (Rule.ruleKnowsAboutIgnoredFiles rule) then
         Expect.pass
 
@@ -873,8 +874,31 @@ tryAgain { global, modules } rule project =
                     |> List.map .path
                     |> maybeCons .path (Project.elmJson project)
                     |> maybeCons .path (Project.readme project)
+
+            combinationsOfFilesToIgnore : List (List String)
+            combinationsOfFilesToIgnore =
+                findAllCombinations filePaths
         in
-        Expect.pass
+        Expect.all
+            (List.map (\filesToIgnore () -> tryAgainHelp rule project allErrors filesToIgnore) combinationsOfFilesToIgnore)
+            ()
+
+
+tryAgainHelp : Rule -> Project -> List ReviewError -> List String -> Expectation
+tryAgainHelp rule project allErrors filesToIgnore =
+    Rule.reviewV3
+        (ReviewOptions.withDataExtraction False ReviewOptions.defaults)
+        [ Rule.ignoreErrorsForFiles filesToIgnore rule ]
+        project
+        |> .errors
+        -- TODO Apply filtering on allErrors to remove ignored files
+        |> Expect.equal allErrors
+
+
+findAllCombinations list =
+    -- TODO Implement
+    -- TODO Remove empty list
+    [ list ]
 
 
 maybeCons : (b -> a) -> Maybe b -> List a -> List a
