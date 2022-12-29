@@ -879,9 +879,13 @@ checkResultsAreTheSameWhenIgnoringFiles allErrors rule project =
             combinationsOfFilesToIgnore =
                 allCombinations filePaths
         in
-        Expect.all
-            (List.map (\filesToIgnore () -> checkResultsAreTheSameWhenIgnoringFilesHelp rule project allErrors filesToIgnore) combinationsOfFilesToIgnore)
-            ()
+        if List.isEmpty combinationsOfFilesToIgnore then
+            Expect.pass
+
+        else
+            Expect.all
+                (List.map (\filesToIgnore () -> checkResultsAreTheSameWhenIgnoringFilesHelp rule project allErrors filesToIgnore) combinationsOfFilesToIgnore)
+                ()
 
 
 checkResultsAreTheSameWhenIgnoringFilesHelp : Rule -> Project -> List ReviewError -> List String -> Expectation
