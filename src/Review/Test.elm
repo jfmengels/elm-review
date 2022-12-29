@@ -472,7 +472,7 @@ runOnModulesWithProjectDataHelp project rule sources =
                                     , allErrors = errors
                                     }
                                     rule
-                                    project
+                                    projectWithModules
 
 
 hasOneElement : List a -> Bool
