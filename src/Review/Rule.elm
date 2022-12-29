@@ -328,6 +328,7 @@ import Review.Project.Dependency
 import Review.Project.Internal exposing (Project)
 import Review.Project.InvalidProjectError as InvalidProjectError
 import Review.Project.Valid as ValidProject exposing (ValidProject)
+import Review.RequestedData as RequestedData exposing (RequestedData(..))
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
 import Vendor.ListExtra as ListExtra
@@ -1241,12 +1242,9 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
         , id = 0
         , exceptions = Exceptions.init
         , requestedData =
-            case schema.moduleContextCreator of
-                Just (ContextCreator _ requestedData) ->
-                    requestedData
-
-                Nothing ->
-                    noRequestedData
+            RequestedData.combine
+                (Maybe.map requestedDataFromContextCreator schema.moduleContextCreator)
+                (Maybe.map (.fromModuleToProject >> requestedDataFromContextCreator) schema.folder)
         , extractsData = schema.dataExtractor /= Nothing
         , providesFixes = schema.providesFixes
         , ruleImplementation =
@@ -1313,7 +1311,7 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
                 requestedData
 
             Nothing ->
-                noRequestedData
+                RequestedData.none
     }
 
 
@@ -1550,7 +1548,7 @@ configurationError name configurationError_ =
         { name = name
         , id = 0
         , exceptions = Exceptions.init
-        , requestedData = noRequestedData
+        , requestedData = RequestedData.none
         , extractsData = False
         , providesFixes = False
         , ruleImplementation = \_ _ _ fixedErrors project -> { errors = [], fixedErrors = fixedErrors, rule = configurationError name configurationError_, project = project, extract = Nothing }
@@ -5818,12 +5816,9 @@ type ContextCreator from to
     = ContextCreator (AvailableData -> from -> to) RequestedData
 
 
-type RequestedData
-    = RequestedData
-        { moduleNameLookupTable : Bool
-        , sourceCodeExtractor : Bool
-        , ignoredFiles : Bool
-        }
+requestedDataFromContextCreator : ContextCreator from to -> RequestedData
+requestedDataFromContextCreator (ContextCreator _ requestedData) =
+    requestedData
 
 
 {-| Initialize a new context creator.
@@ -5845,16 +5840,7 @@ initContextCreator fromProjectToModule =
     -- TODO Try to get rid of the ()/from when using in a module rule
     ContextCreator
         (always fromProjectToModule)
-        noRequestedData
-
-
-noRequestedData : RequestedData
-noRequestedData =
-    RequestedData
-        { moduleNameLookupTable = False
-        , sourceCodeExtractor = False
-        , ignoredFiles = False
-        }
+        RequestedData.none
 
 
 applyContextCreator : AvailableData -> ContextCreator from to -> from -> to
