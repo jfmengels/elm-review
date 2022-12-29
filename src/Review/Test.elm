@@ -161,6 +161,7 @@ type alias SuccessfulRunData =
     , foundGlobalErrors : List GlobalError
     , runResults : List SuccessfulRunResult
     , extract : ExtractResult
+    , allErrors : List ReviewError
     }
 
 
@@ -468,6 +469,7 @@ runOnModulesWithProjectDataHelp project rule sources =
                                     , foundGlobalErrors = foundGlobalErrors
                                     , runResults = fileErrors
                                     , extract = extract
+                                    , allErrors = errors
                                     }
                                     rule
                                     project
