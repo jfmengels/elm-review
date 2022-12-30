@@ -1,6 +1,8 @@
 module Review.Test.FailureMessageTest exposing (all)
 
+import Dict exposing (Dict)
 import Elm.Syntax.Expression as Expression exposing (Expression)
+import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node)
 import Elm.Syntax.Range exposing (Range)
 import Expect exposing (Expectation)
@@ -52,6 +54,7 @@ all =
         , unexpectedExtractTest
         , invalidJsonForExpectedDataExtractTest
         , extractMismatchTest
+        , ignoredChangedResultsTest
         ]
 
 
@@ -1422,6 +1425,94 @@ Here are the differences:
 \u{001B}[31m  "actual": null\u{001B}[39m
 \u{001B}[32m  "expected": {}\u{001B}[39m
 }"""
+
+
+type alias IgnoredChangedResultsContext =
+    Dict ModuleName (List ModuleName)
+
+
+ignoredChangedResultsTest : Test
+ignoredChangedResultsTest =
+    test "Ignored changed results" <|
+        \() ->
+            let
+                testRule : Rule
+                testRule =
+                    Rule.newProjectRuleSchema "TestRule" initialContext
+                        |> Rule.withModuleVisitor (Rule.withSimpleModuleDefinitionVisitor (always []))
+                        |> Rule.withModuleContextUsingContextCreator
+                            { fromProjectToModule = fromProjectToModule
+                            , fromModuleToProject = fromModuleToProject
+                            , foldProjectContexts = foldProjectContexts
+                            }
+                        |> Rule.withFinalProjectEvaluation finalEvaluation
+                        |> Rule.fromProjectRuleSchema
+
+                initialContext : IgnoredChangedResultsContext
+                initialContext =
+                    Dict.empty
+
+                fromProjectToModule : Rule.ContextCreator IgnoredChangedResultsContext ()
+                fromProjectToModule =
+                    Rule.initContextCreator (\_ -> ())
+
+                fromModuleToProject : Rule.ContextCreator () IgnoredChangedResultsContext
+                fromModuleToProject =
+                    Rule.initContextCreator
+                        (\ast isFileIgnored moduleName () ->
+                            if isFileIgnored then
+                                Dict.empty
+
+                            else
+                                ast.imports
+                                    |> List.map (\import_ -> ( import_ |> Node.value |> .moduleName |> Node.value, [ moduleName ] ))
+                                    |> Dict.fromList
+                        )
+                        |> Rule.withFullAst
+                        |> Rule.withIsFileIgnored
+                        |> Rule.withModuleName
+
+                foldProjectContexts : IgnoredChangedResultsContext -> IgnoredChangedResultsContext -> IgnoredChangedResultsContext
+                foldProjectContexts new prev =
+                    Dict.merge
+                        Dict.insert
+                        (\key a b dict -> Dict.insert key (a ++ b) dict)
+                        Dict.insert
+                        new
+                        prev
+                        Dict.empty
+
+                finalEvaluation : IgnoredChangedResultsContext -> List (Error { useErrorForModule : () })
+                finalEvaluation refsDict =
+                    refsDict
+                        |> Dict.toList
+                        |> List.map
+                            (\( moduleName, refs ) ->
+                                Rule.globalError
+                                    { message = "Found imports for " ++ String.join "." moduleName
+                                    , details = (String.join "." moduleName ++ " was imported by:") :: List.map (String.join ".") (List.sort refs)
+                                    }
+                            )
+            in
+            [ """module A exposing (..)
+a = "abc"
+""", """module B exposing (..)
+import A
+b = "abc"
+""", """module C exposing (..)
+import A
+import B
+c = "abc"
+""" ]
+                |> Review.Test.runOnModules testRule
+                |> Review.Test.expectGlobalErrors
+                    [ { message = "Found imports for A"
+                      , details = [ "A was imported by:", "B", "C" ]
+                      }
+                    , { message = "Found imports for B"
+                      , details = [ "B was imported by:", "C" ]
+                      }
+                    ]
 
 
 expectFailure : String -> Expectation -> Expectation
