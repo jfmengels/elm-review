@@ -8,6 +8,7 @@ module Review.Test.FailureMessage exposing
     , messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors
     , unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
     , unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch, specifiedMultipleExtracts
+    , resultsAreDifferentWhenFilesAreIgnored
     )
 
 {-| Failure messages for the `Review.Test` module.
@@ -721,6 +722,80 @@ formatJsonDiff differences =
         |> String.join "\n"
 
 
+resultsAreDifferentWhenFilesAreIgnored : { ignoredFiles : List String, missing : List ReviewError, unexpected : List ReviewError } -> String
+resultsAreDifferentWhenFilesAreIgnored { ignoredFiles, missing, unexpected } =
+    let
+        files : String
+        files =
+            List.map (\file -> "  - " ++ file) ignoredFiles |> String.join "\n"
+
+        difference =
+            List.filterMap identity
+                [ if List.isEmpty missing then
+                    Nothing
+
+                  else
+                    Just ("the following errors could not be found anymore:" ++ summarizeErrors missing)
+                , if List.isEmpty unexpected then
+                    Nothing
+
+                  else
+                    Just ("the following errors start appearing:" ++ summarizeErrors unexpected)
+                ]
+                |> String.join "\n\nand "
+    in
+    failureMessage "GOT DIFFERENT RESULTS WHEN IGNORING FILES"
+        ("""This rule is using `Review.Rule.withIsFileIgnored`, which gives it the
+information of which files are ignored.
+
+Without further information, I assume that this information is used solely
+to improve performance of the rule, not to change the behavior in any way.
+If this is not the case for your rule, then please indicate so in your test
+using the `Review.Test.ignoredFilesImpactsResults` function.
+
+With that in mind, I tried re-running the test while ignoring some files
+and I got different results than before.
+
+When I ignore these files:
+""" ++ files ++ """
+
+then """ ++ String.trim difference)
+
+
+summarizeErrors : List ReviewError -> String
+summarizeErrors errors =
+    "\n" ++ (String.join "\n\n" <| List.map describeError errors)
+
+
+describeError : ReviewError -> String
+describeError error =
+    """
+    { message = """ ++ wrapInDoubleQuotes (Rule.errorMessage error) ++ """
+    , filePath = """ ++ wrapInDoubleQuotes (Rule.errorFilePath error) ++ """
+    , details = """ ++ formatDetailsForDescription error ++ """
+    , range = """ ++ rangeAsStringOnMultipleLines (Rule.errorRange error) ++ """
+    , fixes = """ ++ hasFixes error ++ """
+    }"""
+
+
+formatDetailsForDescription : ReviewError -> String
+formatDetailsForDescription error =
+    "[" ++ (Rule.errorDetails error |> List.map wrapInDoubleQuotes |> String.join ", ") ++ "]"
+
+
+hasFixes : ReviewError -> String
+hasFixes error =
+    case Rule.errorFixes error of
+        Just [] ->
+            "false"
+
+        Nothing ->
+            "false"
+
+        Just _ ->
+            "true"
+
+
 
 -- STYLIZING AND FORMATTING
 
@@ -843,6 +918,11 @@ wrapInQuotes string =
     "`" ++ string ++ "`"
 
 
+wrapInDoubleQuotes : String -> String
+wrapInDoubleQuotes string =
+    "\"" ++ string ++ "\""
+
+
 wrapInTripleQuotes : String -> String
 wrapInTripleQuotes str =
     "```\n" ++ str ++ "\n  ```"
@@ -851,6 +931,11 @@ wrapInTripleQuotes str =
 rangeAsString : Range -> String
 rangeAsString { start, end } =
     "{ start = { row = " ++ String.fromInt start.row ++ ", column = " ++ String.fromInt start.column ++ " }, end = { row = " ++ String.fromInt end.row ++ ", column = " ++ String.fromInt end.column ++ " } }"
+
+
+rangeAsStringOnMultipleLines : Range -> String
+rangeAsStringOnMultipleLines { start, end } =
+    "{ start = { row = " ++ String.fromInt start.row ++ ", column = " ++ String.fromInt start.column ++ " }\n              , end = { row = " ++ String.fromInt end.row ++ ", column = " ++ String.fromInt end.column ++ " }\n              }"
 
 
 pluralizeErrors : Int -> String

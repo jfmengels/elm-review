@@ -891,7 +891,7 @@ checkResultsAreTheSameWhenIgnoringFiles allErrors rule project =
 checkResultsAreTheSameWhenIgnoringFilesHelp : Rule -> Project -> List ReviewError -> List String -> Expectation
 checkResultsAreTheSameWhenIgnoringFilesHelp rule project allErrors filesToIgnore =
     let
-        ( whatWasNotFound, whatWasExtra ) =
+        ( missing, unexpected ) =
             Rule.reviewV3
                 (ReviewOptions.withDataExtraction False ReviewOptions.defaults)
                 [ Rule.ignoreErrorsForFiles filesToIgnore rule ]
@@ -899,11 +899,11 @@ checkResultsAreTheSameWhenIgnoringFilesHelp rule project allErrors filesToIgnore
                 |> .errors
                 |> removeInCommon (removeErrorsForIgnoredFiles filesToIgnore allErrors) []
     in
-    if List.isEmpty whatWasNotFound && List.isEmpty whatWasExtra then
+    if List.isEmpty missing && List.isEmpty unexpected then
         Expect.pass
 
     else
-        Expect.pass
+        Expect.fail (FailureMessage.resultsAreDifferentWhenFilesAreIgnored { ignoredFiles = filesToIgnore, missing = missing, unexpected = unexpected })
 
 
 removeInCommon : List a -> List a -> List a -> ( List a, List a )

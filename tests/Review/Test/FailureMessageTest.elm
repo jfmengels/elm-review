@@ -1513,6 +1513,44 @@ c = "abc"
                       , details = [ "B was imported by:", "C" ]
                       }
                     ]
+                |> expectFailure """GOT DIFFERENT RESULTS WHEN IGNORING FILES
+
+This rule is using `Review.Rule.withIsFileIgnored`, which gives it the
+information of which files are ignored.
+
+Without further information, I assume that this information is used solely
+to improve performance of the rule, not to change the behavior in any way.
+If this is not the case for your rule, then please indicate so in your test
+using the `Review.Test.ignoredFilesImpactsResults` function.
+
+With that in mind, I tried re-running the test while ignoring some files
+and I got different results than before.
+
+When I ignore these files:
+  - src/B.elm
+
+then the following errors could not be found anymore:
+
+    { message = "Found imports for A"
+    , filePath = "GLOBAL ERROR"
+    , details = ["A was imported by:", "B", "C"]
+    , range = { start = { row = 0, column = 0 }
+              , end = { row = 0, column = 0 }
+              }
+    , fixes = false
+    }
+
+and the following errors start appearing:
+
+    { message = "Found imports for A"
+    , filePath = "GLOBAL ERROR"
+    , details = ["A was imported by:", "C"]
+    , range = { start = { row = 0, column = 0 }
+              , end = { row = 0, column = 0 }
+              }
+    , fixes = false
+    }
+"""
 
 
 expectFailure : String -> Expectation -> Expectation
