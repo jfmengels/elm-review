@@ -153,7 +153,7 @@ import Vendor.ListExtra as ListExtra
 type ReviewResult
     = ConfigurationError { message : String, details : List String }
     | FailedRun String
-    | SuccessfulRun SuccessfulRunData Rule Project
+    | SuccessfulRun SuccessfulRunData ReRun
 
 
 type alias SuccessfulRunData =
@@ -163,6 +163,11 @@ type alias SuccessfulRunData =
     , extract : ExtractResult
     , allErrors : List ReviewError
     }
+
+
+type ReRun
+    = AttemptReRun Rule Project
+    | DontAttemptReRun
 
 
 type RuleCanProvideFixes
@@ -471,8 +476,7 @@ runOnModulesWithProjectDataHelp project rule sources =
                                     , extract = extract
                                     , allErrors = errors
                                     }
-                                    rule
-                                    projectWithModules
+                                    (AttemptReRun rule projectWithModules)
 
 
 hasOneElement : List a -> Bool
@@ -800,7 +804,7 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun { ruleCanProvideFixes, foundGlobalErrors, runResults, extract, allErrors } rule project ->
+        SuccessfulRun { ruleCanProvideFixes, foundGlobalErrors, runResults, extract, allErrors } reRun ->
             Expect.all
                 [ \() ->
                     if List.isEmpty global then
@@ -820,7 +824,7 @@ expectGlobalAndLocalErrors { global, local } reviewResult =
                             _ ->
                                 Expect.fail FailureMessage.needToUsedExpectErrorsForModules
                 , \() -> expectNoDataExtract extract
-                , \() -> checkResultsAreTheSameWhenIgnoringFiles allErrors rule project
+                , \() -> checkResultsAreTheSameWhenIgnoringFiles allErrors reRun
                 ]
                 ()
 
@@ -846,7 +850,7 @@ expectGlobalAndModuleErrors { global, modules } reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun { ruleCanProvideFixes, foundGlobalErrors, runResults, extract, allErrors } rule project ->
+        SuccessfulRun { ruleCanProvideFixes, foundGlobalErrors, runResults, extract, allErrors } reRun ->
             Expect.all
                 [ \() ->
                     if List.isEmpty global then
@@ -856,36 +860,46 @@ expectGlobalAndModuleErrors { global, modules } reviewResult =
                         checkAllGlobalErrorsMatch (List.length global) { expected = global, actual = foundGlobalErrors }
                 , \() -> expectErrorsForModulesHelp ruleCanProvideFixes modules runResults
                 , \() -> expectNoDataExtract extract
-                , \() -> checkResultsAreTheSameWhenIgnoringFiles allErrors rule project
+                , \() -> checkResultsAreTheSameWhenIgnoringFiles allErrors reRun
                 ]
                 ()
 
 
-checkResultsAreTheSameWhenIgnoringFiles : List ReviewError -> Rule -> Project -> Expectation
-checkResultsAreTheSameWhenIgnoringFiles allErrors rule project =
-    if not (Rule.ruleKnowsAboutIgnoredFiles rule) then
+checkResultsAreTheSameWhenIgnoringFiles : List ReviewError -> ReRun -> Expectation
+checkResultsAreTheSameWhenIgnoringFiles allErrors reRun =
+    case reRun of
+        AttemptReRun rule project ->
+            if not (Rule.ruleKnowsAboutIgnoredFiles rule) then
+                Expect.pass
+
+            else
+                doCheckResultsAreTheSameWhenIgnoringFiles allErrors rule project
+
+        DontAttemptReRun ->
+            Expect.pass
+
+
+doCheckResultsAreTheSameWhenIgnoringFiles : List ReviewError -> Rule -> Project -> Expectation
+doCheckResultsAreTheSameWhenIgnoringFiles allErrors rule project =
+    let
+        filePaths : List String
+        filePaths =
+            Project.modules project
+                |> List.map .path
+                |> maybeCons .path (Project.elmJson project)
+                |> maybeCons .path (Project.readme project)
+
+        combinationsOfFilesToIgnore : List (List String)
+        combinationsOfFilesToIgnore =
+            allCombinations filePaths
+    in
+    if List.isEmpty combinationsOfFilesToIgnore then
         Expect.pass
 
     else
-        let
-            filePaths : List String
-            filePaths =
-                Project.modules project
-                    |> List.map .path
-                    |> maybeCons .path (Project.elmJson project)
-                    |> maybeCons .path (Project.readme project)
-
-            combinationsOfFilesToIgnore : List (List String)
-            combinationsOfFilesToIgnore =
-                allCombinations filePaths
-        in
-        if List.isEmpty combinationsOfFilesToIgnore then
-            Expect.pass
-
-        else
-            Expect.all
-                (List.map (\filesToIgnore () -> checkResultsAreTheSameWhenIgnoringFilesHelp rule project allErrors filesToIgnore) combinationsOfFilesToIgnore)
-                ()
+        Expect.all
+            (List.map (\filesToIgnore () -> checkResultsAreTheSameWhenIgnoringFilesHelp rule project allErrors filesToIgnore) combinationsOfFilesToIgnore)
+            ()
 
 
 checkResultsAreTheSameWhenIgnoringFilesHelp : Rule -> Project -> List ReviewError -> List String -> Expectation
@@ -1755,12 +1769,12 @@ expectDataExtract expectedExtract reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun { foundGlobalErrors, runResults, extract, allErrors } rule project ->
+        SuccessfulRun { foundGlobalErrors, runResults, extract, allErrors } reRun ->
             Expect.all
                 [ \() -> expectNoGlobalErrors foundGlobalErrors
                 , \() -> expectNoModuleErrors runResults
                 , \() -> expectDataExtractContent expectedExtract extract
-                , \() -> checkResultsAreTheSameWhenIgnoringFiles allErrors rule project
+                , \() -> checkResultsAreTheSameWhenIgnoringFiles allErrors reRun
                 ]
                 ()
 
@@ -1864,7 +1878,7 @@ expect expectations reviewResult =
         FailedRun errorMessage ->
             Expect.fail errorMessage
 
-        SuccessfulRun { ruleCanProvideFixes, foundGlobalErrors, runResults, extract, allErrors } rule project ->
+        SuccessfulRun { ruleCanProvideFixes, foundGlobalErrors, runResults, extract, allErrors } reRun ->
             let
                 expected : CompiledExpectations
                 expected =
@@ -1888,7 +1902,7 @@ expect expectations reviewResult =
 
                         MultipleDataExtractExpected ->
                             Expect.fail FailureMessage.specifiedMultipleExtracts
-                , \() -> checkResultsAreTheSameWhenIgnoringFiles allErrors rule project
+                , \() -> checkResultsAreTheSameWhenIgnoringFiles allErrors reRun
                 ]
                 ()
 
