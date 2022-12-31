@@ -4,6 +4,7 @@ module Review.Test exposing
     , expectGlobalErrors
     , expectConfigurationError
     , expectDataExtract
+    , ignoredFilesImpactsResults
     , expect, ReviewExpectation
     , moduleErrors, globalErrors, elmJsonErrors, readmeErrors, dataExtract
     , expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
@@ -108,6 +109,7 @@ for this module.
 @docs expectGlobalErrors
 @docs expectConfigurationError
 @docs expectDataExtract
+@docs ignoredFilesImpactsResults
 
 
 ## Composite assertions
@@ -2120,6 +2122,43 @@ Note: You do not need to match the exact formatting of the JSON object, though t
 dataExtract : String -> ReviewExpectation
 dataExtract expectedDataExtract =
     DataExtractExpectation expectedDataExtract
+
+
+{-| Indicates to the test that the knowledge of ignored files (through [`Review.Rule.withIsFileIgnored`](Review-Rule#withIsFileIgnored))
+can impact results, and that that is done on purpose.
+
+By default, `elm-review` assumes that the knowledge of which files are ignored will only be used to improve performance,
+and not to impact the results of the rule.
+
+Testing that your rule behaves as expected in all your scenarios and with or without some files being ignored can be
+very hard. As such, the testing framework will automatically — if you've used `withIsFileIgnored` — run the rule again
+but with some of the files being ignored (it will in practice test out all the combinations) and ensure that the results
+stat the same with or without ignored files.
+
+If your rule uses this information to change the results (report less or more errors, give different details in the error
+message, ...), then you can use this function to tell the test not to attempt re-running and expecting the same results.
+In this case, you should write tests where some of the files are ignored yourself.
+
+    test "report an error when..." <|
+        \() ->
+            [ """
+    module ModuleA exposing (a)
+    a = 1""", """
+    module ModuleB exposing (a)
+    a = Debug.log "log" 1""" ]
+                |> Review.Test.runOnModules rule
+                |> Review.Test.ignoredFilesImpactsResults
+                |> Review.Test.expect whatYouExpect
+
+-}
+ignoredFilesImpactsResults : ReviewResult -> ReviewResult
+ignoredFilesImpactsResults reviewResult =
+    case reviewResult of
+        SuccessfulRun data _ ->
+            SuccessfulRun data DontAttemptReRun
+
+        _ ->
+            reviewResult
 
 
 containsDifferences : List (Diff.Change a) -> Bool
