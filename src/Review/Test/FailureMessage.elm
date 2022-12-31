@@ -25,6 +25,7 @@ module Review.Test.FailureMessage exposing
 @docs messageMismatchForGlobalError, missingConfigurationError, tooManyGlobalErrors
 @docs unexpectedConfigurationError, unexpectedConfigurationErrorDetails, unexpectedGlobalErrorDetails
 @docs unexpectedExtract, missingExtract, invalidJsonForExpectedDataExtract, extractMismatch, specifiedMultipleExtracts
+@docs resultsAreDifferentWhenFilesAreIgnored
 
 -}
 
@@ -729,6 +730,7 @@ resultsAreDifferentWhenFilesAreIgnored { ignoredFiles, missing, unexpected } =
         files =
             List.map (\file -> "  - " ++ file) ignoredFiles |> String.join "\n"
 
+        difference : String
         difference =
             List.filterMap identity
                 [ if List.isEmpty missing then
