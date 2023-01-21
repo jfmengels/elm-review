@@ -28,10 +28,14 @@ shouldApplyFix : { a | name : String, providesFixes : Bool } -> ReviewOptionsDat
 shouldApplyFix projectVisitor reviewOptionsData =
     case reviewOptionsData.fixMode of
         Enabled _ ->
-            if not projectVisitor.providesFixes then
-                Nothing
-
-            else if Dict.isEmpty reviewOptionsData.suppressions then
+            -- TODO Breaking change: Re-add this condition (for performance)
+            -- Right now enabling this makes it so that some fixes get ignored
+            -- when the rule hasn't annotated that it would make fixes.
+            --if not projectVisitor.providesFixes then
+            --    Nothing
+            --
+            --else
+            if Dict.isEmpty reviewOptionsData.suppressions then
                 Just (\err -> not (reviewOptionsData.ignoreFix err))
 
             else
