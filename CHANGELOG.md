@@ -6,7 +6,7 @@ Fixed a bug that ignored fixes from rules that were not marked as providing fixe
 This was meant to be handled by the CLI, but didn't work as expected.
 
 When the rule uses [`Review.Rule.withIsFileIgnored`], the test runner will now attempt to re-run the rule while ignoring
-some of the files (it will do so for every possible combination) and assert that the results are the same. This is to
+some files (it will do so for every possible combination) and assert that the results are the same. This is to
 check that the knowledge is only used for performance improvements and change the result. This way, complex rules can
 avoid writing extremely complicated test setups to test that complex scenarios work behave as expected even when some
 files are ignored.
@@ -124,6 +124,7 @@ Help would be appreciated to fill the blanks!
 [`Review.Rule.withIsFileIgnored`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withIsFileIgnored
 [`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule-Test#ignoredFilesImpactResults
 
+[2.12.0]: https://github.com/jfmengels/elm-review/releases/tag/2.12.0
 [2.11.1]: https://github.com/jfmengels/elm-review/releases/tag/2.11.1
 [2.11.0]: https://github.com/jfmengels/elm-review/releases/tag/2.11.0
 [2.10.0]: https://github.com/jfmengels/elm-review/releases/tag/2.10.0
