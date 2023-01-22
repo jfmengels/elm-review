@@ -1,12 +1,27 @@
 # Changelog
 
+## [2.12.0] - 2023-01-22
+
+Fixed a bug that ignored fixes from rules that were not marked as providing fixes (using `Rule.providesFixesFor*Rule`).
+This was meant to be handled by the CLI, but didn't work as expected.
+
+When the rule uses [`Review.Rule.withIsFileIgnored`], the test runner will now attempt to re-run the rule while ignoring
+some of the files (it will do so for every possible combination) and assert that the results are the same. This is to
+check that the knowledge is only used for performance improvements and change the result. This way, complex rules can
+avoid writing extremely complicated test setups to test that complex scenarios work behave as expected even when some
+files are ignored.
+
+Some rules might not wish for this behavior, in which case [`Review.Test.ignoredFilesImpactResults`] can be used to
+opt out of this re-running mechanism.
+
+
 ## [2.11.1] - 2022-12-20
 
-- Fix [`Review.Rule.withIsFileIgnored`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withIsFileIgnored) returning the wrong value.
+- Fix [`Review.Rule.withIsFileIgnored`] returning the wrong value.
 
 ## [2.11.0] - 2022-12-17
 
-- Adds [`Review.Rule.withIsFileIgnored`](https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withIsFileIgnored) ([#145](https://github.com/jfmengels/elm-review/pull/145))
+- Adds [`Review.Rule.withIsFileIgnored`] ([#145](https://github.com/jfmengels/elm-review/pull/145))
 - Behind the scenes work to allow the CLI to save the internal result cache to the file system.
 - Fixed the test failure message reported when a test was missing an expected extract (it reported the failure message for a different problem).
 
@@ -105,7 +120,9 @@ This release contains HUGE performance updates. `elm-review` should now run quit
 
 Help would be appreciated to fill the blanks!
 
-[`NoDeprecated`]: (https://package.elm-lang.org/packages/jfmengels/elm-review-common/latest/NoDeprecated)
+[`NoDeprecated`]: https://package.elm-lang.org/packages/jfmengels/elm-review-common/latest/NoDeprecated
+[`Review.Rule.withIsFileIgnored`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withIsFileIgnored
+[`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule-Test#ignoredFilesImpactResults
 
 [2.11.1]: https://github.com/jfmengels/elm-review/releases/tag/2.11.1
 [2.11.0]: https://github.com/jfmengels/elm-review/releases/tag/2.11.0
