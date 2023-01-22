@@ -4,7 +4,7 @@ module Review.Test exposing
     , expectGlobalErrors
     , expectConfigurationError
     , expectDataExtract
-    , ignoredFilesImpactsResults
+    , ignoredFilesImpactResults
     , expect, ReviewExpectation
     , moduleErrors, globalErrors, elmJsonErrors, readmeErrors, dataExtract
     , expectGlobalAndLocalErrors, expectGlobalAndModuleErrors
@@ -109,7 +109,7 @@ for this module.
 @docs expectGlobalErrors
 @docs expectConfigurationError
 @docs expectDataExtract
-@docs ignoredFilesImpactsResults
+@docs ignoredFilesImpactResults
 
 
 ## Composite assertions
@@ -2147,12 +2147,12 @@ In this case, you should write tests where some of the files are ignored yoursel
     module ModuleB exposing (a)
     a = Debug.log "log" 1""" ]
                 |> Review.Test.runOnModules rule
-                |> Review.Test.ignoredFilesImpactsResults
+                |> Review.Test.ignoredFilesImpactResults
                 |> Review.Test.expect whatYouExpect
 
 -}
-ignoredFilesImpactsResults : ReviewResult -> ReviewResult
-ignoredFilesImpactsResults reviewResult =
+ignoredFilesImpactResults : ReviewResult -> ReviewResult
+ignoredFilesImpactResults reviewResult =
     case reviewResult of
         SuccessfulRun data _ ->
             SuccessfulRun data DontAttemptReRun

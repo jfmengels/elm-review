@@ -753,7 +753,7 @@ information of which files are ignored.
 Without further information, I assume that this information is used solely
 to improve performance of the rule, not to change the behavior in any way.
 If this is not the case for your rule, then please indicate so in your test
-using the `Review.Test.ignoredFilesImpactsResults` function.
+using the `Review.Test.ignoredFilesImpactResults` function.
 
 With that in mind, I tried re-running the test while ignoring some files
 and I got different results than before.
