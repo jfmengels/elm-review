@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.12.1] - 2023-01-25
+
+Fixed a bug where rules would report false positives in the presence of the file-system cache.
+
 ## [2.12.0] - 2023-01-22
 
 Fixed a bug that ignored fixes from rules that were not marked as providing fixes (using `Rule.providesFixesFor*Rule`).
@@ -124,6 +128,7 @@ Help would be appreciated to fill the blanks!
 [`Review.Rule.withIsFileIgnored`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule#withIsFileIgnored
 [`Review.Test.ignoredFilesImpactResults`]: https://package.elm-lang.org/packages/jfmengels/elm-review/latest/Review-Rule-Test#ignoredFilesImpactResults
 
+[2.12.1]: https://github.com/jfmengels/elm-review/releases/tag/2.12.1
 [2.12.0]: https://github.com/jfmengels/elm-review/releases/tag/2.12.0
 [2.11.1]: https://github.com/jfmengels/elm-review/releases/tag/2.11.1
 [2.11.0]: https://github.com/jfmengels/elm-review/releases/tag/2.11.0
