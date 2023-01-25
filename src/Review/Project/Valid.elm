@@ -12,9 +12,9 @@ module Review.Project.Valid exposing
     , getModuleByPath
     , moduleGraph
     , moduleZipper
+    , modulesByModuleName
     , parse
     , projectCache
-    , projectModuleNames
     , readme
     , readmeHash
     , toRegularProject
@@ -48,11 +48,11 @@ type ValidProject
 
 type alias ValidProjectData =
     { modulesByPath : Dict String ProjectModule
+    , modulesByModuleName : Dict ModuleName ProjectModule
     , elmJson : Maybe ( { path : String, raw : String, project : Elm.Project.Project }, ContentHash )
     , readme : Maybe ( { path : String, content : String }, ContentHash )
     , dependencies : Dict String Dependency
     , directDependencies : Dict String Dependency
-    , projectModules : Set ModuleName
     , dependencyModules : Set ModuleName
     , sourceDirectories : List String
     , projectCache : ProjectCache
@@ -136,11 +136,11 @@ fromProjectAndGraph moduleGraph_ acyclicGraph (Project project) =
     in
     ValidProject
         { modulesByPath = project.modules
+        , modulesByModuleName = computeModulesByModuleName project.modules
         , elmJson = project.elmJson
         , readme = project.readme
         , dependencies = project.dependencies
         , directDependencies = directDependencies_
-        , projectModules = computeProjectModules project.modules
         , dependencyModules = computeDependencyModules directDependencies_
         , sourceDirectories = project.sourceDirectories
         , projectCache = project.cache
@@ -182,13 +182,13 @@ computeDependencyModules directDependencies_ =
         directDependencies_
 
 
-computeProjectModules : Dict a ProjectModule -> Set ModuleName
-computeProjectModules modules =
+computeModulesByModuleName : Dict a ProjectModule -> Dict ModuleName ProjectModule
+computeModulesByModuleName modules =
     Dict.foldl
         (\_ module_ acc ->
-            Set.insert (getModuleName module_) acc
+            Dict.insert (getModuleName module_) module_ acc
         )
-        Set.empty
+        Dict.empty
         modules
 
 
@@ -340,9 +340,9 @@ moduleGraph (ValidProject project) =
     project.moduleGraph
 
 
-projectModuleNames : ValidProject -> Set ModuleName
-projectModuleNames (ValidProject project) =
-    project.projectModules
+modulesByModuleName : ValidProject -> Dict ModuleName ProjectModule
+modulesByModuleName (ValidProject project) =
+    project.modulesByModuleName
 
 
 getModuleByPath : String -> ValidProject -> Maybe ProjectModule
