@@ -182,6 +182,69 @@ compute moduleName module_ project =
     ( lookupTable, ValidProject.updateProjectCache newProjectCache project )
 
 
+computeOnlyModuleDocs :
+    ModuleName
+    -> ProjectModule
+    -> Set ModuleName
+    -> Dict ModuleName Elm.Docs.Module
+    -> ProjectCache
+    -> ProjectCache
+computeOnlyModuleDocs moduleName module_ knownProjectModules deps projectCache =
+    let
+        -- Can we skip going all the way back to the top?
+        ( imported, projectCacheWithComputedImports ) =
+            List.foldl
+                (\(Node _ import_) ( accImported, accProjectCache ) ->
+                    let
+                        importedModuleName : ModuleName
+                        importedModuleName =
+                            Node.value import_.moduleName
+
+                        maybeImportedModule : Maybe Elm.Docs.Module
+                        maybeImportedModule =
+                            if Set.member importedModuleName knownProjectModules then
+                                case Dict.get importedModuleName accProjectCache.modules of
+                                    Just importedModule ->
+                                        Just importedModule
+
+                                    Nothing ->
+                                        -- TODO Compute modules for that element
+                                        Dict.get importedModuleName deps
+
+                            else
+                                Dict.get importedModuleName deps
+                    in
+                    case maybeImportedModule of
+                        Just importedModule ->
+                            ( Dict.insert importedModuleName importedModule accImported, accProjectCache )
+
+                        Nothing ->
+                            ( accImported, accProjectCache )
+                )
+                ( Dict.empty, projectCache )
+                (elmCorePrelude ++ module_.ast.imports)
+
+        moduleContext : Context
+        moduleContext =
+            fromProjectToModule moduleName imported
+                |> collectModuleDocs module_.ast
+                |> collectLookupTable module_.ast.declarations
+
+        modules : Dict ModuleName Elm.Docs.Module
+        modules =
+            Dict.insert moduleName
+                { name = String.join "." moduleName
+                , comment = ""
+                , unions = moduleContext.exposedUnions
+                , aliases = moduleContext.exposedAliases
+                , values = moduleContext.exposedValues
+                , binops = []
+                }
+                projectCacheWithComputedImports.modules
+    in
+    { projectCache | modules = modules }
+
+
 computeDependencies : ValidProject -> Dict ModuleName Elm.Docs.Module
 computeDependencies project =
     project
