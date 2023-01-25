@@ -113,12 +113,17 @@ compute moduleName module_ project =
 
                         maybeImportedModule : Maybe Elm.Docs.Module
                         maybeImportedModule =
-                            case Dict.get importedModuleName accProjectCache.modules of
-                                Just importedModule ->
-                                    Just importedModule
+                            if Set.member importedModuleName knownProjectModules then
+                                case Dict.get importedModuleName accProjectCache.modules of
+                                    Just importedModule ->
+                                        Just importedModule
 
-                                Nothing ->
-                                    Dict.get importedModuleName deps
+                                    Nothing ->
+                                        -- TODO Compute modules for that element
+                                        Dict.get importedModuleName deps
+
+                            else
+                                Dict.get importedModuleName deps
                     in
                     case maybeImportedModule of
                         Just importedModule ->
