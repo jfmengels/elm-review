@@ -145,7 +145,8 @@ compute moduleName module_ project =
                 moduleContext : Context
                 moduleContext =
                     fromProjectToModule moduleName imported
-                        |> collectLookupTable module_.ast
+                        |> collectModuleDocs module_.ast
+                        |> collectLookupTable module_.ast.declarations
             in
             ( moduleContext.lookupTable
             , Dict.insert moduleName
@@ -206,16 +207,15 @@ fromProjectToModule moduleName modules =
     }
 
 
-collectLookupTable : Elm.Syntax.File.File -> Context -> Context
-collectLookupTable ast context =
+collectModuleDocs : Elm.Syntax.File.File -> Context -> Context
+collectModuleDocs ast context =
     List.foldl importVisitor context (elmCorePrelude ++ ast.imports)
         |> moduleDefinitionVisitor ast.moduleDefinition
         |> declarationListVisitor ast.declarations
-        |> visitDeclarationsAndExpressions ast.declarations
 
 
-visitDeclarationsAndExpressions : List (Node Declaration) -> Context -> Context
-visitDeclarationsAndExpressions declarations context =
+collectLookupTable : List (Node Declaration) -> Context -> Context
+collectLookupTable declarations context =
     List.foldl
         (\declaration ctx ->
             case Node.value declaration of
