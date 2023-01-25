@@ -99,8 +99,7 @@ compute moduleName module_ project =
                 Nothing ->
                     computeDependencies project
 
-        imported : Dict ModuleName Elm.Docs.Module
-        imported =
+        ( imported, projectCacheWithComputedImports ) =
             List.foldl
                 (\(Node _ import_) acc ->
                     let
@@ -126,6 +125,7 @@ compute moduleName module_ project =
                 )
                 Dict.empty
                 (elmCorePrelude ++ module_.ast.imports)
+                |> (\a -> ( a, projectCache ))
 
         cacheKey : ProjectCache.ModuleCacheKey
         cacheKey =
@@ -148,14 +148,14 @@ compute moduleName module_ project =
                 , values = moduleContext.exposedValues
                 , binops = []
                 }
-                projectCache.modules
+                projectCacheWithComputedImports.modules
             )
 
         ( lookupTable, modules ) =
-            case Dict.get moduleName projectCache.lookupTables of
+            case Dict.get moduleName projectCacheWithComputedImports.lookupTables of
                 Just cache ->
                     if cache.key == cacheKey then
-                        ( cache.lookupTable, projectCache.modules )
+                        ( cache.lookupTable, projectCacheWithComputedImports.modules )
 
                     else
                         computeLookupTableForModule ()
@@ -167,7 +167,7 @@ compute moduleName module_ project =
         newProjectCache =
             { dependenciesModules = Just { elmJsonRaw = elmJsonRaw, deps = deps }
             , modules = modules
-            , lookupTables = Dict.insert moduleName { key = cacheKey, lookupTable = lookupTable } projectCache.lookupTables
+            , lookupTables = Dict.insert moduleName { key = cacheKey, lookupTable = lookupTable } projectCacheWithComputedImports.lookupTables
             }
     in
     ( lookupTable, ValidProject.updateProjectCache newProjectCache project )
