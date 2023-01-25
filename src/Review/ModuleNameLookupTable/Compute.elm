@@ -105,35 +105,7 @@ compute moduleName module_ project =
 
         ( imported, projectCacheWithComputedImports ) =
             List.foldl
-                (\(Node _ import_) ( accImported, accProjectCache ) ->
-                    let
-                        importedModuleName : ModuleName
-                        importedModuleName =
-                            Node.value import_.moduleName
-                    in
-                    case Dict.get importedModuleName accProjectCache.modules of
-                        Just importedModule ->
-                            ( Dict.insert importedModuleName importedModule accImported, accProjectCache )
-
-                        Nothing ->
-                            case Dict.get importedModuleName modulesByModuleName of
-                                Just importedModule ->
-                                    let
-                                        ( importedModuleDocs, newProjectCacheAcc ) =
-                                            computeOnlyModuleDocs importedModuleName importedModule modulesByModuleName deps accProjectCache
-                                    in
-                                    ( Dict.insert importedModuleName importedModuleDocs accImported
-                                    , newProjectCacheAcc
-                                    )
-
-                                Nothing ->
-                                    case Dict.get importedModuleName deps of
-                                        Just importedModule ->
-                                            ( Dict.insert importedModuleName importedModule accImported, accProjectCache )
-
-                                        Nothing ->
-                                            ( accImported, accProjectCache )
-                )
+                (computeImportedModulesDocs modulesByModuleName deps)
                 ( Dict.empty, projectCache )
                 (elmCorePrelude ++ module_.ast.imports)
 
