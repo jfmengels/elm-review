@@ -51,6 +51,7 @@ type alias ValidProjectData =
     , readme : Maybe ( { path : String, content : String }, ContentHash )
     , dependencies : Dict String Dependency
     , directDependencies : Dict String Dependency
+    , projectModules : Set ModuleName
     , dependencyModules : Set ModuleName
     , sourceDirectories : List String
     , projectCache : ProjectCache
@@ -138,6 +139,7 @@ fromProjectAndGraph moduleGraph_ acyclicGraph (Project project) =
         , readme = project.readme
         , dependencies = project.dependencies
         , directDependencies = directDependencies_
+        , projectModules = computeProjectModules project.modules
         , dependencyModules = computeDependencyModules directDependencies_
         , sourceDirectories = project.sourceDirectories
         , projectCache = project.cache
@@ -177,6 +179,16 @@ computeDependencyModules directDependencies_ =
         )
         Set.empty
         directDependencies_
+
+
+computeProjectModules : Dict a ProjectModule -> Set ModuleName
+computeProjectModules modules =
+    Dict.foldl
+        (\_ module_ acc ->
+            Set.insert (getModuleName module_) acc
+        )
+        Set.empty
+        modules
 
 
 duplicateModuleNames : Dict ModuleName String -> List ProjectModule -> Maybe { moduleName : ModuleName, paths : List String }
