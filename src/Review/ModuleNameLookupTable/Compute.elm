@@ -101,7 +101,7 @@ compute moduleName module_ project =
 
         ( imported, projectCacheWithComputedImports ) =
             List.foldl
-                (\(Node _ import_) acc ->
+                (\(Node _ import_) accImported ->
                     let
                         importedModuleName : ModuleName
                         importedModuleName =
@@ -118,10 +118,10 @@ compute moduleName module_ project =
                     in
                     case maybeImportedModule of
                         Just importedModule ->
-                            Dict.insert importedModuleName importedModule acc
+                            Dict.insert importedModuleName importedModule accImported
 
                         Nothing ->
-                            acc
+                            accImported
                 )
                 Dict.empty
                 (elmCorePrelude ++ module_.ast.imports)
