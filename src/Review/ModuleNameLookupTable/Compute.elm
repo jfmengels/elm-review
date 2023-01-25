@@ -99,6 +99,10 @@ compute moduleName module_ project =
                 Nothing ->
                     computeDependencies project
 
+        knownProjectModules : Set ModuleName
+        knownProjectModules =
+            ValidProject.projectModuleNames project
+
         ( imported, projectCacheWithComputedImports ) =
             List.foldl
                 (\(Node _ import_) ( accImported, accProjectCache ) ->

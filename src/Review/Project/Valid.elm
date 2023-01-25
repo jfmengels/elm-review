@@ -14,6 +14,7 @@ module Review.Project.Valid exposing
     , moduleZipper
     , parse
     , projectCache
+    , projectModuleNames
     , readme
     , readmeHash
     , toRegularProject
@@ -337,6 +338,11 @@ directDependencies (ValidProject project) =
 moduleGraph : ValidProject -> Graph FilePath ()
 moduleGraph (ValidProject project) =
     project.moduleGraph
+
+
+projectModuleNames : ValidProject -> Set ModuleName
+projectModuleNames (ValidProject project) =
+    project.projectModules
 
 
 getModuleByPath : String -> ValidProject -> Maybe ProjectModule
