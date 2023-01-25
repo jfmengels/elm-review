@@ -193,7 +193,6 @@ computeOnlyModuleDocs :
     -> ( Elm.Docs.Module, ProjectCache )
 computeOnlyModuleDocs moduleName module_ modulesByModuleName deps projectCache =
     let
-        -- Can we skip going all the way back to the top?
         ( imported, projectCacheWithComputedImports ) =
             List.foldl
                 (computeImportedModulesDocs modulesByModuleName deps)
