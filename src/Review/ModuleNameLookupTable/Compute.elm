@@ -101,7 +101,7 @@ compute moduleName module_ project =
 
         ( imported, projectCacheWithComputedImports ) =
             List.foldl
-                (\(Node _ import_) accImported ->
+                (\(Node _ import_) ( accImported, accProjectCache ) ->
                     let
                         importedModuleName : ModuleName
                         importedModuleName =
@@ -109,7 +109,7 @@ compute moduleName module_ project =
 
                         maybeImportedModule : Maybe Elm.Docs.Module
                         maybeImportedModule =
-                            case Dict.get importedModuleName projectCache.modules of
+                            case Dict.get importedModuleName accProjectCache.modules of
                                 Just importedModule ->
                                     Just importedModule
 
@@ -118,14 +118,13 @@ compute moduleName module_ project =
                     in
                     case maybeImportedModule of
                         Just importedModule ->
-                            Dict.insert importedModuleName importedModule accImported
+                            ( Dict.insert importedModuleName importedModule accImported, accProjectCache )
 
                         Nothing ->
-                            accImported
+                            ( accImported, accProjectCache )
                 )
-                Dict.empty
+                ( Dict.empty, projectCache )
                 (elmCorePrelude ++ module_.ast.imports)
-                |> (\a -> ( a, projectCache ))
 
         cacheKey : ProjectCache.ModuleCacheKey
         cacheKey =
