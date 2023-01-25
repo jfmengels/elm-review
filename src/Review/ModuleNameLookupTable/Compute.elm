@@ -196,35 +196,7 @@ computeOnlyModuleDocs moduleName module_ modulesByModuleName deps projectCache =
         -- Can we skip going all the way back to the top?
         ( imported, projectCacheWithComputedImports ) =
             List.foldl
-                (\(Node _ import_) ( accImported, accProjectCache ) ->
-                    let
-                        importedModuleName : ModuleName
-                        importedModuleName =
-                            Node.value import_.moduleName
-                    in
-                    case Dict.get importedModuleName accProjectCache.modules of
-                        Just importedModule ->
-                            ( Dict.insert importedModuleName importedModule accImported, accProjectCache )
-
-                        Nothing ->
-                            case Dict.get importedModuleName modulesByModuleName of
-                                Just importedModule ->
-                                    let
-                                        ( importedModuleDocs, newProjectCacheAcc ) =
-                                            computeOnlyModuleDocs importedModuleName importedModule modulesByModuleName deps accProjectCache
-                                    in
-                                    ( Dict.insert importedModuleName importedModuleDocs accImported
-                                    , newProjectCacheAcc
-                                    )
-
-                                Nothing ->
-                                    case Dict.get importedModuleName deps of
-                                        Just importedModule ->
-                                            ( Dict.insert importedModuleName importedModule accImported, accProjectCache )
-
-                                        Nothing ->
-                                            ( accImported, accProjectCache )
-                )
+                (computeImportedModulesDocs modulesByModuleName deps)
                 ( Dict.empty, projectCache )
                 (elmCorePrelude ++ module_.ast.imports)
 
@@ -248,6 +220,42 @@ computeOnlyModuleDocs moduleName module_ modulesByModuleName deps projectCache =
             Dict.insert moduleName moduleDocs projectCacheWithComputedImports.modules
     in
     ( moduleDocs, { projectCache | modules = modules } )
+
+
+computeImportedModulesDocs :
+    Dict ModuleName ProjectModule
+    -> Dict ModuleName Elm.Docs.Module
+    -> Node Import
+    -> ( Dict ModuleName Elm.Docs.Module, ProjectCache )
+    -> ( Dict ModuleName Elm.Docs.Module, ProjectCache )
+computeImportedModulesDocs modulesByModuleName deps (Node _ import_) ( accImported, accProjectCache ) =
+    let
+        importedModuleName : ModuleName
+        importedModuleName =
+            Node.value import_.moduleName
+    in
+    case Dict.get importedModuleName accProjectCache.modules of
+        Just importedModule ->
+            ( Dict.insert importedModuleName importedModule accImported, accProjectCache )
+
+        Nothing ->
+            case Dict.get importedModuleName modulesByModuleName of
+                Just importedModule ->
+                    let
+                        ( importedModuleDocs, newProjectCacheAcc ) =
+                            computeOnlyModuleDocs importedModuleName importedModule modulesByModuleName deps accProjectCache
+                    in
+                    ( Dict.insert importedModuleName importedModuleDocs accImported
+                    , newProjectCacheAcc
+                    )
+
+                Nothing ->
+                    case Dict.get importedModuleName deps of
+                        Just importedModule ->
+                            ( Dict.insert importedModuleName importedModule accImported, accProjectCache )
+
+                        Nothing ->
+                            ( accImported, accProjectCache )
 
 
 computeDependencies : ValidProject -> Dict ModuleName Elm.Docs.Module
