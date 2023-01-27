@@ -5107,6 +5107,7 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                         )
                         (Dict.get module_.path moduleContexts)
                 then
+                    -- TODO apply fixes from the cache?
                     ignoreModule ()
 
                 else
