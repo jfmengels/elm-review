@@ -4824,15 +4824,16 @@ type alias DataToComputeModules projectContext moduleContext =
 
 
 computeModule :
-    DataToComputeModules projectContext moduleContext
-    -> ProjectModule
-    -> Bool
-    -> projectContext
-    -> ValidProject
-    -> Zipper GraphModule
-    -> FixedErrors
+    { dataToComputeModules : DataToComputeModules projectContext moduleContext
+    , module_ : ProjectModule
+    , isFileIgnored : Bool
+    , projectContext : projectContext
+    , project : ValidProject
+    , moduleZipper : Zipper GraphModule
+    , fixedErrors : FixedErrors
+    }
     -> { project : ValidProject, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
-computeModule dataToComputeModules module_ isFileIgnored projectContext project moduleZipper fixedErrors =
+computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, project } as params) =
     let
         (RequestedData requestedData) =
             dataToComputeModules.projectVisitor.requestedData
@@ -4924,13 +4925,12 @@ computeModule dataToComputeModules module_ isFileIgnored projectContext project 
                             in
                             if module_.path == filePath then
                                 computeModule
-                                    dataToComputeModules
-                                    { module_ | source = source, ast = ast }
-                                    isFileIgnored
-                                    projectContext
-                                    fixResult.project
-                                    newModuleZipper_
-                                    newFixedErrors
+                                    { params
+                                        | module_ = { module_ | source = source, ast = ast }
+                                        , project = fixResult.project
+                                        , moduleZipper = newModuleZipper_
+                                        , fixedErrors = newFixedErrors
+                                    }
 
                             else
                                 case Zipper.focusl (\mod -> mod.node.label == filePath) moduleZipper of
@@ -5114,7 +5114,15 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                     let
                         result : { project : ValidProject, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
                         result =
-                            computeModule dataToComputeModules module_ isFileIgnored projectContext project moduleZipper fixedErrors
+                            computeModule
+                                { dataToComputeModules = dataToComputeModules
+                                , module_ = module_
+                                , isFileIgnored = isFileIgnored
+                                , projectContext = projectContext
+                                , project = project
+                                , moduleZipper = moduleZipper
+                                , fixedErrors = fixedErrors
+                                }
                     in
                     { project = result.project
                     , moduleContexts = Dict.insert module_.path result.analysis moduleContexts
