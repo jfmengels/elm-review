@@ -4823,7 +4823,7 @@ type alias DataToComputeModules projectContext moduleContext =
     }
 
 
-computeModule :
+type alias DataToComputeSingleModule projectContext moduleContext =
     { dataToComputeModules : DataToComputeModules projectContext moduleContext
     , module_ : ProjectModule
     , isFileIgnored : Bool
@@ -4832,6 +4832,10 @@ computeModule :
     , moduleZipper : Zipper GraphModule
     , fixedErrors : FixedErrors
     }
+
+
+computeModule :
+    DataToComputeSingleModule projectContext moduleContext
     -> { project : ValidProject, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
 computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, project } as params) =
     let
