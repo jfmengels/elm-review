@@ -4888,12 +4888,16 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
     findFixInComputeModuleResults { params | project = newProject } availableData resultModuleContext errors
 
 
+type alias ComputeModuleFindFixResult projectContext =
+    { project : ValidProject, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
+
+
 findFixInComputeModuleResults :
     DataToComputeSingleModule projectContext moduleContext
     -> AvailableData
     -> moduleContext
     -> List (Error {})
-    -> { project : ValidProject, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
+    -> ComputeModuleFindFixResult projectContext
 findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, projectContext, project, moduleZipper, fixedErrors } as params) availableData resultModuleContext errors =
     let
         analysis : () -> ModuleCacheEntry projectContext
