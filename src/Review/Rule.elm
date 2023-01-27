@@ -4885,11 +4885,17 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
                 |> List.map (setFilePathIfUnset module_)
                 |> filterExceptionsAndSetName dataToComputeModules.exceptions dataToComputeModules.projectVisitor.name
     in
-    findFixInComputeModuleResults { params | project = newProject } availableData resultModuleContext errors
+    case findFixInComputeModuleResults { params | project = newProject } availableData resultModuleContext errors of
+        ContinueWithNextStep nextStepResult ->
+            nextStepResult
+
+        ReComputeModule newParams ->
+            computeModule newParams
 
 
-type alias ComputeModuleFindFixResult projectContext =
-    { project : ValidProject, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
+type ComputeModuleFindFixResult projectContext moduleContext
+    = ContinueWithNextStep { project : ValidProject, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
+    | ReComputeModule (DataToComputeSingleModule projectContext moduleContext)
 
 
 findFixInComputeModuleResults :
@@ -4897,7 +4903,7 @@ findFixInComputeModuleResults :
     -> AvailableData
     -> moduleContext
     -> List (Error {})
-    -> ComputeModuleFindFixResult projectContext
+    -> ComputeModuleFindFixResult projectContext moduleContext
 findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, projectContext, project, moduleZipper, fixedErrors } as params) availableData resultModuleContext errors =
     let
         analysis : () -> ModuleCacheEntry projectContext
@@ -4916,23 +4922,25 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
                             projectContext
                 }
 
-        resultWhenNoFix : () -> { project : ValidProject, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
+        resultWhenNoFix : () -> ComputeModuleFindFixResult projectContext moduleContext
         resultWhenNoFix () =
-            { project = project
-            , analysis = analysis ()
-            , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
-            , fixedErrors = fixedErrors
-            }
+            ContinueWithNextStep
+                { project = project
+                , analysis = analysis ()
+                , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
+                , fixedErrors = fixedErrors
+                }
     in
     case findFix dataToComputeModules.reviewOptions dataToComputeModules.projectVisitor project errors fixedErrors (Just moduleZipper) of
         Just ( postFixStatus, fixResult ) ->
             case postFixStatus of
                 ShouldAbort newFixedErrors ->
-                    { project = fixResult.project
-                    , analysis = analysis ()
-                    , nextStep = NextStepAbort
-                    , fixedErrors = newFixedErrors
-                    }
+                    ContinueWithNextStep
+                        { project = fixResult.project
+                        , analysis = analysis ()
+                        , nextStep = NextStepAbort
+                        , fixedErrors = newFixedErrors
+                        }
 
                 ShouldContinue newFixedErrors ->
                     case fixResult.fixedFile of
@@ -4943,7 +4951,7 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
                                     errorFilePath fixResult.error
                             in
                             if module_.path == filePath then
-                                computeModule
+                                ReComputeModule
                                     { params
                                         | module_ = { module_ | source = source, ast = ast }
                                         , project = fixResult.project
@@ -4957,28 +4965,32 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
                                         Logger.log
                                             dataToComputeModules.reviewOptions.logger
                                             (fixedError newFixedErrors { ruleName = dataToComputeModules.projectVisitor.name, filePath = filePath })
-                                            { project = fixResult.project
-                                            , analysis = analysis ()
-                                            , nextStep = ModuleVisitStep (Just newModuleZipper)
-                                            , fixedErrors = newFixedErrors
-                                            }
+                                            (ContinueWithNextStep
+                                                { project = fixResult.project
+                                                , analysis = analysis ()
+                                                , nextStep = ModuleVisitStep (Just newModuleZipper)
+                                                , fixedErrors = newFixedErrors
+                                                }
+                                            )
 
                                     Nothing ->
                                         resultWhenNoFix ()
 
                         FixedElmJson ->
-                            { project = fixResult.project
-                            , analysis = analysis ()
-                            , nextStep = BackToElmJson
-                            , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
-                            }
+                            ContinueWithNextStep
+                                { project = fixResult.project
+                                , analysis = analysis ()
+                                , nextStep = BackToElmJson
+                                , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
+                                }
 
                         FixedReadme ->
-                            { project = fixResult.project
-                            , analysis = analysis ()
-                            , nextStep = BackToReadme
-                            , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
-                            }
+                            ContinueWithNextStep
+                                { project = fixResult.project
+                                , analysis = analysis ()
+                                , nextStep = BackToReadme
+                                , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
+                                }
 
         Nothing ->
             resultWhenNoFix ()
