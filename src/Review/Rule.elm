@@ -4884,7 +4884,18 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
             moduleErrors
                 |> List.map (setFilePathIfUnset module_)
                 |> filterExceptionsAndSetName dataToComputeModules.exceptions dataToComputeModules.projectVisitor.name
+    in
+    findFixInComputeModuleResults { params | project = newProject } availableData resultModuleContext errors
 
+
+findFixInComputeModuleResults :
+    DataToComputeSingleModule projectContext moduleContext
+    -> AvailableData
+    -> moduleContext
+    -> List (Error {})
+    -> { project : ValidProject, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
+findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, projectContext, project, moduleZipper, fixedErrors } as params) availableData resultModuleContext errors =
+    let
         analysis : () -> ModuleCacheEntry projectContext
         analysis () =
             Cache.createModuleEntry
@@ -4903,13 +4914,13 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
 
         resultWhenNoFix : () -> { project : ValidProject, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
         resultWhenNoFix () =
-            { project = newProject
+            { project = project
             , analysis = analysis ()
             , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
             , fixedErrors = fixedErrors
             }
     in
-    case findFix dataToComputeModules.reviewOptions dataToComputeModules.projectVisitor newProject errors fixedErrors (Just moduleZipper) of
+    case findFix dataToComputeModules.reviewOptions dataToComputeModules.projectVisitor project errors fixedErrors (Just moduleZipper) of
         Just ( postFixStatus, fixResult ) ->
             case postFixStatus of
                 ShouldAbort newFixedErrors ->
