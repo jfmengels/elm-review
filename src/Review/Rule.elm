@@ -5139,12 +5139,12 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                     maybeCacheEntry =
                         Dict.get module_.path moduleContexts
                 in
-                case ( reuseCache shouldReuseCache maybeCacheEntry, maybeCacheEntry ) of
-                    ( True, Just cacheEntry ) ->
+                case reuseCache shouldReuseCache maybeCacheEntry of
+                    Just cacheEntry ->
                         -- TODO apply fixes from the cache?
                         ignoreModule ()
 
-                    _ ->
+                    Nothing ->
                         let
                             result : { project : ValidProject, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
                             result =
@@ -5178,14 +5178,18 @@ shouldIgnoreModule dataToComputeModules path =
             False
 
 
-reuseCache : (ModuleCacheEntry v -> Bool) -> Maybe (ModuleCacheEntry v) -> Bool
+reuseCache : (ModuleCacheEntry v -> Bool) -> Maybe (ModuleCacheEntry v) -> Maybe (ModuleCacheEntry v)
 reuseCache predicate maybeCacheEntry =
     case maybeCacheEntry of
         Nothing ->
-            False
+            Nothing
 
         Just cacheEntry ->
-            predicate cacheEntry
+            if predicate cacheEntry then
+                maybeCacheEntry
+
+            else
+                Nothing
 
 
 getFolderFromTraversal : TraversalAndFolder projectContext moduleContext -> Maybe (Folder projectContext moduleContext)
