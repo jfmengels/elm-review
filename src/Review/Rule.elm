@@ -5139,29 +5139,30 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                     maybeCacheEntry =
                         Dict.get module_.path moduleContexts
                 in
-                if reuseCache shouldReuseCache maybeCacheEntry then
-                    -- TODO apply fixes from the cache?
-                    ignoreModule ()
+                case ( reuseCache shouldReuseCache maybeCacheEntry, maybeCacheEntry ) of
+                    ( True, Just cacheEntry ) ->
+                        -- TODO apply fixes from the cache?
+                        ignoreModule ()
 
-                else
-                    let
-                        result : { project : ValidProject, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
-                        result =
-                            computeModule
-                                { dataToComputeModules = dataToComputeModules
-                                , module_ = module_
-                                , isFileIgnored = isFileIgnored
-                                , projectContext = projectContext
-                                , project = project
-                                , moduleZipper = moduleZipper
-                                , fixedErrors = fixedErrors
-                                }
-                    in
-                    { project = result.project
-                    , moduleContexts = Dict.insert module_.path result.analysis moduleContexts
-                    , nextStep = result.nextStep
-                    , fixedErrors = result.fixedErrors
-                    }
+                    _ ->
+                        let
+                            result : { project : ValidProject, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
+                            result =
+                                computeModule
+                                    { dataToComputeModules = dataToComputeModules
+                                    , module_ = module_
+                                    , isFileIgnored = isFileIgnored
+                                    , projectContext = projectContext
+                                    , project = project
+                                    , moduleZipper = moduleZipper
+                                    , fixedErrors = fixedErrors
+                                    }
+                        in
+                        { project = result.project
+                        , moduleContexts = Dict.insert module_.path result.analysis moduleContexts
+                        , nextStep = result.nextStep
+                        , fixedErrors = result.fixedErrors
+                        }
 
 
 shouldIgnoreModule : DataToComputeModules projectContext moduleContext -> String -> Bool
