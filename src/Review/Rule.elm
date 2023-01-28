@@ -5124,20 +5124,22 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                     isFileIgnored : Bool
                     isFileIgnored =
                         not (Exceptions.isFileWeWantReportsFor dataToComputeModules.exceptions module_.path)
+
+                    shouldReuseCache : Cache.ModuleEntry error projectContext -> Bool
+                    shouldReuseCache cacheEntry =
+                        Cache.match
+                            module_.contentHash
+                            (ContextHash.create projectContext)
+                            cacheEntry
+                            { isFileIgnored = isFileIgnored
+                            , rulesCareAboutIgnoredFiles = requestedData.ignoredFiles
+                            }
+
+                    maybeCacheEntry : Maybe (ModuleCacheEntry projectContext)
+                    maybeCacheEntry =
+                        Dict.get module_.path moduleContexts
                 in
-                if
-                    reuseCache
-                        (\cacheEntry ->
-                            Cache.match
-                                module_.contentHash
-                                (ContextHash.create projectContext)
-                                cacheEntry
-                                { isFileIgnored = isFileIgnored
-                                , rulesCareAboutIgnoredFiles = requestedData.ignoredFiles
-                                }
-                        )
-                        (Dict.get module_.path moduleContexts)
-                then
+                if reuseCache shouldReuseCache maybeCacheEntry then
                     -- TODO apply fixes from the cache?
                     ignoreModule ()
 
