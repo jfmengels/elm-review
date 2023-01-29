@@ -5141,8 +5141,49 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                 in
                 case reuseCache shouldReuseCache maybeCacheEntry of
                     Just cacheEntry ->
-                        -- TODO apply fixes from the cache?
-                        ignoreModule ()
+                        -- Find if some cached errors contain fixes.
+                        -- Useful because (but only because) we might not have tried to apply them
+                        -- if they come directly from the file-system cache (or if the rule was first ran in non-fix mode).
+                        -- This is not ideal because this could be quite slow.
+                        -- TODO Find a way to avoid doing this when possible
+                        case
+                            findFix
+                                dataToComputeModules.reviewOptions
+                                dataToComputeModules.projectVisitor
+                                project
+                                (Cache.errors cacheEntry)
+                                fixedErrors
+                                (Just moduleZipper)
+                        of
+                            Just ( ShouldAbort newFixedErrors, fixResult ) ->
+                                { project = fixResult.project
+                                , moduleContexts = moduleContexts
+                                , nextStep = NextStepAbort
+                                , fixedErrors = newFixedErrors
+                                }
+
+                            Just ( ShouldContinue newFixedErrors, fixResult ) ->
+                                let
+                                    nextStep : NextStep
+                                    nextStep =
+                                        case fixResult.fixedFile of
+                                            FixedElmModule _ newModuleZipper ->
+                                                ModuleVisitStep (Just newModuleZipper)
+
+                                            FixedElmJson ->
+                                                BackToElmJson
+
+                                            FixedReadme ->
+                                                BackToReadme
+                                in
+                                { project = fixResult.project
+                                , moduleContexts = moduleContexts
+                                , nextStep = nextStep
+                                , fixedErrors = newFixedErrors
+                                }
+
+                            Nothing ->
+                                ignoreModule ()
 
                     Nothing ->
                         let
