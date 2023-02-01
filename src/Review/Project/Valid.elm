@@ -203,11 +203,15 @@ duplicateModuleNames visitedModules projectModules =
                 moduleName : ModuleName
                 moduleName =
                     getModuleName projectModule
+
+                projectModulePath : String
+                projectModulePath =
+                    ProjectModule.path projectModule
             in
             case Dict.get moduleName visitedModules of
                 Nothing ->
                     duplicateModuleNames
-                        (Dict.insert moduleName projectModule.path visitedModules)
+                        (Dict.insert moduleName projectModulePath visitedModules)
                         restOfModules
 
                 Just path ->
@@ -215,10 +219,10 @@ duplicateModuleNames visitedModules projectModules =
                         { moduleName = moduleName
                         , paths =
                             path
-                                :: projectModule.path
+                                :: projectModulePath
                                 :: (restOfModules
                                         |> List.filter (\p -> getModuleName p == moduleName)
-                                        |> List.map .path
+                                        |> List.map ProjectModule.path
                                    )
                         }
 
@@ -270,7 +274,7 @@ buildModuleGraph mods =
 
 nodesAndEdges : (ModuleName -> Maybe Int) -> ProjectModule -> Int -> ( Graph.Node FilePath, List (Graph.Edge ()) )
 nodesAndEdges getModuleId module_ moduleId =
-    ( Graph.Node moduleId module_.path
+    ( Graph.Node moduleId (ProjectModule.path module_)
     , importedModules module_
         |> List.filterMap getModuleId
         |> List.map
@@ -282,13 +286,13 @@ nodesAndEdges getModuleId module_ moduleId =
 
 importedModules : ProjectModule -> List ModuleName
 importedModules module_ =
-    module_.ast.imports
+    (ProjectModule.ast module_).imports
         |> List.map (Node.value >> .moduleName >> Node.value)
 
 
 getModuleName : ProjectModule -> ModuleName
 getModuleName module_ =
-    module_.ast.moduleDefinition
+    (ProjectModule.ast module_).moduleDefinition
         |> Node.value
         |> Elm.Syntax.Module.moduleName
 
@@ -398,7 +402,7 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                 newProject =
                     { project | modulesByPath = Dict.insert path module_ project.modulesByPath }
             in
-            if importedModulesSet existingModule.ast project.dependencyModules == importedModulesSet ast project.dependencyModules then
+            if importedModulesSet (ProjectModule.ast existingModule) project.dependencyModules == importedModulesSet ast project.dependencyModules then
                 let
                     -- Imports haven't changed, we don't need to recompute the zipper or the graph
                     newModuleZipper : Zipper (Graph.NodeContext FilePath ())

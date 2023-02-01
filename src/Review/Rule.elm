@@ -327,6 +327,7 @@ import Review.Project exposing (ProjectModule)
 import Review.Project.Dependency
 import Review.Project.Internal exposing (Project)
 import Review.Project.InvalidProjectError as InvalidProjectError
+import Review.Project.ProjectModule as ProjectModule
 import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Review.RequestedData as RequestedData exposing (RequestedData(..))
 import Vendor.Graph as Graph exposing (Graph)
@@ -2064,7 +2065,7 @@ withContextFromImportedModules (ProjectRuleSchema schema) =
 setFilePathIfUnset : ProjectModule -> Error scope -> Error scope
 setFilePathIfUnset module_ ((Error err) as rawError) =
     if err.filePath == "" then
-        Error { err | filePath = module_.path }
+        Error { err | filePath = ProjectModule.path module_ }
 
     else
         rawError
@@ -4844,7 +4845,7 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
 
         moduleName : ModuleName
         moduleName =
-            Node.value (moduleNameNode module_.ast.moduleDefinition)
+            Node.value (moduleNameNode (ProjectModule.ast module_).moduleDefinition)
 
         ( moduleNameLookupTable, newProject ) =
             if requestedData.moduleNameLookupTable then
@@ -4855,17 +4856,17 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
 
         availableData : AvailableData
         availableData =
-            { ast = module_.ast
-            , moduleKey = ModuleKey module_.path
+            { ast = ProjectModule.ast module_
+            , moduleKey = ModuleKey (ProjectModule.path module_)
             , moduleNameLookupTable = moduleNameLookupTable
             , extractSourceCode =
                 if requestedData.sourceCodeExtractor then
-                    extractSourceCode (String.lines module_.source)
+                    extractSourceCode (String.lines (ProjectModule.source module_))
 
                 else
                     always ""
-            , filePath = module_.path
-            , isInSourceDirectories = module_.isInSourceDirectories
+            , filePath = ProjectModule.path module_
+            , isInSourceDirectories = ProjectModule.isInSourceDirectories module_
             , isFileIgnored = isFileIgnored
             }
 
@@ -4909,7 +4910,7 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
         analysis : ModuleCacheEntry projectContext
         analysis =
             Cache.createModuleEntry
-                { contentHash = module_.contentHash
+                { contentHash = ProjectModule.contentHash module_
                 , errors = errors
                 , inputContext = projectContext
                 , isFileIgnored = isFileIgnored
@@ -4950,10 +4951,16 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
                                 filePath =
                                     errorFilePath fixResult.error
                             in
-                            if module_.path == filePath then
+                            if ProjectModule.path module_ == filePath then
                                 ReComputeModule
                                     { params
-                                        | module_ = { module_ | source = source, ast = ast }
+                                        | module_ =
+                                            ProjectModule.create
+                                                { path = filePath
+                                                , source = source
+                                                , ast = ast
+                                                , isInSourceDirectories = ProjectModule.isInSourceDirectories module_
+                                                }
                                         , project = fixResult.project
                                         , moduleZipper = newModuleZipper_
                                         , fixedErrors = newFixedErrors
@@ -5109,7 +5116,12 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
             ignoreModule ()
 
         Just module_ ->
-            if shouldIgnoreModule dataToComputeModules module_.path then
+            let
+                modulePath : String
+                modulePath =
+                    ProjectModule.path module_
+            in
+            if shouldIgnoreModule dataToComputeModules modulePath then
                 ignoreModule ()
 
             else
@@ -5123,12 +5135,12 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
 
                     isFileIgnored : Bool
                     isFileIgnored =
-                        not (Exceptions.isFileWeWantReportsFor dataToComputeModules.exceptions module_.path)
+                        not (Exceptions.isFileWeWantReportsFor dataToComputeModules.exceptions modulePath)
 
                     shouldReuseCache : Cache.ModuleEntry error projectContext -> Bool
                     shouldReuseCache cacheEntry =
                         Cache.match
-                            module_.contentHash
+                            (ProjectModule.contentHash module_)
                             (ContextHash.create projectContext)
                             cacheEntry
                             { isFileIgnored = isFileIgnored
@@ -5137,7 +5149,7 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
 
                     maybeCacheEntry : Maybe (ModuleCacheEntry projectContext)
                     maybeCacheEntry =
-                        Dict.get module_.path moduleContexts
+                        Dict.get modulePath moduleContexts
                 in
                 case reuseCache shouldReuseCache maybeCacheEntry of
                     Just cacheEntry ->
@@ -5200,7 +5212,7 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                                     }
                         in
                         { project = result.project
-                        , moduleContexts = Dict.insert module_.path result.analysis moduleContexts
+                        , moduleContexts = Dict.insert modulePath result.analysis moduleContexts
                         , nextStep = result.nextStep
                         , fixedErrors = result.fixedErrors
                         }
@@ -5301,7 +5313,7 @@ findFixHelp project fixablePredicate errors maybeModuleZipper =
 
                                 Just file ->
                                     case
-                                        InternalFix.fixModule fixes file.source
+                                        InternalFix.fixModule fixes (ProjectModule.source file)
                                             |> Maybe.andThen
                                                 (\fixResult ->
                                                     ValidProject.addParsedModule { path = headError.filePath, source = fixResult.source, ast = fixResult.ast } maybeModuleZipper project
@@ -5382,14 +5394,19 @@ isFixable predicate err =
 
 visitModuleForProjectRule : RunnableModuleVisitor moduleContext -> moduleContext -> ProjectModule -> ( List (Error {}), moduleContext )
 visitModuleForProjectRule schema initialContext module_ =
+    let
+        ast : File
+        ast =
+            ProjectModule.ast module_
+    in
     ( [], initialContext )
-        |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors module_.ast.moduleDefinition
+        |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors ast.moduleDefinition
         -- TODO When `elm-syntax` integrates the module documentation by default, then we should use that instead of this.
-        |> accumulateModuleDocumentationVisitor schema.moduleDocumentationVisitors module_.ast
-        |> accumulateWithListOfVisitors schema.commentsVisitors module_.ast.comments
-        |> accumulateList schema.importVisitors module_.ast.imports
-        |> accumulateWithListOfVisitors schema.declarationListVisitors module_.ast.declarations
-        |> schema.declarationAndExpressionVisitor module_.ast.declarations
+        |> accumulateModuleDocumentationVisitor schema.moduleDocumentationVisitors ast
+        |> accumulateWithListOfVisitors schema.commentsVisitors ast.comments
+        |> accumulateList schema.importVisitors ast.imports
+        |> accumulateWithListOfVisitors schema.declarationListVisitors ast.declarations
+        |> schema.declarationAndExpressionVisitor ast.declarations
         |> (\( errors, moduleContext ) -> ( makeFinalModuleEvaluation schema.finalEvaluationFns errors moduleContext, moduleContext ))
 
 

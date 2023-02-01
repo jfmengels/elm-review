@@ -137,6 +137,7 @@ import Review.FileParser as FileParser
 import Review.Fix as Fix
 import Review.Options as ReviewOptions
 import Review.Project as Project exposing (Project, ProjectModule)
+import Review.Project.ProjectModule as ProjectModule
 import Review.Rule as Rule exposing (ReviewError, Rule)
 import Review.Test.Dependencies exposing (projectWithElmCore)
 import Review.Test.FailureMessage as FailureMessage
@@ -494,14 +495,14 @@ hasOneElement list =
 moduleToRunResult : List ReviewError -> ProjectModule -> SuccessfulRunResult
 moduleToRunResult errors projectModule =
     { moduleName =
-        projectModule.ast.moduleDefinition
+        (ProjectModule.ast projectModule).moduleDefinition
             |> Node.value
             |> Module.moduleName
             |> String.join "."
-    , inspector = codeInspectorForSource True projectModule.source
+    , inspector = codeInspectorForSource True (ProjectModule.source projectModule)
     , errors =
         errors
-            |> List.filter (\error_ -> Rule.errorFilePath error_ == projectModule.path)
+            |> List.filter (\error_ -> Rule.errorFilePath error_ == ProjectModule.path projectModule)
             |> List.sortWith compareErrorPositions
     }
 
@@ -578,11 +579,11 @@ findDuplicateModuleNames previousModuleNames modules =
         [] ->
             Nothing
 
-        { ast } :: restOfModules ->
+        module_ :: restOfModules ->
             let
                 moduleName : List String
                 moduleName =
-                    ast.moduleDefinition
+                    (ProjectModule.ast module_).moduleDefinition
                         |> Node.value
                         |> Module.moduleName
             in
@@ -887,7 +888,7 @@ doCheckResultsAreTheSameWhenIgnoringFiles allErrors rule project =
         filePaths : List String
         filePaths =
             Project.modules project
-                |> List.map .path
+                |> List.map ProjectModule.path
                 |> maybeCons .path (Project.elmJson project)
                 |> maybeCons .path (Project.readme project)
 

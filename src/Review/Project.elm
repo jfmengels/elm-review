@@ -160,7 +160,7 @@ addParsedModule { path, source, ast } project =
 
 addModuleToProject : ProjectModule -> Project -> Project
 addModuleToProject module_ (Internal.Project project) =
-    Internal.Project { project | modules = Dict.insert module_.path module_ project.modules }
+    Internal.Project { project | modules = Dict.insert (ProjectModule.path module_) module_ project.modules }
 
 
 addFileThatFailedToParse : { path : String, source : String } -> Project -> Project
@@ -245,13 +245,15 @@ addElmJson elmJson_ (Internal.Project project) =
 
             else
                 Dict.map
-                    (\_ value ->
+                    (\path module_ ->
                         let
                             osAgnosticPath : String
                             osAgnosticPath =
-                                Path.makeOSAgnostic value.path
+                                Path.makeOSAgnostic path
                         in
-                        { value | isInSourceDirectories = List.any (\dir -> String.startsWith dir osAgnosticPath) sourceDirectories }
+                        ProjectModule.setIsInSourceDirectories
+                            (List.any (\dir -> String.startsWith dir osAgnosticPath) sourceDirectories)
+                            module_
                     )
                     project.modules
     in
