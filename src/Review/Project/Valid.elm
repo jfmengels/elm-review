@@ -36,7 +36,7 @@ import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
 import Review.Project.InvalidProjectError as InvalidProjectError exposing (InvalidProjectError)
 import Review.Project.ProjectCache exposing (ProjectCache)
-import Review.Project.ProjectModule exposing (ProjectModule)
+import Review.Project.ProjectModule as ProjectModule exposing (ProjectModule)
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.Zipper as Zipper exposing (Zipper)
@@ -387,12 +387,12 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
 
                 module_ : ProjectModule
                 module_ =
-                    { path = path
-                    , source = source
-                    , ast = Review.Project.Internal.sanitizeModule ast
-                    , contentHash = ContentHash.hash source
-                    , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) project.sourceDirectories
-                    }
+                    ProjectModule.create
+                        { path = path
+                        , source = source
+                        , ast = ast
+                        , isInSourceDirectories = List.any (\dir -> String.startsWith (Path.makeOSAgnostic dir) osAgnosticPath) project.sourceDirectories
+                        }
 
                 newProject : ValidProjectData
                 newProject =
