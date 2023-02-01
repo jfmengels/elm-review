@@ -21,7 +21,7 @@ import NonEmpty exposing (NonEmpty)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal exposing (ModuleNameLookupTable)
 import Review.Project.Dependency
 import Review.Project.ProjectCache as ProjectCache exposing (ProjectCache)
-import Review.Project.ProjectModule exposing (ProjectModule)
+import Review.Project.ProjectModule as ProjectModule exposing (ProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
@@ -103,15 +103,19 @@ compute moduleName module_ project =
         modulesByModuleName =
             ValidProject.modulesByModuleName project
 
+        moduleAst : Elm.Syntax.File.File
+        moduleAst =
+            ProjectModule.ast module_
+
         ( imported, projectCacheWithComputedImports ) =
             List.foldl
                 (computeImportedModulesDocs modulesByModuleName deps)
                 ( Dict.empty, projectCache )
-                (elmCorePrelude ++ module_.ast.imports)
+                (elmCorePrelude ++ moduleAst.imports)
 
         cacheKey : ProjectCache.ModuleCacheKey
         cacheKey =
-            { imported = imported, source = module_.source }
+            { imported = imported, source = ProjectModule.source module_ }
 
         computeLookupTableForModule : () -> ( ModuleNameLookupTable, Dict ModuleName Elm.Docs.Module )
         computeLookupTableForModule () =
@@ -119,8 +123,8 @@ compute moduleName module_ project =
                 moduleContext : Context
                 moduleContext =
                     fromProjectToModule moduleName imported
-                        |> collectModuleDocs module_.ast
-                        |> collectLookupTable module_.ast.declarations
+                        |> collectModuleDocs moduleAst
+                        |> collectLookupTable moduleAst.declarations
             in
             ( moduleContext.lookupTable
             , Dict.insert moduleName
@@ -165,16 +169,20 @@ computeOnlyModuleDocs :
     -> ( Elm.Docs.Module, ProjectCache )
 computeOnlyModuleDocs moduleName module_ modulesByModuleName deps projectCache =
     let
+        moduleAst : Elm.Syntax.File.File
+        moduleAst =
+            ProjectModule.ast module_
+
         ( imported, projectCacheWithComputedImports ) =
             List.foldl
                 (computeImportedModulesDocs modulesByModuleName deps)
                 ( Dict.empty, projectCache )
-                (elmCorePrelude ++ module_.ast.imports)
+                (elmCorePrelude ++ moduleAst.imports)
 
         moduleContext : Context
         moduleContext =
             fromProjectToModule moduleName imported
-                |> collectModuleDocs module_.ast
+                |> collectModuleDocs moduleAst
 
         moduleDocs : Elm.Docs.Module
         moduleDocs =
