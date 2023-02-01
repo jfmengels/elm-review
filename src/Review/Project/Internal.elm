@@ -1,6 +1,5 @@
 module Review.Project.Internal exposing
     ( Project(..)
-    , sanitizeModule
     , sourceDirectories
     , sourceDirectoriesForProject
     )
@@ -11,8 +10,6 @@ the `elm.json` file, the project modules and the project dependencies.
 
 import Dict exposing (Dict)
 import Elm.Project
-import Elm.Syntax.File
-import Elm.Syntax.Node exposing (Node(..))
 import Path
 import Review.Cache.ContentHash exposing (ContentHash)
 import Review.FilePath exposing (FilePath)
@@ -38,19 +35,6 @@ type Project
 sourceDirectories : Project -> List String
 sourceDirectories (Project project) =
     project.sourceDirectories
-
-
-sanitizeModule : Elm.Syntax.File.File -> Elm.Syntax.File.File
-sanitizeModule ast =
-    { ast | comments = List.sortBy (\(Node range _) -> positionAsInt range.start) ast.comments }
-
-
-positionAsInt : { row : Int, column : Int } -> Int
-positionAsInt { row, column } =
-    -- This is a quick and simple heuristic to be able to sort ranges.
-    -- It is entirely based on the assumption that no line is longer than
-    -- 1.000.000 characters long, which the compiler does not support for Elm 0.19.1.
-    row * 1000000 + column
 
 
 sourceDirectoriesForProject : Elm.Project.Project -> List String
