@@ -93,7 +93,7 @@ new =
 {-| Represents a parsed file.
 -}
 type alias ProjectModule =
-    ProjectModule.ProjectModule
+    ProjectModule.ProjectModuleRecord
 
 
 {-| Add an Elm file to the project. If a file with the same path already exists,
@@ -158,7 +158,7 @@ addParsedModule { path, source, ast } project =
         |> forceModuleGraphRecomputation
 
 
-addModuleToProject : ProjectModule -> Project -> Project
+addModuleToProject : ProjectModule.ProjectModule -> Project -> Project
 addModuleToProject module_ (Internal.Project project) =
     Internal.Project { project | modules = Dict.insert (ProjectModule.path module_) module_ project.modules }
 
@@ -199,6 +199,7 @@ removeFileFromFilesThatFailedToParse path (Internal.Project project) =
 modules : Project -> List ProjectModule
 modules (Internal.Project project) =
     Dict.values project.modules
+        |> List.map ProjectModule.toRecord
 
 
 {-| Get the list of file paths that failed to parse, because they were syntactically invalid Elm code.

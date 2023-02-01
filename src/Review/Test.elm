@@ -137,7 +137,6 @@ import Review.FileParser as FileParser
 import Review.Fix as Fix
 import Review.Options as ReviewOptions
 import Review.Project as Project exposing (Project, ProjectModule)
-import Review.Project.ProjectModule as ProjectModule
 import Review.Rule as Rule exposing (ReviewError, Rule)
 import Review.Test.Dependencies exposing (projectWithElmCore)
 import Review.Test.FailureMessage as FailureMessage
@@ -495,14 +494,14 @@ hasOneElement list =
 moduleToRunResult : List ReviewError -> ProjectModule -> SuccessfulRunResult
 moduleToRunResult errors projectModule =
     { moduleName =
-        (ProjectModule.ast projectModule).moduleDefinition
+        projectModule.ast.moduleDefinition
             |> Node.value
             |> Module.moduleName
             |> String.join "."
-    , inspector = codeInspectorForSource True (ProjectModule.source projectModule)
+    , inspector = codeInspectorForSource True projectModule.source
     , errors =
         errors
-            |> List.filter (\error_ -> Rule.errorFilePath error_ == ProjectModule.path projectModule)
+            |> List.filter (\error_ -> Rule.errorFilePath error_ == projectModule.path)
             |> List.sortWith compareErrorPositions
     }
 
@@ -583,7 +582,7 @@ findDuplicateModuleNames previousModuleNames modules =
             let
                 moduleName : List String
                 moduleName =
-                    (ProjectModule.ast module_).moduleDefinition
+                    module_.ast.moduleDefinition
                         |> Node.value
                         |> Module.moduleName
             in
@@ -888,7 +887,7 @@ doCheckResultsAreTheSameWhenIgnoringFiles allErrors rule project =
         filePaths : List String
         filePaths =
             Project.modules project
-                |> List.map ProjectModule.path
+                |> List.map .path
                 |> maybeCons .path (Project.elmJson project)
                 |> maybeCons .path (Project.readme project)
 
