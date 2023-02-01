@@ -2,6 +2,7 @@ module Review.Project.ProjectModule exposing
     ( ProjectModule, create
     , path, source, ast, contentHash, isInSourceDirectories
     , setIsInSourceDirectories
+    , ProjectModuleRecord, toRecord
     )
 
 {-| Represents a parsed file.
@@ -10,6 +11,8 @@ module Review.Project.ProjectModule exposing
 
 @docs path, source, ast, contentHash, isInSourceDirectories
 @docs setIsInSourceDirectories
+
+@docs ProjectModuleRecord, toRecord
 
 -}
 
@@ -86,3 +89,17 @@ isInSourceDirectories (ProjectModule module_) =
 setIsInSourceDirectories : Bool -> ProjectModule -> ProjectModule
 setIsInSourceDirectories isInSourceDirectories_ (ProjectModule module_) =
     ProjectModule { module_ | isInSourceDirectories = isInSourceDirectories_ }
+
+
+type alias ProjectModuleRecord =
+    { path : String
+    , source : String
+    , ast : Elm.Syntax.File.File
+    , contentHash : ContentHash
+    , isInSourceDirectories : Bool
+    }
+
+
+toRecord : ProjectModule -> ProjectModuleRecord
+toRecord (ProjectModule module_) =
+    module_

@@ -323,11 +323,10 @@ import Review.ModuleNameLookupTable.Compute
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal
 import Review.Options as ReviewOptions exposing (ReviewOptions)
 import Review.Options.Internal as InternalOptions exposing (ReviewOptionsData, ReviewOptionsInternal(..))
-import Review.Project exposing (ProjectModule)
 import Review.Project.Dependency
 import Review.Project.Internal exposing (Project)
 import Review.Project.InvalidProjectError as InvalidProjectError
-import Review.Project.ProjectModule as ProjectModule
+import Review.Project.ProjectModule as ProjectModule exposing (ProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Review.RequestedData as RequestedData exposing (RequestedData(..))
 import Vendor.Graph as Graph exposing (Graph)
