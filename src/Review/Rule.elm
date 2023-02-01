@@ -4906,8 +4906,8 @@ findFixInComputeModuleResults :
     -> ComputeModuleFindFixResult projectContext moduleContext
 findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, projectContext, project, moduleZipper, fixedErrors } as params) availableData resultModuleContext errors =
     let
-        analysis : () -> ModuleCacheEntry projectContext
-        analysis () =
+        analysis : ModuleCacheEntry projectContext
+        analysis =
             Cache.createModuleEntry
                 { contentHash = module_.contentHash
                 , errors = errors
@@ -4926,7 +4926,7 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
         resultWhenNoFix () =
             ContinueWithNextStep
                 { project = project
-                , analysis = analysis ()
+                , analysis = analysis
                 , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
                 , fixedErrors = fixedErrors
                 }
@@ -4937,7 +4937,7 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
                 ShouldAbort newFixedErrors ->
                     ContinueWithNextStep
                         { project = fixResult.project
-                        , analysis = analysis ()
+                        , analysis = analysis
                         , nextStep = NextStepAbort
                         , fixedErrors = newFixedErrors
                         }
@@ -4967,7 +4967,7 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
                                             (fixedError newFixedErrors { ruleName = dataToComputeModules.projectVisitor.name, filePath = filePath })
                                             (ContinueWithNextStep
                                                 { project = fixResult.project
-                                                , analysis = analysis ()
+                                                , analysis = analysis
                                                 , nextStep = ModuleVisitStep (Just newModuleZipper)
                                                 , fixedErrors = newFixedErrors
                                                 }
@@ -4979,7 +4979,7 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
                         FixedElmJson ->
                             ContinueWithNextStep
                                 { project = fixResult.project
-                                , analysis = analysis ()
+                                , analysis = analysis
                                 , nextStep = BackToElmJson
                                 , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
                                 }
@@ -4987,7 +4987,7 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
                         FixedReadme ->
                             ContinueWithNextStep
                                 { project = fixResult.project
-                                , analysis = analysis ()
+                                , analysis = analysis
                                 , nextStep = BackToReadme
                                 , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
                                 }
