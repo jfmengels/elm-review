@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.12.2] - 2023-02-02
+
+Fixed a bug where errors were skipped/ignored when running `elm-review` after having run `elm-review --fix-all` [#150]
+
 ## [2.12.1] - 2023-01-25
 
 Fixed a bug where rules would report false positives in the presence of the file-system cache.
@@ -153,3 +157,5 @@ Help would be appreciated to fill the blanks!
 [fae198f186a7659fa98f6f3400bb57960be57b57]: https://github.com/jfmengels/elm-review/commit/fae198f186a7659fa98f6f3400bb57960be57b57
 [648d386d9d812f95c200ce6b6d94b6f5c2dd168d]: https://github.com/jfmengels/elm-review/commit/648d386d9d812f95c200ce6b6d94b6f5c2dd168d
 [d1c4102ec9113cd8e7fef1824554925e89d0b0f1]: https://github.com/jfmengels/elm-review/commit/d1c4102ec9113cd8e7fef1824554925e89d0b0f1
+
+[#150]: https://github.com/jfmengels/elm-review/pull/150
