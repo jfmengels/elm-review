@@ -21,7 +21,7 @@ import NonEmpty exposing (NonEmpty)
 import Review.ModuleNameLookupTable.Internal as ModuleNameLookupTableInternal exposing (ModuleNameLookupTable)
 import Review.Project.Dependency
 import Review.Project.ProjectCache as ProjectCache exposing (ProjectCache)
-import Review.Project.ProjectModule as ProjectModule exposing (ProjectModule)
+import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Set exposing (Set)
 import Vendor.ListExtra as ListExtra
@@ -73,7 +73,7 @@ emptyScope =
     }
 
 
-compute : ModuleName -> ProjectModule -> ValidProject -> ( ModuleNameLookupTable, ValidProject )
+compute : ModuleName -> OpaqueProjectModule -> ValidProject -> ( ModuleNameLookupTable, ValidProject )
 compute moduleName module_ project =
     let
         projectCache : ProjectCache
@@ -99,7 +99,7 @@ compute moduleName module_ project =
                 Nothing ->
                     computeDependencies project
 
-        modulesByModuleName : Dict ModuleName ProjectModule
+        modulesByModuleName : Dict ModuleName OpaqueProjectModule
         modulesByModuleName =
             ValidProject.modulesByModuleName project
 
@@ -162,8 +162,8 @@ compute moduleName module_ project =
 
 computeOnlyModuleDocs :
     ModuleName
-    -> ProjectModule
-    -> Dict ModuleName ProjectModule
+    -> OpaqueProjectModule
+    -> Dict ModuleName OpaqueProjectModule
     -> Dict ModuleName Elm.Docs.Module
     -> ProjectCache
     -> ( Elm.Docs.Module, ProjectCache )
@@ -202,7 +202,7 @@ computeOnlyModuleDocs moduleName module_ modulesByModuleName deps projectCache =
 
 
 computeImportedModulesDocs :
-    Dict ModuleName ProjectModule
+    Dict ModuleName OpaqueProjectModule
     -> Dict ModuleName Elm.Docs.Module
     -> Node Import
     -> ( Dict ModuleName Elm.Docs.Module, ProjectCache )

@@ -326,7 +326,7 @@ import Review.Options.Internal as InternalOptions exposing (ReviewOptionsData, R
 import Review.Project.Dependency
 import Review.Project.Internal exposing (Project)
 import Review.Project.InvalidProjectError as InvalidProjectError
-import Review.Project.ProjectModule as ProjectModule exposing (ProjectModule)
+import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Review.RequestedData as RequestedData exposing (RequestedData(..))
 import Vendor.Graph as Graph exposing (Graph)
@@ -2061,7 +2061,7 @@ withContextFromImportedModules (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | traversalType = ImportedModulesFirst }
 
 
-setFilePathIfUnset : ProjectModule -> Error scope -> Error scope
+setFilePathIfUnset : OpaqueProjectModule -> Error scope -> Error scope
 setFilePathIfUnset module_ ((Error err) as rawError) =
     if err.filePath == "" then
         Error { err | filePath = ProjectModule.path module_ }
@@ -4825,7 +4825,7 @@ type alias DataToComputeModules projectContext moduleContext =
 
 type alias DataToComputeSingleModule projectContext moduleContext =
     { dataToComputeModules : DataToComputeModules projectContext moduleContext
-    , module_ : ProjectModule
+    , module_ : OpaqueProjectModule
     , isFileIgnored : Bool
     , projectContext : projectContext
     , project : ValidProject
@@ -5391,7 +5391,7 @@ isFixable predicate err =
             Nothing
 
 
-visitModuleForProjectRule : RunnableModuleVisitor moduleContext -> moduleContext -> ProjectModule -> ( List (Error {}), moduleContext )
+visitModuleForProjectRule : RunnableModuleVisitor moduleContext -> moduleContext -> OpaqueProjectModule -> ( List (Error {}), moduleContext )
 visitModuleForProjectRule schema initialContext module_ =
     let
         ast : File

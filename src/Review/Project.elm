@@ -93,7 +93,7 @@ new =
 {-| Represents a parsed file.
 -}
 type alias ProjectModule =
-    ProjectModule.ProjectModuleRecord
+    ProjectModule.ProjectModule
 
 
 {-| Add an Elm file to the project. If a file with the same path already exists,
@@ -158,7 +158,7 @@ addParsedModule { path, source, ast } project =
         |> forceModuleGraphRecomputation
 
 
-addModuleToProject : ProjectModule.ProjectModule -> Project -> Project
+addModuleToProject : ProjectModule.OpaqueProjectModule -> Project -> Project
 addModuleToProject module_ (Internal.Project project) =
     Internal.Project { project | modules = Dict.insert (ProjectModule.path module_) module_ project.modules }
 
@@ -239,7 +239,7 @@ addElmJson elmJson_ (Internal.Project project) =
         sourceDirectories =
             Internal.sourceDirectoriesForProject elmJson_.project
 
-        modules_ : Dict String ProjectModule.ProjectModule
+        modules_ : Dict String ProjectModule.OpaqueProjectModule
         modules_ =
             if project.sourceDirectories == sourceDirectories then
                 project.modules
