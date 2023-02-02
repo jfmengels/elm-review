@@ -36,7 +36,7 @@ import Review.Project.Dependency as Dependency exposing (Dependency)
 import Review.Project.Internal exposing (Project(..))
 import Review.Project.InvalidProjectError as InvalidProjectError exposing (InvalidProjectError)
 import Review.Project.ProjectCache exposing (ProjectCache)
-import Review.Project.ProjectModule as ProjectModule exposing (ProjectModule)
+import Review.Project.ProjectModule as ProjectModule exposing (OpaqueProjectModule)
 import Set exposing (Set)
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.Zipper as Zipper exposing (Zipper)
@@ -47,8 +47,8 @@ type ValidProject
 
 
 type alias ValidProjectData =
-    { modulesByPath : Dict String ProjectModule
-    , modulesByModuleName : Dict ModuleName ProjectModule
+    { modulesByPath : Dict String OpaqueProjectModule
+    , modulesByModuleName : Dict ModuleName OpaqueProjectModule
     , elmJson : Maybe ( { path : String, raw : String, project : Elm.Project.Project }, ContentHash )
     , readme : Maybe ( { path : String, content : String }, ContentHash )
     , dependencies : Dict String Dependency
@@ -85,7 +85,7 @@ parse ((Project p) as project) =
 
     else
         let
-            projectModules : List ProjectModule
+            projectModules : List OpaqueProjectModule
             projectModules =
                 Dict.values p.modules
         in
@@ -182,7 +182,7 @@ computeDependencyModules directDependencies_ =
         directDependencies_
 
 
-computeModulesByModuleName : Dict a ProjectModule -> Dict ModuleName ProjectModule
+computeModulesByModuleName : Dict a OpaqueProjectModule -> Dict ModuleName OpaqueProjectModule
 computeModulesByModuleName modules =
     Dict.foldl
         (\_ module_ acc ->
@@ -192,7 +192,7 @@ computeModulesByModuleName modules =
         modules
 
 
-duplicateModuleNames : Dict ModuleName String -> List ProjectModule -> Maybe { moduleName : ModuleName, paths : List String }
+duplicateModuleNames : Dict ModuleName String -> List OpaqueProjectModule -> Maybe { moduleName : ModuleName, paths : List String }
 duplicateModuleNames visitedModules projectModules =
     case projectModules of
         [] ->
@@ -227,7 +227,7 @@ duplicateModuleNames visitedModules projectModules =
                         }
 
 
-buildModuleGraph : Dict a ProjectModule -> Graph FilePath ()
+buildModuleGraph : Dict a OpaqueProjectModule -> Graph FilePath ()
 buildModuleGraph mods =
     let
         moduleIds : Dict ModuleName Int
@@ -272,7 +272,7 @@ buildModuleGraph mods =
     Graph.fromNodesAndEdges nodes edges
 
 
-nodesAndEdges : (ModuleName -> Maybe Int) -> ProjectModule -> Int -> ( Graph.Node FilePath, List (Graph.Edge ()) )
+nodesAndEdges : (ModuleName -> Maybe Int) -> OpaqueProjectModule -> Int -> ( Graph.Node FilePath, List (Graph.Edge ()) )
 nodesAndEdges getModuleId module_ moduleId =
     ( Graph.Node moduleId (ProjectModule.path module_)
     , importedModules module_
@@ -284,13 +284,13 @@ nodesAndEdges getModuleId module_ moduleId =
     )
 
 
-importedModules : ProjectModule -> List ModuleName
+importedModules : OpaqueProjectModule -> List ModuleName
 importedModules module_ =
     (ProjectModule.ast module_).imports
         |> List.map (Node.value >> .moduleName >> Node.value)
 
 
-getModuleName : ProjectModule -> ModuleName
+getModuleName : OpaqueProjectModule -> ModuleName
 getModuleName module_ =
     (ProjectModule.ast module_).moduleDefinition
         |> Node.value
@@ -344,12 +344,12 @@ moduleGraph (ValidProject project) =
     project.moduleGraph
 
 
-modulesByModuleName : ValidProject -> Dict ModuleName ProjectModule
+modulesByModuleName : ValidProject -> Dict ModuleName OpaqueProjectModule
 modulesByModuleName (ValidProject project) =
     project.modulesByModuleName
 
 
-getModuleByPath : String -> ValidProject -> Maybe ProjectModule
+getModuleByPath : String -> ValidProject -> Maybe OpaqueProjectModule
 getModuleByPath path (ValidProject project) =
     Dict.get path project.modulesByPath
 
@@ -389,7 +389,7 @@ addParsedModule { path, source, ast } maybeModuleZipper (ValidProject project) =
                 osAgnosticPath =
                     Path.makeOSAgnostic path
 
-                module_ : ProjectModule
+                module_ : OpaqueProjectModule
                 module_ =
                     ProjectModule.create
                         { path = path

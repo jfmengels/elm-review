@@ -15,13 +15,13 @@ import Review.Cache.ContentHash exposing (ContentHash)
 import Review.FilePath exposing (FilePath)
 import Review.Project.Dependency exposing (Dependency)
 import Review.Project.ProjectCache exposing (ProjectCache)
-import Review.Project.ProjectModule exposing (ProjectModule)
+import Review.Project.ProjectModule exposing (OpaqueProjectModule)
 import Vendor.Graph exposing (Graph)
 
 
 type Project
     = Project
-        { modules : Dict String ProjectModule
+        { modules : Dict String OpaqueProjectModule
         , modulesThatFailedToParse : List { path : String, source : String }
         , elmJson : Maybe ( { path : String, raw : String, project : Elm.Project.Project }, ContentHash )
         , readme : Maybe ( { path : String, content : String }, ContentHash )
