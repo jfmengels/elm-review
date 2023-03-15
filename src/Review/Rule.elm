@@ -5553,6 +5553,23 @@ visitOnlyDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit node e
         |> visitWithListOfVisitors declarationVisitorsOnExit node
 
 
+expressionVisitorForNoLiteral : Node Expression -> context -> ( List (Error {}), context )
+expressionVisitorForNoLiteral node context =
+    case Node.value node of
+        Expression.Literal _ ->
+            ( [ error
+                    { message = "No literal"
+                    , details = [ "No, never" ]
+                    }
+                    (Node.range node)
+              ]
+            , context
+            )
+
+        _ ->
+            ( [], context )
+
+
 visitExpression :
     ExpressionRelatedVisitors moduleContext
     -> Node Expression
