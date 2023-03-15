@@ -5581,6 +5581,7 @@ fezf : List (Error {})
 fezf =
     fooRule ( [], 1 )
         |> getErrorsForRuleModuleVisitor
+        |> Debug.log "fezf"
 
 
 impl : t -> (raise -> rep -> t)
