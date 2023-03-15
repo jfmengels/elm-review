@@ -5572,6 +5572,17 @@ fooRule =
         |> init (\raise rep -> raise rep)
 
 
+getErrorsForRuleModuleVisitor : RuleModuleVisitor -> List (Error {})
+getErrorsForRuleModuleVisitor (RuleModuleVisitor ruleModuleVisitor) =
+    ruleModuleVisitor.getErrors
+
+
+fezf : List (Error {})
+fezf =
+    fooRule ( [], 1 )
+        |> getErrorsForRuleModuleVisitor
+
+
 impl : t -> (raise -> rep -> t)
 impl constructor =
     \_ _ -> constructor
