@@ -5553,6 +5553,62 @@ visitOnlyDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit node e
         |> visitWithListOfVisitors declarationVisitorsOnExit node
 
 
+type RuleModuleVisitor
+    = RuleModuleVisitor RuleModuleVisitorRecord
+
+
+type alias RuleModuleVisitorRecord =
+    { visitExpression : Node Expression -> RuleModuleVisitor
+    , getErrors : List (Error {})
+    }
+
+
+fooRule : ( List (Error {}), context ) -> RuleModuleVisitor
+fooRule =
+    impl RuleModuleVisitorRecord
+        |> wrap (\raise errorsAndContext node -> raise (accumulate (expressionVisitorForNoLiteral node) errorsAndContext))
+        |> add (\( errors, _ ) -> errors)
+        |> map RuleModuleVisitor
+        |> init (\raise rep -> raise rep)
+
+
+impl : t -> (raise -> rep -> t)
+impl constructor =
+    \_ _ -> constructor
+
+
+wrap : (raise -> rep -> t) -> (raise -> rep -> (t -> q)) -> (raise -> rep -> q)
+wrap method pipeline raise rep =
+    method raise rep |> pipeline raise rep
+
+
+add : (rep -> t) -> (raise -> rep -> (t -> q)) -> (raise -> rep -> q)
+add method pipeline raise rep =
+    method rep |> pipeline raise rep
+
+
+map : (a -> b) -> (raise -> rep -> a) -> (raise -> rep -> b)
+map op pipeline raise rep =
+    pipeline raise rep |> op
+
+
+init : ((rep -> sealed) -> flags -> output) -> ((rep -> sealed) -> rep -> sealed) -> flags -> output
+init initRep pipeline flags =
+    let
+        raise : rep -> sealed
+        raise context =
+            pipeline raise context
+    in
+    initRep raise flags
+
+
+
+--noVisitExpression (RuleModuleVisitor ruleModuleVisitor) =
+--    { visitExpression = \node ->
+--    , getErrors = always []
+--    }
+
+
 expressionVisitorForNoLiteral : Node Expression -> context -> ( List (Error {}), context )
 expressionVisitorForNoLiteral node context =
     case Node.value node of
