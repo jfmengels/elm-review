@@ -589,6 +589,9 @@ reviewV3 reviewOptions rules project =
     of
         Ok ( validProject, _ ) ->
             let
+                _ =
+                    printNewRuleResults
+
                 result : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
                 result =
                     runRules reviewOptions rules validProject
@@ -5577,8 +5580,8 @@ getErrorsForRuleModuleVisitor (RuleModuleVisitor ruleModuleVisitor) =
     ruleModuleVisitor.getErrors
 
 
-fezf : List (Error {})
-fezf =
+printNewRuleResults : List (Error {})
+printNewRuleResults =
     fooRule ( [], 1 )
         |> getErrorsForRuleModuleVisitor
         |> Debug.log "fezf"
