@@ -5580,9 +5580,15 @@ getErrorsForRuleModuleVisitor (RuleModuleVisitor ruleModuleVisitor) =
     ruleModuleVisitor.getErrors
 
 
+visitExpressionForNewRule : Node Expression -> RuleModuleVisitor -> RuleModuleVisitor
+visitExpressionForNewRule node (RuleModuleVisitor ruleModuleVisitor) =
+    ruleModuleVisitor.visitExpression node
+
+
 printNewRuleResults : List (Error {})
 printNewRuleResults =
     fooRule ( [], 1 )
+        |> visitExpressionForNewRule (Node Range.emptyRange (Expression.Literal "Hello"))
         |> getErrorsForRuleModuleVisitor
         |> Debug.log "fezf"
 
