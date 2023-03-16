@@ -5566,10 +5566,10 @@ type alias RuleModuleVisitorRecord =
     }
 
 
-fooRule : ( List (Error {}), context ) -> RuleModuleVisitor
-fooRule =
+fooRule : { expressionVisitor : Node Expression -> context -> ( List (Error {}), context ) } -> ( List (Error {}), context ) -> RuleModuleVisitor
+fooRule visitors =
     impl RuleModuleVisitorRecord
-        |> wrap (\raise errorsAndContext node -> raise (accumulate (expressionVisitorForNoLiteral node) errorsAndContext))
+        |> wrap (\raise errorsAndContext node -> raise (accumulate (visitors.expressionVisitor node) errorsAndContext))
         |> add (\( errors, _ ) -> errors)
         |> map RuleModuleVisitor
         |> init (\raise rep -> raise rep)
@@ -5587,8 +5587,8 @@ visitExpressionForNewRule node (RuleModuleVisitor ruleModuleVisitor) =
 
 printNewRuleResults : List (Error {})
 printNewRuleResults =
-    [ fooRule ( [], 1 )
-    , fooRule ( [], "string" )
+    [ fooRule { expressionVisitor = expressionVisitorForNoLiteral } ( [], 1 )
+    , fooRule { expressionVisitor = expressionVisitorForNoLiteral } ( [], "string" )
     ]
         |> List.map (visitExpressionForNewRule (Node Range.emptyRange (Expression.Literal "Hello")))
         |> List.concatMap getErrorsForRuleModuleVisitor
