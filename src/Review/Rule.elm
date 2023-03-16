@@ -5587,9 +5587,11 @@ visitExpressionForNewRule node (RuleModuleVisitor ruleModuleVisitor) =
 
 printNewRuleResults : List (Error {})
 printNewRuleResults =
-    fooRule ( [], 1 )
-        |> visitExpressionForNewRule (Node Range.emptyRange (Expression.Literal "Hello"))
-        |> getErrorsForRuleModuleVisitor
+    [ fooRule ( [], 1 )
+    , fooRule ( [], "string" )
+    ]
+        |> List.map (visitExpressionForNewRule (Node Range.emptyRange (Expression.Literal "Hello")))
+        |> List.concatMap getErrorsForRuleModuleVisitor
         |> Debug.log "fezf"
 
 
