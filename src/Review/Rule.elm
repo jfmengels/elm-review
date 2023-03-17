@@ -5436,7 +5436,7 @@ visitModuleForProjectRule2 module_ ruleModuleVisitors =
             ProjectModule.ast module_
     in
     ruleModuleVisitors
-        |> List.map (\acc -> visitModuleDefinitionForNewRule ast.moduleDefinition acc)
+        |> List.map (\acc -> runVisitor .moduleDefinitionVisitor ast.moduleDefinition acc)
 
 
 shouldVisitDeclarations : ModuleRuleSchemaData moduleContext -> Bool
@@ -5662,9 +5662,9 @@ getErrorsForRuleModuleVisitor (RuleModuleVisitor ruleModuleVisitor) =
     ruleModuleVisitor.getErrors
 
 
-visitModuleDefinitionForNewRule : Node Module -> RuleModuleVisitor -> RuleModuleVisitor
-visitModuleDefinitionForNewRule node ((RuleModuleVisitor ruleModuleVisitor) as original) =
-    case ruleModuleVisitor.moduleDefinitionVisitor of
+runVisitor : (RuleModuleVisitorRecord -> Maybe (a -> RuleModuleVisitor)) -> a -> RuleModuleVisitor -> RuleModuleVisitor
+runVisitor field node ((RuleModuleVisitor ruleModuleVisitor) as original) =
+    case field ruleModuleVisitor of
         Just visitor ->
             visitor node
 
@@ -5673,23 +5673,13 @@ visitModuleDefinitionForNewRule node ((RuleModuleVisitor ruleModuleVisitor) as o
 
 
 visitDeclarationForNewRule : Node Declaration -> RuleModuleVisitor -> RuleModuleVisitor
-visitDeclarationForNewRule node ((RuleModuleVisitor ruleModuleVisitor) as original) =
-    case ruleModuleVisitor.declarationVisitorOnEnter of
-        Just visitor ->
-            visitor node
-
-        Nothing ->
-            original
+visitDeclarationForNewRule =
+    runVisitor .declarationVisitorOnEnter
 
 
 visitExpressionForNewRule : Node Expression -> RuleModuleVisitor -> RuleModuleVisitor
-visitExpressionForNewRule node ((RuleModuleVisitor ruleModuleVisitor) as original) =
-    case ruleModuleVisitor.expressionVisitorOnEnter of
-        Just visitor ->
-            visitor node
-
-        Nothing ->
-            original
+visitExpressionForNewRule =
+    runVisitor .expressionVisitorOnEnter
 
 
 mockRule : String -> moduleContext -> ModuleRuleSchemaData moduleContext
