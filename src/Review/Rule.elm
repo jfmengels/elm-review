@@ -5567,6 +5567,17 @@ type alias RuleModuleVisitorRecord =
     }
 
 
+type alias RunnableModuleVisitor2 moduleContext =
+    { moduleDefinitionVisitors : List (Visitor Module moduleContext)
+    , moduleDocumentationVisitors : List (Maybe (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
+    , commentsVisitors : List (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
+    , importVisitors : List (Visitor Import moduleContext)
+    , declarationListVisitors : List (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
+    , declarationAndExpressionVisitor : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
+    , finalEvaluationFns : List (moduleContext -> List (Error {}))
+    }
+
+
 newRule : ModuleRuleSchemaData moduleContext -> moduleContext -> RuleModuleVisitor
 newRule schema =
     -- TODO Use schema.initialModuleContext
