@@ -5600,7 +5600,7 @@ newRule schema =
     \moduleContext -> rule ( [], moduleContext )
 
 
-addVisitor : List (node -> context -> ( List (Error {}), context )) -> (( List (Error {}), context ) -> RuleModuleVisitor) -> ( List (Error {}), context ) -> Maybe (node -> RuleModuleVisitor)
+addVisitor : List (data -> context -> ( List (Error {}), context )) -> (( List (Error {}), context ) -> RuleModuleVisitor) -> ( List (Error {}), context ) -> Maybe (data -> RuleModuleVisitor)
 addVisitor visitors =
     case visitors of
         [] ->
