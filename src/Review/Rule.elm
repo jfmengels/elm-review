@@ -5563,6 +5563,7 @@ type RuleModuleVisitor
 type alias RuleModuleVisitorRecord =
     { visitDeclaration : Maybe (Node Declaration -> RuleModuleVisitor)
     , visitExpression : Maybe (Node Expression -> RuleModuleVisitor)
+    , commentsVisitors : Maybe (List (Node String) -> RuleModuleVisitor)
     , getErrors : List (Error {})
     }
 
@@ -5587,6 +5588,7 @@ newRule schema =
             impl RuleModuleVisitorRecord
                 |> wrap (addVisitor schema.declarationVisitorsOnEnter)
                 |> wrap (addVisitor schema.expressionVisitorsOnEnter)
+                |> wrap (addVisitor schema.commentsVisitors)
                 |> add (\( errors, _ ) -> errors)
                 |> map RuleModuleVisitor
                 |> init (\raise rep -> raise rep)
