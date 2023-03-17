@@ -5587,13 +5587,13 @@ ruleCreator :
 ruleCreator params =
     impl RuleModuleVisitorRecord
         |> wrap
-            (\raise errorsAndContext ->
-                case params.declarationVisitor of
-                    Just visitor ->
+            (case params.declarationVisitor of
+                Just visitor ->
+                    \raise errorsAndContext ->
                         Just (\node -> raise (accumulate (visitor node) errorsAndContext))
 
-                    Nothing ->
-                        Nothing
+                Nothing ->
+                    \_ _ -> Nothing
             )
         |> wrap
             (\raise errorsAndContext ->
