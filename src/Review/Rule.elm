@@ -5586,27 +5586,22 @@ ruleCreator :
     -> RuleModuleVisitor
 ruleCreator params =
     impl RuleModuleVisitorRecord
-        |> wrap
-            (case params.declarationVisitor of
-                Just visitor ->
-                    \raise errorsAndContext ->
-                        Just (\node -> raise (accumulate (visitor node) errorsAndContext))
-
-                Nothing ->
-                    \_ _ -> Nothing
-            )
-        |> wrap
-            (\raise errorsAndContext ->
-                case params.expressionVisitor of
-                    Just visitor ->
-                        Just (\node -> raise (accumulate (visitor node) errorsAndContext))
-
-                    Nothing ->
-                        Nothing
-            )
+        |> wrap (addVisitor params.declarationVisitor)
+        |> wrap (addVisitor params.expressionVisitor)
         |> add (\( errors, _ ) -> errors)
         |> map RuleModuleVisitor
         |> init (\raise rep -> raise rep)
+
+
+addVisitor : Maybe (node -> context -> ( List (Error {}), context )) -> (( List (Error {}), context ) -> RuleModuleVisitor) -> ( List (Error {}), context ) -> Maybe (node -> RuleModuleVisitor)
+addVisitor maybeVisitor =
+    case maybeVisitor of
+        Just visitor ->
+            \raise errorsAndContext ->
+                Just (\node -> raise (accumulate (visitor node) errorsAndContext))
+
+        Nothing ->
+            \_ _ -> Nothing
 
 
 getErrorsForRuleModuleVisitor : RuleModuleVisitor -> List (Error {})
