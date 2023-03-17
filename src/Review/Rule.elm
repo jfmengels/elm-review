@@ -5579,32 +5579,26 @@ type alias RuleModuleVisitorRecord =
     }
 
 
-newRule : ModuleRuleSchemaData moduleContext -> moduleContext -> RuleModuleVisitor
+newRule : ModuleRuleSchemaData moduleContext -> ( List (Error {}), moduleContext ) -> RuleModuleVisitor
 newRule schema =
-    -- TODO Use schema.initialModuleContext
-    let
-        rule : ( List (Error {}), moduleContext ) -> RuleModuleVisitor
-        rule =
-            impl RuleModuleVisitorRecord
-                |> wrap (addVisitor schema.moduleDefinitionVisitors)
-                |> wrap (addVisitor schema.moduleDocumentationVisitors)
-                |> wrap (addVisitor schema.commentsVisitors)
-                |> wrap (addVisitor schema.importVisitors)
-                |> wrap (addVisitor schema.declarationListVisitors)
-                |> wrap (addVisitor schema.declarationVisitorsOnEnter)
-                |> wrap (addVisitor schema.declarationVisitorsOnExit)
-                |> wrap (addVisitor schema.expressionVisitorsOnEnter)
-                |> wrap (addVisitor schema.expressionVisitorsOnExit)
-                |> wrap (addVisitor2 schema.letDeclarationVisitorsOnEnter)
-                |> wrap (addVisitor2 schema.letDeclarationVisitorsOnExit)
-                |> wrap (addVisitor2 schema.caseBranchVisitorsOnEnter)
-                |> wrap (addVisitor2 schema.caseBranchVisitorsOnExit)
-                |> wrap (addFinalModuleEvaluationVisitor schema.finalEvaluationFns)
-                |> add (\( errors, _ ) -> errors)
-                |> map RuleModuleVisitor
-                |> init (\raise rep -> raise rep)
-    in
-    \moduleContext -> rule ( [], moduleContext )
+    impl RuleModuleVisitorRecord
+        |> wrap (addVisitor schema.moduleDefinitionVisitors)
+        |> wrap (addVisitor schema.moduleDocumentationVisitors)
+        |> wrap (addVisitor schema.commentsVisitors)
+        |> wrap (addVisitor schema.importVisitors)
+        |> wrap (addVisitor schema.declarationListVisitors)
+        |> wrap (addVisitor schema.declarationVisitorsOnEnter)
+        |> wrap (addVisitor schema.declarationVisitorsOnExit)
+        |> wrap (addVisitor schema.expressionVisitorsOnEnter)
+        |> wrap (addVisitor schema.expressionVisitorsOnExit)
+        |> wrap (addVisitor2 schema.letDeclarationVisitorsOnEnter)
+        |> wrap (addVisitor2 schema.letDeclarationVisitorsOnExit)
+        |> wrap (addVisitor2 schema.caseBranchVisitorsOnEnter)
+        |> wrap (addVisitor2 schema.caseBranchVisitorsOnExit)
+        |> wrap (addFinalModuleEvaluationVisitor schema.finalEvaluationFns)
+        |> add (\( errors, _ ) -> errors)
+        |> map RuleModuleVisitor
+        |> init (\raise rep -> raise rep)
 
 
 addVisitor : List (data -> context -> ( List (Error {}), context )) -> (( List (Error {}), context ) -> RuleModuleVisitor) -> ( List (Error {}), context ) -> Maybe (data -> RuleModuleVisitor)
@@ -5697,8 +5691,8 @@ printNewRuleResults =
         mockRule2 =
             mockRule "SomeName" "string"
     in
-    [ newRule { mockRule1 | expressionVisitorsOnEnter = [ expressionVisitorForNoLiteral ] } 1
-    , newRule { mockRule2 | expressionVisitorsOnEnter = [ expressionVisitorForNoLiteral ] } "string"
+    [ newRule { mockRule1 | expressionVisitorsOnEnter = [ expressionVisitorForNoLiteral ] } ( [], 1 )
+    , newRule { mockRule2 | expressionVisitorsOnEnter = [ expressionVisitorForNoLiteral ] } ( [], "string" )
     ]
         |> List.map (visitExpressionForNewRule (Node Range.emptyRange (Expression.Literal "Hello")))
         |> List.concatMap getErrorsForRuleModuleVisitor
