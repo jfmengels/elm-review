@@ -5570,6 +5570,10 @@ type alias RuleModuleVisitorRecord =
     , declarationVisitorOnExit : Maybe (Node Declaration -> RuleModuleVisitor)
     , expressionVisitorOnEnter : Maybe (Node Expression -> RuleModuleVisitor)
     , expressionVisitorOnExit : Maybe (Node Expression -> RuleModuleVisitor)
+    , letDeclarationVisitorsOnEnter : Maybe (Node Expression.LetBlock -> Node Expression.LetDeclaration -> RuleModuleVisitor)
+    , letDeclarationVisitorsOnExit : Maybe (Node Expression.LetBlock -> Node Expression.LetDeclaration -> RuleModuleVisitor)
+    , caseBranchVisitorsOnEnter : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> RuleModuleVisitor)
+    , caseBranchVisitorsOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> RuleModuleVisitor)
     , getErrors : List (Error {})
     }
 
@@ -5601,6 +5605,10 @@ newRule schema =
                 |> wrap (addVisitor schema.declarationVisitorsOnExit)
                 |> wrap (addVisitor schema.expressionVisitorsOnEnter)
                 |> wrap (addVisitor schema.expressionVisitorsOnExit)
+                |> wrap (addVisitor2 schema.letDeclarationVisitorsOnEnter)
+                |> wrap (addVisitor2 schema.letDeclarationVisitorsOnExit)
+                |> wrap (addVisitor2 schema.caseBranchVisitorsOnEnter)
+                |> wrap (addVisitor2 schema.caseBranchVisitorsOnExit)
                 |> add (\( errors, _ ) -> errors)
                 |> map RuleModuleVisitor
                 |> init (\raise rep -> raise rep)
@@ -5621,6 +5629,21 @@ addVisitor visitors =
         _ ->
             \raise errorsAndContext ->
                 Just (\node -> raise (visitWithListOfVisitors visitors node errorsAndContext))
+
+
+addVisitor2 : List (a -> b -> context -> ( List (Error {}), context )) -> (( List (Error {}), context ) -> RuleModuleVisitor) -> ( List (Error {}), context ) -> Maybe (a -> b -> RuleModuleVisitor)
+addVisitor2 visitors =
+    case visitors of
+        [] ->
+            \_ _ -> Nothing
+
+        [ visitor ] ->
+            \raise errorsAndContext ->
+                Just (\a b -> raise (accumulate (visitor a b) errorsAndContext))
+
+        _ ->
+            \raise errorsAndContext ->
+                Just (\a b -> raise (visitWithListOfVisitors2 visitors a b errorsAndContext))
 
 
 getErrorsForRuleModuleVisitor : RuleModuleVisitor -> List (Error {})
