@@ -5566,8 +5566,10 @@ type alias RuleModuleVisitorRecord =
     , commentsVisitor : Maybe (List (Node String) -> RuleModuleVisitor)
     , importsVisitor : Maybe (Node Import -> RuleModuleVisitor)
     , declarationListVisitor : Maybe (List (Node Declaration) -> RuleModuleVisitor)
-    , visitDeclaration : Maybe (Node Declaration -> RuleModuleVisitor)
-    , visitExpression : Maybe (Node Expression -> RuleModuleVisitor)
+    , declarationVisitorOnEnter : Maybe (Node Declaration -> RuleModuleVisitor)
+    , declarationVisitorOnExit : Maybe (Node Declaration -> RuleModuleVisitor)
+    , expressionVisitorOnEnter : Maybe (Node Expression -> RuleModuleVisitor)
+    , expressionVisitorOnExit : Maybe (Node Expression -> RuleModuleVisitor)
     , getErrors : List (Error {})
     }
 
@@ -5596,7 +5598,9 @@ newRule schema =
                 |> wrap (addVisitor schema.importVisitors)
                 |> wrap (addVisitor schema.declarationListVisitors)
                 |> wrap (addVisitor schema.declarationVisitorsOnEnter)
+                |> wrap (addVisitor schema.declarationVisitorsOnExit)
                 |> wrap (addVisitor schema.expressionVisitorsOnEnter)
+                |> wrap (addVisitor schema.expressionVisitorsOnExit)
                 |> add (\( errors, _ ) -> errors)
                 |> map RuleModuleVisitor
                 |> init (\raise rep -> raise rep)
@@ -5626,7 +5630,7 @@ getErrorsForRuleModuleVisitor (RuleModuleVisitor ruleModuleVisitor) =
 
 visitDeclarationForNewRule : Node Declaration -> RuleModuleVisitor -> RuleModuleVisitor
 visitDeclarationForNewRule node ((RuleModuleVisitor ruleModuleVisitor) as original) =
-    case ruleModuleVisitor.visitDeclaration of
+    case ruleModuleVisitor.declarationVisitorOnEnter of
         Just visitor ->
             visitor node
 
@@ -5636,7 +5640,7 @@ visitDeclarationForNewRule node ((RuleModuleVisitor ruleModuleVisitor) as origin
 
 visitExpressionForNewRule : Node Expression -> RuleModuleVisitor -> RuleModuleVisitor
 visitExpressionForNewRule node ((RuleModuleVisitor ruleModuleVisitor) as original) =
-    case ruleModuleVisitor.visitExpression of
+    case ruleModuleVisitor.expressionVisitorOnEnter of
         Just visitor ->
             visitor node
 
