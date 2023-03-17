@@ -5434,9 +5434,14 @@ visitModuleForProjectRule2 module_ ruleModuleVisitors =
         ast : File
         ast =
             ProjectModule.ast module_
+
+        moduleDocumentation : Maybe (Node String)
+        moduleDocumentation =
+            findModuleDocumentation ast
     in
     ruleModuleVisitors
         |> List.map (\acc -> runVisitor .moduleDefinitionVisitor ast.moduleDefinition acc)
+        |> List.map (\acc -> runVisitor .moduleDocumentationVisitor moduleDocumentation acc)
 
 
 shouldVisitDeclarations : ModuleRuleSchemaData moduleContext -> Bool
