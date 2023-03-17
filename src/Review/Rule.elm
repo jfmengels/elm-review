@@ -5636,12 +5636,12 @@ visitExpressionForNewRule node ((RuleModuleVisitor ruleModuleVisitor) as origina
 printNewRuleResults : List (Error {})
 printNewRuleResults =
     [ newRule
-        { initialContext = ( [], 1 )
+        { initialContext = 1
         , declarationVisitor = []
         , expressionVisitor = [ expressionVisitorForNoLiteral ]
         }
     , newRule
-        { initialContext = ( [], "string" )
+        { initialContext = "string"
         , declarationVisitor = []
         , expressionVisitor = [ expressionVisitorForNoLiteral ]
         }
