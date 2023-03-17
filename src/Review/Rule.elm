@@ -5561,13 +5561,15 @@ type RuleModuleVisitor
 
 
 type alias RuleModuleVisitorRecord =
-    { visitExpression : Maybe (Node Expression -> RuleModuleVisitor)
+    { visitDeclaration : Maybe (Node Declaration -> RuleModuleVisitor)
+    , visitExpression : Maybe (Node Expression -> RuleModuleVisitor)
     , getErrors : List (Error {})
     }
 
 
 newRule :
     { initialContext : context
+    , declarationVisitor : Maybe (Node Declaration -> context -> ( List (Error {}), context ))
     , expressionVisitor : Maybe (Node Expression -> context -> ( List (Error {}), context ))
     }
     -> RuleModuleVisitor
@@ -5576,11 +5578,23 @@ newRule params =
 
 
 ruleCreator :
-    { a | expressionVisitor : Maybe (Node Expression -> context -> ( List (Error {}), context )) }
+    { a
+        | declarationVisitor : Maybe (Node Declaration -> context -> ( List (Error {}), context ))
+        , expressionVisitor : Maybe (Node Expression -> context -> ( List (Error {}), context ))
+    }
     -> ( List (Error {}), context )
     -> RuleModuleVisitor
 ruleCreator params =
     impl RuleModuleVisitorRecord
+        |> wrap
+            (\raise errorsAndContext ->
+                case params.declarationVisitor of
+                    Just visitor ->
+                        Just (\node -> raise (accumulate (visitor node) errorsAndContext))
+
+                    Nothing ->
+                        Nothing
+            )
         |> wrap
             (\raise errorsAndContext ->
                 case params.expressionVisitor of
@@ -5600,6 +5614,16 @@ getErrorsForRuleModuleVisitor (RuleModuleVisitor ruleModuleVisitor) =
     ruleModuleVisitor.getErrors
 
 
+visitDeclarationForNewRule : Node Declaration -> RuleModuleVisitor -> RuleModuleVisitor
+visitDeclarationForNewRule node ((RuleModuleVisitor ruleModuleVisitor) as original) =
+    case ruleModuleVisitor.visitDeclaration of
+        Just visitor ->
+            visitor node
+
+        Nothing ->
+            original
+
+
 visitExpressionForNewRule : Node Expression -> RuleModuleVisitor -> RuleModuleVisitor
 visitExpressionForNewRule node ((RuleModuleVisitor ruleModuleVisitor) as original) =
     case ruleModuleVisitor.visitExpression of
@@ -5612,8 +5636,16 @@ visitExpressionForNewRule node ((RuleModuleVisitor ruleModuleVisitor) as origina
 
 printNewRuleResults : List (Error {})
 printNewRuleResults =
-    [ newRule { initialContext = ( [], 1 ), expressionVisitor = Just expressionVisitorForNoLiteral }
-    , newRule { initialContext = ( [], "string" ), expressionVisitor = Just expressionVisitorForNoLiteral }
+    [ newRule
+        { initialContext = ( [], 1 )
+        , declarationVisitor = Nothing
+        , expressionVisitor = Just expressionVisitorForNoLiteral
+        }
+    , newRule
+        { initialContext = ( [], "string" )
+        , declarationVisitor = Nothing
+        , expressionVisitor = Just expressionVisitorForNoLiteral
+        }
     ]
         |> List.map (visitExpressionForNewRule (Node Range.emptyRange (Expression.Literal "Hello")))
         |> List.concatMap getErrorsForRuleModuleVisitor
