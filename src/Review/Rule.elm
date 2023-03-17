@@ -5428,6 +5428,17 @@ visitModuleForProjectRule schema initialContext module_ =
         |> (\( errors, moduleContext ) -> ( makeFinalModuleEvaluation schema.finalEvaluationFns errors moduleContext, moduleContext ))
 
 
+visitModuleForProjectRule2 : OpaqueProjectModule -> List RuleModuleVisitor -> List RuleModuleVisitor
+visitModuleForProjectRule2 module_ ruleModuleVisitors =
+    let
+        ast : File
+        ast =
+            ProjectModule.ast module_
+    in
+    ruleModuleVisitors
+        |> List.map (\acc -> visitModuleDefinitionForNewRule ast.moduleDefinition acc)
+
+
 shouldVisitDeclarations : ModuleRuleSchemaData moduleContext -> Bool
 shouldVisitDeclarations schema =
     not (List.isEmpty schema.declarationVisitorsOnEnter)
@@ -5649,6 +5660,16 @@ addFinalModuleEvaluationVisitor visitors =
 getErrorsForRuleModuleVisitor : RuleModuleVisitor -> List (Error {})
 getErrorsForRuleModuleVisitor (RuleModuleVisitor ruleModuleVisitor) =
     ruleModuleVisitor.getErrors
+
+
+visitModuleDefinitionForNewRule : Node Module -> RuleModuleVisitor -> RuleModuleVisitor
+visitModuleDefinitionForNewRule node ((RuleModuleVisitor ruleModuleVisitor) as original) =
+    case ruleModuleVisitor.moduleDefinitionVisitor of
+        Just visitor ->
+            visitor node
+
+        Nothing ->
+            original
 
 
 visitDeclarationForNewRule : Node Declaration -> RuleModuleVisitor -> RuleModuleVisitor
