@@ -5567,27 +5567,20 @@ type alias RuleModuleVisitorRecord =
     }
 
 
-newRule :
-    { initialContext : context
-    , declarationVisitor : List (Node Declaration -> context -> ( List (Error {}), context ))
-    , expressionVisitor : List (Node Expression -> context -> ( List (Error {}), context ))
-    }
-    -> RuleModuleVisitor
-newRule params =
-    ruleCreator params ( [], params.initialContext )
+newRule : ModuleRuleSchemaData moduleContext -> moduleContext -> RuleModuleVisitor
+newRule schema initialModuleContext =
+    -- TODO Use schema.initialModuleContext
+    ruleCreator schema ( [], initialModuleContext )
 
 
 ruleCreator :
-    { a
-        | declarationVisitor : List (Node Declaration -> context -> ( List (Error {}), context ))
-        , expressionVisitor : List (Node Expression -> context -> ( List (Error {}), context ))
-    }
-    -> ( List (Error {}), context )
+    ModuleRuleSchemaData moduleContext
+    -> ( List (Error {}), moduleContext )
     -> RuleModuleVisitor
-ruleCreator params =
+ruleCreator schema =
     impl RuleModuleVisitorRecord
-        |> wrap (addVisitor params.declarationVisitor)
-        |> wrap (addVisitor params.expressionVisitor)
+        |> wrap (addVisitor schema.declarationVisitorsOnEnter)
+        |> wrap (addVisitor schema.expressionVisitorsOnEnter)
         |> add (\( errors, _ ) -> errors)
         |> map RuleModuleVisitor
         |> init (\raise rep -> raise rep)
@@ -5633,18 +5626,28 @@ visitExpressionForNewRule node ((RuleModuleVisitor ruleModuleVisitor) as origina
             original
 
 
+mockRule : String -> moduleContext -> ModuleRuleSchemaData moduleContext
+mockRule name initialContext =
+    let
+        (ModuleRuleSchema schema) =
+            newModuleRuleSchema name initialContext
+    in
+    schema
+
+
 printNewRuleResults : List (Error {})
 printNewRuleResults =
-    [ newRule
-        { initialContext = 1
-        , declarationVisitor = []
-        , expressionVisitor = [ expressionVisitorForNoLiteral ]
-        }
-    , newRule
-        { initialContext = "string"
-        , declarationVisitor = []
-        , expressionVisitor = [ expressionVisitorForNoLiteral ]
-        }
+    let
+        mockRule1 : ModuleRuleSchemaData Int
+        mockRule1 =
+            mockRule "SomeName" 1
+
+        mockRule2 : ModuleRuleSchemaData String
+        mockRule2 =
+            mockRule "SomeName" "string"
+    in
+    [ newRule { mockRule1 | expressionVisitorsOnEnter = [ expressionVisitorForNoLiteral ] } 1
+    , newRule { mockRule2 | expressionVisitorsOnEnter = [ expressionVisitorForNoLiteral ] } "string"
     ]
         |> List.map (visitExpressionForNewRule (Node Range.emptyRange (Expression.Literal "Hello")))
         |> List.concatMap getErrorsForRuleModuleVisitor
