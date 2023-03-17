@@ -5568,12 +5568,7 @@ type alias RuleModuleVisitorRecord =
 
 
 newRule : ModuleRuleSchemaData moduleContext -> moduleContext -> RuleModuleVisitor
-newRule schema initialModuleContext =
-    ruleCreator schema initialModuleContext
-
-
-ruleCreator : ModuleRuleSchemaData moduleContext -> moduleContext -> RuleModuleVisitor
-ruleCreator schema moduleContext =
+newRule schema moduleContext =
     -- TODO Use schema.initialModuleContext
     ( [], moduleContext )
         |> (impl RuleModuleVisitorRecord
