@@ -5569,8 +5569,8 @@ type alias RuleModuleVisitorRecord =
 
 newRule :
     { initialContext : context
-    , declarationVisitor : Maybe (Node Declaration -> context -> ( List (Error {}), context ))
-    , expressionVisitor : Maybe (Node Expression -> context -> ( List (Error {}), context ))
+    , declarationVisitor : List (Node Declaration -> context -> ( List (Error {}), context ))
+    , expressionVisitor : List (Node Expression -> context -> ( List (Error {}), context ))
     }
     -> RuleModuleVisitor
 newRule params =
@@ -5579,8 +5579,8 @@ newRule params =
 
 ruleCreator :
     { a
-        | declarationVisitor : Maybe (Node Declaration -> context -> ( List (Error {}), context ))
-        , expressionVisitor : Maybe (Node Expression -> context -> ( List (Error {}), context ))
+        | declarationVisitor : List (Node Declaration -> context -> ( List (Error {}), context ))
+        , expressionVisitor : List (Node Expression -> context -> ( List (Error {}), context ))
     }
     -> ( List (Error {}), context )
     -> RuleModuleVisitor
@@ -5593,15 +5593,19 @@ ruleCreator params =
         |> init (\raise rep -> raise rep)
 
 
-addVisitor : Maybe (node -> context -> ( List (Error {}), context )) -> (( List (Error {}), context ) -> RuleModuleVisitor) -> ( List (Error {}), context ) -> Maybe (node -> RuleModuleVisitor)
-addVisitor maybeVisitor =
-    case maybeVisitor of
-        Just visitor ->
+addVisitor : List (node -> context -> ( List (Error {}), context )) -> (( List (Error {}), context ) -> RuleModuleVisitor) -> ( List (Error {}), context ) -> Maybe (node -> RuleModuleVisitor)
+addVisitor visitors =
+    case visitors of
+        [] ->
+            \_ _ -> Nothing
+
+        [ visitor ] ->
             \raise errorsAndContext ->
                 Just (\node -> raise (accumulate (visitor node) errorsAndContext))
 
-        Nothing ->
-            \_ _ -> Nothing
+        _ ->
+            \raise errorsAndContext ->
+                Just (\node -> raise (visitWithListOfVisitors visitors node errorsAndContext))
 
 
 getErrorsForRuleModuleVisitor : RuleModuleVisitor -> List (Error {})
@@ -5633,13 +5637,13 @@ printNewRuleResults : List (Error {})
 printNewRuleResults =
     [ newRule
         { initialContext = ( [], 1 )
-        , declarationVisitor = Nothing
-        , expressionVisitor = Just expressionVisitorForNoLiteral
+        , declarationVisitor = []
+        , expressionVisitor = [ expressionVisitorForNoLiteral ]
         }
     , newRule
         { initialContext = ( [], "string" )
-        , declarationVisitor = Nothing
-        , expressionVisitor = Just expressionVisitorForNoLiteral
+        , declarationVisitor = []
+        , expressionVisitor = [ expressionVisitorForNoLiteral ]
         }
     ]
         |> List.map (visitExpressionForNewRule (Node Range.emptyRange (Expression.Literal "Hello")))
