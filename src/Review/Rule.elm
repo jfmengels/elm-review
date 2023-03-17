@@ -5443,6 +5443,7 @@ visitModuleForProjectRule2 module_ ruleModuleVisitors =
         |> List.map (\acc -> runVisitor .moduleDefinitionVisitor ast.moduleDefinition acc)
         |> List.map (\acc -> runVisitor .moduleDocumentationVisitor moduleDocumentation acc)
         |> List.map (\acc -> runVisitor .commentsVisitor ast.comments acc)
+        |> List.map (\acc -> runVisitor .finalModuleEvaluation () acc)
 
 
 shouldVisitDeclarations : ModuleRuleSchemaData moduleContext -> Bool
