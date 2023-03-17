@@ -5569,21 +5569,20 @@ type alias RuleModuleVisitorRecord =
 
 newRule : ModuleRuleSchemaData moduleContext -> moduleContext -> RuleModuleVisitor
 newRule schema initialModuleContext =
+    ruleCreator schema initialModuleContext
+
+
+ruleCreator : ModuleRuleSchemaData moduleContext -> moduleContext -> RuleModuleVisitor
+ruleCreator schema moduleContext =
     -- TODO Use schema.initialModuleContext
-    ruleCreator schema ( [], initialModuleContext )
-
-
-ruleCreator :
-    ModuleRuleSchemaData moduleContext
-    -> ( List (Error {}), moduleContext )
-    -> RuleModuleVisitor
-ruleCreator schema =
-    impl RuleModuleVisitorRecord
-        |> wrap (addVisitor schema.declarationVisitorsOnEnter)
-        |> wrap (addVisitor schema.expressionVisitorsOnEnter)
-        |> add (\( errors, _ ) -> errors)
-        |> map RuleModuleVisitor
-        |> init (\raise rep -> raise rep)
+    ( [], moduleContext )
+        |> (impl RuleModuleVisitorRecord
+                |> wrap (addVisitor schema.declarationVisitorsOnEnter)
+                |> wrap (addVisitor schema.expressionVisitorsOnEnter)
+                |> add (\( errors, _ ) -> errors)
+                |> map RuleModuleVisitor
+                |> init (\raise rep -> raise rep)
+           )
 
 
 addVisitor : List (node -> context -> ( List (Error {}), context )) -> (( List (Error {}), context ) -> RuleModuleVisitor) -> ( List (Error {}), context ) -> Maybe (node -> RuleModuleVisitor)
