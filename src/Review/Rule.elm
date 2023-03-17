@@ -5574,6 +5574,7 @@ type alias RuleModuleVisitorRecord =
     , letDeclarationVisitorsOnExit : Maybe (Node Expression.LetBlock -> Node Expression.LetDeclaration -> RuleModuleVisitor)
     , caseBranchVisitorsOnEnter : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> RuleModuleVisitor)
     , caseBranchVisitorsOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> RuleModuleVisitor)
+    , finalModuleEvaluation : Maybe (() -> RuleModuleVisitor)
     , getErrors : List (Error {})
     }
 
@@ -5609,6 +5610,7 @@ newRule schema =
                 |> wrap (addVisitor2 schema.letDeclarationVisitorsOnExit)
                 |> wrap (addVisitor2 schema.caseBranchVisitorsOnEnter)
                 |> wrap (addVisitor2 schema.caseBranchVisitorsOnExit)
+                |> wrap (addFinalModuleEvaluationVisitor schema.finalEvaluationFns)
                 |> add (\( errors, _ ) -> errors)
                 |> map RuleModuleVisitor
                 |> init (\raise rep -> raise rep)
@@ -5644,6 +5646,21 @@ addVisitor2 visitors =
         _ ->
             \raise errorsAndContext ->
                 Just (\a b -> raise (visitWithListOfVisitors2 visitors a b errorsAndContext))
+
+
+addFinalModuleEvaluationVisitor : List (context -> List (Error {})) -> (( List (Error {}), context ) -> RuleModuleVisitor) -> ( List (Error {}), context ) -> Maybe (() -> RuleModuleVisitor)
+addFinalModuleEvaluationVisitor visitors =
+    case visitors of
+        [] ->
+            \_ _ -> Nothing
+
+        [ visitor ] ->
+            \raise ( errors, context ) ->
+                Just (\() -> raise ( visitor context ++ errors, context ))
+
+        _ ->
+            \raise ( errors, context ) ->
+                Just (\() -> raise ( List.foldl (\visitor acc -> List.append (visitor context) acc) errors visitors, context ))
 
 
 getErrorsForRuleModuleVisitor : RuleModuleVisitor -> List (Error {})
