@@ -5451,7 +5451,7 @@ visitModuleForProjectRule2 module_ ruleModuleVisitors =
 
 visitDeclarationsAndExpressions : List (Node Declaration) -> List RuleModuleVisitor -> List RuleModuleVisitor
 visitDeclarationsAndExpressions declarations rules =
-    rules
+    List.foldl visitDeclarationAndExpressions rules declarations
 
 
 visitDeclarationAndExpressions : Node Declaration -> List RuleModuleVisitor -> List RuleModuleVisitor
