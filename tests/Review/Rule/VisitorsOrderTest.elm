@@ -3,6 +3,7 @@ module Review.Rule.VisitorsOrderTest exposing (all)
 import Elm.Syntax.Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
 import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.Pattern exposing (Pattern)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
 import Test exposing (Test, test)
@@ -243,6 +244,53 @@ A enter: c
 B enter: c
 D exit: c
 C exit: c"""
+                            , details = [ "details" ]
+                            , under = "module"
+                            }
+                        ]
+        , test "should call the same type of visitors in order of call on enter, and reverse order on exit (case branch)" <|
+            \() ->
+                let
+                    rule : Rule
+                    rule =
+                        Rule.newModuleRuleSchema "TestRule" ""
+                            |> Rule.withCaseBranchEnterVisitor (caseBranchVisitor "A enter")
+                            |> Rule.withCaseBranchEnterVisitor (caseBranchVisitor "B enter")
+                            |> Rule.withCaseBranchExitVisitor (caseBranchVisitor "C exit")
+                            |> Rule.withCaseBranchExitVisitor (caseBranchVisitor "D exit")
+                            |> Rule.withFinalModuleEvaluation finalEvaluation
+                            |> Rule.fromModuleRuleSchema
+
+                    caseBranchVisitor : String -> Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> Context -> ( List (Error {}), Context )
+                    caseBranchVisitor text _ ( pattern, _ ) context =
+                        ( [], context ++ "\n" ++ text ++ ": " ++ Debug.toString (Node.value pattern) )
+
+                    finalEvaluation : Context -> List (Error {})
+                    finalEvaluation context =
+                        [ Rule.error { message = context, details = [ "details" ] }
+                            { start = { row = 1, column = 1 }
+                            , end = { row = 1, column = 7 }
+                            }
+                        ]
+                in
+                """module A exposing (..)
+a =
+  case x of
+    1 -> b
+    _ -> c
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = """
+A enter: IntPattern 1
+B enter: IntPattern 1
+D exit: IntPattern 1
+C exit: IntPattern 1
+A enter: AllPattern
+B enter: AllPattern
+D exit: AllPattern
+C exit: AllPattern"""
                             , details = [ "details" ]
                             , under = "module"
                             }
