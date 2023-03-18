@@ -4123,7 +4123,7 @@ type alias RunnableModuleVisitor moduleContext =
     , declarationListVisitors : List (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
     , declarationAndExpressionVisitor : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
     , finalEvaluationFns : List (moduleContext -> List (Error {}))
-    , ruleModuleVisitor : ( List (Error {}), moduleContext ) -> RuleModuleVisitor
+    , ruleModuleVisitor : moduleContext -> RuleModuleVisitor
     }
 
 
@@ -4893,7 +4893,7 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
 
         ruleModuleVisitors : List RuleModuleVisitor
         ruleModuleVisitors =
-            visitModuleForProjectRule2 module_ [ dataToComputeModules.moduleVisitor.ruleModuleVisitor ( [], initialModuleContext ) ]
+            visitModuleForProjectRule2 module_ [ dataToComputeModules.moduleVisitor.ruleModuleVisitor initialModuleContext ]
 
         ( _, resultModuleContext ) =
             visitModuleForProjectRule
@@ -5728,7 +5728,7 @@ type alias RuleModuleVisitorRecord =
     }
 
 
-newRule : ModuleRuleSchemaData moduleContext -> ( List (Error {}), moduleContext ) -> RuleModuleVisitor
+newRule : ModuleRuleSchemaData moduleContext -> moduleContext -> RuleModuleVisitor
 newRule schema =
     impl RuleModuleVisitorRecord
         |> wrap (addVisitor (List.reverse schema.moduleDefinitionVisitors))
@@ -5747,7 +5747,7 @@ newRule schema =
         |> wrap (addFinalModuleEvaluationVisitor schema.finalEvaluationFns)
         |> add (\( errors, _ ) -> errors)
         |> map RuleModuleVisitor
-        |> init (\raise rep -> raise rep)
+        |> init (\raise rep -> raise ( [], rep ))
 
 
 addVisitor : List (data -> context -> ( List (Error {}), context )) -> (( List (Error {}), context ) -> RuleModuleVisitor) -> ( List (Error {}), context ) -> Maybe (data -> RuleModuleVisitor)
