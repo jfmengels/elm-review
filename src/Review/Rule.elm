@@ -4903,7 +4903,8 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
 
         errors : List (Error {})
         errors =
-            moduleErrors
+            ruleModuleVisitor
+                |> List.concatMap getErrorsForRuleModuleVisitor
                 |> List.map (\error_ -> setFilePathIfUnset module_ error_)
                 |> filterExceptionsAndSetName dataToComputeModules.exceptions dataToComputeModules.projectVisitor.name
     in
