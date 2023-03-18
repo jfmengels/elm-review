@@ -5473,6 +5473,12 @@ visitExpression2 : Node Expression -> List RuleModuleVisitor -> List RuleModuleV
 visitExpression2 node rules =
     rules
         |> List.map (\acc -> runVisitor .expressionVisitorOnEnter node acc)
+        |> (\updatedRules ->
+                List.foldl
+                    visitExpression2
+                    updatedRules
+                    (expressionChildren node)
+           )
         |> List.map (\acc -> runVisitor .expressionVisitorOnExit node acc)
 
 
