@@ -5714,7 +5714,8 @@ type RuleProjectVisitor
 
 
 type alias RuleProjectVisitorRecord =
-    { addModuleContext : RuleModuleVisitor -> RuleProjectVisitor
+    { createModuleVisitor : OpaqueProjectModule -> RuleModuleVisitor
+    , integrateModuleContext : RuleModuleVisitor -> RuleProjectVisitor
     }
 
 
