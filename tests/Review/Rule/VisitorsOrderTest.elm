@@ -1,8 +1,8 @@
 module Review.Rule.VisitorsOrderTest exposing (all)
 
 import Elm.Syntax.Declaration exposing (Declaration)
-import Elm.Syntax.Expression exposing (Expression)
-import Elm.Syntax.Node exposing (Node)
+import Elm.Syntax.Expression as Expression exposing (Expression)
+import Elm.Syntax.Node as Node exposing (Node)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
 import Test exposing (Test, test)
@@ -185,6 +185,64 @@ Enter C
 Exit C
 Exit B
 Exit A"""
+                            , details = [ "details" ]
+                            , under = "module"
+                            }
+                        ]
+        , test "should call the same type of visitors in order of call on enter, and reverse order on exit (let declaration)" <|
+            \() ->
+                let
+                    rule : Rule
+                    rule =
+                        Rule.newModuleRuleSchema "TestRule" ""
+                            |> Rule.withLetDeclarationEnterVisitor (letDeclarationVisitor "A enter")
+                            |> Rule.withLetDeclarationEnterVisitor (letDeclarationVisitor "B enter")
+                            |> Rule.withLetDeclarationExitVisitor (letDeclarationVisitor "C exit")
+                            |> Rule.withLetDeclarationExitVisitor (letDeclarationVisitor "D exit")
+                            |> Rule.withFinalModuleEvaluation finalEvaluation
+                            |> Rule.fromModuleRuleSchema
+
+                    letDeclarationName : Node Expression.LetDeclaration -> String
+                    letDeclarationName letDeclaration =
+                        case Node.value letDeclaration of
+                            Expression.LetFunction { declaration } ->
+                                declaration |> Node.value |> .name |> Node.value
+
+                            Expression.LetDestructuring _ _ ->
+                                "NOT RELEVANT"
+
+                    letDeclarationVisitor : String -> Node Expression.LetBlock -> Node Expression.LetDeclaration -> Context -> ( List (Error {}), Context )
+                    letDeclarationVisitor text _ letDeclaration context =
+                        ( [], context ++ "\n" ++ text ++ ": " ++ letDeclarationName letDeclaration )
+
+                    finalEvaluation : Context -> List (Error {})
+                    finalEvaluation context =
+                        [ Rule.error { message = context, details = [ "details" ] }
+                            { start = { row = 1, column = 1 }
+                            , end = { row = 1, column = 7 }
+                            }
+                        ]
+                in
+                """module A exposing (..)
+a =
+  let
+     b = 1
+     c n = n
+  in
+  b + c 2
+"""
+                    |> Review.Test.run rule
+                    |> Review.Test.expectErrors
+                        [ Review.Test.error
+                            { message = """
+A enter: b
+B enter: b
+D exit: b
+C exit: b
+A enter: c
+B enter: c
+D exit: c
+C exit: c"""
                             , details = [ "details" ]
                             , under = "module"
                             }
