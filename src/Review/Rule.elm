@@ -5747,7 +5747,7 @@ newRule schema =
         |> wrap (addFinalModuleEvaluationVisitor schema.finalEvaluationFns)
         |> add (\( errors, _ ) -> errors)
         |> map RuleModuleVisitor
-        |> init (\raise rep -> raise ( [], rep ))
+        |> init (\rep -> ( [], rep ))
 
 
 addVisitor : List (data -> context -> ( List (Error {}), context )) -> (( List (Error {}), context ) -> RuleModuleVisitor) -> ( List (Error {}), context ) -> Maybe (data -> RuleModuleVisitor)
@@ -5865,14 +5865,18 @@ map op pipeline raise rep =
     pipeline raise rep |> op
 
 
-init : ((rep -> sealed) -> flags -> output) -> ((rep -> sealed) -> rep -> sealed) -> flags -> output
-init initRep pipeline flags =
+type alias W r t a =
+    (r -> t) -> r -> a
+
+
+init : (i -> r) -> W r t t -> i -> t
+init ir rtrt i =
     let
-        raise : rep -> sealed
-        raise context =
-            pipeline raise context
+        rt : r -> t
+        rt r =
+            rtrt rt r
     in
-    initRep raise flags
+    rt (ir i)
 
 
 visitExpression :
