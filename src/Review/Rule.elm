@@ -5747,7 +5747,7 @@ newRule schema =
         |> wrap (addVisitor schema.expressionVisitorsOnExit)
         |> wrap (addVisitor2 schema.letDeclarationVisitorsOnEnter)
         |> wrap (addVisitor2 schema.letDeclarationVisitorsOnExit)
-        |> wrap (addVisitor2 schema.caseBranchVisitorsOnEnter)
+        |> wrap (addVisitor2 (List.reverse schema.caseBranchVisitorsOnEnter))
         |> wrap (addVisitor2 schema.caseBranchVisitorsOnExit)
         |> wrap (addFinalModuleEvaluationVisitor schema.finalEvaluationFns)
         |> add (\( errors, _ ) -> errors)
