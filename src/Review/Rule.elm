@@ -5865,10 +5865,10 @@ map op pipeline raise rep =
     pipeline raise rep |> op
 
 
-init : (i -> r) -> ((r -> t) -> r -> t) -> i -> t
+init : (rep -> sealed) -> ((sealed -> output) -> sealed -> output) -> rep -> output
 init ir rtrt i =
     let
-        rt : r -> t
+        rt : sealed -> output
         rt r =
             rtrt rt r
     in
