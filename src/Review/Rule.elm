@@ -589,9 +589,6 @@ reviewV3 reviewOptions rules project =
     of
         Ok ( validProject, _ ) ->
             let
-                _ =
-                    printNewRuleResults
-
                 result : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
                 result =
                     runRules reviewOptions rules validProject
@@ -5852,44 +5849,6 @@ runVisitor2 field a b ((RuleModuleVisitor ruleModuleVisitor) as original) =
             original
 
 
-visitDeclarationForNewRule : Node Declaration -> RuleModuleVisitor -> RuleModuleVisitor
-visitDeclarationForNewRule =
-    runVisitor .declarationVisitorOnEnter
-
-
-visitExpressionForNewRule : Node Expression -> RuleModuleVisitor -> RuleModuleVisitor
-visitExpressionForNewRule =
-    runVisitor .expressionVisitorOnEnter
-
-
-mockRule : String -> moduleContext -> ModuleRuleSchemaData moduleContext
-mockRule name initialContext =
-    let
-        (ModuleRuleSchema schema) =
-            newModuleRuleSchema name initialContext
-    in
-    schema
-
-
-printNewRuleResults : List (Error {})
-printNewRuleResults =
-    let
-        mockRule1 : ModuleRuleSchemaData Int
-        mockRule1 =
-            mockRule "SomeName" 1
-
-        mockRule2 : ModuleRuleSchemaData String
-        mockRule2 =
-            mockRule "SomeName" "string"
-    in
-    [ newRule { mockRule1 | expressionVisitorsOnEnter = [ expressionVisitorForNoLiteral ] } ( [], 1 )
-    , newRule { mockRule2 | expressionVisitorsOnEnter = [ expressionVisitorForNoLiteral ] } ( [], "string" )
-    ]
-        |> List.map (visitExpressionForNewRule (Node Range.emptyRange (Expression.Literal "Hello")))
-        |> List.concatMap getErrorsForRuleModuleVisitor
-        |> Debug.log "fezf"
-
-
 impl : t -> (raise -> rep -> t)
 impl constructor =
     \_ _ -> constructor
@@ -5918,30 +5877,6 @@ init initRep pipeline flags =
             pipeline raise context
     in
     initRep raise flags
-
-
-
---noVisitExpression (RuleModuleVisitor ruleModuleVisitor) =
---    { visitExpression = \node ->
---    , getErrors = always []
---    }
-
-
-expressionVisitorForNoLiteral : Node Expression -> context -> ( List (Error {}), context )
-expressionVisitorForNoLiteral node context =
-    case Node.value node of
-        Expression.Literal _ ->
-            ( [ error
-                    { message = "No literal"
-                    , details = [ "No, never" ]
-                    }
-                    (Node.range node)
-              ]
-            , context
-            )
-
-        _ ->
-            ( [], context )
 
 
 visitExpression :
