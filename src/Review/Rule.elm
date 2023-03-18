@@ -5456,46 +5456,33 @@ visitDeclarationsAndExpressions declarations rules =
 
 createDeclarationAndExpressionVisitor2 : ModuleRuleSchemaData moduleContext -> List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
 createDeclarationAndExpressionVisitor2 schema =
-    if shouldVisitDeclarations schema then
-        let
-            declarationVisitorsOnEnter : List (Visitor Declaration moduleContext)
-            declarationVisitorsOnEnter =
-                List.reverse schema.declarationVisitorsOnEnter
-        in
-        case createExpressionVisitor schema of
-            Just expressionVisitor ->
-                \nodes initialErrorsAndContext ->
-                    List.foldl
-                        (visitDeclaration
-                            declarationVisitorsOnEnter
-                            schema.declarationVisitorsOnExit
-                            expressionVisitor
-                        )
-                        initialErrorsAndContext
-                        nodes
+    let
+        declarationVisitorsOnEnter : List (Visitor Declaration moduleContext)
+        declarationVisitorsOnEnter =
+            List.reverse schema.declarationVisitorsOnEnter
+    in
+    case createExpressionVisitor schema of
+        Just expressionVisitor ->
+            \nodes initialErrorsAndContext ->
+                List.foldl
+                    (visitDeclaration
+                        declarationVisitorsOnEnter
+                        schema.declarationVisitorsOnExit
+                        expressionVisitor
+                    )
+                    initialErrorsAndContext
+                    nodes
 
-            Nothing ->
-                let
-                    visitor : Node Declaration -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
-                    visitor =
-                        visitOnlyDeclaration
-                            declarationVisitorsOnEnter
-                            schema.declarationVisitorsOnExit
-                in
-                \nodes initialErrorsAndContext ->
-                    List.foldl visitor initialErrorsAndContext nodes
-
-    else
-        case createExpressionVisitor schema of
-            Just expressionVisitor ->
-                \nodes initialErrorsAndContext ->
-                    List.foldl
-                        (visitDeclarationButOnlyExpressions expressionVisitor)
-                        initialErrorsAndContext
-                        nodes
-
-            Nothing ->
-                \_ errorsAndContext -> errorsAndContext
+        Nothing ->
+            let
+                visitor : Node Declaration -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
+                visitor =
+                    visitOnlyDeclaration
+                        declarationVisitorsOnEnter
+                        schema.declarationVisitorsOnExit
+            in
+            \nodes initialErrorsAndContext ->
+                List.foldl visitor initialErrorsAndContext nodes
 
 
 shouldVisitDeclarations : ModuleRuleSchemaData moduleContext -> Bool
