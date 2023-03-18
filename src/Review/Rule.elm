@@ -5743,7 +5743,7 @@ newRule schema =
         |> wrap (addVisitor schema.declarationListVisitors)
         |> wrap (addVisitor schema.declarationVisitorsOnEnter)
         |> wrap (addVisitor schema.declarationVisitorsOnExit)
-        |> wrap (addVisitor schema.expressionVisitorsOnEnter)
+        |> wrap (addVisitor (List.reverse schema.expressionVisitorsOnEnter))
         |> wrap (addVisitor schema.expressionVisitorsOnExit)
         |> wrap (addVisitor2 (List.reverse schema.letDeclarationVisitorsOnEnter))
         |> wrap (addVisitor2 schema.letDeclarationVisitorsOnExit)
