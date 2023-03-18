@@ -5457,6 +5457,8 @@ visitDeclarationsAndExpressions declarations rules =
 visitDeclarationAndExpressions : Node Declaration -> List RuleModuleVisitor -> List RuleModuleVisitor
 visitDeclarationAndExpressions declaration rules =
     rules
+        |> List.map (\acc -> runVisitor .declarationVisitorOnEnter declaration acc)
+        |> List.map (\acc -> runVisitor .declarationVisitorOnExit declaration acc)
 
 
 createDeclarationAndExpressionVisitor2 : ModuleRuleSchemaData moduleContext -> List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
