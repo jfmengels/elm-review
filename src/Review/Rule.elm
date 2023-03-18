@@ -5611,7 +5611,20 @@ newRule schema =
 
                 [ visitor ] ->
                     \raise errorsAndContext ->
-                        Just (\imports -> raise (List.foldl (visitWithListOfVisitors [ visitor ]) errorsAndContext imports))
+                        Just
+                            (\imports ->
+                                raise
+                                    (List.foldl
+                                        (\a initialErrorsAndContext ->
+                                            List.foldl
+                                                (\visitor_ -> accumulate (visitor_ a))
+                                                initialErrorsAndContext
+                                                [ visitor ]
+                                        )
+                                        errorsAndContext
+                                        imports
+                                    )
+                            )
 
                 _ ->
                     \raise errorsAndContext ->
