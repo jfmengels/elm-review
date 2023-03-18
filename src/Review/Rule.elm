@@ -5865,11 +5865,11 @@ map op pipeline raise rep =
     pipeline raise rep |> op
 
 
-type alias W r t a =
-    (r -> t) -> r -> a
+type alias W r t =
+    (r -> t) -> r -> t
 
 
-init : (i -> r) -> W r t t -> i -> t
+init : (i -> r) -> W r t -> i -> t
 init ir rtrt i =
     let
         rt : r -> t
