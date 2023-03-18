@@ -5604,29 +5604,7 @@ newRule schema =
         |> wrap (addVisitor schema.moduleDefinitionVisitors)
         |> wrap (addVisitor schema.moduleDocumentationVisitors)
         |> wrap (addVisitor schema.commentsVisitors)
-        |> wrap
-            (case schema.importVisitors of
-                [] ->
-                    \_ _ -> Nothing
-
-                [ visitor ] ->
-                    \raise errorsAndContext ->
-                        Just
-                            (\imports ->
-                                raise
-                                    (List.foldl
-                                        (\import_ initialErrorsAndContext ->
-                                            accumulate (visitor import_) initialErrorsAndContext
-                                        )
-                                        errorsAndContext
-                                        imports
-                                    )
-                            )
-
-                _ ->
-                    \raise errorsAndContext ->
-                        Just (\imports -> raise (accumulateList schema.importVisitors imports errorsAndContext))
-            )
+        |> wrap (addImportsVisitor schema.importVisitors)
         |> wrap (addVisitor schema.declarationListVisitors)
         |> wrap (addVisitor schema.declarationVisitorsOnEnter)
         |> wrap (addVisitor schema.declarationVisitorsOnExit)
@@ -5670,6 +5648,31 @@ addVisitor2 visitors =
         _ ->
             \raise errorsAndContext ->
                 Just (\a b -> raise (visitWithListOfVisitors2 visitors a b errorsAndContext))
+
+
+addImportsVisitor : List (Node Import -> context -> ( List (Error {}), context )) -> (( List (Error {}), context ) -> RuleModuleVisitor) -> ( List (Error {}), context ) -> Maybe (List (Node Import) -> RuleModuleVisitor)
+addImportsVisitor importVisitors =
+    case importVisitors of
+        [] ->
+            \_ _ -> Nothing
+
+        [ visitor ] ->
+            \raise errorsAndContext ->
+                Just
+                    (\imports ->
+                        raise
+                            (List.foldl
+                                (\import_ initialErrorsAndContext ->
+                                    accumulate (visitor import_) initialErrorsAndContext
+                                )
+                                errorsAndContext
+                                imports
+                            )
+                    )
+
+        _ ->
+            \raise errorsAndContext ->
+                Just (\imports -> raise (accumulateList importVisitors imports errorsAndContext))
 
 
 addFinalModuleEvaluationVisitor : List (context -> List (Error {})) -> (( List (Error {}), context ) -> RuleModuleVisitor) -> ( List (Error {}), context ) -> Maybe (() -> RuleModuleVisitor)
