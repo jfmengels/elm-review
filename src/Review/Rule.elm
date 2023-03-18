@@ -5738,7 +5738,7 @@ newRule schema =
     impl RuleModuleVisitorRecord
         |> wrap (addVisitor (List.reverse schema.moduleDefinitionVisitors))
         |> wrap (addVisitor (List.reverse schema.moduleDocumentationVisitors))
-        |> wrap (addVisitor schema.commentsVisitors)
+        |> wrap (addVisitor (List.reverse schema.commentsVisitors))
         |> wrap (addImportsVisitor schema.importVisitors)
         |> wrap (addVisitor schema.declarationListVisitors)
         |> wrap (addVisitor (List.reverse schema.declarationVisitorsOnEnter))
