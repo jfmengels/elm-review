@@ -5705,6 +5705,14 @@ visitOnlyDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit node e
         |> visitWithListOfVisitors declarationVisitorsOnExit node
 
 
+type RuleProjectVisitor
+    = RuleProjectVisitor RuleProjectVisitorRecord
+
+
+type alias RuleProjectVisitorRecord =
+    {}
+
+
 type RuleModuleVisitor
     = RuleModuleVisitor RuleModuleVisitorRecord
 
@@ -5725,6 +5733,7 @@ type alias RuleModuleVisitorRecord =
     , caseBranchVisitorsOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> RuleModuleVisitor)
     , finalModuleEvaluation : Maybe (() -> RuleModuleVisitor)
     , getErrors : List (Error {})
+    , toProjectVisitor : RuleProjectVisitor -> ( List (Error {}), RuleProjectVisitor )
     }
 
 
@@ -5746,6 +5755,7 @@ newRule schema =
         |> wrap (addVisitor2 schema.caseBranchVisitorsOnExit)
         |> wrap (addFinalModuleEvaluationVisitor schema.finalEvaluationFns)
         |> add (\( errors, _ ) -> errors)
+        |> add (\( errors, moduleContext ) ruleProjectVisitor -> ( errors, ruleProjectVisitor ))
         |> map RuleModuleVisitor
         |> init (\rep -> ( [], rep ))
 
