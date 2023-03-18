@@ -5454,6 +5454,11 @@ visitDeclarationsAndExpressions declarations rules =
     rules
 
 
+visitDeclarationAndExpressions : Node Declaration -> List RuleModuleVisitor -> List RuleModuleVisitor
+visitDeclarationAndExpressions declaration rules =
+    rules
+
+
 createDeclarationAndExpressionVisitor2 : ModuleRuleSchemaData moduleContext -> List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
 createDeclarationAndExpressionVisitor2 schema =
     let
