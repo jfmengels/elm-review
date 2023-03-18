@@ -5736,7 +5736,7 @@ type alias RuleModuleVisitorRecord =
 newRule : ModuleRuleSchemaData moduleContext -> ( List (Error {}), moduleContext ) -> RuleModuleVisitor
 newRule schema =
     impl RuleModuleVisitorRecord
-        |> wrap (addVisitor schema.moduleDefinitionVisitors)
+        |> wrap (addVisitor (List.reverse schema.moduleDefinitionVisitors))
         |> wrap (addVisitor schema.moduleDocumentationVisitors)
         |> wrap (addVisitor schema.commentsVisitors)
         |> wrap (addImportsVisitor schema.importVisitors)
