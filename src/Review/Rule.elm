@@ -1434,6 +1434,7 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     , declarationListVisitors = List.reverse schema.declarationListVisitors
     , declarationAndExpressionVisitor = createDeclarationAndExpressionVisitor schema
     , finalEvaluationFns = List.reverse schema.finalEvaluationFns
+    , ruleModuleVisitor = newRule schema
     }
 
 
@@ -4125,6 +4126,7 @@ type alias RunnableModuleVisitor moduleContext =
     , declarationListVisitors : List (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
     , declarationAndExpressionVisitor : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
     , finalEvaluationFns : List (moduleContext -> List (Error {}))
+    , ruleModuleVisitor : ( List (Error {}), moduleContext ) -> RuleModuleVisitor
     }
 
 
