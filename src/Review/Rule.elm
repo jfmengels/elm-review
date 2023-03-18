@@ -5471,15 +5471,51 @@ visitDeclarationAndExpressions declaration rules =
 
 visitExpression2 : Node Expression -> List RuleModuleVisitor -> List RuleModuleVisitor
 visitExpression2 node rules =
+    case Node.value node of
+        Expression.LetExpression letBlock ->
+            rules
+                |> List.map (\acc -> runVisitor .expressionVisitorOnEnter node acc)
+                |> (\updatedRules ->
+                        List.foldl
+                            (visitLetDeclaration2 (Node (Node.range node) letBlock))
+                            updatedRules
+                            letBlock.declarations
+                   )
+                |> visitExpression2 letBlock.expression
+                |> List.map (\acc -> runVisitor .expressionVisitorOnExit node acc)
+
+        _ ->
+            rules
+                |> List.map (\acc -> runVisitor .expressionVisitorOnEnter node acc)
+                |> (\updatedRules ->
+                        List.foldl
+                            visitExpression2
+                            updatedRules
+                            (expressionChildren node)
+                   )
+                |> List.map (\acc -> runVisitor .expressionVisitorOnExit node acc)
+
+
+visitLetDeclaration2 :
+    Node Expression.LetBlock
+    -> Node Expression.LetDeclaration
+    -> List RuleModuleVisitor
+    -> List RuleModuleVisitor
+visitLetDeclaration2 letBlockWithRange ((Node _ letDeclaration) as letDeclarationWithRange) rules =
+    let
+        expressionNode : Node Expression
+        expressionNode =
+            case letDeclaration of
+                Expression.LetFunction function ->
+                    functionToExpression function
+
+                Expression.LetDestructuring _ expr ->
+                    expr
+    in
     rules
-        |> List.map (\acc -> runVisitor .expressionVisitorOnEnter node acc)
-        |> (\updatedRules ->
-                List.foldl
-                    visitExpression2
-                    updatedRules
-                    (expressionChildren node)
-           )
-        |> List.map (\acc -> runVisitor .expressionVisitorOnExit node acc)
+        |> List.map (\acc -> runVisitor2 .letDeclarationVisitorsOnEnter letBlockWithRange letDeclarationWithRange acc)
+        |> visitExpression2 expressionNode
+        |> List.map (\acc -> runVisitor2 .letDeclarationVisitorsOnExit letBlockWithRange letDeclarationWithRange acc)
 
 
 createDeclarationAndExpressionVisitor2 : ModuleRuleSchemaData moduleContext -> List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
