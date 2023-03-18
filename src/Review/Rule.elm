@@ -5470,8 +5470,10 @@ visitDeclarationAndExpressions declaration rules =
 
 
 visitExpression2 : Node Expression -> List RuleModuleVisitor -> List RuleModuleVisitor
-visitExpression2 expression rules =
+visitExpression2 node rules =
     rules
+        |> List.map (\acc -> runVisitor .expressionVisitorOnEnter node acc)
+        |> List.map (\acc -> runVisitor .expressionVisitorOnExit node acc)
 
 
 createDeclarationAndExpressionVisitor2 : ModuleRuleSchemaData moduleContext -> List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
