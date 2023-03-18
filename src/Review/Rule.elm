@@ -5771,6 +5771,16 @@ runVisitor field node ((RuleModuleVisitor ruleModuleVisitor) as original) =
             original
 
 
+runVisitor2 : (RuleModuleVisitorRecord -> Maybe (a -> b -> RuleModuleVisitor)) -> a -> b -> RuleModuleVisitor -> RuleModuleVisitor
+runVisitor2 field a b ((RuleModuleVisitor ruleModuleVisitor) as original) =
+    case field ruleModuleVisitor of
+        Just visitor ->
+            visitor a b
+
+        Nothing ->
+            original
+
+
 visitDeclarationForNewRule : Node Declaration -> RuleModuleVisitor -> RuleModuleVisitor
 visitDeclarationForNewRule =
     runVisitor .declarationVisitorOnEnter
