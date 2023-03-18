@@ -5484,6 +5484,23 @@ visitExpression2 node rules =
                 |> visitExpression2 letBlock.expression
                 |> List.map (\acc -> runVisitor .expressionVisitorOnExit node acc)
 
+        Expression.CaseExpression caseBlock ->
+            rules
+                |> List.map (\acc -> runVisitor .expressionVisitorOnEnter node acc)
+                |> (\updatedRules ->
+                        List.foldl
+                            visitExpression2
+                            updatedRules
+                            (expressionChildren node)
+                   )
+                |> (\updatedRules ->
+                        List.foldl
+                            (\case_ acc -> visitCaseBranch2 (Node (Node.range node) caseBlock) case_ acc)
+                            updatedRules
+                            caseBlock.cases
+                   )
+                |> List.map (\acc -> runVisitor .expressionVisitorOnExit node acc)
+
         _ ->
             rules
                 |> List.map (\acc -> runVisitor .expressionVisitorOnEnter node acc)
@@ -5516,6 +5533,18 @@ visitLetDeclaration2 letBlockWithRange ((Node _ letDeclaration) as letDeclaratio
         |> List.map (\acc -> runVisitor2 .letDeclarationVisitorsOnEnter letBlockWithRange letDeclarationWithRange acc)
         |> visitExpression2 expressionNode
         |> List.map (\acc -> runVisitor2 .letDeclarationVisitorsOnExit letBlockWithRange letDeclarationWithRange acc)
+
+
+visitCaseBranch2 :
+    Node Expression.CaseBlock
+    -> ( Node Pattern, Node Expression )
+    -> List RuleModuleVisitor
+    -> List RuleModuleVisitor
+visitCaseBranch2 caseBlockWithRange (( _, caseExpression ) as caseBranch) rules =
+    rules
+        |> List.map (\acc -> runVisitor2 .caseBranchVisitorsOnEnter caseBlockWithRange caseBranch acc)
+        |> visitExpression2 caseExpression
+        |> List.map (\acc -> runVisitor2 .caseBranchVisitorsOnExit caseBlockWithRange caseBranch acc)
 
 
 createDeclarationAndExpressionVisitor2 : ModuleRuleSchemaData moduleContext -> List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
