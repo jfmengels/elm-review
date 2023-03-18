@@ -5583,7 +5583,7 @@ type alias RuleModuleVisitorRecord =
     { moduleDefinitionVisitor : Maybe (Node Module -> RuleModuleVisitor)
     , moduleDocumentationVisitor : Maybe (Maybe (Node String) -> RuleModuleVisitor)
     , commentsVisitor : Maybe (List (Node String) -> RuleModuleVisitor)
-    , importsVisitor : Maybe (Node Import -> RuleModuleVisitor)
+    , importsVisitor : Maybe (List (Node Import) -> RuleModuleVisitor)
     , declarationListVisitor : Maybe (List (Node Declaration) -> RuleModuleVisitor)
     , declarationVisitorOnEnter : Maybe (Node Declaration -> RuleModuleVisitor)
     , declarationVisitorOnExit : Maybe (Node Declaration -> RuleModuleVisitor)
@@ -5604,7 +5604,15 @@ newRule schema =
         |> wrap (addVisitor schema.moduleDefinitionVisitors)
         |> wrap (addVisitor schema.moduleDocumentationVisitors)
         |> wrap (addVisitor schema.commentsVisitors)
-        |> wrap (addVisitor schema.importVisitors)
+        |> wrap
+            (case schema.importVisitors of
+                [] ->
+                    \_ _ -> Nothing
+
+                _ ->
+                    \raise errorsAndContext ->
+                        Just (\imports -> raise (accumulateList schema.importVisitors imports errorsAndContext))
+            )
         |> wrap (addVisitor schema.declarationListVisitors)
         |> wrap (addVisitor schema.declarationVisitorsOnEnter)
         |> wrap (addVisitor schema.declarationVisitorsOnExit)
