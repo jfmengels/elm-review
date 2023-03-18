@@ -4895,6 +4895,10 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
         ruleModuleVisitors =
             visitModuleForProjectRule2 module_ [ dataToComputeModules.moduleVisitor.ruleModuleVisitor initialModuleContext ]
 
+        ruleProjectVisitors : List (RuleProjectVisitor -> ( List (Error {}), RuleProjectVisitor ))
+        ruleProjectVisitors =
+            List.map getToProjectVisitor ruleModuleVisitors
+
         ( _, resultModuleContext ) =
             visitModuleForProjectRule
                 dataToComputeModules.moduleVisitor
@@ -5710,7 +5714,8 @@ type RuleProjectVisitor
 
 
 type alias RuleProjectVisitorRecord =
-    {}
+    { addModuleContext : RuleModuleVisitor -> RuleProjectVisitor
+    }
 
 
 type RuleModuleVisitor
@@ -5833,6 +5838,11 @@ addFinalModuleEvaluationVisitor visitors =
 getErrorsForRuleModuleVisitor : RuleModuleVisitor -> List (Error {})
 getErrorsForRuleModuleVisitor (RuleModuleVisitor ruleModuleVisitor) =
     ruleModuleVisitor.getErrors
+
+
+getToProjectVisitor : RuleModuleVisitor -> RuleProjectVisitor -> ( List (Error {}), RuleProjectVisitor )
+getToProjectVisitor (RuleModuleVisitor ruleModuleVisitor) =
+    ruleModuleVisitor.toProjectVisitor
 
 
 runVisitor : (RuleModuleVisitorRecord -> Maybe (a -> RuleModuleVisitor)) -> a -> RuleModuleVisitor -> RuleModuleVisitor
