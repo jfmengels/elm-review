@@ -5737,7 +5737,7 @@ newRule : ModuleRuleSchemaData moduleContext -> ( List (Error {}), moduleContext
 newRule schema =
     impl RuleModuleVisitorRecord
         |> wrap (addVisitor (List.reverse schema.moduleDefinitionVisitors))
-        |> wrap (addVisitor schema.moduleDocumentationVisitors)
+        |> wrap (addVisitor (List.reverse schema.moduleDocumentationVisitors))
         |> wrap (addVisitor schema.commentsVisitors)
         |> wrap (addImportsVisitor schema.importVisitors)
         |> wrap (addVisitor schema.declarationListVisitors)
