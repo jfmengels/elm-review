@@ -5491,12 +5491,7 @@ visitExpression2 node rules =
         Expression.CaseExpression caseBlock ->
             rules
                 |> List.map (\acc -> runVisitor .expressionVisitorOnEnter node acc)
-                |> (\updatedRules ->
-                        List.foldl
-                            visitExpression2
-                            updatedRules
-                            (expressionChildren node)
-                   )
+                |> visitExpression2 caseBlock.expression
                 |> (\updatedRules ->
                         List.foldl
                             (\case_ acc -> visitCaseBranch2 (Node (Node.range node) caseBlock) case_ acc)
