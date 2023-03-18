@@ -4895,6 +4895,7 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
             applyContextCreator availableData dataToComputeModules.moduleContextCreator projectContext
 
         ( moduleErrors, resultModuleContext ) =
+            -- TODO Use visitModuleForProjectRule2 and dataToComputeModules.moduleVisitor
             visitModuleForProjectRule
                 dataToComputeModules.moduleVisitor
                 initialModuleContext
