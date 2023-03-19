@@ -35,7 +35,7 @@ addFilter condition (Exceptions conditions) =
 
 
 addDirectories : List String -> Exceptions -> Exceptions
-addDirectories directories =
+addDirectories directories exceptions =
     let
         cleanedDirectories : List String
         cleanedDirectories =
@@ -51,11 +51,11 @@ addDirectories directories =
                            )
                     )
     in
-    addFilter (\path -> not (isInAnIgnoredDirectory cleanedDirectories path))
+    addFilter (\path -> not (isInAnIgnoredDirectory cleanedDirectories path)) exceptions
 
 
 addFiles : List String -> Exceptions -> Exceptions
-addFiles files =
+addFiles files exceptions =
     let
         cleanedFiles : Set String
         cleanedFiles =
@@ -63,7 +63,7 @@ addFiles files =
                 |> List.map Path.makeOSAgnostic
                 |> Set.fromList
     in
-    addFilter (\file -> Set.member file cleanedFiles |> not)
+    addFilter (\file -> Set.member file cleanedFiles |> not) exceptions
 
 
 isFileWeWantReportsFor : Exceptions -> String -> Bool

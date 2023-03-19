@@ -460,7 +460,7 @@ runOnModulesWithProjectDataHelp project rule sources =
                                     fileErrors : List SuccessfulRunResult
                                     fileErrors =
                                         List.concat
-                                            [ List.map (moduleToRunResult errors) modules
+                                            [ List.map (\module_ -> moduleToRunResult errors module_) modules
                                             , elmJsonRunResult errors projectWithModules
                                             , readmeRunResult errors projectWithModules
                                             ]
@@ -1326,15 +1326,16 @@ getCodeAtLocationInSourceCode sourceCode =
 
 
 checkIfLocationIsAmbiguousInSourceCode : SourceCode -> ReviewError -> String -> Expectation
-checkIfLocationIsAmbiguousInSourceCode sourceCode error_ under =
-    let
-        occurrencesInSourceCode : List Int
-        occurrencesInSourceCode =
-            String.indexes under sourceCode
-    in
-    hasOneElement occurrencesInSourceCode
-        |> Expect.equal True
-        |> Expect.onFail (FailureMessage.locationIsAmbiguousInSourceCode sourceCode error_ under occurrencesInSourceCode)
+checkIfLocationIsAmbiguousInSourceCode sourceCode =
+    \error_ under ->
+        let
+            occurrencesInSourceCode : List Int
+            occurrencesInSourceCode =
+                String.indexes under sourceCode
+        in
+        hasOneElement occurrencesInSourceCode
+            |> Expect.equal True
+            |> Expect.onFail (FailureMessage.locationIsAmbiguousInSourceCode sourceCode error_ under occurrencesInSourceCode)
 
 
 
