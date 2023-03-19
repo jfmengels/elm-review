@@ -2,6 +2,7 @@ module Vendor.ListExtra exposing
     ( find, last
     , orderIndependentMapAppend, orderIndependentConcatMapAppend
     , anyCombination
+    , foldlSwitched
     )
 
 {-| Functions taken from elm-community/list-extra.
@@ -52,6 +53,18 @@ last items =
 
         _ :: rest ->
             last rest
+
+
+{-| Same as List.foldl but the position of the list and initial value arguments are switched.
+-}
+foldlSwitched : (a -> b -> b) -> List a -> b -> b
+foldlSwitched func list acc =
+    case list of
+        [] ->
+            acc
+
+        x :: xs ->
+            foldlSwitched func xs (func x acc)
 
 
 

@@ -5544,12 +5544,7 @@ visitExpression expressionRelatedVisitors node errorsAndContext =
         Expression.LetExpression letBlock ->
             errorsAndContext
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnEnter node
-                |> (\errorsAndContext_ ->
-                        List.foldl
-                            (visitLetDeclaration expressionRelatedVisitors (Node (Node.range node) letBlock))
-                            errorsAndContext_
-                            letBlock.declarations
-                   )
+                |> ListExtra.foldlSwitched (visitLetDeclaration expressionRelatedVisitors (Node (Node.range node) letBlock)) letBlock.declarations
                 |> visitExpression expressionRelatedVisitors letBlock.expression
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
 
@@ -5557,18 +5552,13 @@ visitExpression expressionRelatedVisitors node errorsAndContext =
             errorsAndContext
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnEnter node
                 |> visitExpression expressionRelatedVisitors caseBlock.expression
-                |> (\errorsAndContext_ -> List.foldl (visitCaseBranch expressionRelatedVisitors (Node (Node.range node) caseBlock)) errorsAndContext_ caseBlock.cases)
+                |> ListExtra.foldlSwitched (visitCaseBranch expressionRelatedVisitors (Node (Node.range node) caseBlock)) caseBlock.cases
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
 
         _ ->
             errorsAndContext
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnEnter node
-                |> (\errorsAndContext_ ->
-                        List.foldl
-                            (visitExpression expressionRelatedVisitors)
-                            errorsAndContext_
-                            (expressionChildren node)
-                   )
+                |> ListExtra.foldlSwitched (visitExpression expressionRelatedVisitors) (expressionChildren node)
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
 
 
@@ -5582,12 +5572,7 @@ visitOnlyExpressions expressionVisitorsOnEnter expressionVisitorsOnExit node err
     -- IGNORE TCO
     errorsAndContext
         |> visitWithListOfVisitors expressionVisitorsOnEnter node
-        |> (\errorsAndContext_ ->
-                List.foldl
-                    (visitOnlyExpressions expressionVisitorsOnEnter expressionVisitorsOnExit)
-                    errorsAndContext_
-                    (expressionChildren node)
-           )
+        |> ListExtra.foldlSwitched (visitOnlyExpressions expressionVisitorsOnEnter expressionVisitorsOnExit) (expressionChildren node)
         |> visitWithListOfVisitors expressionVisitorsOnExit node
 
 
