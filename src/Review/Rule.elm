@@ -1424,6 +1424,11 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
 
 fromModuleRuleSchemaToRunnableModuleVisitor : ModuleRuleSchema schemaState moduleContext -> RunnableModuleVisitor moduleContext
 fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
+    let
+        ruleProjectVisitor : RuleProjectVisitor
+        ruleProjectVisitor =
+            RuleProjectVisitor {}
+    in
     { moduleDefinitionVisitors = List.reverse schema.moduleDefinitionVisitors
     , moduleDocumentationVisitors = List.reverse schema.moduleDocumentationVisitors
     , commentsVisitors = List.reverse schema.commentsVisitors
@@ -1431,7 +1436,7 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     , declarationListVisitors = List.reverse schema.declarationListVisitors
     , declarationAndExpressionVisitor = createDeclarationAndExpressionVisitor schema
     , finalEvaluationFns = List.reverse schema.finalEvaluationFns
-    , ruleModuleVisitor = newRule schema
+    , ruleModuleVisitor = newRule schema ruleProjectVisitor
     }
 
 
@@ -4895,9 +4900,9 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
         ruleModuleVisitors =
             visitModuleForProjectRule2 module_ [ dataToComputeModules.moduleVisitor.ruleModuleVisitor initialModuleContext ]
 
-        ruleProjectVisitors : List (RuleProjectVisitor -> ( List (Error {}), RuleProjectVisitor ))
+        ruleProjectVisitors : List RuleProjectVisitor
         ruleProjectVisitors =
-            List.map getToProjectVisitor ruleModuleVisitors
+            List.map (\rule -> getToProjectVisitor rule ()) ruleModuleVisitors
 
         ( _, resultModuleContext ) =
             visitModuleForProjectRule
@@ -5737,12 +5742,12 @@ type alias RuleModuleVisitorRecord =
     , caseBranchVisitorsOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> RuleModuleVisitor)
     , finalModuleEvaluation : Maybe (() -> RuleModuleVisitor)
     , getErrors : List (Error {})
-    , toProjectVisitor : RuleProjectVisitor -> ( List (Error {}), RuleProjectVisitor )
+    , toProjectVisitor : () -> RuleProjectVisitor
     }
 
 
-newRule : ModuleRuleSchemaData moduleContext -> moduleContext -> RuleModuleVisitor
-newRule schema =
+newRule : ModuleRuleSchemaData moduleContext -> RuleProjectVisitor -> moduleContext -> RuleModuleVisitor
+newRule schema ruleProjectVisitor =
     impl RuleModuleVisitorRecord
         |> wrap (addVisitor (List.reverse schema.moduleDefinitionVisitors))
         |> wrap (addVisitor (List.reverse schema.moduleDocumentationVisitors))
@@ -5759,7 +5764,7 @@ newRule schema =
         |> wrap (addVisitor2 schema.caseBranchVisitorsOnExit)
         |> wrap (addFinalModuleEvaluationVisitor schema.finalEvaluationFns)
         |> add (\( errors, _ ) -> errors)
-        |> add (\( errors, moduleContext ) ruleProjectVisitor -> ( errors, ruleProjectVisitor ))
+        |> add (\_ () -> ruleProjectVisitor)
         |> map RuleModuleVisitor
         |> init (\rep -> ( [], rep ))
 
@@ -5839,9 +5844,9 @@ getErrorsForRuleModuleVisitor (RuleModuleVisitor ruleModuleVisitor) =
     ruleModuleVisitor.getErrors
 
 
-getToProjectVisitor : RuleModuleVisitor -> RuleProjectVisitor -> ( List (Error {}), RuleProjectVisitor )
-getToProjectVisitor (RuleModuleVisitor ruleModuleVisitor) =
-    ruleModuleVisitor.toProjectVisitor
+getToProjectVisitor : RuleModuleVisitor -> () -> RuleProjectVisitor
+getToProjectVisitor (RuleModuleVisitor ruleModuleVisitor) () =
+    ruleModuleVisitor.toProjectVisitor ()
 
 
 runVisitor : (RuleModuleVisitorRecord -> Maybe (a -> RuleModuleVisitor)) -> a -> RuleModuleVisitor -> RuleModuleVisitor
