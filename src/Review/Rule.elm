@@ -5746,10 +5746,10 @@ expressionChildren node =
             elements
 
         Expression.RecordExpr fields ->
-            List.map (Node.value >> (\( _, expr ) -> expr)) fields
+            List.map (\(Node _ ( _, expr )) -> expr) fields
 
         Expression.RecordUpdateExpression _ setters ->
-            List.map (Node.value >> (\( _, expr ) -> expr)) setters
+            List.map (\(Node _ ( _, expr )) -> expr) setters
 
         Expression.ParenthesizedExpression expr ->
             [ expr ]
