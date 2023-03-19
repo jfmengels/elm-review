@@ -1446,10 +1446,13 @@ createDeclarationAndExpressionVisitor schema =
             Just expressionVisitor ->
                 \nodes initialErrorsAndContext ->
                     List.foldl
-                        (visitDeclaration
-                            declarationVisitorsOnEnter
-                            schema.declarationVisitorsOnExit
-                            expressionVisitor
+                        (\node acc ->
+                            visitDeclaration
+                                declarationVisitorsOnEnter
+                                schema.declarationVisitorsOnExit
+                                expressionVisitor
+                                node
+                                acc
                         )
                         initialErrorsAndContext
                         nodes
@@ -1470,7 +1473,7 @@ createDeclarationAndExpressionVisitor schema =
             Just expressionVisitor ->
                 \nodes initialErrorsAndContext ->
                     List.foldl
-                        (visitDeclarationButOnlyExpressions expressionVisitor)
+                        (\node acc -> visitDeclarationButOnlyExpressions expressionVisitor node acc)
                         initialErrorsAndContext
                         nodes
 
@@ -4643,7 +4646,12 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                             identity
 
                         visitors ->
-                            accumulateWithListOfVisitors visitors (ValidProject.directDependencies project)
+                            let
+                                directDependencies : Dict String Review.Project.Dependency.Dependency
+                                directDependencies =
+                                    ValidProject.directDependencies project
+                            in
+                            \acc -> accumulateWithListOfVisitors visitors directDependencies acc
 
                 ( errorsForVisitor, outputContext ) =
                     ( [], inputContext )
@@ -4860,7 +4868,12 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
             , moduleNameLookupTable = moduleNameLookupTable
             , extractSourceCode =
                 if requestedData.sourceCodeExtractor then
-                    extractSourceCode (String.lines (ProjectModule.source module_))
+                    let
+                        lines : List String
+                        lines =
+                            String.lines (ProjectModule.source module_)
+                    in
+                    \range -> extractSourceCode lines range
 
                 else
                     always ""
@@ -4882,7 +4895,7 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
         errors : List (Error {})
         errors =
             moduleErrors
-                |> List.map (setFilePathIfUnset module_)
+                |> List.map (\error_ -> setFilePathIfUnset module_ error_)
                 |> filterExceptionsAndSetName dataToComputeModules.exceptions dataToComputeModules.projectVisitor.name
     in
     case findFixInComputeModuleResults { params | project = newProject } availableData resultModuleContext errors of
@@ -5436,7 +5449,7 @@ createExpressionVisitor schema =
                 , caseBranchVisitorsOnExit = schema.caseBranchVisitorsOnExit
                 }
         in
-        Just (visitExpression expressionRelatedVisitors)
+        Just (\expr acc -> visitExpression expressionRelatedVisitors expr acc)
 
     else if not (List.isEmpty schema.expressionVisitorsOnExit) then
         let
@@ -5448,10 +5461,15 @@ createExpressionVisitor schema =
             exitVisitors =
                 schema.expressionVisitorsOnExit
         in
-        Just (visitOnlyExpressions enterVisitors exitVisitors)
+        Just (\expr acc -> visitOnlyExpressions enterVisitors exitVisitors expr acc)
 
     else if not (List.isEmpty schema.expressionVisitorsOnEnter) then
-        Just (visitOnlyExpressionsOnlyOnEnter (List.reverse schema.expressionVisitorsOnEnter))
+        let
+            expressionVisitorsOnEnter : List (Visitor Expression moduleContext)
+            expressionVisitorsOnEnter =
+                List.reverse schema.expressionVisitorsOnEnter
+        in
+        Just (\expr acc -> visitOnlyExpressionsOnlyOnEnter expressionVisitorsOnEnter expr acc)
 
     else
         Nothing
@@ -5544,7 +5562,7 @@ visitExpression expressionRelatedVisitors node errorsAndContext =
         Expression.LetExpression letBlock ->
             errorsAndContext
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnEnter node
-                |> ListExtra.foldlSwitched (visitLetDeclaration expressionRelatedVisitors (Node (Node.range node) letBlock)) letBlock.declarations
+                |> ListExtra.foldlSwitched (\decl acc -> visitLetDeclaration expressionRelatedVisitors (Node (Node.range node) letBlock) decl acc) letBlock.declarations
                 |> visitExpression expressionRelatedVisitors letBlock.expression
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
 
@@ -5552,13 +5570,13 @@ visitExpression expressionRelatedVisitors node errorsAndContext =
             errorsAndContext
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnEnter node
                 |> visitExpression expressionRelatedVisitors caseBlock.expression
-                |> ListExtra.foldlSwitched (visitCaseBranch expressionRelatedVisitors (Node (Node.range node) caseBlock)) caseBlock.cases
+                |> ListExtra.foldlSwitched (\case_ acc -> visitCaseBranch expressionRelatedVisitors (Node (Node.range node) caseBlock) case_ acc) caseBlock.cases
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
 
         _ ->
             errorsAndContext
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnEnter node
-                |> ListExtra.foldlSwitched (visitExpression expressionRelatedVisitors) (expressionChildren node)
+                |> ListExtra.foldlSwitched (\expr acc -> visitExpression expressionRelatedVisitors expr acc) (expressionChildren node)
                 |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
 
 
@@ -5572,7 +5590,7 @@ visitOnlyExpressions expressionVisitorsOnEnter expressionVisitorsOnExit node err
     -- IGNORE TCO
     errorsAndContext
         |> visitWithListOfVisitors expressionVisitorsOnEnter node
-        |> ListExtra.foldlSwitched (visitOnlyExpressions expressionVisitorsOnEnter expressionVisitorsOnExit) (expressionChildren node)
+        |> ListExtra.foldlSwitched (\expr acc -> visitOnlyExpressions expressionVisitorsOnEnter expressionVisitorsOnExit expr acc) (expressionChildren node)
         |> visitWithListOfVisitors expressionVisitorsOnExit node
 
 
@@ -5789,7 +5807,7 @@ expressionChildren node =
 visitWithListOfVisitors : List (a -> context -> ( List (Error {}), context )) -> a -> ( List (Error {}), context ) -> ( List (Error {}), context )
 visitWithListOfVisitors visitors a initialErrorsAndContext =
     List.foldl
-        (\visitor -> accumulate (visitor a))
+        (\visitor acc -> accumulate (visitor a) acc)
         initialErrorsAndContext
         visitors
 
@@ -5797,7 +5815,7 @@ visitWithListOfVisitors visitors a initialErrorsAndContext =
 visitWithListOfVisitors2 : List (a -> b -> context -> ( List (Error {}), context )) -> a -> b -> ( List (Error {}), context ) -> ( List (Error {}), context )
 visitWithListOfVisitors2 visitors a b initialErrorsAndContext =
     List.foldl
-        (\visitor -> accumulate (visitor a b))
+        (\visitor acc -> accumulate (visitor a b) acc)
         initialErrorsAndContext
         visitors
 
@@ -5894,7 +5912,7 @@ findModuleDocumentationBeforeCutOffLine cutOffLine comments =
 
 accumulateList : List (a -> context -> ( List (Error {}), context )) -> List a -> ( List (Error {}), context ) -> ( List (Error {}), context )
 accumulateList visitor elements errorAndContext =
-    List.foldl (visitWithListOfVisitors visitor) errorAndContext elements
+    List.foldl (\a acc -> visitWithListOfVisitors visitor a acc) errorAndContext elements
 
 
 {-| Concatenate the errors of the previous step and of the last step, and take the last step's context.

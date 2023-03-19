@@ -51,7 +51,7 @@ addDirectories directories =
                            )
                     )
     in
-    addFilter (isInAnIgnoredDirectory cleanedDirectories >> not)
+    addFilter (\path -> not (isInAnIgnoredDirectory cleanedDirectories path))
 
 
 addFiles : List String -> Exceptions -> Exceptions

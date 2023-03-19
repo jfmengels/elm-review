@@ -109,7 +109,7 @@ compute moduleName module_ project =
 
         ( imported, projectCacheWithComputedImports ) =
             List.foldl
-                (computeImportedModulesDocs modulesByModuleName deps)
+                (\node acc -> computeImportedModulesDocs modulesByModuleName deps node acc)
                 ( Dict.empty, projectCache )
                 (elmCorePrelude ++ moduleAst.imports)
 
@@ -175,7 +175,7 @@ computeOnlyModuleDocs moduleName module_ modulesByModuleName deps projectCache =
 
         ( imported, projectCacheWithComputedImports ) =
             List.foldl
-                (computeImportedModulesDocs modulesByModuleName deps)
+                (\node acc -> computeImportedModulesDocs modulesByModuleName deps node acc)
                 ( Dict.empty, projectCache )
                 (elmCorePrelude ++ moduleAst.imports)
 
@@ -428,7 +428,7 @@ registerDeclaration declaration innerContext =
                     { variableType = TopLevelVariable
                     , node = nameNode
                     }
-                |> registerIfExposed (registerExposedValue function) (Node.value nameNode)
+                |> registerIfExposed (\name ctx -> registerExposedValue function name ctx) (Node.value nameNode)
 
         Declaration.AliasDeclaration alias ->
             { innerContext | localTypes = Set.insert (Node.value alias.name) innerContext.localTypes }
@@ -462,7 +462,7 @@ registerDeclaration declaration innerContext =
                 )
                 { innerContext | localTypes = Set.insert (Node.value name) innerContext.localTypes }
                 constructors
-                |> registerIfExposed (registerExposedCustomType constructors) (Node.value name)
+                |> registerIfExposed (\customTypeName ctx -> registerExposedCustomType constructors customTypeName ctx) (Node.value name)
 
         Declaration.PortDeclaration signature ->
             innerContext
@@ -470,7 +470,11 @@ registerDeclaration declaration innerContext =
                     { variableType = Port
                     , node = signature.name
                     }
-                |> registerIfExposed (registerExposedValue { documentation = Nothing, signature = Just (Node (Node.range declaration) signature) }) (Node.value signature.name)
+                |> registerIfExposed
+                    (\name ctx ->
+                        registerExposedValue { documentation = Nothing, signature = Just (Node (Node.range declaration) signature) } name ctx
+                    )
+                    (Node.value signature.name)
 
         Declaration.InfixDeclaration _ ->
             innerContext
@@ -574,13 +578,13 @@ syntaxTypeAnnotationToDocsType innerContext (Node _ typeAnnotation) =
                 realModuleName =
                     moduleNameForType innerContext typeName moduleName
             in
-            Elm.Type.Type (String.join "." realModuleName ++ "." ++ typeName) (List.map (syntaxTypeAnnotationToDocsType innerContext) typeParameters)
+            Elm.Type.Type (String.join "." realModuleName ++ "." ++ typeName) (List.map (\node -> syntaxTypeAnnotationToDocsType innerContext node) typeParameters)
 
         TypeAnnotation.Unit ->
             Elm.Type.Tuple []
 
         TypeAnnotation.Tupled list ->
-            Elm.Type.Tuple (List.map (syntaxTypeAnnotationToDocsType innerContext) list)
+            Elm.Type.Tuple (List.map (\node -> syntaxTypeAnnotationToDocsType innerContext node) list)
 
         TypeAnnotation.Record updates ->
             Elm.Type.Record (recordUpdateToDocsType innerContext updates) Nothing
