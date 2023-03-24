@@ -4892,6 +4892,11 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
             , isFileIgnored = isFileIgnored
             }
 
+        inputRuleProjectVisitors : List RuleProjectVisitor
+        inputRuleProjectVisitors =
+            [ RuleProjectVisitor {}
+            ]
+
         initialModuleContext : moduleContext
         initialModuleContext =
             applyContextCreator availableData dataToComputeModules.moduleContextCreator projectContext
