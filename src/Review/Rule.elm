@@ -5731,6 +5731,10 @@ visitOnlyDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit node e
         |> visitWithListOfVisitors declarationVisitorsOnExit node
 
 
+type alias Rules =
+    List RuleProjectVisitor
+
+
 type RuleProjectVisitor
     = RuleProjectVisitor RuleProjectVisitorRecord
 
