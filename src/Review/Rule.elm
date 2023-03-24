@@ -4894,7 +4894,7 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
 
         inputRuleProjectVisitors : List RuleProjectVisitor
         inputRuleProjectVisitors =
-            [ RuleProjectVisitor {}
+            [ createRuleProjectVisitor
             ]
 
         initialModuleContext : moduleContext
@@ -5726,6 +5726,11 @@ type RuleProjectVisitor
 
 type alias RuleProjectVisitorRecord =
     {}
+
+
+createRuleProjectVisitor : RuleProjectVisitor
+createRuleProjectVisitor =
+    RuleProjectVisitor {}
 
 
 type RuleModuleVisitor
