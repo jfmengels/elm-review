@@ -5764,7 +5764,7 @@ newRule schema ruleProjectVisitor =
         |> wrap (addVisitor2 schema.caseBranchVisitorsOnExit)
         |> wrap (addFinalModuleEvaluationVisitor schema.finalEvaluationFns)
         |> add (\( errors, _ ) -> errors)
-        |> add (\_ () -> ruleProjectVisitor)
+        |> add (\( _, context ) () -> ruleProjectVisitor)
         |> map RuleModuleVisitor
         |> init (\rep -> ( [], rep ))
 
