@@ -1428,6 +1428,10 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
         ruleProjectVisitor : RuleProjectVisitor
         ruleProjectVisitor =
             RuleProjectVisitor {}
+
+        fromModuleContextToProjectRule : moduleContext -> RuleProjectVisitor
+        fromModuleContextToProjectRule moduleContext =
+            RuleProjectVisitor {}
     in
     { moduleDefinitionVisitors = List.reverse schema.moduleDefinitionVisitors
     , moduleDocumentationVisitors = List.reverse schema.moduleDocumentationVisitors
