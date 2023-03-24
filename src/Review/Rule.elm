@@ -4900,8 +4900,8 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
         ruleModuleVisitors =
             visitModuleForProjectRule2 module_ [ dataToComputeModules.moduleVisitor.ruleModuleVisitor initialModuleContext ]
 
-        ruleProjectVisitors : List RuleProjectVisitor
-        ruleProjectVisitors =
+        outputRuleProjectVisitors : List RuleProjectVisitor
+        outputRuleProjectVisitors =
             -- TODO Continue here
             List.map (\rule -> getToProjectVisitor rule ()) ruleModuleVisitors
 
