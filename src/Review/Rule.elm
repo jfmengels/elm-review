@@ -4901,14 +4901,14 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
         initialModuleContext =
             applyContextCreator availableData dataToComputeModules.moduleContextCreator projectContext
 
-        ruleModuleVisitors : List RuleModuleVisitor
-        ruleModuleVisitors =
+        outputRuleModuleVisitors : List RuleModuleVisitor
+        outputRuleModuleVisitors =
             visitModuleForProjectRule2 module_ [ dataToComputeModules.moduleVisitor.ruleModuleVisitor initialModuleContext ]
 
         outputRuleProjectVisitors : List RuleProjectVisitor
         outputRuleProjectVisitors =
             -- TODO Continue here
-            List.map (\rule -> getToProjectVisitor rule ()) ruleModuleVisitors
+            List.map (\rule -> getToProjectVisitor rule ()) outputRuleModuleVisitors
 
         ( _, resultModuleContext ) =
             visitModuleForProjectRule
@@ -4918,7 +4918,7 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
 
         errors : List (Error {})
         errors =
-            ruleModuleVisitors
+            outputRuleModuleVisitors
                 |> List.concatMap getErrorsForRuleModuleVisitor
                 |> List.map (\error_ -> setFilePathIfUnset module_ error_)
                 |> filterExceptionsAndSetName dataToComputeModules.exceptions dataToComputeModules.projectVisitor.name
