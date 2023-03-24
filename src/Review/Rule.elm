@@ -4902,6 +4902,7 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
 
         ruleProjectVisitors : List RuleProjectVisitor
         ruleProjectVisitors =
+            -- TODO Continue here
             List.map (\rule -> getToProjectVisitor rule ()) ruleModuleVisitors
 
         ( _, resultModuleContext ) =
