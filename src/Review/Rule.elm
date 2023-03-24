@@ -4906,7 +4906,7 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
             List.map
                 (\ruleProjectVisitor ->
                     dataToComputeModules.moduleVisitor.ruleModuleVisitor
-                        initialModuleContext
+                        (applyContextCreator availableData dataToComputeModules.moduleContextCreator projectContext)
                 )
                 inputRuleProjectVisitors
 
