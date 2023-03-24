@@ -4903,7 +4903,7 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
 
         inputRuleModuleVisitors : List RuleModuleVisitor
         inputRuleModuleVisitors =
-            [ dataToComputeModules.moduleVisitor.ruleModuleVisitor initialModuleContext ]
+            List.map (\() -> dataToComputeModules.moduleVisitor.ruleModuleVisitor initialModuleContext) [ () ]
 
         outputRuleModuleVisitors : List RuleModuleVisitor
         outputRuleModuleVisitors =
