@@ -1425,10 +1425,6 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
 fromModuleRuleSchemaToRunnableModuleVisitor : ModuleRuleSchema schemaState moduleContext -> RunnableModuleVisitor moduleContext
 fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     let
-        ruleProjectVisitor : RuleProjectVisitor
-        ruleProjectVisitor =
-            RuleProjectVisitor {}
-
         fromModuleContextToProjectRule : moduleContext -> RuleProjectVisitor
         fromModuleContextToProjectRule moduleContext =
             RuleProjectVisitor {}
@@ -1440,7 +1436,7 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     , declarationListVisitors = List.reverse schema.declarationListVisitors
     , declarationAndExpressionVisitor = createDeclarationAndExpressionVisitor schema
     , finalEvaluationFns = List.reverse schema.finalEvaluationFns
-    , ruleModuleVisitor = newRule schema ruleProjectVisitor
+    , ruleModuleVisitor = newRule schema fromModuleContextToProjectRule
     }
 
 
@@ -5750,7 +5746,7 @@ type alias RuleModuleVisitorRecord =
     }
 
 
-newRule : ModuleRuleSchemaData moduleContext -> RuleProjectVisitor -> moduleContext -> RuleModuleVisitor
+newRule : ModuleRuleSchemaData moduleContext -> (moduleContext -> RuleProjectVisitor) -> moduleContext -> RuleModuleVisitor
 newRule schema ruleProjectVisitor =
     impl RuleModuleVisitorRecord
         |> wrap (addVisitor (List.reverse schema.moduleDefinitionVisitors))
@@ -5768,7 +5764,7 @@ newRule schema ruleProjectVisitor =
         |> wrap (addVisitor2 schema.caseBranchVisitorsOnExit)
         |> wrap (addFinalModuleEvaluationVisitor schema.finalEvaluationFns)
         |> add (\( errors, _ ) -> errors)
-        |> add (\( _, context ) () -> ruleProjectVisitor)
+        |> add (\( _, context ) () -> ruleProjectVisitor context)
         |> map RuleModuleVisitor
         |> init (\rep -> ( [], rep ))
 
