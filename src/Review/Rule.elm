@@ -4925,6 +4925,15 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
                 initialModuleContext
                 module_
 
+        outputProjectContext : projectContext
+        outputProjectContext =
+            case getFolderFromTraversal dataToComputeModules.projectVisitor.traversalAndFolder of
+                Just { fromModuleToProject } ->
+                    applyContextCreator availableData fromModuleToProject resultModuleContext
+
+                Nothing ->
+                    projectContext
+
         errors : List (Error {})
         errors =
             outputRuleModuleVisitors
@@ -4932,7 +4941,7 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
                 |> List.map (\error_ -> setFilePathIfUnset module_ error_)
                 |> filterExceptionsAndSetName dataToComputeModules.exceptions dataToComputeModules.projectVisitor.name
     in
-    case findFixInComputeModuleResults { params | project = newProject } availableData resultModuleContext errors of
+    case findFixInComputeModuleResults { params | project = newProject } outputProjectContext errors of
         ContinueWithNextStep nextStepResult ->
             nextStepResult
 
@@ -4947,11 +4956,10 @@ type ComputeModuleFindFixResult projectContext moduleContext
 
 findFixInComputeModuleResults :
     DataToComputeSingleModule projectContext moduleContext
-    -> AvailableData
-    -> moduleContext
+    -> projectContext
     -> List (Error {})
     -> ComputeModuleFindFixResult projectContext moduleContext
-findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, projectContext, project, moduleZipper, fixedErrors } as params) availableData resultModuleContext errors =
+findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, projectContext, project, moduleZipper, fixedErrors } as params) outputContext errors =
     let
         analysis : ModuleCacheEntry projectContext
         analysis =
@@ -4960,13 +4968,7 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
                 , errors = errors
                 , inputContext = projectContext
                 , isFileIgnored = isFileIgnored
-                , outputContext =
-                    case getFolderFromTraversal dataToComputeModules.projectVisitor.traversalAndFolder of
-                        Just { fromModuleToProject } ->
-                            applyContextCreator availableData fromModuleToProject resultModuleContext
-
-                        Nothing ->
-                            projectContext
+                , outputContext = outputContext
                 }
 
         resultWhenNoFix : () -> ComputeModuleFindFixResult projectContext moduleContext
