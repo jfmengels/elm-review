@@ -5747,7 +5747,7 @@ type alias RuleModuleVisitorRecord =
 
 
 newRule : ModuleRuleSchemaData moduleContext -> (moduleContext -> RuleProjectVisitor) -> moduleContext -> RuleModuleVisitor
-newRule schema ruleProjectVisitor =
+newRule schema toRuleProjectVisitor =
     impl RuleModuleVisitorRecord
         |> wrap (addVisitor (List.reverse schema.moduleDefinitionVisitors))
         |> wrap (addVisitor (List.reverse schema.moduleDocumentationVisitors))
@@ -5764,7 +5764,7 @@ newRule schema ruleProjectVisitor =
         |> wrap (addVisitor2 schema.caseBranchVisitorsOnExit)
         |> wrap (addFinalModuleEvaluationVisitor schema.finalEvaluationFns)
         |> add (\( errors, _ ) -> errors)
-        |> add (\( _, context ) () -> ruleProjectVisitor context)
+        |> add (\( _, context ) () -> toRuleProjectVisitor context)
         |> map RuleModuleVisitor
         |> init (\rep -> ( [], rep ))
 
