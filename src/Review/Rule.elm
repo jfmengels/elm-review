@@ -1424,11 +1424,6 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
 
 fromModuleRuleSchemaToRunnableModuleVisitor : ModuleRuleSchema schemaState moduleContext -> RunnableModuleVisitor moduleContext
 fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
-    let
-        fromModuleContextToProjectRule : moduleContext -> RuleProjectVisitor
-        fromModuleContextToProjectRule moduleContext =
-            RuleProjectVisitor {}
-    in
     { moduleDefinitionVisitors = List.reverse schema.moduleDefinitionVisitors
     , moduleDocumentationVisitors = List.reverse schema.moduleDocumentationVisitors
     , commentsVisitors = List.reverse schema.commentsVisitors
@@ -1436,7 +1431,7 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     , declarationListVisitors = List.reverse schema.declarationListVisitors
     , declarationAndExpressionVisitor = createDeclarationAndExpressionVisitor schema
     , finalEvaluationFns = List.reverse schema.finalEvaluationFns
-    , ruleModuleVisitor = newRule schema fromModuleContextToProjectRule
+    , ruleModuleVisitor = \ruleProjectVisitor -> newRule schema (\moduleContext -> ruleProjectVisitor)
     }
 
 
@@ -4128,7 +4123,7 @@ type alias RunnableModuleVisitor moduleContext =
     , declarationListVisitors : List (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
     , declarationAndExpressionVisitor : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
     , finalEvaluationFns : List (moduleContext -> List (Error {}))
-    , ruleModuleVisitor : moduleContext -> RuleModuleVisitor
+    , ruleModuleVisitor : RuleProjectVisitor -> moduleContext -> RuleModuleVisitor
     }
 
 
@@ -4902,6 +4897,7 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
             List.map
                 (\ruleProjectVisitor ->
                     dataToComputeModules.moduleVisitor.ruleModuleVisitor
+                        ruleProjectVisitor
                         (applyContextCreator availableData dataToComputeModules.moduleContextCreator projectContext)
                 )
                 inputRuleProjectVisitors
