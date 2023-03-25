@@ -4889,7 +4889,7 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
 
         inputRuleProjectVisitors : List RuleProjectVisitor
         inputRuleProjectVisitors =
-            [ createRuleProjectVisitor
+            [ createRuleProjectVisitor ()
             ]
 
         inputRuleModuleVisitors : List RuleModuleVisitor
@@ -5738,12 +5738,16 @@ type RuleProjectVisitor
 type alias RuleProjectVisitorRecord =
     -- `projectContext` is the hidden type variable
     -- The hidden state is `ProjectRuleCache projectContext`
-    {}
+    { collectModuleContext : String -> RuleModuleVisitor -> RuleProjectVisitor
+    }
 
 
-createRuleProjectVisitor : RuleProjectVisitor
+createRuleProjectVisitor : () -> RuleProjectVisitor
 createRuleProjectVisitor =
-    RuleProjectVisitor {}
+    impl RuleProjectVisitorRecord
+        |> wrap (\raise cache -> \path ruleModuleVisitor -> raise cache)
+        |> map RuleProjectVisitor
+        |> init (\() -> emptyCache)
 
 
 type RuleModuleVisitor
