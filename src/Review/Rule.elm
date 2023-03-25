@@ -4892,8 +4892,8 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
             , isFileIgnored = isFileIgnored
             }
 
-        inputRuleProjectVisitors : List (() -> RuleModuleVisitor)
-        inputRuleProjectVisitors =
+        something : List (() -> RuleModuleVisitor)
+        something =
             [ \() ->
                 dataToComputeModules.moduleVisitor.ruleModuleVisitor
                     (applyContextCreator availableData dataToComputeModules.moduleContextCreator projectContext)
@@ -4905,7 +4905,7 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
 
         inputRuleModuleVisitors : List RuleModuleVisitor
         inputRuleModuleVisitors =
-            List.map (\createModuleVisitor -> createModuleVisitor ()) inputRuleProjectVisitors
+            List.map (\createModuleVisitor -> createModuleVisitor ()) something
 
         outputRuleModuleVisitors : List RuleModuleVisitor
         outputRuleModuleVisitors =
