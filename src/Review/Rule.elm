@@ -1269,6 +1269,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
             \reviewOptions ruleId exceptions fixedErrors project ->
                 runProjectVisitor
                     { reviewOptions = reviewOptions
+                    , ruleProjectVisitors = [ createRuleProjectVisitor schema () ]
                     , projectVisitor = fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema
                     , exceptions = exceptions
                     }
@@ -4188,7 +4189,7 @@ runProjectVisitorHelp :
     -> FixedErrors
     -> ValidProject
     -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
-runProjectVisitorHelp ({ projectVisitor, exceptions } as dataToComputeProject) ruleId initialCache initialFixedErrors initialProject =
+runProjectVisitorHelp ({ ruleProjectVisitors, projectVisitor, exceptions } as dataToComputeProject) ruleId initialCache initialFixedErrors initialProject =
     let
         { project, errors, cache, fixedErrors } =
             computeStepsForProject
@@ -4213,6 +4214,7 @@ runProjectVisitorHelp ({ projectVisitor, exceptions } as dataToComputeProject) r
                 \newReviewOptions newRuleId newExceptions newFixedErrors newProjectArg ->
                     runProjectVisitor
                         { reviewOptions = newReviewOptions
+                        , ruleProjectVisitors = ruleProjectVisitors
                         , projectVisitor = projectVisitor
                         , exceptions = newExceptions
                         }
@@ -4318,6 +4320,7 @@ type alias ProjectRuleCache projectContext =
 
 type alias DataToComputeProject projectContext moduleContext =
     { reviewOptions : ReviewOptionsData
+    , ruleProjectVisitors : List RuleProjectVisitor
     , projectVisitor : RunnableProjectVisitor projectContext moduleContext
     , exceptions : Exceptions
     }
@@ -4361,6 +4364,7 @@ computeStepsForProject dataToComputeProject ({ project, cache, fixedErrors, step
                         result =
                             computeModules
                                 { reviewOptions = dataToComputeProject.reviewOptions
+                                , ruleProjectVisitors = dataToComputeProject.ruleProjectVisitors
                                 , projectVisitor = dataToComputeProject.projectVisitor
                                 , moduleVisitor = moduleVisitor
                                 , moduleContextCreator = moduleContextCreator
@@ -4832,6 +4836,7 @@ errorFilePathInternal (Error err) =
 
 type alias DataToComputeModules projectContext moduleContext =
     { reviewOptions : ReviewOptionsData
+    , ruleProjectVisitors : List RuleProjectVisitor
     , projectVisitor : RunnableProjectVisitor projectContext moduleContext
     , moduleVisitor : RunnableModuleVisitor moduleContext
     , moduleContextCreator : ContextCreator projectContext moduleContext
@@ -4852,7 +4857,7 @@ type alias DataToComputeSingleModule projectContext moduleContext =
 
 computeModule :
     DataToComputeSingleModule projectContext moduleContext
-    -> { project : ValidProject, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
+    -> { project : ValidProject, analysis : ModuleCacheEntry projectContext, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
 computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, project } as params) =
     let
         (RequestedData requestedData) =
@@ -4890,11 +4895,6 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
             , isFileIgnored = isFileIgnored
             }
 
-        inputRuleProjectVisitors : List RuleProjectVisitor
-        inputRuleProjectVisitors =
-            [ createRuleProjectVisitor (Debug.todo "project rule schema") ()
-            ]
-
         inputRuleModuleVisitors : List RuleModuleVisitor
         inputRuleModuleVisitors =
             List.map
@@ -4903,7 +4903,7 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
                         ruleProjectVisitor
                         (applyContextCreator availableData dataToComputeModules.moduleContextCreator projectContext)
                 )
-                inputRuleProjectVisitors
+                dataToComputeModules.ruleProjectVisitors
 
         initialModuleContext : moduleContext
         initialModuleContext =
@@ -4949,7 +4949,7 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
 
 
 type ComputeModuleFindFixResult projectContext moduleContext
-    = ContinueWithNextStep { project : ValidProject, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
+    = ContinueWithNextStep { project : ValidProject, analysis : ModuleCacheEntry projectContext, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
     | ReComputeModule (DataToComputeSingleModule projectContext moduleContext)
 
 
@@ -4974,6 +4974,7 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
         resultWhenNoFix () =
             ContinueWithNextStep
                 { project = project
+                , ruleProjectVisitors = dataToComputeModules.ruleProjectVisitors
                 , analysis = analysis
                 , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
                 , fixedErrors = fixedErrors
@@ -4985,6 +4986,7 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
                 ShouldAbort newFixedErrors ->
                     ContinueWithNextStep
                         { project = fixResult.project
+                        , ruleProjectVisitors = dataToComputeModules.ruleProjectVisitors
                         , analysis = analysis
                         , nextStep = NextStepAbort
                         , fixedErrors = newFixedErrors
@@ -5021,6 +5023,7 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
                                             (fixedError newFixedErrors { ruleName = dataToComputeModules.projectVisitor.name, filePath = filePath })
                                             (ContinueWithNextStep
                                                 { project = fixResult.project
+                                                , ruleProjectVisitors = dataToComputeModules.ruleProjectVisitors
                                                 , analysis = analysis
                                                 , nextStep = ModuleVisitStep (Just newModuleZipper)
                                                 , fixedErrors = newFixedErrors
@@ -5033,6 +5036,7 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
                         FixedElmJson ->
                             ContinueWithNextStep
                                 { project = fixResult.project
+                                , ruleProjectVisitors = dataToComputeModules.ruleProjectVisitors
                                 , analysis = analysis
                                 , nextStep = BackToElmJson
                                 , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
@@ -5041,6 +5045,7 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
                         FixedReadme ->
                             ContinueWithNextStep
                                 { project = fixResult.project
+                                , ruleProjectVisitors = dataToComputeModules.ruleProjectVisitors
                                 , analysis = analysis
                                 , nextStep = BackToReadme
                                 , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
@@ -5246,7 +5251,7 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
 
                     Nothing ->
                         let
-                            result : { project : ValidProject, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
+                            result : { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
                             result =
                                 computeModule
                                     { dataToComputeModules = dataToComputeModules
