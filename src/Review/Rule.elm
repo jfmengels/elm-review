@@ -1170,27 +1170,30 @@ how to create a project rule.
 
 -}
 type ProjectRuleSchema schemaState projectContext moduleContext
-    = ProjectRuleSchema
-        { name : String
-        , initialProjectContext : projectContext
-        , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
-        , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
-        , directDependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
-        , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
-        , moduleVisitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
-        , moduleContextCreator : Maybe (ContextCreator projectContext moduleContext)
-        , folder : Maybe (Folder projectContext moduleContext)
-        , providesFixes : Bool
+    = ProjectRuleSchema (ProjectRuleSchemaData projectContext moduleContext)
 
-        -- TODO Jeroen Only allow to set it if there is a folder, but not several times
-        , traversalType : TraversalType
 
-        -- TODO Jeroen Only allow to set it if there is a folder and module visitors?
-        , finalEvaluationFns : List (projectContext -> List (Error {}))
+type alias ProjectRuleSchemaData projectContext moduleContext =
+    { name : String
+    , initialProjectContext : projectContext
+    , elmJsonVisitors : List (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
+    , readmeVisitors : List (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
+    , directDependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
+    , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
+    , moduleVisitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
+    , moduleContextCreator : Maybe (ContextCreator projectContext moduleContext)
+    , folder : Maybe (Folder projectContext moduleContext)
+    , providesFixes : Bool
 
-        -- TODO Breaking change only allow a single data extractor, and only for project rules
-        , dataExtractor : Maybe (projectContext -> Extract)
-        }
+    -- TODO Jeroen Only allow to set it if there is a folder, but not several times
+    , traversalType : TraversalType
+
+    -- TODO Jeroen Only allow to set it if there is a folder and module visitors?
+    , finalEvaluationFns : List (projectContext -> List (Error {}))
+
+    -- TODO Breaking change only allow a single data extractor, and only for project rules
+    , dataExtractor : Maybe (projectContext -> Extract)
+    }
 
 
 type TraversalType
