@@ -5749,6 +5749,8 @@ type RuleModuleVisitor
 
 
 type alias RuleModuleVisitorRecord =
+    -- `moduleContext` is the hidden type variable
+    -- The hidden state is `( List (Error {}), moduleContext )`
     { moduleDefinitionVisitor : Maybe (Node Module -> RuleModuleVisitor)
     , moduleDocumentationVisitor : Maybe (Maybe (Node String) -> RuleModuleVisitor)
     , commentsVisitor : Maybe (List (Node String) -> RuleModuleVisitor)
