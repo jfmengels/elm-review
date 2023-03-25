@@ -5736,6 +5736,8 @@ type RuleProjectVisitor
 
 
 type alias RuleProjectVisitorRecord =
+    -- `projectContext` is the hidden type variable
+    -- The hidden state is `ProjectRuleCache projectContext`
     {}
 
 
