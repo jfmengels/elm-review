@@ -5745,7 +5745,7 @@ type alias RuleProjectVisitorRecord =
 createRuleProjectVisitor : () -> RuleProjectVisitor
 createRuleProjectVisitor =
     impl RuleProjectVisitorRecord
-        |> wrap (\raise cache -> \path ruleModuleVisitor -> raise cache)
+        |> wrap (\raise cache -> \path ruleModuleVisitor -> getToProjectVisitor ruleModuleVisitor ())
         |> map RuleProjectVisitor
         |> init (\() -> emptyCache)
 
