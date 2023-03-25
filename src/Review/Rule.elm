@@ -4892,7 +4892,7 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
 
         inputRuleProjectVisitors : List RuleProjectVisitor
         inputRuleProjectVisitors =
-            [ createRuleProjectVisitor ()
+            [ createRuleProjectVisitor (Debug.todo "project rule schema") ()
             ]
 
         inputRuleModuleVisitors : List RuleModuleVisitor
@@ -5745,8 +5745,8 @@ type alias RuleProjectVisitorRecord =
     }
 
 
-createRuleProjectVisitor : () -> RuleProjectVisitor
-createRuleProjectVisitor =
+createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> () -> RuleProjectVisitor
+createRuleProjectVisitor schema =
     impl RuleProjectVisitorRecord
         |> wrap (\raise cache -> \path ruleModuleVisitor -> getToProjectVisitor ruleModuleVisitor ())
         |> map RuleProjectVisitor
