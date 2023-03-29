@@ -5786,26 +5786,8 @@ type alias RuleModuleVisitorOperations t =
 
 
 newRule : ModuleRuleSchemaData moduleContext -> (moduleContext -> RuleProjectVisitor) -> moduleContext -> RuleModuleVisitor
-newRule schema toRuleProjectVisitor =
-    If.impl RuleModuleVisitorOperations
-        |> If.wrap (addVisitor (List.reverse schema.moduleDefinitionVisitors))
-        |> If.wrap (addVisitor (List.reverse schema.moduleDocumentationVisitors))
-        |> If.wrap (addVisitor (List.reverse schema.commentsVisitors))
-        |> If.wrap (addImportsVisitor (List.reverse schema.importVisitors))
-        |> If.wrap (addVisitor (List.reverse schema.declarationListVisitors))
-        |> If.wrap (addVisitor (List.reverse schema.declarationVisitorsOnEnter))
-        |> If.wrap (addVisitor schema.declarationVisitorsOnExit)
-        |> If.wrap (addVisitor (List.reverse schema.expressionVisitorsOnEnter))
-        |> If.wrap (addVisitor schema.expressionVisitorsOnExit)
-        |> If.wrap (addVisitor2 (List.reverse schema.letDeclarationVisitorsOnEnter))
-        |> If.wrap (addVisitor2 schema.letDeclarationVisitorsOnExit)
-        |> If.wrap (addVisitor2 (List.reverse schema.caseBranchVisitorsOnEnter))
-        |> If.wrap (addVisitor2 schema.caseBranchVisitorsOnExit)
-        |> If.wrap (addFinalModuleEvaluationVisitor schema.finalEvaluationFns)
-        |> If.add (\( errors, _ ) -> errors)
-        |> If.add (\( _, context ) () -> toRuleProjectVisitor context)
-        |> If.map RuleModuleVisitor
-        |> If.init (\rep -> ( [], rep ))
+newRule schema toRuleProjectVisitor initialContext =
+    If.create RuleModuleVisitor (moduleRuleImplementation schema toRuleProjectVisitor) ( [], initialContext )
 
 
 moduleRuleImplementation : ModuleRuleSchemaData moduleContext -> (moduleContext -> RuleProjectVisitor) -> (( List (Error {}), moduleContext ) -> RuleModuleVisitor) -> ( List (Error {}), moduleContext ) -> RuleModuleVisitorOperations RuleModuleVisitor
