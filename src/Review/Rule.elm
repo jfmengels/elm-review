@@ -5741,10 +5741,10 @@ type alias Rules =
 
 
 type RuleProjectVisitor
-    = RuleProjectVisitor (RuleProjectVisitorRecord RuleProjectVisitor)
+    = RuleProjectVisitor (RuleProjectVisitorOperations RuleProjectVisitor)
 
 
-type alias RuleProjectVisitorRecord t =
+type alias RuleProjectVisitorOperations t =
     -- `projectContext` is the hidden type variable
     -- The hidden state is `ProjectRuleCache projectContext`
     { collectModuleContext : String -> RuleModuleVisitor -> t
@@ -5753,17 +5753,17 @@ type alias RuleProjectVisitorRecord t =
 
 createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> () -> RuleProjectVisitor
 createRuleProjectVisitor schema =
-    If.impl RuleProjectVisitorRecord
+    If.impl RuleProjectVisitorOperations
         |> If.wrap (\raise cache -> \path ruleModuleVisitor -> getToProjectVisitor ruleModuleVisitor ())
         |> If.map RuleProjectVisitor
         |> If.init (\() -> emptyCache)
 
 
 type RuleModuleVisitor
-    = RuleModuleVisitor (RuleModuleVisitorRecord RuleModuleVisitor)
+    = RuleModuleVisitor (RuleModuleVisitorOperations RuleModuleVisitor)
 
 
-type alias RuleModuleVisitorRecord t =
+type alias RuleModuleVisitorOperations t =
     -- `moduleContext` is the hidden type variable
     -- The hidden state is `( List (Error {}), moduleContext )`
     { moduleDefinitionVisitor : Maybe (Node Module -> t)
@@ -5787,7 +5787,7 @@ type alias RuleModuleVisitorRecord t =
 
 newRule : ModuleRuleSchemaData moduleContext -> (moduleContext -> RuleProjectVisitor) -> moduleContext -> RuleModuleVisitor
 newRule schema toRuleProjectVisitor =
-    If.impl RuleModuleVisitorRecord
+    If.impl RuleModuleVisitorOperations
         |> If.wrap (addVisitor (List.reverse schema.moduleDefinitionVisitors))
         |> If.wrap (addVisitor (List.reverse schema.moduleDocumentationVisitors))
         |> If.wrap (addVisitor (List.reverse schema.commentsVisitors))
@@ -5888,7 +5888,7 @@ getToProjectVisitor (RuleModuleVisitor ruleModuleVisitor) () =
     ruleModuleVisitor.toProjectVisitor ()
 
 
-runVisitor : (RuleModuleVisitorRecord RuleModuleVisitor -> Maybe (a -> RuleModuleVisitor)) -> a -> RuleModuleVisitor -> RuleModuleVisitor
+runVisitor : (RuleModuleVisitorOperations RuleModuleVisitor -> Maybe (a -> RuleModuleVisitor)) -> a -> RuleModuleVisitor -> RuleModuleVisitor
 runVisitor field node ((RuleModuleVisitor ruleModuleVisitor) as original) =
     case field ruleModuleVisitor of
         Just visitor ->
@@ -5898,7 +5898,7 @@ runVisitor field node ((RuleModuleVisitor ruleModuleVisitor) as original) =
             original
 
 
-runVisitor2 : (RuleModuleVisitorRecord RuleModuleVisitor -> Maybe (a -> b -> RuleModuleVisitor)) -> a -> b -> RuleModuleVisitor -> RuleModuleVisitor
+runVisitor2 : (RuleModuleVisitorOperations RuleModuleVisitor -> Maybe (a -> b -> RuleModuleVisitor)) -> a -> b -> RuleModuleVisitor -> RuleModuleVisitor
 runVisitor2 field a b ((RuleModuleVisitor ruleModuleVisitor) as original) =
     case field ruleModuleVisitor of
         Just visitor ->
