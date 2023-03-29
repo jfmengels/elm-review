@@ -306,6 +306,7 @@ import Elm.Syntax.ModuleName exposing (ModuleName)
 import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern exposing (Pattern)
 import Elm.Syntax.Range as Range exposing (Range)
+import Interface as If
 import Json.Encode as Encode
 import Review.Cache as Cache
 import Review.Cache.ContextHash as ContextHash exposing (ContextHash)
@@ -5752,10 +5753,10 @@ type alias RuleProjectVisitorRecord =
 
 createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> () -> RuleProjectVisitor
 createRuleProjectVisitor schema =
-    impl RuleProjectVisitorRecord
-        |> wrap (\raise cache -> \path ruleModuleVisitor -> getToProjectVisitor ruleModuleVisitor ())
-        |> map RuleProjectVisitor
-        |> init (\() -> emptyCache)
+    If.impl RuleProjectVisitorRecord
+        |> If.wrap (\raise cache -> \path ruleModuleVisitor -> getToProjectVisitor ruleModuleVisitor ())
+        |> If.map RuleProjectVisitor
+        |> If.init (\() -> emptyCache)
 
 
 type RuleModuleVisitor
@@ -5786,25 +5787,25 @@ type alias RuleModuleVisitorRecord =
 
 newRule : ModuleRuleSchemaData moduleContext -> (moduleContext -> RuleProjectVisitor) -> moduleContext -> RuleModuleVisitor
 newRule schema toRuleProjectVisitor =
-    impl RuleModuleVisitorRecord
-        |> wrap (addVisitor (List.reverse schema.moduleDefinitionVisitors))
-        |> wrap (addVisitor (List.reverse schema.moduleDocumentationVisitors))
-        |> wrap (addVisitor (List.reverse schema.commentsVisitors))
-        |> wrap (addImportsVisitor (List.reverse schema.importVisitors))
-        |> wrap (addVisitor (List.reverse schema.declarationListVisitors))
-        |> wrap (addVisitor (List.reverse schema.declarationVisitorsOnEnter))
-        |> wrap (addVisitor schema.declarationVisitorsOnExit)
-        |> wrap (addVisitor (List.reverse schema.expressionVisitorsOnEnter))
-        |> wrap (addVisitor schema.expressionVisitorsOnExit)
-        |> wrap (addVisitor2 (List.reverse schema.letDeclarationVisitorsOnEnter))
-        |> wrap (addVisitor2 schema.letDeclarationVisitorsOnExit)
-        |> wrap (addVisitor2 (List.reverse schema.caseBranchVisitorsOnEnter))
-        |> wrap (addVisitor2 schema.caseBranchVisitorsOnExit)
-        |> wrap (addFinalModuleEvaluationVisitor schema.finalEvaluationFns)
-        |> add (\( errors, _ ) -> errors)
-        |> add (\( _, context ) () -> toRuleProjectVisitor context)
-        |> map RuleModuleVisitor
-        |> init (\rep -> ( [], rep ))
+    If.impl RuleModuleVisitorRecord
+        |> If.wrap (addVisitor (List.reverse schema.moduleDefinitionVisitors))
+        |> If.wrap (addVisitor (List.reverse schema.moduleDocumentationVisitors))
+        |> If.wrap (addVisitor (List.reverse schema.commentsVisitors))
+        |> If.wrap (addImportsVisitor (List.reverse schema.importVisitors))
+        |> If.wrap (addVisitor (List.reverse schema.declarationListVisitors))
+        |> If.wrap (addVisitor (List.reverse schema.declarationVisitorsOnEnter))
+        |> If.wrap (addVisitor schema.declarationVisitorsOnExit)
+        |> If.wrap (addVisitor (List.reverse schema.expressionVisitorsOnEnter))
+        |> If.wrap (addVisitor schema.expressionVisitorsOnExit)
+        |> If.wrap (addVisitor2 (List.reverse schema.letDeclarationVisitorsOnEnter))
+        |> If.wrap (addVisitor2 schema.letDeclarationVisitorsOnExit)
+        |> If.wrap (addVisitor2 (List.reverse schema.caseBranchVisitorsOnEnter))
+        |> If.wrap (addVisitor2 schema.caseBranchVisitorsOnExit)
+        |> If.wrap (addFinalModuleEvaluationVisitor schema.finalEvaluationFns)
+        |> If.add (\( errors, _ ) -> errors)
+        |> If.add (\( _, context ) () -> toRuleProjectVisitor context)
+        |> If.map RuleModuleVisitor
+        |> If.init (\rep -> ( [], rep ))
 
 
 addVisitor : List (data -> context -> ( List (Error {}), context )) -> (( List (Error {}), context ) -> RuleModuleVisitor) -> ( List (Error {}), context ) -> Maybe (data -> RuleModuleVisitor)
@@ -5905,36 +5906,6 @@ runVisitor2 field a b ((RuleModuleVisitor ruleModuleVisitor) as original) =
 
         Nothing ->
             original
-
-
-impl : t -> (raise -> rep -> t)
-impl constructor =
-    \_ _ -> constructor
-
-
-wrap : (raise -> rep -> t) -> (raise -> rep -> (t -> q)) -> raise -> rep -> q
-wrap method pipeline raise rep =
-    method raise rep |> pipeline raise rep
-
-
-add : (rep -> t) -> (raise -> rep -> (t -> q)) -> raise -> rep -> q
-add method pipeline raise rep =
-    method rep |> pipeline raise rep
-
-
-map : (a -> b) -> (raise -> rep -> a) -> raise -> rep -> b
-map op pipeline raise rep =
-    pipeline raise rep |> op
-
-
-init : (rep -> sealed) -> ((sealed -> output) -> sealed -> output) -> rep -> output
-init ir rtrt i =
-    let
-        rt : sealed -> output
-        rt r =
-            rtrt rt r
-    in
-    rt (ir i)
 
 
 visitExpression :
