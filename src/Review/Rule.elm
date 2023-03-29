@@ -5823,7 +5823,7 @@ moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, moduleCont
     , letDeclarationVisitorsOnExit = addVisitorX2 raise errorsAndContext schema.letDeclarationVisitorsOnExit
     , caseBranchVisitorsOnEnter = addVisitorX2 raise errorsAndContext (List.reverse schema.caseBranchVisitorsOnEnter)
     , caseBranchVisitorsOnExit = addVisitorX2 raise errorsAndContext schema.caseBranchVisitorsOnExit
-    , finalModuleEvaluation = Nothing
+    , finalModuleEvaluation = addFinalModuleEvaluationVisitorX raise errorsAndContext schema.finalEvaluationFns
     , getErrors = errors
     , toProjectVisitor = \() -> toRuleProjectVisitor moduleContext
     }
@@ -5950,6 +5950,23 @@ addFinalModuleEvaluationVisitor visitors =
         _ ->
             \raise ( errors, context ) ->
                 Just (\() -> raise ( List.foldl (\visitor acc -> List.append (visitor context) acc) errors visitors, context ))
+
+
+addFinalModuleEvaluationVisitorX :
+    (( List (Error {}), context ) -> RuleModuleVisitor)
+    -> ( List (Error {}), context )
+    -> List (context -> List (Error {}))
+    -> Maybe (() -> RuleModuleVisitor)
+addFinalModuleEvaluationVisitorX raise ( errors, context ) visitors =
+    case visitors of
+        [] ->
+            Nothing
+
+        [ visitor ] ->
+            Just (\() -> raise ( visitor context ++ errors, context ))
+
+        _ ->
+            Just (\() -> raise ( List.foldl (\visitor acc -> List.append (visitor context) acc) errors visitors, context ))
 
 
 getErrorsForRuleModuleVisitor : RuleModuleVisitor -> List (Error {})
