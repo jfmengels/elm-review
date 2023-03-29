@@ -5760,26 +5760,26 @@ createRuleProjectVisitor schema =
 
 
 type RuleModuleVisitor
-    = RuleModuleVisitor RuleModuleVisitorRecord
+    = RuleModuleVisitor (RuleModuleVisitorRecord RuleModuleVisitor)
 
 
-type alias RuleModuleVisitorRecord =
+type alias RuleModuleVisitorRecord t =
     -- `moduleContext` is the hidden type variable
     -- The hidden state is `( List (Error {}), moduleContext )`
-    { moduleDefinitionVisitor : Maybe (Node Module -> RuleModuleVisitor)
-    , moduleDocumentationVisitor : Maybe (Maybe (Node String) -> RuleModuleVisitor)
-    , commentsVisitor : Maybe (List (Node String) -> RuleModuleVisitor)
-    , importsVisitor : Maybe (List (Node Import) -> RuleModuleVisitor)
-    , declarationListVisitor : Maybe (List (Node Declaration) -> RuleModuleVisitor)
-    , declarationVisitorOnEnter : Maybe (Node Declaration -> RuleModuleVisitor)
-    , declarationVisitorOnExit : Maybe (Node Declaration -> RuleModuleVisitor)
-    , expressionVisitorOnEnter : Maybe (Node Expression -> RuleModuleVisitor)
-    , expressionVisitorOnExit : Maybe (Node Expression -> RuleModuleVisitor)
-    , letDeclarationVisitorsOnEnter : Maybe (Node Expression.LetBlock -> Node Expression.LetDeclaration -> RuleModuleVisitor)
-    , letDeclarationVisitorsOnExit : Maybe (Node Expression.LetBlock -> Node Expression.LetDeclaration -> RuleModuleVisitor)
-    , caseBranchVisitorsOnEnter : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> RuleModuleVisitor)
-    , caseBranchVisitorsOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> RuleModuleVisitor)
-    , finalModuleEvaluation : Maybe (() -> RuleModuleVisitor)
+    { moduleDefinitionVisitor : Maybe (Node Module -> t)
+    , moduleDocumentationVisitor : Maybe (Maybe (Node String) -> t)
+    , commentsVisitor : Maybe (List (Node String) -> t)
+    , importsVisitor : Maybe (List (Node Import) -> t)
+    , declarationListVisitor : Maybe (List (Node Declaration) -> t)
+    , declarationVisitorOnEnter : Maybe (Node Declaration -> t)
+    , declarationVisitorOnExit : Maybe (Node Declaration -> t)
+    , expressionVisitorOnEnter : Maybe (Node Expression -> t)
+    , expressionVisitorOnExit : Maybe (Node Expression -> t)
+    , letDeclarationVisitorsOnEnter : Maybe (Node Expression.LetBlock -> Node Expression.LetDeclaration -> t)
+    , letDeclarationVisitorsOnExit : Maybe (Node Expression.LetBlock -> Node Expression.LetDeclaration -> t)
+    , caseBranchVisitorsOnEnter : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> t)
+    , caseBranchVisitorsOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> t)
+    , finalModuleEvaluation : Maybe (() -> t)
     , getErrors : List (Error {})
     , toProjectVisitor : () -> RuleProjectVisitor
     }
@@ -5888,7 +5888,7 @@ getToProjectVisitor (RuleModuleVisitor ruleModuleVisitor) () =
     ruleModuleVisitor.toProjectVisitor ()
 
 
-runVisitor : (RuleModuleVisitorRecord -> Maybe (a -> RuleModuleVisitor)) -> a -> RuleModuleVisitor -> RuleModuleVisitor
+runVisitor : (RuleModuleVisitorRecord RuleModuleVisitor -> Maybe (a -> RuleModuleVisitor)) -> a -> RuleModuleVisitor -> RuleModuleVisitor
 runVisitor field node ((RuleModuleVisitor ruleModuleVisitor) as original) =
     case field ruleModuleVisitor of
         Just visitor ->
@@ -5898,7 +5898,7 @@ runVisitor field node ((RuleModuleVisitor ruleModuleVisitor) as original) =
             original
 
 
-runVisitor2 : (RuleModuleVisitorRecord -> Maybe (a -> b -> RuleModuleVisitor)) -> a -> b -> RuleModuleVisitor -> RuleModuleVisitor
+runVisitor2 : (RuleModuleVisitorRecord RuleModuleVisitor -> Maybe (a -> b -> RuleModuleVisitor)) -> a -> b -> RuleModuleVisitor -> RuleModuleVisitor
 runVisitor2 field a b ((RuleModuleVisitor ruleModuleVisitor) as original) =
     case field ruleModuleVisitor of
         Just visitor ->
