@@ -5814,11 +5814,11 @@ moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, moduleCont
     , moduleDocumentationVisitor = addVisitorX raise errorsAndContext (List.reverse schema.moduleDocumentationVisitors)
     , commentsVisitor = addVisitorX raise errorsAndContext (List.reverse schema.commentsVisitors)
     , importsVisitor = Nothing
-    , declarationListVisitor = Nothing
-    , declarationVisitorOnEnter = Nothing
-    , declarationVisitorOnExit = Nothing
-    , expressionVisitorOnEnter = Nothing
-    , expressionVisitorOnExit = Nothing
+    , declarationListVisitor = addVisitorX raise errorsAndContext (List.reverse schema.declarationListVisitors)
+    , declarationVisitorOnEnter = addVisitorX raise errorsAndContext (List.reverse schema.declarationVisitorsOnEnter)
+    , declarationVisitorOnExit = addVisitorX raise errorsAndContext schema.declarationVisitorsOnExit
+    , expressionVisitorOnEnter = addVisitorX raise errorsAndContext (List.reverse schema.expressionVisitorsOnEnter)
+    , expressionVisitorOnExit = addVisitorX raise errorsAndContext schema.expressionVisitorsOnExit
     , letDeclarationVisitorsOnEnter = Nothing
     , letDeclarationVisitorsOnExit = Nothing
     , caseBranchVisitorsOnEnter = Nothing
