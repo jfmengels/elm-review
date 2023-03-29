@@ -5808,9 +5808,9 @@ newRule schema toRuleProjectVisitor =
         |> If.init (\rep -> ( [], rep ))
 
 
-moduleRuleImplementation : ModuleRuleSchemaData moduleContext -> (moduleContext -> RuleProjectVisitor) -> (moduleContext -> RuleModuleVisitor) -> ( List (Error {}), moduleContext ) -> RuleModuleVisitorOperations RuleModuleVisitor
+moduleRuleImplementation : ModuleRuleSchemaData moduleContext -> (moduleContext -> RuleProjectVisitor) -> (( List (Error {}), moduleContext ) -> RuleModuleVisitor) -> ( List (Error {}), moduleContext ) -> RuleModuleVisitorOperations RuleModuleVisitor
 moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, moduleContext ) as errorsAndContext) =
-    { moduleDefinitionVisitor = Nothing
+    { moduleDefinitionVisitor = addVisitorX raise errorsAndContext (List.reverse schema.moduleDefinitionVisitors)
     , moduleDocumentationVisitor = Nothing
     , commentsVisitor = Nothing
     , importsVisitor = Nothing
@@ -5857,6 +5857,23 @@ addVisitor2 visitors =
         _ ->
             \raise errorsAndContext ->
                 Just (\a b -> raise (visitWithListOfVisitors2 visitors a b errorsAndContext))
+
+
+addVisitorX :
+    (( List (Error {}), context ) -> a)
+    -> ( List (Error {}), context )
+    -> List (b -> context -> ( List (Error {}), context ))
+    -> Maybe (b -> a)
+addVisitorX raise errorsAndContext visitors =
+    case visitors of
+        [] ->
+            Nothing
+
+        [ visitor ] ->
+            Just (\node -> raise (accumulate (visitor node) errorsAndContext))
+
+        _ ->
+            Just (\node -> raise (visitWithListOfVisitors visitors node errorsAndContext))
 
 
 addImportsVisitor : List (Node Import -> context -> ( List (Error {}), context )) -> (( List (Error {}), context ) -> RuleModuleVisitor) -> ( List (Error {}), context ) -> Maybe (List (Node Import) -> RuleModuleVisitor)
