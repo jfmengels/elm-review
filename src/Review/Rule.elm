@@ -5741,13 +5741,13 @@ type alias Rules =
 
 
 type RuleProjectVisitor
-    = RuleProjectVisitor RuleProjectVisitorRecord
+    = RuleProjectVisitor (RuleProjectVisitorRecord RuleProjectVisitor)
 
 
-type alias RuleProjectVisitorRecord =
+type alias RuleProjectVisitorRecord t =
     -- `projectContext` is the hidden type variable
     -- The hidden state is `ProjectRuleCache projectContext`
-    { collectModuleContext : String -> RuleModuleVisitor -> RuleProjectVisitor
+    { collectModuleContext : String -> RuleModuleVisitor -> t
     }
 
 
