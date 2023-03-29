@@ -5752,11 +5752,18 @@ type alias RuleProjectVisitorOperations t =
 
 
 createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> () -> RuleProjectVisitor
-createRuleProjectVisitor schema =
-    If.impl RuleProjectVisitorOperations
-        |> If.wrap (\raise cache -> \path ruleModuleVisitor -> getToProjectVisitor ruleModuleVisitor ())
-        |> If.map RuleProjectVisitor
-        |> If.init (\() -> emptyCache)
+createRuleProjectVisitor schema () =
+    If.create RuleProjectVisitor (projectRuleImplementation schema) emptyCache
+
+
+projectRuleImplementation :
+    ProjectRuleSchemaData projectContext moduleContext
+    -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
+    -> ProjectRuleCache projectContext
+    -> RuleProjectVisitorOperations RuleProjectVisitor
+projectRuleImplementation schema raise cache =
+    { collectModuleContext = \path ruleModuleVisitor -> getToProjectVisitor ruleModuleVisitor ()
+    }
 
 
 type RuleModuleVisitor
