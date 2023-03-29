@@ -5808,6 +5808,27 @@ newRule schema toRuleProjectVisitor =
         |> If.init (\rep -> ( [], rep ))
 
 
+moduleRuleImplementation : ModuleRuleSchemaData moduleContext -> (moduleContext -> RuleProjectVisitor) -> (moduleContext -> RuleModuleVisitor) -> moduleContext -> RuleModuleVisitorOperations RuleModuleVisitor
+moduleRuleImplementation schema toRuleProjectVisitor raise rep =
+    { moduleDefinitionVisitor = Nothing
+    , moduleDocumentationVisitor = Nothing
+    , commentsVisitor = Nothing
+    , importsVisitor = Nothing
+    , declarationListVisitor = Nothing
+    , declarationVisitorOnEnter = Nothing
+    , declarationVisitorOnExit = Nothing
+    , expressionVisitorOnEnter = Nothing
+    , expressionVisitorOnExit = Nothing
+    , letDeclarationVisitorsOnEnter = Nothing
+    , letDeclarationVisitorsOnExit = Nothing
+    , caseBranchVisitorsOnEnter = Nothing
+    , caseBranchVisitorsOnExit = Nothing
+    , finalModuleEvaluation = Nothing
+    , getErrors = []
+    , toProjectVisitor = \() -> toRuleProjectVisitor rep
+    }
+
+
 addVisitor : List (data -> context -> ( List (Error {}), context )) -> (( List (Error {}), context ) -> RuleModuleVisitor) -> ( List (Error {}), context ) -> Maybe (data -> RuleModuleVisitor)
 addVisitor visitors =
     case visitors of
