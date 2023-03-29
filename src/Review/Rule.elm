@@ -5818,36 +5818,6 @@ moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, moduleCont
     }
 
 
-addVisitor : List (data -> context -> ( List (Error {}), context )) -> (( List (Error {}), context ) -> RuleModuleVisitor) -> ( List (Error {}), context ) -> Maybe (data -> RuleModuleVisitor)
-addVisitor visitors =
-    case visitors of
-        [] ->
-            \_ _ -> Nothing
-
-        [ visitor ] ->
-            \raise errorsAndContext ->
-                Just (\node -> raise (accumulate (visitor node) errorsAndContext))
-
-        _ ->
-            \raise errorsAndContext ->
-                Just (\node -> raise (visitWithListOfVisitors visitors node errorsAndContext))
-
-
-addVisitor2 : List (a -> b -> context -> ( List (Error {}), context )) -> (( List (Error {}), context ) -> RuleModuleVisitor) -> ( List (Error {}), context ) -> Maybe (a -> b -> RuleModuleVisitor)
-addVisitor2 visitors =
-    case visitors of
-        [] ->
-            \_ _ -> Nothing
-
-        [ visitor ] ->
-            \raise errorsAndContext ->
-                Just (\a b -> raise (accumulate (visitor a b) errorsAndContext))
-
-        _ ->
-            \raise errorsAndContext ->
-                Just (\a b -> raise (visitWithListOfVisitors2 visitors a b errorsAndContext))
-
-
 addVisitorX :
     (( List (Error {}), context ) -> a)
     -> ( List (Error {}), context )
@@ -5878,31 +5848,6 @@ addVisitorX2 raise errorsAndContext visitors =
             Just (\a b -> raise (visitWithListOfVisitors2 visitors a b errorsAndContext))
 
 
-addImportsVisitor : List (Node Import -> context -> ( List (Error {}), context )) -> (( List (Error {}), context ) -> RuleModuleVisitor) -> ( List (Error {}), context ) -> Maybe (List (Node Import) -> RuleModuleVisitor)
-addImportsVisitor importVisitors =
-    case importVisitors of
-        [] ->
-            \_ _ -> Nothing
-
-        [ visitor ] ->
-            \raise errorsAndContext ->
-                Just
-                    (\imports ->
-                        raise
-                            (List.foldl
-                                (\import_ initialErrorsAndContext ->
-                                    accumulate (visitor import_) initialErrorsAndContext
-                                )
-                                errorsAndContext
-                                imports
-                            )
-                    )
-
-        _ ->
-            \raise errorsAndContext ->
-                Just (\imports -> raise (accumulateList importVisitors imports errorsAndContext))
-
-
 addImportsVisitorX : (( List (Error {}), context ) -> a) -> ( List (Error {}), context ) -> List (b -> context -> ( List (Error {}), context )) -> Maybe (List b -> a)
 addImportsVisitorX raise errorsAndContext importVisitors =
     case importVisitors of
@@ -5924,21 +5869,6 @@ addImportsVisitorX raise errorsAndContext importVisitors =
 
         _ ->
             Just (\imports -> raise (accumulateList importVisitors imports errorsAndContext))
-
-
-addFinalModuleEvaluationVisitor : List (context -> List (Error {})) -> (( List (Error {}), context ) -> RuleModuleVisitor) -> ( List (Error {}), context ) -> Maybe (() -> RuleModuleVisitor)
-addFinalModuleEvaluationVisitor visitors =
-    case visitors of
-        [] ->
-            \_ _ -> Nothing
-
-        [ visitor ] ->
-            \raise ( errors, context ) ->
-                Just (\() -> raise ( visitor context ++ errors, context ))
-
-        _ ->
-            \raise ( errors, context ) ->
-                Just (\() -> raise ( List.foldl (\visitor acc -> List.append (visitor context) acc) errors visitors, context ))
 
 
 addFinalModuleEvaluationVisitorX :
