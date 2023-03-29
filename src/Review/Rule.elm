@@ -5811,8 +5811,8 @@ newRule schema toRuleProjectVisitor =
 moduleRuleImplementation : ModuleRuleSchemaData moduleContext -> (moduleContext -> RuleProjectVisitor) -> (( List (Error {}), moduleContext ) -> RuleModuleVisitor) -> ( List (Error {}), moduleContext ) -> RuleModuleVisitorOperations RuleModuleVisitor
 moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, moduleContext ) as errorsAndContext) =
     { moduleDefinitionVisitor = addVisitorX raise errorsAndContext (List.reverse schema.moduleDefinitionVisitors)
-    , moduleDocumentationVisitor = Nothing
-    , commentsVisitor = Nothing
+    , moduleDocumentationVisitor = addVisitorX raise errorsAndContext (List.reverse schema.moduleDocumentationVisitors)
+    , commentsVisitor = addVisitorX raise errorsAndContext (List.reverse schema.commentsVisitors)
     , importsVisitor = Nothing
     , declarationListVisitor = Nothing
     , declarationVisitorOnEnter = Nothing
