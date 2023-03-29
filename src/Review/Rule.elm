@@ -5809,7 +5809,7 @@ newRule schema toRuleProjectVisitor =
 
 
 moduleRuleImplementation : ModuleRuleSchemaData moduleContext -> (moduleContext -> RuleProjectVisitor) -> (moduleContext -> RuleModuleVisitor) -> moduleContext -> RuleModuleVisitorOperations RuleModuleVisitor
-moduleRuleImplementation schema toRuleProjectVisitor raise rep =
+moduleRuleImplementation schema toRuleProjectVisitor raise errorsAndContext =
     { moduleDefinitionVisitor = Nothing
     , moduleDocumentationVisitor = Nothing
     , commentsVisitor = Nothing
@@ -5825,7 +5825,7 @@ moduleRuleImplementation schema toRuleProjectVisitor raise rep =
     , caseBranchVisitorsOnExit = Nothing
     , finalModuleEvaluation = Nothing
     , getErrors = []
-    , toProjectVisitor = \() -> toRuleProjectVisitor rep
+    , toProjectVisitor = \() -> toRuleProjectVisitor errorsAndContext
     }
 
 
