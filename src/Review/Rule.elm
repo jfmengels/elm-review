@@ -5813,7 +5813,7 @@ moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, moduleCont
     { moduleDefinitionVisitor = addVisitorX raise errorsAndContext (List.reverse schema.moduleDefinitionVisitors)
     , moduleDocumentationVisitor = addVisitorX raise errorsAndContext (List.reverse schema.moduleDocumentationVisitors)
     , commentsVisitor = addVisitorX raise errorsAndContext (List.reverse schema.commentsVisitors)
-    , importsVisitor = Nothing
+    , importsVisitor = addImportsVisitorX raise errorsAndContext (List.reverse schema.importVisitors)
     , declarationListVisitor = addVisitorX raise errorsAndContext (List.reverse schema.declarationListVisitors)
     , declarationVisitorOnEnter = addVisitorX raise errorsAndContext (List.reverse schema.declarationVisitorsOnEnter)
     , declarationVisitorOnExit = addVisitorX raise errorsAndContext schema.declarationVisitorsOnExit
@@ -5912,6 +5912,29 @@ addImportsVisitor importVisitors =
         _ ->
             \raise errorsAndContext ->
                 Just (\imports -> raise (accumulateList importVisitors imports errorsAndContext))
+
+
+addImportsVisitorX : (( List (Error {}), context ) -> a) -> ( List (Error {}), context ) -> List (b -> context -> ( List (Error {}), context )) -> Maybe (List b -> a)
+addImportsVisitorX raise errorsAndContext importVisitors =
+    case importVisitors of
+        [] ->
+            Nothing
+
+        [ visitor ] ->
+            Just
+                (\imports ->
+                    raise
+                        (List.foldl
+                            (\import_ initialErrorsAndContext ->
+                                accumulate (visitor import_) initialErrorsAndContext
+                            )
+                            errorsAndContext
+                            imports
+                        )
+                )
+
+        _ ->
+            Just (\imports -> raise (accumulateList importVisitors imports errorsAndContext))
 
 
 addFinalModuleEvaluationVisitor : List (context -> List (Error {})) -> (( List (Error {}), context ) -> RuleModuleVisitor) -> ( List (Error {}), context ) -> Maybe (() -> RuleModuleVisitor)
