@@ -5799,31 +5799,31 @@ newRule schema toRuleProjectVisitor initialContext =
 
 moduleRuleImplementation : ModuleRuleSchemaData moduleContext -> (moduleContext -> RuleProjectVisitor) -> (( List (Error {}), moduleContext ) -> RuleModuleVisitor) -> ( List (Error {}), moduleContext ) -> RuleModuleVisitorOperations RuleModuleVisitor
 moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, moduleContext ) as errorsAndContext) =
-    { moduleDefinitionVisitor = addVisitorX raise errorsAndContext (List.reverse schema.moduleDefinitionVisitors)
-    , moduleDocumentationVisitor = addVisitorX raise errorsAndContext (List.reverse schema.moduleDocumentationVisitors)
-    , commentsVisitor = addVisitorX raise errorsAndContext (List.reverse schema.commentsVisitors)
-    , importsVisitor = addImportsVisitorX raise errorsAndContext (List.reverse schema.importVisitors)
-    , declarationListVisitor = addVisitorX raise errorsAndContext (List.reverse schema.declarationListVisitors)
-    , declarationVisitorOnEnter = addVisitorX raise errorsAndContext (List.reverse schema.declarationVisitorsOnEnter)
-    , declarationVisitorOnExit = addVisitorX raise errorsAndContext schema.declarationVisitorsOnExit
-    , expressionVisitorOnEnter = addVisitorX raise errorsAndContext (List.reverse schema.expressionVisitorsOnEnter)
-    , expressionVisitorOnExit = addVisitorX raise errorsAndContext schema.expressionVisitorsOnExit
-    , letDeclarationVisitorsOnEnter = addVisitorX2 raise errorsAndContext (List.reverse schema.letDeclarationVisitorsOnEnter)
-    , letDeclarationVisitorsOnExit = addVisitorX2 raise errorsAndContext schema.letDeclarationVisitorsOnExit
-    , caseBranchVisitorsOnEnter = addVisitorX2 raise errorsAndContext (List.reverse schema.caseBranchVisitorsOnEnter)
-    , caseBranchVisitorsOnExit = addVisitorX2 raise errorsAndContext schema.caseBranchVisitorsOnExit
-    , finalModuleEvaluation = addFinalModuleEvaluationVisitorX raise errorsAndContext schema.finalEvaluationFns
+    { moduleDefinitionVisitor = addVisitor raise errorsAndContext (List.reverse schema.moduleDefinitionVisitors)
+    , moduleDocumentationVisitor = addVisitor raise errorsAndContext (List.reverse schema.moduleDocumentationVisitors)
+    , commentsVisitor = addVisitor raise errorsAndContext (List.reverse schema.commentsVisitors)
+    , importsVisitor = addImportsVisitor raise errorsAndContext (List.reverse schema.importVisitors)
+    , declarationListVisitor = addVisitor raise errorsAndContext (List.reverse schema.declarationListVisitors)
+    , declarationVisitorOnEnter = addVisitor raise errorsAndContext (List.reverse schema.declarationVisitorsOnEnter)
+    , declarationVisitorOnExit = addVisitor raise errorsAndContext schema.declarationVisitorsOnExit
+    , expressionVisitorOnEnter = addVisitor raise errorsAndContext (List.reverse schema.expressionVisitorsOnEnter)
+    , expressionVisitorOnExit = addVisitor raise errorsAndContext schema.expressionVisitorsOnExit
+    , letDeclarationVisitorsOnEnter = addVisitor2 raise errorsAndContext (List.reverse schema.letDeclarationVisitorsOnEnter)
+    , letDeclarationVisitorsOnExit = addVisitor2 raise errorsAndContext schema.letDeclarationVisitorsOnExit
+    , caseBranchVisitorsOnEnter = addVisitor2 raise errorsAndContext (List.reverse schema.caseBranchVisitorsOnEnter)
+    , caseBranchVisitorsOnExit = addVisitor2 raise errorsAndContext schema.caseBranchVisitorsOnExit
+    , finalModuleEvaluation = addFinalModuleEvaluationVisitor raise errorsAndContext schema.finalEvaluationFns
     , getErrors = errors
     , toProjectVisitor = \() -> toRuleProjectVisitor moduleContext
     }
 
 
-addVisitorX :
+addVisitor :
     (( List (Error {}), context ) -> a)
     -> ( List (Error {}), context )
     -> List (b -> context -> ( List (Error {}), context ))
     -> Maybe (b -> a)
-addVisitorX raise errorsAndContext visitors =
+addVisitor raise errorsAndContext visitors =
     case visitors of
         [] ->
             Nothing
@@ -5835,8 +5835,8 @@ addVisitorX raise errorsAndContext visitors =
             Just (\node -> raise (visitWithListOfVisitors visitors node errorsAndContext))
 
 
-addVisitorX2 : (( List (Error {}), context ) -> a) -> ( List (Error {}), context ) -> List (b -> c -> context -> ( List (Error {}), context )) -> Maybe (b -> c -> a)
-addVisitorX2 raise errorsAndContext visitors =
+addVisitor2 : (( List (Error {}), context ) -> a) -> ( List (Error {}), context ) -> List (b -> c -> context -> ( List (Error {}), context )) -> Maybe (b -> c -> a)
+addVisitor2 raise errorsAndContext visitors =
     case visitors of
         [] ->
             Nothing
@@ -5848,8 +5848,8 @@ addVisitorX2 raise errorsAndContext visitors =
             Just (\a b -> raise (visitWithListOfVisitors2 visitors a b errorsAndContext))
 
 
-addImportsVisitorX : (( List (Error {}), context ) -> a) -> ( List (Error {}), context ) -> List (b -> context -> ( List (Error {}), context )) -> Maybe (List b -> a)
-addImportsVisitorX raise errorsAndContext importVisitors =
+addImportsVisitor : (( List (Error {}), context ) -> a) -> ( List (Error {}), context ) -> List (b -> context -> ( List (Error {}), context )) -> Maybe (List b -> a)
+addImportsVisitor raise errorsAndContext importVisitors =
     case importVisitors of
         [] ->
             Nothing
@@ -5871,12 +5871,12 @@ addImportsVisitorX raise errorsAndContext importVisitors =
             Just (\imports -> raise (accumulateList importVisitors imports errorsAndContext))
 
 
-addFinalModuleEvaluationVisitorX :
+addFinalModuleEvaluationVisitor :
     (( List (Error {}), context ) -> RuleModuleVisitor)
     -> ( List (Error {}), context )
     -> List (context -> List (Error {}))
     -> Maybe (() -> RuleModuleVisitor)
-addFinalModuleEvaluationVisitorX raise ( errors, context ) visitors =
+addFinalModuleEvaluationVisitor raise ( errors, context ) visitors =
     case visitors of
         [] ->
             Nothing
