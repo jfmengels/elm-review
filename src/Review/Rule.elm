@@ -5819,10 +5819,10 @@ moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, moduleCont
     , declarationVisitorOnExit = addVisitorX raise errorsAndContext schema.declarationVisitorsOnExit
     , expressionVisitorOnEnter = addVisitorX raise errorsAndContext (List.reverse schema.expressionVisitorsOnEnter)
     , expressionVisitorOnExit = addVisitorX raise errorsAndContext schema.expressionVisitorsOnExit
-    , letDeclarationVisitorsOnEnter = Nothing
-    , letDeclarationVisitorsOnExit = Nothing
-    , caseBranchVisitorsOnEnter = Nothing
-    , caseBranchVisitorsOnExit = Nothing
+    , letDeclarationVisitorsOnEnter = addVisitorX2 raise errorsAndContext (List.reverse schema.letDeclarationVisitorsOnEnter)
+    , letDeclarationVisitorsOnExit = addVisitorX2 raise errorsAndContext schema.letDeclarationVisitorsOnExit
+    , caseBranchVisitorsOnEnter = addVisitorX2 raise errorsAndContext (List.reverse schema.caseBranchVisitorsOnEnter)
+    , caseBranchVisitorsOnExit = addVisitorX2 raise errorsAndContext schema.caseBranchVisitorsOnExit
     , finalModuleEvaluation = Nothing
     , getErrors = errors
     , toProjectVisitor = \() -> toRuleProjectVisitor moduleContext
@@ -5876,6 +5876,7 @@ addVisitorX raise errorsAndContext visitors =
             Just (\node -> raise (visitWithListOfVisitors visitors node errorsAndContext))
 
 
+addVisitorX2 : (( List (Error {}), context ) -> a) -> ( List (Error {}), context ) -> List (b -> c -> context -> ( List (Error {}), context )) -> Maybe (b -> c -> a)
 addVisitorX2 raise errorsAndContext visitors =
     case visitors of
         [] ->
