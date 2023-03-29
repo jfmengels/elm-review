@@ -5876,6 +5876,18 @@ addVisitorX raise errorsAndContext visitors =
             Just (\node -> raise (visitWithListOfVisitors visitors node errorsAndContext))
 
 
+addVisitorX2 raise errorsAndContext visitors =
+    case visitors of
+        [] ->
+            Nothing
+
+        [ visitor ] ->
+            Just (\a b -> raise (accumulate (visitor a b) errorsAndContext))
+
+        _ ->
+            Just (\a b -> raise (visitWithListOfVisitors2 visitors a b errorsAndContext))
+
+
 addImportsVisitor : List (Node Import -> context -> ( List (Error {}), context )) -> (( List (Error {}), context ) -> RuleModuleVisitor) -> ( List (Error {}), context ) -> Maybe (List (Node Import) -> RuleModuleVisitor)
 addImportsVisitor importVisitors =
     case importVisitors of
