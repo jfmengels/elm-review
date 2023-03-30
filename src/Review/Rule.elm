@@ -387,8 +387,8 @@ type alias ModuleRuleSchemaData moduleContext =
     , expressionVisitorsOnExit : Maybe (Visitor Expression moduleContext)
     , letDeclarationVisitorsOnEnter : Maybe (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
     , letDeclarationVisitorsOnExit : Maybe (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
-    , caseBranchVisitorsOnEnter : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
-    , caseBranchVisitorsOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
+    , caseBranchVisitorOnEnter : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
+    , caseBranchVisitorOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
     , finalEvaluationFns : List (moduleContext -> List (Error {}))
     , providesFixes : Bool
 
@@ -1018,8 +1018,8 @@ newModuleRuleSchema name initialModuleContext =
         , expressionVisitorsOnExit = Nothing
         , letDeclarationVisitorsOnEnter = Nothing
         , letDeclarationVisitorsOnExit = Nothing
-        , caseBranchVisitorsOnEnter = Nothing
-        , caseBranchVisitorsOnExit = Nothing
+        , caseBranchVisitorOnEnter = Nothing
+        , caseBranchVisitorOnExit = Nothing
         , finalEvaluationFns = []
         , elmJsonVisitors = []
         , readmeVisitors = []
@@ -1085,8 +1085,8 @@ newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
         , expressionVisitorsOnExit = Nothing
         , letDeclarationVisitorsOnEnter = Nothing
         , letDeclarationVisitorsOnExit = Nothing
-        , caseBranchVisitorsOnEnter = Nothing
-        , caseBranchVisitorsOnExit = Nothing
+        , caseBranchVisitorOnEnter = Nothing
+        , caseBranchVisitorOnExit = Nothing
         , finalEvaluationFns = []
         , elmJsonVisitors = []
         , readmeVisitors = []
@@ -1406,8 +1406,8 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
                 , expressionVisitorsOnExit = Nothing
                 , letDeclarationVisitorsOnEnter = Nothing
                 , letDeclarationVisitorsOnExit = Nothing
-                , caseBranchVisitorsOnEnter = Nothing
-                , caseBranchVisitorsOnExit = Nothing
+                , caseBranchVisitorOnEnter = Nothing
+                , caseBranchVisitorOnExit = Nothing
                 , finalEvaluationFns = []
                 , elmJsonVisitors = []
                 , readmeVisitors = []
@@ -3196,7 +3196,7 @@ For convenience, the entire case expression is passed as the first argument.
 -}
 withCaseBranchEnterVisitor : (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withCaseBranchEnterVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | caseBranchVisitorsOnEnter = Just (combineVisitors2 visitor schema.caseBranchVisitorsOnEnter) }
+    ModuleRuleSchema { schema | caseBranchVisitorOnEnter = Just (combineVisitors2 visitor schema.caseBranchVisitorOnEnter) }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
@@ -3207,7 +3207,7 @@ See the documentation for [`withCaseBranchEnterVisitor`](#withCaseBranchEnterVis
 -}
 withCaseBranchExitVisitor : (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withCaseBranchExitVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | caseBranchVisitorsOnExit = Just (combineExitVisitors2 visitor schema.caseBranchVisitorsOnExit) }
+    ModuleRuleSchema { schema | caseBranchVisitorOnExit = Just (combineExitVisitors2 visitor schema.caseBranchVisitorOnExit) }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
@@ -5661,9 +5661,9 @@ visitCaseBranch2 :
     -> List RuleModuleVisitor
 visitCaseBranch2 caseBlockWithRange (( _, caseExpression ) as caseBranch) rules =
     rules
-        |> List.map (\acc -> runVisitor2 .caseBranchVisitorsOnEnter caseBlockWithRange caseBranch acc)
+        |> List.map (\acc -> runVisitor2 .caseBranchVisitorOnEnter caseBlockWithRange caseBranch acc)
         |> visitExpression2 caseExpression
-        |> List.map (\acc -> runVisitor2 .caseBranchVisitorsOnExit caseBlockWithRange caseBranch acc)
+        |> List.map (\acc -> runVisitor2 .caseBranchVisitorOnExit caseBlockWithRange caseBranch acc)
 
 
 createDeclarationAndExpressionVisitor2 : ModuleRuleSchemaData moduleContext -> List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
@@ -5705,8 +5705,8 @@ createExpressionVisitor schema =
     if
         (schema.letDeclarationVisitorsOnEnter /= Nothing)
             || (schema.letDeclarationVisitorsOnExit /= Nothing)
-            || (schema.caseBranchVisitorsOnEnter /= Nothing)
-            || (schema.caseBranchVisitorsOnExit /= Nothing)
+            || (schema.caseBranchVisitorOnEnter /= Nothing)
+            || (schema.caseBranchVisitorOnExit /= Nothing)
     then
         let
             expressionRelatedVisitors : ExpressionRelatedVisitors moduleContext
@@ -5715,8 +5715,8 @@ createExpressionVisitor schema =
                 , expressionVisitorsOnExit = schema.expressionVisitorsOnExit
                 , letDeclarationVisitorsOnEnter = schema.letDeclarationVisitorsOnEnter
                 , letDeclarationVisitorsOnExit = schema.letDeclarationVisitorsOnExit
-                , caseBranchVisitorsOnEnter = schema.caseBranchVisitorsOnEnter
-                , caseBranchVisitorsOnExit = schema.caseBranchVisitorsOnExit
+                , caseBranchVisitorOnEnter = schema.caseBranchVisitorOnEnter
+                , caseBranchVisitorOnExit = schema.caseBranchVisitorOnExit
                 }
         in
         Just (\expr acc -> visitExpression expressionRelatedVisitors expr acc)
@@ -5736,8 +5736,8 @@ type alias ExpressionRelatedVisitors moduleContext =
     , expressionVisitorsOnExit : Maybe (Visitor Expression moduleContext)
     , letDeclarationVisitorsOnEnter : Maybe (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
     , letDeclarationVisitorsOnExit : Maybe (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
-    , caseBranchVisitorsOnEnter : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
-    , caseBranchVisitorsOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
+    , caseBranchVisitorOnEnter : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
+    , caseBranchVisitorOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
     }
 
 
@@ -5854,8 +5854,8 @@ type alias RuleModuleVisitorOperations t =
     , expressionVisitorOnExit : Maybe (Node Expression -> t)
     , letDeclarationVisitorsOnEnter : Maybe (Node Expression.LetBlock -> Node Expression.LetDeclaration -> t)
     , letDeclarationVisitorsOnExit : Maybe (Node Expression.LetBlock -> Node Expression.LetDeclaration -> t)
-    , caseBranchVisitorsOnEnter : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> t)
-    , caseBranchVisitorsOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> t)
+    , caseBranchVisitorOnEnter : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> t)
+    , caseBranchVisitorOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> t)
     , finalModuleEvaluation : Maybe (() -> t)
     , getErrors : List (Error {})
     , toProjectVisitor : () -> RuleProjectVisitor
@@ -5880,8 +5880,8 @@ moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, moduleCont
     , expressionVisitorOnExit = addMaybeVisitor raise errorsAndContext schema.expressionVisitorsOnExit
     , letDeclarationVisitorsOnEnter = addMaybeVisitor2 raise errorsAndContext schema.letDeclarationVisitorsOnEnter
     , letDeclarationVisitorsOnExit = addMaybeVisitor2 raise errorsAndContext schema.letDeclarationVisitorsOnExit
-    , caseBranchVisitorsOnEnter = addMaybeVisitor2 raise errorsAndContext schema.caseBranchVisitorsOnEnter
-    , caseBranchVisitorsOnExit = addMaybeVisitor2 raise errorsAndContext schema.caseBranchVisitorsOnExit
+    , caseBranchVisitorOnEnter = addMaybeVisitor2 raise errorsAndContext schema.caseBranchVisitorOnEnter
+    , caseBranchVisitorOnExit = addMaybeVisitor2 raise errorsAndContext schema.caseBranchVisitorOnExit
     , finalModuleEvaluation = addFinalModuleEvaluationVisitor raise errorsAndContext schema.finalEvaluationFns
     , getErrors = errors
     , toProjectVisitor = \() -> toRuleProjectVisitor moduleContext
@@ -6191,9 +6191,9 @@ visitCaseBranch :
     -> ( List (Error {}), moduleContext )
 visitCaseBranch expressionRelatedVisitors caseBlockWithRange (( _, caseExpression ) as caseBranch) errorsAndContext =
     errorsAndContext
-        |> accumulateWithMaybe2 expressionRelatedVisitors.caseBranchVisitorsOnEnter caseBlockWithRange caseBranch
+        |> accumulateWithMaybe2 expressionRelatedVisitors.caseBranchVisitorOnEnter caseBlockWithRange caseBranch
         |> visitExpression expressionRelatedVisitors caseExpression
-        |> accumulateWithMaybe2 expressionRelatedVisitors.caseBranchVisitorsOnExit caseBlockWithRange caseBranch
+        |> accumulateWithMaybe2 expressionRelatedVisitors.caseBranchVisitorOnExit caseBlockWithRange caseBranch
 
 
 {-| Concatenate the errors of the previous step and of the last step.
