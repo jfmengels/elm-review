@@ -2500,9 +2500,9 @@ not catch and report the use `Html.button`. To handle this, check out [`withModu
 withModuleDefinitionVisitor : (Node Module -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withModuleDefinitionVisitor newVisitor (ModuleRuleSchema schema) =
     let
-        finalVisitor : Node Module -> moduleContext -> ( List (Error {}), moduleContext )
-        finalVisitor =
-            case schema.moduleDefinitionVisitor of
+        finalVisitor : Maybe (Node Module -> moduleContext -> ( List (Error {}), moduleContext )) -> Node Module -> moduleContext -> ( List (Error {}), moduleContext )
+        finalVisitor maybePreviousVisitor =
+            case maybePreviousVisitor of
                 Nothing ->
                     newVisitor
 
@@ -2522,7 +2522,7 @@ withModuleDefinitionVisitor newVisitor (ModuleRuleSchema schema) =
                     in
                     combinedVisitor
     in
-    ModuleRuleSchema { schema | moduleDefinitionVisitor = Just finalVisitor }
+    ModuleRuleSchema { schema | moduleDefinitionVisitor = Just (finalVisitor schema.moduleDefinitionVisitor) }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's comments, collect data in
