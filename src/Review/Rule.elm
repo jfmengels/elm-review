@@ -377,7 +377,7 @@ type alias ModuleRuleSchemaData moduleContext =
     , initialModuleContext : Maybe moduleContext
     , moduleContextCreator : ContextCreator () moduleContext
     , moduleDefinitionVisitor : Maybe (Visitor Module moduleContext)
-    , moduleDocumentationVisitors : List (Maybe (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
+    , moduleDocumentationVisitors : Maybe (Maybe (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
     , commentsVisitors : List (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
     , importVisitors : List (Node Import -> moduleContext -> ( List (Error {}), moduleContext ))
     , declarationListVisitors : List (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
@@ -1008,7 +1008,7 @@ newModuleRuleSchema name initialModuleContext =
         , initialModuleContext = Just initialModuleContext
         , moduleContextCreator = initContextCreator (always initialModuleContext)
         , moduleDefinitionVisitor = Nothing
-        , moduleDocumentationVisitors = []
+        , moduleDocumentationVisitors = Nothing
         , commentsVisitors = []
         , importVisitors = []
         , declarationListVisitors = []
@@ -1075,7 +1075,7 @@ newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
         , initialModuleContext = Nothing
         , moduleContextCreator = moduleContextCreator
         , moduleDefinitionVisitor = Nothing
-        , moduleDocumentationVisitors = []
+        , moduleDocumentationVisitors = Nothing
         , commentsVisitors = []
         , importVisitors = []
         , declarationListVisitors = []
@@ -1396,7 +1396,7 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
                 , initialModuleContext = Just initialModuleContext
                 , moduleContextCreator = initContextCreator (always initialModuleContext)
                 , moduleDefinitionVisitor = Nothing
-                , moduleDocumentationVisitors = []
+                , moduleDocumentationVisitors = Nothing
                 , commentsVisitors = []
                 , importVisitors = []
                 , declarationListVisitors = []
@@ -1430,7 +1430,7 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
 fromModuleRuleSchemaToRunnableModuleVisitor : ModuleRuleSchema schemaState moduleContext -> RunnableModuleVisitor moduleContext
 fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     { moduleDefinitionVisitors = schema.moduleDefinitionVisitor
-    , moduleDocumentationVisitors = List.reverse schema.moduleDocumentationVisitors
+    , moduleDocumentationVisitors = schema.moduleDocumentationVisitors
     , commentsVisitors = List.reverse schema.commentsVisitors
     , importVisitors = List.reverse schema.importVisitors
     , declarationListVisitors = List.reverse schema.declarationListVisitors
@@ -2539,7 +2539,7 @@ When that is the case, the visitor will be called with the `Nothing` as the modu
 -}
 withModuleDocumentationVisitor : (Maybe (Node String) -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withModuleDocumentationVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | moduleDocumentationVisitors = visitor :: schema.moduleDocumentationVisitors }
+    ModuleRuleSchema { schema | moduleDocumentationVisitors = Just (combineVisitors visitor schema.moduleDocumentationVisitors) }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
@@ -4145,7 +4145,7 @@ type alias RunnableProjectVisitor projectContext moduleContext =
 
 type alias RunnableModuleVisitor moduleContext =
     { moduleDefinitionVisitors : Maybe (Node Module -> moduleContext -> ( List (Error {}), moduleContext ))
-    , moduleDocumentationVisitors : List (Maybe (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
+    , moduleDocumentationVisitors : Maybe (Maybe (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
     , commentsVisitors : List (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
     , importVisitors : List (Node Import -> moduleContext -> ( List (Error {}), moduleContext ))
     , declarationListVisitors : List (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
@@ -5823,7 +5823,7 @@ newRule schema toRuleProjectVisitor initialContext =
 moduleRuleImplementation : ModuleRuleSchemaData moduleContext -> (moduleContext -> RuleProjectVisitor) -> (( List (Error {}), moduleContext ) -> RuleModuleVisitor) -> ( List (Error {}), moduleContext ) -> RuleModuleVisitorOperations RuleModuleVisitor
 moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, moduleContext ) as errorsAndContext) =
     { moduleDefinitionVisitor = addMaybeVisitor raise errorsAndContext schema.moduleDefinitionVisitor
-    , moduleDocumentationVisitor = addVisitor raise errorsAndContext (List.reverse schema.moduleDocumentationVisitors)
+    , moduleDocumentationVisitor = addMaybeVisitor raise errorsAndContext schema.moduleDocumentationVisitors
     , commentsVisitor = addVisitor raise errorsAndContext (List.reverse schema.commentsVisitors)
     , importsVisitor = addImportsVisitor raise errorsAndContext (List.reverse schema.importVisitors)
     , declarationListVisitor = addVisitor raise errorsAndContext (List.reverse schema.declarationListVisitors)
@@ -6271,24 +6271,22 @@ accumulateWithMaybe maybeVisitor element errorsAndContext =
 
 
 accumulateModuleDocumentationVisitor :
-    List (Maybe (Node String) -> context -> ( List (Error {}), context ))
+    Maybe (Maybe (Node String) -> context -> ( List (Error {}), context ))
     -> Elm.Syntax.File.File
     -> ( List (Error {}), context )
     -> ( List (Error {}), context )
-accumulateModuleDocumentationVisitor visitors ast initialErrorsAndContext =
-    if List.isEmpty visitors then
-        initialErrorsAndContext
+accumulateModuleDocumentationVisitor maybeVisitor ast errorsAndContext =
+    case maybeVisitor of
+        Just visitor ->
+            let
+                moduleDocumentation : Maybe (Node String)
+                moduleDocumentation =
+                    findModuleDocumentation ast
+            in
+            accumulate (\context -> visitor moduleDocumentation context) errorsAndContext
 
-    else
-        let
-            moduleDocumentation : Maybe (Node String)
-            moduleDocumentation =
-                findModuleDocumentation ast
-        in
-        List.foldl
-            (\visitor errorsAndContext -> accumulate (visitor moduleDocumentation) errorsAndContext)
-            initialErrorsAndContext
-            visitors
+        Nothing ->
+            errorsAndContext
 
 
 findModuleDocumentation : Elm.Syntax.File.File -> Maybe (Node String)
