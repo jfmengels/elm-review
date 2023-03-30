@@ -2503,6 +2503,22 @@ withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
         [] ->
             ModuleRuleSchema { schema | moduleDefinitionVisitors = [ visitor ] }
 
+        [ previousVisitor ] ->
+            let
+                newVisitor : Node Module -> moduleContext -> ( List (Error {}), moduleContext )
+                newVisitor =
+                    \node moduleContext ->
+                        let
+                            ( errorsAfterFirstVisit, contextAfterFirstVisit ) =
+                                previousVisitor node moduleContext
+
+                            ( errorsAfterSecondVisit, contextAfterSecondVisit ) =
+                                visitor node contextAfterFirstVisit
+                        in
+                        ( List.append errorsAfterFirstVisit errorsAfterSecondVisit, contextAfterSecondVisit )
+            in
+            ModuleRuleSchema { schema | moduleDefinitionVisitors = [ newVisitor ] }
+
         _ ->
             ModuleRuleSchema { schema | moduleDefinitionVisitors = visitor :: schema.moduleDefinitionVisitors }
 
