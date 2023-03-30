@@ -396,7 +396,7 @@ type alias ModuleRuleSchemaData moduleContext =
     , elmJsonVisitor : Maybe (Maybe Elm.Project.Project -> moduleContext -> moduleContext)
     , readmeVisitor : Maybe (Maybe String -> moduleContext -> moduleContext)
     , dependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
-    , directDependenciesVisitors : Maybe (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
+    , directDependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
     }
 
 
@@ -1024,7 +1024,7 @@ newModuleRuleSchema name initialModuleContext =
         , elmJsonVisitor = Nothing
         , readmeVisitor = Nothing
         , dependenciesVisitor = Nothing
-        , directDependenciesVisitors = Nothing
+        , directDependenciesVisitor = Nothing
         , providesFixes = False
         }
 
@@ -1091,7 +1091,7 @@ newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
         , elmJsonVisitor = Nothing
         , readmeVisitor = Nothing
         , dependenciesVisitor = Nothing
-        , directDependenciesVisitors = Nothing
+        , directDependenciesVisitor = Nothing
         , providesFixes = False
         }
 
@@ -1108,7 +1108,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 , initialProjectContext = initialModuleContext
                 , elmJsonVisitor = compactProjectDataVisitors (Maybe.map .project) schema.elmJsonVisitor
                 , readmeVisitor = compactProjectDataVisitors (Maybe.map .content) schema.readmeVisitor
-                , directDependenciesVisitors = compactProjectDataVisitors identity schema.directDependenciesVisitors
+                , directDependenciesVisitor = compactProjectDataVisitors identity schema.directDependenciesVisitor
                 , dependenciesVisitor = compactProjectDataVisitors identity schema.dependenciesVisitor
                 , moduleVisitors = [ removeExtensibleRecordTypeVariable (always moduleVisitor) ]
                 , moduleContextCreator = Just (initContextCreator identity)
@@ -1126,7 +1126,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 , initialProjectContext = ()
                 , elmJsonVisitor = Nothing
                 , readmeVisitor = Nothing
-                , directDependenciesVisitors = Nothing
+                , directDependenciesVisitor = Nothing
                 , dependenciesVisitor = Nothing
                 , moduleVisitors = [ removeExtensibleRecordTypeVariable (always moduleVisitor) ]
                 , moduleContextCreator = Just schema.moduleContextCreator
@@ -1168,7 +1168,7 @@ type alias ProjectRuleSchemaData projectContext moduleContext =
     , initialProjectContext : projectContext
     , elmJsonVisitor : Maybe (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
     , readmeVisitor : Maybe (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
-    , directDependenciesVisitors : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
+    , directDependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     , dependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     , moduleVisitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
     , moduleContextCreator : Maybe (ContextCreator projectContext moduleContext)
@@ -1229,7 +1229,7 @@ newProjectRuleSchema name initialProjectContext =
         , initialProjectContext = initialProjectContext
         , elmJsonVisitor = Nothing
         , readmeVisitor = Nothing
-        , directDependenciesVisitors = Nothing
+        , directDependenciesVisitor = Nothing
         , dependenciesVisitor = Nothing
         , moduleVisitors = []
         , moduleContextCreator = Nothing
@@ -1298,7 +1298,7 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
     , initialProjectContext = schema.initialProjectContext
     , elmJsonVisitor = schema.elmJsonVisitor
     , readmeVisitor = schema.readmeVisitor
-    , directDependenciesVisitors = schema.directDependenciesVisitors
+    , directDependenciesVisitor = schema.directDependenciesVisitor
     , dependenciesVisitor = schema.dependenciesVisitor
     , moduleVisitor = mergeModuleVisitors schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors
     , traversalAndFolder =
@@ -1401,7 +1401,7 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
                 , elmJsonVisitor = Nothing
                 , readmeVisitor = Nothing
                 , dependenciesVisitor = Nothing
-                , directDependenciesVisitors = Nothing
+                , directDependenciesVisitor = Nothing
                 , providesFixes = False
                 }
     in
@@ -1949,7 +1949,7 @@ withDirectDependenciesProjectVisitor :
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
 withDirectDependenciesProjectVisitor visitor (ProjectRuleSchema schema) =
-    ProjectRuleSchema { schema | directDependenciesVisitors = Just (combineVisitors (removeErrorPhantomTypeFromVisitor visitor) schema.directDependenciesVisitors) }
+    ProjectRuleSchema { schema | directDependenciesVisitor = Just (combineVisitors (removeErrorPhantomTypeFromVisitor visitor) schema.directDependenciesVisitor) }
 
 
 {-| Add a function that makes a final evaluation of the project based only on the
@@ -2424,7 +2424,7 @@ withDirectDependenciesModuleVisitor :
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
 withDirectDependenciesModuleVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | directDependenciesVisitors = Just (combineContextOnlyVisitor visitor schema.directDependenciesVisitors) }
+    ModuleRuleSchema { schema | directDependenciesVisitor = Just (combineContextOnlyVisitor visitor schema.directDependenciesVisitor) }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
@@ -4222,7 +4222,7 @@ type alias RunnableProjectVisitor projectContext moduleContext =
     , initialProjectContext : projectContext
     , elmJsonVisitor : Maybe (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
     , readmeVisitor : Maybe (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
-    , directDependenciesVisitors : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
+    , directDependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     , dependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     , moduleVisitor : Maybe ( RunnableModuleVisitor moduleContext, ContextCreator projectContext moduleContext )
     , traversalAndFolder : TraversalAndFolder projectContext moduleContext
@@ -4767,7 +4767,7 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
 
                 accumulateWithDirectDependencies : ( List (Error {}), projectContext ) -> ( List (Error {}), projectContext )
                 accumulateWithDirectDependencies =
-                    case projectVisitor.directDependenciesVisitors of
+                    case projectVisitor.directDependenciesVisitor of
                         Nothing ->
                             identity
 
