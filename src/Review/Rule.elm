@@ -3381,11 +3381,11 @@ withFinalModuleEvaluation visitor (ModuleRuleSchema schema) =
 
 
 combineVisitors :
-    (a -> moduleContext -> ( List (Error {}), moduleContext ))
-    -> Maybe (a -> moduleContext -> ( List (Error {}), moduleContext ))
+    (a -> context -> ( List error, context ))
+    -> Maybe (a -> context -> ( List error, context ))
     -> a
-    -> moduleContext
-    -> ( List (Error {}), moduleContext )
+    -> context
+    -> ( List error, context )
 combineVisitors newVisitor maybePreviousVisitor =
     case maybePreviousVisitor of
         Nothing ->
@@ -3404,12 +3404,12 @@ combineVisitors newVisitor maybePreviousVisitor =
 
 
 combineVisitors2 :
-    (a -> b -> moduleContext -> ( List (Error {}), moduleContext ))
-    -> Maybe (a -> b -> moduleContext -> ( List (Error {}), moduleContext ))
+    (a -> b -> context -> ( List error, context ))
+    -> Maybe (a -> b -> context -> ( List error, context ))
     -> a
     -> b
-    -> moduleContext
-    -> ( List (Error {}), moduleContext )
+    -> context
+    -> ( List error, context )
 combineVisitors2 newVisitor maybePreviousVisitor =
     case maybePreviousVisitor of
         Nothing ->
@@ -3428,11 +3428,11 @@ combineVisitors2 newVisitor maybePreviousVisitor =
 
 
 combineExitVisitors :
-    (a -> moduleContext -> ( List (Error {}), moduleContext ))
-    -> Maybe (a -> moduleContext -> ( List (Error {}), moduleContext ))
+    (a -> context -> ( List error, context ))
+    -> Maybe (a -> context -> ( List error, context ))
     -> a
-    -> moduleContext
-    -> ( List (Error {}), moduleContext )
+    -> context
+    -> ( List error, context )
 combineExitVisitors newVisitor maybePreviousVisitor =
     case maybePreviousVisitor of
         Nothing ->
@@ -3451,12 +3451,12 @@ combineExitVisitors newVisitor maybePreviousVisitor =
 
 
 combineExitVisitors2 :
-    (a -> b -> moduleContext -> ( List (Error {}), moduleContext ))
-    -> Maybe (a -> b -> moduleContext -> ( List (Error {}), moduleContext ))
+    (a -> b -> context -> ( List error, context ))
+    -> Maybe (a -> b -> context -> ( List error, context ))
     -> a
     -> b
-    -> moduleContext
-    -> ( List (Error {}), moduleContext )
+    -> context
+    -> ( List error, context )
 combineExitVisitors2 newVisitor maybePreviousVisitor =
     case maybePreviousVisitor of
         Nothing ->
