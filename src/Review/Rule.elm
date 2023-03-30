@@ -5891,7 +5891,16 @@ projectRuleImplementation schema raise cache =
 
                             toRuleProjectVisitor : moduleContext -> RuleProjectVisitor
                             toRuleProjectVisitor resultModuleContext =
-                                -- TODO integrate module context into cache
+                                let
+                                    outputProjectContext : projectContext
+                                    outputProjectContext =
+                                        case getFolderFromTraversal traversalAndFolder of
+                                            Just { fromModuleToProject } ->
+                                                applyContextCreator availableData fromModuleToProject resultModuleContext
+
+                                            Nothing ->
+                                                schema.initialProjectContext
+                                in
                                 raise cache
                         in
                         newRule moduleRuleSchema toRuleProjectVisitor initialContext
