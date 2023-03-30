@@ -5883,7 +5883,7 @@ projectRuleImplementation :
     -> RuleProjectVisitorOperations RuleProjectVisitor
 projectRuleImplementation schema raise cache =
     { collectModuleContext = \path ruleModuleVisitor -> getToProjectVisitor ruleModuleVisitor
-    , elmJsonVisitor = addElmJsonVisitor schema raise cache schema.elmJsonVisitor
+    , elmJsonVisitor = addElmJsonVisitor schema raise cache schema.elmJsonVisitor ValidProject.elmJsonHash
     , readmeVisitor = addReadmeVisitor schema raise cache schema.readmeVisitor
     , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raise cache
     }
@@ -5894,6 +5894,7 @@ addElmJsonVisitor :
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     -> ProjectRuleCache projectContext
     -> Maybe (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
+    -> (ValidProject -> Maybe ContentHash)
     ->
         Maybe
             (ValidProject
@@ -5901,7 +5902,7 @@ addElmJsonVisitor :
              -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
              -> RuleProjectVisitor
             )
-addElmJsonVisitor schema raise cache maybeVisitor =
+addElmJsonVisitor schema raise cache maybeVisitor contentHash =
     case maybeVisitor of
         Nothing ->
             Nothing
@@ -5924,7 +5925,7 @@ addElmJsonVisitor schema raise cache maybeVisitor =
                         elmJsonEntry : CacheEntryMaybe projectContext
                         elmJsonEntry =
                             Cache.createEntryMaybe
-                                { contentHash = ValidProject.elmJsonHash project
+                                { contentHash = contentHash project
                                 , errors = errors
                                 , inputContext = inputContext
                                 , outputContext = outputContext
