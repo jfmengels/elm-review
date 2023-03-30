@@ -5901,6 +5901,16 @@ projectRuleImplementation schema raise cache =
 
                                             Nothing ->
                                                 schema.initialProjectContext
+
+                                    cacheEntry : Cache.ModuleEntry (Error {}) projectContext
+                                    cacheEntry =
+                                        Cache.createModuleEntry
+                                            { contentHash = moduleContentHash
+                                            , errors = errors
+                                            , inputContext = inputProjectContext
+                                            , isFileIgnored = availableData.isFileIgnored
+                                            , outputContext = outputProjectContext
+                                            }
                                 in
                                 raise cache
                         in
