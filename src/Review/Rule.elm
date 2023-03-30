@@ -352,7 +352,7 @@ type Rule
         , providesFixes : Bool
         , extractsData : Bool
         , ruleImplementation : ReviewOptionsData -> Int -> Exceptions -> FixedErrors -> ValidProject -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
-        , configurationError : Result { message : String, details : List String } ()
+        , configurationError : Result { message : String, details : List String } (() -> RuleProjectVisitor)
         }
 
 
@@ -1251,6 +1251,11 @@ newProjectRuleSchema name initialProjectContext =
 -}
 fromProjectRuleSchema : ProjectRuleSchema { schemaState | withModuleContext : Forbidden, hasAtLeastOneVisitor : () } projectContext moduleContext -> Rule
 fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
+    let
+        projectVisitor : RuleProjectVisitor
+        projectVisitor =
+            createRuleProjectVisitor schema
+    in
     Rule
         { name = schema.name
         , id = 0
@@ -1273,7 +1278,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     (removeUnknownModulesFromInitialCache project (initialCacheMarker schema.name ruleId emptyCache))
                     fixedErrors
                     project
-        , configurationError = Ok ()
+        , configurationError = Ok (\() -> projectVisitor)
         }
 
 
@@ -4343,7 +4348,9 @@ runProjectVisitorHelp ({ ruleProjectVisitors, projectVisitor, exceptions } as da
                         cache
                         newFixedErrors
                         newProjectArg
-            , configurationError = Ok ()
+
+            -- TODO Use the project visitor from the results
+            , configurationError = Ok (\() -> Debug.todo "Missing project visitor in runProjectVisitorHelp")
             }
     , project = project
     , extract = Maybe.map .extract (finalCacheMarker projectVisitor.name ruleId cache).extract
