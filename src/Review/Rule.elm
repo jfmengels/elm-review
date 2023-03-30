@@ -2502,29 +2502,6 @@ withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | moduleDefinitionVisitor = Just (combineVisitors visitor schema.moduleDefinitionVisitor) }
 
 
-combineVisitors :
-    (a -> moduleContext -> ( List (Error {}), moduleContext ))
-    -> Maybe (a -> moduleContext -> ( List (Error {}), moduleContext ))
-    -> a
-    -> moduleContext
-    -> ( List (Error {}), moduleContext )
-combineVisitors newVisitor maybePreviousVisitor =
-    case maybePreviousVisitor of
-        Nothing ->
-            newVisitor
-
-        Just previousVisitor ->
-            \node moduleContext ->
-                let
-                    ( errorsAfterFirstVisit, contextAfterFirstVisit ) =
-                        previousVisitor node moduleContext
-
-                    ( errorsAfterSecondVisit, contextAfterSecondVisit ) =
-                        newVisitor node contextAfterFirstVisit
-                in
-                ( List.append errorsAfterFirstVisit errorsAfterSecondVisit, contextAfterSecondVisit )
-
-
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's comments, collect data in
 the `context` and/or report patterns.
 
@@ -3389,6 +3366,29 @@ for [`withImportVisitor`](#withImportVisitor), but using [`withFinalModuleEvalua
 withFinalModuleEvaluation : (moduleContext -> List (Error {})) -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withFinalModuleEvaluation visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema { schema | finalEvaluationFns = visitor :: schema.finalEvaluationFns }
+
+
+combineVisitors :
+    (a -> moduleContext -> ( List (Error {}), moduleContext ))
+    -> Maybe (a -> moduleContext -> ( List (Error {}), moduleContext ))
+    -> a
+    -> moduleContext
+    -> ( List (Error {}), moduleContext )
+combineVisitors newVisitor maybePreviousVisitor =
+    case maybePreviousVisitor of
+        Nothing ->
+            newVisitor
+
+        Just previousVisitor ->
+            \node moduleContext ->
+                let
+                    ( errorsAfterFirstVisit, contextAfterFirstVisit ) =
+                        previousVisitor node moduleContext
+
+                    ( errorsAfterSecondVisit, contextAfterSecondVisit ) =
+                        newVisitor node contextAfterFirstVisit
+                in
+                ( List.append errorsAfterFirstVisit errorsAfterSecondVisit, contextAfterSecondVisit )
 
 
 
