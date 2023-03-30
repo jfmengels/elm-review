@@ -376,7 +376,7 @@ type alias ModuleRuleSchemaData moduleContext =
     { name : String
     , initialModuleContext : Maybe moduleContext
     , moduleContextCreator : ContextCreator () moduleContext
-    , moduleDefinitionVisitors : List (Visitor Module moduleContext)
+    , moduleDefinitionVisitors : Maybe (Visitor Module moduleContext)
     , moduleDocumentationVisitors : List (Maybe (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
     , commentsVisitors : List (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
     , importVisitors : List (Node Import -> moduleContext -> ( List (Error {}), moduleContext ))
@@ -1007,7 +1007,7 @@ newModuleRuleSchema name initialModuleContext =
         { name = name
         , initialModuleContext = Just initialModuleContext
         , moduleContextCreator = initContextCreator (always initialModuleContext)
-        , moduleDefinitionVisitors = []
+        , moduleDefinitionVisitors = Nothing
         , moduleDocumentationVisitors = []
         , commentsVisitors = []
         , importVisitors = []
@@ -1074,7 +1074,7 @@ newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
         { name = name
         , initialModuleContext = Nothing
         , moduleContextCreator = moduleContextCreator
-        , moduleDefinitionVisitors = []
+        , moduleDefinitionVisitors = Nothing
         , moduleDocumentationVisitors = []
         , commentsVisitors = []
         , importVisitors = []
@@ -1395,7 +1395,7 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
                 { name = ""
                 , initialModuleContext = Just initialModuleContext
                 , moduleContextCreator = initContextCreator (always initialModuleContext)
-                , moduleDefinitionVisitors = []
+                , moduleDefinitionVisitors = Nothing
                 , moduleDocumentationVisitors = []
                 , commentsVisitors = []
                 , importVisitors = []
@@ -1429,7 +1429,7 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
 
 fromModuleRuleSchemaToRunnableModuleVisitor : ModuleRuleSchema schemaState moduleContext -> RunnableModuleVisitor moduleContext
 fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
-    { moduleDefinitionVisitors = List.reverse schema.moduleDefinitionVisitors
+    { moduleDefinitionVisitors = schema.moduleDefinitionVisitors
     , moduleDocumentationVisitors = List.reverse schema.moduleDocumentationVisitors
     , commentsVisitors = List.reverse schema.commentsVisitors
     , importVisitors = List.reverse schema.importVisitors
@@ -2500,10 +2500,10 @@ not catch and report the use `Html.button`. To handle this, check out [`withModu
 withModuleDefinitionVisitor : (Node Module -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
     case schema.moduleDefinitionVisitors of
-        [] ->
-            ModuleRuleSchema { schema | moduleDefinitionVisitors = [ visitor ] }
+        Nothing ->
+            ModuleRuleSchema { schema | moduleDefinitionVisitors = Just visitor }
 
-        [ previousVisitor ] ->
+        Just previousVisitor ->
             let
                 newVisitor : Node Module -> moduleContext -> ( List (Error {}), moduleContext )
                 newVisitor =
@@ -2517,10 +2517,7 @@ withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
                         in
                         ( List.append errorsAfterFirstVisit errorsAfterSecondVisit, contextAfterSecondVisit )
             in
-            ModuleRuleSchema { schema | moduleDefinitionVisitors = [ newVisitor ] }
-
-        _ ->
-            ModuleRuleSchema { schema | moduleDefinitionVisitors = visitor :: schema.moduleDefinitionVisitors }
+            ModuleRuleSchema { schema | moduleDefinitionVisitors = Just newVisitor }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's comments, collect data in
@@ -4142,7 +4139,7 @@ type alias RunnableProjectVisitor projectContext moduleContext =
 
 
 type alias RunnableModuleVisitor moduleContext =
-    { moduleDefinitionVisitors : List (Node Module -> moduleContext -> ( List (Error {}), moduleContext ))
+    { moduleDefinitionVisitors : Maybe (Node Module -> moduleContext -> ( List (Error {}), moduleContext ))
     , moduleDocumentationVisitors : List (Maybe (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
     , commentsVisitors : List (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
     , importVisitors : List (Node Import -> moduleContext -> ( List (Error {}), moduleContext ))
@@ -5474,7 +5471,7 @@ visitModuleForProjectRule schema initialContext module_ =
             ProjectModule.ast module_
     in
     ( [], initialContext )
-        |> accumulateWithListOfVisitors schema.moduleDefinitionVisitors ast.moduleDefinition
+        |> accumulateWithMaybe schema.moduleDefinitionVisitors ast.moduleDefinition
         -- TODO When `elm-syntax` integrates the module documentation by default, then we should use that instead of this.
         |> accumulateModuleDocumentationVisitor schema.moduleDocumentationVisitors ast
         |> accumulateWithListOfVisitors schema.commentsVisitors ast.comments
@@ -5820,7 +5817,7 @@ newRule schema toRuleProjectVisitor initialContext =
 
 moduleRuleImplementation : ModuleRuleSchemaData moduleContext -> (moduleContext -> RuleProjectVisitor) -> (( List (Error {}), moduleContext ) -> RuleModuleVisitor) -> ( List (Error {}), moduleContext ) -> RuleModuleVisitorOperations RuleModuleVisitor
 moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, moduleContext ) as errorsAndContext) =
-    { moduleDefinitionVisitor = addVisitor raise errorsAndContext (List.reverse schema.moduleDefinitionVisitors)
+    { moduleDefinitionVisitor = addMaybeVisitor raise errorsAndContext schema.moduleDefinitionVisitors
     , moduleDocumentationVisitor = addVisitor raise errorsAndContext (List.reverse schema.moduleDocumentationVisitors)
     , commentsVisitor = addVisitor raise errorsAndContext (List.reverse schema.commentsVisitors)
     , importsVisitor = addImportsVisitor raise errorsAndContext (List.reverse schema.importVisitors)
@@ -5854,6 +5851,20 @@ addVisitor raise errorsAndContext visitors =
 
         _ ->
             Just (\node -> raise (visitWithListOfVisitors visitors node errorsAndContext))
+
+
+addMaybeVisitor :
+    (( List (Error {}), context ) -> a)
+    -> ( List (Error {}), context )
+    -> Maybe (b -> context -> ( List (Error {}), context ))
+    -> Maybe (b -> a)
+addMaybeVisitor raise errorsAndContext maybeVisitor =
+    case maybeVisitor of
+        Nothing ->
+            Nothing
+
+        Just visitor ->
+            Just (\node -> raise (accumulate (visitor node) errorsAndContext))
 
 
 addVisitor2 : (( List (Error {}), context ) -> a) -> ( List (Error {}), context ) -> List (b -> c -> context -> ( List (Error {}), context )) -> Maybe (b -> c -> a)
@@ -6238,6 +6249,27 @@ accumulateWithListOfVisitors visitors element initialErrorsAndContext =
         (\visitor errorsAndContext -> accumulate (visitor element) errorsAndContext)
         initialErrorsAndContext
         visitors
+
+
+accumulateWithMaybe :
+    Maybe (a -> context -> ( List (Error {}), context ))
+    -> a
+    -> ( List (Error {}), context )
+    -> ( List (Error {}), context )
+accumulateWithMaybe maybeVisitor element errorsAndContext =
+    case maybeVisitor of
+        Just visitor ->
+            let
+                ( previousErrors, previousContext ) =
+                    errorsAndContext
+
+                ( newErrors, newContext ) =
+                    visitor element previousContext
+            in
+            ( List.append newErrors previousErrors, newContext )
+
+        Nothing ->
+            errorsAndContext
 
 
 accumulateModuleDocumentationVisitor :
