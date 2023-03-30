@@ -5038,8 +5038,13 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
                         newErrors =
                             List.foldl
                                 (\error_ subAcc ->
-                                    if Exceptions.isFileWeWantReportsFor dataToComputeModules.exceptions (errorFilePathInternal error_) then
-                                        setFilePathIfUnset module_ error_ :: subAcc
+                                    let
+                                        errorWithPath : Error {}
+                                        errorWithPath =
+                                            setFilePathIfUnset module_ error_
+                                    in
+                                    if Exceptions.isFileWeWantReportsFor dataToComputeModules.exceptions (errorFilePathInternal errorWithPath) then
+                                        errorWithPath :: subAcc
 
                                     else
                                         subAcc
