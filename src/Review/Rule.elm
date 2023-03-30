@@ -5885,13 +5885,13 @@ projectRuleImplementation schema raise cache =
                                     |> Maybe.map Cache.outputContextMaybe
                                     |> Maybe.withDefault schema.initialProjectContext
 
-                            projectContext : projectContext
-                            projectContext =
+                            inputProjectContext : projectContext
+                            inputProjectContext =
                                 computeProjectContext traversalAndFolder project cache.moduleContexts incoming initialProjectContext
 
                             initialContext : moduleContext
                             initialContext =
-                                applyContextCreator availableData moduleContextCreator projectContext
+                                applyContextCreator availableData moduleContextCreator inputProjectContext
                         in
                         newRule moduleRuleSchema toRuleProjectVisitor initialContext
                     )
