@@ -4580,6 +4580,8 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
             case projectVisitor.elmJsonVisitor of
                 Nothing ->
                     let
+                        -- TODO Maybe we can check whether there is a visitor before looking at whether there is a cache entry
+                        -- TODO Can we maybe keep the cache entry empty?
                         elmJsonEntry : CacheEntryMaybe projectContext
                         elmJsonEntry =
                             Cache.createEntryMaybe
