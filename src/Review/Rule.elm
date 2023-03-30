@@ -2505,8 +2505,8 @@ withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
 
         Just previousVisitor ->
             let
-                newVisitor : Node Module -> moduleContext -> ( List (Error {}), moduleContext )
-                newVisitor =
+                combinedVisitor : Node Module -> moduleContext -> ( List (Error {}), moduleContext )
+                combinedVisitor =
                     \node moduleContext ->
                         let
                             ( errorsAfterFirstVisit, contextAfterFirstVisit ) =
@@ -2517,7 +2517,7 @@ withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
                         in
                         ( List.append errorsAfterFirstVisit errorsAfterSecondVisit, contextAfterSecondVisit )
             in
-            ModuleRuleSchema { schema | moduleDefinitionVisitor = Just newVisitor }
+            ModuleRuleSchema { schema | moduleDefinitionVisitor = Just combinedVisitor }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's comments, collect data in
