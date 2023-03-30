@@ -5896,6 +5896,11 @@ projectRuleImplementation schema raise cache =
     }
 
 
+createModuleVisitor : RuleProjectVisitor -> Maybe (ValidProject -> AvailableData -> Graph.Adjacency () -> RuleModuleVisitor)
+createModuleVisitor (RuleProjectVisitor ruleProjectVisitor) =
+    ruleProjectVisitor.createModuleVisitor
+
+
 type RuleModuleVisitor
     = RuleModuleVisitor (RuleModuleVisitorOperations RuleModuleVisitor)
 
