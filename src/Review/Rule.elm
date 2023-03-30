@@ -5889,8 +5889,8 @@ projectRuleImplementation schema raise cache =
                             initialContext =
                                 applyContextCreator availableData moduleContextCreator inputProjectContext
 
-                            toRuleProjectVisitor : moduleContext -> RuleProjectVisitor
-                            toRuleProjectVisitor resultModuleContext =
+                            toRuleProjectVisitor : ( List (Error {}), moduleContext ) -> RuleProjectVisitor
+                            toRuleProjectVisitor ( errors, resultModuleContext ) =
                                 let
                                     outputProjectContext : projectContext
                                     outputProjectContext =
@@ -5939,13 +5939,13 @@ type alias RuleModuleVisitorOperations t =
     }
 
 
-newRule : ModuleRuleSchemaData moduleContext -> (moduleContext -> RuleProjectVisitor) -> moduleContext -> RuleModuleVisitor
+newRule : ModuleRuleSchemaData moduleContext -> (( List (Error {}), moduleContext ) -> RuleProjectVisitor) -> moduleContext -> RuleModuleVisitor
 newRule schema toRuleProjectVisitor initialContext =
     If.create RuleModuleVisitor (moduleRuleImplementation schema toRuleProjectVisitor) ( [], initialContext )
 
 
-moduleRuleImplementation : ModuleRuleSchemaData moduleContext -> (moduleContext -> RuleProjectVisitor) -> (( List (Error {}), moduleContext ) -> RuleModuleVisitor) -> ( List (Error {}), moduleContext ) -> RuleModuleVisitorOperations RuleModuleVisitor
-moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, moduleContext ) as errorsAndContext) =
+moduleRuleImplementation : ModuleRuleSchemaData moduleContext -> (( List (Error {}), moduleContext ) -> RuleProjectVisitor) -> (( List (Error {}), moduleContext ) -> RuleModuleVisitor) -> ( List (Error {}), moduleContext ) -> RuleModuleVisitorOperations RuleModuleVisitor
+moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, _ ) as errorsAndContext) =
     { moduleDefinitionVisitor = addMaybeVisitor raise errorsAndContext schema.moduleDefinitionVisitor
     , moduleDocumentationVisitor = addMaybeVisitor raise errorsAndContext schema.moduleDocumentationVisitor
     , commentVisitor = addMaybeVisitor raise errorsAndContext schema.commentsVisitor
@@ -5961,7 +5961,7 @@ moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, moduleCont
     , caseBranchVisitorOnExit = addMaybeVisitor2 raise errorsAndContext schema.caseBranchVisitorOnExit
     , finalModuleEvaluation = addFinalModuleEvaluationVisitor raise errorsAndContext schema.finalEvaluationFn
     , getErrors = errors
-    , toProjectVisitor = \() -> toRuleProjectVisitor moduleContext
+    , toProjectVisitor = \() -> toRuleProjectVisitor errorsAndContext
     }
 
 
