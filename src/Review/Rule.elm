@@ -5030,10 +5030,20 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
         outputRuleModuleVisitors =
             visitModuleForProjectRule2 module_ inputRuleModuleVisitors
 
-        outputRuleProjectVisitors : List RuleProjectVisitor
-        outputRuleProjectVisitors =
-            -- TODO Continue here
-            List.map getToProjectVisitor outputRuleModuleVisitors
+        ( errors, outputRuleProjectVisitors ) =
+            List.foldl
+                (\(RuleModuleVisitor ruleModuleVisitor) ( accErrors, rules ) ->
+                    let
+                        newErrors : List (Error {})
+                        newErrors =
+                            ruleModuleVisitor.getErrors
+                                |> List.map (\error_ -> setFilePathIfUnset module_ error_)
+                                |> filterExceptionsAndSetName dataToComputeModules.exceptions dataToComputeModules.projectVisitor.name
+                    in
+                    ( List.append newErrors accErrors, ruleModuleVisitor.toProjectVisitor () :: rules )
+                )
+                ( [], [] )
+                outputRuleModuleVisitors
 
         ( _, resultModuleContext ) =
             visitModuleForProjectRule
@@ -5049,13 +5059,6 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
 
                 Nothing ->
                     projectContext
-
-        errors : List (Error {})
-        errors =
-            outputRuleModuleVisitors
-                |> List.concatMap getErrorsForRuleModuleVisitor
-                |> List.map (\error_ -> setFilePathIfUnset module_ error_)
-                |> filterExceptionsAndSetName dataToComputeModules.exceptions dataToComputeModules.projectVisitor.name
     in
     case findFixInComputeModuleResults { params | project = newProject } outputProjectContext errors of
         ContinueWithNextStep nextStepResult ->
