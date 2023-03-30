@@ -525,10 +525,11 @@ to compare them or the model that holds them.
 reviewV2 : List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
 reviewV2 rules maybeProjectData project =
     case
-        checkForConfigurationErrors rules
-            |> Result.andThen (\allRulesToRun -> getModulesSortedByImport project)
+        Result.map2 Tuple.pair
+            (checkForConfigurationErrors rules)
+            (getModulesSortedByImport project)
     of
-        Ok ( validProject, _ ) ->
+        Ok ( ruleProjectVisitors, ( validProject, _ ) ) ->
             runReviewForV2 ReviewOptions.defaults validProject rules
 
         Err errors ->
