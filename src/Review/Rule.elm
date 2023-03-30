@@ -378,7 +378,7 @@ type alias ModuleRuleSchemaData moduleContext =
     , moduleContextCreator : ContextCreator () moduleContext
     , moduleDefinitionVisitor : Maybe (Visitor Module moduleContext)
     , moduleDocumentationVisitors : Maybe (Maybe (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
-    , commentsVisitors : List (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
+    , commentsVisitors : Maybe (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
     , importVisitors : List (Node Import -> moduleContext -> ( List (Error {}), moduleContext ))
     , declarationListVisitors : List (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
     , declarationVisitorsOnEnter : List (Visitor Declaration moduleContext)
@@ -1009,7 +1009,7 @@ newModuleRuleSchema name initialModuleContext =
         , moduleContextCreator = initContextCreator (always initialModuleContext)
         , moduleDefinitionVisitor = Nothing
         , moduleDocumentationVisitors = Nothing
-        , commentsVisitors = []
+        , commentsVisitors = Nothing
         , importVisitors = []
         , declarationListVisitors = []
         , declarationVisitorsOnEnter = []
@@ -1076,7 +1076,7 @@ newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
         , moduleContextCreator = moduleContextCreator
         , moduleDefinitionVisitor = Nothing
         , moduleDocumentationVisitors = Nothing
-        , commentsVisitors = []
+        , commentsVisitors = Nothing
         , importVisitors = []
         , declarationListVisitors = []
         , declarationVisitorsOnEnter = []
@@ -1397,7 +1397,7 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
                 , moduleContextCreator = initContextCreator (always initialModuleContext)
                 , moduleDefinitionVisitor = Nothing
                 , moduleDocumentationVisitors = Nothing
-                , commentsVisitors = []
+                , commentsVisitors = Nothing
                 , importVisitors = []
                 , declarationListVisitors = []
                 , declarationVisitorsOnEnter = []
@@ -1431,7 +1431,7 @@ fromModuleRuleSchemaToRunnableModuleVisitor : ModuleRuleSchema schemaState modul
 fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     { moduleDefinitionVisitors = schema.moduleDefinitionVisitor
     , moduleDocumentationVisitors = schema.moduleDocumentationVisitors
-    , commentsVisitors = List.reverse schema.commentsVisitors
+    , commentsVisitors = schema.commentsVisitors
     , importVisitors = List.reverse schema.importVisitors
     , declarationListVisitors = List.reverse schema.declarationListVisitors
     , declarationAndExpressionVisitor = createDeclarationAndExpressionVisitor schema
@@ -2527,7 +2527,7 @@ Tip: If you only need to access the module documentation, you should use
 -}
 withCommentsVisitor : (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withCommentsVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | commentsVisitors = visitor :: schema.commentsVisitors }
+    ModuleRuleSchema { schema | commentsVisitors = Just (combineVisitors visitor schema.commentsVisitors) }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's documentation, collect data in
@@ -4146,7 +4146,7 @@ type alias RunnableProjectVisitor projectContext moduleContext =
 type alias RunnableModuleVisitor moduleContext =
     { moduleDefinitionVisitors : Maybe (Node Module -> moduleContext -> ( List (Error {}), moduleContext ))
     , moduleDocumentationVisitors : Maybe (Maybe (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
-    , commentsVisitors : List (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
+    , commentsVisitors : Maybe (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
     , importVisitors : List (Node Import -> moduleContext -> ( List (Error {}), moduleContext ))
     , declarationListVisitors : List (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
     , declarationAndExpressionVisitor : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
@@ -5479,7 +5479,7 @@ visitModuleForProjectRule schema initialContext module_ =
         |> accumulateWithMaybe schema.moduleDefinitionVisitors ast.moduleDefinition
         -- TODO When `elm-syntax` integrates the module documentation by default, then we should use that instead of this.
         |> accumulateModuleDocumentationVisitor schema.moduleDocumentationVisitors ast
-        |> accumulateWithListOfVisitors schema.commentsVisitors ast.comments
+        |> accumulateWithMaybe schema.commentsVisitors ast.comments
         |> accumulateList schema.importVisitors ast.imports
         |> accumulateWithListOfVisitors schema.declarationListVisitors ast.declarations
         |> schema.declarationAndExpressionVisitor ast.declarations
@@ -5824,7 +5824,7 @@ moduleRuleImplementation : ModuleRuleSchemaData moduleContext -> (moduleContext 
 moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, moduleContext ) as errorsAndContext) =
     { moduleDefinitionVisitor = addMaybeVisitor raise errorsAndContext schema.moduleDefinitionVisitor
     , moduleDocumentationVisitor = addMaybeVisitor raise errorsAndContext schema.moduleDocumentationVisitors
-    , commentsVisitor = addVisitor raise errorsAndContext (List.reverse schema.commentsVisitors)
+    , commentsVisitor = addMaybeVisitor raise errorsAndContext schema.commentsVisitors
     , importsVisitor = addImportsVisitor raise errorsAndContext (List.reverse schema.importVisitors)
     , declarationListVisitor = addVisitor raise errorsAndContext (List.reverse schema.declarationListVisitors)
     , declarationVisitorOnEnter = addVisitor raise errorsAndContext (List.reverse schema.declarationVisitorsOnEnter)
