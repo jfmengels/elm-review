@@ -5044,10 +5044,10 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
                                     else
                                         subAcc
                                 )
-                                []
+                                accErrors
                                 ruleModuleVisitor.getErrors
                     in
-                    ( List.append newErrors accErrors, ruleModuleVisitor.toProjectVisitor () :: rules )
+                    ( newErrors, ruleModuleVisitor.toProjectVisitor () :: rules )
                 )
                 ( [], [] )
                 outputRuleModuleVisitors
