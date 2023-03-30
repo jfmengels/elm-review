@@ -5865,6 +5865,7 @@ type alias RuleProjectVisitorOperations t =
     -- `projectContext` is the hidden type variable
     -- The hidden state is `ProjectRuleCache projectContext`
     { collectModuleContext : String -> RuleModuleVisitor -> t
+    , elmJsonVisitor : Maybe (ValidProject -> Exceptions -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> t)
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
     }
 
@@ -5881,8 +5882,54 @@ projectRuleImplementation :
     -> RuleProjectVisitorOperations RuleProjectVisitor
 projectRuleImplementation schema raise cache =
     { collectModuleContext = \path ruleModuleVisitor -> getToProjectVisitor ruleModuleVisitor
+    , elmJsonVisitor = addElmJsonVisitor schema raise cache schema.elmJsonVisitor
     , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raise cache
     }
+
+
+addElmJsonVisitor :
+    ProjectRuleSchemaData projectContext moduleContext
+    -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
+    -> ProjectRuleCache projectContext
+    -> Maybe (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
+    ->
+        Maybe
+            (ValidProject
+             -> Exceptions
+             -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
+             -> RuleProjectVisitor
+            )
+addElmJsonVisitor schema raise cache maybeElmJsonVisitor =
+    case maybeElmJsonVisitor of
+        Nothing ->
+            Nothing
+
+        Just elmJsonVisitor ->
+            Just
+                (\project exceptions elmJsonData ->
+                    let
+                        inputContext : projectContext
+                        inputContext =
+                            schema.initialProjectContext
+
+                        ( errorsForVisitor, outputContext ) =
+                            elmJsonVisitor elmJsonData inputContext
+
+                        errors : List (Error {})
+                        errors =
+                            filterExceptionsAndSetName exceptions schema.name errorsForVisitor
+
+                        elmJsonEntry : CacheEntryMaybe projectContext
+                        elmJsonEntry =
+                            Cache.createEntryMaybe
+                                { contentHash = ValidProject.elmJsonHash project
+                                , errors = errors
+                                , inputContext = inputContext
+                                , outputContext = outputContext
+                                }
+                    in
+                    raise { cache | elmJson = Just elmJsonEntry }
+                )
 
 
 createModuleVisitorFromProjectVisitor :
