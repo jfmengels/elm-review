@@ -5830,7 +5830,7 @@ type alias RuleProjectVisitorOperations t =
     -- `projectContext` is the hidden type variable
     -- The hidden state is `ProjectRuleCache projectContext`
     { collectModuleContext : String -> RuleModuleVisitor -> t
-    , createModuleVisitor : ValidProject -> AvailableData -> Graph.Adjacency () -> Maybe RuleModuleVisitor
+    , createModuleVisitor : Maybe (ValidProject -> AvailableData -> Graph.Adjacency () -> RuleModuleVisitor)
     }
 
 
@@ -5847,49 +5847,51 @@ projectRuleImplementation :
 projectRuleImplementation schema raise cache =
     { collectModuleContext = \path ruleModuleVisitor -> getToProjectVisitor ruleModuleVisitor ()
     , createModuleVisitor =
-        \project availableData incoming ->
-            let
-                toRuleProjectVisitor moduleContext =
-                    -- TODO integrate module context into cache
-                    raise cache
+        let
+            toRuleProjectVisitor moduleContext =
+                -- TODO integrate module context into cache
+                raise cache
 
-                maybeModuleRuleSchema =
-                    mergeModuleVisitors schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors
-            in
-            case maybeModuleRuleSchema of
-                Nothing ->
-                    Nothing
+            maybeModuleRuleSchema =
+                mergeModuleVisitors schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors
+        in
+        case maybeModuleRuleSchema of
+            Nothing ->
+                Nothing
 
-                Just ( ModuleRuleSchema moduleRuleSchema, moduleContextCreator ) ->
-                    let
-                        traversalAndFolder : TraversalAndFolder projectContext moduleContext
-                        traversalAndFolder =
-                            case ( schema.traversalType, schema.folder ) of
-                                ( AllModulesInParallel, _ ) ->
-                                    TraverseAllModulesInParallel schema.folder
+            Just ( ModuleRuleSchema moduleRuleSchema, moduleContextCreator ) ->
+                Just
+                    (\project availableData incoming ->
+                        let
+                            traversalAndFolder : TraversalAndFolder projectContext moduleContext
+                            traversalAndFolder =
+                                case ( schema.traversalType, schema.folder ) of
+                                    ( AllModulesInParallel, _ ) ->
+                                        TraverseAllModulesInParallel schema.folder
 
-                                ( ImportedModulesFirst, Just folder ) ->
-                                    TraverseImportedModulesFirst folder
+                                    ( ImportedModulesFirst, Just folder ) ->
+                                        TraverseImportedModulesFirst folder
 
-                                ( ImportedModulesFirst, Nothing ) ->
-                                    TraverseAllModulesInParallel Nothing
+                                    ( ImportedModulesFirst, Nothing ) ->
+                                        TraverseAllModulesInParallel Nothing
 
-                        initialProjectContext : projectContext
-                        initialProjectContext =
-                            List.filterMap identity [ cache.dependencies, cache.readme, cache.elmJson ]
-                                |> List.head
-                                |> Maybe.map Cache.outputContextMaybe
-                                |> Maybe.withDefault schema.initialProjectContext
+                            initialProjectContext : projectContext
+                            initialProjectContext =
+                                List.filterMap identity [ cache.dependencies, cache.readme, cache.elmJson ]
+                                    |> List.head
+                                    |> Maybe.map Cache.outputContextMaybe
+                                    |> Maybe.withDefault schema.initialProjectContext
 
-                        projectContext : projectContext
-                        projectContext =
-                            computeProjectContext traversalAndFolder project cache.moduleContexts incoming initialProjectContext
+                            projectContext : projectContext
+                            projectContext =
+                                computeProjectContext traversalAndFolder project cache.moduleContexts incoming initialProjectContext
 
-                        initialContext : moduleContext
-                        initialContext =
-                            applyContextCreator availableData moduleContextCreator projectContext
-                    in
-                    Just (newRule moduleRuleSchema toRuleProjectVisitor initialContext)
+                            initialContext : moduleContext
+                            initialContext =
+                                applyContextCreator availableData moduleContextCreator projectContext
+                        in
+                        newRule moduleRuleSchema toRuleProjectVisitor initialContext
+                    )
     }
 
 
