@@ -5006,6 +5006,10 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
             , isFileIgnored = isFileIgnored
             }
 
+        ( rulesWithModuleVisitors, rulesWithoutModuleVisitors ) =
+            -- We can probably compute this in computeModules or above.
+            ( dataToComputeModules.ruleProjectVisitors, [] )
+
         inputRuleModuleVisitors : List RuleModuleVisitor
         inputRuleModuleVisitors =
             List.map
@@ -5014,7 +5018,7 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
                         ruleProjectVisitor
                         (applyContextCreator availableData dataToComputeModules.moduleContextCreator projectContext)
                 )
-                dataToComputeModules.ruleProjectVisitors
+                rulesWithModuleVisitors
 
         initialModuleContext : moduleContext
         initialModuleContext =
@@ -5829,7 +5833,7 @@ type alias RuleProjectVisitorOperations t =
     }
 
 
-createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext ->  RuleProjectVisitor
+createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> RuleProjectVisitor
 createRuleProjectVisitor schema =
     If.create RuleProjectVisitor (projectRuleImplementation schema) emptyCache
 
