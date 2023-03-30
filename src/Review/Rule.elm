@@ -5871,24 +5871,24 @@ createModuleVisitorFromProjectVisitor :
     -> ProjectRuleCache projectContext
     -> Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
 createModuleVisitorFromProjectVisitor schema raise cache =
-    let
-        traversalAndFolder : TraversalAndFolder projectContext moduleContext
-        traversalAndFolder =
-            case ( schema.traversalType, schema.folder ) of
-                ( AllModulesInParallel, _ ) ->
-                    TraverseAllModulesInParallel schema.folder
-
-                ( ImportedModulesFirst, Just folder ) ->
-                    TraverseImportedModulesFirst folder
-
-                ( ImportedModulesFirst, Nothing ) ->
-                    TraverseAllModulesInParallel Nothing
-    in
     case mergeModuleVisitors schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors of
         Nothing ->
             Nothing
 
         Just moduleRuleSchema ->
+            let
+                traversalAndFolder : TraversalAndFolder projectContext moduleContext
+                traversalAndFolder =
+                    case ( schema.traversalType, schema.folder ) of
+                        ( AllModulesInParallel, _ ) ->
+                            TraverseAllModulesInParallel schema.folder
+
+                        ( ImportedModulesFirst, Just folder ) ->
+                            TraverseImportedModulesFirst folder
+
+                        ( ImportedModulesFirst, Nothing ) ->
+                            TraverseAllModulesInParallel Nothing
+            in
             Just (createModuleVisitorFromProjectVisitorHelp schema raise cache traversalAndFolder moduleRuleSchema)
 
 
