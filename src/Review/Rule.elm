@@ -389,7 +389,7 @@ type alias ModuleRuleSchemaData moduleContext =
     , letDeclarationVisitorOnExit : Maybe (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
     , caseBranchVisitorOnEnter : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
     , caseBranchVisitorOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
-    , finalEvaluationFns : List (moduleContext -> List (Error {}))
+    , finalEvaluationFn : Maybe (moduleContext -> List (Error {}))
     , providesFixes : Bool
 
     -- Project visitors
@@ -1020,7 +1020,7 @@ newModuleRuleSchema name initialModuleContext =
         , letDeclarationVisitorOnExit = Nothing
         , caseBranchVisitorOnEnter = Nothing
         , caseBranchVisitorOnExit = Nothing
-        , finalEvaluationFns = []
+        , finalEvaluationFn = Nothing
         , elmJsonVisitors = []
         , readmeVisitors = []
         , dependenciesVisitors = []
@@ -1087,7 +1087,7 @@ newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
         , letDeclarationVisitorOnExit = Nothing
         , caseBranchVisitorOnEnter = Nothing
         , caseBranchVisitorOnExit = Nothing
-        , finalEvaluationFns = []
+        , finalEvaluationFn = Nothing
         , elmJsonVisitors = []
         , readmeVisitors = []
         , dependenciesVisitors = []
@@ -1408,7 +1408,7 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
                 , letDeclarationVisitorOnExit = Nothing
                 , caseBranchVisitorOnEnter = Nothing
                 , caseBranchVisitorOnExit = Nothing
-                , finalEvaluationFns = []
+                , finalEvaluationFn = Nothing
                 , elmJsonVisitors = []
                 , readmeVisitors = []
                 , dependenciesVisitors = []
@@ -1435,7 +1435,7 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     , importVisitor = schema.importVisitor
     , declarationListVisitor = schema.declarationListVisitor
     , declarationAndExpressionVisitor = createDeclarationAndExpressionVisitor schema
-    , finalEvaluationFns = List.reverse schema.finalEvaluationFns
+    , finalEvaluationFn = schema.finalEvaluationFn
     , ruleModuleVisitor = \ruleProjectVisitor -> newRule schema (\moduleContext -> ruleProjectVisitor)
     }
 
@@ -3360,7 +3360,17 @@ for [`withImportVisitor`](#withImportVisitor), but using [`withFinalModuleEvalua
 -}
 withFinalModuleEvaluation : (moduleContext -> List (Error {})) -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withFinalModuleEvaluation visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | finalEvaluationFns = visitor :: schema.finalEvaluationFns }
+    let
+        combinedVisitor : moduleContext -> List (Error {})
+        combinedVisitor =
+            case schema.finalEvaluationFn of
+                Nothing ->
+                    visitor
+
+                Just previousVisitor ->
+                    \context -> List.append (visitor context) (previousVisitor context)
+    in
+    ModuleRuleSchema { schema | finalEvaluationFn = Just combinedVisitor }
 
 
 combineVisitors :
@@ -4216,7 +4226,7 @@ type alias RunnableModuleVisitor moduleContext =
     , importVisitor : Maybe (Node Import -> moduleContext -> ( List (Error {}), moduleContext ))
     , declarationListVisitor : Maybe (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
     , declarationAndExpressionVisitor : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
-    , finalEvaluationFns : List (moduleContext -> List (Error {}))
+    , finalEvaluationFn : Maybe (moduleContext -> List (Error {}))
     , ruleModuleVisitor : RuleProjectVisitor -> moduleContext -> RuleModuleVisitor
     }
 
@@ -5549,7 +5559,20 @@ visitModuleForProjectRule schema initialContext module_ =
         |> accumulateListWithMaybe schema.importVisitor ast.imports
         |> accumulateWithMaybe schema.declarationListVisitor ast.declarations
         |> schema.declarationAndExpressionVisitor ast.declarations
-        |> (\( errors, moduleContext ) -> ( makeFinalModuleEvaluation schema.finalEvaluationFns errors moduleContext, moduleContext ))
+        |> accumulateFinalEvaluation schema.finalEvaluationFn
+
+
+accumulateFinalEvaluation :
+    Maybe (context -> List (Error {}))
+    -> ( List (Error {}), context )
+    -> ( List (Error {}), context )
+accumulateFinalEvaluation maybeFinalEvaluationFn (( errors, moduleContext ) as untouched) =
+    case maybeFinalEvaluationFn of
+        Just finalEvaluationFn ->
+            ( List.append (finalEvaluationFn moduleContext) errors, moduleContext )
+
+        Nothing ->
+            untouched
 
 
 visitModuleForProjectRule2 : OpaqueProjectModule -> List RuleModuleVisitor -> List RuleModuleVisitor
@@ -5882,7 +5905,7 @@ moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, moduleCont
     , letDeclarationVisitorOnExit = addMaybeVisitor2 raise errorsAndContext schema.letDeclarationVisitorOnExit
     , caseBranchVisitorOnEnter = addMaybeVisitor2 raise errorsAndContext schema.caseBranchVisitorOnEnter
     , caseBranchVisitorOnExit = addMaybeVisitor2 raise errorsAndContext schema.caseBranchVisitorOnExit
-    , finalModuleEvaluation = addFinalModuleEvaluationVisitor raise errorsAndContext schema.finalEvaluationFns
+    , finalModuleEvaluation = addFinalModuleEvaluationVisitor raise errorsAndContext schema.finalEvaluationFn
     , getErrors = errors
     , toProjectVisitor = \() -> toRuleProjectVisitor moduleContext
     }
@@ -5973,18 +5996,15 @@ addImportsVisitor raise errorsAndContext maybeImportVisitors =
 addFinalModuleEvaluationVisitor :
     (( List (Error {}), context ) -> RuleModuleVisitor)
     -> ( List (Error {}), context )
-    -> List (context -> List (Error {}))
+    -> Maybe (context -> List (Error {}))
     -> Maybe (() -> RuleModuleVisitor)
-addFinalModuleEvaluationVisitor raise ( errors, context ) visitors =
-    case visitors of
-        [] ->
+addFinalModuleEvaluationVisitor raise ( errors, context ) maybeVisitor =
+    case maybeVisitor of
+        Nothing ->
             Nothing
 
-        [ visitor ] ->
+        Just visitor ->
             Just (\() -> raise ( visitor context ++ errors, context ))
-
-        _ ->
-            Just (\() -> raise ( List.foldl (\visitor acc -> List.append (visitor context) acc) errors visitors, context ))
 
 
 getErrorsForRuleModuleVisitor : RuleModuleVisitor -> List (Error {})
@@ -6194,16 +6214,6 @@ visitCaseBranch expressionRelatedVisitors caseBlockWithRange (( _, caseExpressio
         |> accumulateWithMaybe2 expressionRelatedVisitors.caseBranchVisitorOnEnter caseBlockWithRange caseBranch
         |> visitExpression expressionRelatedVisitors caseExpression
         |> accumulateWithMaybe2 expressionRelatedVisitors.caseBranchVisitorOnExit caseBlockWithRange caseBranch
-
-
-{-| Concatenate the errors of the previous step and of the last step.
--}
-makeFinalModuleEvaluation : List (context -> List (Error {})) -> List (Error {}) -> context -> List (Error {})
-makeFinalModuleEvaluation finalEvaluationFns previousErrors context =
-    ListExtra.orderIndependentConcatMapAppend
-        (\visitor -> visitor context)
-        finalEvaluationFns
-        previousErrors
 
 
 expressionChildren : Node Expression -> List (Node Expression)
