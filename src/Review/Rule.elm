@@ -469,12 +469,17 @@ review rules project =
             )
 
         Ok ( validProject, _ ) ->
-            let
-                runRulesResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
-                runRulesResult =
-                    runRules ReviewOptions.defaults rules validProject
-            in
-            ( runRulesResult.errors, runRulesResult.rules )
+            case checkForConfigurationErrors rules of
+                Err configurationErrors ->
+                    ( configurationErrors, rules )
+
+                Ok ruleProjectVisitors ->
+                    let
+                        runRulesResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
+                        runRulesResult =
+                            runRules ReviewOptions.defaults rules validProject
+                    in
+                    ( runRulesResult.errors, runRulesResult.rules )
 
 
 {-| Review a project and gives back the errors raised by the given rules.
