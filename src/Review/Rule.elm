@@ -5855,6 +5855,18 @@ projectRuleImplementation schema raise cache =
             maybeModuleRuleSchema : Maybe ( ModuleRuleSchema {} moduleContext, ContextCreator projectContext moduleContext )
             maybeModuleRuleSchema =
                 mergeModuleVisitors schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors
+
+            traversalAndFolder : TraversalAndFolder projectContext moduleContext
+            traversalAndFolder =
+                case ( schema.traversalType, schema.folder ) of
+                    ( AllModulesInParallel, _ ) ->
+                        TraverseAllModulesInParallel schema.folder
+
+                    ( ImportedModulesFirst, Just folder ) ->
+                        TraverseImportedModulesFirst folder
+
+                    ( ImportedModulesFirst, Nothing ) ->
+                        TraverseAllModulesInParallel Nothing
         in
         case maybeModuleRuleSchema of
             Nothing ->
@@ -5864,18 +5876,6 @@ projectRuleImplementation schema raise cache =
                 Just
                     (\project availableData incoming ->
                         let
-                            traversalAndFolder : TraversalAndFolder projectContext moduleContext
-                            traversalAndFolder =
-                                case ( schema.traversalType, schema.folder ) of
-                                    ( AllModulesInParallel, _ ) ->
-                                        TraverseAllModulesInParallel schema.folder
-
-                                    ( ImportedModulesFirst, Just folder ) ->
-                                        TraverseImportedModulesFirst folder
-
-                                    ( ImportedModulesFirst, Nothing ) ->
-                                        TraverseAllModulesInParallel Nothing
-
                             initialProjectContext : projectContext
                             initialProjectContext =
                                 List.filterMap identity [ cache.dependencies, cache.readme, cache.elmJson ]
