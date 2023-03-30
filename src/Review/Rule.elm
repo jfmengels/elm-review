@@ -352,7 +352,7 @@ type Rule
         , providesFixes : Bool
         , extractsData : Bool
         , ruleImplementation : ReviewOptionsData -> Int -> Exceptions -> FixedErrors -> ValidProject -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
-        , configurationError : Maybe { message : String, details : List String }
+        , configurationError : Result { message : String, details : List String } ()
         }
 
 
@@ -898,7 +898,12 @@ You should not have to use this when writing a rule. You might be looking for [`
 -}
 getConfigurationError : Rule -> Maybe { message : String, details : List String }
 getConfigurationError (Rule rule) =
-    rule.configurationError
+    case rule.configurationError of
+        Ok _ ->
+            Nothing
+
+        Err err ->
+            Just err
 
 
 {-| **@deprecated**
@@ -1268,7 +1273,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     (removeUnknownModulesFromInitialCache project (initialCacheMarker schema.name ruleId emptyCache))
                     fixedErrors
                     project
-        , configurationError = Nothing
+        , configurationError = Ok ()
         }
 
 
@@ -1564,7 +1569,7 @@ configurationError name configurationError_ =
         , extractsData = False
         , providesFixes = False
         , ruleImplementation = \_ _ _ fixedErrors project -> { errors = [], fixedErrors = fixedErrors, rule = configurationError name configurationError_, project = project, extract = Nothing }
-        , configurationError = Just configurationError_
+        , configurationError = Err configurationError_
         }
 
 
@@ -4338,7 +4343,7 @@ runProjectVisitorHelp ({ ruleProjectVisitors, projectVisitor, exceptions } as da
                         cache
                         newFixedErrors
                         newProjectArg
-            , configurationError = Nothing
+            , configurationError = Ok ()
             }
     , project = project
     , extract = Maybe.map .extract (finalCacheMarker projectVisitor.name ruleId cache).extract
