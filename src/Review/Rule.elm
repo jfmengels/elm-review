@@ -530,7 +530,7 @@ reviewV2 rules maybeProjectData project =
             (getModulesSortedByImport project)
     of
         Ok ( ruleProjectVisitors, ( validProject, _ ) ) ->
-            runReviewForV2 ReviewOptions.defaults validProject rules
+            runReviewForV2 ReviewOptions.defaults validProject rules ruleProjectVisitors
 
         Err errors ->
             { errors = errors
@@ -687,8 +687,8 @@ importCycleError cycle =
         |> errorToReviewError
 
 
-runReviewForV2 : ReviewOptions -> ValidProject -> List Rule -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
-runReviewForV2 reviewOptions project rules =
+runReviewForV2 : ReviewOptions -> ValidProject -> List Rule -> List RuleProjectVisitor -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
+runReviewForV2 reviewOptions project rules ruleProjectVisitors =
     let
         runResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
         runResult =
