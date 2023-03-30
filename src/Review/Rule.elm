@@ -1975,11 +1975,11 @@ withFinalProjectEvaluation visitor (ProjectRuleSchema schema) =
                 Nothing ->
                     \projectContext ->
                         visitor projectContext
-                            |> List.map removeErrorPhantomType
+                            |> removeErrorPhantomTypes
 
                 Just previousVisitor ->
                     -- TODO Optimize this
-                    \projectContext -> List.append (visitor projectContext |> List.map removeErrorPhantomType) (previousVisitor projectContext)
+                    \projectContext -> List.append (visitor projectContext |> removeErrorPhantomTypes) (previousVisitor projectContext)
     in
     ProjectRuleSchema { schema | finalEvaluationFn = Just combinedVisitor }
 
@@ -2030,7 +2030,7 @@ removeErrorPhantomTypeFromVisitor : (element -> projectContext -> ( List (Error 
 removeErrorPhantomTypeFromVisitor function =
     \element projectContext ->
         function element projectContext
-            |> Tuple.mapFirst (List.map removeErrorPhantomType)
+            |> Tuple.mapFirst removeErrorPhantomTypes
 
 
 {-| Allows the rule to have access to the context of the modules imported by the
@@ -3514,9 +3514,10 @@ doesPreventExtract (Error err) =
     Review.Error.doesPreventExtract err
 
 
-removeErrorPhantomType : Error something -> Error {}
-removeErrorPhantomType (Error err) =
-    Error err
+removeErrorPhantomTypes : List (Error something) -> List (Error {})
+removeErrorPhantomTypes list =
+    -- This function could be replaced by `identity` at runtime
+    List.map (\(Error err) -> Error err) list
 
 
 {-| Represents an error found by a [`Rule`](#Rule). These are the ones that will
