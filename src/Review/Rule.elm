@@ -5026,10 +5026,6 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
         initialModuleContext =
             applyContextCreator availableData dataToComputeModules.moduleContextCreator projectContext
 
-        outputRuleModuleVisitors : List RuleModuleVisitor
-        outputRuleModuleVisitors =
-            visitModuleForProjectRule2 module_ inputRuleModuleVisitors
-
         ( errors, outputRuleProjectVisitors ) =
             List.foldl
                 (\(RuleModuleVisitor ruleModuleVisitor) ( accErrors, rules ) ->
@@ -5055,7 +5051,7 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
                     ( newErrors, ruleModuleVisitor.toProjectVisitor () :: rules )
                 )
                 ( [], [] )
-                outputRuleModuleVisitors
+                (visitModuleForProjectRule2 module_ inputRuleModuleVisitors)
 
         ( _, resultModuleContext ) =
             visitModuleForProjectRule
