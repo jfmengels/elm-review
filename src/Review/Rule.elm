@@ -5011,8 +5011,8 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
         ( inputRuleModuleVisitors, rulesWithoutModuleVisitors ) =
             -- We can probably compute this in computeModules or above.
             List.foldl
-                (\rule ( with, without ) ->
-                    case createModuleVisitor rule of
+                (\((RuleProjectVisitor ruleProjectVisitor) as rule) ( with, without ) ->
+                    case ruleProjectVisitor.createModuleVisitorFromProjectVisitor of
                         Just moduleVisitor ->
                             ( moduleVisitor project availableData (ProjectModule.contentHash module_) incoming :: with, without )
 
@@ -5929,11 +5929,6 @@ projectRuleImplementation schema raise cache =
                         newRule moduleRuleSchema toRuleProjectVisitor initialContext
                     )
     }
-
-
-createModuleVisitor : RuleProjectVisitor -> Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
-createModuleVisitor (RuleProjectVisitor ruleProjectVisitor) =
-    ruleProjectVisitor.createModuleVisitorFromProjectVisitor
 
 
 type RuleModuleVisitor
