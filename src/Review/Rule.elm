@@ -5866,6 +5866,7 @@ type alias RuleProjectVisitorOperations t =
     -- The hidden state is `ProjectRuleCache projectContext`
     { collectModuleContext : String -> RuleModuleVisitor -> t
     , elmJsonVisitor : Maybe (ValidProject -> Exceptions -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> t)
+    , readmeVisitor : Maybe (ValidProject -> Exceptions -> Maybe { readmeKey : ReadmeKey, content : String } -> t)
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
     }
 
@@ -5883,6 +5884,7 @@ projectRuleImplementation :
 projectRuleImplementation schema raise cache =
     { collectModuleContext = \path ruleModuleVisitor -> getToProjectVisitor ruleModuleVisitor
     , elmJsonVisitor = addElmJsonVisitor schema raise cache schema.elmJsonVisitor
+    , readmeVisitor = addReadmeVisitor schema raise cache schema.readmeVisitor
     , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raise cache
     }
 
@@ -5923,6 +5925,51 @@ addElmJsonVisitor schema raise cache maybeElmJsonVisitor =
                         elmJsonEntry =
                             Cache.createEntryMaybe
                                 { contentHash = ValidProject.elmJsonHash project
+                                , errors = errors
+                                , inputContext = inputContext
+                                , outputContext = outputContext
+                                }
+                    in
+                    raise { cache | elmJson = Just elmJsonEntry }
+                )
+
+
+addReadmeVisitor :
+    ProjectRuleSchemaData projectContext moduleContext
+    -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
+    -> ProjectRuleCache projectContext
+    -> Maybe (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
+    ->
+        Maybe
+            (ValidProject
+             -> Exceptions
+             -> Maybe { readmeKey : ReadmeKey, content : String }
+             -> RuleProjectVisitor
+            )
+addReadmeVisitor schema raise cache maybeElmJsonVisitor =
+    case maybeElmJsonVisitor of
+        Nothing ->
+            Nothing
+
+        Just elmJsonVisitor ->
+            Just
+                (\project exceptions elmJsonData ->
+                    let
+                        inputContext : projectContext
+                        inputContext =
+                            schema.initialProjectContext
+
+                        ( errorsForVisitor, outputContext ) =
+                            elmJsonVisitor elmJsonData inputContext
+
+                        errors : List (Error {})
+                        errors =
+                            filterExceptionsAndSetName exceptions schema.name errorsForVisitor
+
+                        elmJsonEntry : CacheEntryMaybe projectContext
+                        elmJsonEntry =
+                            Cache.createEntryMaybe
+                                { contentHash = ValidProject.readmeHash project
                                 , errors = errors
                                 , inputContext = inputContext
                                 , outputContext = outputContext
