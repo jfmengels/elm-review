@@ -5891,14 +5891,14 @@ projectRuleImplementation schema raise cache =
 
 addProjectVisitor :
     ProjectRuleSchemaData projectContext moduleContext
-    -> Maybe (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
+    -> Maybe (data -> projectContext -> ( List (Error {}), projectContext ))
     -> (ValidProject -> Maybe ContentHash)
     -> (CacheEntryMaybe projectContext -> RuleProjectVisitor)
     ->
         Maybe
             (ValidProject
              -> Exceptions
-             -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
+             -> data
              -> RuleProjectVisitor
             )
 addProjectVisitor schema maybeVisitor contentHash toRuleProjectVisitor =
@@ -5908,14 +5908,14 @@ addProjectVisitor schema maybeVisitor contentHash toRuleProjectVisitor =
 
         Just visitor ->
             Just
-                (\project exceptions elmJsonData ->
+                (\project exceptions data ->
                     let
                         inputContext : projectContext
                         inputContext =
                             schema.initialProjectContext
 
                         ( errorsForVisitor, outputContext ) =
-                            visitor elmJsonData inputContext
+                            visitor data inputContext
 
                         errors : List (Error {})
                         errors =
