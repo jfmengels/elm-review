@@ -521,7 +521,7 @@ reviewV2 : List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewEr
 reviewV2 rules maybeProjectData project =
     case
         checkForConfigurationErrors rules
-            |> Result.andThen (\() -> getModulesSortedByImport project)
+            |> Result.andThen (\allRulesToRun -> getModulesSortedByImport project)
     of
         Ok ( validProject, _ ) ->
             runReviewForV2 ReviewOptions.defaults validProject rules
@@ -587,7 +587,7 @@ reviewV3 :
 reviewV3 reviewOptions rules project =
     case
         checkForConfigurationErrors rules
-            |> Result.andThen (\() -> getModulesSortedByImport project)
+            |> Result.andThen (\allRulesToRun -> getModulesSortedByImport project)
     of
         Ok ( validProject, _ ) ->
             let
@@ -611,7 +611,7 @@ reviewV3 reviewOptions rules project =
             }
 
 
-checkForConfigurationErrors : List Rule -> Result (List ReviewError) ()
+checkForConfigurationErrors : List Rule -> Result (List ReviewError) (List RuleProjectVisitor)
 checkForConfigurationErrors rules =
     let
         ( allRulesToRun, allConfigurationErrors ) =
@@ -619,7 +619,7 @@ checkForConfigurationErrors rules =
                 (\(Rule rule) ( rulesToRun, configurationErrors ) ->
                     case rule.ruleProjectVisitor of
                         Ok ruleProjectVisitor ->
-                            ( ruleProjectVisitor :: rulesToRun, configurationErrors )
+                            ( ruleProjectVisitor () :: rulesToRun, configurationErrors )
 
                         Err { message, details } ->
                             ( rulesToRun
@@ -640,7 +640,7 @@ checkForConfigurationErrors rules =
                 rules
     in
     if List.isEmpty allConfigurationErrors then
-        Ok ()
+        Ok allRulesToRun
 
     else
         Err allConfigurationErrors
