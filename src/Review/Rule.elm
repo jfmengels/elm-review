@@ -5852,6 +5852,7 @@ projectRuleImplementation schema raise cache =
                 -- TODO integrate module context into cache
                 raise cache
 
+            maybeModuleRuleSchema : Maybe ( ModuleRuleSchema {} moduleContext, ContextCreator projectContext moduleContext )
             maybeModuleRuleSchema =
                 mergeModuleVisitors schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors
         in
