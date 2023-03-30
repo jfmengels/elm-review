@@ -378,7 +378,7 @@ type alias ModuleRuleSchemaData moduleContext =
     , moduleContextCreator : ContextCreator () moduleContext
     , moduleDefinitionVisitor : Maybe (Visitor Module moduleContext)
     , moduleDocumentationVisitors : Maybe (Maybe (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
-    , commentsVisitors : Maybe (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
+    , commentsVisitor : Maybe (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
     , importVisitors : List (Node Import -> moduleContext -> ( List (Error {}), moduleContext ))
     , declarationListVisitors : List (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
     , declarationVisitorsOnEnter : List (Visitor Declaration moduleContext)
@@ -1009,7 +1009,7 @@ newModuleRuleSchema name initialModuleContext =
         , moduleContextCreator = initContextCreator (always initialModuleContext)
         , moduleDefinitionVisitor = Nothing
         , moduleDocumentationVisitors = Nothing
-        , commentsVisitors = Nothing
+        , commentsVisitor = Nothing
         , importVisitors = []
         , declarationListVisitors = []
         , declarationVisitorsOnEnter = []
@@ -1076,7 +1076,7 @@ newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
         , moduleContextCreator = moduleContextCreator
         , moduleDefinitionVisitor = Nothing
         , moduleDocumentationVisitors = Nothing
-        , commentsVisitors = Nothing
+        , commentsVisitor = Nothing
         , importVisitors = []
         , declarationListVisitors = []
         , declarationVisitorsOnEnter = []
@@ -1397,7 +1397,7 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
                 , moduleContextCreator = initContextCreator (always initialModuleContext)
                 , moduleDefinitionVisitor = Nothing
                 , moduleDocumentationVisitors = Nothing
-                , commentsVisitors = Nothing
+                , commentsVisitor = Nothing
                 , importVisitors = []
                 , declarationListVisitors = []
                 , declarationVisitorsOnEnter = []
@@ -1431,7 +1431,7 @@ fromModuleRuleSchemaToRunnableModuleVisitor : ModuleRuleSchema schemaState modul
 fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     { moduleDefinitionVisitors = schema.moduleDefinitionVisitor
     , moduleDocumentationVisitors = schema.moduleDocumentationVisitors
-    , commentsVisitors = schema.commentsVisitors
+    , commentsVisitors = schema.commentsVisitor
     , importVisitors = List.reverse schema.importVisitors
     , declarationListVisitors = List.reverse schema.declarationListVisitors
     , declarationAndExpressionVisitor = createDeclarationAndExpressionVisitor schema
@@ -2527,7 +2527,7 @@ Tip: If you only need to access the module documentation, you should use
 -}
 withCommentsVisitor : (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withCommentsVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | commentsVisitors = Just (combineVisitors visitor schema.commentsVisitors) }
+    ModuleRuleSchema { schema | commentsVisitor = Just (combineVisitors visitor schema.commentsVisitor) }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's documentation, collect data in
@@ -5500,7 +5500,7 @@ visitModuleForProjectRule2 module_ ruleModuleVisitors =
     ruleModuleVisitors
         |> List.map (\acc -> runVisitor .moduleDefinitionVisitor ast.moduleDefinition acc)
         |> List.map (\acc -> runVisitor .moduleDocumentationVisitor moduleDocumentation acc)
-        |> List.map (\acc -> runVisitor .commentsVisitor ast.comments acc)
+        |> List.map (\acc -> runVisitor .commentVisitor ast.comments acc)
         |> List.map (\acc -> runVisitor .importsVisitor ast.imports acc)
         |> List.map (\acc -> runVisitor .declarationListVisitor ast.declarations acc)
         |> visitDeclarationsAndExpressions ast.declarations
@@ -5798,7 +5798,7 @@ type alias RuleModuleVisitorOperations t =
     -- The hidden state is `( List (Error {}), moduleContext )`
     { moduleDefinitionVisitor : Maybe (Node Module -> t)
     , moduleDocumentationVisitor : Maybe (Maybe (Node String) -> t)
-    , commentsVisitor : Maybe (List (Node String) -> t)
+    , commentVisitor : Maybe (List (Node String) -> t)
     , importsVisitor : Maybe (List (Node Import) -> t)
     , declarationListVisitor : Maybe (List (Node Declaration) -> t)
     , declarationVisitorOnEnter : Maybe (Node Declaration -> t)
@@ -5824,7 +5824,7 @@ moduleRuleImplementation : ModuleRuleSchemaData moduleContext -> (moduleContext 
 moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, moduleContext ) as errorsAndContext) =
     { moduleDefinitionVisitor = addMaybeVisitor raise errorsAndContext schema.moduleDefinitionVisitor
     , moduleDocumentationVisitor = addMaybeVisitor raise errorsAndContext schema.moduleDocumentationVisitors
-    , commentsVisitor = addMaybeVisitor raise errorsAndContext schema.commentsVisitors
+    , commentVisitor = addMaybeVisitor raise errorsAndContext schema.commentsVisitor
     , importsVisitor = addImportsVisitor raise errorsAndContext (List.reverse schema.importVisitors)
     , declarationListVisitor = addVisitor raise errorsAndContext (List.reverse schema.declarationListVisitors)
     , declarationVisitorOnEnter = addVisitor raise errorsAndContext (List.reverse schema.declarationVisitorsOnEnter)
