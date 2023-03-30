@@ -2499,7 +2499,12 @@ not catch and report the use `Html.button`. To handle this, check out [`withModu
 -}
 withModuleDefinitionVisitor : (Node Module -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | moduleDefinitionVisitors = visitor :: schema.moduleDefinitionVisitors }
+    case schema.moduleDefinitionVisitors of
+        [] ->
+            ModuleRuleSchema { schema | moduleDefinitionVisitors = [ visitor ] }
+
+        _ ->
+            ModuleRuleSchema { schema | moduleDefinitionVisitors = visitor :: schema.moduleDefinitionVisitors }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's comments, collect data in
