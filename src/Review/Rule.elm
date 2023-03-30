@@ -6264,14 +6264,7 @@ accumulateWithMaybe :
 accumulateWithMaybe maybeVisitor element errorsAndContext =
     case maybeVisitor of
         Just visitor ->
-            let
-                ( previousErrors, previousContext ) =
-                    errorsAndContext
-
-                ( newErrors, newContext ) =
-                    visitor element previousContext
-            in
-            ( List.append newErrors previousErrors, newContext )
+            accumulate (\context -> visitor element context) errorsAndContext
 
         Nothing ->
             errorsAndContext
