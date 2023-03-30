@@ -376,7 +376,7 @@ type alias ModuleRuleSchemaData moduleContext =
     { name : String
     , initialModuleContext : Maybe moduleContext
     , moduleContextCreator : ContextCreator () moduleContext
-    , moduleDefinitionVisitors : Maybe (Visitor Module moduleContext)
+    , moduleDefinitionVisitor : Maybe (Visitor Module moduleContext)
     , moduleDocumentationVisitors : List (Maybe (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
     , commentsVisitors : List (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
     , importVisitors : List (Node Import -> moduleContext -> ( List (Error {}), moduleContext ))
@@ -1007,7 +1007,7 @@ newModuleRuleSchema name initialModuleContext =
         { name = name
         , initialModuleContext = Just initialModuleContext
         , moduleContextCreator = initContextCreator (always initialModuleContext)
-        , moduleDefinitionVisitors = Nothing
+        , moduleDefinitionVisitor = Nothing
         , moduleDocumentationVisitors = []
         , commentsVisitors = []
         , importVisitors = []
@@ -1074,7 +1074,7 @@ newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
         { name = name
         , initialModuleContext = Nothing
         , moduleContextCreator = moduleContextCreator
-        , moduleDefinitionVisitors = Nothing
+        , moduleDefinitionVisitor = Nothing
         , moduleDocumentationVisitors = []
         , commentsVisitors = []
         , importVisitors = []
@@ -1395,7 +1395,7 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
                 { name = ""
                 , initialModuleContext = Just initialModuleContext
                 , moduleContextCreator = initContextCreator (always initialModuleContext)
-                , moduleDefinitionVisitors = Nothing
+                , moduleDefinitionVisitor = Nothing
                 , moduleDocumentationVisitors = []
                 , commentsVisitors = []
                 , importVisitors = []
@@ -1429,7 +1429,7 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
 
 fromModuleRuleSchemaToRunnableModuleVisitor : ModuleRuleSchema schemaState moduleContext -> RunnableModuleVisitor moduleContext
 fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
-    { moduleDefinitionVisitors = schema.moduleDefinitionVisitors
+    { moduleDefinitionVisitors = schema.moduleDefinitionVisitor
     , moduleDocumentationVisitors = List.reverse schema.moduleDocumentationVisitors
     , commentsVisitors = List.reverse schema.commentsVisitors
     , importVisitors = List.reverse schema.importVisitors
@@ -2499,9 +2499,9 @@ not catch and report the use `Html.button`. To handle this, check out [`withModu
 -}
 withModuleDefinitionVisitor : (Node Module -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
-    case schema.moduleDefinitionVisitors of
+    case schema.moduleDefinitionVisitor of
         Nothing ->
-            ModuleRuleSchema { schema | moduleDefinitionVisitors = Just visitor }
+            ModuleRuleSchema { schema | moduleDefinitionVisitor = Just visitor }
 
         Just previousVisitor ->
             let
@@ -2517,7 +2517,7 @@ withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
                         in
                         ( List.append errorsAfterFirstVisit errorsAfterSecondVisit, contextAfterSecondVisit )
             in
-            ModuleRuleSchema { schema | moduleDefinitionVisitors = Just newVisitor }
+            ModuleRuleSchema { schema | moduleDefinitionVisitor = Just newVisitor }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's comments, collect data in
@@ -5817,7 +5817,7 @@ newRule schema toRuleProjectVisitor initialContext =
 
 moduleRuleImplementation : ModuleRuleSchemaData moduleContext -> (moduleContext -> RuleProjectVisitor) -> (( List (Error {}), moduleContext ) -> RuleModuleVisitor) -> ( List (Error {}), moduleContext ) -> RuleModuleVisitorOperations RuleModuleVisitor
 moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, moduleContext ) as errorsAndContext) =
-    { moduleDefinitionVisitor = addMaybeVisitor raise errorsAndContext schema.moduleDefinitionVisitors
+    { moduleDefinitionVisitor = addMaybeVisitor raise errorsAndContext schema.moduleDefinitionVisitor
     , moduleDocumentationVisitor = addVisitor raise errorsAndContext (List.reverse schema.moduleDocumentationVisitors)
     , commentsVisitor = addVisitor raise errorsAndContext (List.reverse schema.commentsVisitors)
     , importsVisitor = addImportsVisitor raise errorsAndContext (List.reverse schema.importVisitors)
