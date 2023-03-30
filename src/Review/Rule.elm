@@ -2498,26 +2498,31 @@ not catch and report the use `Html.button`. To handle this, check out [`withModu
 
 -}
 withModuleDefinitionVisitor : (Node Module -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withModuleDefinitionVisitor newVisitor (ModuleRuleSchema schema) =
-    let
-        combineVisitors : Maybe (Node Module -> moduleContext -> ( List (Error {}), moduleContext )) -> Node Module -> moduleContext -> ( List (Error {}), moduleContext )
-        combineVisitors maybePreviousVisitor =
-            case maybePreviousVisitor of
-                Nothing ->
-                    newVisitor
+withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
+    ModuleRuleSchema { schema | moduleDefinitionVisitor = Just (combineVisitors visitor schema.moduleDefinitionVisitor) }
 
-                Just previousVisitor ->
-                    \node moduleContext ->
-                        let
-                            ( errorsAfterFirstVisit, contextAfterFirstVisit ) =
-                                previousVisitor node moduleContext
 
-                            ( errorsAfterSecondVisit, contextAfterSecondVisit ) =
-                                newVisitor node contextAfterFirstVisit
-                        in
-                        ( List.append errorsAfterFirstVisit errorsAfterSecondVisit, contextAfterSecondVisit )
-    in
-    ModuleRuleSchema { schema | moduleDefinitionVisitor = Just (combineVisitors schema.moduleDefinitionVisitor) }
+combineVisitors :
+    (Node Module -> moduleContext -> ( List (Error {}), moduleContext ))
+    -> Maybe (Node Module -> moduleContext -> ( List (Error {}), moduleContext ))
+    -> Node Module
+    -> moduleContext
+    -> ( List (Error {}), moduleContext )
+combineVisitors newVisitor maybePreviousVisitor =
+    case maybePreviousVisitor of
+        Nothing ->
+            newVisitor
+
+        Just previousVisitor ->
+            \node moduleContext ->
+                let
+                    ( errorsAfterFirstVisit, contextAfterFirstVisit ) =
+                        previousVisitor node moduleContext
+
+                    ( errorsAfterSecondVisit, contextAfterSecondVisit ) =
+                        newVisitor node contextAfterFirstVisit
+                in
+                ( List.append errorsAfterFirstVisit errorsAfterSecondVisit, contextAfterSecondVisit )
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's comments, collect data in
