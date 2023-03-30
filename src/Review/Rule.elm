@@ -586,10 +586,11 @@ reviewV3 :
         }
 reviewV3 reviewOptions rules project =
     case
-        checkForConfigurationErrors rules
-            |> Result.andThen (\allRulesToRun -> getModulesSortedByImport project)
+        Result.map2 Tuple.pair
+            (checkForConfigurationErrors rules)
+            (getModulesSortedByImport project)
     of
-        Ok ( validProject, _ ) ->
+        Ok ( ruleProjectVisitors, ( validProject, _ ) ) ->
             let
                 result : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
                 result =
