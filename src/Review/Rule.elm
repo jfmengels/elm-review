@@ -614,16 +614,16 @@ reviewV3 reviewOptions rules project =
 checkForConfigurationErrors : List Rule -> Result (List ReviewError) ()
 checkForConfigurationErrors rules =
     let
-        errors : List ReviewError
-        errors =
+        ( allRulesToRun, allConfigurationErrors ) =
             List.foldl
-                (\(Rule rule) acc ->
+                (\(Rule rule) ( rulesToRun, configurationErrors ) ->
                     case rule.ruleProjectVisitor of
                         Ok ruleProjectVisitor ->
-                            acc
+                            ( ruleProjectVisitor :: rulesToRun, configurationErrors )
 
                         Err { message, details } ->
-                            Review.Error.ReviewError
+                            ( rulesToRun
+                            , Review.Error.ReviewError
                                 { filePath = "CONFIGURATION ERROR"
                                 , ruleName = rule.name
                                 , message = message
@@ -633,16 +633,17 @@ checkForConfigurationErrors rules =
                                 , target = Review.Error.Global
                                 , preventsExtract = False
                                 }
-                                :: acc
+                                :: configurationErrors
+                            )
                 )
-                []
+                ( [], [] )
                 rules
     in
-    if List.isEmpty errors then
+    if List.isEmpty allConfigurationErrors then
         Ok ()
 
     else
-        Err errors
+        Err allConfigurationErrors
 
 
 getModulesSortedByImport : Project -> Result (List ReviewError) ( ValidProject, Zipper (Graph.NodeContext FilePath ()) )
