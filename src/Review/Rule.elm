@@ -5883,12 +5883,8 @@ createModuleVisitorFromProjectVisitor schema raise cache =
 
                 ( ImportedModulesFirst, Nothing ) ->
                     TraverseAllModulesInParallel Nothing
-
-        maybeModuleRuleSchema : Maybe ( ModuleRuleSchema {} moduleContext, ContextCreator projectContext moduleContext )
-        maybeModuleRuleSchema =
-            mergeModuleVisitors schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors
     in
-    case maybeModuleRuleSchema of
+    case mergeModuleVisitors schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors of
         Nothing ->
             Nothing
 
