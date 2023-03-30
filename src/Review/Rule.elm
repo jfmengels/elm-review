@@ -2498,10 +2498,10 @@ not catch and report the use `Html.button`. To handle this, check out [`withModu
 
 -}
 withModuleDefinitionVisitor : (Node Module -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
-withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
+withModuleDefinitionVisitor newVisitor (ModuleRuleSchema schema) =
     case schema.moduleDefinitionVisitor of
         Nothing ->
-            ModuleRuleSchema { schema | moduleDefinitionVisitor = Just visitor }
+            ModuleRuleSchema { schema | moduleDefinitionVisitor = Just newVisitor }
 
         Just previousVisitor ->
             let
@@ -2513,7 +2513,7 @@ withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
                                 previousVisitor node moduleContext
 
                             ( errorsAfterSecondVisit, contextAfterSecondVisit ) =
-                                visitor node contextAfterFirstVisit
+                                newVisitor node contextAfterFirstVisit
                         in
                         ( List.append errorsAfterFirstVisit errorsAfterSecondVisit, contextAfterSecondVisit )
             in
