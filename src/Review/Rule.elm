@@ -5867,6 +5867,8 @@ type alias RuleProjectVisitorOperations t =
     { collectModuleContext : String -> RuleModuleVisitor -> t
     , elmJsonVisitor : Maybe (ValidProject -> Exceptions -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> t)
     , readmeVisitor : Maybe (ValidProject -> Exceptions -> Maybe { readmeKey : ReadmeKey, content : String } -> t)
+
+    -- TODO Use direct dependencies visitor
     , dependenciesVisitor : Maybe (ValidProject -> Exceptions -> Dict String Review.Project.Dependency.Dependency -> t)
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
     }
