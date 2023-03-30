@@ -616,13 +616,16 @@ checkForConfigurationErrors rules =
     let
         errors : List ReviewError
         errors =
-            List.filterMap
-                (\rule ->
-                    Maybe.map
-                        (\{ message, details } ->
+            List.foldl
+                (\(Rule rule) acc ->
+                    case rule.ruleProjectVisitor of
+                        Ok ruleProjectVisitor ->
+                            acc
+
+                        Err { message, details } ->
                             Review.Error.ReviewError
                                 { filePath = "CONFIGURATION ERROR"
-                                , ruleName = ruleName rule
+                                , ruleName = rule.name
                                 , message = message
                                 , details = details
                                 , range = Range.emptyRange
@@ -630,9 +633,9 @@ checkForConfigurationErrors rules =
                                 , target = Review.Error.Global
                                 , preventsExtract = False
                                 }
-                        )
-                        (getConfigurationError rule)
+                                :: acc
                 )
+                []
                 rules
     in
     if List.isEmpty errors then
