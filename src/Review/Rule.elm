@@ -5033,7 +5033,7 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
         outputRuleProjectVisitors : List RuleProjectVisitor
         outputRuleProjectVisitors =
             -- TODO Continue here
-            List.map (\rule -> getToProjectVisitor rule ()) outputRuleModuleVisitors
+            List.map getToProjectVisitor outputRuleModuleVisitors
 
         ( _, resultModuleContext ) =
             visitModuleForProjectRule
@@ -5848,7 +5848,7 @@ projectRuleImplementation :
     -> ProjectRuleCache projectContext
     -> RuleProjectVisitorOperations RuleProjectVisitor
 projectRuleImplementation schema raise cache =
-    { collectModuleContext = \path ruleModuleVisitor -> getToProjectVisitor ruleModuleVisitor ()
+    { collectModuleContext = \path ruleModuleVisitor -> getToProjectVisitor ruleModuleVisitor
     , createModuleVisitor =
         let
             traversalAndFolder : TraversalAndFolder projectContext moduleContext
@@ -6047,8 +6047,8 @@ getErrorsForRuleModuleVisitor (RuleModuleVisitor ruleModuleVisitor) =
     ruleModuleVisitor.getErrors
 
 
-getToProjectVisitor : RuleModuleVisitor -> () -> RuleProjectVisitor
-getToProjectVisitor (RuleModuleVisitor ruleModuleVisitor) () =
+getToProjectVisitor : RuleModuleVisitor -> RuleProjectVisitor
+getToProjectVisitor (RuleModuleVisitor ruleModuleVisitor) =
     ruleModuleVisitor.toProjectVisitor ()
 
 
