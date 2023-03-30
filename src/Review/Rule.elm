@@ -5892,51 +5892,64 @@ createModuleVisitorFromProjectVisitor schema raise cache =
         Nothing ->
             Nothing
 
-        Just ( ModuleRuleSchema moduleRuleSchema, moduleContextCreator ) ->
-            Just
-                (\project availableData moduleContentHash incoming ->
-                    let
-                        initialProjectContext : projectContext
-                        initialProjectContext =
-                            List.filterMap identity [ cache.dependencies, cache.readme, cache.elmJson ]
-                                |> List.head
-                                |> Maybe.map Cache.outputContextMaybe
-                                |> Maybe.withDefault schema.initialProjectContext
+        Just moduleRuleSchema ->
+            Just (createModuleVisitorFromProjectVisitorHelp schema raise cache traversalAndFolder moduleRuleSchema)
 
-                        inputProjectContext : projectContext
-                        inputProjectContext =
-                            computeProjectContext traversalAndFolder project cache.moduleContexts incoming initialProjectContext
 
-                        initialContext : moduleContext
-                        initialContext =
-                            applyContextCreator availableData moduleContextCreator inputProjectContext
+createModuleVisitorFromProjectVisitorHelp :
+    ProjectRuleSchemaData projectContext moduleContext
+    -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
+    -> ProjectRuleCache projectContext
+    -> TraversalAndFolder projectContext moduleContext
+    -> ( ModuleRuleSchema schemaState moduleContext, ContextCreator projectContext moduleContext )
+    -> ValidProject
+    -> AvailableData
+    -> ContentHash
+    -> Graph.Adjacency ()
+    -> RuleModuleVisitor
+createModuleVisitorFromProjectVisitorHelp schema raise cache traversalAndFolder ( ModuleRuleSchema moduleRuleSchema, moduleContextCreator ) =
+    \project availableData moduleContentHash incoming ->
+        let
+            initialProjectContext : projectContext
+            initialProjectContext =
+                List.filterMap identity [ cache.dependencies, cache.readme, cache.elmJson ]
+                    |> List.head
+                    |> Maybe.map Cache.outputContextMaybe
+                    |> Maybe.withDefault schema.initialProjectContext
 
-                        toRuleProjectVisitor : ( List (Error {}), moduleContext ) -> RuleProjectVisitor
-                        toRuleProjectVisitor ( errors, resultModuleContext ) =
-                            let
-                                outputProjectContext : projectContext
-                                outputProjectContext =
-                                    case getFolderFromTraversal traversalAndFolder of
-                                        Just { fromModuleToProject } ->
-                                            applyContextCreator availableData fromModuleToProject resultModuleContext
+            inputProjectContext : projectContext
+            inputProjectContext =
+                computeProjectContext traversalAndFolder project cache.moduleContexts incoming initialProjectContext
 
-                                        Nothing ->
-                                            schema.initialProjectContext
+            initialContext : moduleContext
+            initialContext =
+                applyContextCreator availableData moduleContextCreator inputProjectContext
 
-                                cacheEntry : Cache.ModuleEntry (Error {}) projectContext
-                                cacheEntry =
-                                    Cache.createModuleEntry
-                                        { contentHash = moduleContentHash
-                                        , errors = errors
-                                        , inputContext = inputProjectContext
-                                        , isFileIgnored = availableData.isFileIgnored
-                                        , outputContext = outputProjectContext
-                                        }
-                            in
-                            raise { cache | moduleContexts = Dict.insert availableData.filePath cacheEntry cache.moduleContexts }
-                    in
-                    newRule moduleRuleSchema toRuleProjectVisitor initialContext
-                )
+            toRuleProjectVisitor : ( List (Error {}), moduleContext ) -> RuleProjectVisitor
+            toRuleProjectVisitor ( errors, resultModuleContext ) =
+                let
+                    outputProjectContext : projectContext
+                    outputProjectContext =
+                        case getFolderFromTraversal traversalAndFolder of
+                            Just { fromModuleToProject } ->
+                                applyContextCreator availableData fromModuleToProject resultModuleContext
+
+                            Nothing ->
+                                schema.initialProjectContext
+
+                    cacheEntry : Cache.ModuleEntry (Error {}) projectContext
+                    cacheEntry =
+                        Cache.createModuleEntry
+                            { contentHash = moduleContentHash
+                            , errors = errors
+                            , inputContext = inputProjectContext
+                            , isFileIgnored = availableData.isFileIgnored
+                            , outputContext = outputProjectContext
+                            }
+                in
+                raise { cache | moduleContexts = Dict.insert availableData.filePath cacheEntry cache.moduleContexts }
+        in
+        newRule moduleRuleSchema toRuleProjectVisitor initialContext
 
 
 type RuleModuleVisitor
