@@ -4965,13 +4965,14 @@ type alias DataToComputeSingleModule projectContext moduleContext =
     , project : ValidProject
     , moduleZipper : Zipper GraphModule
     , fixedErrors : FixedErrors
+    , incoming : Graph.Adjacency ()
     }
 
 
 computeModule :
     DataToComputeSingleModule projectContext moduleContext
     -> { project : ValidProject, analysis : ModuleCacheEntry projectContext, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
-computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, project } as params) =
+computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, project, incoming } as params) =
     let
         (RequestedData requestedData) =
             dataToComputeModules.projectVisitor.requestedData
@@ -5376,6 +5377,7 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                                     , project = project
                                     , moduleZipper = moduleZipper
                                     , fixedErrors = fixedErrors
+                                    , incoming = incoming
                                     }
                         in
                         { project = result.project
