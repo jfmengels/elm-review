@@ -5036,7 +5036,12 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
                     let
                         newErrors : List (Error {})
                         newErrors =
-                            ruleModuleVisitor.getErrors
+                            List.foldl
+                                (\error_ subAcc ->
+                                    error_ :: subAcc
+                                )
+                                []
+                                ruleModuleVisitor.getErrors
                                 |> List.map (\error_ -> setFilePathIfUnset module_ error_)
                                 |> filterExceptionsAndSetName dataToComputeModules.exceptions dataToComputeModules.projectVisitor.name
                     in
