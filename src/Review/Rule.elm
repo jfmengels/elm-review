@@ -5038,11 +5038,14 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
                         newErrors =
                             List.foldl
                                 (\error_ subAcc ->
-                                    setFilePathIfUnset module_ error_ :: subAcc
+                                    if Exceptions.isFileWeWantReportsFor dataToComputeModules.exceptions (errorFilePathInternal error_) then
+                                        setFilePathIfUnset module_ error_ :: subAcc
+
+                                    else
+                                        subAcc
                                 )
                                 []
                                 ruleModuleVisitor.getErrors
-                                |> filterExceptionsAndSetName dataToComputeModules.exceptions dataToComputeModules.projectVisitor.name
                     in
                     ( List.append newErrors accErrors, ruleModuleVisitor.toProjectVisitor () :: rules )
                 )
