@@ -2,7 +2,8 @@ module Review.Rule.VisitorsOrderTest exposing (all)
 
 import Elm.Syntax.Declaration exposing (Declaration)
 import Elm.Syntax.Expression as Expression exposing (Expression)
-import Elm.Syntax.Node as Node exposing (Node)
+import Elm.Syntax.Import exposing (Import)
+import Elm.Syntax.Node as Node exposing (Node(..))
 import Elm.Syntax.Pattern exposing (Pattern)
 import Review.Rule as Rule exposing (Error, Rule)
 import Review.Test
@@ -19,6 +20,10 @@ all =
         [ test "should call visitors in a given order" <|
             \() ->
                 let
+                    importName : Node Import -> String
+                    importName (Node _ import_) =
+                        String.join "." (Node.value import_.moduleName)
+
                     rule : Rule
                     rule =
                         Rule.newModuleRuleSchema "Visitor order" "\n0 - initial context"
@@ -36,8 +41,8 @@ all =
                             |> Rule.withModuleDocumentationVisitor (\_ context -> ( [], context ++ "\n5.2 - withModuleDocumentationVisitor" ))
                             |> Rule.withCommentsVisitor (\_ context -> ( [], context ++ "\n6.1 - withCommentsVisitor" ))
                             |> Rule.withCommentsVisitor (\_ context -> ( [], context ++ "\n6.2 - withCommentsVisitor" ))
-                            |> Rule.withImportVisitor (\_ context -> ( [], context ++ "\n7.1 - withImportVisitor" ))
-                            |> Rule.withImportVisitor (\_ context -> ( [], context ++ "\n7.2 - withImportVisitor" ))
+                            |> Rule.withImportVisitor (\import_ context -> ( [], context ++ "\n7.1 - withImportVisitor " ++ importName import_ ))
+                            |> Rule.withImportVisitor (\import_ context -> ( [], context ++ "\n7.2 - withImportVisitor " ++ importName import_ ))
                             |> Rule.withDeclarationListVisitor (\_ context -> ( [], context ++ "\n8.1 - withDeclarationListVisitor" ))
                             |> Rule.withDeclarationListVisitor (\_ context -> ( [], context ++ "\n8.2 - withDeclarationListVisitor" ))
                             |> Rule.withDeclarationEnterVisitor (\_ context -> ( [], context ++ "\n9.1 - withDeclarationEnterVisitor" ))
@@ -61,6 +66,7 @@ all =
                 in
                 """module A exposing (..)
 import B
+import C
 a = 1
 """
                     |> Review.Test.run rule
@@ -82,8 +88,10 @@ a = 1
 5.2 - withModuleDocumentationVisitor
 6.1 - withCommentsVisitor
 6.2 - withCommentsVisitor
-7.1 - withImportVisitor
-7.2 - withImportVisitor
+7.1 - withImportVisitor B
+7.2 - withImportVisitor B
+7.1 - withImportVisitor C
+7.2 - withImportVisitor C
 8.1 - withDeclarationListVisitor
 8.2 - withDeclarationListVisitor
 9.1 - withDeclarationEnterVisitor
