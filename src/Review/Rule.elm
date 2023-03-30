@@ -2503,9 +2503,9 @@ withModuleDefinitionVisitor visitor (ModuleRuleSchema schema) =
 
 
 combineVisitors :
-    (Node Module -> moduleContext -> ( List (Error {}), moduleContext ))
-    -> Maybe (Node Module -> moduleContext -> ( List (Error {}), moduleContext ))
-    -> Node Module
+    (a -> moduleContext -> ( List (Error {}), moduleContext ))
+    -> Maybe (a -> moduleContext -> ( List (Error {}), moduleContext ))
+    -> a
     -> moduleContext
     -> ( List (Error {}), moduleContext )
 combineVisitors newVisitor maybePreviousVisitor =
