@@ -383,8 +383,8 @@ type alias ModuleRuleSchemaData moduleContext =
     , declarationListVisitor : Maybe (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
     , declarationVisitorsOnEnter : Maybe (Visitor Declaration moduleContext)
     , declarationVisitorsOnExit : Maybe (Visitor Declaration moduleContext)
-    , expressionVisitorsOnEnter : List (Visitor Expression moduleContext)
-    , expressionVisitorsOnExit : List (Visitor Expression moduleContext)
+    , expressionVisitorsOnEnter : Maybe (Visitor Expression moduleContext)
+    , expressionVisitorsOnExit : Maybe (Visitor Expression moduleContext)
     , letDeclarationVisitorsOnEnter : List (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
     , letDeclarationVisitorsOnExit : List (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
     , caseBranchVisitorsOnEnter : List (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
@@ -1014,8 +1014,8 @@ newModuleRuleSchema name initialModuleContext =
         , declarationListVisitor = Nothing
         , declarationVisitorsOnEnter = Nothing
         , declarationVisitorsOnExit = Nothing
-        , expressionVisitorsOnEnter = []
-        , expressionVisitorsOnExit = []
+        , expressionVisitorsOnEnter = Nothing
+        , expressionVisitorsOnExit = Nothing
         , letDeclarationVisitorsOnEnter = []
         , letDeclarationVisitorsOnExit = []
         , caseBranchVisitorsOnEnter = []
@@ -1081,8 +1081,8 @@ newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
         , declarationListVisitor = Nothing
         , declarationVisitorsOnEnter = Nothing
         , declarationVisitorsOnExit = Nothing
-        , expressionVisitorsOnEnter = []
-        , expressionVisitorsOnExit = []
+        , expressionVisitorsOnEnter = Nothing
+        , expressionVisitorsOnExit = Nothing
         , letDeclarationVisitorsOnEnter = []
         , letDeclarationVisitorsOnExit = []
         , caseBranchVisitorsOnEnter = []
@@ -1402,8 +1402,8 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
                 , declarationListVisitor = Nothing
                 , declarationVisitorsOnEnter = Nothing
                 , declarationVisitorsOnExit = Nothing
-                , expressionVisitorsOnEnter = []
-                , expressionVisitorsOnExit = []
+                , expressionVisitorsOnEnter = Nothing
+                , expressionVisitorsOnExit = Nothing
                 , letDeclarationVisitorsOnEnter = []
                 , letDeclarationVisitorsOnExit = []
                 , caseBranchVisitorsOnEnter = []
@@ -2971,8 +2971,8 @@ withExpressionVisitor : (Node Expression -> Direction -> moduleContext -> ( List
 withExpressionVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema
         { schema
-            | expressionVisitorsOnEnter = (\node ctx -> visitor node OnEnter ctx) :: schema.expressionVisitorsOnEnter
-            , expressionVisitorsOnExit = (\node ctx -> visitor node OnExit ctx) :: schema.expressionVisitorsOnExit
+            | expressionVisitorsOnEnter = Just (combineVisitors (\node ctx -> visitor node OnEnter ctx) schema.expressionVisitorsOnEnter)
+            , expressionVisitorsOnExit = Just (combineExitVisitors (\node ctx -> visitor node OnExit ctx) schema.expressionVisitorsOnExit)
         }
 
 
@@ -3060,7 +3060,7 @@ simpler [`withSimpleExpressionVisitor`](#withSimpleExpressionVisitor) function.
 -}
 withExpressionEnterVisitor : (Node Expression -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withExpressionEnterVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | expressionVisitorsOnEnter = visitor :: schema.expressionVisitorsOnEnter }
+    ModuleRuleSchema { schema | expressionVisitorsOnEnter = Just (combineVisitors visitor schema.expressionVisitorsOnEnter) }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
@@ -3111,7 +3111,7 @@ meaning after its children are visited.
 -}
 withExpressionExitVisitor : (Node Expression -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withExpressionExitVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | expressionVisitorsOnExit = visitor :: schema.expressionVisitorsOnExit }
+    ModuleRuleSchema { schema | expressionVisitorsOnExit = Just (combineExitVisitors visitor schema.expressionVisitorsOnExit) }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
@@ -5663,7 +5663,7 @@ createExpressionVisitor schema =
         let
             expressionRelatedVisitors : ExpressionRelatedVisitors moduleContext
             expressionRelatedVisitors =
-                { expressionVisitorsOnEnter = List.reverse schema.expressionVisitorsOnEnter
+                { expressionVisitorsOnEnter = schema.expressionVisitorsOnEnter
                 , expressionVisitorsOnExit = schema.expressionVisitorsOnExit
                 , letDeclarationVisitorsOnEnter = List.reverse schema.letDeclarationVisitorsOnEnter
                 , letDeclarationVisitorsOnExit = schema.letDeclarationVisitorsOnExit
@@ -5673,33 +5673,19 @@ createExpressionVisitor schema =
         in
         Just (\expr acc -> visitExpression expressionRelatedVisitors expr acc)
 
-    else if not (List.isEmpty schema.expressionVisitorsOnExit) then
-        let
-            enterVisitors : List (Visitor Expression moduleContext)
-            enterVisitors =
-                List.reverse schema.expressionVisitorsOnEnter
+    else if schema.expressionVisitorsOnExit /= Nothing then
+        Just (\expr acc -> visitOnlyExpressions schema.expressionVisitorsOnEnter schema.expressionVisitorsOnExit expr acc)
 
-            exitVisitors : List (Visitor Expression moduleContext)
-            exitVisitors =
-                schema.expressionVisitorsOnExit
-        in
-        Just (\expr acc -> visitOnlyExpressions enterVisitors exitVisitors expr acc)
-
-    else if not (List.isEmpty schema.expressionVisitorsOnEnter) then
-        let
-            expressionVisitorsOnEnter : List (Visitor Expression moduleContext)
-            expressionVisitorsOnEnter =
-                List.reverse schema.expressionVisitorsOnEnter
-        in
-        Just (\expr acc -> visitOnlyExpressionsOnlyOnEnter expressionVisitorsOnEnter expr acc)
+    else if schema.expressionVisitorsOnEnter /= Nothing then
+        Just (\expr acc -> visitOnlyExpressionsOnlyOnEnter schema.expressionVisitorsOnEnter expr acc)
 
     else
         Nothing
 
 
 type alias ExpressionRelatedVisitors moduleContext =
-    { expressionVisitorsOnEnter : List (Visitor Expression moduleContext)
-    , expressionVisitorsOnExit : List (Visitor Expression moduleContext)
+    { expressionVisitorsOnEnter : Maybe (Visitor Expression moduleContext)
+    , expressionVisitorsOnExit : Maybe (Visitor Expression moduleContext)
     , letDeclarationVisitorsOnEnter : List (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
     , letDeclarationVisitorsOnExit : List (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
     , caseBranchVisitorsOnEnter : List (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
@@ -5842,8 +5828,8 @@ moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, moduleCont
     , declarationListVisitor = addMaybeVisitor raise errorsAndContext schema.declarationListVisitor
     , declarationVisitorOnEnter = addMaybeVisitor raise errorsAndContext schema.declarationVisitorsOnEnter
     , declarationVisitorOnExit = addMaybeVisitor raise errorsAndContext schema.declarationVisitorsOnExit
-    , expressionVisitorOnEnter = addVisitor raise errorsAndContext (List.reverse schema.expressionVisitorsOnEnter)
-    , expressionVisitorOnExit = addVisitor raise errorsAndContext schema.expressionVisitorsOnExit
+    , expressionVisitorOnEnter = addMaybeVisitor raise errorsAndContext schema.expressionVisitorsOnEnter
+    , expressionVisitorOnExit = addMaybeVisitor raise errorsAndContext schema.expressionVisitorsOnExit
     , letDeclarationVisitorsOnEnter = addVisitor2 raise errorsAndContext (List.reverse schema.letDeclarationVisitorsOnEnter)
     , letDeclarationVisitorsOnExit = addVisitor2 raise errorsAndContext schema.letDeclarationVisitorsOnExit
     , caseBranchVisitorsOnEnter = addVisitor2 raise errorsAndContext (List.reverse schema.caseBranchVisitorsOnEnter)
@@ -5980,47 +5966,47 @@ visitExpression expressionRelatedVisitors node errorsAndContext =
     case Node.value node of
         Expression.LetExpression letBlock ->
             errorsAndContext
-                |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnEnter node
+                |> accumulateWithMaybe expressionRelatedVisitors.expressionVisitorsOnEnter node
                 |> ListExtra.foldlSwitched (\decl acc -> visitLetDeclaration expressionRelatedVisitors (Node (Node.range node) letBlock) decl acc) letBlock.declarations
                 |> visitExpression expressionRelatedVisitors letBlock.expression
-                |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
+                |> accumulateWithMaybe expressionRelatedVisitors.expressionVisitorsOnExit node
 
         Expression.CaseExpression caseBlock ->
             errorsAndContext
-                |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnEnter node
+                |> accumulateWithMaybe expressionRelatedVisitors.expressionVisitorsOnEnter node
                 |> visitExpression expressionRelatedVisitors caseBlock.expression
                 |> ListExtra.foldlSwitched (\case_ acc -> visitCaseBranch expressionRelatedVisitors (Node (Node.range node) caseBlock) case_ acc) caseBlock.cases
-                |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
+                |> accumulateWithMaybe expressionRelatedVisitors.expressionVisitorsOnExit node
 
         _ ->
             errorsAndContext
-                |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnEnter node
+                |> accumulateWithMaybe expressionRelatedVisitors.expressionVisitorsOnEnter node
                 |> ListExtra.foldlSwitched (\expr acc -> visitExpression expressionRelatedVisitors expr acc) (expressionChildren node)
-                |> visitWithListOfVisitors expressionRelatedVisitors.expressionVisitorsOnExit node
+                |> accumulateWithMaybe expressionRelatedVisitors.expressionVisitorsOnExit node
 
 
 visitOnlyExpressions :
-    List (Visitor Expression moduleContext)
-    -> List (Visitor Expression moduleContext)
+    Maybe (Visitor Expression moduleContext)
+    -> Maybe (Visitor Expression moduleContext)
     -> Node Expression
     -> ( List (Error {}), moduleContext )
     -> ( List (Error {}), moduleContext )
 visitOnlyExpressions expressionVisitorsOnEnter expressionVisitorsOnExit node errorsAndContext =
     -- IGNORE TCO
     errorsAndContext
-        |> visitWithListOfVisitors expressionVisitorsOnEnter node
+        |> accumulateWithMaybe expressionVisitorsOnEnter node
         |> ListExtra.foldlSwitched (\expr acc -> visitOnlyExpressions expressionVisitorsOnEnter expressionVisitorsOnExit expr acc) (expressionChildren node)
-        |> visitWithListOfVisitors expressionVisitorsOnExit node
+        |> accumulateWithMaybe expressionVisitorsOnExit node
 
 
 visitOnlyExpressionsOnlyOnEnter :
-    List (Visitor Expression moduleContext)
+    Maybe (Visitor Expression moduleContext)
     -> Node Expression
     -> ( List (Error {}), moduleContext )
     -> ( List (Error {}), moduleContext )
 visitOnlyExpressionsOnlyOnEnter expressionVisitorsOnEnter node errorsAndContext =
     List.foldl
-        (\exprNode acc -> visitWithListOfVisitors expressionVisitorsOnEnter exprNode acc)
+        (\exprNode acc -> accumulateWithMaybe expressionVisitorsOnEnter exprNode acc)
         errorsAndContext
         (expressionChildrenTCO [ node ] [])
 
