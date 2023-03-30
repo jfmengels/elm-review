@@ -5901,12 +5901,12 @@ addElmJsonVisitor :
              -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
              -> RuleProjectVisitor
             )
-addElmJsonVisitor schema raise cache maybeElmJsonVisitor =
-    case maybeElmJsonVisitor of
+addElmJsonVisitor schema raise cache maybeVisitor =
+    case maybeVisitor of
         Nothing ->
             Nothing
 
-        Just elmJsonVisitor ->
+        Just visitor ->
             Just
                 (\project exceptions elmJsonData ->
                     let
@@ -5915,7 +5915,7 @@ addElmJsonVisitor schema raise cache maybeElmJsonVisitor =
                             schema.initialProjectContext
 
                         ( errorsForVisitor, outputContext ) =
-                            elmJsonVisitor elmJsonData inputContext
+                            visitor elmJsonData inputContext
 
                         errors : List (Error {})
                         errors =
@@ -5946,12 +5946,12 @@ addReadmeVisitor :
              -> Maybe { readmeKey : ReadmeKey, content : String }
              -> RuleProjectVisitor
             )
-addReadmeVisitor schema raise cache maybeElmJsonVisitor =
-    case maybeElmJsonVisitor of
+addReadmeVisitor schema raise cache maybeVisitor =
+    case maybeVisitor of
         Nothing ->
             Nothing
 
-        Just elmJsonVisitor ->
+        Just visitor ->
             Just
                 (\project exceptions elmJsonData ->
                     let
@@ -5960,7 +5960,7 @@ addReadmeVisitor schema raise cache maybeElmJsonVisitor =
                             schema.initialProjectContext
 
                         ( errorsForVisitor, outputContext ) =
-                            elmJsonVisitor elmJsonData inputContext
+                            visitor elmJsonData inputContext
 
                         errors : List (Error {})
                         errors =
