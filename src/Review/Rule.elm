@@ -1300,7 +1300,9 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
     , readmeVisitor = schema.readmeVisitor
     , directDependenciesVisitor = schema.directDependenciesVisitor
     , dependenciesVisitor = schema.dependenciesVisitor
-    , moduleVisitor = mergeModuleVisitors schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors
+    , moduleVisitor =
+        mergeModuleVisitors schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors
+            |> Maybe.map (Tuple.mapFirst fromModuleRuleSchemaToRunnableModuleVisitor)
     , traversalAndFolder =
         case ( schema.traversalType, schema.folder ) of
             ( AllModulesInParallel, _ ) ->
@@ -1328,7 +1330,7 @@ mergeModuleVisitors :
     projectContext
     -> Maybe (ContextCreator projectContext moduleContext)
     -> List (ModuleRuleSchema schemaState1 moduleContext -> ModuleRuleSchema schemaState2 moduleContext)
-    -> Maybe ( RunnableModuleVisitor moduleContext, ContextCreator projectContext moduleContext )
+    -> Maybe ( ModuleRuleSchema {} moduleContext, ContextCreator projectContext moduleContext )
 mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
     case maybeModuleContextCreator of
         Nothing ->
@@ -1346,7 +1348,7 @@ mergeModuleVisitorsHelp :
     projectContext
     -> ContextCreator projectContext moduleContext
     -> List (ModuleRuleSchema schemaState1 moduleContext -> ModuleRuleSchema schemaState2 moduleContext)
-    -> ( RunnableModuleVisitor moduleContext, ContextCreator projectContext moduleContext )
+    -> ( ModuleRuleSchema {} moduleContext, ContextCreator projectContext moduleContext )
 mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
     let
         dummyAst : Elm.Syntax.File.File
@@ -1411,7 +1413,7 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
         )
         emptyModuleVisitor
         visitors
-        |> fromModuleRuleSchemaToRunnableModuleVisitor
+        |> (\(ModuleRuleSchema moduleVisitorSchema) -> ModuleRuleSchema moduleVisitorSchema)
     , moduleContextCreator
     )
 
