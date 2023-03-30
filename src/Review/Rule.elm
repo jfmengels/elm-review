@@ -5008,19 +5008,17 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
             , isFileIgnored = isFileIgnored
             }
 
-        ( rulesWithModuleVisitors, rulesWithoutModuleVisitors ) =
+        ( inputRuleModuleVisitors, rulesWithoutModuleVisitors ) =
             -- We can probably compute this in computeModules or above.
-            ( dataToComputeModules.ruleProjectVisitors, [] )
-
-        inputRuleModuleVisitors : List RuleModuleVisitor
-        inputRuleModuleVisitors =
-            List.map
+            ( List.map
                 (\ruleProjectVisitor ->
                     dataToComputeModules.moduleVisitor.ruleModuleVisitor
                         ruleProjectVisitor
                         (applyContextCreator availableData dataToComputeModules.moduleContextCreator projectContext)
                 )
-                rulesWithModuleVisitors
+                dataToComputeModules.ruleProjectVisitors
+            , []
+            )
 
         initialModuleContext : moduleContext
         initialModuleContext =
