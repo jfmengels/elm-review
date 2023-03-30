@@ -309,6 +309,7 @@ import Elm.Syntax.Range as Range exposing (Range)
 import Interface as If
 import Json.Encode as Encode
 import Review.Cache as Cache
+import Review.Cache.ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash as ContextHash exposing (ContextHash)
 import Review.ElmProjectEncoder
 import Review.Error exposing (InternalError)
@@ -5013,7 +5014,7 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
                 (\rule ( with, without ) ->
                     case createModuleVisitor rule of
                         Just moduleVisitor ->
-                            ( moduleVisitor project availableData incoming :: with, without )
+                            ( moduleVisitor project availableData (ProjectModule.contentHash module_) incoming :: with, without )
 
                         Nothing ->
                             ( with, rule :: without )
@@ -5832,7 +5833,7 @@ type alias RuleProjectVisitorOperations t =
     -- `projectContext` is the hidden type variable
     -- The hidden state is `ProjectRuleCache projectContext`
     { collectModuleContext : String -> RuleModuleVisitor -> t
-    , createModuleVisitor : Maybe (ValidProject -> AvailableData -> Graph.Adjacency () -> RuleModuleVisitor)
+    , createModuleVisitor : Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
     }
 
 
@@ -5872,7 +5873,7 @@ projectRuleImplementation schema raise cache =
 
             Just ( ModuleRuleSchema moduleRuleSchema, moduleContextCreator ) ->
                 Just
-                    (\project availableData incoming ->
+                    (\project availableData moduleContentHash incoming ->
                         let
                             initialProjectContext : projectContext
                             initialProjectContext =
@@ -5908,7 +5909,7 @@ projectRuleImplementation schema raise cache =
     }
 
 
-createModuleVisitor : RuleProjectVisitor -> Maybe (ValidProject -> AvailableData -> Graph.Adjacency () -> RuleModuleVisitor)
+createModuleVisitor : RuleProjectVisitor -> Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
 createModuleVisitor (RuleProjectVisitor ruleProjectVisitor) =
     ruleProjectVisitor.createModuleVisitor
 
