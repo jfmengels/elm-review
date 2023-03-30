@@ -1427,7 +1427,6 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
     , declarationListVisitor = schema.declarationListVisitor
     , declarationAndExpressionVisitor = createDeclarationAndExpressionVisitor schema
     , finalEvaluationFn = schema.finalEvaluationFn
-    , ruleModuleVisitor = \ruleProjectVisitor -> newRule schema (\moduleContext -> ruleProjectVisitor)
     }
 
 
@@ -4244,7 +4243,6 @@ type alias RunnableModuleVisitor moduleContext =
     , declarationListVisitor : Maybe (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
     , declarationAndExpressionVisitor : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
     , finalEvaluationFn : Maybe (moduleContext -> List (Error {}))
-    , ruleModuleVisitor : RuleProjectVisitor -> moduleContext -> RuleModuleVisitor
     }
 
 
