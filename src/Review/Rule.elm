@@ -352,7 +352,7 @@ type Rule
         , providesFixes : Bool
         , extractsData : Bool
         , ruleImplementation : ReviewOptionsData -> Int -> Exceptions -> FixedErrors -> ValidProject -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
-        , configurationError : Result { message : String, details : List String } (() -> RuleProjectVisitor)
+        , ruleProjectVisitor : Result { message : String, details : List String } (() -> RuleProjectVisitor)
         }
 
 
@@ -898,7 +898,7 @@ You should not have to use this when writing a rule. You might be looking for [`
 -}
 getConfigurationError : Rule -> Maybe { message : String, details : List String }
 getConfigurationError (Rule rule) =
-    case rule.configurationError of
+    case rule.ruleProjectVisitor of
         Ok _ ->
             Nothing
 
@@ -1278,7 +1278,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     (removeUnknownModulesFromInitialCache project (initialCacheMarker schema.name ruleId emptyCache))
                     fixedErrors
                     project
-        , configurationError = Ok (\() -> projectVisitor)
+        , ruleProjectVisitor = Ok (\() -> projectVisitor)
         }
 
 
@@ -1574,7 +1574,7 @@ configurationError name configurationError_ =
         , extractsData = False
         , providesFixes = False
         , ruleImplementation = \_ _ _ fixedErrors project -> { errors = [], fixedErrors = fixedErrors, rule = configurationError name configurationError_, project = project, extract = Nothing }
-        , configurationError = Err configurationError_
+        , ruleProjectVisitor = Err configurationError_
         }
 
 
@@ -4071,7 +4071,7 @@ ignoreErrorsForDirectories directories (Rule rule) =
         , extractsData = rule.extractsData
         , providesFixes = rule.providesFixes
         , ruleImplementation = rule.ruleImplementation
-        , configurationError = rule.configurationError
+        , ruleProjectVisitor = rule.ruleProjectVisitor
         }
 
 
@@ -4142,7 +4142,7 @@ ignoreErrorsForFiles files (Rule rule) =
         , extractsData = rule.extractsData
         , providesFixes = rule.providesFixes
         , ruleImplementation = rule.ruleImplementation
-        , configurationError = rule.configurationError
+        , ruleProjectVisitor = rule.ruleProjectVisitor
         }
 
 
@@ -4221,7 +4221,7 @@ filterErrorsForFiles condition (Rule rule) =
         , extractsData = rule.extractsData
         , providesFixes = rule.providesFixes
         , ruleImplementation = rule.ruleImplementation
-        , configurationError = rule.configurationError
+        , ruleProjectVisitor = rule.ruleProjectVisitor
         }
 
 
@@ -4350,7 +4350,7 @@ runProjectVisitorHelp ({ ruleProjectVisitors, projectVisitor, exceptions } as da
                         newProjectArg
 
             -- TODO Use the project visitor from the results
-            , configurationError = Ok (\() -> Debug.todo "Missing project visitor in runProjectVisitorHelp")
+            , ruleProjectVisitor = Ok (\() -> Debug.todo "Missing project visitor in runProjectVisitorHelp")
             }
     , project = project
     , extract = Maybe.map .extract (finalCacheMarker projectVisitor.name ruleId cache).extract
