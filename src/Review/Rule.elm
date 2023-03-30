@@ -5912,7 +5912,7 @@ projectRuleImplementation schema raise cache =
                                             , outputContext = outputProjectContext
                                             }
                                 in
-                                raise cache
+                                raise { cache | moduleContexts = Dict.insert availableData.filePath cacheEntry cache.moduleContexts }
                         in
                         newRule moduleRuleSchema toRuleProjectVisitor initialContext
                     )
