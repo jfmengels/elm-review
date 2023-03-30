@@ -2499,25 +2499,30 @@ not catch and report the use `Html.button`. To handle this, check out [`withModu
 -}
 withModuleDefinitionVisitor : (Node Module -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withModuleDefinitionVisitor newVisitor (ModuleRuleSchema schema) =
-    case schema.moduleDefinitionVisitor of
-        Nothing ->
-            ModuleRuleSchema { schema | moduleDefinitionVisitor = Just newVisitor }
+    let
+        finalVisitor : Node Module -> moduleContext -> ( List (Error {}), moduleContext )
+        finalVisitor =
+            case schema.moduleDefinitionVisitor of
+                Nothing ->
+                    newVisitor
 
-        Just previousVisitor ->
-            let
-                combinedVisitor : Node Module -> moduleContext -> ( List (Error {}), moduleContext )
-                combinedVisitor =
-                    \node moduleContext ->
-                        let
-                            ( errorsAfterFirstVisit, contextAfterFirstVisit ) =
-                                previousVisitor node moduleContext
+                Just previousVisitor ->
+                    let
+                        combinedVisitor : Node Module -> moduleContext -> ( List (Error {}), moduleContext )
+                        combinedVisitor =
+                            \node moduleContext ->
+                                let
+                                    ( errorsAfterFirstVisit, contextAfterFirstVisit ) =
+                                        previousVisitor node moduleContext
 
-                            ( errorsAfterSecondVisit, contextAfterSecondVisit ) =
-                                newVisitor node contextAfterFirstVisit
-                        in
-                        ( List.append errorsAfterFirstVisit errorsAfterSecondVisit, contextAfterSecondVisit )
-            in
-            ModuleRuleSchema { schema | moduleDefinitionVisitor = Just combinedVisitor }
+                                    ( errorsAfterSecondVisit, contextAfterSecondVisit ) =
+                                        newVisitor node contextAfterFirstVisit
+                                in
+                                ( List.append errorsAfterFirstVisit errorsAfterSecondVisit, contextAfterSecondVisit )
+                    in
+                    combinedVisitor
+    in
+    ModuleRuleSchema { schema | moduleDefinitionVisitor = Just finalVisitor }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's comments, collect data in
