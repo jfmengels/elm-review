@@ -4612,8 +4612,7 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                                 projectElmJson
 
                         ( errorsForVisitor, outputContext ) =
-                            ( [], inputContext )
-                                |> accumulateWithMaybe (Just elmJsonVisitor) elmJsonData
+                            elmJsonVisitor elmJsonData inputContext
 
                         errors : List (Error {})
                         errors =
