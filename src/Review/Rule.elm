@@ -1259,7 +1259,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
             \reviewOptions ruleId exceptions fixedErrors project ->
                 runProjectVisitor
                     { reviewOptions = reviewOptions
-                    , ruleProjectVisitors = [ createRuleProjectVisitor schema () ]
+                    , ruleProjectVisitors = [ createRuleProjectVisitor schema ]
                     , projectVisitor = fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema
                     , exceptions = exceptions
                     }
@@ -5829,8 +5829,8 @@ type alias RuleProjectVisitorOperations t =
     }
 
 
-createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> () -> RuleProjectVisitor
-createRuleProjectVisitor schema () =
+createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext ->  RuleProjectVisitor
+createRuleProjectVisitor schema =
     If.create RuleProjectVisitor (projectRuleImplementation schema) emptyCache
 
 
