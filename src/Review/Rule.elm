@@ -5883,7 +5883,7 @@ projectRuleImplementation :
     -> RuleProjectVisitorOperations RuleProjectVisitor
 projectRuleImplementation schema raise cache =
     { collectModuleContext = \path ruleModuleVisitor -> getToProjectVisitor ruleModuleVisitor
-    , elmJsonVisitor = addElmJsonVisitor schema raise cache schema.elmJsonVisitor ValidProject.elmJsonHash
+    , elmJsonVisitor = addElmJsonVisitor schema schema.elmJsonVisitor ValidProject.elmJsonHash (\entry -> raise { cache | elmJson = Just entry })
     , readmeVisitor = addReadmeVisitor schema raise cache schema.readmeVisitor
     , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raise cache
     }
@@ -5891,10 +5891,9 @@ projectRuleImplementation schema raise cache =
 
 addElmJsonVisitor :
     ProjectRuleSchemaData projectContext moduleContext
-    -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
-    -> ProjectRuleCache projectContext
     -> Maybe (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
     -> (ValidProject -> Maybe ContentHash)
+    -> (CacheEntryMaybe projectContext -> RuleProjectVisitor)
     ->
         Maybe
             (ValidProject
@@ -5902,7 +5901,7 @@ addElmJsonVisitor :
              -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
              -> RuleProjectVisitor
             )
-addElmJsonVisitor schema raise cache maybeVisitor contentHash =
+addElmJsonVisitor schema maybeVisitor contentHash toRuleProjectVisitor =
     case maybeVisitor of
         Nothing ->
             Nothing
@@ -5921,17 +5920,14 @@ addElmJsonVisitor schema raise cache maybeVisitor contentHash =
                         errors : List (Error {})
                         errors =
                             filterExceptionsAndSetName exceptions schema.name errorsForVisitor
-
-                        elmJsonEntry : CacheEntryMaybe projectContext
-                        elmJsonEntry =
-                            Cache.createEntryMaybe
-                                { contentHash = contentHash project
-                                , errors = errors
-                                , inputContext = inputContext
-                                , outputContext = outputContext
-                                }
                     in
-                    raise { cache | elmJson = Just elmJsonEntry }
+                    Cache.createEntryMaybe
+                        { contentHash = contentHash project
+                        , errors = errors
+                        , inputContext = inputContext
+                        , outputContext = outputContext
+                        }
+                        |> toRuleProjectVisitor
                 )
 
 
