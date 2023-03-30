@@ -396,7 +396,7 @@ type alias ModuleRuleSchemaData moduleContext =
     , elmJsonVisitor : Maybe (Maybe Elm.Project.Project -> moduleContext -> moduleContext)
     , readmeVisitor : Maybe (Maybe String -> moduleContext -> moduleContext)
     , dependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
-    , directDependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
+    , directDependenciesVisitors : Maybe (Dict String Review.Project.Dependency.Dependency -> moduleContext -> moduleContext)
     }
 
 
@@ -1024,7 +1024,7 @@ newModuleRuleSchema name initialModuleContext =
         , elmJsonVisitor = Nothing
         , readmeVisitor = Nothing
         , dependenciesVisitor = Nothing
-        , directDependenciesVisitors = []
+        , directDependenciesVisitors = Nothing
         , providesFixes = False
         }
 
@@ -1091,7 +1091,7 @@ newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
         , elmJsonVisitor = Nothing
         , readmeVisitor = Nothing
         , dependenciesVisitor = Nothing
-        , directDependenciesVisitors = []
+        , directDependenciesVisitors = Nothing
         , providesFixes = False
         }
 
@@ -1106,10 +1106,10 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
             ProjectRuleSchema
                 { name = schema.name
                 , initialProjectContext = initialModuleContext
-                , elmJsonVisitor = compactProjectDataVisitorsX (Maybe.map .project) schema.elmJsonVisitor
-                , readmeVisitor = compactProjectDataVisitorsX (Maybe.map .content) schema.readmeVisitor
+                , elmJsonVisitor = compactProjectDataVisitors (Maybe.map .project) schema.elmJsonVisitor
+                , readmeVisitor = compactProjectDataVisitors (Maybe.map .content) schema.readmeVisitor
                 , directDependenciesVisitors = compactProjectDataVisitors identity schema.directDependenciesVisitors
-                , dependenciesVisitor = compactProjectDataVisitorsX identity schema.dependenciesVisitor
+                , dependenciesVisitor = compactProjectDataVisitors identity schema.dependenciesVisitor
                 , moduleVisitors = [ removeExtensibleRecordTypeVariable (always moduleVisitor) ]
                 , moduleContextCreator = Just (initContextCreator identity)
                 , folder = Nothing
@@ -1126,7 +1126,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 , initialProjectContext = ()
                 , elmJsonVisitor = Nothing
                 , readmeVisitor = Nothing
-                , directDependenciesVisitors = []
+                , directDependenciesVisitors = Nothing
                 , dependenciesVisitor = Nothing
                 , moduleVisitors = [ removeExtensibleRecordTypeVariable (always moduleVisitor) ]
                 , moduleContextCreator = Just schema.moduleContextCreator
@@ -1139,29 +1139,8 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 |> fromProjectRuleSchema
 
 
-compactProjectDataVisitors : (rawData -> data) -> List (data -> moduleContext -> moduleContext) -> List (rawData -> moduleContext -> ( List nothing, moduleContext ))
-compactProjectDataVisitors getData visitors =
-    if List.isEmpty visitors then
-        []
-
-    else
-        [ \rawData moduleContext ->
-            let
-                data : data
-                data =
-                    getData rawData
-            in
-            ( []
-            , List.foldr
-                (\visitor moduleContext_ -> visitor data moduleContext_)
-                moduleContext
-                visitors
-            )
-        ]
-
-
-compactProjectDataVisitorsX : (rawData -> data) -> Maybe (data -> moduleContext -> moduleContext) -> Maybe (rawData -> moduleContext -> ( List nothing, moduleContext ))
-compactProjectDataVisitorsX getData maybeVisitor =
+compactProjectDataVisitors : (rawData -> data) -> Maybe (data -> moduleContext -> moduleContext) -> Maybe (rawData -> moduleContext -> ( List nothing, moduleContext ))
+compactProjectDataVisitors getData maybeVisitor =
     case maybeVisitor of
         Nothing ->
             Nothing
@@ -1189,7 +1168,7 @@ type alias ProjectRuleSchemaData projectContext moduleContext =
     , initialProjectContext : projectContext
     , elmJsonVisitor : Maybe (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
     , readmeVisitor : Maybe (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
-    , directDependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
+    , directDependenciesVisitors : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     , dependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     , moduleVisitors : List (ModuleRuleSchema {} moduleContext -> ModuleRuleSchema { hasAtLeastOneVisitor : () } moduleContext)
     , moduleContextCreator : Maybe (ContextCreator projectContext moduleContext)
@@ -1250,7 +1229,7 @@ newProjectRuleSchema name initialProjectContext =
         , initialProjectContext = initialProjectContext
         , elmJsonVisitor = Nothing
         , readmeVisitor = Nothing
-        , directDependenciesVisitors = []
+        , directDependenciesVisitors = Nothing
         , dependenciesVisitor = Nothing
         , moduleVisitors = []
         , moduleContextCreator = Nothing
@@ -1319,7 +1298,7 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
     , initialProjectContext = schema.initialProjectContext
     , elmJsonVisitor = schema.elmJsonVisitor
     , readmeVisitor = schema.readmeVisitor
-    , directDependenciesVisitors = List.reverse schema.directDependenciesVisitors
+    , directDependenciesVisitors = schema.directDependenciesVisitors
     , dependenciesVisitor = schema.dependenciesVisitor
     , moduleVisitor = mergeModuleVisitors schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors
     , traversalAndFolder =
@@ -1422,7 +1401,7 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
                 , elmJsonVisitor = Nothing
                 , readmeVisitor = Nothing
                 , dependenciesVisitor = Nothing
-                , directDependenciesVisitors = []
+                , directDependenciesVisitors = Nothing
                 , providesFixes = False
                 }
     in
@@ -1970,7 +1949,7 @@ withDirectDependenciesProjectVisitor :
     -> ProjectRuleSchema schemaState projectContext moduleContext
     -> ProjectRuleSchema { schemaState | hasAtLeastOneVisitor : () } projectContext moduleContext
 withDirectDependenciesProjectVisitor visitor (ProjectRuleSchema schema) =
-    ProjectRuleSchema { schema | directDependenciesVisitors = removeErrorPhantomTypeFromVisitor visitor :: schema.directDependenciesVisitors }
+    ProjectRuleSchema { schema | directDependenciesVisitors = Just (combineVisitors (removeErrorPhantomTypeFromVisitor visitor) schema.directDependenciesVisitors) }
 
 
 {-| Add a function that makes a final evaluation of the project based only on the
@@ -2445,7 +2424,7 @@ withDirectDependenciesModuleVisitor :
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
     -> ModuleRuleSchema { schemaState | canCollectProjectData : () } moduleContext
 withDirectDependenciesModuleVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | directDependenciesVisitors = visitor :: schema.directDependenciesVisitors }
+    ModuleRuleSchema { schema | directDependenciesVisitors = Just (combineContextOnlyVisitor visitor schema.directDependenciesVisitors) }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
@@ -4243,7 +4222,7 @@ type alias RunnableProjectVisitor projectContext moduleContext =
     , initialProjectContext : projectContext
     , elmJsonVisitor : Maybe (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
     , readmeVisitor : Maybe (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
-    , directDependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
+    , directDependenciesVisitors : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     , dependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     , moduleVisitor : Maybe ( RunnableModuleVisitor moduleContext, ContextCreator projectContext moduleContext )
     , traversalAndFolder : TraversalAndFolder projectContext moduleContext
@@ -4789,16 +4768,16 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                 accumulateWithDirectDependencies : ( List (Error {}), projectContext ) -> ( List (Error {}), projectContext )
                 accumulateWithDirectDependencies =
                     case projectVisitor.directDependenciesVisitors of
-                        [] ->
+                        Nothing ->
                             identity
 
-                        visitors ->
+                        Just visitor ->
                             let
                                 directDependencies : Dict String Review.Project.Dependency.Dependency
                                 directDependencies =
                                     ValidProject.directDependencies project
                             in
-                            \acc -> accumulateWithListOfVisitors visitors directDependencies acc
+                            \acc -> accumulate (\context -> visitor directDependencies context) acc
 
                 ( errorsForVisitor, outputContext ) =
                     ( [], inputContext )
