@@ -5845,7 +5845,7 @@ type alias RuleProjectVisitorOperations t =
     -- `projectContext` is the hidden type variable
     -- The hidden state is `ProjectRuleCache projectContext`
     { collectModuleContext : String -> RuleModuleVisitor -> t
-    , createModuleVisitor : Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
+    , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
     }
 
 
@@ -5861,7 +5861,7 @@ projectRuleImplementation :
     -> RuleProjectVisitorOperations RuleProjectVisitor
 projectRuleImplementation schema raise cache =
     { collectModuleContext = \path ruleModuleVisitor -> getToProjectVisitor ruleModuleVisitor
-    , createModuleVisitor =
+    , createModuleVisitorFromProjectVisitor =
         let
             traversalAndFolder : TraversalAndFolder projectContext moduleContext
             traversalAndFolder =
@@ -5933,7 +5933,7 @@ projectRuleImplementation schema raise cache =
 
 createModuleVisitor : RuleProjectVisitor -> Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
 createModuleVisitor (RuleProjectVisitor ruleProjectVisitor) =
-    ruleProjectVisitor.createModuleVisitor
+    ruleProjectVisitor.createModuleVisitorFromProjectVisitor
 
 
 type RuleModuleVisitor
