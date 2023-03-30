@@ -5884,7 +5884,7 @@ projectRuleImplementation :
 projectRuleImplementation schema raise cache =
     { collectModuleContext = \path ruleModuleVisitor -> getToProjectVisitor ruleModuleVisitor
     , elmJsonVisitor = addProjectVisitor schema schema.elmJsonVisitor ValidProject.elmJsonHash (\entry -> raise { cache | elmJson = Just entry })
-    , readmeVisitor = addReadmeVisitor schema raise cache schema.readmeVisitor
+    , readmeVisitor = addProjectVisitor schema schema.readmeVisitor ValidProject.readmeHash (\entry -> raise { cache | readme = Just entry })
     , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raise cache
     }
 
@@ -5928,51 +5928,6 @@ addProjectVisitor schema maybeVisitor contentHash toRuleProjectVisitor =
                         , outputContext = outputContext
                         }
                         |> toRuleProjectVisitor
-                )
-
-
-addReadmeVisitor :
-    ProjectRuleSchemaData projectContext moduleContext
-    -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
-    -> ProjectRuleCache projectContext
-    -> Maybe (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
-    ->
-        Maybe
-            (ValidProject
-             -> Exceptions
-             -> Maybe { readmeKey : ReadmeKey, content : String }
-             -> RuleProjectVisitor
-            )
-addReadmeVisitor schema raise cache maybeVisitor =
-    case maybeVisitor of
-        Nothing ->
-            Nothing
-
-        Just visitor ->
-            Just
-                (\project exceptions elmJsonData ->
-                    let
-                        inputContext : projectContext
-                        inputContext =
-                            schema.initialProjectContext
-
-                        ( errorsForVisitor, outputContext ) =
-                            visitor elmJsonData inputContext
-
-                        errors : List (Error {})
-                        errors =
-                            filterExceptionsAndSetName exceptions schema.name errorsForVisitor
-
-                        elmJsonEntry : CacheEntryMaybe projectContext
-                        elmJsonEntry =
-                            Cache.createEntryMaybe
-                                { contentHash = ValidProject.readmeHash project
-                                , errors = errors
-                                , inputContext = inputContext
-                                , outputContext = outputContext
-                                }
-                    in
-                    raise { cache | elmJson = Just elmJsonEntry }
                 )
 
 
