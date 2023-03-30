@@ -5850,14 +5850,6 @@ projectRuleImplementation schema raise cache =
     { collectModuleContext = \path ruleModuleVisitor -> getToProjectVisitor ruleModuleVisitor ()
     , createModuleVisitor =
         let
-            toRuleProjectVisitor moduleContext =
-                -- TODO integrate module context into cache
-                raise cache
-
-            maybeModuleRuleSchema : Maybe ( ModuleRuleSchema {} moduleContext, ContextCreator projectContext moduleContext )
-            maybeModuleRuleSchema =
-                mergeModuleVisitors schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors
-
             traversalAndFolder : TraversalAndFolder projectContext moduleContext
             traversalAndFolder =
                 case ( schema.traversalType, schema.folder ) of
@@ -5869,6 +5861,14 @@ projectRuleImplementation schema raise cache =
 
                     ( ImportedModulesFirst, Nothing ) ->
                         TraverseAllModulesInParallel Nothing
+
+            toRuleProjectVisitor moduleContext =
+                -- TODO integrate module context into cache
+                raise cache
+
+            maybeModuleRuleSchema : Maybe ( ModuleRuleSchema {} moduleContext, ContextCreator projectContext moduleContext )
+            maybeModuleRuleSchema =
+                mergeModuleVisitors schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors
         in
         case maybeModuleRuleSchema of
             Nothing ->
