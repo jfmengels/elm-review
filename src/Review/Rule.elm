@@ -2507,20 +2507,15 @@ withModuleDefinitionVisitor newVisitor (ModuleRuleSchema schema) =
                     newVisitor
 
                 Just previousVisitor ->
-                    let
-                        combinedVisitor : Node Module -> moduleContext -> ( List (Error {}), moduleContext )
-                        combinedVisitor =
-                            \node moduleContext ->
-                                let
-                                    ( errorsAfterFirstVisit, contextAfterFirstVisit ) =
-                                        previousVisitor node moduleContext
+                    \node moduleContext ->
+                        let
+                            ( errorsAfterFirstVisit, contextAfterFirstVisit ) =
+                                previousVisitor node moduleContext
 
-                                    ( errorsAfterSecondVisit, contextAfterSecondVisit ) =
-                                        newVisitor node contextAfterFirstVisit
-                                in
-                                ( List.append errorsAfterFirstVisit errorsAfterSecondVisit, contextAfterSecondVisit )
-                    in
-                    combinedVisitor
+                            ( errorsAfterSecondVisit, contextAfterSecondVisit ) =
+                                newVisitor node contextAfterFirstVisit
+                        in
+                        ( List.append errorsAfterFirstVisit errorsAfterSecondVisit, contextAfterSecondVisit )
     in
     ModuleRuleSchema { schema | moduleDefinitionVisitor = Just (finalVisitor schema.moduleDefinitionVisitor) }
 
