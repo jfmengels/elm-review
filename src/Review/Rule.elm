@@ -1115,7 +1115,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 , folder = Nothing
                 , providesFixes = schema.providesFixes
                 , traversalType = AllModulesInParallel
-                , finalEvaluationFns = []
+                , finalEvaluationFn = Nothing
                 , dataExtractor = Nothing
                 }
                 |> fromProjectRuleSchema
@@ -1133,7 +1133,7 @@ fromModuleRuleSchema ((ModuleRuleSchema schema) as moduleVisitor) =
                 , folder = Nothing
                 , providesFixes = schema.providesFixes
                 , traversalType = AllModulesInParallel
-                , finalEvaluationFns = []
+                , finalEvaluationFn = Nothing
                 , dataExtractor = Nothing
                 }
                 |> fromProjectRuleSchema
@@ -1190,7 +1190,7 @@ type alias ProjectRuleSchemaData projectContext moduleContext =
     , traversalType : TraversalType
 
     -- TODO Jeroen Only allow to set it if there is a folder and module visitors?
-    , finalEvaluationFns : List (projectContext -> List (Error {}))
+    , finalEvaluationFn : Maybe (projectContext -> List (Error {}))
 
     -- TODO Breaking change only allow a single data extractor, and only for project rules
     , dataExtractor : Maybe (projectContext -> Extract)
@@ -1247,7 +1247,7 @@ newProjectRuleSchema name initialProjectContext =
         , folder = Nothing
         , providesFixes = False
         , traversalType = AllModulesInParallel
-        , finalEvaluationFns = []
+        , finalEvaluationFn = Nothing
         , dataExtractor = Nothing
         }
 
@@ -1322,7 +1322,7 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
 
             ( ImportedModulesFirst, Nothing ) ->
                 TraverseAllModulesInParallel Nothing
-    , finalEvaluationFns = List.reverse schema.finalEvaluationFns
+    , finalEvaluationFn = schema.finalEvaluationFn
     , providesFixes = schema.providesFixes
     , dataExtractor = schema.dataExtractor
     , requestedData =
@@ -1980,12 +1980,19 @@ withFinalProjectEvaluation :
     -> ProjectRuleSchema schemaState projectContext moduleContext
 withFinalProjectEvaluation visitor (ProjectRuleSchema schema) =
     let
-        removeErrorPhantomTypeFromEvaluation : projectContext -> List (Error {})
-        removeErrorPhantomTypeFromEvaluation projectContext =
-            visitor projectContext
-                |> List.map removeErrorPhantomType
+        combinedVisitor : projectContext -> List (Error {})
+        combinedVisitor =
+            case schema.finalEvaluationFn of
+                Nothing ->
+                    \projectContext ->
+                        visitor projectContext
+                            |> List.map removeErrorPhantomType
+
+                Just previousVisitor ->
+                    -- TODO Optimize this
+                    \projectContext -> List.append (visitor projectContext |> List.map removeErrorPhantomType) (previousVisitor projectContext)
     in
-    ProjectRuleSchema { schema | finalEvaluationFns = removeErrorPhantomTypeFromEvaluation :: schema.finalEvaluationFns }
+    ProjectRuleSchema { schema | finalEvaluationFn = Just combinedVisitor }
 
 
 type Extract
@@ -4212,7 +4219,7 @@ type alias RunnableProjectVisitor projectContext moduleContext =
     , dependenciesVisitors : List (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     , moduleVisitor : Maybe ( RunnableModuleVisitor moduleContext, ContextCreator projectContext moduleContext )
     , traversalAndFolder : TraversalAndFolder projectContext moduleContext
-    , finalEvaluationFns : List (projectContext -> List (Error {}))
+    , finalEvaluationFn : Maybe (projectContext -> List (Error {}))
     , dataExtractor : Maybe (projectContext -> Extract)
     , requestedData : RequestedData
     , providesFixes : Bool
@@ -4834,67 +4841,63 @@ computeFinalProjectEvaluation :
     -> FixedErrors
     -> { project : ValidProject, cache : ProjectRuleCache projectContext, step : Step projectContext, fixedErrors : FixedErrors }
 computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } project projectContexts cache fixedErrors =
-    if List.isEmpty projectVisitor.finalEvaluationFns then
-        { project = project, cache = cache, step = DataExtract (ToCombineStartingFrom projectContexts.deps), fixedErrors = fixedErrors }
+    case projectVisitor.finalEvaluationFn of
+        Nothing ->
+            { project = project, cache = cache, step = DataExtract (ToCombineStartingFrom projectContexts.deps), fixedErrors = fixedErrors }
 
-    else
-        let
-            finalContext : projectContext
-            finalContext =
-                computeFinalContext projectVisitor cache projectContexts.deps
+        Just finalEvaluationFn ->
+            let
+                finalContext : projectContext
+                finalContext =
+                    computeFinalContext projectVisitor cache projectContexts.deps
 
-            cachePredicate : FinalProjectEvaluationCache projectContext -> Bool
-            cachePredicate entry =
-                Cache.matchNoOutput (ContextHash.create finalContext) entry
-        in
-        case reuseProjectRuleCache cachePredicate .finalEvaluationErrors cache of
-            Just _ ->
-                { project = project, cache = cache, step = DataExtract (Combined finalContext), fixedErrors = fixedErrors }
+                cachePredicate : FinalProjectEvaluationCache projectContext -> Bool
+                cachePredicate entry =
+                    Cache.matchNoOutput (ContextHash.create finalContext) entry
+            in
+            case reuseProjectRuleCache cachePredicate .finalEvaluationErrors cache of
+                Just _ ->
+                    { project = project, cache = cache, step = DataExtract (Combined finalContext), fixedErrors = fixedErrors }
 
-            Nothing ->
-                let
-                    errors : List (Error {})
-                    errors =
-                        List.concatMap
-                            (\finalEvaluationFn ->
-                                finalEvaluationFn finalContext
-                                    |> filterExceptionsAndSetName exceptions projectVisitor.name
-                            )
-                            projectVisitor.finalEvaluationFns
-                in
-                case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
-                    Just ( postFixStatus, fixResult ) ->
-                        let
-                            ( newFixedErrors, step ) =
-                                case postFixStatus of
-                                    ShouldAbort newFixedErrors_ ->
-                                        ( newFixedErrors_, Abort )
+                Nothing ->
+                    let
+                        errors : List (Error {})
+                        errors =
+                            finalEvaluationFn finalContext
+                    in
+                    case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
+                        Just ( postFixStatus, fixResult ) ->
+                            let
+                                ( newFixedErrors, step ) =
+                                    case postFixStatus of
+                                        ShouldAbort newFixedErrors_ ->
+                                            ( newFixedErrors_, Abort )
 
-                                    ShouldContinue newFixedErrors_ ->
-                                        ( newFixedErrors_
-                                        , case fixResult.fixedFile of
-                                            FixedElmModule _ moduleZipper ->
-                                                Modules projectContexts moduleZipper
+                                        ShouldContinue newFixedErrors_ ->
+                                            ( newFixedErrors_
+                                            , case fixResult.fixedFile of
+                                                FixedElmModule _ moduleZipper ->
+                                                    Modules projectContexts moduleZipper
 
-                                            FixedElmJson ->
-                                                ElmJson { initial = projectContexts.initial }
+                                                FixedElmJson ->
+                                                    ElmJson { initial = projectContexts.initial }
 
-                                            FixedReadme ->
-                                                Readme { initial = projectContexts.initial, elmJson = projectContexts.elmJson }
-                                        )
-                        in
-                        { project = fixResult.project
-                        , cache = { cache | finalEvaluationErrors = Just (Cache.createNoOutput finalContext errors) }
-                        , step = step
-                        , fixedErrors = newFixedErrors
-                        }
+                                                FixedReadme ->
+                                                    Readme { initial = projectContexts.initial, elmJson = projectContexts.elmJson }
+                                            )
+                            in
+                            { project = fixResult.project
+                            , cache = { cache | finalEvaluationErrors = Just (Cache.createNoOutput finalContext errors) }
+                            , step = step
+                            , fixedErrors = newFixedErrors
+                            }
 
-                    Nothing ->
-                        { project = project
-                        , cache = { cache | finalEvaluationErrors = Just (Cache.createNoOutput finalContext errors) }
-                        , step = DataExtract (Combined finalContext)
-                        , fixedErrors = fixedErrors
-                        }
+                        Nothing ->
+                            { project = project
+                            , cache = { cache | finalEvaluationErrors = Just (Cache.createNoOutput finalContext errors) }
+                            , step = DataExtract (Combined finalContext)
+                            , fixedErrors = fixedErrors
+                            }
 
 
 reuseProjectRuleCache : (b -> Bool) -> (ProjectRuleCache a -> Maybe b) -> ProjectRuleCache a -> Maybe b
