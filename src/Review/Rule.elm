@@ -381,7 +381,7 @@ type alias ModuleRuleSchemaData moduleContext =
     , commentsVisitor : Maybe (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
     , importVisitor : Maybe (Node Import -> moduleContext -> ( List (Error {}), moduleContext ))
     , declarationListVisitor : Maybe (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
-    , declarationVisitorsOnEnter : List (Visitor Declaration moduleContext)
+    , declarationVisitorsOnEnter : Maybe (Visitor Declaration moduleContext)
     , declarationVisitorsOnExit : List (Visitor Declaration moduleContext)
     , expressionVisitorsOnEnter : List (Visitor Expression moduleContext)
     , expressionVisitorsOnExit : List (Visitor Expression moduleContext)
@@ -1012,7 +1012,7 @@ newModuleRuleSchema name initialModuleContext =
         , commentsVisitor = Nothing
         , importVisitor = Nothing
         , declarationListVisitor = Nothing
-        , declarationVisitorsOnEnter = []
+        , declarationVisitorsOnEnter = Nothing
         , declarationVisitorsOnExit = []
         , expressionVisitorsOnEnter = []
         , expressionVisitorsOnExit = []
@@ -1079,7 +1079,7 @@ newModuleRuleSchemaUsingContextCreator name moduleContextCreator =
         , commentsVisitor = Nothing
         , importVisitor = Nothing
         , declarationListVisitor = Nothing
-        , declarationVisitorsOnEnter = []
+        , declarationVisitorsOnEnter = Nothing
         , declarationVisitorsOnExit = []
         , expressionVisitorsOnEnter = []
         , expressionVisitorsOnExit = []
@@ -1400,7 +1400,7 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
                 , commentsVisitor = Nothing
                 , importVisitor = Nothing
                 , declarationListVisitor = Nothing
-                , declarationVisitorsOnEnter = []
+                , declarationVisitorsOnEnter = Nothing
                 , declarationVisitorsOnExit = []
                 , expressionVisitorsOnEnter = []
                 , expressionVisitorsOnExit = []
@@ -1443,18 +1443,13 @@ fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
 createDeclarationAndExpressionVisitor : ModuleRuleSchemaData moduleContext -> List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
 createDeclarationAndExpressionVisitor schema =
     if shouldVisitDeclarations schema then
-        let
-            declarationVisitorsOnEnter : List (Visitor Declaration moduleContext)
-            declarationVisitorsOnEnter =
-                List.reverse schema.declarationVisitorsOnEnter
-        in
         case createExpressionVisitor schema of
             Just expressionVisitor ->
                 \nodes initialErrorsAndContext ->
                     List.foldl
                         (\node acc ->
                             visitDeclaration
-                                declarationVisitorsOnEnter
+                                schema.declarationVisitorsOnEnter
                                 schema.declarationVisitorsOnExit
                                 expressionVisitor
                                 node
@@ -1468,7 +1463,7 @@ createDeclarationAndExpressionVisitor schema =
                     visitor : Node Declaration -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
                     visitor node acc =
                         visitOnlyDeclaration
-                            declarationVisitorsOnEnter
+                            schema.declarationVisitorsOnEnter
                             schema.declarationVisitorsOnExit
                             node
                             acc
@@ -2720,7 +2715,7 @@ withDeclarationVisitor : (Node Declaration -> Direction -> moduleContext -> ( Li
 withDeclarationVisitor visitor (ModuleRuleSchema schema) =
     ModuleRuleSchema
         { schema
-            | declarationVisitorsOnEnter = (\node ctx -> visitor node OnEnter ctx) :: schema.declarationVisitorsOnEnter
+            | declarationVisitorsOnEnter = Just (combineVisitors (\node ctx -> visitor node OnEnter ctx) schema.declarationVisitorsOnEnter)
             , declarationVisitorsOnExit = (\node ctx -> visitor node OnExit ctx) :: schema.declarationVisitorsOnExit
         }
 
@@ -2811,7 +2806,7 @@ simpler [`withSimpleDeclarationVisitor`](#withSimpleDeclarationVisitor) function
 -}
 withDeclarationEnterVisitor : (Node Declaration -> moduleContext -> ( List (Error {}), moduleContext )) -> ModuleRuleSchema schemaState moduleContext -> ModuleRuleSchema { schemaState | hasAtLeastOneVisitor : () } moduleContext
 withDeclarationEnterVisitor visitor (ModuleRuleSchema schema) =
-    ModuleRuleSchema { schema | declarationVisitorsOnEnter = visitor :: schema.declarationVisitorsOnEnter }
+    ModuleRuleSchema { schema | declarationVisitorsOnEnter = Just (combineVisitors visitor schema.declarationVisitorsOnEnter) }
 
 
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's
@@ -5602,17 +5597,12 @@ visitCaseBranch2 caseBlockWithRange (( _, caseExpression ) as caseBranch) rules 
 
 createDeclarationAndExpressionVisitor2 : ModuleRuleSchemaData moduleContext -> List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
 createDeclarationAndExpressionVisitor2 schema =
-    let
-        declarationVisitorsOnEnter : List (Visitor Declaration moduleContext)
-        declarationVisitorsOnEnter =
-            List.reverse schema.declarationVisitorsOnEnter
-    in
     case createExpressionVisitor schema of
         Just expressionVisitor ->
             \nodes initialErrorsAndContext ->
                 List.foldl
                     (visitDeclaration
-                        declarationVisitorsOnEnter
+                        schema.declarationVisitorsOnEnter
                         schema.declarationVisitorsOnExit
                         expressionVisitor
                     )
@@ -5624,7 +5614,7 @@ createDeclarationAndExpressionVisitor2 schema =
                 visitor : Node Declaration -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
                 visitor =
                     visitOnlyDeclaration
-                        declarationVisitorsOnEnter
+                        schema.declarationVisitorsOnEnter
                         schema.declarationVisitorsOnExit
             in
             \nodes initialErrorsAndContext ->
@@ -5633,7 +5623,7 @@ createDeclarationAndExpressionVisitor2 schema =
 
 shouldVisitDeclarations : ModuleRuleSchemaData moduleContext -> Bool
 shouldVisitDeclarations schema =
-    not (List.isEmpty schema.declarationVisitorsOnEnter)
+    (schema.declarationVisitorsOnEnter /= Nothing)
         || not (List.isEmpty schema.declarationVisitorsOnExit)
 
 
@@ -5715,7 +5705,7 @@ mapLast mapper lines =
 
 
 visitDeclaration :
-    List (Visitor Declaration moduleContext)
+    Maybe (Visitor Declaration moduleContext)
     -> List (Visitor Declaration moduleContext)
     -> (Node Expression -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext ))
     -> Node Declaration
@@ -5725,7 +5715,7 @@ visitDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit expression
     case Node.value node of
         Declaration.FunctionDeclaration function ->
             errorsAndContext
-                |> visitWithListOfVisitors declarationVisitorsOnEnter node
+                |> accumulateWithMaybe declarationVisitorsOnEnter node
                 |> expressionVisitor (Node.value function.declaration).expression
                 |> visitWithListOfVisitors declarationVisitorsOnExit node
 
@@ -5748,14 +5738,14 @@ visitDeclarationButOnlyExpressions expressionVisitor node errorsAndContext =
 
 
 visitOnlyDeclaration :
-    List (Visitor Declaration moduleContext)
+    Maybe (Visitor Declaration moduleContext)
     -> List (Visitor Declaration moduleContext)
     -> Node Declaration
     -> ( List (Error {}), moduleContext )
     -> ( List (Error {}), moduleContext )
 visitOnlyDeclaration declarationVisitorsOnEnter declarationVisitorsOnExit node errorsAndContext =
     errorsAndContext
-        |> visitWithListOfVisitors declarationVisitorsOnEnter node
+        |> accumulateWithMaybe declarationVisitorsOnEnter node
         |> visitWithListOfVisitors declarationVisitorsOnExit node
 
 
@@ -5827,7 +5817,7 @@ moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, moduleCont
     , commentVisitor = addMaybeVisitor raise errorsAndContext schema.commentsVisitor
     , importsVisitor = addImportsVisitor raise errorsAndContext schema.importVisitor
     , declarationListVisitor = addMaybeVisitor raise errorsAndContext schema.declarationListVisitor
-    , declarationVisitorOnEnter = addVisitor raise errorsAndContext (List.reverse schema.declarationVisitorsOnEnter)
+    , declarationVisitorOnEnter = addMaybeVisitor raise errorsAndContext schema.declarationVisitorsOnEnter
     , declarationVisitorOnExit = addVisitor raise errorsAndContext schema.declarationVisitorsOnExit
     , expressionVisitorOnEnter = addVisitor raise errorsAndContext (List.reverse schema.expressionVisitorsOnEnter)
     , expressionVisitorOnExit = addVisitor raise errorsAndContext schema.expressionVisitorsOnExit
