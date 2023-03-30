@@ -5700,32 +5700,6 @@ visitCaseBranch2 caseBlockWithRange (( _, caseExpression ) as caseBranch) rules 
         |> List.map (\acc -> runVisitor2 .caseBranchVisitorOnExit caseBlockWithRange caseBranch acc)
 
 
-createDeclarationAndExpressionVisitor2 : ModuleRuleSchemaData moduleContext -> List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
-createDeclarationAndExpressionVisitor2 schema =
-    case createExpressionVisitor schema of
-        Just expressionVisitor ->
-            \nodes initialErrorsAndContext ->
-                List.foldl
-                    (visitDeclaration
-                        schema.declarationVisitorOnEnter
-                        schema.declarationVisitorOnExit
-                        expressionVisitor
-                    )
-                    initialErrorsAndContext
-                    nodes
-
-        Nothing ->
-            let
-                visitor : Node Declaration -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
-                visitor =
-                    visitOnlyDeclaration
-                        schema.declarationVisitorOnEnter
-                        schema.declarationVisitorOnExit
-            in
-            \nodes initialErrorsAndContext ->
-                List.foldl visitor initialErrorsAndContext nodes
-
-
 shouldVisitDeclarations : ModuleRuleSchemaData moduleContext -> Bool
 shouldVisitDeclarations schema =
     (schema.declarationVisitorOnEnter /= Nothing)
@@ -5922,23 +5896,6 @@ moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, moduleCont
     }
 
 
-addVisitor :
-    (( List (Error {}), context ) -> a)
-    -> ( List (Error {}), context )
-    -> List (b -> context -> ( List (Error {}), context ))
-    -> Maybe (b -> a)
-addVisitor raise errorsAndContext visitors =
-    case visitors of
-        [] ->
-            Nothing
-
-        [ visitor ] ->
-            Just (\node -> raise (accumulate (visitor node) errorsAndContext))
-
-        _ ->
-            Just (\node -> raise (visitWithListOfVisitors visitors node errorsAndContext))
-
-
 addMaybeVisitor :
     (( List (Error {}), context ) -> a)
     -> ( List (Error {}), context )
@@ -5965,19 +5922,6 @@ addMaybeVisitor2 raise errorsAndContext maybeVisitor =
 
         Just visitor ->
             Just (\a b -> raise (accumulate (visitor a b) errorsAndContext))
-
-
-addVisitor2 : (( List (Error {}), context ) -> a) -> ( List (Error {}), context ) -> List (b -> c -> context -> ( List (Error {}), context )) -> Maybe (b -> c -> a)
-addVisitor2 raise errorsAndContext visitors =
-    case visitors of
-        [] ->
-            Nothing
-
-        [ visitor ] ->
-            Just (\a b -> raise (accumulate (visitor a b) errorsAndContext))
-
-        _ ->
-            Just (\a b -> raise (visitWithListOfVisitors2 visitors a b errorsAndContext))
 
 
 addImportsVisitor :
@@ -6292,22 +6236,6 @@ expressionChildren node =
             []
 
 
-visitWithListOfVisitors : List (a -> context -> ( List (Error {}), context )) -> a -> ( List (Error {}), context ) -> ( List (Error {}), context )
-visitWithListOfVisitors visitors a initialErrorsAndContext =
-    List.foldl
-        (\visitor acc -> accumulate (visitor a) acc)
-        initialErrorsAndContext
-        visitors
-
-
-visitWithListOfVisitors2 : List (a -> b -> context -> ( List (Error {}), context )) -> a -> b -> ( List (Error {}), context ) -> ( List (Error {}), context )
-visitWithListOfVisitors2 visitors a b initialErrorsAndContext =
-    List.foldl
-        (\visitor acc -> accumulate (visitor a b) acc)
-        initialErrorsAndContext
-        visitors
-
-
 functionToExpression : Function -> Node Expression
 functionToExpression function =
     Node.value function.declaration
@@ -6325,18 +6253,6 @@ moduleNameNode node =
 
         Module.EffectModule data ->
             data.moduleName
-
-
-accumulateWithListOfVisitors :
-    List (a -> context -> ( List (Error {}), context ))
-    -> a
-    -> ( List (Error {}), context )
-    -> ( List (Error {}), context )
-accumulateWithListOfVisitors visitors element initialErrorsAndContext =
-    List.foldl
-        (\visitor errorsAndContext -> accumulate (visitor element) errorsAndContext)
-        initialErrorsAndContext
-        visitors
 
 
 accumulateWithMaybe :
