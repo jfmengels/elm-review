@@ -5862,10 +5862,6 @@ projectRuleImplementation schema raise cache =
                     ( ImportedModulesFirst, Nothing ) ->
                         TraverseAllModulesInParallel Nothing
 
-            toRuleProjectVisitor moduleContext =
-                -- TODO integrate module context into cache
-                raise cache
-
             maybeModuleRuleSchema : Maybe ( ModuleRuleSchema {} moduleContext, ContextCreator projectContext moduleContext )
             maybeModuleRuleSchema =
                 mergeModuleVisitors schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors
@@ -5892,6 +5888,11 @@ projectRuleImplementation schema raise cache =
                             initialContext : moduleContext
                             initialContext =
                                 applyContextCreator availableData moduleContextCreator inputProjectContext
+
+                            toRuleProjectVisitor : moduleContext -> RuleProjectVisitor
+                            toRuleProjectVisitor resultModuleContext =
+                                -- TODO integrate module context into cache
+                                raise cache
                         in
                         newRule moduleRuleSchema toRuleProjectVisitor initialContext
                     )
