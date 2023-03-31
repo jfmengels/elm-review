@@ -5221,37 +5221,6 @@ isFixable predicate err =
             Nothing
 
 
-visitModuleForProjectRule : RunnableModuleVisitor moduleContext -> moduleContext -> OpaqueProjectModule -> ( List (Error {}), moduleContext )
-visitModuleForProjectRule schema initialContext module_ =
-    let
-        ast : File
-        ast =
-            ProjectModule.ast module_
-    in
-    ( [], initialContext )
-        |> accumulateWithMaybe schema.moduleDefinitionVisitor ast.moduleDefinition
-        -- TODO When `elm-syntax` integrates the module documentation by default, then we should use that instead of this.
-        |> accumulateModuleDocumentationVisitor schema.moduleDocumentationVisitor ast
-        |> accumulateWithMaybe schema.commentsVisitor ast.comments
-        |> accumulateListWithMaybe schema.importVisitor ast.imports
-        |> accumulateWithMaybe schema.declarationListVisitor ast.declarations
-        |> schema.declarationAndExpressionVisitor ast.declarations
-        |> accumulateFinalEvaluation schema.finalEvaluationFn
-
-
-accumulateFinalEvaluation :
-    Maybe (context -> List (Error {}))
-    -> ( List (Error {}), context )
-    -> ( List (Error {}), context )
-accumulateFinalEvaluation maybeFinalEvaluationFn (( errors, moduleContext ) as untouched) =
-    case maybeFinalEvaluationFn of
-        Just finalEvaluationFn ->
-            ( List.append (finalEvaluationFn moduleContext) errors, moduleContext )
-
-        Nothing ->
-            untouched
-
-
 visitModuleForProjectRule2 : OpaqueProjectModule -> List RuleModuleVisitor -> List RuleModuleVisitor
 visitModuleForProjectRule2 module_ ruleModuleVisitors =
     let
