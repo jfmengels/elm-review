@@ -1265,36 +1265,6 @@ emptyCache =
     }
 
 
-fromProjectRuleSchemaToRunnableProjectVisitor : ProjectRuleSchema schemaState projectContext moduleContext -> RunnableProjectVisitor projectContext moduleContext
-fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
-    { name = schema.name
-    , initialProjectContext = schema.initialProjectContext
-    , elmJsonVisitor = schema.elmJsonVisitor
-    , readmeVisitor = schema.readmeVisitor
-    , directDependenciesVisitor = schema.directDependenciesVisitor
-    , dependenciesVisitor = schema.dependenciesVisitor
-    , traversalAndFolder =
-        case ( schema.traversalType, schema.folder ) of
-            ( AllModulesInParallel, _ ) ->
-                TraverseAllModulesInParallel schema.folder
-
-            ( ImportedModulesFirst, Just folder ) ->
-                TraverseImportedModulesFirst folder
-
-            ( ImportedModulesFirst, Nothing ) ->
-                TraverseAllModulesInParallel Nothing
-    , finalEvaluationFn = schema.finalEvaluationFn
-    , providesFixes = schema.providesFixes
-    , requestedData =
-        case schema.moduleContextCreator of
-            Just (ContextCreator _ requestedData) ->
-                requestedData
-
-            Nothing ->
-                RequestedData.none
-    }
-
-
 mergeModuleVisitors :
     String
     -> projectContext
