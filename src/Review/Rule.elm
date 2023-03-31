@@ -5954,6 +5954,7 @@ type alias RuleProjectVisitorOperations t =
     , finalProjectEvaluation : Maybe (() -> ( List (Error {}), t ))
     , dataExtractVisitor : Maybe (ReviewOptionsData -> t)
     , addDataExtract : Dict String Encode.Value -> Dict String Encode.Value
+    , getErrors : () -> List (Error {})
     , backToRule : () -> Rule
     }
 
@@ -5993,6 +5994,7 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
 
                 Nothing ->
                     extracts
+    , getErrors = \() -> errorsFromCache cache
     , backToRule =
         \() ->
             Rule
