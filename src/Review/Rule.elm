@@ -4492,7 +4492,7 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
                     computeStepsForProject
                         dataToComputeProject
                         { project = result.project
-                        , cache = { cache | moduleContexts = result.moduleContexts }
+                        , cache = cache
                         , ruleProjectVisitors = result.ruleProjectVisitors
                         , fixedErrors = result.fixedErrors
                         , step = result.step
