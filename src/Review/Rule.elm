@@ -1388,50 +1388,6 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
     )
 
 
-createDeclarationAndExpressionVisitor : ModuleRuleSchemaData moduleContext -> List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
-createDeclarationAndExpressionVisitor schema =
-    if shouldVisitDeclarations schema then
-        case createExpressionVisitor schema of
-            Just expressionVisitor ->
-                \nodes initialErrorsAndContext ->
-                    List.foldl
-                        (\node acc ->
-                            visitDeclaration
-                                schema.declarationVisitorOnEnter
-                                schema.declarationVisitorOnExit
-                                expressionVisitor
-                                node
-                                acc
-                        )
-                        initialErrorsAndContext
-                        nodes
-
-            Nothing ->
-                let
-                    visitor : Node Declaration -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
-                    visitor node acc =
-                        visitOnlyDeclaration
-                            schema.declarationVisitorOnEnter
-                            schema.declarationVisitorOnExit
-                            node
-                            acc
-                in
-                \nodes initialErrorsAndContext ->
-                    List.foldl visitor initialErrorsAndContext nodes
-
-    else
-        case createExpressionVisitor schema of
-            Just expressionVisitor ->
-                \nodes initialErrorsAndContext ->
-                    List.foldl
-                        (\node acc -> visitDeclarationButOnlyExpressions expressionVisitor node acc)
-                        initialErrorsAndContext
-                        nodes
-
-            Nothing ->
-                \_ errorsAndContext -> errorsAndContext
-
-
 {-| Add a visitor to the [`ProjectRuleSchema`](#ProjectRuleSchema) which will
 visit the project's Elm modules.
 
