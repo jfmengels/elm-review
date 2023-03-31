@@ -5240,10 +5240,8 @@ computeModules dataToComputeModules projectContexts maybeModuleZipper initialPro
                 result =
                     computeModuleAndCacheResult
                         dataToComputeModules
-                        projectContexts.deps
                         moduleZipper
                         initialProject
-                        initialModuleContexts
                         ruleProjectVisitors
                         fixedErrors
             in
@@ -5316,14 +5314,12 @@ computeProjectContext traversalAndFolder project cache incoming initial =
 
 computeModuleAndCacheResult :
     DataToComputeModules projectContext moduleContext
-    -> projectContext
     -> Zipper GraphModule
     -> ValidProject
-    -> Dict String (ModuleCacheEntry projectContext)
     -> List RuleProjectVisitor
     -> FixedErrors
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
-computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZipper project moduleContexts ruleProjectVisitors fixedErrors =
+computeModuleAndCacheResult dataToComputeModules moduleZipper project ruleProjectVisitors fixedErrors =
     let
         { node, incoming } =
             Zipper.current moduleZipper
