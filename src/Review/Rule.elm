@@ -4500,20 +4500,19 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
             let
                 newRuleProjectVisitors : List RuleProjectVisitor
                 newRuleProjectVisitors =
-                    List.foldl
-                        (\((RuleProjectVisitor rule) as untouched) accRules ->
+                    List.map
+                        (\((RuleProjectVisitor rule) as untouched) ->
                             case rule.dataExtractVisitor of
                                 Just dataExtract ->
                                     let
                                         ( newErrors, updatedRule ) =
                                             dataExtract dataToComputeProject.reviewOptions
                                     in
-                                    updatedRule :: accRules
+                                    updatedRule
 
                                 Nothing ->
-                                    untouched :: accRules
+                                    untouched
                         )
-                        []
                         ruleProjectVisitors
             in
             { project = project
