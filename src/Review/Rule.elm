@@ -4863,6 +4863,10 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                 dependencies =
                     ValidProject.dependencies project
 
+                directDependencies : Dict String Review.Project.Dependency.Dependency
+                directDependencies =
+                    ValidProject.directDependencies project
+
                 accumulateWithDirectDependencies : ( List (Error {}), projectContext ) -> ( List (Error {}), projectContext )
                 accumulateWithDirectDependencies =
                     case projectVisitor.directDependenciesVisitor of
@@ -4870,11 +4874,6 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                             identity
 
                         Just visitor ->
-                            let
-                                directDependencies : Dict String Review.Project.Dependency.Dependency
-                                directDependencies =
-                                    ValidProject.directDependencies project
-                            in
                             \acc -> accumulate (\context -> visitor directDependencies context) acc
 
                 ( errorsForVisitor, outputContext ) =
