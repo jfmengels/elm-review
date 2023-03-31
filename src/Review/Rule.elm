@@ -531,7 +531,7 @@ reviewV2 rules maybeProjectData project =
                 )
     of
         Ok ( validProject, ruleProjectVisitors ) ->
-            runReviewForV2 ReviewOptions.defaults validProject rules ruleProjectVisitors
+            runReviewForV2 ReviewOptions.defaults validProject ruleProjectVisitors
 
         Err errors ->
             { errors = errors
@@ -699,8 +699,8 @@ importCycleError cycle =
         |> errorToReviewError
 
 
-runReviewForV2 : ReviewOptions -> ValidProject -> List Rule -> List RuleProjectVisitor -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
-runReviewForV2 reviewOptions project rules ruleProjectVisitors =
+runReviewForV2 : ReviewOptions -> ValidProject -> List RuleProjectVisitor -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
+runReviewForV2 reviewOptions project ruleProjectVisitors =
     let
         runResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
         runResult =
