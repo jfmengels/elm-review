@@ -1,4 +1,4 @@
-module Review.RequestedData exposing (RequestedData(..), combine, none)
+module Review.RequestedData exposing (RequestedData(..), combine, combineJust, none)
 
 
 type RequestedData

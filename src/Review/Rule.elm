@@ -4857,7 +4857,10 @@ computeModule :
 computeModule ({ dataToComputeModules, ruleProjectVisitors, module_, project, incoming } as params) =
     let
         (RequestedData requestedData) =
-            dataToComputeModules.projectVisitor.requestedData
+            List.foldl
+                (\(RuleProjectVisitor ruleProjectVisitor) acc -> RequestedData.combineJust ruleProjectVisitor.requestedData acc)
+                RequestedData.none
+                ruleProjectVisitors
 
         moduleName : ModuleName
         moduleName =
@@ -5598,6 +5601,7 @@ type alias RuleProjectVisitorOperations t =
     , getErrorsForModule : String -> List (Error {})
     , getErrors : () -> List (Error {})
     , backToRule : () -> Rule
+    , requestedData : RequestedData
     }
 
 
@@ -5649,6 +5653,7 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
                 , ruleImplementation = \_ -> Debug.todo "ruleImplementation in projectRuleImplementation"
                 , ruleProjectVisitor = Ok (\_ -> Debug.todo "ruleProjectVisitor in projectRuleImplementation")
                 }
+    , requestedData = hidden.ruleData.requestedData
     }
 
 
