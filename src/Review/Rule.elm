@@ -5039,7 +5039,6 @@ type alias DataToComputeSingleModule projectContext moduleContext =
     { dataToComputeModules : DataToComputeModules projectContext moduleContext
     , ruleProjectVisitors : List RuleProjectVisitor
     , module_ : OpaqueProjectModule
-    , isFileIgnored : Bool
     , projectContext : projectContext
     , project : ValidProject
     , moduleZipper : Zipper GraphModule
@@ -5052,7 +5051,7 @@ computeModule :
     Exceptions
     -> DataToComputeSingleModule projectContext moduleContext
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
-computeModule exceptions ({ dataToComputeModules, ruleProjectVisitors, module_, isFileIgnored, projectContext, project, incoming } as params) =
+computeModule exceptions ({ dataToComputeModules, ruleProjectVisitors, module_, projectContext, project, incoming } as params) =
     let
         (RequestedData requestedData) =
             dataToComputeModules.projectVisitor.requestedData
@@ -5362,7 +5361,6 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                     { dataToComputeModules = dataToComputeModules
                     , ruleProjectVisitors = ruleProjectVisitors
                     , module_ = module_
-                    , isFileIgnored = isFileIgnored
                     , projectContext = projectContext
                     , project = project
                     , moduleZipper = moduleZipper
