@@ -4738,114 +4738,104 @@ computeDependencies { reviewOptions, projectVisitor } project contexts cache rul
         inputContext =
             contexts.readme
 
-        cachePredicate : CacheEntryMaybe projectContext -> Bool
-        cachePredicate entry =
-            Cache.matchMaybe (ValidProject.dependenciesHash project) (ContextHash.create inputContext) entry
-
         modulesAsNextStep : projectContext -> Step projectContext
         modulesAsNextStep projectContext =
             Modules
                 { initial = contexts.initial, elmJson = contexts.elmJson, readme = contexts.readme, deps = projectContext }
                 (ValidProject.moduleZipper project)
+
+        dependencies : Dict String Review.Project.Dependency.Dependency
+        dependencies =
+            ValidProject.dependencies project
+
+        directDependencies : Dict String Review.Project.Dependency.Dependency
+        directDependencies =
+            ValidProject.directDependencies project
+
+        accumulateWithDirectDependencies : ( List (Error {}), projectContext ) -> ( List (Error {}), projectContext )
+        accumulateWithDirectDependencies =
+            case projectVisitor.directDependenciesVisitor of
+                Nothing ->
+                    identity
+
+                Just visitor ->
+                    \acc -> accumulate (\context -> visitor directDependencies context) acc
+
+        ( errorsForVisitor, outputContext ) =
+            ( [], inputContext )
+                |> accumulateWithDirectDependencies
+                |> accumulateWithMaybe projectVisitor.dependenciesVisitor dependencies
+
+        ( errors, newRuleProjectVisitors ) =
+            List.foldl
+                (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
+                    case rule.dependenciesVisitor of
+                        Just visitor ->
+                            let
+                                ( newErrors, updatedRule ) =
+                                    visitor project { all = dependencies, direct = directDependencies }
+                            in
+                            ( List.append newErrors accErrors, updatedRule :: accRules )
+
+                        Nothing ->
+                            ( accErrors, untouched :: accRules )
+                )
+                ( [], [] )
+                ruleProjectVisitors
+
+        resultWhenNoFix : () -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+        resultWhenNoFix () =
+            { project = project
+            , step = modulesAsNextStep outputContext
+            , cache = updateCache ()
+            , ruleProjectVisitors = newRuleProjectVisitors
+            , fixedErrors = fixedErrors
+            }
+
+        updateCache : () -> ProjectRuleCache projectContext
+        updateCache () =
+            let
+                dependenciesEntry : CacheEntryMaybe projectContext
+                dependenciesEntry =
+                    Cache.createEntryMaybe
+                        { contentHash = ValidProject.dependenciesHash project
+                        , errors = errors
+                        , inputContext = inputContext
+                        , outputContext = outputContext
+                        }
+            in
+            { cache | dependencies = Just dependenciesEntry }
     in
-    case reuseProjectRuleCache cachePredicate .dependencies cache of
-        Just entry ->
-            { project = project, step = modulesAsNextStep (Cache.outputContextMaybe entry), cache = cache, ruleProjectVisitors = ruleProjectVisitors, fixedErrors = fixedErrors }
+    case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
+        Just ( postFixStatus, fixResult ) ->
+            case postFixStatus of
+                ShouldAbort newFixedErrors ->
+                    { project = fixResult.project, step = Abort, cache = updateCache (), ruleProjectVisitors = newRuleProjectVisitors, fixedErrors = newFixedErrors }
+
+                ShouldContinue newFixedErrors ->
+                    case fixResult.fixedFile of
+                        FixedElmJson ->
+                            { project = fixResult.project
+                            , step = ElmJson { initial = contexts.initial }
+                            , cache = updateCache ()
+                            , ruleProjectVisitors = newRuleProjectVisitors
+                            , fixedErrors = newFixedErrors
+                            }
+
+                        FixedReadme ->
+                            { project = fixResult.project
+                            , step = Readme { initial = contexts.initial, elmJson = contexts.elmJson }
+                            , cache = updateCache ()
+                            , ruleProjectVisitors = newRuleProjectVisitors
+                            , fixedErrors = newFixedErrors
+                            }
+
+                        FixedElmModule _ _ ->
+                            -- Not possible, users don't have the module key to provide fixes for an Elm module
+                            resultWhenNoFix ()
 
         Nothing ->
-            let
-                dependencies : Dict String Review.Project.Dependency.Dependency
-                dependencies =
-                    ValidProject.dependencies project
-
-                directDependencies : Dict String Review.Project.Dependency.Dependency
-                directDependencies =
-                    ValidProject.directDependencies project
-
-                accumulateWithDirectDependencies : ( List (Error {}), projectContext ) -> ( List (Error {}), projectContext )
-                accumulateWithDirectDependencies =
-                    case projectVisitor.directDependenciesVisitor of
-                        Nothing ->
-                            identity
-
-                        Just visitor ->
-                            \acc -> accumulate (\context -> visitor directDependencies context) acc
-
-                ( errorsForVisitor, outputContext ) =
-                    ( [], inputContext )
-                        |> accumulateWithDirectDependencies
-                        |> accumulateWithMaybe projectVisitor.dependenciesVisitor dependencies
-
-                ( errors, newRuleProjectVisitors ) =
-                    List.foldl
-                        (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
-                            case rule.dependenciesVisitor of
-                                Just visitor ->
-                                    let
-                                        ( newErrors, updatedRule ) =
-                                            visitor project { all = dependencies, direct = directDependencies }
-                                    in
-                                    ( List.append newErrors accErrors, updatedRule :: accRules )
-
-                                Nothing ->
-                                    ( accErrors, untouched :: accRules )
-                        )
-                        ( [], [] )
-                        ruleProjectVisitors
-
-                resultWhenNoFix : () -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-                resultWhenNoFix () =
-                    { project = project
-                    , step = modulesAsNextStep outputContext
-                    , cache = updateCache ()
-                    , ruleProjectVisitors = newRuleProjectVisitors
-                    , fixedErrors = fixedErrors
-                    }
-
-                updateCache : () -> ProjectRuleCache projectContext
-                updateCache () =
-                    let
-                        dependenciesEntry : CacheEntryMaybe projectContext
-                        dependenciesEntry =
-                            Cache.createEntryMaybe
-                                { contentHash = ValidProject.dependenciesHash project
-                                , errors = errors
-                                , inputContext = inputContext
-                                , outputContext = outputContext
-                                }
-                    in
-                    { cache | dependencies = Just dependenciesEntry }
-            in
-            case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
-                Just ( postFixStatus, fixResult ) ->
-                    case postFixStatus of
-                        ShouldAbort newFixedErrors ->
-                            { project = fixResult.project, step = Abort, cache = updateCache (), ruleProjectVisitors = newRuleProjectVisitors, fixedErrors = newFixedErrors }
-
-                        ShouldContinue newFixedErrors ->
-                            case fixResult.fixedFile of
-                                FixedElmJson ->
-                                    { project = fixResult.project
-                                    , step = ElmJson { initial = contexts.initial }
-                                    , cache = updateCache ()
-                                    , ruleProjectVisitors = newRuleProjectVisitors
-                                    , fixedErrors = newFixedErrors
-                                    }
-
-                                FixedReadme ->
-                                    { project = fixResult.project
-                                    , step = Readme { initial = contexts.initial, elmJson = contexts.elmJson }
-                                    , cache = updateCache ()
-                                    , ruleProjectVisitors = newRuleProjectVisitors
-                                    , fixedErrors = newFixedErrors
-                                    }
-
-                                FixedElmModule _ _ ->
-                                    -- Not possible, users don't have the module key to provide fixes for an Elm module
-                                    resultWhenNoFix ()
-
-                Nothing ->
-                    resultWhenNoFix ()
+            resultWhenNoFix ()
 
 
 computeFinalProjectEvaluation :
