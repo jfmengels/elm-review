@@ -4766,12 +4766,25 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                 errors =
                     filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
 
+                newRuleProjectVisitors : List RuleProjectVisitor
+                newRuleProjectVisitors =
+                    List.map
+                        (\(RuleProjectVisitor rule) ->
+                            case rule.readmeVisitor of
+                                Just visitor ->
+                                    visitor project exceptions readmeData
+
+                                Nothing ->
+                                    RuleProjectVisitor rule
+                        )
+                        ruleProjectVisitors
+
                 resultWhenNoFix : () -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
                 resultWhenNoFix () =
                     { project = project
                     , step = Dependencies { initial = contexts.initial, elmJson = contexts.elmJson, readme = outputContext }
                     , cache = updateCache ()
-                    , ruleProjectVisitors = ruleProjectVisitors
+                    , ruleProjectVisitors = newRuleProjectVisitors
                     , fixedErrors = fixedErrors
                     }
 
@@ -4793,7 +4806,7 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                 Just ( postFixStatus, fixResult ) ->
                     case postFixStatus of
                         ShouldAbort newFixedErrors ->
-                            { project = fixResult.project, step = Abort, cache = updateCache (), ruleProjectVisitors = ruleProjectVisitors, fixedErrors = newFixedErrors }
+                            { project = fixResult.project, step = Abort, cache = updateCache (), ruleProjectVisitors = newRuleProjectVisitors, fixedErrors = newFixedErrors }
 
                         ShouldContinue newFixedErrors ->
                             case fixResult.fixedFile of
@@ -4801,7 +4814,7 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                                     { project = fixResult.project
                                     , step = ElmJson { initial = contexts.initial }
                                     , cache = updateCache ()
-                                    , ruleProjectVisitors = ruleProjectVisitors
+                                    , ruleProjectVisitors = newRuleProjectVisitors
                                     , fixedErrors = newFixedErrors
                                     }
 
