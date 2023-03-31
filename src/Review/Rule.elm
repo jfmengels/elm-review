@@ -4470,14 +4470,13 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
                         , step = FinalProjectEvaluation contexts
                         }
 
-                Just ( moduleVisitor, moduleContextCreator ) ->
+                Just ( _, moduleContextCreator ) ->
                     let
                         result : { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step projectContext, fixedErrors : FixedErrors }
                         result =
                             computeModules
                                 { reviewOptions = dataToComputeProject.reviewOptions
                                 , projectVisitor = dataToComputeProject.projectVisitor
-                                , moduleVisitor = moduleVisitor
                                 , moduleContextCreator = moduleContextCreator
                                 , exceptions = dataToComputeProject.exceptions
                                 }
@@ -5029,7 +5028,6 @@ errorFilePathInternal (Error err) =
 type alias DataToComputeModules projectContext moduleContext =
     { reviewOptions : ReviewOptionsData
     , projectVisitor : RunnableProjectVisitor projectContext moduleContext
-    , moduleVisitor : RunnableModuleVisitor moduleContext
     , moduleContextCreator : ContextCreator projectContext moduleContext
     , exceptions : Exceptions
     }
