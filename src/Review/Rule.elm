@@ -806,7 +806,11 @@ runRulesHelp reviewOptions remainingRules acc =
             let
                 result : { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
                 result =
-                    ruleImplementation reviewOptions acc.fixedErrors acc.project acc.ruleProjectVisitors
+                    runProjectVisitor
+                        reviewOptions
+                        acc.ruleProjectVisitors
+                        acc.fixedErrors
+                        acc.project
             in
             if InternalOptions.shouldAbort reviewOptions result.fixedErrors then
                 { fixedErrors = result.fixedErrors
