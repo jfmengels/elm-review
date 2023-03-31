@@ -6368,20 +6368,6 @@ findModuleDocumentationBeforeCutOffLine cutOffLine comments =
                 findModuleDocumentationBeforeCutOffLine cutOffLine restOfComments
 
 
-accumulateListWithMaybe :
-    Maybe (a -> context -> ( List (Error {}), context ))
-    -> List a
-    -> ( List (Error {}), context )
-    -> ( List (Error {}), context )
-accumulateListWithMaybe maybeVisitor elements errorsAndContext =
-    case maybeVisitor of
-        Just visitor ->
-            List.foldl (\element acc -> accumulate (\context -> visitor element context) acc) errorsAndContext elements
-
-        Nothing ->
-            errorsAndContext
-
-
 {-| Concatenate the errors of the previous step and of the last step, and take the last step's context.
 -}
 accumulate : (context -> ( List (Error {}), context )) -> ( List (Error {}), context ) -> ( List (Error {}), context )
