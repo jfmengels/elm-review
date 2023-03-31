@@ -5027,10 +5027,9 @@ type alias DataToComputeSingleModule projectContext moduleContext =
 
 
 computeModule :
-    Exceptions
-    -> DataToComputeSingleModule projectContext moduleContext
+    DataToComputeSingleModule projectContext moduleContext
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
-computeModule exceptions ({ dataToComputeModules, ruleProjectVisitors, module_, project, incoming } as params) =
+computeModule ({ dataToComputeModules, ruleProjectVisitors, module_, project, incoming } as params) =
     let
         (RequestedData requestedData) =
             dataToComputeModules.projectVisitor.requestedData
@@ -5098,7 +5097,7 @@ computeModule exceptions ({ dataToComputeModules, ruleProjectVisitors, module_, 
             nextStepResult
 
         ReComputeModule newParams ->
-            computeModule exceptions newParams
+            computeModule newParams
 
 
 type ComputeModuleFindFixResult projectContext moduleContext
@@ -5323,7 +5322,6 @@ computeModuleAndCacheResult dataToComputeModules moduleZipper project ruleProjec
 
             else
                 computeModule
-                    dataToComputeModules.exceptions
                     { dataToComputeModules = dataToComputeModules
                     , ruleProjectVisitors = ruleProjectVisitors
                     , module_ = module_
