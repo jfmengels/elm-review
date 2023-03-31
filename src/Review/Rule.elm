@@ -748,13 +748,12 @@ runRules :
     -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
 runRules (ReviewOptionsInternal reviewOptions) rules ruleProjectVisitors project =
     let
-        result : { errors : List ReviewError, fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
+        result : { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
         result =
             runRulesHelp
                 reviewOptions
                 (moveFixableRulesFirst rules)
-                { errors = []
-                , fixedErrors = FixedErrors.empty
+                { fixedErrors = FixedErrors.empty
                 , ruleProjectVisitors = ruleProjectVisitors
                 , project = project
                 }
@@ -789,8 +788,8 @@ moveFixableRulesFirst rules =
 runRulesHelp :
     ReviewOptionsData
     -> List Rule
-    -> { errors : List ReviewError, fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
-    -> { errors : List ReviewError, fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
+    -> { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
+    -> { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
 runRulesHelp reviewOptions remainingRules acc =
     case remainingRules of
         [] ->
@@ -801,14 +800,9 @@ runRulesHelp reviewOptions remainingRules acc =
                 result : { errors : List (Error {}), fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
                 result =
                     ruleImplementation reviewOptions id exceptions acc.fixedErrors acc.project acc.ruleProjectVisitors
-
-                errors : List ReviewError
-                errors =
-                    ListExtra.orderIndependentMapAppend errorToReviewError result.errors acc.errors
             in
             if InternalOptions.shouldAbort reviewOptions result.fixedErrors then
-                { errors = errors
-                , fixedErrors = result.fixedErrors
+                { fixedErrors = result.fixedErrors
                 , ruleProjectVisitors = result.ruleProjectVisitors
                 , project = result.project
                 }
@@ -817,8 +811,7 @@ runRulesHelp reviewOptions remainingRules acc =
                 runRulesHelp
                     reviewOptions
                     restOfRules
-                    { errors = errors
-                    , fixedErrors = result.fixedErrors
+                    { fixedErrors = result.fixedErrors
                     , ruleProjectVisitors = result.ruleProjectVisitors
                     , project = result.project
                     }
@@ -827,8 +820,7 @@ runRulesHelp reviewOptions remainingRules acc =
                 runRulesHelp
                     reviewOptions
                     restOfRules
-                    { errors = errors
-                    , fixedErrors = result.fixedErrors
+                    { fixedErrors = result.fixedErrors
                     , ruleProjectVisitors = result.ruleProjectVisitors
                     , project = result.project
                     }
