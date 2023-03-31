@@ -5908,10 +5908,6 @@ visitOnlyDeclaration declarationVisitorOnEnter declarationVisitorOnExit node err
         |> accumulateWithMaybe declarationVisitorOnExit node
 
 
-type alias Rules =
-    List RuleProjectVisitor
-
-
 type RuleProjectVisitor
     = RuleProjectVisitor (RuleProjectVisitorOperations RuleProjectVisitor)
 
