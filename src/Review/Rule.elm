@@ -4312,9 +4312,9 @@ type alias ExtractCache projectContext =
     }
 
 
-qualifyErrors : { ruleName : String, exceptions : Exceptions } -> String -> List (Error {}) -> List (Error {})
-qualifyErrors params filePath errors =
-    List.foldl (\err -> qualifyError params filePath err) [] errors
+qualifyErrors : { ruleName : String, exceptions : Exceptions } -> String -> List (Error {}) -> List (Error {}) -> List (Error {})
+qualifyErrors params filePath errors acc =
+    List.foldl (\err -> qualifyError params filePath err) acc errors
 
 
 qualifyError : { ruleName : String, exceptions : Exceptions } -> String -> Error {} -> List (Error {}) -> List (Error {})
@@ -6364,7 +6364,7 @@ moduleRuleImplementation schema params toRuleProjectVisitor raise (( errors, _ )
     , finalModuleEvaluation = createFinalModuleEvaluationVisitor raise errorsAndContext schema.finalEvaluationFn
 
     -- TODO Qualify errors as we add them
-    , getErrors = \() -> qualifyErrors { ruleName = schema.name, exceptions = params.exceptions } params.filePath errors
+    , getErrors = \() -> qualifyErrors { ruleName = schema.name, exceptions = params.exceptions } params.filePath errors []
     , toProjectVisitor = \() -> toRuleProjectVisitor errorsAndContext
     }
 
