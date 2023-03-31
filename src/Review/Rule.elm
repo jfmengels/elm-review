@@ -5134,7 +5134,7 @@ visitDeclarationAndExpressions declaration rules =
         |> (\updatedRules ->
                 case Node.value declaration of
                     Declaration.FunctionDeclaration function ->
-                        visitExpression2 (Node.value function.declaration |> .expression) updatedRules
+                        visitExpression (Node.value function.declaration |> .expression) updatedRules
 
                     _ ->
                         updatedRules
@@ -5142,8 +5142,8 @@ visitDeclarationAndExpressions declaration rules =
         |> List.map (\acc -> runVisitor .declarationVisitorOnExit declaration acc)
 
 
-visitExpression2 : Node Expression -> List RuleModuleVisitor -> List RuleModuleVisitor
-visitExpression2 node rules =
+visitExpression : Node Expression -> List RuleModuleVisitor -> List RuleModuleVisitor
+visitExpression node rules =
     case Node.value node of
         Expression.LetExpression letBlock ->
             rules
@@ -5154,13 +5154,13 @@ visitExpression2 node rules =
                             updatedRules
                             letBlock.declarations
                    )
-                |> visitExpression2 letBlock.expression
+                |> visitExpression letBlock.expression
                 |> List.map (\acc -> runVisitor .expressionVisitorOnExit node acc)
 
         Expression.CaseExpression caseBlock ->
             rules
                 |> List.map (\acc -> runVisitor .expressionVisitorOnEnter node acc)
-                |> visitExpression2 caseBlock.expression
+                |> visitExpression caseBlock.expression
                 |> (\updatedRules ->
                         List.foldl
                             (\case_ acc -> visitCaseBranch2 (Node (Node.range node) caseBlock) case_ acc)
@@ -5174,7 +5174,7 @@ visitExpression2 node rules =
                 |> List.map (\acc -> runVisitor .expressionVisitorOnEnter node acc)
                 |> (\updatedRules ->
                         List.foldl
-                            visitExpression2
+                            visitExpression
                             updatedRules
                             (expressionChildren node)
                    )
@@ -5199,7 +5199,7 @@ visitLetDeclaration2 letBlockWithRange ((Node _ letDeclaration) as letDeclaratio
     in
     rules
         |> List.map (\acc -> runVisitor2 .letDeclarationVisitorOnEnter letBlockWithRange letDeclarationWithRange acc)
-        |> visitExpression2 expressionNode
+        |> visitExpression expressionNode
         |> List.map (\acc -> runVisitor2 .letDeclarationVisitorOnExit letBlockWithRange letDeclarationWithRange acc)
 
 
@@ -5211,7 +5211,7 @@ visitCaseBranch2 :
 visitCaseBranch2 caseBlockWithRange (( _, caseExpression ) as caseBranch) rules =
     rules
         |> List.map (\acc -> runVisitor2 .caseBranchVisitorOnEnter caseBlockWithRange caseBranch acc)
-        |> visitExpression2 caseExpression
+        |> visitExpression caseExpression
         |> List.map (\acc -> runVisitor2 .caseBranchVisitorOnExit caseBlockWithRange caseBranch acc)
 
 
