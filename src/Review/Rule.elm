@@ -4349,8 +4349,8 @@ finalCacheMarker _ _ cache =
     cache
 
 
-computeFinalContext2 : ProjectRuleSchemaData projectContext moduleContext -> ProjectRuleCache projectContext -> projectContext
-computeFinalContext2 schema cache =
+computeFinalContext : ProjectRuleSchemaData projectContext moduleContext -> ProjectRuleCache projectContext -> projectContext
+computeFinalContext schema cache =
     let
         projectContext : projectContext
         projectContext =
@@ -5927,7 +5927,7 @@ addFinalProjectEvaluationVisitor schema { exceptions } raise cache =
                     let
                         inputContext : projectContext
                         inputContext =
-                            computeFinalContext2 schema cache
+                            computeFinalContext schema cache
 
                         cachePredicate : FinalProjectEvaluationCache projectContext -> Bool
                         cachePredicate entry =
@@ -5972,7 +5972,7 @@ addDataExtract schema raise cache =
                         let
                             inputContext : projectContext
                             inputContext =
-                                computeFinalContext2 schema cache
+                                computeFinalContext schema cache
 
                             cachePredicate : ExtractCache projectContext -> Bool
                             cachePredicate extract =
