@@ -4521,7 +4521,7 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
                         result =
                             computeModules
                                 { reviewOptions = dataToComputeProject.reviewOptions
-                                , ruleProjectVisitors = dataToComputeProject.ruleProjectVisitors
+                                , ruleProjectVisitors = ruleProjectVisitors
                                 , projectVisitor = dataToComputeProject.projectVisitor
                                 , moduleVisitor = moduleVisitor
                                 , moduleContextCreator = moduleContextCreator
