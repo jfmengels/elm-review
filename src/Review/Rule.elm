@@ -352,7 +352,7 @@ type Rule
         , providesFixes : Bool
         , extractsData : Bool
         , ruleImplementation : ReviewOptionsData -> Int -> Exceptions -> FixedErrors -> ValidProject -> List RuleProjectVisitor -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extract : Maybe Extract }
-        , ruleProjectVisitor : Result { message : String, details : List String } (() -> RuleProjectVisitor)
+        , ruleProjectVisitor : Result { message : String, details : List String } (Exceptions -> RuleProjectVisitor)
         }
 
 
@@ -626,8 +626,8 @@ checkForConfigurationErrors rules =
                 (\(Rule rule) ( rulesToRun, configurationErrors ) ->
                     case rule.ruleProjectVisitor of
                         Ok ruleProjectVisitor ->
-                            -- TODO Add ruleId, exceptions, ...
-                            ( ruleProjectVisitor () :: rulesToRun, configurationErrors )
+                            -- TODO Add ruleId, ...
+                            ( ruleProjectVisitor rule.exceptions :: rulesToRun, configurationErrors )
 
                         Err { message, details } ->
                             ( rulesToRun
@@ -1290,7 +1290,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     (removeUnknownModulesFromInitialCache project (initialCacheMarker schema.name ruleId emptyCache))
                     fixedErrors
                     project
-        , ruleProjectVisitor = Ok (\() -> createRuleProjectVisitor schema)
+        , ruleProjectVisitor = Ok (\exceptions -> createRuleProjectVisitor schema)
         }
 
 
@@ -4365,7 +4365,7 @@ runProjectVisitorHelp ({ projectVisitor, exceptions } as dataToComputeProject) i
                         newProjectArg
 
             -- TODO Use the project visitor from the results
-            , ruleProjectVisitor = Ok (\() -> Debug.todo "Missing project visitor in runProjectVisitorHelp")
+            , ruleProjectVisitor = Ok (\_ -> Debug.todo "Missing project visitor in runProjectVisitorHelp")
             }
     , ruleProjectVisitors = ruleProjectVisitors
     , project = project
