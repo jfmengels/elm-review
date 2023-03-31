@@ -4504,11 +4504,7 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
                         (\((RuleProjectVisitor rule) as untouched) ->
                             case rule.dataExtractVisitor of
                                 Just dataExtract ->
-                                    let
-                                        ( newErrors, updatedRule ) =
-                                            dataExtract dataToComputeProject.reviewOptions
-                                    in
-                                    updatedRule
+                                    dataExtract dataToComputeProject.reviewOptions
 
                                 Nothing ->
                                     untouched
@@ -5940,7 +5936,7 @@ type alias RuleProjectVisitorOperations t =
     , dependenciesVisitor : Maybe (ValidProject -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> ( List (Error {}), t ))
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
     , finalProjectEvaluation : Maybe (() -> ( List (Error {}), t ))
-    , dataExtractVisitor : Maybe (ReviewOptionsData -> ( List (Error {}), t ))
+    , dataExtractVisitor : Maybe (ReviewOptionsData -> t)
     , addDataExtract : Dict String Encode.Value -> Dict String Encode.Value
     , getErrors : () -> List (Error {})
     , backToRule : () -> Rule
@@ -6145,7 +6141,7 @@ addDataExtract :
     ProjectRuleSchemaData projectContext moduleContext
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     -> ProjectRuleCache projectContext
-    -> Maybe (ReviewOptionsData -> ( List (Error {}), RuleProjectVisitor ))
+    -> Maybe (ReviewOptionsData -> RuleProjectVisitor)
 addDataExtract schema raise cache =
     case schema.dataExtractor of
         Nothing ->
@@ -6171,13 +6167,13 @@ addDataExtract schema raise cache =
                         in
                         case reuseProjectRuleCache cachePredicate .extract cache of
                             Just _ ->
-                                ( errors, raise cache )
+                                raise cache
 
                             Nothing ->
-                                ( errors, raise { cache | extract = Just { inputContext = ContextHash.create inputContext, extract = dataExtractor inputContext } } )
+                                raise { cache | extract = Just { inputContext = ContextHash.create inputContext, extract = dataExtractor inputContext } }
 
                     else
-                        ( errors, raise cache )
+                        raise cache
                 )
 
 
