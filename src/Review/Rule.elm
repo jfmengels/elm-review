@@ -475,7 +475,7 @@ review rules project =
 
                 Ok ruleProjectVisitors ->
                     let
-                        runRulesResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extracts : Dict String Encode.Value }
+                        runRulesResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
                         runRulesResult =
                             runRules ReviewOptions.defaults rules ruleProjectVisitors validProject
                     in
@@ -598,7 +598,7 @@ reviewV3 reviewOptions rules project =
     of
         Ok ( ruleProjectVisitors, ( validProject, _ ) ) ->
             let
-                result : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extracts : Dict String Encode.Value }
+                result : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
                 result =
                     runRules reviewOptions rules ruleProjectVisitors validProject
             in
@@ -697,7 +697,7 @@ importCycleError cycle =
 runReviewForV2 : ReviewOptions -> ValidProject -> List Rule -> List RuleProjectVisitor -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
 runReviewForV2 reviewOptions project rules ruleProjectVisitors =
     let
-        runResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extracts : Dict String Encode.Value }
+        runResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
         runResult =
             runRules reviewOptions rules ruleProjectVisitors project
     in
@@ -745,18 +745,28 @@ runRules :
     -> List Rule
     -> List RuleProjectVisitor
     -> ValidProject
-    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extracts : Dict String Encode.Value }
+    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
 runRules (ReviewOptionsInternal reviewOptions) rules ruleProjectVisitors project =
-    runRulesHelp
-        reviewOptions
-        (moveFixableRulesFirst rules)
-        { errors = []
-        , fixedErrors = FixedErrors.empty
-        , rules = []
-        , ruleProjectVisitors = ruleProjectVisitors
-        , project = project
-        , extracts = Dict.empty
-        }
+    let
+        result : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extracts : Dict String Encode.Value }
+        result =
+            runRulesHelp
+                reviewOptions
+                (moveFixableRulesFirst rules)
+                { errors = []
+                , fixedErrors = FixedErrors.empty
+                , rules = []
+                , ruleProjectVisitors = ruleProjectVisitors
+                , project = project
+                , extracts = Dict.empty
+                }
+    in
+    { errors = result.errors
+    , fixedErrors = result.fixedErrors
+    , rules = List.map (\(RuleProjectVisitor rule) -> rule.backToRule ()) result.ruleProjectVisitors
+    , project = result.project
+    , extracts = result.extracts
+    }
 
 
 moveFixableRulesFirst : List Rule -> List Rule
