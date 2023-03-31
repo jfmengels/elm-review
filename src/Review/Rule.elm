@@ -350,7 +350,6 @@ type Rule
         , exceptions : Exceptions
         , requestedData : RequestedData
         , providesFixes : Bool
-        , extractsData : Bool
         , ruleProjectVisitor : Result { message : String, details : List String } (ValidProject -> ChangeableRuleData -> RuleProjectVisitor)
         }
 
@@ -1240,7 +1239,6 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
             RequestedData.combine
                 (Maybe.map requestedDataFromContextCreator schema.moduleContextCreator)
                 (Maybe.map (.fromModuleToProject >> requestedDataFromContextCreator) schema.folder)
-        , extractsData = schema.dataExtractor /= Nothing
         , providesFixes = schema.providesFixes
         , ruleProjectVisitor = Ok (\project ruleData -> createRuleProjectVisitor schema project ruleData)
         }
@@ -1532,7 +1530,6 @@ configurationError name configurationError_ =
         , id = 0
         , exceptions = Exceptions.init
         , requestedData = RequestedData.none
-        , extractsData = False
         , providesFixes = False
         , ruleProjectVisitor = Err configurationError_
         }
@@ -4028,7 +4025,6 @@ ignoreErrorsForDirectories directories (Rule rule) =
         , id = rule.id
         , exceptions = Exceptions.addDirectories directories rule.exceptions
         , requestedData = rule.requestedData
-        , extractsData = rule.extractsData
         , providesFixes = rule.providesFixes
         , ruleProjectVisitor = rule.ruleProjectVisitor
         }
@@ -4098,7 +4094,6 @@ ignoreErrorsForFiles files (Rule rule) =
         , id = rule.id
         , exceptions = Exceptions.addFiles files rule.exceptions
         , requestedData = rule.requestedData
-        , extractsData = rule.extractsData
         , providesFixes = rule.providesFixes
         , ruleProjectVisitor = rule.ruleProjectVisitor
         }
@@ -4176,7 +4171,6 @@ filterErrorsForFiles condition (Rule rule) =
         , id = rule.id
         , exceptions = Exceptions.addFilter condition rule.exceptions
         , requestedData = rule.requestedData
-        , extractsData = rule.extractsData
         , providesFixes = rule.providesFixes
         , ruleProjectVisitor = rule.ruleProjectVisitor
         }
@@ -5568,7 +5562,6 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
                 , exceptions = hidden.ruleData.exceptions
                 , requestedData = hidden.ruleData.requestedData
                 , providesFixes = schema.providesFixes
-                , extractsData = schema.dataExtractor /= Nothing
                 , ruleProjectVisitor = Ok (\_ -> Debug.todo "ruleProjectVisitor in projectRuleImplementation")
                 }
     , requestedData = hidden.ruleData.requestedData
