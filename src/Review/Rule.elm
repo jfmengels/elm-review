@@ -6153,6 +6153,7 @@ addDataExtract schema raise cache =
                     let
                         errors : List (Error {})
                         errors =
+                            -- TODO Can we compute this as we traverse the file?
                             errorsFromCache cache
                     in
                     if reviewOptions.extract && not (List.any doesPreventExtract errors) then
