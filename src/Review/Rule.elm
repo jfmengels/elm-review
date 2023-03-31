@@ -790,6 +790,7 @@ runRulesHelp reviewOptions acc =
         result
 
     else if FixedErrors.hasChanged result.fixedErrors acc.fixedErrors then
+        -- TODO Reevaluate whether this makes sense
         runRulesHelp reviewOptions result
 
     else
