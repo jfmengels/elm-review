@@ -4337,7 +4337,7 @@ runProjectVisitorHelp :
     -> FixedErrors
     -> ValidProject
     -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extract : Maybe Extract }
-runProjectVisitorHelp ({ ruleProjectVisitors, projectVisitor, exceptions } as dataToComputeProject) ruleId initialCache initialFixedErrors initialProject =
+runProjectVisitorHelp ({ projectVisitor, exceptions } as dataToComputeProject) ruleId initialCache initialFixedErrors initialProject =
     let
         { project, errors, cache, fixedErrors } =
             computeStepsForProject
@@ -4376,7 +4376,7 @@ runProjectVisitorHelp ({ ruleProjectVisitors, projectVisitor, exceptions } as da
             }
 
     -- TODO Need to return the new one
-    , ruleProjectVisitors = ruleProjectVisitors
+    , ruleProjectVisitors = dataToComputeProject.ruleProjectVisitors
     , project = project
     , extract = Maybe.map .extract (finalCacheMarker projectVisitor.name ruleId cache).extract
     }
