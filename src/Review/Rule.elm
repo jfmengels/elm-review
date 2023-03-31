@@ -4886,12 +4886,25 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                 errors =
                     filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
 
+                newRuleProjectVisitors : List RuleProjectVisitor
+                newRuleProjectVisitors =
+                    List.map
+                        (\(RuleProjectVisitor rule) ->
+                            case rule.dependenciesVisitor of
+                                Just visitor ->
+                                    visitor project exceptions dependencies
+
+                                Nothing ->
+                                    RuleProjectVisitor rule
+                        )
+                        ruleProjectVisitors
+
                 resultWhenNoFix : () -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
                 resultWhenNoFix () =
                     { project = project
                     , step = modulesAsNextStep outputContext
                     , cache = updateCache ()
-                    , ruleProjectVisitors = ruleProjectVisitors
+                    , ruleProjectVisitors = newRuleProjectVisitors
                     , fixedErrors = fixedErrors
                     }
 
@@ -4913,7 +4926,7 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                 Just ( postFixStatus, fixResult ) ->
                     case postFixStatus of
                         ShouldAbort newFixedErrors ->
-                            { project = fixResult.project, step = Abort, cache = updateCache (), ruleProjectVisitors = ruleProjectVisitors, fixedErrors = newFixedErrors }
+                            { project = fixResult.project, step = Abort, cache = updateCache (), ruleProjectVisitors = newRuleProjectVisitors, fixedErrors = newFixedErrors }
 
                         ShouldContinue newFixedErrors ->
                             case fixResult.fixedFile of
@@ -4921,7 +4934,7 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                                     { project = fixResult.project
                                     , step = ElmJson { initial = contexts.initial }
                                     , cache = updateCache ()
-                                    , ruleProjectVisitors = ruleProjectVisitors
+                                    , ruleProjectVisitors = newRuleProjectVisitors
                                     , fixedErrors = newFixedErrors
                                     }
 
@@ -4929,7 +4942,7 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                                     { project = fixResult.project
                                     , step = Readme { initial = contexts.initial, elmJson = contexts.elmJson }
                                     , cache = updateCache ()
-                                    , ruleProjectVisitors = ruleProjectVisitors
+                                    , ruleProjectVisitors = newRuleProjectVisitors
                                     , fixedErrors = newFixedErrors
                                     }
 
