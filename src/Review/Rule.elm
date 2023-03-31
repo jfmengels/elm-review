@@ -475,7 +475,7 @@ review rules project =
                     let
                         runRulesResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
                         runRulesResult =
-                            runRules ReviewOptions.defaults rules ruleProjectVisitors validProject
+                            runRules ReviewOptions.defaults ruleProjectVisitors validProject
                     in
                     ( runRulesResult.errors, runRulesResult.rules )
 
@@ -604,7 +604,7 @@ reviewV3 reviewOptions rules project =
             let
                 result : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
                 result =
-                    runRules reviewOptions rules ruleProjectVisitors validProject
+                    runRules reviewOptions ruleProjectVisitors validProject
             in
             { errors = result.errors
             , fixedErrors = FixedErrors.toDict result.fixedErrors
@@ -704,7 +704,7 @@ runReviewForV2 reviewOptions project rules ruleProjectVisitors =
     let
         runResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
         runResult =
-            runRules reviewOptions rules ruleProjectVisitors project
+            runRules reviewOptions ruleProjectVisitors project
     in
     { errors = runResult.errors
     , rules = runResult.rules
@@ -747,11 +747,10 @@ duplicateModulesGlobalError duplicate =
 
 runRules :
     ReviewOptions
-    -> List Rule
     -> List RuleProjectVisitor
     -> ValidProject
     -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
-runRules (ReviewOptionsInternal reviewOptions) rules ruleProjectVisitors project =
+runRules (ReviewOptionsInternal reviewOptions) ruleProjectVisitors project =
     let
         result : { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
         result =
