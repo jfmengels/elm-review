@@ -39,7 +39,7 @@ shouldApplyFix ruleName_ reviewOptionsData =
                 Just (\err -> not (reviewOptionsData.ignoreFix err))
 
             else
-                Just (\err -> not (Dict.member ( ruleName_, err.filePath ) reviewOptionsData.suppressions) && not (reviewOptionsData.ignoreFix err))
+                Just (\err -> not (Dict.member ( err.ruleName, err.filePath ) reviewOptionsData.suppressions) && not (reviewOptionsData.ignoreFix err))
 
         Disabled ->
             Nothing
