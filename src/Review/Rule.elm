@@ -5854,18 +5854,6 @@ visitExpression expressionRelatedVisitors node errorsAndContext =
                 |> accumulateWithMaybe expressionRelatedVisitors.expressionVisitorsOnExit node
 
 
-visitOnlyExpressionsOnlyOnEnter :
-    Maybe (Visitor Expression moduleContext)
-    -> Node Expression
-    -> ( List (Error {}), moduleContext )
-    -> ( List (Error {}), moduleContext )
-visitOnlyExpressionsOnlyOnEnter expressionVisitorsOnEnter node errorsAndContext =
-    List.foldl
-        (\exprNode acc -> accumulateWithMaybe expressionVisitorsOnEnter exprNode acc)
-        errorsAndContext
-        (expressionChildrenTCO [ node ] [])
-
-
 expressionChildrenTCO : List (Node Expression) -> List (Node Expression) -> List (Node Expression)
 expressionChildrenTCO nodesToVisit acc =
     case nodesToVisit of
