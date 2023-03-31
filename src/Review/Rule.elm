@@ -4420,7 +4420,7 @@ type alias DataToComputeProject projectContext moduleContext =
 
 computeStepsForProject :
     DataToComputeProject projectContext moduleContext
-    -> { project : ValidProject, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors, step : Step projectContext }
+    -> { project : ValidProject, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors, step : Step }
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitors, fixedErrors, step } =
     case step of
@@ -4441,7 +4441,7 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
 
         Modules moduleZipper ->
             let
-                result : { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step projectContext, fixedErrors : FixedErrors }
+                result : { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
                 result =
                     computeModules
                         { reviewOptions = dataToComputeProject.reviewOptions
@@ -4493,9 +4493,7 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
             }
 
 
-type
-    Step projectContext
-    -- TODO Remove type variable
+type Step
     = ElmJson
     | Readme
     | Dependencies
@@ -4526,7 +4524,7 @@ computeElmJson :
     -> ProjectRuleCache projectContext
     -> List RuleProjectVisitor
     -> FixedErrors
-    -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+    -> { project : ValidProject, step : Step, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeElmJson ({ reviewOptions, projectVisitor } as dataToComputeProject) project cache ruleProjectVisitors fixedErrors =
     let
         projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
@@ -4591,7 +4589,7 @@ computeReadme :
     -> ProjectRuleCache projectContext
     -> List RuleProjectVisitor
     -> FixedErrors
-    -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+    -> { project : ValidProject, step : Step, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeReadme ({ reviewOptions, projectVisitor } as dataToComputeProject) project cache ruleProjectVisitors fixedErrors =
     let
         projectReadme : Maybe { path : String, content : String }
@@ -4625,7 +4623,7 @@ computeReadme ({ reviewOptions, projectVisitor } as dataToComputeProject) projec
                 ( [], [] )
                 ruleProjectVisitors
 
-        resultWhenNoFix : () -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+        resultWhenNoFix : () -> { project : ValidProject, step : Step, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
         resultWhenNoFix () =
             { project = project
             , step = Dependencies
@@ -4667,7 +4665,7 @@ computeDependencies :
     -> ProjectRuleCache projectContext
     -> List RuleProjectVisitor
     -> FixedErrors
-    -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+    -> { project : ValidProject, step : Step, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeDependencies { reviewOptions, projectVisitor } project cache ruleProjectVisitors fixedErrors =
     let
         dependencies : Dict String Review.Project.Dependency.Dependency
@@ -4695,7 +4693,7 @@ computeDependencies { reviewOptions, projectVisitor } project cache ruleProjectV
                 ( [], [] )
                 ruleProjectVisitors
 
-        resultWhenNoFix : () -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+        resultWhenNoFix : () -> { project : ValidProject, step : Step, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
         resultWhenNoFix () =
             { project = project
             , step = Modules (ValidProject.moduleZipper project)
@@ -4742,7 +4740,7 @@ computeFinalProjectEvaluation :
     -> ProjectRuleCache projectContext
     -> List RuleProjectVisitor
     -> FixedErrors
-    -> { project : ValidProject, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, step : Step projectContext, fixedErrors : FixedErrors }
+    -> { project : ValidProject, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
 computeFinalProjectEvaluation { reviewOptions, projectVisitor } project cache ruleProjectVisitors fixedErrors =
     let
         ( errors, newRuleProjectVisitors ) =
@@ -5032,7 +5030,7 @@ computeModules :
     -> ValidProject
     -> List RuleProjectVisitor
     -> FixedErrors
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step projectContext, fixedErrors : FixedErrors }
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
 computeModules dataToComputeModules maybeModuleZipper initialProject ruleProjectVisitors fixedErrors =
     case maybeModuleZipper of
         Nothing ->
