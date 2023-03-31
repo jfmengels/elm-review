@@ -4705,21 +4705,11 @@ computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
                 ruleProjectVisitors
     in
     if List.isEmpty inputRuleModuleVisitors then
-        let
-            outputRuleProjectVisitors : List RuleProjectVisitor
-            outputRuleProjectVisitors =
-                List.map
-                    (\(RuleModuleVisitor ruleModuleVisitor) ->
-                        ruleModuleVisitor.toProjectVisitor ()
-                    )
-                    (visitModuleForProjectRule module_ inputRuleModuleVisitors)
-        in
-        case findFixInComputeModuleResults { params | project = newProject } (List.append rulesNotToRun outputRuleProjectVisitors) of
-            ContinueWithNextStep nextStepResult ->
-                nextStepResult
-
-            ReComputeModule newParams ->
-                computeModule newParams
+        { project = project
+        , ruleProjectVisitors = ruleProjectVisitors
+        , nextStep = ModuleVisitStep (Zipper.next params.moduleZipper)
+        , fixedErrors = params.fixedErrors
+        }
 
     else
         let
