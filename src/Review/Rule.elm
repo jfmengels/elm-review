@@ -5163,7 +5163,7 @@ visitExpression node rules =
                 |> visitExpression caseBlock.expression
                 |> (\updatedRules ->
                         List.foldl
-                            (\case_ acc -> visitCaseBranch2 (Node (Node.range node) caseBlock) case_ acc)
+                            (\case_ acc -> visitCaseBranch (Node (Node.range node) caseBlock) case_ acc)
                             updatedRules
                             caseBlock.cases
                    )
@@ -5203,12 +5203,12 @@ visitLetDeclaration2 letBlockWithRange ((Node _ letDeclaration) as letDeclaratio
         |> List.map (\acc -> runVisitor2 .letDeclarationVisitorOnExit letBlockWithRange letDeclarationWithRange acc)
 
 
-visitCaseBranch2 :
+visitCaseBranch :
     Node Expression.CaseBlock
     -> ( Node Pattern, Node Expression )
     -> List RuleModuleVisitor
     -> List RuleModuleVisitor
-visitCaseBranch2 caseBlockWithRange (( _, caseExpression ) as caseBranch) rules =
+visitCaseBranch caseBlockWithRange (( _, caseExpression ) as caseBranch) rules =
     rules
         |> List.map (\acc -> runVisitor2 .caseBranchVisitorOnEnter caseBlockWithRange caseBranch acc)
         |> visitExpression caseExpression
