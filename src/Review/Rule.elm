@@ -4349,19 +4349,6 @@ finalCacheMarker _ _ cache =
     cache
 
 
-computeFinalContext : RunnableProjectVisitor projectContext moduleContext -> ProjectRuleCache projectContext -> projectContext -> projectContext
-computeFinalContext projectVisitor cache projectContext =
-    case getFolderFromTraversal projectVisitor.traversalAndFolder of
-        Just { foldProjectContexts } ->
-            Dict.foldl
-                (\_ cacheEntry acc -> foldProjectContexts (Cache.outputContext cacheEntry) acc)
-                projectContext
-                cache.moduleContexts
-
-        Nothing ->
-            projectContext
-
-
 computeFinalContext2 : ProjectRuleSchemaData projectContext moduleContext -> ProjectRuleCache projectContext -> projectContext
 computeFinalContext2 schema cache =
     let
