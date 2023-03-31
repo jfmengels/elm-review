@@ -1284,7 +1284,6 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                 runProjectVisitor
                     { reviewOptions = reviewOptions
                     , projectVisitor = fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema
-                    , exceptions = exceptions
                     }
                     ruleProjectVisitors
                     (removeUnknownModulesFromInitialCache project (initialCacheMarker schema.name ruleId emptyCache))
@@ -4327,7 +4326,7 @@ runProjectVisitor :
     -> FixedErrors
     -> ValidProject
     -> { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
-runProjectVisitor ({ projectVisitor, exceptions } as dataToComputeProject) initialRuleProjectVisitors initialCache initialFixedErrors initialProject =
+runProjectVisitor ({ projectVisitor } as dataToComputeProject) initialRuleProjectVisitors initialCache initialFixedErrors initialProject =
     let
         { project, ruleProjectVisitors, fixedErrors } =
             computeStepsForProject
@@ -4429,7 +4428,6 @@ type alias ProjectRuleCache projectContext =
 type alias DataToComputeProject projectContext moduleContext =
     { reviewOptions : ReviewOptionsData
     , projectVisitor : RunnableProjectVisitor projectContext moduleContext
-    , exceptions : Exceptions
     }
 
 
@@ -4543,7 +4541,7 @@ computeElmJson :
     -> List RuleProjectVisitor
     -> FixedErrors
     -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputeProject) project inputContext cache ruleProjectVisitors fixedErrors =
+computeElmJson ({ reviewOptions, projectVisitor } as dataToComputeProject) project inputContext cache ruleProjectVisitors fixedErrors =
     let
         cachePredicate : CacheEntryMaybe projectContext -> Bool
         cachePredicate elmJson =
@@ -4657,7 +4655,7 @@ computeReadme :
     -> List RuleProjectVisitor
     -> FixedErrors
     -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputeProject) project contexts cache ruleProjectVisitors fixedErrors =
+computeReadme ({ reviewOptions, projectVisitor } as dataToComputeProject) project contexts cache ruleProjectVisitors fixedErrors =
     let
         inputContext : projectContext
         inputContext =
@@ -4771,7 +4769,7 @@ computeDependencies :
     -> List RuleProjectVisitor
     -> FixedErrors
     -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeDependencies { reviewOptions, projectVisitor, exceptions } project contexts cache ruleProjectVisitors fixedErrors =
+computeDependencies { reviewOptions, projectVisitor } project contexts cache ruleProjectVisitors fixedErrors =
     let
         inputContext : projectContext
         inputContext =
@@ -4895,7 +4893,7 @@ computeFinalProjectEvaluation :
     -> List RuleProjectVisitor
     -> FixedErrors
     -> { project : ValidProject, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, step : Step projectContext, fixedErrors : FixedErrors }
-computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } project projectContexts cache ruleProjectVisitors fixedErrors =
+computeFinalProjectEvaluation { reviewOptions, projectVisitor } project projectContexts cache ruleProjectVisitors fixedErrors =
     let
         ( errors, newRuleProjectVisitors ) =
             List.foldl
