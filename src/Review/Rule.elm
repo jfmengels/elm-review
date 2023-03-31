@@ -759,7 +759,7 @@ runRules (ReviewOptionsInternal reviewOptions) rules ruleProjectVisitors project
                 , project = project
                 }
     in
-    { errors = result.errors
+    { errors = List.concatMap (\(RuleProjectVisitor rule) -> rule.getErrors () |> List.map errorToReviewError) result.ruleProjectVisitors
     , fixedErrors = result.fixedErrors
     , rules = List.map (\(RuleProjectVisitor rule) -> rule.backToRule ()) result.ruleProjectVisitors
     , project = result.project
