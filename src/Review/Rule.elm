@@ -5940,6 +5940,7 @@ type alias RuleProjectVisitorOperations t =
     , finalProjectEvaluation : Maybe (() -> ( List (Error {}), t ))
     , dataExtractVisitor : Maybe (ReviewOptionsData -> t)
     , addDataExtract : Dict String Encode.Value -> Dict String Encode.Value
+    , getErrorsForModule : String -> List (Error {})
     , getErrors : () -> List (Error {})
     , backToRule : () -> Rule
     }
@@ -5979,6 +5980,7 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
 
                 Nothing ->
                     extracts
+    , getErrorsForModule = \filePath -> getErrorsForModule cache filePath
     , getErrors = \() -> errorsFromCache cache
     , backToRule =
         \() ->
@@ -6272,6 +6274,16 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise cache traversa
             )
             ( [], initialContext )
             |> Just
+
+
+getErrorsForModule : ProjectRuleCache projectContext -> String -> List (Error {})
+getErrorsForModule cache filePath =
+    case Dict.get filePath cache.moduleContexts of
+        Just cacheEntry ->
+            Cache.errors cacheEntry
+
+        Nothing ->
+            []
 
 
 type RuleModuleVisitor
