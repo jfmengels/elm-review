@@ -5440,27 +5440,18 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                                 ignoreModule ()
 
                     Nothing ->
-                        let
-                            result : { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
-                            result =
-                                computeModule
-                                    dataToComputeModules.exceptions
-                                    { dataToComputeModules = dataToComputeModules
-                                    , ruleProjectVisitors = ruleProjectVisitors
-                                    , module_ = module_
-                                    , isFileIgnored = isFileIgnored
-                                    , projectContext = projectContext
-                                    , project = project
-                                    , moduleZipper = moduleZipper
-                                    , fixedErrors = fixedErrors
-                                    , incoming = incoming
-                                    }
-                        in
-                        { project = result.project
-                        , ruleProjectVisitors = result.ruleProjectVisitors
-                        , nextStep = result.nextStep
-                        , fixedErrors = result.fixedErrors
-                        }
+                        computeModule
+                            dataToComputeModules.exceptions
+                            { dataToComputeModules = dataToComputeModules
+                            , ruleProjectVisitors = ruleProjectVisitors
+                            , module_ = module_
+                            , isFileIgnored = isFileIgnored
+                            , projectContext = projectContext
+                            , project = project
+                            , moduleZipper = moduleZipper
+                            , fixedErrors = fixedErrors
+                            , incoming = incoming
+                            }
 
 
 shouldIgnoreModule : DataToComputeModules projectContext moduleContext -> String -> Bool
