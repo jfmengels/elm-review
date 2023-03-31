@@ -5039,7 +5039,6 @@ type alias DataToComputeSingleModule projectContext moduleContext =
     { dataToComputeModules : DataToComputeModules projectContext moduleContext
     , ruleProjectVisitors : List RuleProjectVisitor
     , module_ : OpaqueProjectModule
-    , projectContext : projectContext
     , project : ValidProject
     , moduleZipper : Zipper GraphModule
     , fixedErrors : FixedErrors
@@ -5357,7 +5356,6 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                     { dataToComputeModules = dataToComputeModules
                     , ruleProjectVisitors = ruleProjectVisitors
                     , module_ = module_
-                    , projectContext = projectContext
                     , project = project
                     , moduleZipper = moduleZipper
                     , fixedErrors = fixedErrors
