@@ -4710,7 +4710,7 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                         ( errorsForVisitor, outputContext ) =
                             elmJsonVisitor elmJsonData inputContext
 
-                        ( unfilteredErrors, newRuleProjectVisitors ) =
+                        ( errors, newRuleProjectVisitors ) =
                             List.foldl
                                 (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
                                     case rule.elmJsonVisitor of
@@ -4726,10 +4726,6 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                                 )
                                 ( [], [] )
                                 ruleProjectVisitors
-
-                        errors : List (Error {})
-                        errors =
-                            filterExceptionsAndSetName exceptions projectVisitor.name unfilteredErrors
 
                         updateCache : () -> ProjectRuleCache projectContext
                         updateCache () =
@@ -4817,7 +4813,7 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                     ( [], inputContext )
                         |> accumulateWithMaybe projectVisitor.readmeVisitor readmeData
 
-                ( unfilteredErrors, newRuleProjectVisitors ) =
+                ( errors, newRuleProjectVisitors ) =
                     List.foldl
                         (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
                             case rule.readmeVisitor of
@@ -4833,10 +4829,6 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                         )
                         ( [], [] )
                         ruleProjectVisitors
-
-                errors : List (Error {})
-                errors =
-                    filterExceptionsAndSetName exceptions projectVisitor.name unfilteredErrors
 
                 resultWhenNoFix : () -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
                 resultWhenNoFix () =
