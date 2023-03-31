@@ -6042,6 +6042,7 @@ type alias RuleProjectVisitorOperations t =
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
     , finalProjectEvaluation : Maybe (() -> t)
     , dataExtract : Maybe (ReviewOptionsData -> t)
+    , backToRule : () -> Rule
     }
 
 
@@ -6072,6 +6073,18 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
     , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raiseCache cache
     , finalProjectEvaluation = addFinalProjectEvaluationVisitor schema hidden.ruleData raiseCache cache
     , dataExtract = addDataExtract schema raiseCache cache
+    , backToRule =
+        \() ->
+            Rule
+                { name = schema.name
+                , id = hidden.ruleData.ruleId
+                , exceptions = hidden.ruleData.exceptions
+                , requestedData = hidden.ruleData.requestedData
+                , providesFixes = schema.providesFixes
+                , extractsData = schema.dataExtractor /= Nothing
+                , ruleImplementation = \_ -> Debug.todo "ruleImplementation in projectRuleImplementation"
+                , ruleProjectVisitor = Ok (\_ -> Debug.todo "ruleProjectVisitor in projectRuleImplementation")
+                }
     }
 
 
