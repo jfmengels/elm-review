@@ -811,7 +811,7 @@ runRulesHelp reviewOptions remainingRules acc =
             if InternalOptions.shouldAbort reviewOptions result.fixedErrors then
                 { errors = errors
                 , fixedErrors = result.fixedErrors
-                , rules = restOfRules ++ (result.rule :: acc.rules)
+                , rules = []
                 , ruleProjectVisitors = result.ruleProjectVisitors
                 , project = result.project
                 , extracts = acc.extracts
@@ -823,7 +823,7 @@ runRulesHelp reviewOptions remainingRules acc =
                     (List.reverse acc.rules ++ restOfRules)
                     { errors = errors
                     , fixedErrors = result.fixedErrors
-                    , rules = [ result.rule ]
+                    , rules = []
                     , ruleProjectVisitors = result.ruleProjectVisitors
                     , project = result.project
                     , extracts = acc.extracts
@@ -835,7 +835,7 @@ runRulesHelp reviewOptions remainingRules acc =
                     restOfRules
                     { errors = errors
                     , fixedErrors = result.fixedErrors
-                    , rules = result.rule :: acc.rules
+                    , rules = []
                     , ruleProjectVisitors = result.ruleProjectVisitors
                     , project = result.project
                     , extracts =
