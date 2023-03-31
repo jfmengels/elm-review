@@ -4528,6 +4528,7 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
                                 (Just moduleZipper)
                                 project
                                 cache.moduleContexts
+                                ruleProjectVisitors
                                 fixedErrors
                     in
                     computeStepsForProject
@@ -5033,6 +5034,7 @@ type alias DataToComputeModules projectContext moduleContext =
 
 type alias DataToComputeSingleModule projectContext moduleContext =
     { dataToComputeModules : DataToComputeModules projectContext moduleContext
+    , ruleProjectVisitors : List RuleProjectVisitor
     , module_ : OpaqueProjectModule
     , isFileIgnored : Bool
     , projectContext : projectContext
@@ -5046,7 +5048,7 @@ type alias DataToComputeSingleModule projectContext moduleContext =
 computeModule :
     DataToComputeSingleModule projectContext moduleContext
     -> { project : ValidProject, analysis : ModuleCacheEntry projectContext, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
-computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, project, incoming } as params) =
+computeModule ({ dataToComputeModules, ruleProjectVisitors, module_, isFileIgnored, projectContext, project, incoming } as params) =
     let
         (RequestedData requestedData) =
             dataToComputeModules.projectVisitor.requestedData
@@ -5095,7 +5097,7 @@ computeModule ({ dataToComputeModules, module_, isFileIgnored, projectContext, p
                             ( with, rule :: without )
                 )
                 ( [], [] )
-                dataToComputeModules.ruleProjectVisitors
+                ruleProjectVisitors
 
         initialModuleContext : moduleContext
         initialModuleContext =
@@ -5265,9 +5267,10 @@ computeModules :
     -> Maybe (Zipper GraphModule)
     -> ValidProject
     -> Dict String (ModuleCacheEntry projectContext)
+    -> List RuleProjectVisitor
     -> FixedErrors
     -> { project : ValidProject, moduleContexts : Dict String (ModuleCacheEntry projectContext), step : Step projectContext, fixedErrors : FixedErrors }
-computeModules dataToComputeModules projectContexts maybeModuleZipper initialProject initialModuleContexts fixedErrors =
+computeModules dataToComputeModules projectContexts maybeModuleZipper initialProject initialModuleContexts ruleProjectVisitors fixedErrors =
     case maybeModuleZipper of
         Nothing ->
             { project = initialProject, moduleContexts = initialModuleContexts, step = FinalProjectEvaluation projectContexts, fixedErrors = fixedErrors }
@@ -5282,6 +5285,7 @@ computeModules dataToComputeModules projectContexts maybeModuleZipper initialPro
                         moduleZipper
                         initialProject
                         initialModuleContexts
+                        ruleProjectVisitors
                         fixedErrors
             in
             case result.nextStep of
@@ -5292,6 +5296,7 @@ computeModules dataToComputeModules projectContexts maybeModuleZipper initialPro
                         newModuleZipper
                         result.project
                         result.moduleContexts
+                        ruleProjectVisitors
                         result.fixedErrors
 
                 BackToElmJson ->
@@ -5356,9 +5361,10 @@ computeModuleAndCacheResult :
     -> Zipper GraphModule
     -> ValidProject
     -> Dict String (ModuleCacheEntry projectContext)
+    -> List RuleProjectVisitor
     -> FixedErrors
     -> { project : ValidProject, moduleContexts : Dict String (ModuleCacheEntry projectContext), nextStep : NextStep, fixedErrors : FixedErrors }
-computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZipper project moduleContexts fixedErrors =
+computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZipper project moduleContexts ruleProjectVisitors fixedErrors =
     let
         { node, incoming } =
             Zipper.current moduleZipper
@@ -5459,6 +5465,7 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                             result =
                                 computeModule
                                     { dataToComputeModules = dataToComputeModules
+                                    , ruleProjectVisitors = ruleProjectVisitors
                                     , module_ = module_
                                     , isFileIgnored = isFileIgnored
                                     , projectContext = projectContext
