@@ -6276,13 +6276,39 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden travers
             ruleData : { ruleName : String, exceptions : Exceptions, filePath : String }
             ruleData =
                 { ruleName = schema.name, exceptions = exceptions, filePath = availableData.filePath }
+
+            isFileIgnored : Bool
+            isFileIgnored =
+                availableData.isFileIgnored
+
+            (RequestedData { ignoredFiles }) =
+                hidden.ruleData.requestedData
+
+            shouldReuseCache : Cache.ModuleEntry error projectContext -> Bool
+            shouldReuseCache cacheEntry =
+                Cache.match
+                    moduleContentHash
+                    (ContextHash.create inputProjectContext)
+                    cacheEntry
+                    { isFileIgnored = isFileIgnored
+                    , rulesCareAboutIgnoredFiles = ignoredFiles
+                    }
+
+            maybeCacheEntry : Maybe (ModuleCacheEntry projectContext)
+            maybeCacheEntry =
+                Dict.get availableData.filePath hidden.cache.moduleContexts
         in
-        If.create RuleModuleVisitor
-            (\ruleModuleVisitorRaise ruleModuleVisitorHidden ->
-                moduleRuleImplementation moduleRuleSchema ruleData toRuleProjectVisitor ruleModuleVisitorRaise ruleModuleVisitorHidden
-            )
-            ( [], initialContext )
-            |> Just
+        case reuseCache shouldReuseCache maybeCacheEntry of
+            Just _ ->
+                Nothing
+
+            Nothing ->
+                If.create RuleModuleVisitor
+                    (\ruleModuleVisitorRaise ruleModuleVisitorHidden ->
+                        moduleRuleImplementation moduleRuleSchema ruleData toRuleProjectVisitor ruleModuleVisitorRaise ruleModuleVisitorHidden
+                    )
+                    ( [], initialContext )
+                    |> Just
 
 
 getErrorsForModule : ProjectRuleCache projectContext -> String -> List (Error {})
