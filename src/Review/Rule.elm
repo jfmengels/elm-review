@@ -1268,11 +1268,6 @@ newProjectRuleSchema name initialProjectContext =
 -}
 fromProjectRuleSchema : ProjectRuleSchema { schemaState | withModuleContext : Forbidden, hasAtLeastOneVisitor : () } projectContext moduleContext -> Rule
 fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
-    let
-        projectVisitor : RuleProjectVisitor
-        projectVisitor =
-            createRuleProjectVisitor schema
-    in
     Rule
         { name = schema.name
         , id = 0
@@ -1295,7 +1290,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     (removeUnknownModulesFromInitialCache project (initialCacheMarker schema.name ruleId emptyCache))
                     fixedErrors
                     project
-        , ruleProjectVisitor = Ok (\() -> projectVisitor)
+        , ruleProjectVisitor = Ok (\() -> createRuleProjectVisitor schema)
         }
 
 
