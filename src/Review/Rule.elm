@@ -6357,10 +6357,10 @@ moduleRuleImplementation schema params toRuleProjectVisitor raise (( errors, _ )
     , declarationVisitorOnExit = createVisitor params raise errorsAndContext schema.declarationVisitorOnExit
     , expressionVisitorOnEnter = createVisitor params raise errorsAndContext schema.expressionVisitorsOnEnter
     , expressionVisitorOnExit = createVisitor params raise errorsAndContext schema.expressionVisitorsOnExit
-    , letDeclarationVisitorOnEnter = createVisitor2 raise errorsAndContext schema.letDeclarationVisitorOnEnter
-    , letDeclarationVisitorOnExit = createVisitor2 raise errorsAndContext schema.letDeclarationVisitorOnExit
-    , caseBranchVisitorOnEnter = createVisitor2 raise errorsAndContext schema.caseBranchVisitorOnEnter
-    , caseBranchVisitorOnExit = createVisitor2 raise errorsAndContext schema.caseBranchVisitorOnExit
+    , letDeclarationVisitorOnEnter = createVisitor2 params raise errorsAndContext schema.letDeclarationVisitorOnEnter
+    , letDeclarationVisitorOnExit = createVisitor2 params raise errorsAndContext schema.letDeclarationVisitorOnExit
+    , caseBranchVisitorOnEnter = createVisitor2 params raise errorsAndContext schema.caseBranchVisitorOnEnter
+    , caseBranchVisitorOnExit = createVisitor2 params raise errorsAndContext schema.caseBranchVisitorOnExit
     , finalModuleEvaluation = createFinalModuleEvaluationVisitor raise errorsAndContext schema.finalEvaluationFn
 
     -- TODO Qualify errors as we add them
@@ -6385,17 +6385,18 @@ createVisitor params raise errorsAndContext maybeVisitor =
 
 
 createVisitor2 :
-    (( List (Error {}), context ) -> t)
+    { ruleName : String, exceptions : Exceptions, filePath : String }
+    -> (( List (Error {}), context ) -> t)
     -> ( List (Error {}), context )
     -> Maybe (a -> b -> context -> ( List (Error {}), context ))
     -> Maybe (a -> b -> t)
-createVisitor2 raise errorsAndContext maybeVisitor =
+createVisitor2 params raise errorsAndContext maybeVisitor =
     case maybeVisitor of
         Nothing ->
             Nothing
 
         Just visitor ->
-            Just (\a b -> raise (accumulate (visitor a b) errorsAndContext))
+            Just (\a b -> raise (accumulateWithParams params (visitor a b) errorsAndContext))
 
 
 createImportsVisitor :
