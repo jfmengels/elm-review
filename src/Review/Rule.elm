@@ -4718,7 +4718,7 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                                 (\(RuleProjectVisitor rule) ->
                                     case rule.elmJsonVisitor of
                                         Just visitor ->
-                                            visitor project exceptions elmJsonData
+                                            visitor project elmJsonData
 
                                         Nothing ->
                                             RuleProjectVisitor rule
@@ -4807,7 +4807,7 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                         (\(RuleProjectVisitor rule) ->
                             case rule.readmeVisitor of
                                 Just visitor ->
-                                    visitor project exceptions readmeData
+                                    visitor project readmeData
 
                                 Nothing ->
                                     RuleProjectVisitor rule
@@ -6023,8 +6023,8 @@ type alias RuleProjectVisitorHidden projectContext =
 type alias RuleProjectVisitorOperations t =
     -- `projectContext` is the hidden type variable
     -- The hidden state is `{ cache : ProjectRuleCache projectContext }`
-    { elmJsonVisitor : Maybe (ValidProject -> Exceptions -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> t)
-    , readmeVisitor : Maybe (ValidProject -> Exceptions -> Maybe { readmeKey : ReadmeKey, content : String } -> t)
+    { elmJsonVisitor : Maybe (ValidProject -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> t)
+    , readmeVisitor : Maybe (ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> t)
     , dependenciesVisitor : Maybe (ValidProject -> Exceptions -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> t)
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
     , finalProjectEvaluation : Maybe (Exceptions -> t)
@@ -6053,8 +6053,8 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
         raiseCache newCache =
             baseRaise { hidden | cache = newCache }
     in
-    { elmJsonVisitor = addProjectVisitor schema schema.elmJsonVisitor [] ValidProject.elmJsonHash (\entry -> raiseCache { cache | elmJson = entry })
-    , readmeVisitor = addProjectVisitor schema schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash (\entry -> raiseCache { cache | readme = entry })
+    { elmJsonVisitor = addProjectVisitor schema hidden schema.elmJsonVisitor [] ValidProject.elmJsonHash (\entry -> raiseCache { cache | elmJson = entry })
+    , readmeVisitor = addProjectVisitor schema hidden schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash (\entry -> raiseCache { cache | readme = entry })
     , dependenciesVisitor = addDependenciesVisitor schema raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
     , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raiseCache cache
     , finalProjectEvaluation = addFinalProjectEvaluationVisitor schema raiseCache cache
@@ -6064,6 +6064,7 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
 
 addProjectVisitor :
     ProjectRuleSchemaData projectContext moduleContext
+    -> RuleProjectVisitorHidden projectContext
     -> Maybe (data -> projectContext -> ( List (Error {}), projectContext ))
     -> List (Maybe (Cache.EntryMaybe error projectContext))
     -> (ValidProject -> Maybe ContentHash)
@@ -6071,18 +6072,17 @@ addProjectVisitor :
     ->
         Maybe
             (ValidProject
-             -> Exceptions
              -> data
              -> RuleProjectVisitor
             )
-addProjectVisitor schema maybeVisitor possibleInputContexts contentHash toRuleProjectVisitor =
+addProjectVisitor schema { exceptions } maybeVisitor possibleInputContexts contentHash toRuleProjectVisitor =
     case maybeVisitor of
         Nothing ->
             Nothing
 
         Just visitor ->
             Just
-                (\project exceptions data ->
+                (\project data ->
                     let
                         inputContext : projectContext
                         inputContext =
