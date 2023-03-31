@@ -4310,6 +4310,25 @@ type alias ExtractCache projectContext =
     }
 
 
+qualifyErrors : { ruleName : String, exceptions : Exceptions } -> String -> List (Error {}) -> List (Error {})
+qualifyErrors params filePath errors =
+    List.foldl (\err -> qualifyError params filePath err) [] errors
+
+
+qualifyError : { ruleName : String, exceptions : Exceptions } -> String -> Error {} -> List (Error {}) -> List (Error {})
+qualifyError params filePath err acc =
+    let
+        newError : Error {}
+        newError =
+            setFilePathIfUnset filePath err
+    in
+    if Exceptions.isFileWeWantReportsFor params.exceptions (errorFilePathInternal newError) then
+        setRuleName params.ruleName newError :: acc
+
+    else
+        acc
+
+
 runProjectVisitor :
     DataToComputeProject projectContext moduleContext
     -> List RuleProjectVisitor
@@ -5108,10 +5127,14 @@ computeModule exceptions ({ dataToComputeModules, ruleProjectVisitors, module_, 
         initialModuleContext =
             applyContextCreator availableData dataToComputeModules.moduleContextCreator projectContext
 
+        modulePath : String
+        modulePath =
+            ProjectModule.path module_
+
         ( errors, outputRuleProjectVisitors ) =
             List.foldl
                 (\(RuleModuleVisitor ruleModuleVisitor) ( accErrors, rules ) ->
-                    ( List.append (ruleModuleVisitor.getErrors ()) accErrors
+                    ( List.append (ruleModuleVisitor.getErrors exceptions modulePath) accErrors
                     , ruleModuleVisitor.toProjectVisitor () :: rules
                     )
                 )
@@ -6290,7 +6313,7 @@ type alias RuleModuleVisitorOperations t =
     , caseBranchVisitorOnEnter : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> t)
     , caseBranchVisitorOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> t)
     , finalModuleEvaluation : Maybe (() -> t)
-    , getErrors : () -> List (Error {})
+    , getErrors : Exceptions -> String -> List (Error {})
     , toProjectVisitor : () -> RuleProjectVisitor
     }
 
@@ -6316,7 +6339,7 @@ moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, _ ) as err
     , caseBranchVisitorOnEnter = addMaybeVisitor2 raise errorsAndContext schema.caseBranchVisitorOnEnter
     , caseBranchVisitorOnExit = addMaybeVisitor2 raise errorsAndContext schema.caseBranchVisitorOnExit
     , finalModuleEvaluation = addFinalModuleEvaluationVisitor raise errorsAndContext schema.finalEvaluationFn
-    , getErrors = \() -> errors
+    , getErrors = \exceptions filePath -> qualifyErrors { ruleName = schema.name, exceptions = exceptions } filePath errors
     , toProjectVisitor = \() -> toRuleProjectVisitor errorsAndContext
     }
 
