@@ -6273,10 +6273,6 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden travers
                 in
                 raise { cache | moduleContexts = Dict.insert availableData.filePath cacheEntry cache.moduleContexts }
 
-            ruleData : { ruleName : String, exceptions : Exceptions, filePath : String }
-            ruleData =
-                { ruleName = schema.name, exceptions = exceptions, filePath = availableData.filePath }
-
             isFileIgnored : Bool
             isFileIgnored =
                 availableData.isFileIgnored
@@ -6303,6 +6299,11 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden travers
                 Nothing
 
             Nothing ->
+                let
+                    ruleData : { ruleName : String, exceptions : Exceptions, filePath : String }
+                    ruleData =
+                        { ruleName = schema.name, exceptions = exceptions, filePath = availableData.filePath }
+                in
                 If.create RuleModuleVisitor
                     (\ruleModuleVisitorRaise ruleModuleVisitorHidden ->
                         moduleRuleImplementation moduleRuleSchema ruleData toRuleProjectVisitor ruleModuleVisitorRaise ruleModuleVisitorHidden
