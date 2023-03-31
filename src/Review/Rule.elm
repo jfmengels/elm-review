@@ -6019,9 +6019,14 @@ type RuleProjectVisitor
     = RuleProjectVisitor (RuleProjectVisitorOperations RuleProjectVisitor)
 
 
+type alias RuleProjectVisitorHidden projectContext =
+    { cache : ProjectRuleCache projectContext
+    }
+
+
 type alias RuleProjectVisitorOperations t =
     -- `projectContext` is the hidden type variable
-    -- The hidden state is `ProjectRuleCache projectContext`
+    -- The hidden state is `{ cache : ProjectRuleCache projectContext }`
     { elmJsonVisitor : Maybe (ValidProject -> Exceptions -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> t)
     , readmeVisitor : Maybe (ValidProject -> Exceptions -> Maybe { readmeKey : ReadmeKey, content : String } -> t)
     , dependenciesVisitor : Maybe (ValidProject -> Exceptions -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> t)
@@ -6033,21 +6038,26 @@ type alias RuleProjectVisitorOperations t =
 
 createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> RuleProjectVisitor
 createRuleProjectVisitor schema =
-    If.create RuleProjectVisitor (projectRuleImplementation schema) emptyCache
+    If.create RuleProjectVisitor (projectRuleImplementation schema) { cache = emptyCache }
 
 
 projectRuleImplementation :
     ProjectRuleSchemaData projectContext moduleContext
-    -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
-    -> ProjectRuleCache projectContext
+    -> (RuleProjectVisitorHidden projectContext -> RuleProjectVisitor)
+    -> RuleProjectVisitorHidden projectContext
     -> RuleProjectVisitorOperations RuleProjectVisitor
-projectRuleImplementation schema raise cache =
-    { elmJsonVisitor = addProjectVisitor schema schema.elmJsonVisitor [] ValidProject.elmJsonHash (\entry -> raise { cache | elmJson = entry })
-    , readmeVisitor = addProjectVisitor schema schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash (\entry -> raise { cache | readme = entry })
-    , dependenciesVisitor = addDependenciesVisitor schema raise cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
-    , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raise cache
-    , finalProjectEvaluation = addFinalProjectEvaluationVisitor schema raise cache
-    , dataExtract = addDataExtract schema raise cache
+projectRuleImplementation schema baseRaise ({ cache } as hidden) =
+    let
+        raiseCache : ProjectRuleCache projectContext -> RuleProjectVisitor
+        raiseCache newCache =
+            baseRaise { hidden | cache = newCache }
+    in
+    { elmJsonVisitor = addProjectVisitor schema schema.elmJsonVisitor [] ValidProject.elmJsonHash (\entry -> raiseCache { cache | elmJson = entry })
+    , readmeVisitor = addProjectVisitor schema schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash (\entry -> raiseCache { cache | readme = entry })
+    , dependenciesVisitor = addDependenciesVisitor schema raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
+    , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raiseCache cache
+    , finalProjectEvaluation = addFinalProjectEvaluationVisitor schema raiseCache cache
+    , dataExtract = addDataExtract schema raiseCache cache
     }
 
 
