@@ -4339,12 +4339,13 @@ runProjectVisitorHelp :
     -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extract : Maybe Extract }
 runProjectVisitorHelp ({ projectVisitor, exceptions } as dataToComputeProject) ruleId initialCache initialFixedErrors initialProject =
     let
-        { project, errors, cache, fixedErrors } =
+        { project, errors, cache, ruleProjectVisitors, fixedErrors } =
             computeStepsForProject
                 dataToComputeProject
                 { step = ElmJson { initial = projectVisitor.initialProjectContext }
                 , project = initialProject
                 , cache = initialCache
+                , ruleProjectVisitors = dataToComputeProject.ruleProjectVisitors
                 , fixedErrors = initialFixedErrors
                 }
     in
@@ -4374,9 +4375,7 @@ runProjectVisitorHelp ({ projectVisitor, exceptions } as dataToComputeProject) r
             -- TODO Use the project visitor from the results
             , ruleProjectVisitor = Ok (\() -> Debug.todo "Missing project visitor in runProjectVisitorHelp")
             }
-
-    -- TODO Need to return the new one
-    , ruleProjectVisitors = dataToComputeProject.ruleProjectVisitors
+    , ruleProjectVisitors = ruleProjectVisitors
     , project = project
     , extract = Maybe.map .extract (finalCacheMarker projectVisitor.name ruleId cache).extract
     }
@@ -4481,24 +4480,24 @@ type alias DataToComputeProject projectContext moduleContext =
 
 computeStepsForProject :
     DataToComputeProject projectContext moduleContext
-    -> { project : ValidProject, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors, step : Step projectContext }
-    -> { project : ValidProject, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors, errors : List (Error {}) }
-computeStepsForProject dataToComputeProject { project, cache, fixedErrors, step } =
+    -> { project : ValidProject, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors, step : Step projectContext }
+    -> { project : ValidProject, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors, errors : List (Error {}) }
+computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitors, fixedErrors, step } =
     case step of
         ElmJson contexts ->
             computeStepsForProject
                 dataToComputeProject
-                (computeElmJson dataToComputeProject project contexts.initial cache fixedErrors)
+                (computeElmJson dataToComputeProject project contexts.initial cache ruleProjectVisitors fixedErrors)
 
         Readme contexts ->
             computeStepsForProject
                 dataToComputeProject
-                (computeReadme dataToComputeProject project contexts cache fixedErrors)
+                (computeReadme dataToComputeProject project contexts cache ruleProjectVisitors fixedErrors)
 
         Dependencies contexts ->
             computeStepsForProject
                 dataToComputeProject
-                (computeDependencies dataToComputeProject project contexts cache fixedErrors)
+                (computeDependencies dataToComputeProject project contexts cache ruleProjectVisitors fixedErrors)
 
         Modules contexts moduleZipper ->
             case dataToComputeProject.projectVisitor.moduleVisitor of
@@ -4507,6 +4506,7 @@ computeStepsForProject dataToComputeProject { project, cache, fixedErrors, step 
                         dataToComputeProject
                         { project = project
                         , cache = cache
+                        , ruleProjectVisitors = ruleProjectVisitors
                         , fixedErrors = fixedErrors
                         , step = FinalProjectEvaluation contexts
                         }
@@ -4533,6 +4533,7 @@ computeStepsForProject dataToComputeProject { project, cache, fixedErrors, step 
                         dataToComputeProject
                         { project = result.project
                         , cache = { cache | moduleContexts = result.moduleContexts }
+                        , ruleProjectVisitors = ruleProjectVisitors
                         , fixedErrors = result.fixedErrors
                         , step = result.step
                         }
@@ -4540,7 +4541,7 @@ computeStepsForProject dataToComputeProject { project, cache, fixedErrors, step 
         FinalProjectEvaluation contexts ->
             computeStepsForProject
                 dataToComputeProject
-                (computeFinalProjectEvaluation dataToComputeProject project contexts cache fixedErrors)
+                (computeFinalProjectEvaluation dataToComputeProject project contexts cache ruleProjectVisitors fixedErrors)
 
         DataExtract context ->
             let
@@ -4554,6 +4555,7 @@ computeStepsForProject dataToComputeProject { project, cache, fixedErrors, step 
             in
             { project = project
             , errors = errors
+            , ruleProjectVisitors = ruleProjectVisitors
             , cache = cacheWithExtract
             , fixedErrors = fixedErrors
             }
@@ -4561,6 +4563,7 @@ computeStepsForProject dataToComputeProject { project, cache, fixedErrors, step 
         Abort ->
             { project = project
             , errors = []
+            , ruleProjectVisitors = ruleProjectVisitors
             , cache = cache
             , fixedErrors = fixedErrors
             }
@@ -4601,9 +4604,10 @@ computeElmJson :
     -> ValidProject
     -> projectContext
     -> ProjectRuleCache projectContext
+    -> List RuleProjectVisitor
     -> FixedErrors
-    -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
-computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputeProject) project inputContext cache fixedErrors =
+    -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputeProject) project inputContext cache ruleProjectVisitors fixedErrors =
     let
         cachePredicate : CacheEntryMaybe projectContext -> Bool
         cachePredicate elmJson =
@@ -4611,7 +4615,7 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
     in
     case reuseProjectRuleCache cachePredicate .elmJson cache of
         Just entry ->
-            { project = project, step = Readme { initial = inputContext, elmJson = Cache.outputContextMaybe entry }, cache = cache, fixedErrors = fixedErrors }
+            { project = project, step = Readme { initial = inputContext, elmJson = Cache.outputContextMaybe entry }, cache = cache, ruleProjectVisitors = ruleProjectVisitors, fixedErrors = fixedErrors }
 
         Nothing ->
             case projectVisitor.elmJsonVisitor of
@@ -4632,7 +4636,7 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                         newCache =
                             { cache | elmJson = Just elmJsonEntry }
                     in
-                    { project = project, step = Readme { initial = inputContext, elmJson = inputContext }, cache = newCache, fixedErrors = fixedErrors }
+                    { project = project, step = Readme { initial = inputContext, elmJson = inputContext }, ruleProjectVisitors = ruleProjectVisitors, cache = newCache, fixedErrors = fixedErrors }
 
                 Just elmJsonVisitor ->
                     let
@@ -4677,12 +4681,13 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                                 ShouldContinue newFixedErrors ->
                                     -- The only possible thing we can fix here is the `elm.json` file, so we don't need to check
                                     -- what the fixed file was.
-                                    computeElmJson dataToComputeProject fixResult.project inputContext cache newFixedErrors
+                                    computeElmJson dataToComputeProject fixResult.project inputContext cache ruleProjectVisitors newFixedErrors
 
                                 ShouldAbort newFixedErrors ->
                                     { project = fixResult.project
                                     , step = Abort
                                     , cache = updateCache ()
+                                    , ruleProjectVisitors = ruleProjectVisitors
                                     , fixedErrors = newFixedErrors
                                     }
 
@@ -4690,6 +4695,7 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                             { project = project
                             , step = Readme { initial = inputContext, elmJson = outputContext }
                             , cache = updateCache ()
+                            , ruleProjectVisitors = ruleProjectVisitors
                             , fixedErrors = fixedErrors
                             }
 
@@ -4699,9 +4705,10 @@ computeReadme :
     -> ValidProject
     -> { initial : projectContext, elmJson : projectContext }
     -> ProjectRuleCache projectContext
+    -> List RuleProjectVisitor
     -> FixedErrors
-    -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
-computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputeProject) project contexts cache fixedErrors =
+    -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputeProject) project contexts cache ruleProjectVisitors fixedErrors =
     let
         inputContext : projectContext
         inputContext =
@@ -4716,6 +4723,7 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
             { project = project
             , step = Dependencies { initial = contexts.initial, elmJson = contexts.elmJson, readme = Cache.outputContextMaybe entry }
             , cache = cache
+            , ruleProjectVisitors = ruleProjectVisitors
             , fixedErrors = fixedErrors
             }
 
@@ -4743,11 +4751,12 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                 errors =
                     filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
 
-                resultWhenNoFix : () -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
+                resultWhenNoFix : () -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
                 resultWhenNoFix () =
                     { project = project
                     , step = Dependencies { initial = contexts.initial, elmJson = contexts.elmJson, readme = outputContext }
                     , cache = updateCache ()
+                    , ruleProjectVisitors = ruleProjectVisitors
                     , fixedErrors = fixedErrors
                     }
 
@@ -4769,7 +4778,7 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                 Just ( postFixStatus, fixResult ) ->
                     case postFixStatus of
                         ShouldAbort newFixedErrors ->
-                            { project = fixResult.project, step = Abort, cache = updateCache (), fixedErrors = newFixedErrors }
+                            { project = fixResult.project, step = Abort, cache = updateCache (), ruleProjectVisitors = ruleProjectVisitors, fixedErrors = newFixedErrors }
 
                         ShouldContinue newFixedErrors ->
                             case fixResult.fixedFile of
@@ -4777,11 +4786,12 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                                     { project = fixResult.project
                                     , step = ElmJson { initial = contexts.initial }
                                     , cache = updateCache ()
+                                    , ruleProjectVisitors = ruleProjectVisitors
                                     , fixedErrors = newFixedErrors
                                     }
 
                                 FixedReadme ->
-                                    computeReadme dataToComputeProject fixResult.project contexts (updateCache ()) newFixedErrors
+                                    computeReadme dataToComputeProject fixResult.project contexts (updateCache ()) ruleProjectVisitors newFixedErrors
 
                                 FixedElmModule _ _ ->
                                     -- Not possible, users don't have the module key to provide fixes for an Elm module
@@ -4796,9 +4806,10 @@ computeDependencies :
     -> ValidProject
     -> { initial : projectContext, elmJson : projectContext, readme : projectContext }
     -> ProjectRuleCache projectContext
+    -> List RuleProjectVisitor
     -> FixedErrors
-    -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
-computeDependencies { reviewOptions, projectVisitor, exceptions } project contexts cache fixedErrors =
+    -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+computeDependencies { reviewOptions, projectVisitor, exceptions } project contexts cache ruleProjectVisitors fixedErrors =
     let
         inputContext : projectContext
         inputContext =
@@ -4816,7 +4827,7 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
     in
     case reuseProjectRuleCache cachePredicate .dependencies cache of
         Just entry ->
-            { project = project, step = modulesAsNextStep (Cache.outputContextMaybe entry), cache = cache, fixedErrors = fixedErrors }
+            { project = project, step = modulesAsNextStep (Cache.outputContextMaybe entry), cache = cache, ruleProjectVisitors = ruleProjectVisitors, fixedErrors = fixedErrors }
 
         Nothing ->
             let
@@ -4847,11 +4858,12 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                 errors =
                     filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
 
-                resultWhenNoFix : () -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors }
+                resultWhenNoFix : () -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
                 resultWhenNoFix () =
                     { project = project
                     , step = modulesAsNextStep outputContext
                     , cache = updateCache ()
+                    , ruleProjectVisitors = ruleProjectVisitors
                     , fixedErrors = fixedErrors
                     }
 
@@ -4873,7 +4885,7 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                 Just ( postFixStatus, fixResult ) ->
                     case postFixStatus of
                         ShouldAbort newFixedErrors ->
-                            { project = fixResult.project, step = Abort, cache = updateCache (), fixedErrors = newFixedErrors }
+                            { project = fixResult.project, step = Abort, cache = updateCache (), ruleProjectVisitors = ruleProjectVisitors, fixedErrors = newFixedErrors }
 
                         ShouldContinue newFixedErrors ->
                             case fixResult.fixedFile of
@@ -4881,6 +4893,7 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                                     { project = fixResult.project
                                     , step = ElmJson { initial = contexts.initial }
                                     , cache = updateCache ()
+                                    , ruleProjectVisitors = ruleProjectVisitors
                                     , fixedErrors = newFixedErrors
                                     }
 
@@ -4888,6 +4901,7 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                                     { project = fixResult.project
                                     , step = Readme { initial = contexts.initial, elmJson = contexts.elmJson }
                                     , cache = updateCache ()
+                                    , ruleProjectVisitors = ruleProjectVisitors
                                     , fixedErrors = newFixedErrors
                                     }
 
@@ -4904,12 +4918,13 @@ computeFinalProjectEvaluation :
     -> ValidProject
     -> ProjectContextAfterProjectFiles projectContext
     -> ProjectRuleCache projectContext
+    -> List RuleProjectVisitor
     -> FixedErrors
-    -> { project : ValidProject, cache : ProjectRuleCache projectContext, step : Step projectContext, fixedErrors : FixedErrors }
-computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } project projectContexts cache fixedErrors =
+    -> { project : ValidProject, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, step : Step projectContext, fixedErrors : FixedErrors }
+computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } project projectContexts cache ruleProjectVisitors fixedErrors =
     case projectVisitor.finalEvaluationFn of
         Nothing ->
-            { project = project, cache = cache, step = DataExtract (ToCombineStartingFrom projectContexts.deps), fixedErrors = fixedErrors }
+            { project = project, cache = cache, ruleProjectVisitors = ruleProjectVisitors, step = DataExtract (ToCombineStartingFrom projectContexts.deps), fixedErrors = fixedErrors }
 
         Just finalEvaluationFn ->
             let
@@ -4923,7 +4938,7 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
             in
             case reuseProjectRuleCache cachePredicate .finalEvaluationErrors cache of
                 Just _ ->
-                    { project = project, cache = cache, step = DataExtract (Combined finalContext), fixedErrors = fixedErrors }
+                    { project = project, cache = cache, ruleProjectVisitors = ruleProjectVisitors, step = DataExtract (Combined finalContext), fixedErrors = fixedErrors }
 
                 Nothing ->
                     let
@@ -4954,6 +4969,7 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
                             in
                             { project = fixResult.project
                             , cache = { cache | finalEvaluationErrors = Just (Cache.createNoOutput finalContext errors) }
+                            , ruleProjectVisitors = ruleProjectVisitors
                             , step = step
                             , fixedErrors = newFixedErrors
                             }
@@ -4961,6 +4977,7 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
                         Nothing ->
                             { project = project
                             , cache = { cache | finalEvaluationErrors = Just (Cache.createNoOutput finalContext errors) }
+                            , ruleProjectVisitors = ruleProjectVisitors
                             , step = DataExtract (Combined finalContext)
                             , fixedErrors = fixedErrors
                             }
