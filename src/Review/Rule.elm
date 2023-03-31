@@ -5973,8 +5973,7 @@ type alias RuleProjectVisitorOperations t =
 
 createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> ChangeableRuleData -> RuleProjectVisitor
 createRuleProjectVisitor schema ruleData =
-    If.create
-        RuleProjectVisitor
+    If.create RuleProjectVisitor
         (\raise hidden -> projectRuleImplementation schema raise hidden)
         { cache = emptyCache
         , ruleData = ruleData
