@@ -4587,7 +4587,7 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
                         (\(RuleProjectVisitor rule) ->
                             case rule.dataExtract of
                                 Just dataExtract ->
-                                    dataExtract ()
+                                    dataExtract dataToComputeProject.reviewOptions
 
                                 Nothing ->
                                     RuleProjectVisitor rule
@@ -6026,7 +6026,7 @@ type alias RuleProjectVisitorOperations t =
     , dependenciesVisitor : Maybe (ValidProject -> Exceptions -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> t)
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
     , finalProjectEvaluation : Maybe (Exceptions -> t)
-    , dataExtract : Maybe (() -> t)
+    , dataExtract : Maybe (ReviewOptionsData -> t)
     }
 
 
@@ -6191,7 +6191,7 @@ addDataExtract :
     ProjectRuleSchemaData projectContext moduleContext
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     -> ProjectRuleCache projectContext
-    -> Maybe (() -> RuleProjectVisitor)
+    -> Maybe (ReviewOptionsData -> RuleProjectVisitor)
 addDataExtract schema raise cache =
     case schema.dataExtractor of
         Nothing ->
@@ -6199,7 +6199,7 @@ addDataExtract schema raise cache =
 
         Just dataExtractor ->
             Just
-                (\() ->
+                (\reviewOptions ->
                     let
                         inputContext : projectContext
                         inputContext =
