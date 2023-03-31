@@ -6348,15 +6348,15 @@ moduleRuleImplementation :
     -> ( List (Error {}), moduleContext )
     -> RuleModuleVisitorOperations RuleModuleVisitor
 moduleRuleImplementation schema params toRuleProjectVisitor raise (( errors, _ ) as errorsAndContext) =
-    { moduleDefinitionVisitor = addMaybeVisitor raise errorsAndContext schema.moduleDefinitionVisitor
-    , moduleDocumentationVisitor = addMaybeVisitor raise errorsAndContext schema.moduleDocumentationVisitor
-    , commentVisitor = addMaybeVisitor raise errorsAndContext schema.commentsVisitor
+    { moduleDefinitionVisitor = addMaybeVisitor params raise errorsAndContext schema.moduleDefinitionVisitor
+    , moduleDocumentationVisitor = addMaybeVisitor params raise errorsAndContext schema.moduleDocumentationVisitor
+    , commentVisitor = addMaybeVisitor params raise errorsAndContext schema.commentsVisitor
     , importsVisitor = addImportsVisitor raise errorsAndContext schema.importVisitor
-    , declarationListVisitor = addMaybeVisitor raise errorsAndContext schema.declarationListVisitor
-    , declarationVisitorOnEnter = addMaybeVisitor raise errorsAndContext schema.declarationVisitorOnEnter
-    , declarationVisitorOnExit = addMaybeVisitor raise errorsAndContext schema.declarationVisitorOnExit
-    , expressionVisitorOnEnter = addMaybeVisitor raise errorsAndContext schema.expressionVisitorsOnEnter
-    , expressionVisitorOnExit = addMaybeVisitor raise errorsAndContext schema.expressionVisitorsOnExit
+    , declarationListVisitor = addMaybeVisitor params raise errorsAndContext schema.declarationListVisitor
+    , declarationVisitorOnEnter = addMaybeVisitor params raise errorsAndContext schema.declarationVisitorOnEnter
+    , declarationVisitorOnExit = addMaybeVisitor params raise errorsAndContext schema.declarationVisitorOnExit
+    , expressionVisitorOnEnter = addMaybeVisitor params raise errorsAndContext schema.expressionVisitorsOnEnter
+    , expressionVisitorOnExit = addMaybeVisitor params raise errorsAndContext schema.expressionVisitorsOnExit
     , letDeclarationVisitorOnEnter = addMaybeVisitor2 raise errorsAndContext schema.letDeclarationVisitorOnEnter
     , letDeclarationVisitorOnExit = addMaybeVisitor2 raise errorsAndContext schema.letDeclarationVisitorOnExit
     , caseBranchVisitorOnEnter = addMaybeVisitor2 raise errorsAndContext schema.caseBranchVisitorOnEnter
@@ -6370,11 +6370,12 @@ moduleRuleImplementation schema params toRuleProjectVisitor raise (( errors, _ )
 
 
 addMaybeVisitor :
-    (( List (Error {}), context ) -> a)
+    { ruleName : String, exceptions : Exceptions, filePath : String }
+    -> (( List (Error {}), context ) -> a)
     -> ( List (Error {}), context )
     -> Maybe (b -> context -> ( List (Error {}), context ))
     -> Maybe (b -> a)
-addMaybeVisitor raise errorsAndContext maybeVisitor =
+addMaybeVisitor params raise errorsAndContext maybeVisitor =
     case maybeVisitor of
         Nothing ->
             Nothing
