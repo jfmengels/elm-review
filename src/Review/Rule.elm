@@ -626,7 +626,12 @@ checkForConfigurationErrors rules =
                 (\(Rule rule) ( rulesToRun, configurationErrors ) ->
                     case rule.ruleProjectVisitor of
                         Ok ruleProjectVisitor ->
-                            ( ruleProjectVisitor { exceptions = rule.exceptions, ruleId = rule.id } :: rulesToRun
+                            ( ruleProjectVisitor
+                                { exceptions = rule.exceptions
+                                , ruleId = rule.id
+                                , requestedData = rule.requestedData
+                                }
+                                :: rulesToRun
                             , configurationErrors
                             )
 
@@ -6024,6 +6029,7 @@ type alias RuleProjectVisitorHidden projectContext =
 type alias ChangeableRuleData =
     { exceptions : Exceptions
     , ruleId : Int
+    , requestedData : RequestedData
     }
 
 
