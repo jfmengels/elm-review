@@ -469,7 +469,7 @@ review rules project =
             )
 
         Ok ( validProject, _ ) ->
-            case checkForConfigurationErrors rules of
+            case checkForConfigurationErrors validProject rules of
                 Err configurationErrors ->
                     ( configurationErrors, rules )
 
@@ -525,11 +525,14 @@ to compare them or the model that holds them.
 reviewV2 : List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
 reviewV2 rules maybeProjectData project =
     case
-        Result.map2 Tuple.pair
-            (checkForConfigurationErrors rules)
-            (getModulesSortedByImport project)
+        getModulesSortedByImport project
+            |> Result.andThen
+                (\( validProject, _ ) ->
+                    checkForConfigurationErrors validProject rules
+                        |> Result.map (Tuple.pair validProject)
+                )
     of
-        Ok ( ruleProjectVisitors, ( validProject, _ ) ) ->
+        Ok ( validProject, ruleProjectVisitors ) ->
             runReviewForV2 ReviewOptions.defaults validProject rules ruleProjectVisitors
 
         Err errors ->
@@ -592,11 +595,14 @@ reviewV3 :
         }
 reviewV3 reviewOptions rules project =
     case
-        Result.map2 Tuple.pair
-            (checkForConfigurationErrors rules)
-            (getModulesSortedByImport project)
+        getModulesSortedByImport project
+            |> Result.andThen
+                (\( validProject, _ ) ->
+                    checkForConfigurationErrors validProject rules
+                        |> Result.map (Tuple.pair validProject)
+                )
     of
-        Ok ( ruleProjectVisitors, ( validProject, _ ) ) ->
+        Ok ( validProject, ruleProjectVisitors ) ->
             let
                 result : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
                 result =
@@ -618,8 +624,8 @@ reviewV3 reviewOptions rules project =
             }
 
 
-checkForConfigurationErrors : List Rule -> Result (List ReviewError) (List RuleProjectVisitor)
-checkForConfigurationErrors rules =
+checkForConfigurationErrors : ValidProject -> List Rule -> Result (List ReviewError) (List RuleProjectVisitor)
+checkForConfigurationErrors project rules =
     let
         ( allRulesToRun, allConfigurationErrors ) =
             List.foldl
