@@ -5184,7 +5184,7 @@ type PostFixStatus
 
 findFix : ReviewOptionsData -> RunnableProjectVisitor projectContext moduleContext -> ValidProject -> List (Error a) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Maybe ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
 findFix reviewOptions projectVisitor project errors fixedErrors maybeModuleZipper =
-    InternalOptions.shouldApplyFix projectVisitor.name reviewOptions
+    InternalOptions.shouldApplyFix reviewOptions
         |> Maybe.andThen (\fixablePredicate -> findFixHelp project fixablePredicate errors maybeModuleZipper)
         |> Maybe.map
             (\fixResult ->

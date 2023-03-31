@@ -24,8 +24,8 @@ type FixMode
     | Enabled (Maybe Int)
 
 
-shouldApplyFix : String -> ReviewOptionsData -> Maybe ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool)
-shouldApplyFix ruleName_ reviewOptionsData =
+shouldApplyFix : ReviewOptionsData -> Maybe ({ ruleName : String, filePath : String, message : String, details : List String, range : Range } -> Bool)
+shouldApplyFix reviewOptionsData =
     case reviewOptionsData.fixMode of
         Enabled _ ->
             -- TODO Breaking change: Re-add this condition (for performance)
