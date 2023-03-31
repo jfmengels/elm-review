@@ -1290,7 +1290,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     (removeUnknownModulesFromInitialCache project (initialCacheMarker schema.name ruleId emptyCache))
                     fixedErrors
                     project
-        , ruleProjectVisitor = Ok (\exceptions -> createRuleProjectVisitor schema)
+        , ruleProjectVisitor = Ok (\exceptions -> createRuleProjectVisitor schema exceptions)
         }
 
 
@@ -6031,8 +6031,8 @@ type alias RuleProjectVisitorOperations t =
     }
 
 
-createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> RuleProjectVisitor
-createRuleProjectVisitor schema =
+createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> Exceptions -> RuleProjectVisitor
+createRuleProjectVisitor schema exceptions =
     If.create RuleProjectVisitor (projectRuleImplementation schema) { cache = emptyCache }
 
 
