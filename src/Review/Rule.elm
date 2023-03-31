@@ -6013,6 +6013,7 @@ type alias RuleProjectVisitorOperations t =
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
     , finalProjectEvaluation : Maybe (() -> ( List (Error {}), t ))
     , dataExtractVisitor : Maybe (ReviewOptionsData -> t)
+    , addDataExtract : Dict String Encode.Value -> Dict String Encode.Value
     , backToRule : () -> Rule
     }
 
@@ -6044,6 +6045,14 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
     , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raiseCache cache
     , finalProjectEvaluation = addFinalProjectEvaluationVisitor schema hidden.ruleData raiseCache cache
     , dataExtractVisitor = addDataExtract schema raiseCache cache
+    , addDataExtract =
+        \extracts ->
+            case Maybe.map .extract cache.extract of
+                Just (Extract extract) ->
+                    Dict.insert schema.name extract extracts
+
+                Nothing ->
+                    extracts
     , backToRule =
         \() ->
             Rule
