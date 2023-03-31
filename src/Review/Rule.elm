@@ -4558,7 +4558,7 @@ computeElmJson ({ reviewOptions, projectVisitor } as dataToComputeProject) proje
                 ( [], [] )
                 ruleProjectVisitors
     in
-    case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
+    case findFix reviewOptions project errors fixedErrors Nothing of
         Just ( postFixStatus, fixResult ) ->
             case postFixStatus of
                 ShouldContinue newFixedErrors ->
@@ -4632,7 +4632,7 @@ computeReadme ({ reviewOptions, projectVisitor } as dataToComputeProject) projec
             , fixedErrors = fixedErrors
             }
     in
-    case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
+    case findFix reviewOptions project errors fixedErrors Nothing of
         Just ( postFixStatus, fixResult ) ->
             case postFixStatus of
                 ShouldAbort newFixedErrors ->
@@ -4702,7 +4702,7 @@ computeDependencies { reviewOptions, projectVisitor } project cache ruleProjectV
             , fixedErrors = fixedErrors
             }
     in
-    case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
+    case findFix reviewOptions project errors fixedErrors Nothing of
         Just ( postFixStatus, fixResult ) ->
             case postFixStatus of
                 ShouldAbort newFixedErrors ->
@@ -4760,7 +4760,7 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor } project cache ru
                 ( [], [] )
                 ruleProjectVisitors
     in
-    case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
+    case findFix reviewOptions project errors fixedErrors Nothing of
         Just ( postFixStatus, fixResult ) ->
             let
                 ( newFixedErrors, step ) =
@@ -4956,7 +4956,7 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, project, moduleZ
                 , fixedErrors = fixedErrors
                 }
     in
-    case findFix dataToComputeModules.reviewOptions dataToComputeModules.projectVisitor project errors fixedErrors (Just moduleZipper) of
+    case findFix dataToComputeModules.reviewOptions project errors fixedErrors (Just moduleZipper) of
         Just ( postFixStatus, fixResult ) ->
             case postFixStatus of
                 ShouldAbort newFixedErrors ->
@@ -5182,8 +5182,8 @@ type PostFixStatus
     | ShouldContinue FixedErrors
 
 
-findFix : ReviewOptionsData -> RunnableProjectVisitor projectContext moduleContext -> ValidProject -> List (Error a) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Maybe ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
-findFix reviewOptions projectVisitor project errors fixedErrors maybeModuleZipper =
+findFix : ReviewOptionsData -> ValidProject -> List (Error a) -> FixedErrors -> Maybe (Zipper (Graph.NodeContext FilePath ())) -> Maybe ( PostFixStatus, { project : ValidProject, fixedFile : FixedFile, error : ReviewError } )
+findFix reviewOptions project errors fixedErrors maybeModuleZipper =
     InternalOptions.shouldApplyFix reviewOptions
         |> Maybe.andThen (\fixablePredicate -> findFixHelp project fixablePredicate errors maybeModuleZipper)
         |> Maybe.map
