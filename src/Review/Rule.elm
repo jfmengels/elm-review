@@ -4344,47 +4344,6 @@ finalCacheMarker _ _ cache =
     cache
 
 
-computeExtract :
-    ReviewOptionsData
-    -> RunnableProjectVisitor projectContext moduleContext
-    -> DataExtractInputContext projectContext
-    -> List (Error {})
-    -> ProjectRuleCache projectContext
-    -> ProjectRuleCache projectContext
-computeExtract reviewOptions projectVisitor context errors cache =
-    case projectVisitor.dataExtractor of
-        Just dataExtractor ->
-            if reviewOptions.extract && not (List.any doesPreventExtract errors) then
-                let
-                    inputContext : projectContext
-                    inputContext =
-                        case context of
-                            Combined projectContext ->
-                                projectContext
-
-                            ToCombineStartingFrom projectContext ->
-                                computeFinalContext projectVisitor cache projectContext
-
-                    cachePredicate : ExtractCache projectContext -> Bool
-                    cachePredicate extract =
-                        extract.inputContext == ContextHash.create inputContext
-                in
-                case reuseProjectRuleCache cachePredicate .extract cache of
-                    Just _ ->
-                        cache
-
-                    Nothing ->
-                        { cache
-                            | extract = Just { inputContext = ContextHash.create inputContext, extract = dataExtractor inputContext }
-                        }
-
-            else
-                cache
-
-        Nothing ->
-            cache
-
-
 computeFinalContext : RunnableProjectVisitor projectContext moduleContext -> ProjectRuleCache projectContext -> projectContext -> projectContext
 computeFinalContext projectVisitor cache projectContext =
     case getFolderFromTraversal projectVisitor.traversalAndFolder of
