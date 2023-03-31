@@ -5216,12 +5216,6 @@ visitCaseBranch2 caseBlockWithRange (( _, caseExpression ) as caseBranch) rules 
         |> List.map (\acc -> runVisitor2 .caseBranchVisitorOnExit caseBlockWithRange caseBranch acc)
 
 
-shouldVisitDeclarations : ModuleRuleSchemaData moduleContext -> Bool
-shouldVisitDeclarations schema =
-    (schema.declarationVisitorOnEnter /= Nothing)
-        || (schema.declarationVisitorOnExit /= Nothing)
-
-
 type alias ExpressionRelatedVisitors moduleContext =
     { expressionVisitorsOnEnter : Maybe (Visitor Expression moduleContext)
     , expressionVisitorsOnExit : Maybe (Visitor Expression moduleContext)
