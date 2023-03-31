@@ -4659,6 +4659,7 @@ computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
             Node.value (moduleNameNode (ProjectModule.ast module_).moduleDefinition)
 
         ( moduleNameLookupTable, newProject ) =
+            -- TODO Try to compute this later, once we know for sure that the rules we will run want the lookup table
             if requestedData.moduleNameLookupTable then
                 Review.ModuleNameLookupTable.Compute.compute moduleName module_ project
 
