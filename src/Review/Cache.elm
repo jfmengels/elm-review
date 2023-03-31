@@ -2,6 +2,7 @@ module Review.Cache exposing (EntryMaybe, EntryNoOutputContext, ModuleEntry, cre
 
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash as ContextHash exposing (ContextHash)
+import Review.RequestedData exposing (RequestedData(..))
 
 
 type ModuleEntry error context
@@ -42,11 +43,16 @@ errors (ModuleEntry entry) =
     entry.errors
 
 
-match : ContentHash -> ContextHash context -> ModuleEntry error context -> { isFileIgnored : Bool, rulesCareAboutIgnoredFiles : Bool } -> Bool
-match contentHash context (ModuleEntry entry) { isFileIgnored, rulesCareAboutIgnoredFiles } =
+match : ContentHash -> ContextHash context -> ModuleEntry error context -> { isFileIgnored : Bool, requestedData : RequestedData } -> Bool
+match contentHash context (ModuleEntry entry) { isFileIgnored, requestedData } =
     ContentHash.areEqual contentHash entry.contentHash
         && ContextHash.areEqual context entry.inputContext
-        && (not rulesCareAboutIgnoredFiles || isFileIgnored == entry.isFileIgnored)
+        && (not (ruleCaresAboutIgnoredFiles requestedData) || isFileIgnored == entry.isFileIgnored)
+
+
+ruleCaresAboutIgnoredFiles : RequestedData -> Bool
+ruleCaresAboutIgnoredFiles (RequestedData { ignoredFiles }) =
+    ignoredFiles
 
 
 {-| Variant where the content may be absent

@@ -5390,9 +5390,6 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                     projectContext =
                         computeProjectContext dataToComputeModules.projectVisitor.traversalAndFolder project moduleContexts incoming inputProjectContext
 
-                    (RequestedData requestedData) =
-                        dataToComputeModules.projectVisitor.requestedData
-
                     isFileIgnored : Bool
                     isFileIgnored =
                         not (Exceptions.isFileWeWantReportsFor dataToComputeModules.exceptions modulePath)
@@ -5404,7 +5401,7 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                             (ContextHash.create projectContext)
                             cacheEntry
                             { isFileIgnored = isFileIgnored
-                            , rulesCareAboutIgnoredFiles = requestedData.ignoredFiles
+                            , requestedData = dataToComputeModules.projectVisitor.requestedData
                             }
 
                     maybeCacheEntry : Maybe (ModuleCacheEntry projectContext)
@@ -6241,9 +6238,6 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden travers
             inputProjectContext =
                 computeProjectContext traversalAndFolder project hidden.cache.moduleContexts incoming initialProjectContext
 
-            (RequestedData { ignoredFiles }) =
-                hidden.ruleData.requestedData
-
             shouldReuseCache : Cache.ModuleEntry error projectContext -> Bool
             shouldReuseCache cacheEntry =
                 Cache.match
@@ -6251,7 +6245,7 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden travers
                     (ContextHash.create inputProjectContext)
                     cacheEntry
                     { isFileIgnored = availableData.isFileIgnored
-                    , rulesCareAboutIgnoredFiles = ignoredFiles
+                    , requestedData = hidden.ruleData.requestedData
                     }
 
             maybeCacheEntry : Maybe (ModuleCacheEntry projectContext)
