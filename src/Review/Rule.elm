@@ -6312,7 +6312,6 @@ type alias RuleModuleVisitorOperations t =
     , caseBranchVisitorOnEnter : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> t)
     , caseBranchVisitorOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> t)
     , finalModuleEvaluation : Maybe (() -> t)
-    , getErrors : () -> List (Error {})
     , toProjectVisitor : () -> RuleProjectVisitor
     }
 
@@ -6324,7 +6323,7 @@ moduleRuleImplementation :
     -> (( List (Error {}), moduleContext ) -> RuleModuleVisitor)
     -> ( List (Error {}), moduleContext )
     -> RuleModuleVisitorOperations RuleModuleVisitor
-moduleRuleImplementation schema params toRuleProjectVisitor raise (( errors, _ ) as errorsAndContext) =
+moduleRuleImplementation schema params toRuleProjectVisitor raise errorsAndContext =
     { moduleDefinitionVisitor = createVisitor params raise errorsAndContext schema.moduleDefinitionVisitor
     , moduleDocumentationVisitor = createVisitor params raise errorsAndContext schema.moduleDocumentationVisitor
     , commentVisitor = createVisitor params raise errorsAndContext schema.commentsVisitor
@@ -6339,7 +6338,6 @@ moduleRuleImplementation schema params toRuleProjectVisitor raise (( errors, _ )
     , caseBranchVisitorOnEnter = createVisitor2 params raise errorsAndContext schema.caseBranchVisitorOnEnter
     , caseBranchVisitorOnExit = createVisitor2 params raise errorsAndContext schema.caseBranchVisitorOnExit
     , finalModuleEvaluation = createFinalModuleEvaluationVisitor params raise errorsAndContext schema.finalEvaluationFn
-    , getErrors = \() -> errors
     , toProjectVisitor = \() -> toRuleProjectVisitor errorsAndContext
     }
 
