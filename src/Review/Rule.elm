@@ -626,6 +626,7 @@ checkForConfigurationErrors rules =
                 (\(Rule rule) ( rulesToRun, configurationErrors ) ->
                     case rule.ruleProjectVisitor of
                         Ok ruleProjectVisitor ->
+                            -- TODO Add ruleId, exceptions, ...
                             ( ruleProjectVisitor () :: rulesToRun, configurationErrors )
 
                         Err { message, details } ->
