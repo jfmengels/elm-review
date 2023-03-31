@@ -1292,7 +1292,6 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
             \reviewOptions ruleId exceptions fixedErrors project ruleProjectVisitors ->
                 runProjectVisitor
                     { reviewOptions = reviewOptions
-                    , ruleProjectVisitors = ruleProjectVisitors
                     , projectVisitor = fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema
                     , exceptions = exceptions
                     }
@@ -4366,7 +4365,6 @@ runProjectVisitorHelp ({ projectVisitor, exceptions } as dataToComputeProject) i
                 \newReviewOptions newRuleId newExceptions newFixedErrors newProjectArg newRuleProjectVisitors ->
                     runProjectVisitor
                         { reviewOptions = newReviewOptions
-                        , ruleProjectVisitors = newRuleProjectVisitors
                         , projectVisitor = projectVisitor
                         , exceptions = newExceptions
                         }
@@ -4476,7 +4474,6 @@ type alias ProjectRuleCache projectContext =
 
 type alias DataToComputeProject projectContext moduleContext =
     { reviewOptions : ReviewOptionsData
-    , ruleProjectVisitors : List RuleProjectVisitor
     , projectVisitor : RunnableProjectVisitor projectContext moduleContext
     , exceptions : Exceptions
     }
