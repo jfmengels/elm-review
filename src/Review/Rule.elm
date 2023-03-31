@@ -6173,7 +6173,12 @@ addDataExtract schema raise cache =
         Just dataExtractor ->
             Just
                 (\reviewOptions ->
-                    if reviewOptions.extract && not (List.any doesPreventExtract (errorsFromCache cache)) then
+                    let
+                        errors : List (Error {})
+                        errors =
+                            errorsFromCache cache
+                    in
+                    if reviewOptions.extract && not (List.any doesPreventExtract errors) then
                         let
                             inputContext : projectContext
                             inputContext =
