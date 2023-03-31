@@ -5033,22 +5033,22 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
 
                 Nothing ->
                     let
-                        newRuleProjectVisitors : List RuleProjectVisitor
-                        newRuleProjectVisitors =
-                            List.map
-                                (\(RuleProjectVisitor rule) ->
+                        ( errors, newRuleProjectVisitors ) =
+                            List.foldl
+                                (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
                                     case rule.finalProjectEvaluation of
                                         Just visitor ->
-                                            visitor ()
+                                            let
+                                                ( newErrors, updatedRule ) =
+                                                    visitor ()
+                                            in
+                                            ( List.append newErrors accErrors, updatedRule :: accRules )
 
                                         Nothing ->
-                                            RuleProjectVisitor rule
+                                            ( accErrors, untouched :: accRules )
                                 )
+                                ( [], [] )
                                 ruleProjectVisitors
-
-                        errors : List (Error {})
-                        errors =
-                            finalEvaluationFn finalContext
                     in
                     case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
                         Just ( postFixStatus, fixResult ) ->
@@ -6050,7 +6050,7 @@ type alias RuleProjectVisitorOperations t =
     , readmeVisitor : Maybe (ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> ( List (Error {}), t ))
     , dependenciesVisitor : Maybe (ValidProject -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> ( List (Error {}), t ))
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
-    , finalProjectEvaluation : Maybe (() -> t)
+    , finalProjectEvaluation : Maybe (() -> ( List (Error {}), t ))
     , dataExtract : Maybe (ReviewOptionsData -> t)
     , backToRule : () -> Rule
     }
@@ -6218,7 +6218,7 @@ addFinalProjectEvaluationVisitor :
     -> ChangeableRuleData
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     -> ProjectRuleCache projectContext
-    -> Maybe (() -> RuleProjectVisitor)
+    -> Maybe (() -> ( List (Error {}), RuleProjectVisitor ))
 addFinalProjectEvaluationVisitor schema { exceptions } raise cache =
     case schema.finalEvaluationFn of
         Nothing ->
@@ -6236,7 +6236,9 @@ addFinalProjectEvaluationVisitor schema { exceptions } raise cache =
                         errors =
                             filterExceptionsAndSetName exceptions schema.name (finalEvaluationFn inputContext)
                     in
-                    raise { cache | finalEvaluationErrors = Just (Cache.createNoOutput inputContext errors) }
+                    ( errors
+                    , raise { cache | finalEvaluationErrors = Just (Cache.createNoOutput inputContext errors) }
+                    )
                 )
 
 
