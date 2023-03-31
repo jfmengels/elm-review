@@ -4579,12 +4579,24 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
 
                 cacheWithExtract : ProjectRuleCache projectContext
                 cacheWithExtract =
-                    -- TODO Do this using the RuleProjectVisitor
                     computeExtract dataToComputeProject.reviewOptions dataToComputeProject.projectVisitor context errors cache
+
+                newRuleProjectVisitors : List RuleProjectVisitor
+                newRuleProjectVisitors =
+                    List.map
+                        (\(RuleProjectVisitor rule) ->
+                            case rule.dataExtract of
+                                Just dataExtract ->
+                                    dataExtract ()
+
+                                Nothing ->
+                                    RuleProjectVisitor rule
+                        )
+                        ruleProjectVisitors
             in
             { project = project
             , errors = errors
-            , ruleProjectVisitors = ruleProjectVisitors
+            , ruleProjectVisitors = newRuleProjectVisitors
             , cache = cacheWithExtract
             , fixedErrors = fixedErrors
             }
