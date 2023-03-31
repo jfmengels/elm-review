@@ -5051,7 +5051,7 @@ computeModule :
     Exceptions
     -> DataToComputeSingleModule projectContext moduleContext
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
-computeModule exceptions ({ dataToComputeModules, ruleProjectVisitors, module_, projectContext, project, incoming } as params) =
+computeModule exceptions ({ dataToComputeModules, ruleProjectVisitors, module_, project, incoming } as params) =
     let
         (RequestedData requestedData) =
             dataToComputeModules.projectVisitor.requestedData
