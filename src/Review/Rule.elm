@@ -743,6 +743,7 @@ runRules (ReviewOptionsInternal reviewOptions) rules ruleProjectVisitors project
     runRulesHelp
         reviewOptions
         (moveFixableRulesFirst rules)
+        ruleProjectVisitors
         { errors = []
         , fixedErrors = FixedErrors.empty
         , rules = []
@@ -773,9 +774,10 @@ moveFixableRulesFirst rules =
 runRulesHelp :
     ReviewOptionsData
     -> List Rule
+    -> List RuleProjectVisitor
     -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
     -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
-runRulesHelp reviewOptions remainingRules acc =
+runRulesHelp reviewOptions remainingRules ruleProjectVisitors acc =
     case remainingRules of
         [] ->
             acc
@@ -802,6 +804,7 @@ runRulesHelp reviewOptions remainingRules acc =
                 runRulesHelp
                     reviewOptions
                     (List.reverse acc.rules ++ restOfRules)
+                    ruleProjectVisitors
                     { errors = errors
                     , fixedErrors = result.fixedErrors
                     , rules = [ result.rule ]
@@ -813,6 +816,7 @@ runRulesHelp reviewOptions remainingRules acc =
                 runRulesHelp
                     reviewOptions
                     restOfRules
+                    ruleProjectVisitors
                     { errors = errors
                     , fixedErrors = result.fixedErrors
                     , rules = result.rule :: acc.rules
