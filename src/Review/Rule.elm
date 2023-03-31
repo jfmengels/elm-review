@@ -6287,8 +6287,16 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise cache traversa
                             }
                 in
                 raise { cache | moduleContexts = Dict.insert availableData.filePath cacheEntry cache.moduleContexts }
+
+            ruleData : { ruleName : String, exceptions : Exceptions, filePath : String }
+            ruleData =
+                { ruleName = schema.name, exceptions = exceptions, filePath = availableData.filePath }
         in
-        newRule moduleRuleSchema exceptions availableData.filePath toRuleProjectVisitor initialContext
+        If.create RuleModuleVisitor
+            (\ruleModuleVisitorRaise hidden ->
+                moduleRuleImplementation moduleRuleSchema ruleData toRuleProjectVisitor ruleModuleVisitorRaise hidden
+            )
+            ( [], initialContext )
 
 
 type RuleModuleVisitor
@@ -6315,26 +6323,6 @@ type alias RuleModuleVisitorOperations t =
     , getErrors : () -> List (Error {})
     , toProjectVisitor : () -> RuleProjectVisitor
     }
-
-
-newRule :
-    ModuleRuleSchemaData moduleContext
-    -> Exceptions
-    -> String
-    -> (( List (Error {}), moduleContext ) -> RuleProjectVisitor)
-    -> moduleContext
-    -> RuleModuleVisitor
-newRule schema exceptions filePath toRuleProjectVisitor initialContext =
-    let
-        ruleData : { ruleName : String, exceptions : Exceptions, filePath : String }
-        ruleData =
-            { ruleName = schema.name, exceptions = exceptions, filePath = filePath }
-    in
-    If.create RuleModuleVisitor
-        (\raise hidden ->
-            moduleRuleImplementation schema ruleData toRuleProjectVisitor raise hidden
-        )
-        ( [], initialContext )
 
 
 moduleRuleImplementation :
