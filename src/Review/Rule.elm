@@ -4496,17 +4496,19 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
                 errors =
                     errorsFromCache cache
 
-                newRuleProjectVisitors : List RuleProjectVisitor
-                newRuleProjectVisitors =
-                    List.map
-                        (\(RuleProjectVisitor rule) ->
+                ( errors2, newRuleProjectVisitors ) =
+                    List.foldl
+                        (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
                             case rule.dataExtractVisitor of
                                 Just dataExtract ->
-                                    dataExtract dataToComputeProject.reviewOptions
+                                    ( accErrors
+                                    , dataExtract dataToComputeProject.reviewOptions :: accRules
+                                    )
 
                                 Nothing ->
-                                    RuleProjectVisitor rule
+                                    ( accErrors, untouched :: accRules )
                         )
+                        ( [], [] )
                         ruleProjectVisitors
             in
             { project = project
