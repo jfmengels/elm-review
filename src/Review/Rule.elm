@@ -6213,8 +6213,17 @@ addDataExtract schema raise cache =
                             inputContext : projectContext
                             inputContext =
                                 computeFinalContext2 schema cache
+
+                            cachePredicate : ExtractCache projectContext -> Bool
+                            cachePredicate extract =
+                                extract.inputContext == ContextHash.create inputContext
                         in
-                        raise { cache | extract = Just { inputContext = ContextHash.create inputContext, extract = dataExtractor inputContext } }
+                        case reuseProjectRuleCache cachePredicate .extract cache of
+                            Just _ ->
+                                raise cache
+
+                            Nothing ->
+                                raise { cache | extract = Just { inputContext = ContextHash.create inputContext, extract = dataExtractor inputContext } }
 
                     else
                         raise cache
