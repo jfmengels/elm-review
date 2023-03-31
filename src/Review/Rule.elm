@@ -6241,34 +6241,6 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden travers
             inputProjectContext =
                 computeProjectContext traversalAndFolder project hidden.cache.moduleContexts incoming initialProjectContext
 
-            toRuleProjectVisitor : ( List (Error {}), moduleContext ) -> RuleProjectVisitor
-            toRuleProjectVisitor ( errors, resultModuleContext ) =
-                let
-                    outputProjectContext : projectContext
-                    outputProjectContext =
-                        case getFolderFromTraversal traversalAndFolder of
-                            Just { fromModuleToProject } ->
-                                applyContextCreator availableData fromModuleToProject resultModuleContext
-
-                            Nothing ->
-                                schema.initialProjectContext
-
-                    cacheEntry : Cache.ModuleEntry (Error {}) projectContext
-                    cacheEntry =
-                        Cache.createModuleEntry
-                            { contentHash = moduleContentHash
-                            , errors = errors
-                            , inputContext = inputProjectContext
-                            , isFileIgnored = availableData.isFileIgnored
-                            , outputContext = outputProjectContext
-                            }
-
-                    cache : ProjectRuleCache projectContext
-                    cache =
-                        hidden.cache
-                in
-                raise { cache | moduleContexts = Dict.insert availableData.filePath cacheEntry cache.moduleContexts }
-
             isFileIgnored : Bool
             isFileIgnored =
                 availableData.isFileIgnored
@@ -6303,6 +6275,34 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden travers
                     ruleData : { ruleName : String, exceptions : Exceptions, filePath : String }
                     ruleData =
                         { ruleName = schema.name, exceptions = exceptions, filePath = availableData.filePath }
+
+                    toRuleProjectVisitor : ( List (Error {}), moduleContext ) -> RuleProjectVisitor
+                    toRuleProjectVisitor ( errors, resultModuleContext ) =
+                        let
+                            outputProjectContext : projectContext
+                            outputProjectContext =
+                                case getFolderFromTraversal traversalAndFolder of
+                                    Just { fromModuleToProject } ->
+                                        applyContextCreator availableData fromModuleToProject resultModuleContext
+
+                                    Nothing ->
+                                        schema.initialProjectContext
+
+                            cacheEntry : Cache.ModuleEntry (Error {}) projectContext
+                            cacheEntry =
+                                Cache.createModuleEntry
+                                    { contentHash = moduleContentHash
+                                    , errors = errors
+                                    , inputContext = inputProjectContext
+                                    , isFileIgnored = availableData.isFileIgnored
+                                    , outputContext = outputProjectContext
+                                    }
+
+                            cache : ProjectRuleCache projectContext
+                            cache =
+                                hidden.cache
+                        in
+                        raise { cache | moduleContexts = Dict.insert availableData.filePath cacheEntry cache.moduleContexts }
                 in
                 If.create RuleModuleVisitor
                     (\ruleModuleVisitorRaise ruleModuleVisitorHidden ->
