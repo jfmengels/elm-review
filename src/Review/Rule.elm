@@ -4679,7 +4679,16 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
 
                         newRuleProjectVisitors : List RuleProjectVisitor
                         newRuleProjectVisitors =
-                            ruleProjectVisitors
+                            List.map
+                                (\(RuleProjectVisitor rule) ->
+                                    case rule.elmJsonVisitor of
+                                        Just visitor ->
+                                            visitor project exceptions elmJsonData
+
+                                        Nothing ->
+                                            RuleProjectVisitor rule
+                                )
+                                ruleProjectVisitors
                     in
                     case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
                         Just ( postFixStatus, fixResult ) ->
