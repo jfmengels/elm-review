@@ -4434,7 +4434,7 @@ type alias DataToComputeProject projectContext moduleContext =
 computeStepsForProject :
     DataToComputeProject projectContext moduleContext
     -> { project : ValidProject, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors, step : Step projectContext }
-    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors, errors : List (Error {}) }
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitors, fixedErrors, step } =
     case step of
         ElmJson contexts ->
@@ -4498,34 +4498,31 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
 
         DataExtract ->
             let
-                ( errors, newRuleProjectVisitors ) =
+                newRuleProjectVisitors : List RuleProjectVisitor
+                newRuleProjectVisitors =
                     List.foldl
-                        (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
+                        (\((RuleProjectVisitor rule) as untouched) accRules ->
                             case rule.dataExtractVisitor of
                                 Just dataExtract ->
                                     let
                                         ( newErrors, updatedRule ) =
                                             dataExtract dataToComputeProject.reviewOptions
                                     in
-                                    ( List.append newErrors accErrors
-                                    , updatedRule :: accRules
-                                    )
+                                    updatedRule :: accRules
 
                                 Nothing ->
-                                    ( List.append (rule.getErrors ()) accErrors, untouched :: accRules )
+                                    untouched :: accRules
                         )
-                        ( [], [] )
+                        []
                         ruleProjectVisitors
             in
             { project = project
-            , errors = errors
             , ruleProjectVisitors = newRuleProjectVisitors
             , fixedErrors = fixedErrors
             }
 
         Abort ->
             { project = project
-            , errors = []
             , ruleProjectVisitors = ruleProjectVisitors
             , fixedErrors = fixedErrors
             }
