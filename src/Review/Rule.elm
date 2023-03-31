@@ -5180,7 +5180,7 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
         resultWhenNoFix () =
             ContinueWithNextStep
                 { project = project
-                , ruleProjectVisitors = dataToComputeModules.ruleProjectVisitors
+                , ruleProjectVisitors = outputRuleProjectVisitors
                 , analysis = analysis
                 , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
                 , fixedErrors = fixedErrors
