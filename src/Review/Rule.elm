@@ -6311,25 +6311,6 @@ accumulateWithMaybe2 maybeVisitor a b errorsAndContext =
             errorsAndContext
 
 
-accumulateModuleDocumentationVisitor :
-    Maybe (Maybe (Node String) -> context -> ( List (Error {}), context ))
-    -> Elm.Syntax.File.File
-    -> ( List (Error {}), context )
-    -> ( List (Error {}), context )
-accumulateModuleDocumentationVisitor maybeVisitor ast errorsAndContext =
-    case maybeVisitor of
-        Just visitor ->
-            let
-                moduleDocumentation : Maybe (Node String)
-                moduleDocumentation =
-                    findModuleDocumentation ast
-            in
-            accumulate (\context -> visitor moduleDocumentation context) errorsAndContext
-
-        Nothing ->
-            errorsAndContext
-
-
 findModuleDocumentation : Elm.Syntax.File.File -> Maybe (Node String)
 findModuleDocumentation ast =
     let
