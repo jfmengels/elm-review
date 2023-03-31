@@ -4436,6 +4436,39 @@ computeFinalContext projectVisitor cache projectContext =
             projectContext
 
 
+computeFinalContext2 : ProjectRuleSchemaData projectContext moduleContext -> ProjectRuleCache projectContext -> projectContext
+computeFinalContext2 schema cache =
+    let
+        projectContext : projectContext
+        projectContext =
+            List.filterMap identity [ cache.dependencies, cache.readme, cache.elmJson ]
+                |> List.head
+                |> Maybe.map Cache.outputContextMaybe
+                |> Maybe.withDefault schema.initialProjectContext
+
+        traversalAndFolder : TraversalAndFolder projectContext moduleContext
+        traversalAndFolder =
+            case ( schema.traversalType, schema.folder ) of
+                ( AllModulesInParallel, _ ) ->
+                    TraverseAllModulesInParallel schema.folder
+
+                ( ImportedModulesFirst, Just folder ) ->
+                    TraverseImportedModulesFirst folder
+
+                ( ImportedModulesFirst, Nothing ) ->
+                    TraverseAllModulesInParallel Nothing
+    in
+    case getFolderFromTraversal traversalAndFolder of
+        Just { foldProjectContexts } ->
+            Dict.foldl
+                (\_ cacheEntry acc -> foldProjectContexts (Cache.outputContext cacheEntry) acc)
+                projectContext
+                cache.moduleContexts
+
+        Nothing ->
+            projectContext
+
+
 setRuleName : String -> Error scope -> Error scope
 setRuleName ruleName_ error_ =
     mapInternalError (\err -> { err | ruleName = ruleName_ }) error_
@@ -5967,6 +6000,7 @@ type alias RuleProjectVisitorOperations t =
     , readmeVisitor : Maybe (ValidProject -> Exceptions -> Maybe { readmeKey : ReadmeKey, content : String } -> t)
     , dependenciesVisitor : Maybe (ValidProject -> Exceptions -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> t)
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
+    , finalProjectEvaluation : Maybe (Exceptions -> t)
     }
 
 
@@ -5985,6 +6019,7 @@ projectRuleImplementation schema raise cache =
     , readmeVisitor = addProjectVisitor schema schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash (\entry -> raise { cache | readme = entry })
     , dependenciesVisitor = addDependenciesVisitor schema raise cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
     , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raise cache
+    , finalProjectEvaluation = addFinalProjectEvaluationVisitor schema raise cache
     }
 
 
@@ -6096,6 +6131,32 @@ addDependenciesVisitor schema raise cache { allVisitor, directVisitor } =
                                 }
                     in
                     raise { cache | dependencies = Just dependenciesEntry }
+                )
+
+
+addFinalProjectEvaluationVisitor :
+    ProjectRuleSchemaData projectContext moduleContext
+    -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
+    -> ProjectRuleCache projectContext
+    -> Maybe (Exceptions -> RuleProjectVisitor)
+addFinalProjectEvaluationVisitor schema raise cache =
+    case schema.finalEvaluationFn of
+        Nothing ->
+            Nothing
+
+        Just finalEvaluationFn ->
+            Just
+                (\exceptions ->
+                    let
+                        inputContext : projectContext
+                        inputContext =
+                            computeFinalContext2 schema cache
+
+                        errors : List (Error {})
+                        errors =
+                            filterExceptionsAndSetName exceptions schema.name (finalEvaluationFn inputContext)
+                    in
+                    raise { cache | finalEvaluationErrors = Just (Cache.createNoOutput inputContext errors) }
                 )
 
 
