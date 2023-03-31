@@ -5312,24 +5312,15 @@ computeModuleAndCacheResult dataToComputeModules moduleZipper project ruleProjec
             ignoreModule ()
 
         Just module_ ->
-            let
-                modulePath : String
-                modulePath =
-                    ProjectModule.path module_
-            in
-            if shouldIgnoreModule dataToComputeModules modulePath then
-                ignoreModule ()
-
-            else
-                computeModule
-                    { dataToComputeModules = dataToComputeModules
-                    , ruleProjectVisitors = ruleProjectVisitors
-                    , module_ = module_
-                    , project = project
-                    , moduleZipper = moduleZipper
-                    , fixedErrors = fixedErrors
-                    , incoming = incoming
-                    }
+            computeModule
+                { dataToComputeModules = dataToComputeModules
+                , ruleProjectVisitors = ruleProjectVisitors
+                , module_ = module_
+                , project = project
+                , moduleZipper = moduleZipper
+                , fixedErrors = fixedErrors
+                , incoming = incoming
+                }
 
 
 shouldIgnoreModule : DataToComputeModules projectContext moduleContext -> String -> Bool
