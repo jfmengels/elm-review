@@ -5150,7 +5150,7 @@ visitExpression node rules =
                 |> List.map (\acc -> runVisitor .expressionVisitorOnEnter node acc)
                 |> (\updatedRules ->
                         List.foldl
-                            (visitLetDeclaration2 (Node (Node.range node) letBlock))
+                            (visitLetDeclaration (Node (Node.range node) letBlock))
                             updatedRules
                             letBlock.declarations
                    )
@@ -5181,12 +5181,12 @@ visitExpression node rules =
                 |> List.map (\acc -> runVisitor .expressionVisitorOnExit node acc)
 
 
-visitLetDeclaration2 :
+visitLetDeclaration :
     Node Expression.LetBlock
     -> Node Expression.LetDeclaration
     -> List RuleModuleVisitor
     -> List RuleModuleVisitor
-visitLetDeclaration2 letBlockWithRange ((Node _ letDeclaration) as letDeclarationWithRange) rules =
+visitLetDeclaration letBlockWithRange ((Node _ letDeclaration) as letDeclarationWithRange) rules =
     let
         expressionNode : Node Expression
         expressionNode =
