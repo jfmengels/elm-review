@@ -4710,9 +4710,26 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                         ( errorsForVisitor, outputContext ) =
                             elmJsonVisitor elmJsonData inputContext
 
+                        ( unfilteredErrors, newRuleProjectVisitors ) =
+                            List.foldl
+                                (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
+                                    case rule.elmJsonVisitor of
+                                        Just visitor ->
+                                            let
+                                                ( newErrors, updatedRule ) =
+                                                    visitor project elmJsonData
+                                            in
+                                            ( List.append newErrors accErrors, updatedRule :: accRules )
+
+                                        Nothing ->
+                                            ( accErrors, untouched :: accRules )
+                                )
+                                ( [], [] )
+                                ruleProjectVisitors
+
                         errors : List (Error {})
                         errors =
-                            filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
+                            filterExceptionsAndSetName exceptions projectVisitor.name unfilteredErrors
 
                         updateCache : () -> ProjectRuleCache projectContext
                         updateCache () =
@@ -4727,19 +4744,6 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                                         }
                             in
                             { cache | elmJson = Just elmJsonEntry }
-
-                        newRuleProjectVisitors : List RuleProjectVisitor
-                        newRuleProjectVisitors =
-                            List.map
-                                (\(RuleProjectVisitor rule) ->
-                                    case rule.elmJsonVisitor of
-                                        Just visitor ->
-                                            visitor project elmJsonData
-
-                                        Nothing ->
-                                            RuleProjectVisitor rule
-                                )
-                                ruleProjectVisitors
                     in
                     case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
                         Just ( postFixStatus, fixResult ) ->
@@ -4813,22 +4817,26 @@ computeReadme ({ reviewOptions, projectVisitor, exceptions } as dataToComputePro
                     ( [], inputContext )
                         |> accumulateWithMaybe projectVisitor.readmeVisitor readmeData
 
-                errors : List (Error {})
-                errors =
-                    filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
-
-                newRuleProjectVisitors : List RuleProjectVisitor
-                newRuleProjectVisitors =
-                    List.map
-                        (\(RuleProjectVisitor rule) ->
+                ( unfilteredErrors, newRuleProjectVisitors ) =
+                    List.foldl
+                        (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
                             case rule.readmeVisitor of
                                 Just visitor ->
-                                    visitor project readmeData
+                                    let
+                                        ( newErrors, updatedRule ) =
+                                            visitor project readmeData
+                                    in
+                                    ( List.append newErrors accErrors, updatedRule :: accRules )
 
                                 Nothing ->
-                                    RuleProjectVisitor rule
+                                    ( accErrors, untouched :: accRules )
                         )
+                        ( [], [] )
                         ruleProjectVisitors
+
+                errors : List (Error {})
+                errors =
+                    filterExceptionsAndSetName exceptions projectVisitor.name unfilteredErrors
 
                 resultWhenNoFix : () -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
                 resultWhenNoFix () =
@@ -6046,8 +6054,8 @@ type alias ChangeableRuleData =
 type alias RuleProjectVisitorOperations t =
     -- `projectContext` is the hidden type variable
     -- The hidden state is `{ cache : ProjectRuleCache projectContext }`
-    { elmJsonVisitor : Maybe (ValidProject -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> t)
-    , readmeVisitor : Maybe (ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> t)
+    { elmJsonVisitor : Maybe (ValidProject -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> ( List (Error {}), t ))
+    , readmeVisitor : Maybe (ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> ( List (Error {}), t ))
     , dependenciesVisitor : Maybe (ValidProject -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> t)
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
     , finalProjectEvaluation : Maybe (() -> t)
@@ -6109,7 +6117,7 @@ addProjectVisitor :
         Maybe
             (ValidProject
              -> data
-             -> RuleProjectVisitor
+             -> ( List (Error {}), RuleProjectVisitor )
             )
 addProjectVisitor schema { exceptions } maybeVisitor possibleInputContexts contentHash toRuleProjectVisitor =
     case maybeVisitor of
@@ -6134,7 +6142,8 @@ addProjectVisitor schema { exceptions } maybeVisitor possibleInputContexts conte
                         errors =
                             filterExceptionsAndSetName exceptions schema.name errorsForVisitor
                     in
-                    Cache.createEntryMaybe
+                    ( errors
+                    , Cache.createEntryMaybe
                         { contentHash = contentHash project
                         , errors = errors
                         , inputContext = inputContext
@@ -6142,6 +6151,7 @@ addProjectVisitor schema { exceptions } maybeVisitor possibleInputContexts conte
                         }
                         |> Just
                         |> toRuleProjectVisitor
+                    )
                 )
 
 
