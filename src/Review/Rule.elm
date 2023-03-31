@@ -6381,7 +6381,7 @@ createVisitor params raise errorsAndContext maybeVisitor =
             Nothing
 
         Just visitor ->
-            Just (\node -> raise (accumulate (visitor node) errorsAndContext))
+            Just (\node -> raise (accumulateWithParams params (visitor node) errorsAndContext))
 
 
 createVisitor2 :
