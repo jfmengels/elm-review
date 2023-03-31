@@ -5947,7 +5947,7 @@ createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext ->
 createRuleProjectVisitor schema ruleData =
     If.create RuleProjectVisitor
         (\raise hidden -> projectRuleImplementation schema raise hidden)
-        { cache = emptyCache
+        { cache = initialCacheMarker schema.name ruleData.ruleId emptyCache
         , ruleData = ruleData
         }
 
