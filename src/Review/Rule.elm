@@ -5052,7 +5052,7 @@ type alias DataToComputeSingleModule projectContext moduleContext =
 computeModule :
     Exceptions
     -> DataToComputeSingleModule projectContext moduleContext
-    -> { project : ValidProject, analysis : ModuleCacheEntry projectContext, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
 computeModule exceptions ({ dataToComputeModules, ruleProjectVisitors, module_, isFileIgnored, projectContext, project, incoming } as params) =
     let
         (RequestedData requestedData) =
@@ -5145,7 +5145,7 @@ computeModule exceptions ({ dataToComputeModules, ruleProjectVisitors, module_, 
 
 
 type ComputeModuleFindFixResult projectContext moduleContext
-    = ContinueWithNextStep { project : ValidProject, analysis : ModuleCacheEntry projectContext, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
+    = ContinueWithNextStep { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
     | ReComputeModule (DataToComputeSingleModule projectContext moduleContext)
 
 
@@ -5164,22 +5164,11 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
         errors =
             List.concatMap (\(RuleProjectVisitor ruleProjectVisitor) -> ruleProjectVisitor.getErrorsForModule modulePath) outputRuleProjectVisitors
 
-        analysis : ModuleCacheEntry projectContext
-        analysis =
-            Cache.createModuleEntry
-                { contentHash = ProjectModule.contentHash module_
-                , errors = errors
-                , inputContext = projectContext
-                , isFileIgnored = isFileIgnored
-                , outputContext = outputContext
-                }
-
         resultWhenNoFix : () -> ComputeModuleFindFixResult projectContext moduleContext
         resultWhenNoFix () =
             ContinueWithNextStep
                 { project = project
                 , ruleProjectVisitors = outputRuleProjectVisitors
-                , analysis = analysis
                 , nextStep = ModuleVisitStep (Zipper.next moduleZipper)
                 , fixedErrors = fixedErrors
                 }
@@ -5191,7 +5180,6 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
                     ContinueWithNextStep
                         { project = fixResult.project
                         , ruleProjectVisitors = outputRuleProjectVisitors
-                        , analysis = analysis
                         , nextStep = NextStepAbort
                         , fixedErrors = newFixedErrors
                         }
@@ -5228,7 +5216,6 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
                                             (ContinueWithNextStep
                                                 { project = fixResult.project
                                                 , ruleProjectVisitors = outputRuleProjectVisitors
-                                                , analysis = analysis
                                                 , nextStep = ModuleVisitStep (Just newModuleZipper)
                                                 , fixedErrors = newFixedErrors
                                                 }
@@ -5241,7 +5228,6 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
                             ContinueWithNextStep
                                 { project = fixResult.project
                                 , ruleProjectVisitors = outputRuleProjectVisitors
-                                , analysis = analysis
                                 , nextStep = BackToElmJson
                                 , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
                                 }
@@ -5250,7 +5236,6 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
                             ContinueWithNextStep
                                 { project = fixResult.project
                                 , ruleProjectVisitors = outputRuleProjectVisitors
-                                , analysis = analysis
                                 , nextStep = BackToReadme
                                 , fixedErrors = FixedErrors.insert fixResult.error fixedErrors
                                 }
@@ -5456,7 +5441,7 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
 
                     Nothing ->
                         let
-                            result : { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, analysis : ModuleCacheEntry projectContext, nextStep : NextStep, fixedErrors : FixedErrors }
+                            result : { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
                             result =
                                 computeModule
                                     dataToComputeModules.exceptions
