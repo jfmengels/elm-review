@@ -333,7 +333,6 @@ import Review.Project.Valid as ValidProject exposing (ValidProject)
 import Review.RequestedData as RequestedData exposing (RequestedData(..))
 import Vendor.Graph as Graph exposing (Graph)
 import Vendor.IntDict as IntDict
-import Vendor.ListExtra as ListExtra
 import Vendor.Zipper as Zipper exposing (Zipper)
 
 
@@ -5215,16 +5214,6 @@ visitCaseBranch caseBlockWithRange (( _, caseExpression ) as caseBranch) rules =
         |> List.map (\acc -> runVisitor2 .caseBranchVisitorOnExit caseBlockWithRange caseBranch acc)
 
 
-type alias ExpressionRelatedVisitors moduleContext =
-    { expressionVisitorsOnEnter : Maybe (Visitor Expression moduleContext)
-    , expressionVisitorsOnExit : Maybe (Visitor Expression moduleContext)
-    , letDeclarationVisitorOnEnter : Maybe (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
-    , letDeclarationVisitorOnExit : Maybe (Node Expression.LetBlock -> Node Expression.LetDeclaration -> moduleContext -> ( List (Error {}), moduleContext ))
-    , caseBranchVisitorOnEnter : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
-    , caseBranchVisitorOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> moduleContext -> ( List (Error {}), moduleContext ))
-    }
-
-
 extractSourceCode : List String -> Range -> String
 extractSourceCode lines range =
     lines
@@ -5907,35 +5896,6 @@ moduleNameNode node =
             data.moduleName
 
 
-accumulateWithMaybe :
-    Maybe (a -> context -> ( List (Error {}), context ))
-    -> a
-    -> ( List (Error {}), context )
-    -> ( List (Error {}), context )
-accumulateWithMaybe maybeVisitor element errorsAndContext =
-    case maybeVisitor of
-        Just visitor ->
-            accumulate (\context -> visitor element context) errorsAndContext
-
-        Nothing ->
-            errorsAndContext
-
-
-accumulateWithMaybe2 :
-    Maybe (a -> b -> context -> ( List (Error {}), context ))
-    -> a
-    -> b
-    -> ( List (Error {}), context )
-    -> ( List (Error {}), context )
-accumulateWithMaybe2 maybeVisitor a b errorsAndContext =
-    case maybeVisitor of
-        Just visitor ->
-            accumulate (\context -> visitor a b context) errorsAndContext
-
-        Nothing ->
-            errorsAndContext
-
-
 findModuleDocumentation : Elm.Syntax.File.File -> Maybe (Node String)
 findModuleDocumentation ast =
     let
@@ -5972,17 +5932,6 @@ findModuleDocumentationBeforeCutOffLine cutOffLine comments =
 
             else
                 findModuleDocumentationBeforeCutOffLine cutOffLine restOfComments
-
-
-{-| Concatenate the errors of the previous step and of the last step, and take the last step's context.
--}
-accumulate : (context -> ( List (Error {}), context )) -> ( List (Error {}), context ) -> ( List (Error {}), context )
-accumulate visitor ( previousErrors, previousContext ) =
-    let
-        ( newErrors, newContext ) =
-            visitor previousContext
-    in
-    ( List.append newErrors previousErrors, newContext )
 
 
 {-| Concatenate the errors of the previous step and of the last step, and take the last step's context.
