@@ -6059,7 +6059,10 @@ addDependenciesVisitor schema raise cache { allVisitor, directVisitor } =
                     let
                         inputContext : projectContext
                         inputContext =
-                            schema.initialProjectContext
+                            List.filterMap identity [ cache.readme, cache.elmJson ]
+                                |> List.head
+                                |> Maybe.map Cache.outputContextMaybe
+                                |> Maybe.withDefault schema.initialProjectContext
 
                         ( errorsForDirect, outputContextForDirect ) =
                             case directVisitor of
