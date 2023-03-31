@@ -5163,6 +5163,10 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, p
         modulePath =
             ProjectModule.path module_
 
+        errors2 : List (Error {})
+        errors2 =
+            List.concatMap (\(RuleProjectVisitor ruleProjectVisitor) -> ruleProjectVisitor.getErrorsForModule modulePath) outputRuleProjectVisitors
+
         analysis : ModuleCacheEntry projectContext
         analysis =
             Cache.createModuleEntry
