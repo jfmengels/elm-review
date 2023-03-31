@@ -5974,7 +5974,7 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
     { elmJsonVisitor = addProjectVisitor schema hidden.ruleData schema.elmJsonVisitor [] ValidProject.elmJsonHash (\entry -> raiseCache { cache | elmJson = entry })
     , readmeVisitor = addProjectVisitor schema hidden.ruleData schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash (\entry -> raiseCache { cache | readme = entry })
     , dependenciesVisitor = addDependenciesVisitor schema hidden.ruleData raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
-    , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema hidden.ruleData.exceptions raiseCache cache
+    , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema hidden.ruleData.exceptions raiseCache hidden
     , finalProjectEvaluation = addFinalProjectEvaluationVisitor schema hidden.ruleData raiseCache cache
     , dataExtractVisitor = addDataExtract schema raiseCache cache
     , addDataExtract =
@@ -6191,9 +6191,9 @@ createModuleVisitorFromProjectVisitor :
     ProjectRuleSchemaData projectContext moduleContext
     -> Exceptions
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
-    -> ProjectRuleCache projectContext
+    -> RuleProjectVisitorHidden projectContext
     -> Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> Maybe RuleModuleVisitor)
-createModuleVisitorFromProjectVisitor schema exceptions raise cache =
+createModuleVisitorFromProjectVisitor schema exceptions raise hidden =
     case mergeModuleVisitors schema.name schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors of
         Nothing ->
             Nothing
@@ -6212,14 +6212,14 @@ createModuleVisitorFromProjectVisitor schema exceptions raise cache =
                         ( ImportedModulesFirst, Nothing ) ->
                             TraverseAllModulesInParallel Nothing
             in
-            Just (createModuleVisitorFromProjectVisitorHelp schema exceptions raise cache traversalAndFolder moduleRuleSchema)
+            Just (createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden traversalAndFolder moduleRuleSchema)
 
 
 createModuleVisitorFromProjectVisitorHelp :
     ProjectRuleSchemaData projectContext moduleContext
     -> Exceptions
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
-    -> ProjectRuleCache projectContext
+    -> RuleProjectVisitorHidden projectContext
     -> TraversalAndFolder projectContext moduleContext
     -> ( ModuleRuleSchema schemaState moduleContext, ContextCreator projectContext moduleContext )
     -> ValidProject
@@ -6227,19 +6227,19 @@ createModuleVisitorFromProjectVisitorHelp :
     -> ContentHash
     -> Graph.Adjacency ()
     -> Maybe RuleModuleVisitor
-createModuleVisitorFromProjectVisitorHelp schema exceptions raise cache traversalAndFolder ( ModuleRuleSchema moduleRuleSchema, moduleContextCreator ) =
+createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden traversalAndFolder ( ModuleRuleSchema moduleRuleSchema, moduleContextCreator ) =
     \project availableData moduleContentHash incoming ->
         let
             initialProjectContext : projectContext
             initialProjectContext =
-                List.filterMap identity [ cache.dependencies, cache.readme, cache.elmJson ]
+                List.filterMap identity [ hidden.cache.dependencies, hidden.cache.readme, hidden.cache.elmJson ]
                     |> List.head
                     |> Maybe.map Cache.outputContextMaybe
                     |> Maybe.withDefault schema.initialProjectContext
 
             inputProjectContext : projectContext
             inputProjectContext =
-                computeProjectContext traversalAndFolder project cache.moduleContexts incoming initialProjectContext
+                computeProjectContext traversalAndFolder project hidden.cache.moduleContexts incoming initialProjectContext
 
             initialContext : moduleContext
             initialContext =
@@ -6266,6 +6266,10 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise cache traversa
                             , isFileIgnored = availableData.isFileIgnored
                             , outputContext = outputProjectContext
                             }
+
+                    cache : ProjectRuleCache projectContext
+                    cache =
+                        hidden.cache
                 in
                 raise { cache | moduleContexts = Dict.insert availableData.filePath cacheEntry cache.moduleContexts }
 
