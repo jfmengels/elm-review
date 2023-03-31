@@ -4995,7 +4995,7 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, project, moduleZ
                                     Just newModuleZipper ->
                                         Logger.log
                                             dataToComputeModules.reviewOptions.logger
-                                            (fixedError newFixedErrors { ruleName = dataToComputeModules.projectVisitor.name, filePath = filePath })
+                                            (fixedError newFixedErrors { ruleName = errorRuleName fixResult.error, filePath = filePath })
                                             (ContinueWithNextStep
                                                 { project = fixResult.project
                                                 , ruleProjectVisitors = outputRuleProjectVisitors
