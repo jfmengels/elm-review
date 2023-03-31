@@ -5114,21 +5114,9 @@ computeModule ({ dataToComputeModules, ruleProjectVisitors, module_, isFileIgnor
         ( errors, outputRuleProjectVisitors ) =
             List.foldl
                 (\(RuleModuleVisitor ruleModuleVisitor) ( accErrors, rules ) ->
-                    let
-                        newErrors : List (Error {})
-                        newErrors =
-                            List.foldl
-                                (\error_ subAcc ->
-                                    if Exceptions.isFileWeWantReportsFor dataToComputeModules.exceptions (errorFilePathInternal error_) then
-                                        error_ :: subAcc
-
-                                    else
-                                        subAcc
-                                )
-                                accErrors
-                                ruleModuleVisitor.getErrors
-                    in
-                    ( newErrors, ruleModuleVisitor.toProjectVisitor () :: rules )
+                    ( List.append ruleModuleVisitor.getErrors accErrors
+                    , ruleModuleVisitor.toProjectVisitor () :: rules
+                    )
                 )
                 ( [], [] )
                 (visitModuleForProjectRule2 module_ inputRuleModuleVisitors)
