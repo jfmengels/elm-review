@@ -475,7 +475,7 @@ review rules project =
 
                 Ok ruleProjectVisitors ->
                     let
-                        runRulesResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
+                        runRulesResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extracts : Dict String Encode.Value }
                         runRulesResult =
                             runRules ReviewOptions.defaults rules ruleProjectVisitors validProject
                     in
@@ -598,7 +598,7 @@ reviewV3 reviewOptions rules project =
     of
         Ok ( ruleProjectVisitors, ( validProject, _ ) ) ->
             let
-                result : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
+                result : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extracts : Dict String Encode.Value }
                 result =
                     runRules reviewOptions rules ruleProjectVisitors validProject
             in
@@ -690,7 +690,7 @@ importCycleError cycle =
 runReviewForV2 : ReviewOptions -> ValidProject -> List Rule -> List RuleProjectVisitor -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
 runReviewForV2 reviewOptions project rules ruleProjectVisitors =
     let
-        runResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
+        runResult : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extracts : Dict String Encode.Value }
         runResult =
             runRules reviewOptions rules ruleProjectVisitors project
     in
@@ -738,15 +738,15 @@ runRules :
     -> List Rule
     -> List RuleProjectVisitor
     -> ValidProject
-    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
+    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extracts : Dict String Encode.Value }
 runRules (ReviewOptionsInternal reviewOptions) rules ruleProjectVisitors project =
     runRulesHelp
         reviewOptions
         (moveFixableRulesFirst rules)
-        ruleProjectVisitors
         { errors = []
         , fixedErrors = FixedErrors.empty
         , rules = []
+        , ruleProjectVisitors = ruleProjectVisitors
         , project = project
         , extracts = Dict.empty
         }
@@ -774,10 +774,9 @@ moveFixableRulesFirst rules =
 runRulesHelp :
     ReviewOptionsData
     -> List Rule
-    -> List RuleProjectVisitor
-    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
-    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
-runRulesHelp reviewOptions remainingRules ruleProjectVisitors acc =
+    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extracts : Dict String Encode.Value }
+    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extracts : Dict String Encode.Value }
+runRulesHelp reviewOptions remainingRules acc =
     case remainingRules of
         [] ->
             acc
@@ -786,7 +785,7 @@ runRulesHelp reviewOptions remainingRules ruleProjectVisitors acc =
             let
                 result : { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
                 result =
-                    ruleImplementation reviewOptions id exceptions acc.fixedErrors acc.project ruleProjectVisitors
+                    ruleImplementation reviewOptions id exceptions acc.fixedErrors acc.project acc.ruleProjectVisitors
 
                 errors : List ReviewError
                 errors =
@@ -796,6 +795,9 @@ runRulesHelp reviewOptions remainingRules ruleProjectVisitors acc =
                 { errors = errors
                 , fixedErrors = result.fixedErrors
                 , rules = restOfRules ++ (result.rule :: acc.rules)
+
+                --, ruleProjectVisitors = result.ruleProjectVisitors
+                , ruleProjectVisitors = acc.ruleProjectVisitors
                 , project = result.project
                 , extracts = acc.extracts
                 }
@@ -804,10 +806,12 @@ runRulesHelp reviewOptions remainingRules ruleProjectVisitors acc =
                 runRulesHelp
                     reviewOptions
                     (List.reverse acc.rules ++ restOfRules)
-                    ruleProjectVisitors
                     { errors = errors
                     , fixedErrors = result.fixedErrors
                     , rules = [ result.rule ]
+
+                    --, ruleProjectVisitors = result.ruleProjectVisitors
+                    , ruleProjectVisitors = acc.ruleProjectVisitors
                     , project = result.project
                     , extracts = acc.extracts
                     }
@@ -816,10 +820,12 @@ runRulesHelp reviewOptions remainingRules ruleProjectVisitors acc =
                 runRulesHelp
                     reviewOptions
                     restOfRules
-                    ruleProjectVisitors
                     { errors = errors
                     , fixedErrors = result.fixedErrors
                     , rules = result.rule :: acc.rules
+
+                    --, ruleProjectVisitors = result.ruleProjectVisitors
+                    , ruleProjectVisitors = acc.ruleProjectVisitors
                     , project = result.project
                     , extracts =
                         case result.extract of
