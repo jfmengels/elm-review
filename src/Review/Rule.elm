@@ -4332,9 +4332,7 @@ runProjectVisitor :
     -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extract : Maybe Extract }
 runProjectVisitor dataToComputeProject ruleProjectVisitors ruleId cache fixedErrors project =
     project
-        |> Logger.log dataToComputeProject.reviewOptions.logger (startedRule dataToComputeProject.projectVisitor.name)
         |> runProjectVisitorHelp dataToComputeProject ruleProjectVisitors ruleId cache fixedErrors
-        |> Logger.log dataToComputeProject.reviewOptions.logger (endedRule dataToComputeProject.projectVisitor.name)
 
 
 runProjectVisitorHelp :
