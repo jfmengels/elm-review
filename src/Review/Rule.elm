@@ -351,7 +351,7 @@ type Rule
         , requestedData : RequestedData
         , providesFixes : Bool
         , extractsData : Bool
-        , ruleImplementation : ReviewOptionsData -> Int -> Exceptions -> FixedErrors -> ValidProject -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
+        , ruleImplementation : ReviewOptionsData -> Int -> Exceptions -> FixedErrors -> ValidProject -> List RuleProjectVisitor -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
         , ruleProjectVisitor : Result { message : String, details : List String } (() -> RuleProjectVisitor)
         }
 
@@ -786,7 +786,7 @@ runRulesHelp reviewOptions remainingRules ruleProjectVisitors acc =
             let
                 result : { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
                 result =
-                    ruleImplementation reviewOptions id exceptions acc.fixedErrors acc.project
+                    ruleImplementation reviewOptions id exceptions acc.fixedErrors acc.project ruleProjectVisitors
 
                 errors : List ReviewError
                 errors =
@@ -1283,10 +1283,10 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
         , extractsData = schema.dataExtractor /= Nothing
         , providesFixes = schema.providesFixes
         , ruleImplementation =
-            \reviewOptions ruleId exceptions fixedErrors project ->
+            \reviewOptions ruleId exceptions fixedErrors project ruleProjectVisitors ->
                 runProjectVisitor
                     { reviewOptions = reviewOptions
-                    , ruleProjectVisitors = [ createRuleProjectVisitor schema ]
+                    , ruleProjectVisitors = ruleProjectVisitors
                     , projectVisitor = fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema
                     , exceptions = exceptions
                     }
@@ -1589,7 +1589,7 @@ configurationError name configurationError_ =
         , requestedData = RequestedData.none
         , extractsData = False
         , providesFixes = False
-        , ruleImplementation = \_ _ _ fixedErrors project -> { errors = [], fixedErrors = fixedErrors, rule = configurationError name configurationError_, project = project, extract = Nothing }
+        , ruleImplementation = \_ _ _ fixedErrors project _ -> { errors = [], fixedErrors = fixedErrors, rule = configurationError name configurationError_, project = project, extract = Nothing }
         , ruleProjectVisitor = Err configurationError_
         }
 
@@ -4353,10 +4353,10 @@ runProjectVisitorHelp ({ ruleProjectVisitors, projectVisitor, exceptions } as da
             , extractsData = projectVisitor.dataExtractor /= Nothing
             , providesFixes = projectVisitor.providesFixes
             , ruleImplementation =
-                \newReviewOptions newRuleId newExceptions newFixedErrors newProjectArg ->
+                \newReviewOptions newRuleId newExceptions newFixedErrors newProjectArg newRuleProjectVisitors ->
                     runProjectVisitor
                         { reviewOptions = newReviewOptions
-                        , ruleProjectVisitors = ruleProjectVisitors
+                        , ruleProjectVisitors = newRuleProjectVisitors
                         , projectVisitor = projectVisitor
                         , exceptions = newExceptions
                         }
