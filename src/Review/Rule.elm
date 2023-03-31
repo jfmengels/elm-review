@@ -6274,8 +6274,8 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise cache traversa
                 { ruleName = schema.name, exceptions = exceptions, filePath = availableData.filePath }
         in
         If.create RuleModuleVisitor
-            (\ruleModuleVisitorRaise hidden ->
-                moduleRuleImplementation moduleRuleSchema ruleData toRuleProjectVisitor ruleModuleVisitorRaise hidden
+            (\ruleModuleVisitorRaise ruleModuleVisitorHidden ->
+                moduleRuleImplementation moduleRuleSchema ruleData toRuleProjectVisitor ruleModuleVisitorRaise ruleModuleVisitorHidden
             )
             ( [], initialContext )
             |> Just
