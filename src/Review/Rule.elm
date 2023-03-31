@@ -5323,19 +5323,6 @@ computeModuleAndCacheResult dataToComputeModules moduleZipper project ruleProjec
                 }
 
 
-shouldIgnoreModule : DataToComputeModules projectContext moduleContext -> String -> Bool
-shouldIgnoreModule dataToComputeModules path =
-    case dataToComputeModules.projectVisitor.traversalAndFolder of
-        TraverseAllModulesInParallel Nothing ->
-            not (Exceptions.isFileWeWantReportsFor dataToComputeModules.exceptions path)
-
-        TraverseAllModulesInParallel (Just _) ->
-            False
-
-        TraverseImportedModulesFirst _ ->
-            False
-
-
 reuseCache : (ModuleCacheEntry v -> Bool) -> Maybe (ModuleCacheEntry v) -> Maybe (ModuleCacheEntry v)
 reuseCache predicate maybeCacheEntry =
     case maybeCacheEntry of
