@@ -6361,7 +6361,7 @@ moduleRuleImplementation schema params toRuleProjectVisitor raise (( errors, _ )
     , letDeclarationVisitorOnExit = createVisitor2 params raise errorsAndContext schema.letDeclarationVisitorOnExit
     , caseBranchVisitorOnEnter = createVisitor2 params raise errorsAndContext schema.caseBranchVisitorOnEnter
     , caseBranchVisitorOnExit = createVisitor2 params raise errorsAndContext schema.caseBranchVisitorOnExit
-    , finalModuleEvaluation = createFinalModuleEvaluationVisitor raise errorsAndContext schema.finalEvaluationFn
+    , finalModuleEvaluation = createFinalModuleEvaluationVisitor params raise errorsAndContext schema.finalEvaluationFn
 
     -- TODO Qualify errors as we add them
     , getErrors = \() -> qualifyErrors params errors []
@@ -6425,17 +6425,18 @@ createImportsVisitor params raise errorsAndContext maybeImportVisitors =
 
 
 createFinalModuleEvaluationVisitor :
-    (( List (Error {}), context ) -> RuleModuleVisitor)
+    { ruleName : String, exceptions : Exceptions, filePath : String }
+    -> (( List (Error {}), context ) -> RuleModuleVisitor)
     -> ( List (Error {}), context )
     -> Maybe (context -> List (Error {}))
     -> Maybe (() -> RuleModuleVisitor)
-createFinalModuleEvaluationVisitor raise ( errors, context ) maybeVisitor =
+createFinalModuleEvaluationVisitor params raise ( errors, context ) maybeVisitor =
     case maybeVisitor of
         Nothing ->
             Nothing
 
         Just visitor ->
-            Just (\() -> raise ( visitor context ++ errors, context ))
+            Just (\() -> raise ( qualifyErrors params (visitor context) errors, context ))
 
 
 runVisitor : (RuleModuleVisitorOperations RuleModuleVisitor -> Maybe (a -> RuleModuleVisitor)) -> a -> RuleModuleVisitor -> RuleModuleVisitor
