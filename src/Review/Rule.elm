@@ -5118,12 +5118,6 @@ computeModule exceptions ({ dataToComputeModules, ruleProjectVisitors, module_, 
                     ruleModuleVisitor.toProjectVisitor ()
                 )
                 (visitModuleForProjectRule2 module_ inputRuleModuleVisitors)
-
-        ( _, resultModuleContext ) =
-            visitModuleForProjectRule
-                dataToComputeModules.moduleVisitor
-                initialModuleContext
-                module_
     in
     case findFixInComputeModuleResults { params | project = newProject } (List.append rulesNotToRun outputRuleProjectVisitors) of
         ContinueWithNextStep nextStepResult ->
