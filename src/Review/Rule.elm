@@ -5095,8 +5095,8 @@ computeModule exceptions ({ dataToComputeModules, ruleProjectVisitors, module_, 
             List.foldl
                 (\((RuleProjectVisitor ruleProjectVisitor) as rule) ( with, without ) ->
                     case ruleProjectVisitor.createModuleVisitorFromProjectVisitor of
-                        Just moduleVisitor ->
-                            ( moduleVisitor project availableData (ProjectModule.contentHash module_) incoming :: with, without )
+                        Just moduleVisitorCreator ->
+                            ( moduleVisitorCreator project availableData (ProjectModule.contentHash module_) incoming :: with, without )
 
                         Nothing ->
                             ( with, rule :: without )
