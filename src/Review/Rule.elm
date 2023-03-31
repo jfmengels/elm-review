@@ -4940,7 +4940,7 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
                             )
             in
             { project = fixResult.project
-            , cache = { cache | finalEvaluationErrors = Just (Cache.createNoOutput finalContext errors) }
+            , cache = cache
             , ruleProjectVisitors = newRuleProjectVisitors
             , step = step
             , fixedErrors = newFixedErrors
@@ -4948,7 +4948,7 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
 
         Nothing ->
             { project = project
-            , cache = { cache | finalEvaluationErrors = Just (Cache.createNoOutput finalContext errors) }
+            , cache = cache
             , ruleProjectVisitors = newRuleProjectVisitors
             , step = DataExtract
             , fixedErrors = fixedErrors
