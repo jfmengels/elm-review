@@ -4435,14 +4435,6 @@ type Step
     | Abort
 
 
-type alias ProjectContextAfterProjectFiles projectContext =
-    { initial : projectContext
-    , elmJson : projectContext
-    , readme : projectContext
-    , deps : projectContext
-    }
-
-
 type NextStep
     = ModuleVisitStep (Maybe (Zipper GraphModule))
     | BackToElmJson
