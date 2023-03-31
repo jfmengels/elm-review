@@ -4703,21 +4703,40 @@ computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
                 )
                 ( [], [] )
                 ruleProjectVisitors
-
-        outputRuleProjectVisitors : List RuleProjectVisitor
-        outputRuleProjectVisitors =
-            List.map
-                (\(RuleModuleVisitor ruleModuleVisitor) ->
-                    ruleModuleVisitor.toProjectVisitor ()
-                )
-                (visitModuleForProjectRule module_ inputRuleModuleVisitors)
     in
-    case findFixInComputeModuleResults { params | project = newProject } (List.append rulesNotToRun outputRuleProjectVisitors) of
-        ContinueWithNextStep nextStepResult ->
-            nextStepResult
+    if List.isEmpty inputRuleModuleVisitors then
+        let
+            outputRuleProjectVisitors : List RuleProjectVisitor
+            outputRuleProjectVisitors =
+                List.map
+                    (\(RuleModuleVisitor ruleModuleVisitor) ->
+                        ruleModuleVisitor.toProjectVisitor ()
+                    )
+                    (visitModuleForProjectRule module_ inputRuleModuleVisitors)
+        in
+        case findFixInComputeModuleResults { params | project = newProject } (List.append rulesNotToRun outputRuleProjectVisitors) of
+            ContinueWithNextStep nextStepResult ->
+                nextStepResult
 
-        ReComputeModule newParams ->
-            computeModule newParams
+            ReComputeModule newParams ->
+                computeModule newParams
+
+    else
+        let
+            outputRuleProjectVisitors : List RuleProjectVisitor
+            outputRuleProjectVisitors =
+                List.map
+                    (\(RuleModuleVisitor ruleModuleVisitor) ->
+                        ruleModuleVisitor.toProjectVisitor ()
+                    )
+                    (visitModuleForProjectRule module_ inputRuleModuleVisitors)
+        in
+        case findFixInComputeModuleResults { params | project = newProject } (List.append rulesNotToRun outputRuleProjectVisitors) of
+            ContinueWithNextStep nextStepResult ->
+                nextStepResult
+
+            ReComputeModule newParams ->
+                computeModule newParams
 
 
 type ComputeModuleFindFixResult projectContext moduleContext
