@@ -748,7 +748,7 @@ runRules :
     -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
 runRules (ReviewOptionsInternal reviewOptions) rules ruleProjectVisitors project =
     let
-        result : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extracts : Dict String Encode.Value }
+        result : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
         result =
             runRulesHelp
                 reviewOptions
@@ -758,7 +758,6 @@ runRules (ReviewOptionsInternal reviewOptions) rules ruleProjectVisitors project
                 , rules = []
                 , ruleProjectVisitors = ruleProjectVisitors
                 , project = project
-                , extracts = Dict.empty
                 }
     in
     { errors = result.errors
@@ -791,8 +790,8 @@ moveFixableRulesFirst rules =
 runRulesHelp :
     ReviewOptionsData
     -> List Rule
-    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extracts : Dict String Encode.Value }
-    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extracts : Dict String Encode.Value }
+    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
+    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
 runRulesHelp reviewOptions remainingRules acc =
     case remainingRules of
         [] ->
@@ -814,7 +813,6 @@ runRulesHelp reviewOptions remainingRules acc =
                 , rules = []
                 , ruleProjectVisitors = result.ruleProjectVisitors
                 , project = result.project
-                , extracts = acc.extracts
                 }
 
             else if FixedErrors.hasChanged result.fixedErrors acc.fixedErrors then
@@ -826,7 +824,6 @@ runRulesHelp reviewOptions remainingRules acc =
                     , rules = []
                     , ruleProjectVisitors = result.ruleProjectVisitors
                     , project = result.project
-                    , extracts = acc.extracts
                     }
 
             else
@@ -838,13 +835,6 @@ runRulesHelp reviewOptions remainingRules acc =
                     , rules = []
                     , ruleProjectVisitors = result.ruleProjectVisitors
                     , project = result.project
-                    , extracts =
-                        case result.extract of
-                            Just (Extract extract) ->
-                                Dict.insert name extract acc.extracts
-
-                            Nothing ->
-                                acc.extracts
                     }
 
 
