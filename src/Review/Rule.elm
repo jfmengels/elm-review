@@ -4461,7 +4461,6 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
                     computeModules
                         { reviewOptions = dataToComputeProject.reviewOptions
                         , projectVisitor = dataToComputeProject.projectVisitor
-                        , exceptions = dataToComputeProject.exceptions
                         }
                         contexts
                         (Just moduleZipper)
@@ -5011,7 +5010,6 @@ errorFilePathInternal (Error err) =
 type alias DataToComputeModules projectContext moduleContext =
     { reviewOptions : ReviewOptionsData
     , projectVisitor : RunnableProjectVisitor projectContext moduleContext
-    , exceptions : Exceptions
     }
 
 
