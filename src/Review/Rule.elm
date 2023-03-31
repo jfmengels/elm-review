@@ -4831,7 +4831,7 @@ computeModule ({ reviewOptions, ruleProjectVisitors, module_, project, incoming 
                 (\(RuleModuleVisitor ruleModuleVisitor) ->
                     ruleModuleVisitor.toProjectVisitor ()
                 )
-                (visitModuleForProjectRule2 module_ inputRuleModuleVisitors)
+                (visitModuleForProjectRule module_ inputRuleModuleVisitors)
     in
     case findFixInComputeModuleResults { params | project = newProject } (List.append rulesNotToRun outputRuleProjectVisitors) of
         ContinueWithNextStep nextStepResult ->
@@ -5221,8 +5221,8 @@ isFixable predicate err =
             Nothing
 
 
-visitModuleForProjectRule2 : OpaqueProjectModule -> List RuleModuleVisitor -> List RuleModuleVisitor
-visitModuleForProjectRule2 module_ ruleModuleVisitors =
+visitModuleForProjectRule : OpaqueProjectModule -> List RuleModuleVisitor -> List RuleModuleVisitor
+visitModuleForProjectRule module_ ruleModuleVisitors =
     let
         ast : File
         ast =
