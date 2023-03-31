@@ -4322,7 +4322,7 @@ runProjectVisitor :
     -> { errors : List (Error {}), fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
 runProjectVisitor ({ projectVisitor, exceptions } as dataToComputeProject) initialRuleProjectVisitors ruleId initialCache initialFixedErrors initialProject =
     let
-        { project, errors, cache, ruleProjectVisitors, fixedErrors } =
+        { project, errors, ruleProjectVisitors, fixedErrors } =
             computeStepsForProject
                 dataToComputeProject
                 { step = ElmJson { initial = projectVisitor.initialProjectContext }
@@ -4471,7 +4471,7 @@ type alias DataToComputeProject projectContext moduleContext =
 computeStepsForProject :
     DataToComputeProject projectContext moduleContext
     -> { project : ValidProject, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors, step : Step projectContext }
-    -> { project : ValidProject, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors, errors : List (Error {}) }
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors, errors : List (Error {}) }
 computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitors, fixedErrors, step } =
     case step of
         ElmJson contexts ->
@@ -4539,10 +4539,6 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
                 errors =
                     errorsFromCache cache
 
-                cacheWithExtract : ProjectRuleCache projectContext
-                cacheWithExtract =
-                    computeExtract dataToComputeProject.reviewOptions dataToComputeProject.projectVisitor context errors cache
-
                 newRuleProjectVisitors : List RuleProjectVisitor
                 newRuleProjectVisitors =
                     List.map
@@ -4559,7 +4555,6 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
             { project = project
             , errors = errors
             , ruleProjectVisitors = newRuleProjectVisitors
-            , cache = cacheWithExtract
             , fixedErrors = fixedErrors
             }
 
@@ -4567,7 +4562,6 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
             { project = project
             , errors = []
             , ruleProjectVisitors = ruleProjectVisitors
-            , cache = cache
             , fixedErrors = fixedErrors
             }
 
