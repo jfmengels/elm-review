@@ -6055,11 +6055,11 @@ addDependenciesVisitor :
              -> RuleProjectVisitor
             )
 addDependenciesVisitor schema raise cache { allVisitor, directVisitor } =
-    case allVisitor of
-        Nothing ->
+    case ( allVisitor, directVisitor ) of
+        ( Nothing, Nothing ) ->
             Nothing
 
-        Just allVisitor_ ->
+        _ ->
             Just
                 (\project exceptions { all, direct } ->
                     let
@@ -6067,23 +6067,36 @@ addDependenciesVisitor schema raise cache { allVisitor, directVisitor } =
                         inputContext =
                             schema.initialProjectContext
 
-                        ( errorsForVisitor, outputContext ) =
-                            allVisitor_ all inputContext
+                        ( errorsForDirect, outputContextForDirect ) =
+                            case directVisitor of
+                                Just directVisitor_ ->
+                                    directVisitor_ direct inputContext
+
+                                Nothing ->
+                                    ( [], inputContext )
+
+                        ( errorsForIndirect, finalOutputContext ) =
+                            case allVisitor of
+                                Just allVisitor_ ->
+                                    allVisitor_ all outputContextForDirect
+
+                                Nothing ->
+                                    ( [], outputContextForDirect )
 
                         errors : List (Error {})
                         errors =
-                            filterExceptionsAndSetName exceptions schema.name errorsForVisitor
+                            filterExceptionsAndSetName exceptions schema.name (List.append errorsForIndirect errorsForDirect)
 
-                        elmJsonEntry : CacheEntryMaybe projectContext
-                        elmJsonEntry =
+                        dependenciesEntry : CacheEntryMaybe projectContext
+                        dependenciesEntry =
                             Cache.createEntryMaybe
                                 { contentHash = ValidProject.dependenciesHash project
                                 , errors = errors
                                 , inputContext = inputContext
-                                , outputContext = outputContext
+                                , outputContext = finalOutputContext
                                 }
                     in
-                    raise { cache | elmJson = Just elmJsonEntry }
+                    raise { cache | dependencies = Just dependenciesEntry }
                 )
 
 
