@@ -6300,16 +6300,6 @@ addFinalModuleEvaluationVisitor raise ( errors, context ) maybeVisitor =
             Just (\() -> raise ( visitor context ++ errors, context ))
 
 
-getErrorsForRuleModuleVisitor : RuleModuleVisitor -> List (Error {})
-getErrorsForRuleModuleVisitor (RuleModuleVisitor ruleModuleVisitor) =
-    ruleModuleVisitor.getErrors
-
-
-getToProjectVisitor : RuleModuleVisitor -> RuleProjectVisitor
-getToProjectVisitor (RuleModuleVisitor ruleModuleVisitor) =
-    ruleModuleVisitor.toProjectVisitor ()
-
-
 runVisitor : (RuleModuleVisitorOperations RuleModuleVisitor -> Maybe (a -> RuleModuleVisitor)) -> a -> RuleModuleVisitor -> RuleModuleVisitor
 runVisitor field node ((RuleModuleVisitor ruleModuleVisitor) as original) =
     case field ruleModuleVisitor of
