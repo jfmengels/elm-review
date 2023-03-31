@@ -4518,7 +4518,6 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
                         result =
                             computeModules
                                 { reviewOptions = dataToComputeProject.reviewOptions
-                                , ruleProjectVisitors = ruleProjectVisitors
                                 , projectVisitor = dataToComputeProject.projectVisitor
                                 , moduleVisitor = moduleVisitor
                                 , moduleContextCreator = moduleContextCreator
@@ -5024,7 +5023,6 @@ errorFilePathInternal (Error err) =
 
 type alias DataToComputeModules projectContext moduleContext =
     { reviewOptions : ReviewOptionsData
-    , ruleProjectVisitors : List RuleProjectVisitor
     , projectVisitor : RunnableProjectVisitor projectContext moduleContext
     , moduleVisitor : RunnableModuleVisitor moduleContext
     , moduleContextCreator : ContextCreator projectContext moduleContext
