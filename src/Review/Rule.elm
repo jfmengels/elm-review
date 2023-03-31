@@ -5246,25 +5246,6 @@ mapLast mapper lines =
             List.reverse (mapper first :: rest)
 
 
-visitDeclaration :
-    Maybe (Visitor Declaration moduleContext)
-    -> Maybe (Visitor Declaration moduleContext)
-    -> (Node Expression -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext ))
-    -> Node Declaration
-    -> ( List (Error {}), moduleContext )
-    -> ( List (Error {}), moduleContext )
-visitDeclaration declarationVisitorOnEnter declarationVisitorOnExit expressionVisitor node errorsAndContext =
-    case Node.value node of
-        Declaration.FunctionDeclaration function ->
-            errorsAndContext
-                |> accumulateWithMaybe declarationVisitorOnEnter node
-                |> expressionVisitor (Node.value function.declaration).expression
-                |> accumulateWithMaybe declarationVisitorOnExit node
-
-        _ ->
-            visitOnlyDeclaration declarationVisitorOnEnter declarationVisitorOnExit node errorsAndContext
-
-
 visitDeclarationButOnlyExpressions :
     (Node Expression -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext ))
     -> Node Declaration
