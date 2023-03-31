@@ -5963,8 +5963,7 @@ type RuleProjectVisitor
 type alias RuleProjectVisitorOperations t =
     -- `projectContext` is the hidden type variable
     -- The hidden state is `ProjectRuleCache projectContext`
-    { collectModuleContext : String -> RuleModuleVisitor -> t
-    , elmJsonVisitor : Maybe (ValidProject -> Exceptions -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> t)
+    { elmJsonVisitor : Maybe (ValidProject -> Exceptions -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> t)
     , readmeVisitor : Maybe (ValidProject -> Exceptions -> Maybe { readmeKey : ReadmeKey, content : String } -> t)
     , dependenciesVisitor : Maybe (ValidProject -> Exceptions -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> t)
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
@@ -5982,8 +5981,7 @@ projectRuleImplementation :
     -> ProjectRuleCache projectContext
     -> RuleProjectVisitorOperations RuleProjectVisitor
 projectRuleImplementation schema raise cache =
-    { collectModuleContext = \path ruleModuleVisitor -> getToProjectVisitor ruleModuleVisitor
-    , elmJsonVisitor = addProjectVisitor schema schema.elmJsonVisitor [] ValidProject.elmJsonHash (\entry -> raise { cache | elmJson = entry })
+    { elmJsonVisitor = addProjectVisitor schema schema.elmJsonVisitor [] ValidProject.elmJsonHash (\entry -> raise { cache | elmJson = entry })
     , readmeVisitor = addProjectVisitor schema schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash (\entry -> raise { cache | readme = entry })
     , dependenciesVisitor = addDependenciesVisitor schema raise cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
     , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raise cache
