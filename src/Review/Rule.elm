@@ -5316,7 +5316,7 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
                 , exceptions = hidden.ruleData.exceptions
                 , requestedData = hidden.ruleData.requestedData
                 , providesFixes = schema.providesFixes
-                , ruleProjectVisitor = Ok (\_ -> Debug.todo "ruleProjectVisitor in projectRuleImplementation")
+                , ruleProjectVisitor = Ok (\project ruleData -> createRuleProjectVisitor schema project ruleData)
                 }
     , requestedData = hidden.ruleData.requestedData
     }
