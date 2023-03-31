@@ -4648,7 +4648,7 @@ type alias DataToComputeSingleModule =
 computeModule :
     DataToComputeSingleModule
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
-computeModule ({ reviewOptions, ruleProjectVisitors, module_, project, incoming } as params) =
+computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
     let
         (RequestedData requestedData) =
             List.foldl
