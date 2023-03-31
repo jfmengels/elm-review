@@ -787,24 +787,13 @@ runRulesHelp reviewOptions acc =
                 acc.project
     in
     if InternalOptions.shouldAbort reviewOptions result.fixedErrors then
-        { fixedErrors = result.fixedErrors
-        , ruleProjectVisitors = result.ruleProjectVisitors
-        , project = result.project
-        }
+        result
 
     else if FixedErrors.hasChanged result.fixedErrors acc.fixedErrors then
-        runRulesHelp
-            reviewOptions
-            { fixedErrors = result.fixedErrors
-            , ruleProjectVisitors = result.ruleProjectVisitors
-            , project = result.project
-            }
+        runRulesHelp reviewOptions result
 
     else
-        { fixedErrors = result.fixedErrors
-        , ruleProjectVisitors = result.ruleProjectVisitors
-        , project = result.project
-        }
+        result
 
 
 {-| Let `elm-review` know that this rule may provide fixes in the reported errors.
