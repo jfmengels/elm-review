@@ -4511,7 +4511,7 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
                 dataToComputeProject
                 (computeFinalProjectEvaluation dataToComputeProject project contexts cache ruleProjectVisitors fixedErrors)
 
-        DataExtract context ->
+        DataExtract ->
             let
                 ( errors, newRuleProjectVisitors ) =
                     List.foldl
@@ -4552,13 +4552,8 @@ type Step projectContext
     | Dependencies { initial : projectContext, elmJson : projectContext, readme : projectContext }
     | Modules (ProjectContextAfterProjectFiles projectContext) (Zipper GraphModule)
     | FinalProjectEvaluation (ProjectContextAfterProjectFiles projectContext)
-    | DataExtract (DataExtractInputContext projectContext)
+    | DataExtract
     | Abort
-
-
-type DataExtractInputContext projectContext
-    = Combined projectContext
-    | ToCombineStartingFrom projectContext
 
 
 type alias ProjectContextAfterProjectFiles projectContext =
@@ -4939,7 +4934,7 @@ computeFinalProjectEvaluation :
 computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } project projectContexts cache ruleProjectVisitors fixedErrors =
     case projectVisitor.finalEvaluationFn of
         Nothing ->
-            { project = project, cache = cache, ruleProjectVisitors = ruleProjectVisitors, step = DataExtract (ToCombineStartingFrom projectContexts.deps), fixedErrors = fixedErrors }
+            { project = project, cache = cache, ruleProjectVisitors = ruleProjectVisitors, step = DataExtract, fixedErrors = fixedErrors }
 
         Just finalEvaluationFn ->
             let
@@ -4953,7 +4948,7 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
             in
             case reuseProjectRuleCache cachePredicate .finalEvaluationErrors cache of
                 Just _ ->
-                    { project = project, cache = cache, ruleProjectVisitors = ruleProjectVisitors, step = DataExtract (Combined finalContext), fixedErrors = fixedErrors }
+                    { project = project, cache = cache, ruleProjectVisitors = ruleProjectVisitors, step = DataExtract, fixedErrors = fixedErrors }
 
                 Nothing ->
                     let
@@ -5006,7 +5001,7 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
                             { project = project
                             , cache = { cache | finalEvaluationErrors = Just (Cache.createNoOutput finalContext errors) }
                             , ruleProjectVisitors = newRuleProjectVisitors
-                            , step = DataExtract (Combined finalContext)
+                            , step = DataExtract
                             , fixedErrors = fixedErrors
                             }
 
