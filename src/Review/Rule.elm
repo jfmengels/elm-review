@@ -351,7 +351,7 @@ type Rule
         , requestedData : RequestedData
         , providesFixes : Bool
         , extractsData : Bool
-        , ruleImplementation : ReviewOptionsData -> Int -> Exceptions -> FixedErrors -> ValidProject -> List RuleProjectVisitor -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
+        , ruleImplementation : ReviewOptionsData -> Int -> Exceptions -> FixedErrors -> ValidProject -> List RuleProjectVisitor -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extract : Maybe Extract }
         , ruleProjectVisitor : Result { message : String, details : List String } (() -> RuleProjectVisitor)
         }
 
@@ -783,7 +783,7 @@ runRulesHelp reviewOptions remainingRules acc =
 
         (Rule { name, id, exceptions, ruleImplementation }) :: restOfRules ->
             let
-                result : { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
+                result : { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extract : Maybe Extract }
                 result =
                     ruleImplementation reviewOptions id exceptions acc.fixedErrors acc.project acc.ruleProjectVisitors
 
@@ -1595,7 +1595,7 @@ configurationError name configurationError_ =
         , requestedData = RequestedData.none
         , extractsData = False
         , providesFixes = False
-        , ruleImplementation = \_ _ _ fixedErrors project _ -> { errors = [], fixedErrors = fixedErrors, rule = configurationError name configurationError_, project = project, extract = Nothing }
+        , ruleImplementation = \_ _ _ fixedErrors project _ -> { errors = [], fixedErrors = fixedErrors, rule = configurationError name configurationError_, ruleProjectVisitors = [], project = project, extract = Nothing }
         , ruleProjectVisitor = Err configurationError_
         }
 
@@ -4322,7 +4322,7 @@ runProjectVisitor :
     -> ProjectRuleCache projectContext
     -> FixedErrors
     -> ValidProject
-    -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
+    -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extract : Maybe Extract }
 runProjectVisitor dataToComputeProject ruleId cache fixedErrors project =
     project
         |> Logger.log dataToComputeProject.reviewOptions.logger (startedRule dataToComputeProject.projectVisitor.name)
@@ -4336,7 +4336,7 @@ runProjectVisitorHelp :
     -> ProjectRuleCache projectContext
     -> FixedErrors
     -> ValidProject
-    -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, project : ValidProject, extract : Maybe Extract }
+    -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extract : Maybe Extract }
 runProjectVisitorHelp ({ ruleProjectVisitors, projectVisitor, exceptions } as dataToComputeProject) ruleId initialCache initialFixedErrors initialProject =
     let
         { project, errors, cache, fixedErrors } =
@@ -4374,6 +4374,9 @@ runProjectVisitorHelp ({ ruleProjectVisitors, projectVisitor, exceptions } as da
             -- TODO Use the project visitor from the results
             , ruleProjectVisitor = Ok (\() -> Debug.todo "Missing project visitor in runProjectVisitorHelp")
             }
+
+    -- TODO Need to return the new one
+    , ruleProjectVisitors = ruleProjectVisitors
     , project = project
     , extract = Maybe.map .extract (finalCacheMarker projectVisitor.name ruleId cache).extract
     }
