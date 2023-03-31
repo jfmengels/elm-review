@@ -6328,18 +6328,26 @@ newRule :
     -> moduleContext
     -> RuleModuleVisitor
 newRule schema exceptions filePath toRuleProjectVisitor initialContext =
-    If.create RuleModuleVisitor (\raise hidden -> moduleRuleImplementation schema exceptions filePath toRuleProjectVisitor raise hidden) ( [], initialContext )
+    let
+        ruleData : { ruleName : String, exceptions : Exceptions, filePath : String }
+        ruleData =
+            { ruleName = schema.name, exceptions = exceptions, filePath = filePath }
+    in
+    If.create RuleModuleVisitor
+        (\raise hidden ->
+            moduleRuleImplementation schema ruleData toRuleProjectVisitor raise hidden
+        )
+        ( [], initialContext )
 
 
 moduleRuleImplementation :
     ModuleRuleSchemaData moduleContext
-    -> Exceptions
-    -> String
+    -> { ruleName : String, exceptions : Exceptions, filePath : String }
     -> (( List (Error {}), moduleContext ) -> RuleProjectVisitor)
     -> (( List (Error {}), moduleContext ) -> RuleModuleVisitor)
     -> ( List (Error {}), moduleContext )
     -> RuleModuleVisitorOperations RuleModuleVisitor
-moduleRuleImplementation schema exceptions filePath toRuleProjectVisitor raise (( errors, _ ) as errorsAndContext) =
+moduleRuleImplementation schema params toRuleProjectVisitor raise (( errors, _ ) as errorsAndContext) =
     { moduleDefinitionVisitor = addMaybeVisitor raise errorsAndContext schema.moduleDefinitionVisitor
     , moduleDocumentationVisitor = addMaybeVisitor raise errorsAndContext schema.moduleDocumentationVisitor
     , commentVisitor = addMaybeVisitor raise errorsAndContext schema.commentsVisitor
@@ -6356,7 +6364,7 @@ moduleRuleImplementation schema exceptions filePath toRuleProjectVisitor raise (
     , finalModuleEvaluation = addFinalModuleEvaluationVisitor raise errorsAndContext schema.finalEvaluationFn
 
     -- TODO Qualify errors as we add them
-    , getErrors = \() -> qualifyErrors { ruleName = schema.name, exceptions = exceptions } filePath errors
+    , getErrors = \() -> qualifyErrors { ruleName = schema.name, exceptions = params.exceptions } params.filePath errors
     , toProjectVisitor = \() -> toRuleProjectVisitor errorsAndContext
     }
 
