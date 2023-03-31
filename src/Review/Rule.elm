@@ -4459,41 +4459,29 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
                 (computeDependencies dataToComputeProject project contexts cache ruleProjectVisitors fixedErrors)
 
         Modules contexts moduleZipper ->
-            case dataToComputeProject.projectVisitor.moduleVisitor of
-                Nothing ->
-                    computeStepsForProject
-                        dataToComputeProject
-                        { project = project
-                        , cache = cache
-                        , ruleProjectVisitors = ruleProjectVisitors
-                        , fixedErrors = fixedErrors
-                        , step = FinalProjectEvaluation contexts
+            let
+                result : { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step projectContext, fixedErrors : FixedErrors }
+                result =
+                    computeModules
+                        { reviewOptions = dataToComputeProject.reviewOptions
+                        , projectVisitor = dataToComputeProject.projectVisitor
+                        , exceptions = dataToComputeProject.exceptions
                         }
-
-                Just ( _, _ ) ->
-                    let
-                        result : { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step projectContext, fixedErrors : FixedErrors }
-                        result =
-                            computeModules
-                                { reviewOptions = dataToComputeProject.reviewOptions
-                                , projectVisitor = dataToComputeProject.projectVisitor
-                                , exceptions = dataToComputeProject.exceptions
-                                }
-                                contexts
-                                (Just moduleZipper)
-                                project
-                                cache.moduleContexts
-                                ruleProjectVisitors
-                                fixedErrors
-                    in
-                    computeStepsForProject
-                        dataToComputeProject
-                        { project = result.project
-                        , cache = cache
-                        , ruleProjectVisitors = result.ruleProjectVisitors
-                        , fixedErrors = result.fixedErrors
-                        , step = result.step
-                        }
+                        contexts
+                        (Just moduleZipper)
+                        project
+                        cache.moduleContexts
+                        ruleProjectVisitors
+                        fixedErrors
+            in
+            computeStepsForProject
+                dataToComputeProject
+                { project = result.project
+                , cache = cache
+                , ruleProjectVisitors = result.ruleProjectVisitors
+                , fixedErrors = result.fixedErrors
+                , step = result.step
+                }
 
         FinalProjectEvaluation contexts ->
             computeStepsForProject
