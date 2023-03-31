@@ -5983,8 +5983,8 @@ projectRuleImplementation :
     -> RuleProjectVisitorOperations RuleProjectVisitor
 projectRuleImplementation schema raise cache =
     { collectModuleContext = \path ruleModuleVisitor -> getToProjectVisitor ruleModuleVisitor
-    , elmJsonVisitor = addProjectVisitor schema schema.elmJsonVisitor ValidProject.elmJsonHash (\entry -> raise { cache | elmJson = entry })
-    , readmeVisitor = addProjectVisitor schema schema.readmeVisitor ValidProject.readmeHash (\entry -> raise { cache | readme = entry })
+    , elmJsonVisitor = addProjectVisitor schema schema.elmJsonVisitor [] ValidProject.elmJsonHash (\entry -> raise { cache | elmJson = entry })
+    , readmeVisitor = addProjectVisitor schema schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash (\entry -> raise { cache | readme = entry })
     , dependenciesVisitor = addDependenciesVisitor schema raise cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
     , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raise cache
     }
@@ -5993,6 +5993,7 @@ projectRuleImplementation schema raise cache =
 addProjectVisitor :
     ProjectRuleSchemaData projectContext moduleContext
     -> Maybe (data -> projectContext -> ( List (Error {}), projectContext ))
+    -> List (Maybe (Cache.EntryMaybe error projectContext))
     -> (ValidProject -> Maybe ContentHash)
     -> (Maybe (CacheEntryMaybe projectContext) -> RuleProjectVisitor)
     ->
@@ -6002,7 +6003,7 @@ addProjectVisitor :
              -> data
              -> RuleProjectVisitor
             )
-addProjectVisitor schema maybeVisitor contentHash toRuleProjectVisitor =
+addProjectVisitor schema maybeVisitor possibleInputContexts contentHash toRuleProjectVisitor =
     case maybeVisitor of
         Nothing ->
             Nothing
@@ -6013,7 +6014,10 @@ addProjectVisitor schema maybeVisitor contentHash toRuleProjectVisitor =
                     let
                         inputContext : projectContext
                         inputContext =
-                            schema.initialProjectContext
+                            List.filterMap identity possibleInputContexts
+                                |> List.head
+                                |> Maybe.map Cache.outputContextMaybe
+                                |> Maybe.withDefault schema.initialProjectContext
 
                         ( errorsForVisitor, outputContext ) =
                             visitor data inputContext
