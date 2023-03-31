@@ -4932,21 +4932,21 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                         |> accumulateWithDirectDependencies
                         |> accumulateWithMaybe projectVisitor.dependenciesVisitor dependencies
 
-                errors : List (Error {})
-                errors =
-                    filterExceptionsAndSetName exceptions projectVisitor.name errorsForVisitor
-
-                newRuleProjectVisitors : List RuleProjectVisitor
-                newRuleProjectVisitors =
-                    List.map
-                        (\(RuleProjectVisitor rule) ->
+                ( errors, newRuleProjectVisitors ) =
+                    List.foldl
+                        (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
                             case rule.dependenciesVisitor of
                                 Just visitor ->
-                                    visitor project { all = dependencies, direct = directDependencies }
+                                    let
+                                        ( newErrors, updatedRule ) =
+                                            visitor project { all = dependencies, direct = directDependencies }
+                                    in
+                                    ( List.append newErrors accErrors, updatedRule :: accRules )
 
                                 Nothing ->
-                                    RuleProjectVisitor rule
+                                    ( accErrors, untouched :: accRules )
                         )
+                        ( [], [] )
                         ruleProjectVisitors
 
                 resultWhenNoFix : () -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
@@ -6048,7 +6048,7 @@ type alias RuleProjectVisitorOperations t =
     -- The hidden state is `{ cache : ProjectRuleCache projectContext }`
     { elmJsonVisitor : Maybe (ValidProject -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> ( List (Error {}), t ))
     , readmeVisitor : Maybe (ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> ( List (Error {}), t ))
-    , dependenciesVisitor : Maybe (ValidProject -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> t)
+    , dependenciesVisitor : Maybe (ValidProject -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> ( List (Error {}), t ))
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
     , finalProjectEvaluation : Maybe (() -> t)
     , dataExtract : Maybe (ReviewOptionsData -> t)
@@ -6160,7 +6160,7 @@ addDependenciesVisitor :
         Maybe
             (ValidProject
              -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency }
-             -> RuleProjectVisitor
+             -> ( List (Error {}), RuleProjectVisitor )
             )
 addDependenciesVisitor schema { exceptions } raise cache { allVisitor, directVisitor } =
     case ( allVisitor, directVisitor ) of
@@ -6207,7 +6207,9 @@ addDependenciesVisitor schema { exceptions } raise cache { allVisitor, directVis
                                 , outputContext = finalOutputContext
                                 }
                     in
-                    raise { cache | dependencies = Just dependenciesEntry }
+                    ( errors
+                    , raise { cache | dependencies = Just dependenciesEntry }
+                    )
                 )
 
 
