@@ -4624,104 +4624,89 @@ computeReadme ({ reviewOptions, projectVisitor } as dataToComputeProject) projec
         inputContext =
             contexts.elmJson
 
-        cachePredicate : CacheEntryMaybe projectContext -> Bool
-        cachePredicate entry =
-            Cache.matchMaybe (ValidProject.readmeHash project) (ContextHash.create inputContext) entry
-    in
-    case reuseProjectRuleCache cachePredicate .readme cache of
-        Just entry ->
+        projectReadme : Maybe { path : String, content : String }
+        projectReadme =
+            ValidProject.readme project
+
+        readmeData : Maybe { readmeKey : ReadmeKey, content : String }
+        readmeData =
+            Maybe.map
+                (\readme ->
+                    { readmeKey = ReadmeKey { path = readme.path, content = readme.content }
+                    , content = readme.content
+                    }
+                )
+                projectReadme
+
+        ( errorsForVisitor, outputContext ) =
+            ( [], inputContext )
+                |> accumulateWithMaybe projectVisitor.readmeVisitor readmeData
+
+        ( errors, newRuleProjectVisitors ) =
+            List.foldl
+                (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
+                    case rule.readmeVisitor of
+                        Just visitor ->
+                            let
+                                ( newErrors, updatedRule ) =
+                                    visitor project readmeData
+                            in
+                            ( List.append newErrors accErrors, updatedRule :: accRules )
+
+                        Nothing ->
+                            ( accErrors, untouched :: accRules )
+                )
+                ( [], [] )
+                ruleProjectVisitors
+
+        resultWhenNoFix : () -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+        resultWhenNoFix () =
             { project = project
-            , step = Dependencies { initial = contexts.initial, elmJson = contexts.elmJson, readme = Cache.outputContextMaybe entry }
-            , cache = cache
-            , ruleProjectVisitors = ruleProjectVisitors
+            , step = Dependencies { initial = contexts.initial, elmJson = contexts.elmJson, readme = outputContext }
+            , cache = updateCache ()
+            , ruleProjectVisitors = newRuleProjectVisitors
             , fixedErrors = fixedErrors
             }
 
-        Nothing ->
+        updateCache : () -> ProjectRuleCache projectContext
+        updateCache () =
             let
-                projectReadme : Maybe { path : String, content : String }
-                projectReadme =
-                    ValidProject.readme project
-
-                readmeData : Maybe { readmeKey : ReadmeKey, content : String }
-                readmeData =
-                    Maybe.map
-                        (\readme ->
-                            { readmeKey = ReadmeKey { path = readme.path, content = readme.content }
-                            , content = readme.content
-                            }
-                        )
-                        projectReadme
-
-                ( errorsForVisitor, outputContext ) =
-                    ( [], inputContext )
-                        |> accumulateWithMaybe projectVisitor.readmeVisitor readmeData
-
-                ( errors, newRuleProjectVisitors ) =
-                    List.foldl
-                        (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
-                            case rule.readmeVisitor of
-                                Just visitor ->
-                                    let
-                                        ( newErrors, updatedRule ) =
-                                            visitor project readmeData
-                                    in
-                                    ( List.append newErrors accErrors, updatedRule :: accRules )
-
-                                Nothing ->
-                                    ( accErrors, untouched :: accRules )
-                        )
-                        ( [], [] )
-                        ruleProjectVisitors
-
-                resultWhenNoFix : () -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-                resultWhenNoFix () =
-                    { project = project
-                    , step = Dependencies { initial = contexts.initial, elmJson = contexts.elmJson, readme = outputContext }
-                    , cache = updateCache ()
-                    , ruleProjectVisitors = newRuleProjectVisitors
-                    , fixedErrors = fixedErrors
-                    }
-
-                updateCache : () -> ProjectRuleCache projectContext
-                updateCache () =
-                    let
-                        readmeEntry : CacheEntryMaybe projectContext
-                        readmeEntry =
-                            Cache.createEntryMaybe
-                                { contentHash = ValidProject.readmeHash project
-                                , errors = errors
-                                , inputContext = inputContext
-                                , outputContext = outputContext
-                                }
-                    in
-                    { cache | readme = Just readmeEntry }
+                readmeEntry : CacheEntryMaybe projectContext
+                readmeEntry =
+                    Cache.createEntryMaybe
+                        { contentHash = ValidProject.readmeHash project
+                        , errors = errors
+                        , inputContext = inputContext
+                        , outputContext = outputContext
+                        }
             in
-            case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
-                Just ( postFixStatus, fixResult ) ->
-                    case postFixStatus of
-                        ShouldAbort newFixedErrors ->
-                            { project = fixResult.project, step = Abort, cache = updateCache (), ruleProjectVisitors = newRuleProjectVisitors, fixedErrors = newFixedErrors }
+            { cache | readme = Just readmeEntry }
+    in
+    case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
+        Just ( postFixStatus, fixResult ) ->
+            case postFixStatus of
+                ShouldAbort newFixedErrors ->
+                    { project = fixResult.project, step = Abort, cache = updateCache (), ruleProjectVisitors = newRuleProjectVisitors, fixedErrors = newFixedErrors }
 
-                        ShouldContinue newFixedErrors ->
-                            case fixResult.fixedFile of
-                                FixedElmJson ->
-                                    { project = fixResult.project
-                                    , step = ElmJson { initial = contexts.initial }
-                                    , cache = updateCache ()
-                                    , ruleProjectVisitors = newRuleProjectVisitors
-                                    , fixedErrors = newFixedErrors
-                                    }
+                ShouldContinue newFixedErrors ->
+                    case fixResult.fixedFile of
+                        FixedElmJson ->
+                            { project = fixResult.project
+                            , step = ElmJson { initial = contexts.initial }
+                            , cache = updateCache ()
+                            , ruleProjectVisitors = newRuleProjectVisitors
+                            , fixedErrors = newFixedErrors
+                            }
 
-                                FixedReadme ->
-                                    computeReadme dataToComputeProject fixResult.project contexts (updateCache ()) ruleProjectVisitors newFixedErrors
+                        FixedReadme ->
+                            computeReadme dataToComputeProject fixResult.project contexts (updateCache ()) ruleProjectVisitors newFixedErrors
 
-                                FixedElmModule _ _ ->
-                                    -- Not possible, users don't have the module key to provide fixes for an Elm module
-                                    resultWhenNoFix ()
+                        FixedElmModule _ _ ->
+                            -- Not possible, users don't have the module key to provide fixes for an Elm module
+                            resultWhenNoFix ()
 
-                Nothing ->
-                    resultWhenNoFix ()
+        Nothing ->
+            resultWhenNoFix ()
 
 
 computeDependencies :
