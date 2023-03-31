@@ -5266,39 +5266,6 @@ shouldVisitDeclarations schema =
         || (schema.declarationVisitorOnExit /= Nothing)
 
 
-createExpressionVisitor :
-    ModuleRuleSchemaData moduleContext
-    -> Maybe (Node Expression -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext ))
-createExpressionVisitor schema =
-    if
-        (schema.letDeclarationVisitorOnEnter /= Nothing)
-            || (schema.letDeclarationVisitorOnExit /= Nothing)
-            || (schema.caseBranchVisitorOnEnter /= Nothing)
-            || (schema.caseBranchVisitorOnExit /= Nothing)
-    then
-        let
-            expressionRelatedVisitors : ExpressionRelatedVisitors moduleContext
-            expressionRelatedVisitors =
-                { expressionVisitorsOnEnter = schema.expressionVisitorsOnEnter
-                , expressionVisitorsOnExit = schema.expressionVisitorsOnExit
-                , letDeclarationVisitorOnEnter = schema.letDeclarationVisitorOnEnter
-                , letDeclarationVisitorOnExit = schema.letDeclarationVisitorOnExit
-                , caseBranchVisitorOnEnter = schema.caseBranchVisitorOnEnter
-                , caseBranchVisitorOnExit = schema.caseBranchVisitorOnExit
-                }
-        in
-        Just (\expr acc -> visitExpression expressionRelatedVisitors expr acc)
-
-    else if schema.expressionVisitorsOnExit /= Nothing then
-        Just (\expr acc -> visitOnlyExpressions schema.expressionVisitorsOnEnter schema.expressionVisitorsOnExit expr acc)
-
-    else if schema.expressionVisitorsOnEnter /= Nothing then
-        Just (\expr acc -> visitOnlyExpressionsOnlyOnEnter schema.expressionVisitorsOnEnter expr acc)
-
-    else
-        Nothing
-
-
 type alias ExpressionRelatedVisitors moduleContext =
     { expressionVisitorsOnEnter : Maybe (Visitor Expression moduleContext)
     , expressionVisitorsOnExit : Maybe (Visitor Expression moduleContext)
