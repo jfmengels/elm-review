@@ -4095,20 +4095,6 @@ filterErrorsForFiles condition (Rule rule) =
 -- TODO BREAKING CHANGE Move this into a separate module later on
 
 
-type alias RunnableProjectVisitor projectContext moduleContext =
-    { name : String
-    , initialProjectContext : projectContext
-    , elmJsonVisitor : Maybe (Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> projectContext -> ( List (Error {}), projectContext ))
-    , readmeVisitor : Maybe (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
-    , directDependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
-    , dependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
-    , traversalAndFolder : TraversalAndFolder projectContext moduleContext
-    , finalEvaluationFn : Maybe (projectContext -> List (Error {}))
-    , requestedData : RequestedData
-    , providesFixes : Bool
-    }
-
-
 type alias Visitor nodeType context =
     Node nodeType -> context -> ( List (Error {}), context )
 
