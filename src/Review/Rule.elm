@@ -1282,8 +1282,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
         , ruleImplementation =
             \reviewOptions ruleId exceptions fixedErrors project ruleProjectVisitors ->
                 runProjectVisitor
-                    { reviewOptions = reviewOptions
-                    }
+                    reviewOptions
                     ruleProjectVisitors
                     (removeUnknownModulesFromInitialCache project (initialCacheMarker schema.name ruleId emptyCache))
                     fixedErrors
@@ -4319,17 +4318,17 @@ qualifyError params err acc =
 
 
 runProjectVisitor :
-    DataToComputeProject
+    ReviewOptionsData
     -> List RuleProjectVisitor
     -> ProjectRuleCache projectContext
     -> FixedErrors
     -> ValidProject
     -> { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
-runProjectVisitor dataToComputeProject initialRuleProjectVisitors initialCache initialFixedErrors initialProject =
+runProjectVisitor reviewOptions initialRuleProjectVisitors initialCache initialFixedErrors initialProject =
     let
         { project, ruleProjectVisitors, fixedErrors } =
             computeStepsForProject
-                dataToComputeProject
+                reviewOptions
                 { step = ElmJson
                 , project = initialProject
                 , cache = initialCache
@@ -4411,46 +4410,40 @@ type alias ProjectRuleCache projectContext =
     }
 
 
-type alias DataToComputeProject =
-    { reviewOptions : ReviewOptionsData
-    }
-
-
 computeStepsForProject :
-    DataToComputeProject
+    ReviewOptionsData
     -> { project : ValidProject, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors, step : Step }
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitors, fixedErrors, step } =
+computeStepsForProject reviewOptions { project, cache, ruleProjectVisitors, fixedErrors, step } =
     case step of
         ElmJson ->
             computeStepsForProject
-                dataToComputeProject
-                (computeElmJson dataToComputeProject project cache ruleProjectVisitors fixedErrors)
+                reviewOptions
+                (computeElmJson reviewOptions project cache ruleProjectVisitors fixedErrors)
 
         Readme ->
             computeStepsForProject
-                dataToComputeProject
-                (computeReadme dataToComputeProject project cache ruleProjectVisitors fixedErrors)
+                reviewOptions
+                (computeReadme reviewOptions project cache ruleProjectVisitors fixedErrors)
 
         Dependencies ->
             computeStepsForProject
-                dataToComputeProject
-                (computeDependencies dataToComputeProject project cache ruleProjectVisitors fixedErrors)
+                reviewOptions
+                (computeDependencies reviewOptions project cache ruleProjectVisitors fixedErrors)
 
         Modules moduleZipper ->
             let
                 result : { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
                 result =
                     computeModules
-                        { reviewOptions = dataToComputeProject.reviewOptions
-                        }
+                        reviewOptions
                         (Just moduleZipper)
                         project
                         ruleProjectVisitors
                         fixedErrors
             in
             computeStepsForProject
-                dataToComputeProject
+                reviewOptions
                 { project = result.project
                 , cache = cache
                 , ruleProjectVisitors = result.ruleProjectVisitors
@@ -4460,8 +4453,8 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
 
         FinalProjectEvaluation ->
             computeStepsForProject
-                dataToComputeProject
-                (computeFinalProjectEvaluation dataToComputeProject project cache ruleProjectVisitors fixedErrors)
+                reviewOptions
+                (computeFinalProjectEvaluation reviewOptions project cache ruleProjectVisitors fixedErrors)
 
         DataExtract ->
             let
@@ -4471,7 +4464,7 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
                         (\((RuleProjectVisitor rule) as untouched) ->
                             case rule.dataExtractVisitor of
                                 Just dataExtract ->
-                                    dataExtract dataToComputeProject.reviewOptions
+                                    dataExtract reviewOptions
 
                                 Nothing ->
                                     untouched
@@ -4516,13 +4509,13 @@ type NextStep
 
 
 computeElmJson :
-    DataToComputeProject
+    ReviewOptionsData
     -> ValidProject
     -> ProjectRuleCache projectContext
     -> List RuleProjectVisitor
     -> FixedErrors
     -> { project : ValidProject, step : Step, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeElmJson ({ reviewOptions } as dataToComputeProject) project cache ruleProjectVisitors fixedErrors =
+computeElmJson reviewOptions project cache ruleProjectVisitors fixedErrors =
     let
         projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
         projectElmJson =
@@ -4561,7 +4554,7 @@ computeElmJson ({ reviewOptions } as dataToComputeProject) project cache rulePro
                 ShouldContinue newFixedErrors ->
                     -- The only possible thing we can fix here is the `elm.json` file, so we don't need to check
                     -- what the fixed file was.
-                    computeElmJson dataToComputeProject fixResult.project cache ruleProjectVisitors newFixedErrors
+                    computeElmJson reviewOptions fixResult.project cache ruleProjectVisitors newFixedErrors
 
                 ShouldAbort newFixedErrors ->
                     { project = fixResult.project
@@ -4581,13 +4574,13 @@ computeElmJson ({ reviewOptions } as dataToComputeProject) project cache rulePro
 
 
 computeReadme :
-    DataToComputeProject
+    ReviewOptionsData
     -> ValidProject
     -> ProjectRuleCache projectContext
     -> List RuleProjectVisitor
     -> FixedErrors
     -> { project : ValidProject, step : Step, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeReadme ({ reviewOptions } as dataToComputeProject) project cache ruleProjectVisitors fixedErrors =
+computeReadme reviewOptions project cache ruleProjectVisitors fixedErrors =
     let
         projectReadme : Maybe { path : String, content : String }
         projectReadme =
@@ -4646,7 +4639,7 @@ computeReadme ({ reviewOptions } as dataToComputeProject) project cache ruleProj
                             }
 
                         FixedReadme ->
-                            computeReadme dataToComputeProject fixResult.project cache ruleProjectVisitors newFixedErrors
+                            computeReadme reviewOptions fixResult.project cache ruleProjectVisitors newFixedErrors
 
                         FixedElmModule _ _ ->
                             -- Not possible, users don't have the module key to provide fixes for an Elm module
@@ -4657,13 +4650,13 @@ computeReadme ({ reviewOptions } as dataToComputeProject) project cache ruleProj
 
 
 computeDependencies :
-    DataToComputeProject
+    ReviewOptionsData
     -> ValidProject
     -> ProjectRuleCache projectContext
     -> List RuleProjectVisitor
     -> FixedErrors
     -> { project : ValidProject, step : Step, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeDependencies { reviewOptions } project cache ruleProjectVisitors fixedErrors =
+computeDependencies reviewOptions project cache ruleProjectVisitors fixedErrors =
     let
         dependencies : Dict String Review.Project.Dependency.Dependency
         dependencies =
@@ -4732,13 +4725,13 @@ computeDependencies { reviewOptions } project cache ruleProjectVisitors fixedErr
 
 
 computeFinalProjectEvaluation :
-    DataToComputeProject
+    ReviewOptionsData
     -> ValidProject
     -> ProjectRuleCache projectContext
     -> List RuleProjectVisitor
     -> FixedErrors
     -> { project : ValidProject, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
-computeFinalProjectEvaluation { reviewOptions } project cache ruleProjectVisitors fixedErrors =
+computeFinalProjectEvaluation reviewOptions project cache ruleProjectVisitors fixedErrors =
     let
         ( errors, newRuleProjectVisitors ) =
             List.foldl
@@ -4831,13 +4824,8 @@ errorFilePathInternal (Error err) =
 -- VISIT MODULES
 
 
-type alias DataToComputeModules =
-    { reviewOptions : ReviewOptionsData
-    }
-
-
 type alias DataToComputeSingleModule =
-    { dataToComputeModules : DataToComputeModules
+    { reviewOptions : ReviewOptionsData
     , ruleProjectVisitors : List RuleProjectVisitor
     , module_ : OpaqueProjectModule
     , project : ValidProject
@@ -4850,7 +4838,7 @@ type alias DataToComputeSingleModule =
 computeModule :
     DataToComputeSingleModule
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
-computeModule ({ dataToComputeModules, ruleProjectVisitors, module_, project, incoming } as params) =
+computeModule ({ reviewOptions, ruleProjectVisitors, module_, project, incoming } as params) =
     let
         (RequestedData requestedData) =
             List.foldl
@@ -4933,7 +4921,7 @@ findFixInComputeModuleResults :
     DataToComputeSingleModule
     -> List RuleProjectVisitor
     -> ComputeModuleFindFixResult projectContext moduleContext
-findFixInComputeModuleResults ({ dataToComputeModules, module_, project, moduleZipper, fixedErrors } as params) outputRuleProjectVisitors =
+findFixInComputeModuleResults ({ reviewOptions, module_, project, moduleZipper, fixedErrors } as params) outputRuleProjectVisitors =
     let
         modulePath : String
         modulePath =
@@ -4952,7 +4940,7 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, project, moduleZ
                 , fixedErrors = fixedErrors
                 }
     in
-    case findFix dataToComputeModules.reviewOptions project errors fixedErrors (Just moduleZipper) of
+    case findFix reviewOptions project errors fixedErrors (Just moduleZipper) of
         Just ( postFixStatus, fixResult ) ->
             case postFixStatus of
                 ShouldAbort newFixedErrors ->
@@ -4990,7 +4978,7 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, project, moduleZ
                                 case Zipper.focusl (\mod -> mod.node.label == filePath) moduleZipper of
                                     Just newModuleZipper ->
                                         Logger.log
-                                            dataToComputeModules.reviewOptions.logger
+                                            reviewOptions.logger
                                             (fixedError newFixedErrors { ruleName = errorRuleName fixResult.error, filePath = filePath })
                                             (ContinueWithNextStep
                                                 { project = fixResult.project
@@ -5024,13 +5012,13 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, project, moduleZ
 
 
 computeModules :
-    DataToComputeModules
+    ReviewOptionsData
     -> Maybe (Zipper GraphModule)
     -> ValidProject
     -> List RuleProjectVisitor
     -> FixedErrors
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
-computeModules dataToComputeModules maybeModuleZipper initialProject ruleProjectVisitors fixedErrors =
+computeModules reviewOptions maybeModuleZipper initialProject ruleProjectVisitors fixedErrors =
     case maybeModuleZipper of
         Nothing ->
             { project = initialProject, ruleProjectVisitors = ruleProjectVisitors, step = FinalProjectEvaluation, fixedErrors = fixedErrors }
@@ -5040,7 +5028,7 @@ computeModules dataToComputeModules maybeModuleZipper initialProject ruleProject
                 result : { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
                 result =
                     computeModuleAndCacheResult
-                        dataToComputeModules
+                        reviewOptions
                         moduleZipper
                         initialProject
                         ruleProjectVisitors
@@ -5049,7 +5037,7 @@ computeModules dataToComputeModules maybeModuleZipper initialProject ruleProject
             case result.nextStep of
                 ModuleVisitStep newModuleZipper ->
                     computeModules
-                        dataToComputeModules
+                        reviewOptions
                         newModuleZipper
                         result.project
                         result.ruleProjectVisitors
@@ -5112,13 +5100,13 @@ computeProjectContext traversalAndFolder project cache incoming initial =
 
 
 computeModuleAndCacheResult :
-    DataToComputeModules
+    ReviewOptionsData
     -> Zipper GraphModule
     -> ValidProject
     -> List RuleProjectVisitor
     -> FixedErrors
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
-computeModuleAndCacheResult dataToComputeModules moduleZipper project ruleProjectVisitors fixedErrors =
+computeModuleAndCacheResult reviewOptions moduleZipper project ruleProjectVisitors fixedErrors =
     let
         { node, incoming } =
             Zipper.current moduleZipper
@@ -5133,7 +5121,7 @@ computeModuleAndCacheResult dataToComputeModules moduleZipper project ruleProjec
 
         Just module_ ->
             computeModule
-                { dataToComputeModules = dataToComputeModules
+                { reviewOptions = reviewOptions
                 , ruleProjectVisitors = ruleProjectVisitors
                 , module_ = module_
                 , project = project
