@@ -4529,109 +4529,99 @@ computeElmJson :
     -> FixedErrors
     -> { project : ValidProject, step : Step projectContext, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeElmJson ({ reviewOptions, projectVisitor } as dataToComputeProject) project inputContext cache ruleProjectVisitors fixedErrors =
-    let
-        cachePredicate : CacheEntryMaybe projectContext -> Bool
-        cachePredicate elmJson =
-            Cache.matchMaybe (ValidProject.elmJsonHash project) (ContextHash.create inputContext) elmJson
-    in
-    case reuseProjectRuleCache cachePredicate .elmJson cache of
-        Just entry ->
-            { project = project, step = Readme { initial = inputContext, elmJson = Cache.outputContextMaybe entry }, cache = cache, ruleProjectVisitors = ruleProjectVisitors, fixedErrors = fixedErrors }
-
+    case projectVisitor.elmJsonVisitor of
         Nothing ->
-            case projectVisitor.elmJsonVisitor of
-                Nothing ->
+            let
+                -- TODO Maybe we can check whether there is a visitor before looking at whether there is a cache entry
+                -- TODO Can we maybe keep the cache entry empty?
+                elmJsonEntry : CacheEntryMaybe projectContext
+                elmJsonEntry =
+                    Cache.createEntryMaybe
+                        { contentHash = ValidProject.elmJsonHash project
+                        , errors = []
+                        , inputContext = inputContext
+                        , outputContext = inputContext
+                        }
+
+                newCache : ProjectRuleCache projectContext
+                newCache =
+                    { cache | elmJson = Just elmJsonEntry }
+            in
+            { project = project, step = Readme { initial = inputContext, elmJson = inputContext }, ruleProjectVisitors = ruleProjectVisitors, cache = newCache, fixedErrors = fixedErrors }
+
+        Just elmJsonVisitor ->
+            let
+                projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
+                projectElmJson =
+                    ValidProject.elmJson project
+
+                elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
+                elmJsonData =
+                    Maybe.map
+                        (\elmJson ->
+                            { elmJsonKey = ElmJsonKey elmJson
+                            , project = elmJson.project
+                            }
+                        )
+                        projectElmJson
+
+                ( errorsForVisitor, outputContext ) =
+                    elmJsonVisitor elmJsonData inputContext
+
+                ( errors, newRuleProjectVisitors ) =
+                    List.foldl
+                        (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
+                            case rule.elmJsonVisitor of
+                                Just visitor ->
+                                    let
+                                        ( newErrors, updatedRule ) =
+                                            visitor project elmJsonData
+                                    in
+                                    ( List.append newErrors accErrors, updatedRule :: accRules )
+
+                                Nothing ->
+                                    ( accErrors, untouched :: accRules )
+                        )
+                        ( [], [] )
+                        ruleProjectVisitors
+
+                updateCache : () -> ProjectRuleCache projectContext
+                updateCache () =
                     let
-                        -- TODO Maybe we can check whether there is a visitor before looking at whether there is a cache entry
-                        -- TODO Can we maybe keep the cache entry empty?
                         elmJsonEntry : CacheEntryMaybe projectContext
                         elmJsonEntry =
                             Cache.createEntryMaybe
                                 { contentHash = ValidProject.elmJsonHash project
-                                , errors = []
+                                , errors = errors
                                 , inputContext = inputContext
-                                , outputContext = inputContext
+                                , outputContext = outputContext
                                 }
-
-                        newCache : ProjectRuleCache projectContext
-                        newCache =
-                            { cache | elmJson = Just elmJsonEntry }
                     in
-                    { project = project, step = Readme { initial = inputContext, elmJson = inputContext }, ruleProjectVisitors = ruleProjectVisitors, cache = newCache, fixedErrors = fixedErrors }
+                    { cache | elmJson = Just elmJsonEntry }
+            in
+            case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
+                Just ( postFixStatus, fixResult ) ->
+                    case postFixStatus of
+                        ShouldContinue newFixedErrors ->
+                            -- The only possible thing we can fix here is the `elm.json` file, so we don't need to check
+                            -- what the fixed file was.
+                            computeElmJson dataToComputeProject fixResult.project inputContext cache ruleProjectVisitors newFixedErrors
 
-                Just elmJsonVisitor ->
-                    let
-                        projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
-                        projectElmJson =
-                            ValidProject.elmJson project
-
-                        elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
-                        elmJsonData =
-                            Maybe.map
-                                (\elmJson ->
-                                    { elmJsonKey = ElmJsonKey elmJson
-                                    , project = elmJson.project
-                                    }
-                                )
-                                projectElmJson
-
-                        ( errorsForVisitor, outputContext ) =
-                            elmJsonVisitor elmJsonData inputContext
-
-                        ( errors, newRuleProjectVisitors ) =
-                            List.foldl
-                                (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
-                                    case rule.elmJsonVisitor of
-                                        Just visitor ->
-                                            let
-                                                ( newErrors, updatedRule ) =
-                                                    visitor project elmJsonData
-                                            in
-                                            ( List.append newErrors accErrors, updatedRule :: accRules )
-
-                                        Nothing ->
-                                            ( accErrors, untouched :: accRules )
-                                )
-                                ( [], [] )
-                                ruleProjectVisitors
-
-                        updateCache : () -> ProjectRuleCache projectContext
-                        updateCache () =
-                            let
-                                elmJsonEntry : CacheEntryMaybe projectContext
-                                elmJsonEntry =
-                                    Cache.createEntryMaybe
-                                        { contentHash = ValidProject.elmJsonHash project
-                                        , errors = errors
-                                        , inputContext = inputContext
-                                        , outputContext = outputContext
-                                        }
-                            in
-                            { cache | elmJson = Just elmJsonEntry }
-                    in
-                    case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
-                        Just ( postFixStatus, fixResult ) ->
-                            case postFixStatus of
-                                ShouldContinue newFixedErrors ->
-                                    -- The only possible thing we can fix here is the `elm.json` file, so we don't need to check
-                                    -- what the fixed file was.
-                                    computeElmJson dataToComputeProject fixResult.project inputContext cache ruleProjectVisitors newFixedErrors
-
-                                ShouldAbort newFixedErrors ->
-                                    { project = fixResult.project
-                                    , step = Abort
-                                    , cache = updateCache ()
-                                    , ruleProjectVisitors = newRuleProjectVisitors
-                                    , fixedErrors = newFixedErrors
-                                    }
-
-                        Nothing ->
-                            { project = project
-                            , step = Readme { initial = inputContext, elmJson = outputContext }
+                        ShouldAbort newFixedErrors ->
+                            { project = fixResult.project
+                            , step = Abort
                             , cache = updateCache ()
                             , ruleProjectVisitors = newRuleProjectVisitors
-                            , fixedErrors = fixedErrors
+                            , fixedErrors = newFixedErrors
                             }
+
+                Nothing ->
+                    { project = project
+                    , step = Readme { initial = inputContext, elmJson = outputContext }
+                    , cache = updateCache ()
+                    , ruleProjectVisitors = newRuleProjectVisitors
+                    , fixedErrors = fixedErrors
+                    }
 
 
 computeReadme :
