@@ -352,7 +352,7 @@ type Rule
         , providesFixes : Bool
         , extractsData : Bool
         , ruleImplementation : ReviewOptionsData -> Int -> Exceptions -> FixedErrors -> ValidProject -> List RuleProjectVisitor -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extract : Maybe Extract }
-        , ruleProjectVisitor : Result { message : String, details : List String } (Exceptions -> Int -> RuleProjectVisitor)
+        , ruleProjectVisitor : Result { message : String, details : List String } (ChangeableRuleData -> RuleProjectVisitor)
         }
 
 
@@ -626,7 +626,9 @@ checkForConfigurationErrors rules =
                 (\(Rule rule) ( rulesToRun, configurationErrors ) ->
                     case rule.ruleProjectVisitor of
                         Ok ruleProjectVisitor ->
-                            ( ruleProjectVisitor rule.exceptions rule.id :: rulesToRun, configurationErrors )
+                            ( ruleProjectVisitor { exceptions = rule.exceptions, ruleId = rule.id } :: rulesToRun
+                            , configurationErrors
+                            )
 
                         Err { message, details } ->
                             ( rulesToRun
@@ -1289,7 +1291,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     (removeUnknownModulesFromInitialCache project (initialCacheMarker schema.name ruleId emptyCache))
                     fixedErrors
                     project
-        , ruleProjectVisitor = Ok (\exceptions ruleId -> createRuleProjectVisitor schema exceptions ruleId)
+        , ruleProjectVisitor = Ok (\ruleData -> createRuleProjectVisitor schema ruleData)
         }
 
 
@@ -6015,7 +6017,12 @@ type RuleProjectVisitor
 
 type alias RuleProjectVisitorHidden projectContext =
     { cache : ProjectRuleCache projectContext
-    , exceptions : Exceptions
+    , ruleData : ChangeableRuleData
+    }
+
+
+type alias ChangeableRuleData =
+    { exceptions : Exceptions
     , ruleId : Int
     }
 
@@ -6032,14 +6039,13 @@ type alias RuleProjectVisitorOperations t =
     }
 
 
-createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> Exceptions -> Int -> RuleProjectVisitor
-createRuleProjectVisitor schema exceptions ruleId =
+createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> ChangeableRuleData -> RuleProjectVisitor
+createRuleProjectVisitor schema ruleData =
     If.create
         RuleProjectVisitor
         (projectRuleImplementation schema)
         { cache = emptyCache
-        , exceptions = exceptions
-        , ruleId = ruleId
+        , ruleData = ruleData
         }
 
 
@@ -6052,20 +6058,20 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
     let
         raiseCache : ProjectRuleCache projectContext -> RuleProjectVisitor
         raiseCache newCache =
-            baseRaise { hidden | cache = newCache }
+            baseRaise { cache = newCache, ruleData = hidden.ruleData }
     in
-    { elmJsonVisitor = addProjectVisitor schema hidden schema.elmJsonVisitor [] ValidProject.elmJsonHash (\entry -> raiseCache { cache | elmJson = entry })
-    , readmeVisitor = addProjectVisitor schema hidden schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash (\entry -> raiseCache { cache | readme = entry })
-    , dependenciesVisitor = addDependenciesVisitor schema hidden raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
+    { elmJsonVisitor = addProjectVisitor schema hidden.ruleData schema.elmJsonVisitor [] ValidProject.elmJsonHash (\entry -> raiseCache { cache | elmJson = entry })
+    , readmeVisitor = addProjectVisitor schema hidden.ruleData schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash (\entry -> raiseCache { cache | readme = entry })
+    , dependenciesVisitor = addDependenciesVisitor schema hidden.ruleData raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
     , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raiseCache cache
-    , finalProjectEvaluation = addFinalProjectEvaluationVisitor schema hidden raiseCache cache
+    , finalProjectEvaluation = addFinalProjectEvaluationVisitor schema hidden.ruleData raiseCache cache
     , dataExtract = addDataExtract schema raiseCache cache
     }
 
 
 addProjectVisitor :
     ProjectRuleSchemaData projectContext moduleContext
-    -> RuleProjectVisitorHidden projectContext
+    -> ChangeableRuleData
     -> Maybe (data -> projectContext -> ( List (Error {}), projectContext ))
     -> List (Maybe (Cache.EntryMaybe error projectContext))
     -> (ValidProject -> Maybe ContentHash)
@@ -6112,7 +6118,7 @@ addProjectVisitor schema { exceptions } maybeVisitor possibleInputContexts conte
 
 addDependenciesVisitor :
     ProjectRuleSchemaData projectContext moduleContext
-    -> RuleProjectVisitorHidden projectContext
+    -> ChangeableRuleData
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     -> ProjectRuleCache projectContext
     ->
@@ -6176,7 +6182,7 @@ addDependenciesVisitor schema { exceptions } raise cache { allVisitor, directVis
 
 addFinalProjectEvaluationVisitor :
     ProjectRuleSchemaData projectContext moduleContext
-    -> RuleProjectVisitorHidden projectContext
+    -> ChangeableRuleData
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     -> ProjectRuleCache projectContext
     -> Maybe (() -> RuleProjectVisitor)
