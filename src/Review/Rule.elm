@@ -4558,7 +4558,7 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
                 newRuleProjectVisitors =
                     List.map
                         (\(RuleProjectVisitor rule) ->
-                            case rule.dataExtract of
+                            case rule.dataExtractVisitor of
                                 Just dataExtract ->
                                     dataExtract dataToComputeProject.reviewOptions
 
@@ -6012,7 +6012,7 @@ type alias RuleProjectVisitorOperations t =
     , dependenciesVisitor : Maybe (ValidProject -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> ( List (Error {}), t ))
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
     , finalProjectEvaluation : Maybe (() -> ( List (Error {}), t ))
-    , dataExtract : Maybe (ReviewOptionsData -> t)
+    , dataExtractVisitor : Maybe (ReviewOptionsData -> t)
     , backToRule : () -> Rule
     }
 
@@ -6043,7 +6043,7 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
     , dependenciesVisitor = addDependenciesVisitor schema hidden.ruleData raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
     , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raiseCache cache
     , finalProjectEvaluation = addFinalProjectEvaluationVisitor schema hidden.ruleData raiseCache cache
-    , dataExtract = addDataExtract schema raiseCache cache
+    , dataExtractVisitor = addDataExtract schema raiseCache cache
     , backToRule =
         \() ->
             Rule
