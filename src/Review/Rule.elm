@@ -5090,7 +5090,7 @@ computeModule exceptions ({ dataToComputeModules, ruleProjectVisitors, module_, 
             , isFileIgnored = isFileIgnored
             }
 
-        ( inputRuleModuleVisitors, rulesWithoutModuleVisitors ) =
+        ( inputRuleModuleVisitors, rulesNotToRun ) =
             -- We can probably compute this in computeModules or above.
             List.foldl
                 (\((RuleProjectVisitor ruleProjectVisitor) as rule) ( with, without ) ->
@@ -5137,7 +5137,7 @@ computeModule exceptions ({ dataToComputeModules, ruleProjectVisitors, module_, 
                 Nothing ->
                     projectContext
     in
-    case findFixInComputeModuleResults { params | project = newProject } outputProjectContext (List.append rulesWithoutModuleVisitors outputRuleProjectVisitors) errors of
+    case findFixInComputeModuleResults { params | project = newProject } outputProjectContext (List.append rulesNotToRun outputRuleProjectVisitors) errors of
         ContinueWithNextStep nextStepResult ->
             nextStepResult
 
