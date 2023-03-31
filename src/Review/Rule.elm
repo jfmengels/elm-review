@@ -351,7 +351,7 @@ type Rule
         , requestedData : RequestedData
         , providesFixes : Bool
         , extractsData : Bool
-        , ruleImplementation : ReviewOptionsData -> Int -> Exceptions -> FixedErrors -> ValidProject -> List RuleProjectVisitor -> { errors : List (Error {}), fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
+        , ruleImplementation : ReviewOptionsData -> Int -> Exceptions -> FixedErrors -> ValidProject -> List RuleProjectVisitor -> { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
         , ruleProjectVisitor : Result { message : String, details : List String } (ChangeableRuleData -> RuleProjectVisitor)
         }
 
@@ -797,7 +797,7 @@ runRulesHelp reviewOptions remainingRules acc =
 
         (Rule { name, id, exceptions, ruleImplementation }) :: restOfRules ->
             let
-                result : { errors : List (Error {}), fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
+                result : { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
                 result =
                     ruleImplementation reviewOptions id exceptions acc.fixedErrors acc.project acc.ruleProjectVisitors
             in
@@ -1579,7 +1579,7 @@ configurationError name configurationError_ =
         , requestedData = RequestedData.none
         , extractsData = False
         , providesFixes = False
-        , ruleImplementation = \_ _ _ fixedErrors project _ -> { errors = [], fixedErrors = fixedErrors, ruleProjectVisitors = [], project = project }
+        , ruleImplementation = \_ _ _ fixedErrors project _ -> { fixedErrors = fixedErrors, ruleProjectVisitors = [], project = project }
         , ruleProjectVisitor = Err configurationError_
         }
 
@@ -4324,10 +4324,10 @@ runProjectVisitor :
     -> ProjectRuleCache projectContext
     -> FixedErrors
     -> ValidProject
-    -> { errors : List (Error {}), fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
+    -> { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
 runProjectVisitor ({ projectVisitor, exceptions } as dataToComputeProject) initialRuleProjectVisitors initialCache initialFixedErrors initialProject =
     let
-        { project, errors, ruleProjectVisitors, fixedErrors } =
+        { project, ruleProjectVisitors, fixedErrors } =
             computeStepsForProject
                 dataToComputeProject
                 { step = ElmJson { initial = projectVisitor.initialProjectContext }
@@ -4337,8 +4337,7 @@ runProjectVisitor ({ projectVisitor, exceptions } as dataToComputeProject) initi
                 , fixedErrors = initialFixedErrors
                 }
     in
-    { errors = errors
-    , fixedErrors = fixedErrors
+    { fixedErrors = fixedErrors
     , ruleProjectVisitors = ruleProjectVisitors
     , project = project
     }
