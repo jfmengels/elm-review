@@ -1283,7 +1283,6 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
             \reviewOptions ruleId exceptions fixedErrors project ruleProjectVisitors ->
                 runProjectVisitor
                     { reviewOptions = reviewOptions
-                    , projectVisitor = fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema
                     }
                     ruleProjectVisitors
                     (removeUnknownModulesFromInitialCache project (initialCacheMarker schema.name ruleId emptyCache))
@@ -4320,13 +4319,13 @@ qualifyError params err acc =
 
 
 runProjectVisitor :
-    DataToComputeProject projectContext moduleContext
+    DataToComputeProject
     -> List RuleProjectVisitor
     -> ProjectRuleCache projectContext
     -> FixedErrors
     -> ValidProject
     -> { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
-runProjectVisitor ({ projectVisitor } as dataToComputeProject) initialRuleProjectVisitors initialCache initialFixedErrors initialProject =
+runProjectVisitor dataToComputeProject initialRuleProjectVisitors initialCache initialFixedErrors initialProject =
     let
         { project, ruleProjectVisitors, fixedErrors } =
             computeStepsForProject
@@ -4412,14 +4411,13 @@ type alias ProjectRuleCache projectContext =
     }
 
 
-type alias DataToComputeProject projectContext moduleContext =
+type alias DataToComputeProject =
     { reviewOptions : ReviewOptionsData
-    , projectVisitor : RunnableProjectVisitor projectContext moduleContext
     }
 
 
 computeStepsForProject :
-    DataToComputeProject projectContext moduleContext
+    DataToComputeProject
     -> { project : ValidProject, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors, step : Step }
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitors, fixedErrors, step } =
@@ -4518,13 +4516,13 @@ type NextStep
 
 
 computeElmJson :
-    DataToComputeProject projectContext moduleContext
+    DataToComputeProject
     -> ValidProject
     -> ProjectRuleCache projectContext
     -> List RuleProjectVisitor
     -> FixedErrors
     -> { project : ValidProject, step : Step, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeElmJson ({ reviewOptions, projectVisitor } as dataToComputeProject) project cache ruleProjectVisitors fixedErrors =
+computeElmJson ({ reviewOptions } as dataToComputeProject) project cache ruleProjectVisitors fixedErrors =
     let
         projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
         projectElmJson =
@@ -4583,13 +4581,13 @@ computeElmJson ({ reviewOptions, projectVisitor } as dataToComputeProject) proje
 
 
 computeReadme :
-    DataToComputeProject projectContext moduleContext
+    DataToComputeProject
     -> ValidProject
     -> ProjectRuleCache projectContext
     -> List RuleProjectVisitor
     -> FixedErrors
     -> { project : ValidProject, step : Step, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeReadme ({ reviewOptions, projectVisitor } as dataToComputeProject) project cache ruleProjectVisitors fixedErrors =
+computeReadme ({ reviewOptions } as dataToComputeProject) project cache ruleProjectVisitors fixedErrors =
     let
         projectReadme : Maybe { path : String, content : String }
         projectReadme =
@@ -4659,13 +4657,13 @@ computeReadme ({ reviewOptions, projectVisitor } as dataToComputeProject) projec
 
 
 computeDependencies :
-    DataToComputeProject projectContext moduleContext
+    DataToComputeProject
     -> ValidProject
     -> ProjectRuleCache projectContext
     -> List RuleProjectVisitor
     -> FixedErrors
     -> { project : ValidProject, step : Step, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeDependencies { reviewOptions, projectVisitor } project cache ruleProjectVisitors fixedErrors =
+computeDependencies { reviewOptions } project cache ruleProjectVisitors fixedErrors =
     let
         dependencies : Dict String Review.Project.Dependency.Dependency
         dependencies =
@@ -4734,13 +4732,13 @@ computeDependencies { reviewOptions, projectVisitor } project cache ruleProjectV
 
 
 computeFinalProjectEvaluation :
-    DataToComputeProject projectContext moduleContext
+    DataToComputeProject
     -> ValidProject
     -> ProjectRuleCache projectContext
     -> List RuleProjectVisitor
     -> FixedErrors
     -> { project : ValidProject, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
-computeFinalProjectEvaluation { reviewOptions, projectVisitor } project cache ruleProjectVisitors fixedErrors =
+computeFinalProjectEvaluation { reviewOptions } project cache ruleProjectVisitors fixedErrors =
     let
         ( errors, newRuleProjectVisitors ) =
             List.foldl
