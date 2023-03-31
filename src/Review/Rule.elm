@@ -4473,7 +4473,7 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
 
                 Just ( moduleVisitor, moduleContextCreator ) ->
                     let
-                        result : { project : ValidProject, moduleContexts : Dict String (ModuleCacheEntry projectContext), ruleProjectVisitors : List RuleProjectVisitor, step : Step projectContext, fixedErrors : FixedErrors }
+                        result : { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step projectContext, fixedErrors : FixedErrors }
                         result =
                             computeModules
                                 { reviewOptions = dataToComputeProject.reviewOptions
@@ -5261,11 +5261,11 @@ computeModules :
     -> Dict String (ModuleCacheEntry projectContext)
     -> List RuleProjectVisitor
     -> FixedErrors
-    -> { project : ValidProject, moduleContexts : Dict String (ModuleCacheEntry projectContext), ruleProjectVisitors : List RuleProjectVisitor, step : Step projectContext, fixedErrors : FixedErrors }
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step projectContext, fixedErrors : FixedErrors }
 computeModules dataToComputeModules projectContexts maybeModuleZipper initialProject initialModuleContexts ruleProjectVisitors fixedErrors =
     case maybeModuleZipper of
         Nothing ->
-            { project = initialProject, moduleContexts = initialModuleContexts, ruleProjectVisitors = ruleProjectVisitors, step = FinalProjectEvaluation projectContexts, fixedErrors = fixedErrors }
+            { project = initialProject, ruleProjectVisitors = ruleProjectVisitors, step = FinalProjectEvaluation projectContexts, fixedErrors = fixedErrors }
 
         Just moduleZipper ->
             let
@@ -5293,7 +5293,6 @@ computeModules dataToComputeModules projectContexts maybeModuleZipper initialPro
 
                 BackToElmJson ->
                     { project = result.project
-                    , moduleContexts = result.moduleContexts
                     , ruleProjectVisitors = result.ruleProjectVisitors
                     , step = ElmJson { initial = projectContexts.initial }
                     , fixedErrors = result.fixedErrors
@@ -5301,7 +5300,6 @@ computeModules dataToComputeModules projectContexts maybeModuleZipper initialPro
 
                 BackToReadme ->
                     { project = result.project
-                    , moduleContexts = result.moduleContexts
                     , ruleProjectVisitors = result.ruleProjectVisitors
                     , step = Readme { initial = projectContexts.initial, elmJson = projectContexts.elmJson }
                     , fixedErrors = result.fixedErrors
@@ -5309,7 +5307,6 @@ computeModules dataToComputeModules projectContexts maybeModuleZipper initialPro
 
                 NextStepAbort ->
                     { project = result.project
-                    , moduleContexts = result.moduleContexts
                     , ruleProjectVisitors = result.ruleProjectVisitors
                     , step = Abort
                     , fixedErrors = result.fixedErrors
