@@ -5963,13 +5963,23 @@ addFinalProjectEvaluationVisitor schema { exceptions } raise cache =
                         inputContext =
                             computeFinalContext2 schema cache
 
-                        errors : List (Error {})
-                        errors =
-                            filterExceptionsAndSetName exceptions schema.name (finalEvaluationFn inputContext)
+                        cachePredicate : FinalProjectEvaluationCache projectContext -> Bool
+                        cachePredicate entry =
+                            Cache.matchNoOutput (ContextHash.create inputContext) entry
                     in
-                    ( errors
-                    , raise { cache | finalEvaluationErrors = Just (Cache.createNoOutput inputContext errors) }
-                    )
+                    case reuseProjectRuleCache cachePredicate .finalEvaluationErrors cache of
+                        Just entry ->
+                            ( Cache.outputForNoOutput entry, raise cache )
+
+                        Nothing ->
+                            let
+                                errors : List (Error {})
+                                errors =
+                                    filterExceptionsAndSetName exceptions schema.name (finalEvaluationFn inputContext)
+                            in
+                            ( errors
+                            , raise { cache | finalEvaluationErrors = Just (Cache.createNoOutput inputContext errors) }
+                            )
                 )
 
 
