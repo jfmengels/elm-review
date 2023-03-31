@@ -4312,17 +4312,17 @@ type alias ExtractCache projectContext =
     }
 
 
-qualifyErrors : { ruleName : String, exceptions : Exceptions } -> String -> List (Error {}) -> List (Error {}) -> List (Error {})
-qualifyErrors params filePath errors acc =
-    List.foldl (\err -> qualifyError params filePath err) acc errors
+qualifyErrors : { ruleName : String, exceptions : Exceptions, filePath : String } -> List (Error {}) -> List (Error {}) -> List (Error {})
+qualifyErrors params errors acc =
+    List.foldl (\err -> qualifyError params err) acc errors
 
 
-qualifyError : { ruleName : String, exceptions : Exceptions } -> String -> Error {} -> List (Error {}) -> List (Error {})
-qualifyError params filePath err acc =
+qualifyError : { ruleName : String, exceptions : Exceptions, filePath : String } -> Error {} -> List (Error {}) -> List (Error {})
+qualifyError params err acc =
     let
         newError : Error {}
         newError =
-            setFilePathIfUnset filePath err
+            setFilePathIfUnset params.filePath err
     in
     if Exceptions.isFileWeWantReportsFor params.exceptions (errorFilePathInternal newError) then
         setRuleName params.ruleName newError :: acc
@@ -6364,7 +6364,7 @@ moduleRuleImplementation schema params toRuleProjectVisitor raise (( errors, _ )
     , finalModuleEvaluation = createFinalModuleEvaluationVisitor raise errorsAndContext schema.finalEvaluationFn
 
     -- TODO Qualify errors as we add them
-    , getErrors = \() -> qualifyErrors { ruleName = schema.name, exceptions = params.exceptions } params.filePath errors []
+    , getErrors = \() -> qualifyErrors params errors []
     , toProjectVisitor = \() -> toRuleProjectVisitor errorsAndContext
     }
 
