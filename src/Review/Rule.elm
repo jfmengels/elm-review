@@ -5764,8 +5764,8 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
         raiseCache newCache =
             baseRaise { cache = newCache, ruleData = hidden.ruleData }
     in
-    { elmJsonVisitor = addProjectVisitor schema hidden schema.elmJsonVisitor [] ValidProject.elmJsonHash (\entry -> raiseCache { cache | elmJson = entry })
-    , readmeVisitor = addProjectVisitor schema hidden schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash (\entry -> raiseCache { cache | readme = entry })
+    { elmJsonVisitor = addProjectVisitor schema hidden schema.elmJsonVisitor [] ValidProject.elmJsonHash .elmJson (\entry -> raiseCache { cache | elmJson = entry })
+    , readmeVisitor = addProjectVisitor schema hidden schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash .readme (\entry -> raiseCache { cache | readme = entry })
     , dependenciesVisitor = addDependenciesVisitor schema hidden.ruleData raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
     , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema hidden.ruleData.exceptions raiseCache hidden
     , finalProjectEvaluation = addFinalProjectEvaluationVisitor schema hidden.ruleData raiseCache cache
@@ -5801,6 +5801,7 @@ addProjectVisitor :
     -> Maybe (data -> projectContext -> ( List (Error {}), projectContext ))
     -> List (Maybe (Cache.EntryMaybe error projectContext))
     -> (ValidProject -> Maybe ContentHash)
+    -> (ProjectRuleCache projectContext -> Maybe (CacheEntryMaybe projectContext))
     -> (Maybe (CacheEntryMaybe projectContext) -> RuleProjectVisitor)
     ->
         Maybe
@@ -5808,7 +5809,7 @@ addProjectVisitor :
              -> data
              -> ( List (Error {}), RuleProjectVisitor )
             )
-addProjectVisitor schema hidden maybeVisitor possibleInputContexts contentHash toRuleProjectVisitor =
+addProjectVisitor schema hidden maybeVisitor possibleInputContexts contentHash cacheGetter toRuleProjectVisitor =
     case maybeVisitor of
         Nothing ->
             Nothing
@@ -5824,23 +5825,33 @@ addProjectVisitor schema hidden maybeVisitor possibleInputContexts contentHash t
                                 |> Maybe.map Cache.outputContextMaybe
                                 |> Maybe.withDefault schema.initialProjectContext
 
-                        ( errorsForVisitor, outputContext ) =
-                            visitor data inputContext
-
-                        errors : List (Error {})
-                        errors =
-                            filterExceptionsAndSetName hidden.ruleData.exceptions schema.name errorsForVisitor
+                        cachePredicate : CacheEntryMaybe projectContext -> Bool
+                        cachePredicate elmJson =
+                            Cache.matchMaybe (ValidProject.elmJsonHash project) (ContextHash.create inputContext) elmJson
                     in
-                    ( errors
-                    , Cache.createEntryMaybe
-                        { contentHash = contentHash project
-                        , errors = errors
-                        , inputContext = inputContext
-                        , outputContext = outputContext
-                        }
-                        |> Just
-                        |> toRuleProjectVisitor
-                    )
+                    case reuseProjectRuleCache cachePredicate cacheGetter hidden.cache of
+                        Just entry ->
+                            ( Cache.errorsMaybe (Just entry), toRuleProjectVisitor (Just entry) )
+
+                        Nothing ->
+                            let
+                                ( errorsForVisitor, outputContext ) =
+                                    visitor data inputContext
+
+                                errors : List (Error {})
+                                errors =
+                                    filterExceptionsAndSetName hidden.ruleData.exceptions schema.name errorsForVisitor
+                            in
+                            ( errors
+                            , Cache.createEntryMaybe
+                                { contentHash = contentHash project
+                                , errors = errors
+                                , inputContext = inputContext
+                                , outputContext = outputContext
+                                }
+                                |> Just
+                                |> toRuleProjectVisitor
+                            )
                 )
 
 
