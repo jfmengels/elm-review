@@ -5113,14 +5113,12 @@ computeModule exceptions ({ dataToComputeModules, ruleProjectVisitors, module_, 
         initialModuleContext =
             applyContextCreator availableData dataToComputeModules.moduleContextCreator projectContext
 
-        ( errors, outputRuleProjectVisitors ) =
-            List.foldl
-                (\(RuleModuleVisitor ruleModuleVisitor) ( accErrors, rules ) ->
-                    ( List.append (ruleModuleVisitor.getErrors ()) accErrors
-                    , ruleModuleVisitor.toProjectVisitor () :: rules
-                    )
+        outputRuleProjectVisitors : List RuleProjectVisitor
+        outputRuleProjectVisitors =
+            List.map
+                (\(RuleModuleVisitor ruleModuleVisitor) ->
+                    ruleModuleVisitor.toProjectVisitor ()
                 )
-                ( [], [] )
                 (visitModuleForProjectRule2 module_ inputRuleModuleVisitors)
 
         ( _, resultModuleContext ) =
