@@ -6200,12 +6200,16 @@ addDataExtract schema raise cache =
         Just dataExtractor ->
             Just
                 (\reviewOptions ->
-                    let
-                        inputContext : projectContext
-                        inputContext =
-                            computeFinalContext2 schema cache
-                    in
-                    raise { cache | extract = Just { inputContext = ContextHash.create inputContext, extract = dataExtractor inputContext } }
+                    if reviewOptions.extract && not (List.any doesPreventExtract (errorsFromCache cache)) then
+                        let
+                            inputContext : projectContext
+                            inputContext =
+                                computeFinalContext2 schema cache
+                        in
+                        raise { cache | extract = Just { inputContext = ContextHash.create inputContext, extract = dataExtractor inputContext } }
+
+                    else
+                        raise cache
                 )
 
 
