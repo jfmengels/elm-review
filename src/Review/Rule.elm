@@ -6348,20 +6348,20 @@ moduleRuleImplementation :
     -> ( List (Error {}), moduleContext )
     -> RuleModuleVisitorOperations RuleModuleVisitor
 moduleRuleImplementation schema params toRuleProjectVisitor raise (( errors, _ ) as errorsAndContext) =
-    { moduleDefinitionVisitor = addMaybeVisitor params raise errorsAndContext schema.moduleDefinitionVisitor
-    , moduleDocumentationVisitor = addMaybeVisitor params raise errorsAndContext schema.moduleDocumentationVisitor
-    , commentVisitor = addMaybeVisitor params raise errorsAndContext schema.commentsVisitor
-    , importsVisitor = addImportsVisitor raise errorsAndContext schema.importVisitor
-    , declarationListVisitor = addMaybeVisitor params raise errorsAndContext schema.declarationListVisitor
-    , declarationVisitorOnEnter = addMaybeVisitor params raise errorsAndContext schema.declarationVisitorOnEnter
-    , declarationVisitorOnExit = addMaybeVisitor params raise errorsAndContext schema.declarationVisitorOnExit
-    , expressionVisitorOnEnter = addMaybeVisitor params raise errorsAndContext schema.expressionVisitorsOnEnter
-    , expressionVisitorOnExit = addMaybeVisitor params raise errorsAndContext schema.expressionVisitorsOnExit
-    , letDeclarationVisitorOnEnter = addMaybeVisitor2 raise errorsAndContext schema.letDeclarationVisitorOnEnter
-    , letDeclarationVisitorOnExit = addMaybeVisitor2 raise errorsAndContext schema.letDeclarationVisitorOnExit
-    , caseBranchVisitorOnEnter = addMaybeVisitor2 raise errorsAndContext schema.caseBranchVisitorOnEnter
-    , caseBranchVisitorOnExit = addMaybeVisitor2 raise errorsAndContext schema.caseBranchVisitorOnExit
-    , finalModuleEvaluation = addFinalModuleEvaluationVisitor raise errorsAndContext schema.finalEvaluationFn
+    { moduleDefinitionVisitor = createVisitor params raise errorsAndContext schema.moduleDefinitionVisitor
+    , moduleDocumentationVisitor = createVisitor params raise errorsAndContext schema.moduleDocumentationVisitor
+    , commentVisitor = createVisitor params raise errorsAndContext schema.commentsVisitor
+    , importsVisitor = createImportsVisitor raise errorsAndContext schema.importVisitor
+    , declarationListVisitor = createVisitor params raise errorsAndContext schema.declarationListVisitor
+    , declarationVisitorOnEnter = createVisitor params raise errorsAndContext schema.declarationVisitorOnEnter
+    , declarationVisitorOnExit = createVisitor params raise errorsAndContext schema.declarationVisitorOnExit
+    , expressionVisitorOnEnter = createVisitor params raise errorsAndContext schema.expressionVisitorsOnEnter
+    , expressionVisitorOnExit = createVisitor params raise errorsAndContext schema.expressionVisitorsOnExit
+    , letDeclarationVisitorOnEnter = createVisitor2 raise errorsAndContext schema.letDeclarationVisitorOnEnter
+    , letDeclarationVisitorOnExit = createVisitor2 raise errorsAndContext schema.letDeclarationVisitorOnExit
+    , caseBranchVisitorOnEnter = createVisitor2 raise errorsAndContext schema.caseBranchVisitorOnEnter
+    , caseBranchVisitorOnExit = createVisitor2 raise errorsAndContext schema.caseBranchVisitorOnExit
+    , finalModuleEvaluation = createFinalModuleEvaluationVisitor raise errorsAndContext schema.finalEvaluationFn
 
     -- TODO Qualify errors as we add them
     , getErrors = \() -> qualifyErrors { ruleName = schema.name, exceptions = params.exceptions } params.filePath errors
@@ -6369,13 +6369,13 @@ moduleRuleImplementation schema params toRuleProjectVisitor raise (( errors, _ )
     }
 
 
-addMaybeVisitor :
+createVisitor :
     { ruleName : String, exceptions : Exceptions, filePath : String }
     -> (( List (Error {}), context ) -> a)
     -> ( List (Error {}), context )
     -> Maybe (b -> context -> ( List (Error {}), context ))
     -> Maybe (b -> a)
-addMaybeVisitor params raise errorsAndContext maybeVisitor =
+createVisitor params raise errorsAndContext maybeVisitor =
     case maybeVisitor of
         Nothing ->
             Nothing
@@ -6384,12 +6384,12 @@ addMaybeVisitor params raise errorsAndContext maybeVisitor =
             Just (\node -> raise (accumulate (visitor node) errorsAndContext))
 
 
-addMaybeVisitor2 :
+createVisitor2 :
     (( List (Error {}), context ) -> t)
     -> ( List (Error {}), context )
     -> Maybe (a -> b -> context -> ( List (Error {}), context ))
     -> Maybe (a -> b -> t)
-addMaybeVisitor2 raise errorsAndContext maybeVisitor =
+createVisitor2 raise errorsAndContext maybeVisitor =
     case maybeVisitor of
         Nothing ->
             Nothing
@@ -6398,12 +6398,12 @@ addMaybeVisitor2 raise errorsAndContext maybeVisitor =
             Just (\a b -> raise (accumulate (visitor a b) errorsAndContext))
 
 
-addImportsVisitor :
+createImportsVisitor :
     (( List (Error {}), context ) -> a)
     -> ( List (Error {}), context )
     -> Maybe (b -> context -> ( List (Error {}), context ))
     -> Maybe (List b -> a)
-addImportsVisitor raise errorsAndContext maybeImportVisitors =
+createImportsVisitor raise errorsAndContext maybeImportVisitors =
     case maybeImportVisitors of
         Nothing ->
             Nothing
@@ -6422,12 +6422,12 @@ addImportsVisitor raise errorsAndContext maybeImportVisitors =
                 )
 
 
-addFinalModuleEvaluationVisitor :
+createFinalModuleEvaluationVisitor :
     (( List (Error {}), context ) -> RuleModuleVisitor)
     -> ( List (Error {}), context )
     -> Maybe (context -> List (Error {}))
     -> Maybe (() -> RuleModuleVisitor)
-addFinalModuleEvaluationVisitor raise ( errors, context ) maybeVisitor =
+createFinalModuleEvaluationVisitor raise ( errors, context ) maybeVisitor =
     case maybeVisitor of
         Nothing ->
             Nothing
