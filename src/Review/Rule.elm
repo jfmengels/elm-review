@@ -6153,13 +6153,17 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden travers
             inputProjectContext =
                 computeProjectContext traversalAndFolder project hidden.cache.moduleContexts incoming initialProjectContext
 
+            isFileIgnored : Bool
+            isFileIgnored =
+                not (Exceptions.isFileWeWantReportsFor exceptions availableData.filePath)
+
             shouldReuseCache : Cache.ModuleEntry error projectContext -> Bool
             shouldReuseCache cacheEntry =
                 Cache.match
                     moduleContentHash
                     (ContextHash.create inputProjectContext)
                     cacheEntry
-                    { isFileIgnored = availableData.isFileIgnored
+                    { isFileIgnored = isFileIgnored
                     , requestedData = hidden.ruleData.requestedData
                     }
 
@@ -6199,7 +6203,7 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden travers
                                     { contentHash = moduleContentHash
                                     , errors = errors
                                     , inputContext = inputProjectContext
-                                    , isFileIgnored = availableData.isFileIgnored
+                                    , isFileIgnored = isFileIgnored
                                     , outputContext = outputProjectContext
                                     }
 
