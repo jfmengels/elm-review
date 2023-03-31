@@ -351,7 +351,7 @@ type Rule
         , requestedData : RequestedData
         , providesFixes : Bool
         , extractsData : Bool
-        , ruleImplementation : ReviewOptionsData -> Int -> Exceptions -> FixedErrors -> ValidProject -> List RuleProjectVisitor -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extract : Maybe Extract }
+        , ruleImplementation : ReviewOptionsData -> Int -> Exceptions -> FixedErrors -> ValidProject -> List RuleProjectVisitor -> { errors : List (Error {}), fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extract : Maybe Extract }
         , ruleProjectVisitor : Result { message : String, details : List String } (ChangeableRuleData -> RuleProjectVisitor)
         }
 
@@ -800,7 +800,7 @@ runRulesHelp reviewOptions remainingRules acc =
 
         (Rule { name, id, exceptions, ruleImplementation }) :: restOfRules ->
             let
-                result : { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extract : Maybe Extract }
+                result : { errors : List (Error {}), fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extract : Maybe Extract }
                 result =
                     ruleImplementation reviewOptions id exceptions acc.fixedErrors acc.project acc.ruleProjectVisitors
 
@@ -1601,7 +1601,7 @@ configurationError name configurationError_ =
         , requestedData = RequestedData.none
         , extractsData = False
         , providesFixes = False
-        , ruleImplementation = \_ _ _ fixedErrors project _ -> { errors = [], fixedErrors = fixedErrors, rule = configurationError name configurationError_, ruleProjectVisitors = [], project = project, extract = Nothing }
+        , ruleImplementation = \_ _ _ fixedErrors project _ -> { errors = [], fixedErrors = fixedErrors, ruleProjectVisitors = [], project = project, extract = Nothing }
         , ruleProjectVisitor = Err configurationError_
         }
 
@@ -4329,7 +4329,7 @@ runProjectVisitor :
     -> ProjectRuleCache projectContext
     -> FixedErrors
     -> ValidProject
-    -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extract : Maybe Extract }
+    -> { errors : List (Error {}), fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extract : Maybe Extract }
 runProjectVisitor ({ projectVisitor, exceptions } as dataToComputeProject) initialRuleProjectVisitors ruleId initialCache initialFixedErrors initialProject =
     let
         { project, errors, cache, ruleProjectVisitors, fixedErrors } =
@@ -4344,30 +4344,6 @@ runProjectVisitor ({ projectVisitor, exceptions } as dataToComputeProject) initi
     in
     { errors = errors
     , fixedErrors = fixedErrors
-    , rule =
-        Rule
-            { name = projectVisitor.name
-            , id = ruleId
-            , exceptions = exceptions
-            , requestedData = projectVisitor.requestedData
-            , extractsData = projectVisitor.dataExtractor /= Nothing
-            , providesFixes = projectVisitor.providesFixes
-            , ruleImplementation =
-                \newReviewOptions newRuleId newExceptions newFixedErrors newProjectArg newRuleProjectVisitors ->
-                    runProjectVisitor
-                        { reviewOptions = newReviewOptions
-                        , projectVisitor = projectVisitor
-                        , exceptions = newExceptions
-                        }
-                        newRuleProjectVisitors
-                        newRuleId
-                        cache
-                        newFixedErrors
-                        newProjectArg
-
-            -- TODO Use the project visitor from the results
-            , ruleProjectVisitor = Ok (\_ -> Debug.todo "Missing project visitor in runProjectVisitorHelp")
-            }
     , ruleProjectVisitors = ruleProjectVisitors
     , project = project
     , extract = Maybe.map .extract (finalCacheMarker projectVisitor.name ruleId cache).extract
