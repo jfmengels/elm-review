@@ -1230,7 +1230,7 @@ newProjectRuleSchema name initialProjectContext =
 {-| Create a [`Rule`](#Rule) from a configured [`ProjectRuleSchema`](#ProjectRuleSchema).
 -}
 fromProjectRuleSchema : ProjectRuleSchema { schemaState | withModuleContext : Forbidden, hasAtLeastOneVisitor : () } projectContext moduleContext -> Rule
-fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
+fromProjectRuleSchema (ProjectRuleSchema schema) =
     Rule
         { name = schema.name
         , id = 0
