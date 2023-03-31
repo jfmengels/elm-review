@@ -5107,10 +5107,6 @@ computeModule exceptions ({ dataToComputeModules, ruleProjectVisitors, module_, 
                 ( [], [] )
                 ruleProjectVisitors
 
-        initialModuleContext : moduleContext
-        initialModuleContext =
-            applyContextCreator availableData isFileIgnored dataToComputeModules.moduleContextCreator projectContext
-
         outputRuleProjectVisitors : List RuleProjectVisitor
         outputRuleProjectVisitors =
             List.map
