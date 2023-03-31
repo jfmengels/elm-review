@@ -5269,7 +5269,7 @@ computeModules dataToComputeModules projectContexts maybeModuleZipper initialPro
 
         Just moduleZipper ->
             let
-                result : { project : ValidProject, moduleContexts : Dict String (ModuleCacheEntry projectContext), ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
+                result : { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
                 result =
                     computeModuleAndCacheResult
                         dataToComputeModules
@@ -5287,7 +5287,7 @@ computeModules dataToComputeModules projectContexts maybeModuleZipper initialPro
                         projectContexts
                         newModuleZipper
                         result.project
-                        result.moduleContexts
+                        initialModuleContexts
                         result.ruleProjectVisitors
                         result.fixedErrors
 
@@ -5355,15 +5355,15 @@ computeModuleAndCacheResult :
     -> Dict String (ModuleCacheEntry projectContext)
     -> List RuleProjectVisitor
     -> FixedErrors
-    -> { project : ValidProject, moduleContexts : Dict String (ModuleCacheEntry projectContext), ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
 computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZipper project moduleContexts ruleProjectVisitors fixedErrors =
     let
         { node, incoming } =
             Zipper.current moduleZipper
 
-        ignoreModule : () -> { project : ValidProject, moduleContexts : Dict String (ModuleCacheEntry projectContext), ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
+        ignoreModule : () -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
         ignoreModule () =
-            { project = project, moduleContexts = moduleContexts, ruleProjectVisitors = ruleProjectVisitors, nextStep = ModuleVisitStep (Zipper.next moduleZipper), fixedErrors = fixedErrors }
+            { project = project, ruleProjectVisitors = ruleProjectVisitors, nextStep = ModuleVisitStep (Zipper.next moduleZipper), fixedErrors = fixedErrors }
     in
     case ValidProject.getModuleByPath node.label project of
         Nothing ->
@@ -5423,7 +5423,6 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                         of
                             Just ( ShouldAbort newFixedErrors, fixResult ) ->
                                 { project = fixResult.project
-                                , moduleContexts = moduleContexts
                                 , ruleProjectVisitors = ruleProjectVisitors
                                 , nextStep = NextStepAbort
                                 , fixedErrors = newFixedErrors
@@ -5444,7 +5443,6 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                                                 BackToReadme
                                 in
                                 { project = fixResult.project
-                                , moduleContexts = moduleContexts
                                 , ruleProjectVisitors = ruleProjectVisitors
                                 , nextStep = nextStep
                                 , fixedErrors = newFixedErrors
@@ -5471,7 +5469,6 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                                     }
                         in
                         { project = result.project
-                        , moduleContexts = Dict.insert modulePath result.analysis moduleContexts
                         , ruleProjectVisitors = result.ruleProjectVisitors
                         , nextStep = result.nextStep
                         , fixedErrors = result.fixedErrors
