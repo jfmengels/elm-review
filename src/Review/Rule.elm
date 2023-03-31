@@ -4787,37 +4787,23 @@ computeDependencies { reviewOptions, projectVisitor } project contexts cache rul
         resultWhenNoFix () =
             { project = project
             , step = modulesAsNextStep outputContext
-            , cache = updateCache ()
+            , cache = cache
             , ruleProjectVisitors = newRuleProjectVisitors
             , fixedErrors = fixedErrors
             }
-
-        updateCache : () -> ProjectRuleCache projectContext
-        updateCache () =
-            let
-                dependenciesEntry : CacheEntryMaybe projectContext
-                dependenciesEntry =
-                    Cache.createEntryMaybe
-                        { contentHash = ValidProject.dependenciesHash project
-                        , errors = errors
-                        , inputContext = inputContext
-                        , outputContext = outputContext
-                        }
-            in
-            { cache | dependencies = Just dependenciesEntry }
     in
     case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
         Just ( postFixStatus, fixResult ) ->
             case postFixStatus of
                 ShouldAbort newFixedErrors ->
-                    { project = fixResult.project, step = Abort, cache = updateCache (), ruleProjectVisitors = newRuleProjectVisitors, fixedErrors = newFixedErrors }
+                    { project = fixResult.project, step = Abort, cache = cache, ruleProjectVisitors = newRuleProjectVisitors, fixedErrors = newFixedErrors }
 
                 ShouldContinue newFixedErrors ->
                     case fixResult.fixedFile of
                         FixedElmJson ->
                             { project = fixResult.project
                             , step = ElmJson { initial = contexts.initial }
-                            , cache = updateCache ()
+                            , cache = cache
                             , ruleProjectVisitors = newRuleProjectVisitors
                             , fixedErrors = newFixedErrors
                             }
@@ -4825,7 +4811,7 @@ computeDependencies { reviewOptions, projectVisitor } project contexts cache rul
                         FixedReadme ->
                             { project = fixResult.project
                             , step = Readme { initial = contexts.initial, elmJson = contexts.elmJson }
-                            , cache = updateCache ()
+                            , cache = cache
                             , ruleProjectVisitors = newRuleProjectVisitors
                             , fixedErrors = newFixedErrors
                             }
