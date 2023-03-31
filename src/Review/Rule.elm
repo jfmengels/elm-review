@@ -4926,7 +4926,7 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                         (\(RuleProjectVisitor rule) ->
                             case rule.dependenciesVisitor of
                                 Just visitor ->
-                                    visitor project exceptions { all = dependencies, direct = directDependencies }
+                                    visitor project { all = dependencies, direct = directDependencies }
 
                                 Nothing ->
                                     RuleProjectVisitor rule
@@ -6025,7 +6025,7 @@ type alias RuleProjectVisitorOperations t =
     -- The hidden state is `{ cache : ProjectRuleCache projectContext }`
     { elmJsonVisitor : Maybe (ValidProject -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> t)
     , readmeVisitor : Maybe (ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> t)
-    , dependenciesVisitor : Maybe (ValidProject -> Exceptions -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> t)
+    , dependenciesVisitor : Maybe (ValidProject -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> t)
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
     , finalProjectEvaluation : Maybe (Exceptions -> t)
     , dataExtract : Maybe (ReviewOptionsData -> t)
@@ -6055,7 +6055,7 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
     in
     { elmJsonVisitor = addProjectVisitor schema hidden schema.elmJsonVisitor [] ValidProject.elmJsonHash (\entry -> raiseCache { cache | elmJson = entry })
     , readmeVisitor = addProjectVisitor schema hidden schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash (\entry -> raiseCache { cache | readme = entry })
-    , dependenciesVisitor = addDependenciesVisitor schema raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
+    , dependenciesVisitor = addDependenciesVisitor schema hidden raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
     , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raiseCache cache
     , finalProjectEvaluation = addFinalProjectEvaluationVisitor schema raiseCache cache
     , dataExtract = addDataExtract schema raiseCache cache
@@ -6111,6 +6111,7 @@ addProjectVisitor schema { exceptions } maybeVisitor possibleInputContexts conte
 
 addDependenciesVisitor :
     ProjectRuleSchemaData projectContext moduleContext
+    -> RuleProjectVisitorHidden projectContext
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     -> ProjectRuleCache projectContext
     ->
@@ -6120,18 +6121,17 @@ addDependenciesVisitor :
     ->
         Maybe
             (ValidProject
-             -> Exceptions
              -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency }
              -> RuleProjectVisitor
             )
-addDependenciesVisitor schema raise cache { allVisitor, directVisitor } =
+addDependenciesVisitor schema { exceptions } raise cache { allVisitor, directVisitor } =
     case ( allVisitor, directVisitor ) of
         ( Nothing, Nothing ) ->
             Nothing
 
         _ ->
             Just
-                (\project exceptions { all, direct } ->
+                (\project { all, direct } ->
                     let
                         inputContext : projectContext
                         inputContext =
