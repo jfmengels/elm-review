@@ -5110,7 +5110,7 @@ computeModule ({ dataToComputeModules, ruleProjectVisitors, module_, isFileIgnor
         ( errors, outputRuleProjectVisitors ) =
             List.foldl
                 (\(RuleModuleVisitor ruleModuleVisitor) ( accErrors, rules ) ->
-                    ( List.append ruleModuleVisitor.getErrors accErrors
+                    ( List.append (ruleModuleVisitor.getErrors ()) accErrors
                     , ruleModuleVisitor.toProjectVisitor () :: rules
                     )
                 )
@@ -6288,7 +6288,7 @@ type alias RuleModuleVisitorOperations t =
     , caseBranchVisitorOnEnter : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> t)
     , caseBranchVisitorOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> t)
     , finalModuleEvaluation : Maybe (() -> t)
-    , getErrors : List (Error {})
+    , getErrors : () -> List (Error {})
     , toProjectVisitor : () -> RuleProjectVisitor
     }
 
@@ -6314,7 +6314,7 @@ moduleRuleImplementation schema toRuleProjectVisitor raise (( errors, _ ) as err
     , caseBranchVisitorOnEnter = addMaybeVisitor2 raise errorsAndContext schema.caseBranchVisitorOnEnter
     , caseBranchVisitorOnExit = addMaybeVisitor2 raise errorsAndContext schema.caseBranchVisitorOnExit
     , finalModuleEvaluation = addFinalModuleEvaluationVisitor raise errorsAndContext schema.finalEvaluationFn
-    , getErrors = errors
+    , getErrors = \() -> errors
     , toProjectVisitor = \() -> toRuleProjectVisitor errorsAndContext
     }
 
