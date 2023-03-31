@@ -5246,18 +5246,6 @@ mapLast mapper lines =
             List.reverse (mapper first :: rest)
 
 
-visitOnlyDeclaration :
-    Maybe (Visitor Declaration moduleContext)
-    -> Maybe (Visitor Declaration moduleContext)
-    -> Node Declaration
-    -> ( List (Error {}), moduleContext )
-    -> ( List (Error {}), moduleContext )
-visitOnlyDeclaration declarationVisitorOnEnter declarationVisitorOnExit node errorsAndContext =
-    errorsAndContext
-        |> accumulateWithMaybe declarationVisitorOnEnter node
-        |> accumulateWithMaybe declarationVisitorOnExit node
-
-
 type RuleProjectVisitor
     = RuleProjectVisitor (RuleProjectVisitorOperations RuleProjectVisitor)
 
