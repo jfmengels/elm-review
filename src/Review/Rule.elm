@@ -4492,11 +4492,7 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
 
         DataExtract context ->
             let
-                errors : List (Error {})
-                errors =
-                    errorsFromCache cache
-
-                ( errors2, newRuleProjectVisitors ) =
+                ( errors, newRuleProjectVisitors ) =
                     List.foldl
                         (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
                             case rule.dataExtractVisitor of
