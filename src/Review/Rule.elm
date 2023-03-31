@@ -5200,7 +5200,7 @@ findFix reviewOptions projectVisitor project errors fixedErrors maybeModuleZippe
                     ( ShouldContinue newFixedErrors, fixResult )
                         |> Logger.log
                             reviewOptions.logger
-                            (fixedError newFixedErrors { ruleName = projectVisitor.name, filePath = errorFilePath fixResult.error })
+                            (fixedError newFixedErrors { ruleName = errorRuleName fixResult.error, filePath = errorFilePath fixResult.error })
             )
 
 
