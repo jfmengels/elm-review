@@ -4501,8 +4501,12 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
                         (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
                             case rule.dataExtractVisitor of
                                 Just dataExtract ->
+                                    let
+                                        updatedRule =
+                                            dataExtract dataToComputeProject.reviewOptions
+                                    in
                                     ( accErrors
-                                    , dataExtract dataToComputeProject.reviewOptions :: accRules
+                                    , updatedRule :: accRules
                                     )
 
                                 Nothing ->
