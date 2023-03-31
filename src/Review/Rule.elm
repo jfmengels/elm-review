@@ -352,7 +352,7 @@ type Rule
         , providesFixes : Bool
         , extractsData : Bool
         , ruleImplementation : ReviewOptionsData -> Int -> Exceptions -> FixedErrors -> ValidProject -> List RuleProjectVisitor -> { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
-        , ruleProjectVisitor : Result { message : String, details : List String } (ChangeableRuleData -> RuleProjectVisitor)
+        , ruleProjectVisitor : Result { message : String, details : List String } (ValidProject -> ChangeableRuleData -> RuleProjectVisitor)
         }
 
 
@@ -633,6 +633,7 @@ checkForConfigurationErrors project rules =
                     case rule.ruleProjectVisitor of
                         Ok ruleProjectVisitor ->
                             ( ruleProjectVisitor
+                                project
                                 { exceptions = rule.exceptions
                                 , ruleId = rule.id
                                 , requestedData = rule.requestedData
@@ -1289,7 +1290,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     (removeUnknownModulesFromInitialCache project (initialCacheMarker schema.name ruleId emptyCache))
                     fixedErrors
                     project
-        , ruleProjectVisitor = Ok (\ruleData -> createRuleProjectVisitor schema ruleData)
+        , ruleProjectVisitor = Ok (\project ruleData -> createRuleProjectVisitor schema project ruleData)
         }
 
 
@@ -5949,11 +5950,11 @@ type alias RuleProjectVisitorOperations t =
     }
 
 
-createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> ChangeableRuleData -> RuleProjectVisitor
-createRuleProjectVisitor schema ruleData =
+createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> ValidProject -> ChangeableRuleData -> RuleProjectVisitor
+createRuleProjectVisitor schema project ruleData =
     If.create RuleProjectVisitor
         (\raise hidden -> projectRuleImplementation schema raise hidden)
-        { cache = initialCacheMarker schema.name ruleData.ruleId emptyCache
+        { cache = removeUnknownModulesFromInitialCache project (initialCacheMarker schema.name ruleData.ruleId emptyCache)
         , ruleData = ruleData
         }
 
