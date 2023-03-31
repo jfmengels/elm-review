@@ -5929,9 +5929,13 @@ type alias ChangeableRuleData =
     }
 
 
+{-| Object to analyze projects with a rule.
+
+`projectContext` is the hidden type variable.
+The hidden state is `{ cache : ProjectRuleCache projectContext, ruleData : ChangeableRuleData }`
+
+-}
 type alias RuleProjectVisitorOperations t =
-    -- `projectContext` is the hidden type variable
-    -- The hidden state is `{ cache : ProjectRuleCache projectContext }`
     { elmJsonVisitor : Maybe (ValidProject -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> ( List (Error {}), t ))
     , readmeVisitor : Maybe (ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> ( List (Error {}), t ))
     , dependenciesVisitor : Maybe (ValidProject -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> ( List (Error {}), t ))
