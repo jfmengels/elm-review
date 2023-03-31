@@ -5145,7 +5145,7 @@ computeModule ({ dataToComputeModules, ruleProjectVisitors, module_, isFileIgnor
                 Nothing ->
                     projectContext
     in
-    case findFixInComputeModuleResults { params | project = newProject } outputProjectContext outputRuleProjectVisitors errors of
+    case findFixInComputeModuleResults { params | project = newProject } outputProjectContext (List.append rulesWithoutModuleVisitors outputRuleProjectVisitors) errors of
         ContinueWithNextStep nextStepResult ->
             nextStepResult
 
