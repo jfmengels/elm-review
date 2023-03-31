@@ -4676,6 +4676,10 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                                         }
                             in
                             { cache | elmJson = Just elmJsonEntry }
+
+                        newRuleProjectVisitors : List RuleProjectVisitor
+                        newRuleProjectVisitors =
+                            ruleProjectVisitors
                     in
                     case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
                         Just ( postFixStatus, fixResult ) ->
@@ -4689,7 +4693,7 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                                     { project = fixResult.project
                                     , step = Abort
                                     , cache = updateCache ()
-                                    , ruleProjectVisitors = ruleProjectVisitors
+                                    , ruleProjectVisitors = newRuleProjectVisitors
                                     , fixedErrors = newFixedErrors
                                     }
 
@@ -4697,7 +4701,7 @@ computeElmJson ({ reviewOptions, projectVisitor, exceptions } as dataToComputePr
                             { project = project
                             , step = Readme { initial = inputContext, elmJson = outputContext }
                             , cache = updateCache ()
-                            , ruleProjectVisitors = ruleProjectVisitors
+                            , ruleProjectVisitors = newRuleProjectVisitors
                             , fixedErrors = fixedErrors
                             }
 
