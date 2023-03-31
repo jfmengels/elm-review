@@ -5764,8 +5764,8 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
         raiseCache newCache =
             baseRaise { cache = newCache, ruleData = hidden.ruleData }
     in
-    { elmJsonVisitor = addProjectVisitor schema hidden.ruleData schema.elmJsonVisitor [] ValidProject.elmJsonHash (\entry -> raiseCache { cache | elmJson = entry })
-    , readmeVisitor = addProjectVisitor schema hidden.ruleData schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash (\entry -> raiseCache { cache | readme = entry })
+    { elmJsonVisitor = addProjectVisitor schema hidden schema.elmJsonVisitor [] ValidProject.elmJsonHash (\entry -> raiseCache { cache | elmJson = entry })
+    , readmeVisitor = addProjectVisitor schema hidden schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash (\entry -> raiseCache { cache | readme = entry })
     , dependenciesVisitor = addDependenciesVisitor schema hidden.ruleData raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
     , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema hidden.ruleData.exceptions raiseCache hidden
     , finalProjectEvaluation = addFinalProjectEvaluationVisitor schema hidden.ruleData raiseCache cache
@@ -5797,7 +5797,7 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
 
 addProjectVisitor :
     ProjectRuleSchemaData projectContext moduleContext
-    -> ChangeableRuleData
+    -> RuleProjectVisitorHidden projectContext
     -> Maybe (data -> projectContext -> ( List (Error {}), projectContext ))
     -> List (Maybe (Cache.EntryMaybe error projectContext))
     -> (ValidProject -> Maybe ContentHash)
@@ -5808,7 +5808,7 @@ addProjectVisitor :
              -> data
              -> ( List (Error {}), RuleProjectVisitor )
             )
-addProjectVisitor schema { exceptions } maybeVisitor possibleInputContexts contentHash toRuleProjectVisitor =
+addProjectVisitor schema hidden maybeVisitor possibleInputContexts contentHash toRuleProjectVisitor =
     case maybeVisitor of
         Nothing ->
             Nothing
@@ -5829,7 +5829,7 @@ addProjectVisitor schema { exceptions } maybeVisitor possibleInputContexts conte
 
                         errors : List (Error {})
                         errors =
-                            filterExceptionsAndSetName exceptions schema.name errorsForVisitor
+                            filterExceptionsAndSetName hidden.ruleData.exceptions schema.name errorsForVisitor
                     in
                     ( errors
                     , Cache.createEntryMaybe
