@@ -759,7 +759,6 @@ runRules (ReviewOptionsInternal reviewOptions) rules ruleProjectVisitors project
         result =
             runRulesHelp
                 reviewOptions
-                (moveFixableRulesFirst rules)
                 { fixedErrors = FixedErrors.empty
                 , ruleProjectVisitors = ruleProjectVisitors
                 , project = project
@@ -773,68 +772,39 @@ runRules (ReviewOptionsInternal reviewOptions) rules ruleProjectVisitors project
     }
 
 
-moveFixableRulesFirst : List Rule -> List Rule
-moveFixableRulesFirst rules =
-    List.sortBy
-        (\(Rule rule) ->
-            if rule.name == "NoUnused.Variables" then
-                0
-
-            else if rule.name == "NoUnused.Exports" then
-                1
-
-            else if rule.providesFixes then
-                2
-
-            else
-                3
-        )
-        rules
-
-
 runRulesHelp :
     ReviewOptionsData
-    -> List Rule
     -> { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
     -> { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
-runRulesHelp reviewOptions remainingRules acc =
-    case remainingRules of
-        [] ->
-            acc
+runRulesHelp reviewOptions acc =
+    let
+        result : { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
+        result =
+            runProjectVisitor
+                reviewOptions
+                acc.ruleProjectVisitors
+                acc.fixedErrors
+                acc.project
+    in
+    if InternalOptions.shouldAbort reviewOptions result.fixedErrors then
+        { fixedErrors = result.fixedErrors
+        , ruleProjectVisitors = result.ruleProjectVisitors
+        , project = result.project
+        }
 
-        (Rule { name, id, exceptions, ruleImplementation }) :: restOfRules ->
-            let
-                result : { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
-                result =
-                    runProjectVisitor
-                        reviewOptions
-                        acc.ruleProjectVisitors
-                        acc.fixedErrors
-                        acc.project
-            in
-            if InternalOptions.shouldAbort reviewOptions result.fixedErrors then
-                { fixedErrors = result.fixedErrors
-                , ruleProjectVisitors = result.ruleProjectVisitors
-                , project = result.project
-                }
+    else if FixedErrors.hasChanged result.fixedErrors acc.fixedErrors then
+        runRulesHelp
+            reviewOptions
+            { fixedErrors = result.fixedErrors
+            , ruleProjectVisitors = result.ruleProjectVisitors
+            , project = result.project
+            }
 
-            else if FixedErrors.hasChanged result.fixedErrors acc.fixedErrors then
-                runRulesHelp
-                    reviewOptions
-                    restOfRules
-                    { fixedErrors = result.fixedErrors
-                    , ruleProjectVisitors = result.ruleProjectVisitors
-                    , project = result.project
-                    }
-
-            else
-                runRulesHelp
-                    reviewOptions
-                    restOfRules
-                    { fixedErrors = result.fixedErrors
-                    , ruleProjectVisitors = result.ruleProjectVisitors
-                    , project = result.project
-                    }
+    else
+        { fixedErrors = result.fixedErrors
+        , ruleProjectVisitors = result.ruleProjectVisitors
+        , project = result.project
+        }
 
 
 {-| Let `elm-review` know that this rule may provide fixes in the reported errors.
