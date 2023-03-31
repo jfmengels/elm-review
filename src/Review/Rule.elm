@@ -1388,18 +1388,6 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
     )
 
 
-fromModuleRuleSchemaToRunnableModuleVisitor : ModuleRuleSchema schemaState moduleContext -> RunnableModuleVisitor moduleContext
-fromModuleRuleSchemaToRunnableModuleVisitor (ModuleRuleSchema schema) =
-    { moduleDefinitionVisitor = schema.moduleDefinitionVisitor
-    , moduleDocumentationVisitor = schema.moduleDocumentationVisitor
-    , commentsVisitor = schema.commentsVisitor
-    , importVisitor = schema.importVisitor
-    , declarationListVisitor = schema.declarationListVisitor
-    , declarationAndExpressionVisitor = createDeclarationAndExpressionVisitor schema
-    , finalEvaluationFn = schema.finalEvaluationFn
-    }
-
-
 createDeclarationAndExpressionVisitor : ModuleRuleSchemaData moduleContext -> List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
 createDeclarationAndExpressionVisitor schema =
     if shouldVisitDeclarations schema then
@@ -6810,13 +6798,6 @@ isInSourceDirectories (Metadata metadata) =
 startedRule : String -> List ( String, Encode.Value )
 startedRule name =
     [ ( "type", Encode.string "timer-start" )
-    , ( "metric", Encode.string ("Running " ++ name) )
-    ]
-
-
-endedRule : String -> List ( String, Encode.Value )
-endedRule name =
-    [ ( "type", Encode.string "timer-end" )
     , ( "metric", Encode.string ("Running " ++ name) )
     ]
 
