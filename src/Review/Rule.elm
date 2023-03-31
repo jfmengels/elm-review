@@ -1296,6 +1296,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     , projectVisitor = fromProjectRuleSchemaToRunnableProjectVisitor projectRuleSchema
                     , exceptions = exceptions
                     }
+                    ruleProjectVisitors
                     ruleId
                     (removeUnknownModulesFromInitialCache project (initialCacheMarker schema.name ruleId emptyCache))
                     fixedErrors
@@ -4318,26 +4319,28 @@ type alias ExtractCache projectContext =
 
 runProjectVisitor :
     DataToComputeProject projectContext moduleContext
+    -> List RuleProjectVisitor
     -> Int
     -> ProjectRuleCache projectContext
     -> FixedErrors
     -> ValidProject
     -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extract : Maybe Extract }
-runProjectVisitor dataToComputeProject ruleId cache fixedErrors project =
+runProjectVisitor dataToComputeProject ruleProjectVisitors ruleId cache fixedErrors project =
     project
         |> Logger.log dataToComputeProject.reviewOptions.logger (startedRule dataToComputeProject.projectVisitor.name)
-        |> runProjectVisitorHelp dataToComputeProject ruleId cache fixedErrors
+        |> runProjectVisitorHelp dataToComputeProject ruleProjectVisitors ruleId cache fixedErrors
         |> Logger.log dataToComputeProject.reviewOptions.logger (endedRule dataToComputeProject.projectVisitor.name)
 
 
 runProjectVisitorHelp :
     DataToComputeProject projectContext moduleContext
+    -> List RuleProjectVisitor
     -> Int
     -> ProjectRuleCache projectContext
     -> FixedErrors
     -> ValidProject
     -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extract : Maybe Extract }
-runProjectVisitorHelp ({ projectVisitor, exceptions } as dataToComputeProject) ruleId initialCache initialFixedErrors initialProject =
+runProjectVisitorHelp ({ projectVisitor, exceptions } as dataToComputeProject) initialRuleProjectVisitors ruleId initialCache initialFixedErrors initialProject =
     let
         { project, errors, cache, ruleProjectVisitors, fixedErrors } =
             computeStepsForProject
@@ -4345,7 +4348,7 @@ runProjectVisitorHelp ({ projectVisitor, exceptions } as dataToComputeProject) r
                 { step = ElmJson { initial = projectVisitor.initialProjectContext }
                 , project = initialProject
                 , cache = initialCache
-                , ruleProjectVisitors = dataToComputeProject.ruleProjectVisitors
+                , ruleProjectVisitors = initialRuleProjectVisitors
                 , fixedErrors = initialFixedErrors
                 }
     in
@@ -4367,6 +4370,7 @@ runProjectVisitorHelp ({ projectVisitor, exceptions } as dataToComputeProject) r
                         , projectVisitor = projectVisitor
                         , exceptions = newExceptions
                         }
+                        newRuleProjectVisitors
                         newRuleId
                         cache
                         newFixedErrors
