@@ -1330,7 +1330,7 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
     , directDependenciesVisitor = schema.directDependenciesVisitor
     , dependenciesVisitor = schema.dependenciesVisitor
     , moduleVisitor =
-        mergeModuleVisitors schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors
+        mergeModuleVisitors schema.name schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors
             |> Maybe.map (Tuple.mapFirst fromModuleRuleSchemaToRunnableModuleVisitor)
     , traversalAndFolder =
         case ( schema.traversalType, schema.folder ) of
@@ -1355,11 +1355,12 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
 
 
 mergeModuleVisitors :
-    projectContext
+    String
+    -> projectContext
     -> Maybe (ContextCreator projectContext moduleContext)
     -> List (ModuleRuleSchema schemaState1 moduleContext -> ModuleRuleSchema schemaState2 moduleContext)
     -> Maybe ( ModuleRuleSchema {} moduleContext, ContextCreator projectContext moduleContext )
-mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
+mergeModuleVisitors ruleName_ initialProjectContext maybeModuleContextCreator visitors =
     case maybeModuleContextCreator of
         Nothing ->
             Nothing
@@ -1369,15 +1370,16 @@ mergeModuleVisitors initialProjectContext maybeModuleContextCreator visitors =
                 Nothing
 
             else
-                Just (mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors)
+                Just (mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator visitors)
 
 
 mergeModuleVisitorsHelp :
-    projectContext
+    String
+    -> projectContext
     -> ContextCreator projectContext moduleContext
     -> List (ModuleRuleSchema schemaState1 moduleContext -> ModuleRuleSchema schemaState2 moduleContext)
     -> ( ModuleRuleSchema {} moduleContext, ContextCreator projectContext moduleContext )
-mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
+mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator visitors =
     let
         dummyAst : Elm.Syntax.File.File
         dummyAst =
@@ -1411,7 +1413,7 @@ mergeModuleVisitorsHelp initialProjectContext moduleContextCreator visitors =
         emptyModuleVisitor : ModuleRuleSchema schemaState moduleContext
         emptyModuleVisitor =
             ModuleRuleSchema
-                { name = ""
+                { name = ruleName_
                 , initialModuleContext = Just initialModuleContext
                 , moduleContextCreator = initContextCreator (always initialModuleContext)
                 , moduleDefinitionVisitor = Nothing
@@ -6211,7 +6213,7 @@ createModuleVisitorFromProjectVisitor :
     -> ProjectRuleCache projectContext
     -> Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
 createModuleVisitorFromProjectVisitor schema exceptions raise cache =
-    case mergeModuleVisitors schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors of
+    case mergeModuleVisitors schema.name schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors of
         Nothing ->
             Nothing
 
