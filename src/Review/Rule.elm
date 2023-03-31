@@ -6657,13 +6657,6 @@ isInSourceDirectories (Metadata metadata) =
 -- LOGS
 
 
-startedRule : String -> List ( String, Encode.Value )
-startedRule name =
-    [ ( "type", Encode.string "timer-start" )
-    , ( "metric", Encode.string ("Running " ++ name) )
-    ]
-
-
 fixedError : FixedErrors -> { ruleName : String, filePath : String } -> List ( String, Encode.Value )
 fixedError fixedErrors data =
     [ ( "type", Encode.string "apply-fix" )
