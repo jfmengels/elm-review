@@ -5875,38 +5875,49 @@ addDependenciesVisitor schema { exceptions } raise cache { allVisitor, directVis
                                 |> Maybe.map Cache.outputContextMaybe
                                 |> Maybe.withDefault schema.initialProjectContext
 
-                        ( errorsForDirect, outputContextForDirect ) =
-                            case directVisitor of
-                                Just directVisitor_ ->
-                                    directVisitor_ direct inputContext
-
-                                Nothing ->
-                                    ( [], inputContext )
-
-                        ( errorsForIndirect, finalOutputContext ) =
-                            case allVisitor of
-                                Just allVisitor_ ->
-                                    allVisitor_ all outputContextForDirect
-
-                                Nothing ->
-                                    ( [], outputContextForDirect )
-
-                        errors : List (Error {})
-                        errors =
-                            filterExceptionsAndSetName exceptions schema.name (List.append errorsForIndirect errorsForDirect)
-
-                        dependenciesEntry : CacheEntryMaybe projectContext
-                        dependenciesEntry =
-                            Cache.createEntryMaybe
-                                { contentHash = ValidProject.dependenciesHash project
-                                , errors = errors
-                                , inputContext = inputContext
-                                , outputContext = finalOutputContext
-                                }
+                        cachePredicate : CacheEntryMaybe projectContext -> Bool
+                        cachePredicate entry =
+                            Cache.matchMaybe (ValidProject.dependenciesHash project) (ContextHash.create inputContext) entry
                     in
-                    ( errors
-                    , raise { cache | dependencies = Just dependenciesEntry }
-                    )
+                    case reuseProjectRuleCache cachePredicate .dependencies cache of
+                        Just entry ->
+                            -- TODO Remove the need to wrap in `Just`?
+                            ( Cache.errorsMaybe (Just entry), raise cache )
+
+                        Nothing ->
+                            let
+                                ( errorsForDirect, outputContextForDirect ) =
+                                    case directVisitor of
+                                        Just directVisitor_ ->
+                                            directVisitor_ direct inputContext
+
+                                        Nothing ->
+                                            ( [], inputContext )
+
+                                ( errorsForIndirect, finalOutputContext ) =
+                                    case allVisitor of
+                                        Just allVisitor_ ->
+                                            allVisitor_ all outputContextForDirect
+
+                                        Nothing ->
+                                            ( [], outputContextForDirect )
+
+                                errors : List (Error {})
+                                errors =
+                                    filterExceptionsAndSetName exceptions schema.name (List.append errorsForIndirect errorsForDirect)
+
+                                dependenciesEntry : CacheEntryMaybe projectContext
+                                dependenciesEntry =
+                                    Cache.createEntryMaybe
+                                        { contentHash = ValidProject.dependenciesHash project
+                                        , errors = errors
+                                        , inputContext = inputContext
+                                        , outputContext = finalOutputContext
+                                        }
+                            in
+                            ( errors
+                            , raise { cache | dependencies = Just dependenciesEntry }
+                            )
                 )
 
 
