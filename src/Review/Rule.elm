@@ -4584,20 +4584,6 @@ computeElmJson ({ reviewOptions, projectVisitor } as dataToComputeProject) proje
                         )
                         ( [], [] )
                         ruleProjectVisitors
-
-                updateCache : () -> ProjectRuleCache projectContext
-                updateCache () =
-                    let
-                        elmJsonEntry : CacheEntryMaybe projectContext
-                        elmJsonEntry =
-                            Cache.createEntryMaybe
-                                { contentHash = ValidProject.elmJsonHash project
-                                , errors = errors
-                                , inputContext = inputContext
-                                , outputContext = outputContext
-                                }
-                    in
-                    { cache | elmJson = Just elmJsonEntry }
             in
             case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
                 Just ( postFixStatus, fixResult ) ->
@@ -4610,7 +4596,7 @@ computeElmJson ({ reviewOptions, projectVisitor } as dataToComputeProject) proje
                         ShouldAbort newFixedErrors ->
                             { project = fixResult.project
                             , step = Abort
-                            , cache = updateCache ()
+                            , cache = cache
                             , ruleProjectVisitors = newRuleProjectVisitors
                             , fixedErrors = newFixedErrors
                             }
@@ -4618,7 +4604,7 @@ computeElmJson ({ reviewOptions, projectVisitor } as dataToComputeProject) proje
                 Nothing ->
                     { project = project
                     , step = Readme { initial = inputContext, elmJson = outputContext }
-                    , cache = updateCache ()
+                    , cache = cache
                     , ruleProjectVisitors = newRuleProjectVisitors
                     , fixedErrors = fixedErrors
                     }
