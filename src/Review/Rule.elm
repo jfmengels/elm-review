@@ -4510,7 +4510,7 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
                                     )
 
                                 Nothing ->
-                                    ( accErrors, untouched :: accRules )
+                                    ( List.append (rule.getErrors ()) accErrors, untouched :: accRules )
                         )
                         ( [], [] )
                         ruleProjectVisitors
