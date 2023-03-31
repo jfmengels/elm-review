@@ -5134,7 +5134,7 @@ computeModule exceptions ({ dataToComputeModules, ruleProjectVisitors, module_, 
         ( errors, outputRuleProjectVisitors ) =
             List.foldl
                 (\(RuleModuleVisitor ruleModuleVisitor) ( accErrors, rules ) ->
-                    ( List.append (ruleModuleVisitor.getErrors modulePath) accErrors
+                    ( List.append (ruleModuleVisitor.getErrors ()) accErrors
                     , ruleModuleVisitor.toProjectVisitor () :: rules
                     )
                 )
@@ -6289,7 +6289,7 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise cache traversa
                 in
                 raise { cache | moduleContexts = Dict.insert availableData.filePath cacheEntry cache.moduleContexts }
         in
-        newRule moduleRuleSchema exceptions toRuleProjectVisitor initialContext
+        newRule moduleRuleSchema exceptions availableData.filePath toRuleProjectVisitor initialContext
 
 
 type RuleModuleVisitor
@@ -6313,18 +6313,31 @@ type alias RuleModuleVisitorOperations t =
     , caseBranchVisitorOnEnter : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> t)
     , caseBranchVisitorOnExit : Maybe (Node Expression.CaseBlock -> ( Node Pattern, Node Expression ) -> t)
     , finalModuleEvaluation : Maybe (() -> t)
-    , getErrors : String -> List (Error {})
+    , getErrors : () -> List (Error {})
     , toProjectVisitor : () -> RuleProjectVisitor
     }
 
 
-newRule : ModuleRuleSchemaData moduleContext -> Exceptions -> (( List (Error {}), moduleContext ) -> RuleProjectVisitor) -> moduleContext -> RuleModuleVisitor
-newRule schema exceptions toRuleProjectVisitor initialContext =
-    If.create RuleModuleVisitor (moduleRuleImplementation schema exceptions toRuleProjectVisitor) ( [], initialContext )
+newRule :
+    ModuleRuleSchemaData moduleContext
+    -> Exceptions
+    -> String
+    -> (( List (Error {}), moduleContext ) -> RuleProjectVisitor)
+    -> moduleContext
+    -> RuleModuleVisitor
+newRule schema exceptions filePath toRuleProjectVisitor initialContext =
+    If.create RuleModuleVisitor (moduleRuleImplementation schema exceptions filePath toRuleProjectVisitor) ( [], initialContext )
 
 
-moduleRuleImplementation : ModuleRuleSchemaData moduleContext -> Exceptions -> (( List (Error {}), moduleContext ) -> RuleProjectVisitor) -> (( List (Error {}), moduleContext ) -> RuleModuleVisitor) -> ( List (Error {}), moduleContext ) -> RuleModuleVisitorOperations RuleModuleVisitor
-moduleRuleImplementation schema exceptions toRuleProjectVisitor raise (( errors, _ ) as errorsAndContext) =
+moduleRuleImplementation :
+    ModuleRuleSchemaData moduleContext
+    -> Exceptions
+    -> String
+    -> (( List (Error {}), moduleContext ) -> RuleProjectVisitor)
+    -> (( List (Error {}), moduleContext ) -> RuleModuleVisitor)
+    -> ( List (Error {}), moduleContext )
+    -> RuleModuleVisitorOperations RuleModuleVisitor
+moduleRuleImplementation schema exceptions filePath toRuleProjectVisitor raise (( errors, _ ) as errorsAndContext) =
     { moduleDefinitionVisitor = addMaybeVisitor raise errorsAndContext schema.moduleDefinitionVisitor
     , moduleDocumentationVisitor = addMaybeVisitor raise errorsAndContext schema.moduleDocumentationVisitor
     , commentVisitor = addMaybeVisitor raise errorsAndContext schema.commentsVisitor
@@ -6341,7 +6354,7 @@ moduleRuleImplementation schema exceptions toRuleProjectVisitor raise (( errors,
     , finalModuleEvaluation = addFinalModuleEvaluationVisitor raise errorsAndContext schema.finalEvaluationFn
 
     -- TODO Qualify errors as we add them
-    , getErrors = \filePath -> qualifyErrors { ruleName = schema.name, exceptions = exceptions } filePath errors
+    , getErrors = \() -> qualifyErrors { ruleName = schema.name, exceptions = exceptions } filePath errors
     , toProjectVisitor = \() -> toRuleProjectVisitor errorsAndContext
     }
 
