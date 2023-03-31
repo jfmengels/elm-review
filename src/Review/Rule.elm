@@ -6830,6 +6830,17 @@ accumulate visitor ( previousErrors, previousContext ) =
     ( List.append newErrors previousErrors, newContext )
 
 
+{-| Concatenate the errors of the previous step and of the last step, and take the last step's context.
+-}
+accumulateWithParams : { ruleName : String, exceptions : Exceptions, filePath : String } -> (context -> ( List (Error {}), context )) -> ( List (Error {}), context ) -> ( List (Error {}), context )
+accumulateWithParams params visitor ( previousErrors, previousContext ) =
+    let
+        ( newErrors, newContext ) =
+            visitor previousContext
+    in
+    ( qualifyErrors params newErrors previousErrors, newContext )
+
+
 
 -- INITIALIZING WITH CONTEXT
 -- TODO Move this to a different module later on
