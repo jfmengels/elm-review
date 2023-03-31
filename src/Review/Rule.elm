@@ -5134,7 +5134,7 @@ computeModule exceptions ({ dataToComputeModules, ruleProjectVisitors, module_, 
                 Nothing ->
                     projectContext
     in
-    case findFixInComputeModuleResults { params | project = newProject } outputProjectContext (List.append rulesNotToRun outputRuleProjectVisitors) of
+    case findFixInComputeModuleResults { params | project = newProject } (List.append rulesNotToRun outputRuleProjectVisitors) of
         ContinueWithNextStep nextStepResult ->
             nextStepResult
 
@@ -5149,10 +5149,9 @@ type ComputeModuleFindFixResult projectContext moduleContext
 
 findFixInComputeModuleResults :
     DataToComputeSingleModule projectContext moduleContext
-    -> projectContext
     -> List RuleProjectVisitor
     -> ComputeModuleFindFixResult projectContext moduleContext
-findFixInComputeModuleResults ({ dataToComputeModules, module_, projectContext, project, moduleZipper, fixedErrors } as params) outputContext outputRuleProjectVisitors =
+findFixInComputeModuleResults ({ dataToComputeModules, module_, project, moduleZipper, fixedErrors } as params) outputRuleProjectVisitors =
     let
         modulePath : String
         modulePath =
