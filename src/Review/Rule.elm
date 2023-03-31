@@ -5973,7 +5973,7 @@ createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext ->
 createRuleProjectVisitor schema ruleData =
     If.create
         RuleProjectVisitor
-        (projectRuleImplementation schema)
+        (\raise hidden -> projectRuleImplementation schema raise hidden)
         { cache = emptyCache
         , ruleData = ruleData
         }
@@ -6326,7 +6326,7 @@ newRule :
     -> moduleContext
     -> RuleModuleVisitor
 newRule schema exceptions filePath toRuleProjectVisitor initialContext =
-    If.create RuleModuleVisitor (moduleRuleImplementation schema exceptions filePath toRuleProjectVisitor) ( [], initialContext )
+    If.create RuleModuleVisitor (\raise hidden -> moduleRuleImplementation schema exceptions filePath toRuleProjectVisitor raise hidden) ( [], initialContext )
 
 
 moduleRuleImplementation :
