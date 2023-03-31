@@ -5346,11 +5346,6 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                 ignoreModule ()
 
             else
-                let
-                    projectContext : projectContext
-                    projectContext =
-                        computeProjectContext dataToComputeModules.projectVisitor.traversalAndFolder project moduleContexts incoming inputProjectContext
-                in
                 computeModule
                     dataToComputeModules.exceptions
                     { dataToComputeModules = dataToComputeModules
