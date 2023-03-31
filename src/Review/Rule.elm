@@ -6351,7 +6351,7 @@ moduleRuleImplementation schema params toRuleProjectVisitor raise (( errors, _ )
     { moduleDefinitionVisitor = createVisitor params raise errorsAndContext schema.moduleDefinitionVisitor
     , moduleDocumentationVisitor = createVisitor params raise errorsAndContext schema.moduleDocumentationVisitor
     , commentVisitor = createVisitor params raise errorsAndContext schema.commentsVisitor
-    , importsVisitor = createImportsVisitor raise errorsAndContext schema.importVisitor
+    , importsVisitor = createImportsVisitor params raise errorsAndContext schema.importVisitor
     , declarationListVisitor = createVisitor params raise errorsAndContext schema.declarationListVisitor
     , declarationVisitorOnEnter = createVisitor params raise errorsAndContext schema.declarationVisitorOnEnter
     , declarationVisitorOnExit = createVisitor params raise errorsAndContext schema.declarationVisitorOnExit
@@ -6399,11 +6399,12 @@ createVisitor2 raise errorsAndContext maybeVisitor =
 
 
 createImportsVisitor :
-    (( List (Error {}), context ) -> a)
+    { ruleName : String, exceptions : Exceptions, filePath : String }
+    -> (( List (Error {}), context ) -> a)
     -> ( List (Error {}), context )
     -> Maybe (b -> context -> ( List (Error {}), context ))
     -> Maybe (List b -> a)
-createImportsVisitor raise errorsAndContext maybeImportVisitors =
+createImportsVisitor params raise errorsAndContext maybeImportVisitors =
     case maybeImportVisitors of
         Nothing ->
             Nothing
@@ -6414,7 +6415,7 @@ createImportsVisitor raise errorsAndContext maybeImportVisitors =
                     raise
                         (List.foldl
                             (\import_ initialErrorsAndContext ->
-                                accumulate (visitor import_) initialErrorsAndContext
+                                accumulateWithParams params (visitor import_) initialErrorsAndContext
                             )
                             errorsAndContext
                             imports
