@@ -6001,6 +6001,7 @@ type alias RuleProjectVisitorOperations t =
     , dependenciesVisitor : Maybe (ValidProject -> Exceptions -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> t)
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
     , finalProjectEvaluation : Maybe (Exceptions -> t)
+    , dataExtract : Maybe (() -> t)
     }
 
 
@@ -6020,6 +6021,7 @@ projectRuleImplementation schema raise cache =
     , dependenciesVisitor = addDependenciesVisitor schema raise cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
     , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raise cache
     , finalProjectEvaluation = addFinalProjectEvaluationVisitor schema raise cache
+    , dataExtract = addDataExtract schema raise cache
     }
 
 
@@ -6157,6 +6159,28 @@ addFinalProjectEvaluationVisitor schema raise cache =
                             filterExceptionsAndSetName exceptions schema.name (finalEvaluationFn inputContext)
                     in
                     raise { cache | finalEvaluationErrors = Just (Cache.createNoOutput inputContext errors) }
+                )
+
+
+addDataExtract :
+    ProjectRuleSchemaData projectContext moduleContext
+    -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
+    -> ProjectRuleCache projectContext
+    -> Maybe (() -> RuleProjectVisitor)
+addDataExtract schema raise cache =
+    case schema.dataExtractor of
+        Nothing ->
+            Nothing
+
+        Just dataExtractor ->
+            Just
+                (\() ->
+                    let
+                        inputContext : projectContext
+                        inputContext =
+                            computeFinalContext2 schema cache
+                    in
+                    raise { cache | extract = Just { inputContext = ContextHash.create inputContext, extract = dataExtractor inputContext } }
                 )
 
 
