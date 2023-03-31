@@ -4330,20 +4330,7 @@ runProjectVisitor :
     -> FixedErrors
     -> ValidProject
     -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extract : Maybe Extract }
-runProjectVisitor dataToComputeProject ruleProjectVisitors ruleId cache fixedErrors project =
-    project
-        |> runProjectVisitorHelp dataToComputeProject ruleProjectVisitors ruleId cache fixedErrors
-
-
-runProjectVisitorHelp :
-    DataToComputeProject projectContext moduleContext
-    -> List RuleProjectVisitor
-    -> Int
-    -> ProjectRuleCache projectContext
-    -> FixedErrors
-    -> ValidProject
-    -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extract : Maybe Extract }
-runProjectVisitorHelp ({ projectVisitor, exceptions } as dataToComputeProject) initialRuleProjectVisitors ruleId initialCache initialFixedErrors initialProject =
+runProjectVisitor ({ projectVisitor, exceptions } as dataToComputeProject) initialRuleProjectVisitors ruleId initialCache initialFixedErrors initialProject =
     let
         { project, errors, cache, ruleProjectVisitors, fixedErrors } =
             computeStepsForProject
