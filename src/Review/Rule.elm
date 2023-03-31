@@ -5009,6 +5009,19 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
 
                 Nothing ->
                     let
+                        newRuleProjectVisitors : List RuleProjectVisitor
+                        newRuleProjectVisitors =
+                            List.map
+                                (\(RuleProjectVisitor rule) ->
+                                    case rule.finalProjectEvaluation of
+                                        Just visitor ->
+                                            visitor exceptions
+
+                                        Nothing ->
+                                            RuleProjectVisitor rule
+                                )
+                                ruleProjectVisitors
+
                         errors : List (Error {})
                         errors =
                             finalEvaluationFn finalContext
@@ -5036,7 +5049,7 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
                             in
                             { project = fixResult.project
                             , cache = { cache | finalEvaluationErrors = Just (Cache.createNoOutput finalContext errors) }
-                            , ruleProjectVisitors = ruleProjectVisitors
+                            , ruleProjectVisitors = newRuleProjectVisitors
                             , step = step
                             , fixedErrors = newFixedErrors
                             }
@@ -5044,7 +5057,7 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
                         Nothing ->
                             { project = project
                             , cache = { cache | finalEvaluationErrors = Just (Cache.createNoOutput finalContext errors) }
-                            , ruleProjectVisitors = ruleProjectVisitors
+                            , ruleProjectVisitors = newRuleProjectVisitors
                             , step = DataExtract (Combined finalContext)
                             , fixedErrors = fixedErrors
                             }
