@@ -6280,10 +6280,7 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise cache traversa
                     cacheEntry =
                         Cache.createModuleEntry
                             { contentHash = moduleContentHash
-                            , errors =
-                                errors
-                                    |> List.map (\err -> setFilePathIfUnset availableData.filePath err)
-                                    |> filterExceptionsAndSetName exceptions schema.name
+                            , errors = errors
                             , inputContext = inputProjectContext
                             , isFileIgnored = availableData.isFileIgnored
                             , outputContext = outputProjectContext
@@ -6362,9 +6359,7 @@ moduleRuleImplementation schema params toRuleProjectVisitor raise (( errors, _ )
     , caseBranchVisitorOnEnter = createVisitor2 params raise errorsAndContext schema.caseBranchVisitorOnEnter
     , caseBranchVisitorOnExit = createVisitor2 params raise errorsAndContext schema.caseBranchVisitorOnExit
     , finalModuleEvaluation = createFinalModuleEvaluationVisitor params raise errorsAndContext schema.finalEvaluationFn
-
-    -- TODO Qualify errors as we add them
-    , getErrors = \() -> qualifyErrors params errors []
+    , getErrors = \() -> errors
     , toProjectVisitor = \() -> toRuleProjectVisitor errorsAndContext
     }
 
