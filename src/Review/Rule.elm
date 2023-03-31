@@ -4483,7 +4483,7 @@ computeStepsForProject :
     DataToComputeProject projectContext moduleContext
     -> { project : ValidProject, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors, step : Step projectContext }
     -> { project : ValidProject, cache : ProjectRuleCache projectContext, fixedErrors : FixedErrors, errors : List (Error {}) }
-computeStepsForProject dataToComputeProject ({ project, cache, fixedErrors, step } as acc) =
+computeStepsForProject dataToComputeProject { project, cache, fixedErrors, step } =
     case step of
         ElmJson contexts ->
             computeStepsForProject
@@ -4505,9 +4505,9 @@ computeStepsForProject dataToComputeProject ({ project, cache, fixedErrors, step
                 Nothing ->
                     computeStepsForProject
                         dataToComputeProject
-                        { project = acc.project
-                        , cache = acc.cache
-                        , fixedErrors = acc.fixedErrors
+                        { project = project
+                        , cache = cache
+                        , fixedErrors = fixedErrors
                         , step = FinalProjectEvaluation contexts
                         }
 
@@ -4552,17 +4552,17 @@ computeStepsForProject dataToComputeProject ({ project, cache, fixedErrors, step
                 cacheWithExtract =
                     computeExtract dataToComputeProject.reviewOptions dataToComputeProject.projectVisitor context errors cache
             in
-            { project = acc.project
+            { project = project
             , errors = errors
             , cache = cacheWithExtract
-            , fixedErrors = acc.fixedErrors
+            , fixedErrors = fixedErrors
             }
 
         Abort ->
-            { project = acc.project
+            { project = project
             , errors = []
             , cache = cache
-            , fixedErrors = acc.fixedErrors
+            , fixedErrors = fixedErrors
             }
 
 
