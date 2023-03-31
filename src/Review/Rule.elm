@@ -4891,7 +4891,7 @@ computeDependencies { reviewOptions, projectVisitor, exceptions } project contex
                         (\(RuleProjectVisitor rule) ->
                             case rule.dependenciesVisitor of
                                 Just visitor ->
-                                    visitor project exceptions dependencies
+                                    visitor project exceptions { all = dependencies, direct = directDependencies }
 
                                 Nothing ->
                                     RuleProjectVisitor rule
@@ -5972,9 +5972,7 @@ type alias RuleProjectVisitorOperations t =
     { collectModuleContext : String -> RuleModuleVisitor -> t
     , elmJsonVisitor : Maybe (ValidProject -> Exceptions -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> t)
     , readmeVisitor : Maybe (ValidProject -> Exceptions -> Maybe { readmeKey : ReadmeKey, content : String } -> t)
-
-    -- TODO Use direct dependencies visitor
-    , dependenciesVisitor : Maybe (ValidProject -> Exceptions -> Dict String Review.Project.Dependency.Dependency -> t)
+    , dependenciesVisitor : Maybe (ValidProject -> Exceptions -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> t)
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
     }
 
@@ -5993,7 +5991,7 @@ projectRuleImplementation schema raise cache =
     { collectModuleContext = \path ruleModuleVisitor -> getToProjectVisitor ruleModuleVisitor
     , elmJsonVisitor = addProjectVisitor schema schema.elmJsonVisitor ValidProject.elmJsonHash (\entry -> raise { cache | elmJson = entry })
     , readmeVisitor = addProjectVisitor schema schema.readmeVisitor ValidProject.readmeHash (\entry -> raise { cache | readme = entry })
-    , dependenciesVisitor = addProjectVisitor schema schema.dependenciesVisitor ValidProject.dependenciesHash (\entry -> raise { cache | dependencies = entry })
+    , dependenciesVisitor = addDependenciesVisitor schema raise cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
     , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raise cache
     }
 
@@ -6045,29 +6043,32 @@ addDependenciesVisitor :
     ProjectRuleSchemaData projectContext moduleContext
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     -> ProjectRuleCache projectContext
-    -> Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
+    ->
+        { allVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
+        , directVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
+        }
     ->
         Maybe
             (ValidProject
              -> Exceptions
-             -> Dict String Review.Project.Dependency.Dependency
+             -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency }
              -> RuleProjectVisitor
             )
-addDependenciesVisitor schema raise cache maybeVisitor =
-    case maybeVisitor of
+addDependenciesVisitor schema raise cache { allVisitor, directVisitor } =
+    case allVisitor of
         Nothing ->
             Nothing
 
-        Just visitor ->
+        Just allVisitor_ ->
             Just
-                (\project exceptions elmJsonData ->
+                (\project exceptions { all, direct } ->
                     let
                         inputContext : projectContext
                         inputContext =
                             schema.initialProjectContext
 
                         ( errorsForVisitor, outputContext ) =
-                            visitor elmJsonData inputContext
+                            allVisitor_ all inputContext
 
                         errors : List (Error {})
                         errors =
