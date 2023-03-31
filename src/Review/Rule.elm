@@ -5351,10 +5351,6 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                     projectContext : projectContext
                     projectContext =
                         computeProjectContext dataToComputeModules.projectVisitor.traversalAndFolder project moduleContexts incoming inputProjectContext
-
-                    isFileIgnored : Bool
-                    isFileIgnored =
-                        not (Exceptions.isFileWeWantReportsFor dataToComputeModules.exceptions modulePath)
                 in
                 computeModule
                     dataToComputeModules.exceptions
