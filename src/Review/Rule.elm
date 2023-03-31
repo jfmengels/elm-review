@@ -5157,14 +5157,14 @@ findFixInComputeModuleResults :
     -> List RuleProjectVisitor
     -> List (Error {})
     -> ComputeModuleFindFixResult projectContext moduleContext
-findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, projectContext, project, moduleZipper, fixedErrors } as params) outputContext outputRuleProjectVisitors errors =
+findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, projectContext, project, moduleZipper, fixedErrors } as params) outputContext outputRuleProjectVisitors _ =
     let
         modulePath : String
         modulePath =
             ProjectModule.path module_
 
-        errors2 : List (Error {})
-        errors2 =
+        errors : List (Error {})
+        errors =
             List.concatMap (\(RuleProjectVisitor ruleProjectVisitor) -> ruleProjectVisitor.getErrorsForModule modulePath) outputRuleProjectVisitors
 
         analysis : ModuleCacheEntry projectContext
