@@ -1397,7 +1397,6 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
             , extractSourceCode = always "dummy"
             , filePath = "dummy file path"
             , isInSourceDirectories = True
-            , isFileIgnored = False
             }
 
         initialModuleContext : moduleContext
@@ -5087,7 +5086,6 @@ computeModule exceptions ({ dataToComputeModules, ruleProjectVisitors, module_, 
                     always ""
             , filePath = ProjectModule.path module_
             , isInSourceDirectories = ProjectModule.isInSourceDirectories module_
-            , isFileIgnored = isFileIgnored
             }
 
         ( inputRuleModuleVisitors, rulesNotToRun ) =
@@ -7132,7 +7130,6 @@ type alias AvailableData =
     , extractSourceCode : Range -> String
     , filePath : String
     , isInSourceDirectories : Bool
-    , isFileIgnored : Bool
     }
 
 
