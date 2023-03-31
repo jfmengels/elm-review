@@ -4183,17 +4183,6 @@ type alias RunnableProjectVisitor projectContext moduleContext =
     }
 
 
-type alias RunnableModuleVisitor moduleContext =
-    { moduleDefinitionVisitor : Maybe (Node Module -> moduleContext -> ( List (Error {}), moduleContext ))
-    , moduleDocumentationVisitor : Maybe (Maybe (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
-    , commentsVisitor : Maybe (List (Node String) -> moduleContext -> ( List (Error {}), moduleContext ))
-    , importVisitor : Maybe (Node Import -> moduleContext -> ( List (Error {}), moduleContext ))
-    , declarationListVisitor : Maybe (List (Node Declaration) -> moduleContext -> ( List (Error {}), moduleContext ))
-    , declarationAndExpressionVisitor : List (Node Declaration) -> ( List (Error {}), moduleContext ) -> ( List (Error {}), moduleContext )
-    , finalEvaluationFn : Maybe (moduleContext -> List (Error {}))
-    }
-
-
 type alias Visitor nodeType context =
     Node nodeType -> context -> ( List (Error {}), context )
 
