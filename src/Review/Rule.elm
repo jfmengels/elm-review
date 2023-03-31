@@ -5113,10 +5113,6 @@ computeModule exceptions ({ dataToComputeModules, ruleProjectVisitors, module_, 
         initialModuleContext =
             applyContextCreator availableData dataToComputeModules.moduleContextCreator projectContext
 
-        modulePath : String
-        modulePath =
-            ProjectModule.path module_
-
         ( errors, outputRuleProjectVisitors ) =
             List.foldl
                 (\(RuleModuleVisitor ruleModuleVisitor) ( accErrors, rules ) ->
