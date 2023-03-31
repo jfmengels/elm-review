@@ -351,7 +351,7 @@ type Rule
         , requestedData : RequestedData
         , providesFixes : Bool
         , extractsData : Bool
-        , ruleImplementation : ReviewOptionsData -> Int -> Exceptions -> FixedErrors -> ValidProject -> List RuleProjectVisitor -> { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
+        , ruleImplementation : ReviewOptionsData -> FixedErrors -> ValidProject -> List RuleProjectVisitor -> { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
         , ruleProjectVisitor : Result { message : String, details : List String } (ValidProject -> ChangeableRuleData -> RuleProjectVisitor)
         }
 
@@ -806,7 +806,7 @@ runRulesHelp reviewOptions remainingRules acc =
             let
                 result : { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
                 result =
-                    ruleImplementation reviewOptions id exceptions acc.fixedErrors acc.project acc.ruleProjectVisitors
+                    ruleImplementation reviewOptions acc.fixedErrors acc.project acc.ruleProjectVisitors
             in
             if InternalOptions.shouldAbort reviewOptions result.fixedErrors then
                 { fixedErrors = result.fixedErrors
@@ -1280,7 +1280,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
         , extractsData = schema.dataExtractor /= Nothing
         , providesFixes = schema.providesFixes
         , ruleImplementation =
-            \reviewOptions ruleId exceptions fixedErrors project ruleProjectVisitors ->
+            \reviewOptions fixedErrors project ruleProjectVisitors ->
                 runProjectVisitor
                     reviewOptions
                     ruleProjectVisitors
@@ -1578,7 +1578,7 @@ configurationError name configurationError_ =
         , requestedData = RequestedData.none
         , extractsData = False
         , providesFixes = False
-        , ruleImplementation = \_ _ _ fixedErrors project _ -> { fixedErrors = fixedErrors, ruleProjectVisitors = [], project = project }
+        , ruleImplementation = \_ fixedErrors project _ -> { fixedErrors = fixedErrors, ruleProjectVisitors = [], project = project }
         , ruleProjectVisitor = Err configurationError_
         }
 
