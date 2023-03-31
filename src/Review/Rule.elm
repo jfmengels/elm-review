@@ -5159,6 +5159,10 @@ findFixInComputeModuleResults :
     -> ComputeModuleFindFixResult projectContext moduleContext
 findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, projectContext, project, moduleZipper, fixedErrors } as params) outputContext outputRuleProjectVisitors errors =
     let
+        modulePath : String
+        modulePath =
+            ProjectModule.path module_
+
         analysis : ModuleCacheEntry projectContext
         analysis =
             Cache.createModuleEntry
