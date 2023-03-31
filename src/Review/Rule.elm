@@ -4331,7 +4331,6 @@ runProjectVisitor reviewOptions initialRuleProjectVisitors initialCache initialF
                 reviewOptions
                 { step = ElmJson
                 , project = initialProject
-                , cache = initialCache
                 , ruleProjectVisitors = initialRuleProjectVisitors
                 , fixedErrors = initialFixedErrors
                 }
@@ -4412,24 +4411,24 @@ type alias ProjectRuleCache projectContext =
 
 computeStepsForProject :
     ReviewOptionsData
-    -> { project : ValidProject, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors, step : Step }
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors, step : Step }
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeStepsForProject reviewOptions { project, cache, ruleProjectVisitors, fixedErrors, step } =
+computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors, step } =
     case step of
         ElmJson ->
             computeStepsForProject
                 reviewOptions
-                (computeElmJson reviewOptions project cache ruleProjectVisitors fixedErrors)
+                (computeElmJson reviewOptions project ruleProjectVisitors fixedErrors)
 
         Readme ->
             computeStepsForProject
                 reviewOptions
-                (computeReadme reviewOptions project cache ruleProjectVisitors fixedErrors)
+                (computeReadme reviewOptions project ruleProjectVisitors fixedErrors)
 
         Dependencies ->
             computeStepsForProject
                 reviewOptions
-                (computeDependencies reviewOptions project cache ruleProjectVisitors fixedErrors)
+                (computeDependencies reviewOptions project ruleProjectVisitors fixedErrors)
 
         Modules moduleZipper ->
             let
@@ -4445,7 +4444,6 @@ computeStepsForProject reviewOptions { project, cache, ruleProjectVisitors, fixe
             computeStepsForProject
                 reviewOptions
                 { project = result.project
-                , cache = cache
                 , ruleProjectVisitors = result.ruleProjectVisitors
                 , fixedErrors = result.fixedErrors
                 , step = result.step
@@ -4454,7 +4452,7 @@ computeStepsForProject reviewOptions { project, cache, ruleProjectVisitors, fixe
         FinalProjectEvaluation ->
             computeStepsForProject
                 reviewOptions
-                (computeFinalProjectEvaluation reviewOptions project cache ruleProjectVisitors fixedErrors)
+                (computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErrors)
 
         DataExtract ->
             let
@@ -4511,11 +4509,10 @@ type NextStep
 computeElmJson :
     ReviewOptionsData
     -> ValidProject
-    -> ProjectRuleCache projectContext
     -> List RuleProjectVisitor
     -> FixedErrors
-    -> { project : ValidProject, step : Step, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeElmJson reviewOptions project cache ruleProjectVisitors fixedErrors =
+    -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+computeElmJson reviewOptions project ruleProjectVisitors fixedErrors =
     let
         projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
         projectElmJson =
@@ -4554,12 +4551,11 @@ computeElmJson reviewOptions project cache ruleProjectVisitors fixedErrors =
                 ShouldContinue newFixedErrors ->
                     -- The only possible thing we can fix here is the `elm.json` file, so we don't need to check
                     -- what the fixed file was.
-                    computeElmJson reviewOptions fixResult.project cache ruleProjectVisitors newFixedErrors
+                    computeElmJson reviewOptions fixResult.project ruleProjectVisitors newFixedErrors
 
                 ShouldAbort newFixedErrors ->
                     { project = fixResult.project
                     , step = Abort
-                    , cache = cache
                     , ruleProjectVisitors = newRuleProjectVisitors
                     , fixedErrors = newFixedErrors
                     }
@@ -4567,7 +4563,6 @@ computeElmJson reviewOptions project cache ruleProjectVisitors fixedErrors =
         Nothing ->
             { project = project
             , step = Readme
-            , cache = cache
             , ruleProjectVisitors = newRuleProjectVisitors
             , fixedErrors = fixedErrors
             }
@@ -4576,11 +4571,10 @@ computeElmJson reviewOptions project cache ruleProjectVisitors fixedErrors =
 computeReadme :
     ReviewOptionsData
     -> ValidProject
-    -> ProjectRuleCache projectContext
     -> List RuleProjectVisitor
     -> FixedErrors
-    -> { project : ValidProject, step : Step, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeReadme reviewOptions project cache ruleProjectVisitors fixedErrors =
+    -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+computeReadme reviewOptions project ruleProjectVisitors fixedErrors =
     let
         projectReadme : Maybe { path : String, content : String }
         projectReadme =
@@ -4613,11 +4607,10 @@ computeReadme reviewOptions project cache ruleProjectVisitors fixedErrors =
                 ( [], [] )
                 ruleProjectVisitors
 
-        resultWhenNoFix : () -> { project : ValidProject, step : Step, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+        resultWhenNoFix : () -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
         resultWhenNoFix () =
             { project = project
             , step = Dependencies
-            , cache = cache
             , ruleProjectVisitors = newRuleProjectVisitors
             , fixedErrors = fixedErrors
             }
@@ -4626,20 +4619,19 @@ computeReadme reviewOptions project cache ruleProjectVisitors fixedErrors =
         Just ( postFixStatus, fixResult ) ->
             case postFixStatus of
                 ShouldAbort newFixedErrors ->
-                    { project = fixResult.project, step = Abort, cache = cache, ruleProjectVisitors = newRuleProjectVisitors, fixedErrors = newFixedErrors }
+                    { project = fixResult.project, step = Abort, ruleProjectVisitors = newRuleProjectVisitors, fixedErrors = newFixedErrors }
 
                 ShouldContinue newFixedErrors ->
                     case fixResult.fixedFile of
                         FixedElmJson ->
                             { project = fixResult.project
                             , step = ElmJson
-                            , cache = cache
                             , ruleProjectVisitors = newRuleProjectVisitors
                             , fixedErrors = newFixedErrors
                             }
 
                         FixedReadme ->
-                            computeReadme reviewOptions fixResult.project cache ruleProjectVisitors newFixedErrors
+                            computeReadme reviewOptions fixResult.project ruleProjectVisitors newFixedErrors
 
                         FixedElmModule _ _ ->
                             -- Not possible, users don't have the module key to provide fixes for an Elm module
@@ -4652,11 +4644,10 @@ computeReadme reviewOptions project cache ruleProjectVisitors fixedErrors =
 computeDependencies :
     ReviewOptionsData
     -> ValidProject
-    -> ProjectRuleCache projectContext
     -> List RuleProjectVisitor
     -> FixedErrors
-    -> { project : ValidProject, step : Step, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
-computeDependencies reviewOptions project cache ruleProjectVisitors fixedErrors =
+    -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+computeDependencies reviewOptions project ruleProjectVisitors fixedErrors =
     let
         dependencies : Dict String Review.Project.Dependency.Dependency
         dependencies =
@@ -4683,11 +4674,10 @@ computeDependencies reviewOptions project cache ruleProjectVisitors fixedErrors 
                 ( [], [] )
                 ruleProjectVisitors
 
-        resultWhenNoFix : () -> { project : ValidProject, step : Step, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
+        resultWhenNoFix : () -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
         resultWhenNoFix () =
             { project = project
             , step = Modules (ValidProject.moduleZipper project)
-            , cache = cache
             , ruleProjectVisitors = newRuleProjectVisitors
             , fixedErrors = fixedErrors
             }
@@ -4696,14 +4686,13 @@ computeDependencies reviewOptions project cache ruleProjectVisitors fixedErrors 
         Just ( postFixStatus, fixResult ) ->
             case postFixStatus of
                 ShouldAbort newFixedErrors ->
-                    { project = fixResult.project, step = Abort, cache = cache, ruleProjectVisitors = newRuleProjectVisitors, fixedErrors = newFixedErrors }
+                    { project = fixResult.project, step = Abort, ruleProjectVisitors = newRuleProjectVisitors, fixedErrors = newFixedErrors }
 
                 ShouldContinue newFixedErrors ->
                     case fixResult.fixedFile of
                         FixedElmJson ->
                             { project = fixResult.project
                             , step = ElmJson
-                            , cache = cache
                             , ruleProjectVisitors = newRuleProjectVisitors
                             , fixedErrors = newFixedErrors
                             }
@@ -4711,7 +4700,6 @@ computeDependencies reviewOptions project cache ruleProjectVisitors fixedErrors 
                         FixedReadme ->
                             { project = fixResult.project
                             , step = Readme
-                            , cache = cache
                             , ruleProjectVisitors = newRuleProjectVisitors
                             , fixedErrors = newFixedErrors
                             }
@@ -4727,11 +4715,10 @@ computeDependencies reviewOptions project cache ruleProjectVisitors fixedErrors 
 computeFinalProjectEvaluation :
     ReviewOptionsData
     -> ValidProject
-    -> ProjectRuleCache projectContext
     -> List RuleProjectVisitor
     -> FixedErrors
-    -> { project : ValidProject, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
-computeFinalProjectEvaluation reviewOptions project cache ruleProjectVisitors fixedErrors =
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
+computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErrors =
     let
         ( errors, newRuleProjectVisitors ) =
             List.foldl
@@ -4772,7 +4759,6 @@ computeFinalProjectEvaluation reviewOptions project cache ruleProjectVisitors fi
                             )
             in
             { project = fixResult.project
-            , cache = cache
             , ruleProjectVisitors = newRuleProjectVisitors
             , step = step
             , fixedErrors = newFixedErrors
@@ -4780,7 +4766,6 @@ computeFinalProjectEvaluation reviewOptions project cache ruleProjectVisitors fi
 
         Nothing ->
             { project = project
-            , cache = cache
             , ruleProjectVisitors = newRuleProjectVisitors
             , step = DataExtract
             , fixedErrors = fixedErrors
