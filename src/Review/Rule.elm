@@ -5734,7 +5734,7 @@ createVisitor params raise errorsAndContext maybeVisitor =
             Nothing
 
         Just visitor ->
-            Just (\node -> raise (accumulateWithParams params (visitor node) errorsAndContext))
+            Just (\node -> raise (accumulate params (visitor node) errorsAndContext))
 
 
 createVisitor2 :
@@ -5749,7 +5749,7 @@ createVisitor2 params raise errorsAndContext maybeVisitor =
             Nothing
 
         Just visitor ->
-            Just (\a b -> raise (accumulateWithParams params (visitor a b) errorsAndContext))
+            Just (\a b -> raise (accumulate params (visitor a b) errorsAndContext))
 
 
 createImportsVisitor :
@@ -5769,7 +5769,7 @@ createImportsVisitor params raise errorsAndContext maybeImportVisitors =
                     raise
                         (List.foldl
                             (\import_ initialErrorsAndContext ->
-                                accumulateWithParams params (visitor import_) initialErrorsAndContext
+                                accumulate params (visitor import_) initialErrorsAndContext
                             )
                             errorsAndContext
                             imports
@@ -5936,8 +5936,8 @@ findModuleDocumentationBeforeCutOffLine cutOffLine comments =
 
 {-| Concatenate the errors of the previous step and of the last step, and take the last step's context.
 -}
-accumulateWithParams : { ruleName : String, exceptions : Exceptions, filePath : String } -> (context -> ( List (Error {}), context )) -> ( List (Error {}), context ) -> ( List (Error {}), context )
-accumulateWithParams params visitor ( previousErrors, previousContext ) =
+accumulate : { ruleName : String, exceptions : Exceptions, filePath : String } -> (context -> ( List (Error {}), context )) -> ( List (Error {}), context ) -> ( List (Error {}), context )
+accumulate params visitor ( previousErrors, previousContext ) =
     let
         ( newErrors, newContext ) =
             visitor previousContext
