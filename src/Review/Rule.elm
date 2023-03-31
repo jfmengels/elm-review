@@ -6241,10 +6241,6 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden travers
             inputProjectContext =
                 computeProjectContext traversalAndFolder project hidden.cache.moduleContexts incoming initialProjectContext
 
-            initialContext : moduleContext
-            initialContext =
-                applyContextCreator availableData moduleContextCreator inputProjectContext
-
             toRuleProjectVisitor : ( List (Error {}), moduleContext ) -> RuleProjectVisitor
             toRuleProjectVisitor ( errors, resultModuleContext ) =
                 let
@@ -6300,6 +6296,10 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden travers
 
             Nothing ->
                 let
+                    initialContext : moduleContext
+                    initialContext =
+                        applyContextCreator availableData moduleContextCreator inputProjectContext
+
                     ruleData : { ruleName : String, exceptions : Exceptions, filePath : String }
                     ruleData =
                         { ruleName = schema.name, exceptions = exceptions, filePath = availableData.filePath }
