@@ -4896,78 +4896,73 @@ computeFinalProjectEvaluation :
     -> FixedErrors
     -> { project : ValidProject, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, step : Step projectContext, fixedErrors : FixedErrors }
 computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } project projectContexts cache ruleProjectVisitors fixedErrors =
-    case projectVisitor.finalEvaluationFn of
-        Nothing ->
+    let
+        finalContext : projectContext
+        finalContext =
+            computeFinalContext projectVisitor cache projectContexts.deps
+
+        cachePredicate : FinalProjectEvaluationCache projectContext -> Bool
+        cachePredicate entry =
+            Cache.matchNoOutput (ContextHash.create finalContext) entry
+    in
+    case reuseProjectRuleCache cachePredicate .finalEvaluationErrors cache of
+        Just _ ->
             { project = project, cache = cache, ruleProjectVisitors = ruleProjectVisitors, step = DataExtract, fixedErrors = fixedErrors }
 
-        Just finalEvaluationFn ->
+        Nothing ->
             let
-                finalContext : projectContext
-                finalContext =
-                    computeFinalContext projectVisitor cache projectContexts.deps
+                ( errors, newRuleProjectVisitors ) =
+                    List.foldl
+                        (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
+                            case rule.finalProjectEvaluation of
+                                Just visitor ->
+                                    let
+                                        ( newErrors, updatedRule ) =
+                                            visitor ()
+                                    in
+                                    ( List.append newErrors accErrors, updatedRule :: accRules )
 
-                cachePredicate : FinalProjectEvaluationCache projectContext -> Bool
-                cachePredicate entry =
-                    Cache.matchNoOutput (ContextHash.create finalContext) entry
+                                Nothing ->
+                                    ( accErrors, untouched :: accRules )
+                        )
+                        ( [], [] )
+                        ruleProjectVisitors
             in
-            case reuseProjectRuleCache cachePredicate .finalEvaluationErrors cache of
-                Just _ ->
-                    { project = project, cache = cache, ruleProjectVisitors = ruleProjectVisitors, step = DataExtract, fixedErrors = fixedErrors }
+            case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
+                Just ( postFixStatus, fixResult ) ->
+                    let
+                        ( newFixedErrors, step ) =
+                            case postFixStatus of
+                                ShouldAbort newFixedErrors_ ->
+                                    ( newFixedErrors_, Abort )
+
+                                ShouldContinue newFixedErrors_ ->
+                                    ( newFixedErrors_
+                                    , case fixResult.fixedFile of
+                                        FixedElmModule _ moduleZipper ->
+                                            Modules projectContexts moduleZipper
+
+                                        FixedElmJson ->
+                                            ElmJson { initial = projectContexts.initial }
+
+                                        FixedReadme ->
+                                            Readme { initial = projectContexts.initial, elmJson = projectContexts.elmJson }
+                                    )
+                    in
+                    { project = fixResult.project
+                    , cache = { cache | finalEvaluationErrors = Just (Cache.createNoOutput finalContext errors) }
+                    , ruleProjectVisitors = newRuleProjectVisitors
+                    , step = step
+                    , fixedErrors = newFixedErrors
+                    }
 
                 Nothing ->
-                    let
-                        ( errors, newRuleProjectVisitors ) =
-                            List.foldl
-                                (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
-                                    case rule.finalProjectEvaluation of
-                                        Just visitor ->
-                                            let
-                                                ( newErrors, updatedRule ) =
-                                                    visitor ()
-                                            in
-                                            ( List.append newErrors accErrors, updatedRule :: accRules )
-
-                                        Nothing ->
-                                            ( accErrors, untouched :: accRules )
-                                )
-                                ( [], [] )
-                                ruleProjectVisitors
-                    in
-                    case findFix reviewOptions projectVisitor project errors fixedErrors Nothing of
-                        Just ( postFixStatus, fixResult ) ->
-                            let
-                                ( newFixedErrors, step ) =
-                                    case postFixStatus of
-                                        ShouldAbort newFixedErrors_ ->
-                                            ( newFixedErrors_, Abort )
-
-                                        ShouldContinue newFixedErrors_ ->
-                                            ( newFixedErrors_
-                                            , case fixResult.fixedFile of
-                                                FixedElmModule _ moduleZipper ->
-                                                    Modules projectContexts moduleZipper
-
-                                                FixedElmJson ->
-                                                    ElmJson { initial = projectContexts.initial }
-
-                                                FixedReadme ->
-                                                    Readme { initial = projectContexts.initial, elmJson = projectContexts.elmJson }
-                                            )
-                            in
-                            { project = fixResult.project
-                            , cache = { cache | finalEvaluationErrors = Just (Cache.createNoOutput finalContext errors) }
-                            , ruleProjectVisitors = newRuleProjectVisitors
-                            , step = step
-                            , fixedErrors = newFixedErrors
-                            }
-
-                        Nothing ->
-                            { project = project
-                            , cache = { cache | finalEvaluationErrors = Just (Cache.createNoOutput finalContext errors) }
-                            , ruleProjectVisitors = newRuleProjectVisitors
-                            , step = DataExtract
-                            , fixedErrors = fixedErrors
-                            }
+                    { project = project
+                    , cache = { cache | finalEvaluationErrors = Just (Cache.createNoOutput finalContext errors) }
+                    , ruleProjectVisitors = newRuleProjectVisitors
+                    , step = DataExtract
+                    , fixedErrors = fixedErrors
+                    }
 
 
 reuseProjectRuleCache : (b -> Bool) -> (ProjectRuleCache a -> Maybe b) -> ProjectRuleCache a -> Maybe b
