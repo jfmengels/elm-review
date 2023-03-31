@@ -748,14 +748,13 @@ runRules :
     -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
 runRules (ReviewOptionsInternal reviewOptions) rules ruleProjectVisitors project =
     let
-        result : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
+        result : { errors : List ReviewError, fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
         result =
             runRulesHelp
                 reviewOptions
                 (moveFixableRulesFirst rules)
                 { errors = []
                 , fixedErrors = FixedErrors.empty
-                , rules = []
                 , ruleProjectVisitors = ruleProjectVisitors
                 , project = project
                 }
@@ -790,8 +789,8 @@ moveFixableRulesFirst rules =
 runRulesHelp :
     ReviewOptionsData
     -> List Rule
-    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
-    -> { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
+    -> { errors : List ReviewError, fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
+    -> { errors : List ReviewError, fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
 runRulesHelp reviewOptions remainingRules acc =
     case remainingRules of
         [] ->
@@ -810,7 +809,6 @@ runRulesHelp reviewOptions remainingRules acc =
             if InternalOptions.shouldAbort reviewOptions result.fixedErrors then
                 { errors = errors
                 , fixedErrors = result.fixedErrors
-                , rules = []
                 , ruleProjectVisitors = result.ruleProjectVisitors
                 , project = result.project
                 }
@@ -818,10 +816,9 @@ runRulesHelp reviewOptions remainingRules acc =
             else if FixedErrors.hasChanged result.fixedErrors acc.fixedErrors then
                 runRulesHelp
                     reviewOptions
-                    (List.reverse acc.rules ++ restOfRules)
+                    restOfRules
                     { errors = errors
                     , fixedErrors = result.fixedErrors
-                    , rules = []
                     , ruleProjectVisitors = result.ruleProjectVisitors
                     , project = result.project
                     }
@@ -832,7 +829,6 @@ runRulesHelp reviewOptions remainingRules acc =
                     restOfRules
                     { errors = errors
                     , fixedErrors = result.fixedErrors
-                    , rules = []
                     , ruleProjectVisitors = result.ruleProjectVisitors
                     , project = result.project
                     }
