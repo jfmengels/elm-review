@@ -5124,15 +5124,6 @@ computeModule exceptions ({ dataToComputeModules, ruleProjectVisitors, module_, 
                 dataToComputeModules.moduleVisitor
                 initialModuleContext
                 module_
-
-        outputProjectContext : projectContext
-        outputProjectContext =
-            case getFolderFromTraversal dataToComputeModules.projectVisitor.traversalAndFolder of
-                Just { fromModuleToProject } ->
-                    applyContextCreator availableData isFileIgnored fromModuleToProject resultModuleContext
-
-                Nothing ->
-                    projectContext
     in
     case findFixInComputeModuleResults { params | project = newProject } (List.append rulesNotToRun outputRuleProjectVisitors) of
         ContinueWithNextStep nextStepResult ->
