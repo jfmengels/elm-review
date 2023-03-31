@@ -6274,7 +6274,10 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise cache traversa
                     cacheEntry =
                         Cache.createModuleEntry
                             { contentHash = moduleContentHash
-                            , errors = filterExceptionsAndSetName exceptions schema.name errors
+                            , errors =
+                                errors
+                                    |> List.map (\err -> setFilePathIfUnset availableData.filePath err)
+                                    |> filterExceptionsAndSetName exceptions schema.name
                             , inputContext = inputProjectContext
                             , isFileIgnored = availableData.isFileIgnored
                             , outputContext = outputProjectContext
