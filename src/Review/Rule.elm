@@ -6033,7 +6033,11 @@ type alias RuleProjectVisitorOperations t =
 
 createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> Exceptions -> RuleProjectVisitor
 createRuleProjectVisitor schema exceptions =
-    If.create RuleProjectVisitor (projectRuleImplementation schema) { cache = emptyCache }
+    If.create
+        RuleProjectVisitor
+        (projectRuleImplementation schema)
+        { cache = emptyCache
+        }
 
 
 projectRuleImplementation :
