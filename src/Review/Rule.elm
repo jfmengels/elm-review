@@ -5378,80 +5378,19 @@ computeModuleAndCacheResult dataToComputeModules inputProjectContext moduleZippe
                     isFileIgnored : Bool
                     isFileIgnored =
                         not (Exceptions.isFileWeWantReportsFor dataToComputeModules.exceptions modulePath)
-
-                    shouldReuseCache : Cache.ModuleEntry error projectContext -> Bool
-                    shouldReuseCache cacheEntry =
-                        Cache.match
-                            (ProjectModule.contentHash module_)
-                            (ContextHash.create projectContext)
-                            cacheEntry
-                            { isFileIgnored = isFileIgnored
-                            , requestedData = dataToComputeModules.projectVisitor.requestedData
-                            }
-
-                    maybeCacheEntry : Maybe (ModuleCacheEntry projectContext)
-                    maybeCacheEntry =
-                        Dict.get modulePath moduleContexts
                 in
-                case reuseCache shouldReuseCache maybeCacheEntry of
-                    Just cacheEntry ->
-                        -- Find if some cached errors contain fixes.
-                        -- Useful because (but only because) we might not have tried to apply them
-                        -- if they come directly from the file-system cache (or if the rule was first ran in non-fix mode).
-                        -- This is not ideal because this could be quite slow.
-                        -- TODO Find a way to avoid doing this when possible
-                        case
-                            findFix
-                                dataToComputeModules.reviewOptions
-                                dataToComputeModules.projectVisitor
-                                project
-                                (Cache.errors cacheEntry)
-                                fixedErrors
-                                (Just moduleZipper)
-                        of
-                            Just ( ShouldAbort newFixedErrors, fixResult ) ->
-                                { project = fixResult.project
-                                , ruleProjectVisitors = ruleProjectVisitors
-                                , nextStep = NextStepAbort
-                                , fixedErrors = newFixedErrors
-                                }
-
-                            Just ( ShouldContinue newFixedErrors, fixResult ) ->
-                                let
-                                    nextStep : NextStep
-                                    nextStep =
-                                        case fixResult.fixedFile of
-                                            FixedElmModule _ newModuleZipper ->
-                                                ModuleVisitStep (Just newModuleZipper)
-
-                                            FixedElmJson ->
-                                                BackToElmJson
-
-                                            FixedReadme ->
-                                                BackToReadme
-                                in
-                                { project = fixResult.project
-                                , ruleProjectVisitors = ruleProjectVisitors
-                                , nextStep = nextStep
-                                , fixedErrors = newFixedErrors
-                                }
-
-                            Nothing ->
-                                ignoreModule ()
-
-                    Nothing ->
-                        computeModule
-                            dataToComputeModules.exceptions
-                            { dataToComputeModules = dataToComputeModules
-                            , ruleProjectVisitors = ruleProjectVisitors
-                            , module_ = module_
-                            , isFileIgnored = isFileIgnored
-                            , projectContext = projectContext
-                            , project = project
-                            , moduleZipper = moduleZipper
-                            , fixedErrors = fixedErrors
-                            , incoming = incoming
-                            }
+                computeModule
+                    dataToComputeModules.exceptions
+                    { dataToComputeModules = dataToComputeModules
+                    , ruleProjectVisitors = ruleProjectVisitors
+                    , module_ = module_
+                    , isFileIgnored = isFileIgnored
+                    , projectContext = projectContext
+                    , project = project
+                    , moduleZipper = moduleZipper
+                    , fixedErrors = fixedErrors
+                    , incoming = incoming
+                    }
 
 
 shouldIgnoreModule : DataToComputeModules projectContext moduleContext -> String -> Bool
