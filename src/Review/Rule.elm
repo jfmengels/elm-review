@@ -6016,6 +6016,7 @@ type RuleProjectVisitor
 
 type alias RuleProjectVisitorHidden projectContext =
     { cache : ProjectRuleCache projectContext
+    , exceptions : Exceptions
     }
 
 
@@ -6037,6 +6038,7 @@ createRuleProjectVisitor schema exceptions =
         RuleProjectVisitor
         (projectRuleImplementation schema)
         { cache = emptyCache
+        , exceptions = exceptions
         }
 
 
