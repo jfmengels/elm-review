@@ -4445,7 +4445,6 @@ computeStepsForProject dataToComputeProject { project, cache, ruleProjectVisitor
                 result =
                     computeModules
                         { reviewOptions = dataToComputeProject.reviewOptions
-                        , projectVisitor = dataToComputeProject.projectVisitor
                         }
                         (Just moduleZipper)
                         project
@@ -4834,14 +4833,13 @@ errorFilePathInternal (Error err) =
 -- VISIT MODULES
 
 
-type alias DataToComputeModules projectContext moduleContext =
+type alias DataToComputeModules =
     { reviewOptions : ReviewOptionsData
-    , projectVisitor : RunnableProjectVisitor projectContext moduleContext
     }
 
 
-type alias DataToComputeSingleModule projectContext moduleContext =
-    { dataToComputeModules : DataToComputeModules projectContext moduleContext
+type alias DataToComputeSingleModule =
+    { dataToComputeModules : DataToComputeModules
     , ruleProjectVisitors : List RuleProjectVisitor
     , module_ : OpaqueProjectModule
     , project : ValidProject
@@ -4852,7 +4850,7 @@ type alias DataToComputeSingleModule projectContext moduleContext =
 
 
 computeModule :
-    DataToComputeSingleModule projectContext moduleContext
+    DataToComputeSingleModule
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
 computeModule ({ dataToComputeModules, ruleProjectVisitors, module_, project, incoming } as params) =
     let
@@ -4930,11 +4928,11 @@ computeModule ({ dataToComputeModules, ruleProjectVisitors, module_, project, in
 
 type ComputeModuleFindFixResult projectContext moduleContext
     = ContinueWithNextStep { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
-    | ReComputeModule (DataToComputeSingleModule projectContext moduleContext)
+    | ReComputeModule DataToComputeSingleModule
 
 
 findFixInComputeModuleResults :
-    DataToComputeSingleModule projectContext moduleContext
+    DataToComputeSingleModule
     -> List RuleProjectVisitor
     -> ComputeModuleFindFixResult projectContext moduleContext
 findFixInComputeModuleResults ({ dataToComputeModules, module_, project, moduleZipper, fixedErrors } as params) outputRuleProjectVisitors =
@@ -5028,7 +5026,7 @@ findFixInComputeModuleResults ({ dataToComputeModules, module_, project, moduleZ
 
 
 computeModules :
-    DataToComputeModules projectContext moduleContext
+    DataToComputeModules
     -> Maybe (Zipper GraphModule)
     -> ValidProject
     -> List RuleProjectVisitor
@@ -5116,7 +5114,7 @@ computeProjectContext traversalAndFolder project cache incoming initial =
 
 
 computeModuleAndCacheResult :
-    DataToComputeModules projectContext moduleContext
+    DataToComputeModules
     -> Zipper GraphModule
     -> ValidProject
     -> List RuleProjectVisitor
