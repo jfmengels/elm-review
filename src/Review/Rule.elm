@@ -1344,7 +1344,6 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
                 TraverseAllModulesInParallel Nothing
     , finalEvaluationFn = schema.finalEvaluationFn
     , providesFixes = schema.providesFixes
-    , dataExtractor = schema.dataExtractor
     , requestedData =
         case schema.moduleContextCreator of
             Just (ContextCreator _ requestedData) ->
@@ -4258,7 +4257,6 @@ type alias RunnableProjectVisitor projectContext moduleContext =
     , moduleVisitor : Maybe ( RunnableModuleVisitor moduleContext, ContextCreator projectContext moduleContext )
     , traversalAndFolder : TraversalAndFolder projectContext moduleContext
     , finalEvaluationFn : Maybe (projectContext -> List (Error {}))
-    , dataExtractor : Maybe (projectContext -> Extract)
     , requestedData : RequestedData
     , providesFixes : Bool
     }
