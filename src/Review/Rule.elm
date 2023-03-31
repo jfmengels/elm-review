@@ -4897,10 +4897,6 @@ computeFinalProjectEvaluation :
     -> { project : ValidProject, cache : ProjectRuleCache projectContext, ruleProjectVisitors : List RuleProjectVisitor, step : Step projectContext, fixedErrors : FixedErrors }
 computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } project projectContexts cache ruleProjectVisitors fixedErrors =
     let
-        finalContext : projectContext
-        finalContext =
-            computeFinalContext projectVisitor cache projectContexts.deps
-
         ( errors, newRuleProjectVisitors ) =
             List.foldl
                 (\((RuleProjectVisitor rule) as untouched) ( accErrors, accRules ) ->
