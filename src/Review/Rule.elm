@@ -352,7 +352,7 @@ type Rule
         , providesFixes : Bool
         , extractsData : Bool
         , ruleImplementation : ReviewOptionsData -> Int -> Exceptions -> FixedErrors -> ValidProject -> List RuleProjectVisitor -> { errors : List (Error {}), fixedErrors : FixedErrors, rule : Rule, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject, extract : Maybe Extract }
-        , ruleProjectVisitor : Result { message : String, details : List String } (Exceptions -> RuleProjectVisitor)
+        , ruleProjectVisitor : Result { message : String, details : List String } (Exceptions -> Int -> RuleProjectVisitor)
         }
 
 
@@ -626,8 +626,7 @@ checkForConfigurationErrors rules =
                 (\(Rule rule) ( rulesToRun, configurationErrors ) ->
                     case rule.ruleProjectVisitor of
                         Ok ruleProjectVisitor ->
-                            -- TODO Add ruleId, ...
-                            ( ruleProjectVisitor rule.exceptions :: rulesToRun, configurationErrors )
+                            ( ruleProjectVisitor rule.exceptions rule.id :: rulesToRun, configurationErrors )
 
                         Err { message, details } ->
                             ( rulesToRun
@@ -1290,7 +1289,7 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                     (removeUnknownModulesFromInitialCache project (initialCacheMarker schema.name ruleId emptyCache))
                     fixedErrors
                     project
-        , ruleProjectVisitor = Ok (\exceptions -> createRuleProjectVisitor schema exceptions)
+        , ruleProjectVisitor = Ok (\exceptions ruleId -> createRuleProjectVisitor schema exceptions ruleId)
         }
 
 
@@ -6017,6 +6016,7 @@ type RuleProjectVisitor
 type alias RuleProjectVisitorHidden projectContext =
     { cache : ProjectRuleCache projectContext
     , exceptions : Exceptions
+    , ruleId : Int
     }
 
 
@@ -6032,13 +6032,14 @@ type alias RuleProjectVisitorOperations t =
     }
 
 
-createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> Exceptions -> RuleProjectVisitor
-createRuleProjectVisitor schema exceptions =
+createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> Exceptions -> Int -> RuleProjectVisitor
+createRuleProjectVisitor schema exceptions ruleId =
     If.create
         RuleProjectVisitor
         (projectRuleImplementation schema)
         { cache = emptyCache
         , exceptions = exceptions
+        , ruleId = ruleId
         }
 
 
