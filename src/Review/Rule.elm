@@ -2093,10 +2093,10 @@ withContextFromImportedModules (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | traversalType = ImportedModulesFirst }
 
 
-setFilePathIfUnset : OpaqueProjectModule -> Error scope -> Error scope
-setFilePathIfUnset module_ ((Error err) as rawError) =
+setFilePathIfUnset : String -> Error scope -> Error scope
+setFilePathIfUnset filePath ((Error err) as rawError) =
     if err.filePath == "" then
-        Error { err | filePath = ProjectModule.path module_ }
+        Error { err | filePath = filePath }
 
     else
         rawError
@@ -5122,7 +5122,7 @@ computeModule ({ dataToComputeModules, ruleProjectVisitors, module_, isFileIgnor
                                     let
                                         errorWithPath : Error {}
                                         errorWithPath =
-                                            setFilePathIfUnset module_ error_
+                                            setFilePathIfUnset availableData.filePath error_
                                     in
                                     if Exceptions.isFileWeWantReportsFor dataToComputeModules.exceptions (errorFilePathInternal errorWithPath) then
                                         errorWithPath :: subAcc
