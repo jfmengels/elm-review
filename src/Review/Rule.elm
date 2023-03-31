@@ -795,9 +795,7 @@ runRulesHelp reviewOptions remainingRules acc =
                 { errors = errors
                 , fixedErrors = result.fixedErrors
                 , rules = restOfRules ++ (result.rule :: acc.rules)
-
-                --, ruleProjectVisitors = result.ruleProjectVisitors
-                , ruleProjectVisitors = acc.ruleProjectVisitors
+                , ruleProjectVisitors = result.ruleProjectVisitors
                 , project = result.project
                 , extracts = acc.extracts
                 }
@@ -809,9 +807,7 @@ runRulesHelp reviewOptions remainingRules acc =
                     { errors = errors
                     , fixedErrors = result.fixedErrors
                     , rules = [ result.rule ]
-
-                    --, ruleProjectVisitors = result.ruleProjectVisitors
-                    , ruleProjectVisitors = acc.ruleProjectVisitors
+                    , ruleProjectVisitors = result.ruleProjectVisitors
                     , project = result.project
                     , extracts = acc.extracts
                     }
@@ -823,9 +819,7 @@ runRulesHelp reviewOptions remainingRules acc =
                     { errors = errors
                     , fixedErrors = result.fixedErrors
                     , rules = result.rule :: acc.rules
-
-                    --, ruleProjectVisitors = result.ruleProjectVisitors
-                    , ruleProjectVisitors = acc.ruleProjectVisitors
+                    , ruleProjectVisitors = result.ruleProjectVisitors
                     , project = result.project
                     , extracts =
                         case result.extract of
