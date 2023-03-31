@@ -1284,7 +1284,6 @@ fromProjectRuleSchema ((ProjectRuleSchema schema) as projectRuleSchema) =
                 runProjectVisitor
                     reviewOptions
                     ruleProjectVisitors
-                    (removeUnknownModulesFromInitialCache project (initialCacheMarker schema.name ruleId emptyCache))
                     fixedErrors
                     project
         , ruleProjectVisitor = Ok (\project ruleData -> createRuleProjectVisitor schema project ruleData)
@@ -4320,11 +4319,10 @@ qualifyError params err acc =
 runProjectVisitor :
     ReviewOptionsData
     -> List RuleProjectVisitor
-    -> ProjectRuleCache projectContext
     -> FixedErrors
     -> ValidProject
     -> { fixedErrors : FixedErrors, ruleProjectVisitors : List RuleProjectVisitor, project : ValidProject }
-runProjectVisitor reviewOptions initialRuleProjectVisitors initialCache initialFixedErrors initialProject =
+runProjectVisitor reviewOptions initialRuleProjectVisitors initialFixedErrors initialProject =
     let
         { project, ruleProjectVisitors, fixedErrors } =
             computeStepsForProject
