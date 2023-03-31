@@ -6037,7 +6037,7 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
     , dataExtractVisitor = addDataExtract schema raiseCache cache
     , addDataExtract =
         \extracts ->
-            case Maybe.map .extract cache.extract of
+            case Maybe.map .extract (finalCacheMarker schema.name hidden.ruleData.ruleId cache).extract of
                 Just (Extract extract) ->
                     Dict.insert schema.name extract extracts
 
