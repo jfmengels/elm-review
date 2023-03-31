@@ -5022,7 +5022,7 @@ computeFinalProjectEvaluation { reviewOptions, projectVisitor, exceptions } proj
                                 (\(RuleProjectVisitor rule) ->
                                     case rule.finalProjectEvaluation of
                                         Just visitor ->
-                                            visitor exceptions
+                                            visitor ()
 
                                         Nothing ->
                                             RuleProjectVisitor rule
@@ -6027,7 +6027,7 @@ type alias RuleProjectVisitorOperations t =
     , readmeVisitor : Maybe (ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> t)
     , dependenciesVisitor : Maybe (ValidProject -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> t)
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> AvailableData -> ContentHash -> Graph.Adjacency () -> RuleModuleVisitor)
-    , finalProjectEvaluation : Maybe (Exceptions -> t)
+    , finalProjectEvaluation : Maybe (() -> t)
     , dataExtract : Maybe (ReviewOptionsData -> t)
     }
 
@@ -6058,7 +6058,7 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
     , readmeVisitor = addProjectVisitor schema hidden schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash (\entry -> raiseCache { cache | readme = entry })
     , dependenciesVisitor = addDependenciesVisitor schema hidden raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
     , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema raiseCache cache
-    , finalProjectEvaluation = addFinalProjectEvaluationVisitor schema raiseCache cache
+    , finalProjectEvaluation = addFinalProjectEvaluationVisitor schema hidden raiseCache cache
     , dataExtract = addDataExtract schema raiseCache cache
     }
 
@@ -6176,17 +6176,18 @@ addDependenciesVisitor schema { exceptions } raise cache { allVisitor, directVis
 
 addFinalProjectEvaluationVisitor :
     ProjectRuleSchemaData projectContext moduleContext
+    -> RuleProjectVisitorHidden projectContext
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     -> ProjectRuleCache projectContext
-    -> Maybe (Exceptions -> RuleProjectVisitor)
-addFinalProjectEvaluationVisitor schema raise cache =
+    -> Maybe (() -> RuleProjectVisitor)
+addFinalProjectEvaluationVisitor schema { exceptions } raise cache =
     case schema.finalEvaluationFn of
         Nothing ->
             Nothing
 
         Just finalEvaluationFn ->
             Just
-                (\exceptions ->
+                (\() ->
                     let
                         inputContext : projectContext
                         inputContext =
