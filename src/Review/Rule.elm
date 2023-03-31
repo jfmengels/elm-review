@@ -1323,9 +1323,6 @@ fromProjectRuleSchemaToRunnableProjectVisitor (ProjectRuleSchema schema) =
     , readmeVisitor = schema.readmeVisitor
     , directDependenciesVisitor = schema.directDependenciesVisitor
     , dependenciesVisitor = schema.dependenciesVisitor
-    , moduleVisitor =
-        mergeModuleVisitors schema.name schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors
-            |> Maybe.map (Tuple.mapFirst fromModuleRuleSchemaToRunnableModuleVisitor)
     , traversalAndFolder =
         case ( schema.traversalType, schema.folder ) of
             ( AllModulesInParallel, _ ) ->
@@ -4249,7 +4246,6 @@ type alias RunnableProjectVisitor projectContext moduleContext =
     , readmeVisitor : Maybe (Maybe { readmeKey : ReadmeKey, content : String } -> projectContext -> ( List (Error {}), projectContext ))
     , directDependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
     , dependenciesVisitor : Maybe (Dict String Review.Project.Dependency.Dependency -> projectContext -> ( List (Error {}), projectContext ))
-    , moduleVisitor : Maybe ( RunnableModuleVisitor moduleContext, ContextCreator projectContext moduleContext )
     , traversalAndFolder : TraversalAndFolder projectContext moduleContext
     , finalEvaluationFn : Maybe (projectContext -> List (Error {}))
     , requestedData : RequestedData
