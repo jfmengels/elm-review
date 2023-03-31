@@ -5152,7 +5152,7 @@ findFixInComputeModuleResults :
     -> projectContext
     -> List RuleProjectVisitor
     -> ComputeModuleFindFixResult projectContext moduleContext
-findFixInComputeModuleResults ({ dataToComputeModules, module_, isFileIgnored, projectContext, project, moduleZipper, fixedErrors } as params) outputContext outputRuleProjectVisitors =
+findFixInComputeModuleResults ({ dataToComputeModules, module_, projectContext, project, moduleZipper, fixedErrors } as params) outputContext outputRuleProjectVisitors =
     let
         modulePath : String
         modulePath =
