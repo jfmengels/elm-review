@@ -1859,7 +1859,6 @@ withFinalProjectEvaluation visitor (ProjectRuleSchema schema) =
                             |> removeErrorPhantomTypes
 
                 Just previousVisitor ->
-                    -- TODO Optimize this
                     \projectContext -> List.append (visitor projectContext |> removeErrorPhantomTypes) (previousVisitor projectContext)
     in
     ProjectRuleSchema { schema | finalEvaluationFn = Just combinedVisitor }
