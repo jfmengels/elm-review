@@ -5123,15 +5123,11 @@ visitModuleForProjectRule module_ availableData ruleModuleVisitors =
         ast : File
         ast =
             ProjectModule.ast module_
-
-        moduleDocumentation : Maybe (Node String)
-        moduleDocumentation =
-            findModuleDocumentation ast
     in
     ruleModuleVisitors
         |> List.map (\createRuleVisitor -> createRuleVisitor availableData)
         |> List.map (\acc -> runVisitor .moduleDefinitionVisitor ast.moduleDefinition acc)
-        |> List.map (\acc -> runVisitor .moduleDocumentationVisitor moduleDocumentation acc)
+        |> List.map (\acc -> runVisitor .moduleDocumentationVisitor availableData.moduleDocumentation acc)
         |> List.map (\acc -> runVisitor .commentVisitor ast.comments acc)
         |> List.map (\acc -> runVisitor .importsVisitor ast.imports acc)
         |> List.map (\acc -> runVisitor .declarationListVisitor ast.declarations acc)
