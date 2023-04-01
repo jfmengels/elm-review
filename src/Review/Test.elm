@@ -446,10 +446,6 @@ runOnModulesWithProjectDataHelp project rule sources =
                         let
                             { errors, extracts } =
                                 Rule.reviewV3 (ReviewOptions.withDataExtraction True ReviewOptions.defaults) [ rule ] projectWithModules
-
-                            extract : ExtractResult
-                            extract =
-                                Dict.get (Rule.ruleName rule) extracts
                         in
                         case ListExtra.find (\err -> Rule.errorTarget err == Error.Global) errors of
                             Just globalError_ ->
@@ -457,6 +453,10 @@ runOnModulesWithProjectDataHelp project rule sources =
 
                             Nothing ->
                                 let
+                                    extract : ExtractResult
+                                    extract =
+                                        Dict.get (Rule.ruleName rule) extracts
+
                                     fileErrors : List SuccessfulRunResult
                                     fileErrors =
                                         List.concat
