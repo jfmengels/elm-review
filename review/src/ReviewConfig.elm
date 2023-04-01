@@ -23,6 +23,7 @@ import NoImportingEverything
 import NoMissingTypeAnnotation
 import NoMissingTypeAnnotationInLetIn
 import NoMissingTypeExpose
+import NoPrematureLetComputation
 import NoSimpleLetBody
 import NoUnnecessaryTrailingUnderscore
 import NoUnused.CustomTypeConstructors
@@ -66,6 +67,7 @@ config =
     --, NoUnnecessaryTrailingUnderscore.rule
     , NoUnused.Variables.rule
     , NoSimpleLetBody.rule
+    , NoPrematureLetComputation.rule
     , NoForbiddenWords.rule [ "REPLACEME" ]
     ]
         |> List.map (Rule.ignoreErrorsForDirectories [ "src/Vendor/", "tests/Vendor/" ])
