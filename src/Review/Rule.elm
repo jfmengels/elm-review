@@ -5610,7 +5610,7 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden travers
 
             isFileIgnored : Bool
             isFileIgnored =
-                not (Exceptions.isFileWeWantReportsFor exceptions availableData.filePath)
+                not (Exceptions.isFileWeWantReportsFor exceptions filePath)
 
             shouldReuseCache : Cache.ModuleEntry error projectContext -> Bool
             shouldReuseCache cacheEntry =
@@ -5624,7 +5624,7 @@ createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden travers
 
             maybeCacheEntry : Maybe (ModuleCacheEntry projectContext)
             maybeCacheEntry =
-                Dict.get availableData.filePath hidden.cache.moduleContexts
+                Dict.get filePath hidden.cache.moduleContexts
         in
         case reuseCache shouldReuseCache maybeCacheEntry of
             Just _ ->
