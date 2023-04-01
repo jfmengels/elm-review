@@ -4647,12 +4647,6 @@ computeModule :
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
 computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
     let
-        (RequestedData requestedData) =
-            List.foldl
-                (\(RuleProjectVisitor ruleProjectVisitor) acc -> RequestedData.combineJust ruleProjectVisitor.requestedData acc)
-                RequestedData.none
-                ruleProjectVisitors
-
         filePath : String
         filePath =
             ProjectModule.path module_
@@ -4685,6 +4679,12 @@ computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
 
     else
         let
+            (RequestedData requestedData) =
+                List.foldl
+                    (\(RuleProjectVisitor ruleProjectVisitor) acc -> RequestedData.combineJust ruleProjectVisitor.requestedData acc)
+                    RequestedData.none
+                    ruleProjectVisitors
+
             moduleName : ModuleName
             moduleName =
                 Node.value (moduleNameNode (ProjectModule.ast module_).moduleDefinition)
