@@ -4653,10 +4653,6 @@ computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
                 RequestedData.none
                 ruleProjectVisitors
 
-        moduleName : ModuleName
-        moduleName =
-            Node.value (moduleNameNode (ProjectModule.ast module_).moduleDefinition)
-
         filePath : String
         filePath =
             ProjectModule.path module_
@@ -4689,6 +4685,10 @@ computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
 
     else
         let
+            moduleName : ModuleName
+            moduleName =
+                Node.value (moduleNameNode (ProjectModule.ast module_).moduleDefinition)
+
             ( moduleNameLookupTable, newProject ) =
                 -- TODO Try to compute this later, once we know for sure that the rules we will run want the lookup table
                 -- TODO If the file has changed, then compute the module docs anyway.
