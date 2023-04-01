@@ -5809,10 +5809,10 @@ createFinalModuleEvaluationVisitor params raise ( errors, context ) maybeVisitor
 
 
 runVisitor : (RuleModuleVisitorOperations RuleModuleVisitor -> Maybe (a -> RuleModuleVisitor)) -> a -> RuleModuleVisitor -> RuleModuleVisitor
-runVisitor field node ((RuleModuleVisitor ruleModuleVisitor) as original) =
+runVisitor field a ((RuleModuleVisitor ruleModuleVisitor) as original) =
     case field ruleModuleVisitor of
         Just visitor ->
-            visitor node
+            visitor a
 
         Nothing ->
             original
