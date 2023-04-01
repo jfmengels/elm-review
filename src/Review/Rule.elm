@@ -5797,13 +5797,24 @@ createFinalModuleEvaluationVisitor :
     -> ( List (Error {}), context )
     -> Maybe (context -> List (Error {}))
     -> Maybe (() -> RuleModuleVisitor)
-createFinalModuleEvaluationVisitor params raise ( errors, context ) maybeVisitor =
+createFinalModuleEvaluationVisitor params raise errorsAndContext maybeVisitor =
     case maybeVisitor of
         Nothing ->
             Nothing
 
         Just visitor ->
-            Just (\() -> raise ( qualifyErrors params (visitor context) errors, context ))
+            Just
+                (\() ->
+                    let
+                        -- We don't want to destructure the tuple in the arguments,
+                        -- because we want to mutate `errorsAndContext` in `moduleRuleImplementation`.
+                        -- See the transformation we do in `optimize-js.js` in `node-elm-review`.
+                        -- Destructuring earlier would mean we would reference older values of `errorsAndContext`.
+                        ( errors, context ) =
+                            errorsAndContext
+                    in
+                    raise ( qualifyErrors params (visitor context) errors, context )
+                )
 
 
 runVisitor : (RuleModuleVisitorOperations RuleModuleVisitor -> Maybe (a -> RuleModuleVisitor)) -> a -> RuleModuleVisitor -> RuleModuleVisitor
