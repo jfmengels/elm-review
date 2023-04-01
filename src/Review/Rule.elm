@@ -4652,7 +4652,6 @@ computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
             ProjectModule.path module_
 
         ( inputRuleModuleVisitors, RequestedData requestedData, rulesNotToRun ) =
-            -- We can probably compute this in computeModules or above.
             List.foldl
                 (\((RuleProjectVisitor ruleProjectVisitor) as rule) ( with, requestedAcc, without ) ->
                     case ruleProjectVisitor.createModuleVisitorFromProjectVisitor of
