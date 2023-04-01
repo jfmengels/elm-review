@@ -1945,15 +1945,6 @@ withContextFromImportedModules (ProjectRuleSchema schema) =
     ProjectRuleSchema { schema | traversalType = ImportedModulesFirst }
 
 
-setFilePathIfUnset : String -> Error scope -> Error scope
-setFilePathIfUnset filePath ((Error err) as rawError) =
-    if err.filePath == "" then
-        Error { err | filePath = filePath }
-
-    else
-        rawError
-
-
 {-| Add a visitor to the [`ModuleRuleSchema`](#ModuleRuleSchema) which will visit the module's [module definition](https://package.elm-lang.org/packages/stil4m/elm-syntax/7.2.1/Elm-Syntax-Module) (`module SomeModuleName exposing (a, b)`) and report patterns.
 
 The following example forbids having `_` in any part of a module name.
@@ -4136,14 +4127,18 @@ qualifyErrors params errors acc =
 
 
 qualifyError : { ruleName : String, exceptions : Exceptions, filePath : String } -> Error {} -> List (Error {}) -> List (Error {})
-qualifyError params err acc =
+qualifyError params (Error err) acc =
     let
-        newError : Error {}
+        newError : InternalError
         newError =
-            setFilePathIfUnset params.filePath err
+            if err.filePath == "" then
+                { err | filePath = params.filePath }
+
+            else
+                err
     in
-    if Exceptions.isFileWeWantReportsFor params.exceptions (errorFilePathInternal newError) then
-        setRuleName params.ruleName newError :: acc
+    if Exceptions.isFileWeWantReportsFor params.exceptions newError.filePath then
+        setRuleName params.ruleName (Error newError) :: acc
 
     else
         acc
