@@ -4696,7 +4696,7 @@ computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
                 (\((RuleProjectVisitor ruleProjectVisitor) as rule) ( with, without ) ->
                     case ruleProjectVisitor.createModuleVisitorFromProjectVisitor of
                         Just moduleVisitorCreator ->
-                            case moduleVisitorCreator project availableData filePath (ProjectModule.contentHash module_) incoming of
+                            case moduleVisitorCreator project filePath (ProjectModule.contentHash module_) incoming availableData of
                                 Just moduleVisitor ->
                                     ( moduleVisitor :: with, without )
 
@@ -5275,7 +5275,7 @@ type alias RuleProjectVisitorOperations t =
     { elmJsonVisitor : Maybe (ValidProject -> Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project } -> ( List (Error {}), t ))
     , readmeVisitor : Maybe (ValidProject -> Maybe { readmeKey : ReadmeKey, content : String } -> ( List (Error {}), t ))
     , dependenciesVisitor : Maybe (ValidProject -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> ( List (Error {}), t ))
-    , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> AvailableData -> String -> ContentHash -> Graph.Adjacency () -> Maybe RuleModuleVisitor)
+    , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> String -> ContentHash -> Graph.Adjacency () -> AvailableData -> Maybe RuleModuleVisitor)
     , finalProjectEvaluation : Maybe (() -> ( List (Error {}), t ))
     , dataExtractVisitor : Maybe (ReviewOptionsData -> t)
     , addDataExtract : Dict String Encode.Value -> Dict String Encode.Value
@@ -5558,7 +5558,7 @@ createModuleVisitorFromProjectVisitor :
     -> Exceptions
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     -> RuleProjectVisitorHidden projectContext
-    -> Maybe (ValidProject -> AvailableData -> String -> ContentHash -> Graph.Adjacency () -> Maybe RuleModuleVisitor)
+    -> Maybe (ValidProject -> String -> ContentHash -> Graph.Adjacency () -> AvailableData -> Maybe RuleModuleVisitor)
 createModuleVisitorFromProjectVisitor schema exceptions raise hidden =
     case mergeModuleVisitors schema.name schema.initialProjectContext schema.moduleContextCreator schema.moduleVisitors of
         Nothing ->
@@ -5589,13 +5589,13 @@ createModuleVisitorFromProjectVisitorHelp :
     -> TraversalAndFolder projectContext moduleContext
     -> ( ModuleRuleSchema schemaState moduleContext, ContextCreator projectContext moduleContext )
     -> ValidProject
-    -> AvailableData
     -> String
     -> ContentHash
     -> Graph.Adjacency ()
+    -> AvailableData
     -> Maybe RuleModuleVisitor
 createModuleVisitorFromProjectVisitorHelp schema exceptions raise hidden traversalAndFolder ( ModuleRuleSchema moduleRuleSchema, moduleContextCreator ) =
-    \project availableData filePath moduleContentHash incoming ->
+    \project filePath moduleContentHash incoming availableData ->
         let
             initialProjectContext : projectContext
             initialProjectContext =
