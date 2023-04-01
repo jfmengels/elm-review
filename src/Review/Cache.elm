@@ -1,4 +1,4 @@
-module Review.Cache exposing (EntryMaybe, EntryNoOutputContext, ModuleEntry, createEntryMaybe, createModuleEntry, createNoOutput, errors, errorsMaybe, match, matchMaybe, matchNoOutput, outputContext, outputContextMaybe, outputForNoOutput)
+module Review.Cache exposing (EntryMaybe, EntryNoOutputContext, ModuleEntry, createEntryMaybe, createModuleEntry, createNoOutput, errors, errorsFromEntryMaybe, errorsMaybe, match, matchMaybe, matchNoOutput, outputContext, outputContextMaybe, outputForNoOutput)
 
 import Review.Cache.ContentHash as ContentHash exposing (ContentHash)
 import Review.Cache.ContextHash as ContextHash exposing (ContextHash)
@@ -85,6 +85,11 @@ createEntryMaybe entry =
 outputContextMaybe : EntryMaybe error context -> context
 outputContextMaybe (EntryMaybe entry) =
     entry.outputContext
+
+
+errorsFromEntryMaybe : EntryMaybe error context -> List error
+errorsFromEntryMaybe (EntryMaybe entry) =
+    entry.errors
 
 
 errorsMaybe : Maybe (EntryMaybe error context) -> List error

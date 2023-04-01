@@ -5372,7 +5372,7 @@ addProjectVisitor schema hidden maybeVisitor possibleInputContexts contentHash c
                     in
                     case reuseProjectRuleCache cachePredicate cacheGetter hidden.cache of
                         Just entry ->
-                            ( Cache.errorsMaybe (Just entry), toRuleProjectVisitor (Just entry) )
+                            ( Cache.errorsFromEntryMaybe entry, toRuleProjectVisitor (Just entry) )
 
                         Nothing ->
                             let
@@ -5433,8 +5433,7 @@ addDependenciesVisitor schema { exceptions } raise cache { allVisitor, directVis
                     in
                     case reuseProjectRuleCache cachePredicate .dependencies cache of
                         Just entry ->
-                            -- TODO Remove the need to wrap in `Just`?
-                            ( Cache.errorsMaybe (Just entry), raise cache )
+                            ( Cache.errorsFromEntryMaybe entry, raise cache )
 
                         Nothing ->
                             let
