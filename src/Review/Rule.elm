@@ -5301,12 +5301,12 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
         raiseCache newCache =
             baseRaise { cache = newCache, ruleData = hidden.ruleData }
     in
-    { elmJsonVisitor = addProjectVisitor schema hidden schema.elmJsonVisitor [] ValidProject.elmJsonHash .elmJson (\entry -> raiseCache { cache | elmJson = Just entry })
-    , readmeVisitor = addProjectVisitor schema hidden schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash .readme (\entry -> raiseCache { cache | readme = Just entry })
-    , dependenciesVisitor = addDependenciesVisitor schema hidden.ruleData raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
+    { elmJsonVisitor = createProjectVisitor schema hidden schema.elmJsonVisitor [] ValidProject.elmJsonHash .elmJson (\entry -> raiseCache { cache | elmJson = Just entry })
+    , readmeVisitor = createProjectVisitor schema hidden schema.readmeVisitor [ cache.elmJson ] ValidProject.readmeHash .readme (\entry -> raiseCache { cache | readme = Just entry })
+    , dependenciesVisitor = createDependenciesVisitor schema hidden.ruleData raiseCache cache { allVisitor = schema.dependenciesVisitor, directVisitor = schema.directDependenciesVisitor }
     , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema hidden.ruleData.exceptions raiseCache hidden
-    , finalProjectEvaluation = addFinalProjectEvaluationVisitor schema hidden.ruleData raiseCache cache
-    , dataExtractVisitor = addDataExtract schema raiseCache cache
+    , finalProjectEvaluation = createFinalProjectEvaluationVisitor schema hidden.ruleData raiseCache cache
+    , dataExtractVisitor = createDataExtractVisitor schema raiseCache cache
     , addDataExtract =
         \extracts ->
             case Maybe.map .extract (finalCacheMarker schema.name hidden.ruleData.ruleId cache).extract of
@@ -5331,7 +5331,7 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
     }
 
 
-addProjectVisitor :
+createProjectVisitor :
     ProjectRuleSchemaData projectContext moduleContext
     -> RuleProjectVisitorHidden projectContext
     -> Maybe (data -> projectContext -> ( List (Error {}), projectContext ))
@@ -5345,7 +5345,7 @@ addProjectVisitor :
              -> data
              -> ( List (Error {}), RuleProjectVisitor )
             )
-addProjectVisitor schema hidden maybeVisitor possibleInputContexts contentHash cacheGetter toRuleProjectVisitor =
+createProjectVisitor schema hidden maybeVisitor possibleInputContexts contentHash cacheGetter toRuleProjectVisitor =
     case maybeVisitor of
         Nothing ->
             Nothing
@@ -5390,7 +5390,7 @@ addProjectVisitor schema hidden maybeVisitor possibleInputContexts contentHash c
                 )
 
 
-addDependenciesVisitor :
+createDependenciesVisitor :
     ProjectRuleSchemaData projectContext moduleContext
     -> ChangeableRuleData
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
@@ -5405,7 +5405,7 @@ addDependenciesVisitor :
              -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency }
              -> ( List (Error {}), RuleProjectVisitor )
             )
-addDependenciesVisitor schema { exceptions } raise cache { allVisitor, directVisitor } =
+createDependenciesVisitor schema { exceptions } raise cache { allVisitor, directVisitor } =
     case ( allVisitor, directVisitor ) of
         ( Nothing, Nothing ) ->
             Nothing
@@ -5466,13 +5466,13 @@ addDependenciesVisitor schema { exceptions } raise cache { allVisitor, directVis
                 )
 
 
-addFinalProjectEvaluationVisitor :
+createFinalProjectEvaluationVisitor :
     ProjectRuleSchemaData projectContext moduleContext
     -> ChangeableRuleData
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     -> ProjectRuleCache projectContext
     -> Maybe (() -> ( List (Error {}), RuleProjectVisitor ))
-addFinalProjectEvaluationVisitor schema { exceptions } raise cache =
+createFinalProjectEvaluationVisitor schema { exceptions } raise cache =
     case schema.finalEvaluationFn of
         Nothing ->
             Nothing
@@ -5505,12 +5505,12 @@ addFinalProjectEvaluationVisitor schema { exceptions } raise cache =
                 )
 
 
-addDataExtract :
+createDataExtractVisitor :
     ProjectRuleSchemaData projectContext moduleContext
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     -> ProjectRuleCache projectContext
     -> Maybe (ReviewOptionsData -> RuleProjectVisitor)
-addDataExtract schema raise cache =
+createDataExtractVisitor schema raise cache =
     case schema.dataExtractor of
         Nothing ->
             Nothing
