@@ -1308,6 +1308,7 @@ mergeModuleVisitorsHelp ruleName_ initialProjectContext moduleContextCreator vis
         dummyAvailableData =
             { ast = dummyAst
             , moduleKey = ModuleKey "dummy"
+            , moduleDocumentation = Nothing
             , moduleNameLookupTable = ModuleNameLookupTableInternal.empty []
             , extractSourceCode = always "dummy"
             , filePath = "dummy file path"
@@ -4693,11 +4694,18 @@ computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
                 else
                     ( ModuleNameLookupTableInternal.empty moduleName, project )
 
+            ast : File
+            ast =
+                ProjectModule.ast module_
+
             availableData : AvailableData
             availableData =
-                { ast = ProjectModule.ast module_
+                { ast = ast
                 , moduleKey = ModuleKey (ProjectModule.path module_)
                 , moduleNameLookupTable = moduleNameLookupTable
+
+                -- TODO Avoid computing the module docs if we don't need them. Or use `elm-syntax`'s AST node when that's available.
+                , moduleDocumentation = findModuleDocumentation ast
                 , extractSourceCode =
                     if requestedData.sourceCodeExtractor then
                         let
@@ -6221,7 +6229,7 @@ When that is the case, the module documentation will be `Nothing`.
 withModuleDocumentation : ContextCreator (Maybe (Node String)) (from -> to) -> ContextCreator from to
 withModuleDocumentation (ContextCreator fn requested) =
     ContextCreator
-        (\data isFileIgnored -> fn data isFileIgnored (findModuleDocumentation data.ast))
+        (\data isFileIgnored -> fn data isFileIgnored data.moduleDocumentation)
         requested
 
 
@@ -6328,6 +6336,7 @@ withSourceCodeExtractor (ContextCreator fn (RequestedData requested)) =
 type alias AvailableData =
     { ast : Elm.Syntax.File.File
     , moduleKey : ModuleKey
+    , moduleDocumentation : Maybe (Node String)
     , moduleNameLookupTable : ModuleNameLookupTable
     , extractSourceCode : Range -> String
     , filePath : String
