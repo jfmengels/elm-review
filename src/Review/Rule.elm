@@ -5522,6 +5522,7 @@ addDataExtract schema raise cache =
                         errors : List (Error {})
                         errors =
                             -- TODO Can we compute this as we traverse the file?
+                            -- We can probably store whether each entry has preventable errors, which would not require us to loop over the errors (again)
                             errorsFromCache cache
                     in
                     if reviewOptions.extract && not (List.any doesPreventExtract errors) then
