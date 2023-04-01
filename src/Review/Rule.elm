@@ -4660,6 +4660,7 @@ computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
 
         ( moduleNameLookupTable, newProject ) =
             -- TODO Try to compute this later, once we know for sure that the rules we will run want the lookup table
+            -- TODO If the file has changed, then compute the module docs anyway.
             if requestedData.moduleNameLookupTable then
                 Review.ModuleNameLookupTable.Compute.compute moduleName module_ project
 
