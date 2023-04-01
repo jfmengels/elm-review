@@ -4651,23 +4651,26 @@ computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
         filePath =
             ProjectModule.path module_
 
-        ( inputRuleModuleVisitors, rulesNotToRun ) =
+        ( inputRuleModuleVisitors, RequestedData requestedData, rulesNotToRun ) =
             -- We can probably compute this in computeModules or above.
             List.foldl
-                (\((RuleProjectVisitor ruleProjectVisitor) as rule) ( with, without ) ->
+                (\((RuleProjectVisitor ruleProjectVisitor) as rule) ( with, requestedAcc, without ) ->
                     case ruleProjectVisitor.createModuleVisitorFromProjectVisitor of
                         Just moduleVisitorCreator ->
                             case moduleVisitorCreator project filePath (ProjectModule.contentHash module_) incoming of
                                 Just moduleVisitor ->
-                                    ( moduleVisitor :: with, without )
+                                    ( moduleVisitor :: with
+                                    , RequestedData.combineJust ruleProjectVisitor.requestedData requestedAcc
+                                    , without
+                                    )
 
                                 Nothing ->
-                                    ( with, rule :: without )
+                                    ( with, requestedAcc, rule :: without )
 
                         Nothing ->
-                            ( with, rule :: without )
+                            ( with, requestedAcc, rule :: without )
                 )
-                ( [], [] )
+                ( [], RequestedData.none, [] )
                 ruleProjectVisitors
     in
     if List.isEmpty inputRuleModuleVisitors then
@@ -4679,12 +4682,6 @@ computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
 
     else
         let
-            (RequestedData requestedData) =
-                List.foldl
-                    (\(RuleProjectVisitor ruleProjectVisitor) acc -> RequestedData.combineJust ruleProjectVisitor.requestedData acc)
-                    RequestedData.none
-                    ruleProjectVisitors
-
             moduleName : ModuleName
             moduleName =
                 Node.value (moduleNameNode (ProjectModule.ast module_).moduleDefinition)
