@@ -4670,26 +4670,6 @@ computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
         filePath =
             ProjectModule.path module_
 
-        availableData : AvailableData
-        availableData =
-            { ast = ProjectModule.ast module_
-            , moduleKey = ModuleKey (ProjectModule.path module_)
-            , moduleNameLookupTable = moduleNameLookupTable
-            , extractSourceCode =
-                if requestedData.sourceCodeExtractor then
-                    let
-                        lines : List String
-                        lines =
-                            String.lines (ProjectModule.source module_)
-                    in
-                    \range -> extractSourceCode lines range
-
-                else
-                    always ""
-            , filePath = filePath
-            , isInSourceDirectories = ProjectModule.isInSourceDirectories module_
-            }
-
         ( inputRuleModuleVisitors, rulesNotToRun ) =
             -- We can probably compute this in computeModules or above.
             List.foldl
@@ -4718,6 +4698,26 @@ computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
 
     else
         let
+            availableData : AvailableData
+            availableData =
+                { ast = ProjectModule.ast module_
+                , moduleKey = ModuleKey (ProjectModule.path module_)
+                , moduleNameLookupTable = moduleNameLookupTable
+                , extractSourceCode =
+                    if requestedData.sourceCodeExtractor then
+                        let
+                            lines : List String
+                            lines =
+                                String.lines (ProjectModule.source module_)
+                        in
+                        \range -> extractSourceCode lines range
+
+                    else
+                        always ""
+                , filePath = filePath
+                , isInSourceDirectories = ProjectModule.isInSourceDirectories module_
+                }
+
             outputRuleProjectVisitors : List RuleProjectVisitor
             outputRuleProjectVisitors =
                 List.map
