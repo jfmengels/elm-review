@@ -5525,22 +5525,26 @@ addDataExtract schema raise cache =
                             -- We can probably store whether each entry has preventable errors, which would not require us to loop over the errors (again)
                             errorsFromCache cache
                     in
-                    if reviewOptions.extract && not (List.any doesPreventExtract errors) then
-                        let
-                            inputContext : projectContext
-                            inputContext =
-                                computeFinalContext schema cache
+                    if reviewOptions.extract then
+                        if not (List.any doesPreventExtract errors) then
+                            let
+                                inputContext : projectContext
+                                inputContext =
+                                    computeFinalContext schema cache
 
-                            cachePredicate : ExtractCache projectContext -> Bool
-                            cachePredicate extract =
-                                extract.inputContext == ContextHash.create inputContext
-                        in
-                        case reuseProjectRuleCache cachePredicate .extract cache of
-                            Just _ ->
-                                raise cache
+                                cachePredicate : ExtractCache projectContext -> Bool
+                                cachePredicate extract =
+                                    extract.inputContext == ContextHash.create inputContext
+                            in
+                            case reuseProjectRuleCache cachePredicate .extract cache of
+                                Just _ ->
+                                    raise cache
 
-                            Nothing ->
-                                raise { cache | extract = Just { inputContext = ContextHash.create inputContext, extract = dataExtractor inputContext } }
+                                Nothing ->
+                                    raise { cache | extract = Just { inputContext = ContextHash.create inputContext, extract = dataExtractor inputContext } }
+
+                        else
+                            raise cache
 
                     else
                         raise cache
