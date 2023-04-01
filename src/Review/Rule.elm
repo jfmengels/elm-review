@@ -4698,7 +4698,7 @@ computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
                         Just moduleVisitorCreator ->
                             case moduleVisitorCreator project filePath (ProjectModule.contentHash module_) incoming of
                                 Just moduleVisitor ->
-                                    ( moduleVisitor availableData :: with, without )
+                                    ( moduleVisitor :: with, without )
 
                                 Nothing ->
                                     ( with, rule :: without )
@@ -4724,7 +4724,7 @@ computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
                     (\(RuleModuleVisitor ruleModuleVisitor) ->
                         ruleModuleVisitor.toProjectVisitor ()
                     )
-                    (visitModuleForProjectRule module_ inputRuleModuleVisitors)
+                    (visitModuleForProjectRule module_ availableData inputRuleModuleVisitors)
         in
         case findFixInComputeModuleResults { params | project = newProject } (List.append rulesNotToRun outputRuleProjectVisitors) of
             ContinueWithNextStep nextStepResult ->
@@ -5114,8 +5114,8 @@ isFixable predicate err =
             Nothing
 
 
-visitModuleForProjectRule : OpaqueProjectModule -> List RuleModuleVisitor -> List RuleModuleVisitor
-visitModuleForProjectRule module_ ruleModuleVisitors =
+visitModuleForProjectRule : OpaqueProjectModule -> AvailableData -> List (AvailableData -> RuleModuleVisitor) -> List RuleModuleVisitor
+visitModuleForProjectRule module_ availableData ruleModuleVisitors =
     let
         ast : File
         ast =
@@ -5126,6 +5126,7 @@ visitModuleForProjectRule module_ ruleModuleVisitors =
             findModuleDocumentation ast
     in
     ruleModuleVisitors
+        |> List.map (\createRuleVisitor -> createRuleVisitor availableData)
         |> List.map (\acc -> runVisitor .moduleDefinitionVisitor ast.moduleDefinition acc)
         |> List.map (\acc -> runVisitor .moduleDocumentationVisitor moduleDocumentation acc)
         |> List.map (\acc -> runVisitor .commentVisitor ast.comments acc)
