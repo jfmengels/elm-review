@@ -4666,6 +4666,10 @@ computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
             else
                 ( ModuleNameLookupTableInternal.empty moduleName, project )
 
+        filePath : String
+        filePath =
+            ProjectModule.path module_
+
         availableData : AvailableData
         availableData =
             { ast = ProjectModule.ast module_
@@ -4682,7 +4686,7 @@ computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
 
                 else
                     always ""
-            , filePath = ProjectModule.path module_
+            , filePath = filePath
             , isInSourceDirectories = ProjectModule.isInSourceDirectories module_
             }
 
