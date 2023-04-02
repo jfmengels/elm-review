@@ -5331,6 +5331,8 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
     , finalProjectEvaluation = createFinalProjectEvaluationVisitor schema hidden.ruleData raiseCache cache
     , dataExtractVisitor = createDataExtractVisitor schema raiseCache cache
     , getErrorsForModule = \filePath -> getErrorsForModule cache filePath
+
+    -- TODO This is called at the wrong moment: This contains the state of the project with fixes that haven't been applied.
     , getErrors = \() -> errorsFromCache (finalCacheMarker schema.name hidden.ruleData.ruleId cache)
     , backToRule =
         \() ->
