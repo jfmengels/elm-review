@@ -787,16 +787,15 @@ computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
                         else
                             RuleProjectVisitor rule
 
-                    newExtracts : Dict String Encode.Value
-                    newExtracts =
+                    ( RuleProjectVisitor finalRule, newExtracts ) =
                         if canComputeExtract then
                             newRule.addDataExtract extracts
 
                         else
-                            extracts
+                            ( RuleProjectVisitor newRule, extracts )
                 in
                 { errors = newErrors
-                , rules = newRule.backToRule canComputeExtract :: rules
+                , rules = finalRule.backToRule canComputeExtract :: rules
                 , extracts = newExtracts
                 }
             )
@@ -5305,7 +5304,7 @@ type alias RuleProjectVisitorOperations t =
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> String -> ContentHash -> Graph.Adjacency () -> Maybe (AvailableData -> RuleModuleVisitor))
     , finalProjectEvaluation : Maybe (() -> ( List (Error {}), t ))
     , dataExtractVisitor : ReviewOptionsData -> t
-    , addDataExtract : Dict String Encode.Value -> Dict String Encode.Value
+    , addDataExtract : Dict String Encode.Value -> ( t, Dict String Encode.Value )
     , getErrorsForModule : String -> List (Error {})
     , getErrors : () -> List (Error {})
     , backToRule : Bool -> Rule
@@ -5343,10 +5342,10 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
         \extracts ->
             case Maybe.map .extract cache.extract of
                 Just (Extract extract) ->
-                    Dict.insert schema.name extract extracts
+                    ( raiseCache cache, Dict.insert schema.name extract extracts )
 
                 Nothing ->
-                    extracts
+                    ( raiseCache cache, extracts )
     , getErrorsForModule = \filePath -> getErrorsForModule cache filePath
     , getErrors = \() -> errorsFromCache (finalCacheMarker schema.name hidden.ruleData.ruleId cache)
     , backToRule =
