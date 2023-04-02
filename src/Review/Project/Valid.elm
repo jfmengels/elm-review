@@ -75,7 +75,7 @@ toRegularProject (ValidProject validProject) =
         }
 
 
-parse : Project -> Result InvalidProjectError ( ValidProject, Zipper (Graph.NodeContext FilePath ()) )
+parse : Project -> Result InvalidProjectError ValidProject
 parse ((Project p) as project) =
     if not (List.isEmpty p.modulesThatFailedToParse) then
         Err (InvalidProjectError.SomeModulesFailedToParse (List.map .path p.modulesThatFailedToParse))
@@ -112,7 +112,7 @@ parse ((Project p) as project) =
                                 Err InvalidProjectError.NoModulesError
 
                             Just zipper ->
-                                Ok ( fromProjectAndGraph graph acyclicGraph project, zipper )
+                                Ok (fromProjectAndGraph graph acyclicGraph project)
 
 
 {-| This is unsafe because we assume that there are some modules. We do check for this earlier in the exposed functions.

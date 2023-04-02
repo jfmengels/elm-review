@@ -465,7 +465,7 @@ review rules project =
             , rules
             )
 
-        Ok ( validProject, _ ) ->
+        Ok validProject ->
             case checkForConfigurationErrors validProject rules of
                 Err configurationErrors ->
                     ( configurationErrors, rules )
@@ -524,7 +524,7 @@ reviewV2 rules maybeProjectData project =
     case
         getModulesSortedByImport project
             |> Result.andThen
-                (\( validProject, _ ) ->
+                (\validProject ->
                     checkForConfigurationErrors validProject rules
                         |> Result.map (Tuple.pair validProject)
                 )
@@ -594,7 +594,7 @@ reviewV3 reviewOptions rules project =
     case
         getModulesSortedByImport project
             |> Result.andThen
-                (\( validProject, _ ) ->
+                (\validProject ->
                     checkForConfigurationErrors validProject rules
                         |> Result.map (Tuple.pair validProject)
                 )
@@ -664,7 +664,7 @@ checkForConfigurationErrors project rules =
         Err allConfigurationErrors
 
 
-getModulesSortedByImport : Project -> Result (List ReviewError) ( ValidProject, Zipper (Graph.NodeContext FilePath ()) )
+getModulesSortedByImport : Project -> Result (List ReviewError) ValidProject
 getModulesSortedByImport project =
     case ValidProject.parse project of
         Err (InvalidProjectError.SomeModulesFailedToParse pathsThatFailedToParse) ->
