@@ -766,25 +766,47 @@ runRules (ReviewOptionsInternal reviewOptions) ruleProjectVisitors project =
 
 computeErrorsAndRulesAndExtracts : ReviewOptionsData -> List RuleProjectVisitor -> { errors : List ReviewError, rules : List Rule, extracts : Dict String Encode.Value }
 computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
-    { errors =
-        List.foldl
-            (\(RuleProjectVisitor rule) errorsAcc ->
-                let
-                    errors_ =
-                        rule.getErrors () |> List.map errorToReviewError
-                in
-                List.append errors_ errorsAcc
-            )
-            []
-            ruleProjectVisitors
-    , rules = List.map (\(RuleProjectVisitor rule) -> rule.backToRule ()) ruleProjectVisitors
-    , extracts =
-        if reviewOptions.extract then
-            List.foldl (\(RuleProjectVisitor rule) dict -> rule.addDataExtract dict) Dict.empty ruleProjectVisitors
+    if reviewOptions.extract then
+        { errors =
+            List.foldl
+                (\(RuleProjectVisitor rule) errorsAcc ->
+                    let
+                        errors_ =
+                            rule.getErrors () |> List.map errorToReviewError
+                    in
+                    List.append errors_ errorsAcc
+                )
+                []
+                ruleProjectVisitors
+        , rules = List.map (\(RuleProjectVisitor rule) -> rule.backToRule ()) ruleProjectVisitors
+        , extracts =
+            if reviewOptions.extract then
+                List.foldl (\(RuleProjectVisitor rule) dict -> rule.addDataExtract dict) Dict.empty ruleProjectVisitors
 
-        else
-            Dict.empty
-    }
+            else
+                Dict.empty
+        }
+
+    else
+        { errors =
+            List.foldl
+                (\(RuleProjectVisitor rule) errorsAcc ->
+                    let
+                        errors_ =
+                            rule.getErrors () |> List.map errorToReviewError
+                    in
+                    List.append errors_ errorsAcc
+                )
+                []
+                ruleProjectVisitors
+        , rules = List.map (\(RuleProjectVisitor rule) -> rule.backToRule ()) ruleProjectVisitors
+        , extracts =
+            if reviewOptions.extract then
+                List.foldl (\(RuleProjectVisitor rule) dict -> rule.addDataExtract dict) Dict.empty ruleProjectVisitors
+
+            else
+                Dict.empty
+        }
 
 
 runRulesHelp :
