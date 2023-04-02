@@ -770,12 +770,14 @@ computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
         List.foldl
             (\(RuleProjectVisitor rule) { errors, rules, extracts } ->
                 let
-                    errors_ =
+                    ( errors_, hasErrorThatPreventsFix ) =
                         List.foldl
-                            (\err acc ->
-                                errorToReviewError err :: acc
+                            (\err ( accErrors, hasErrorThatPreventsFix_ ) ->
+                                ( errorToReviewError err :: accErrors
+                                , hasErrorThatPreventsFix_
+                                )
                             )
-                            []
+                            ( [], False )
                             (rule.getErrors ())
                 in
                 { errors = List.append errors_ errors
