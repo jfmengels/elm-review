@@ -586,17 +586,7 @@ reviewV3 :
 reviewV3 reviewOptions rules project =
     case getValidProjectAndRules project rules of
         Ok ( validProject, ruleProjectVisitors ) ->
-            let
-                result : { errors : List ReviewError, fixedErrors : Dict String (List ReviewError), rules : List Rule, project : Project, extracts : Dict String Encode.Value }
-                result =
-                    runRules reviewOptions ruleProjectVisitors validProject
-            in
-            { errors = result.errors
-            , fixedErrors = result.fixedErrors
-            , rules = result.rules
-            , project = result.project
-            , extracts = result.extracts
-            }
+            runRules reviewOptions ruleProjectVisitors validProject
 
         Err errors ->
             { errors = errors
