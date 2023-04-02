@@ -770,14 +770,14 @@ computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
         List.foldl
             (\(RuleProjectVisitor rule) { errors, rules, extracts } ->
                 let
-                    ( errors_, canComputeExtract ) =
+                    ( newErrors, canComputeExtract ) =
                         List.foldl
                             (\(Error err) ( accErrors, canComputeExtract_ ) ->
                                 ( Review.Error.ReviewError err :: accErrors
                                 , canComputeExtract_ && not (Review.Error.doesPreventExtract err)
                                 )
                             )
-                            ( [], True )
+                            ( errors, True )
                             (rule.getErrors ())
 
                     (RuleProjectVisitor newRule) =
@@ -795,7 +795,7 @@ computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
                         else
                             extracts
                 in
-                { errors = List.append errors_ errors
+                { errors = newErrors
                 , rules = newRule.backToRule canComputeExtract :: rules
                 , extracts = newExtracts
                 }
