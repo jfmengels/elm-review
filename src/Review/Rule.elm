@@ -5297,7 +5297,6 @@ type alias RuleProjectVisitorOperations t =
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> String -> ContentHash -> Graph.Adjacency () -> Maybe (AvailableData -> RuleModuleVisitor))
     , finalProjectEvaluation : Maybe (() -> ( List (Error {}), t ))
     , dataExtractVisitor : ReviewOptionsData -> Dict String Encode.Value -> ( Dict String Encode.Value, t )
-    , addDataExtract : Dict String Encode.Value -> ( t, Dict String Encode.Value )
     , getErrorsForModule : String -> List (Error {})
     , getErrors : () -> List (Error {})
     , backToRule : () -> Rule
@@ -5331,14 +5330,6 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
     , createModuleVisitorFromProjectVisitor = createModuleVisitorFromProjectVisitor schema hidden.ruleData.exceptions raiseCache hidden
     , finalProjectEvaluation = createFinalProjectEvaluationVisitor schema hidden.ruleData raiseCache cache
     , dataExtractVisitor = createDataExtractVisitor schema raiseCache cache
-    , addDataExtract =
-        \extracts ->
-            case Maybe.map .extract cache.extract of
-                Just (Extract extract) ->
-                    ( raiseCache cache, Dict.insert schema.name extract extracts )
-
-                Nothing ->
-                    ( raiseCache cache, extracts )
     , getErrorsForModule = \filePath -> getErrorsForModule cache filePath
     , getErrors = \() -> errorsFromCache (finalCacheMarker schema.name hidden.ruleData.ruleId cache)
     , backToRule =
