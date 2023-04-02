@@ -757,7 +757,12 @@ runRules (ReviewOptionsInternal reviewOptions) ruleProjectVisitors project =
     , fixedErrors = FixedErrors.toDict result.fixedErrors
     , rules = List.map (\(RuleProjectVisitor rule) -> rule.backToRule ()) result.ruleProjectVisitors
     , project = ValidProject.toRegularProject result.project
-    , extracts = List.foldl (\(RuleProjectVisitor rule) dict -> rule.addDataExtract dict) Dict.empty result.ruleProjectVisitors
+    , extracts =
+        if reviewOptions.extract then
+            List.foldl (\(RuleProjectVisitor rule) dict -> rule.addDataExtract dict) Dict.empty result.ruleProjectVisitors
+
+        else
+            Dict.empty
     }
 
 
