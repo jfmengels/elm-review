@@ -753,25 +753,34 @@ runRules (ReviewOptionsInternal reviewOptions) ruleProjectVisitors project =
                 , project = project
                 }
 
-        errors =
-            List.foldl
-                (\(RuleProjectVisitor rule) errorsAcc ->
-                    let
-                        errors_ =
-                            rule.getErrors () |> List.map errorToReviewError
-                    in
-                    List.append errors_ errorsAcc
-                )
-                []
-                result.ruleProjectVisitors
+        { errors, rules, extracts } =
+            computeErrorsAndRulesAndExtracts reviewOptions result.ruleProjectVisitors
     in
     { errors = errors
+    , rules = rules
+    , extracts = extracts
     , fixedErrors = FixedErrors.toDict result.fixedErrors
-    , rules = List.map (\(RuleProjectVisitor rule) -> rule.backToRule ()) result.ruleProjectVisitors
     , project = ValidProject.toRegularProject result.project
+    }
+
+
+computeErrorsAndRulesAndExtracts : ReviewOptionsData -> List RuleProjectVisitor -> { errors : List ReviewError, rules : List Rule, extracts : Dict String Encode.Value }
+computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
+    { errors =
+        List.foldl
+            (\(RuleProjectVisitor rule) errorsAcc ->
+                let
+                    errors_ =
+                        rule.getErrors () |> List.map errorToReviewError
+                in
+                List.append errors_ errorsAcc
+            )
+            []
+            ruleProjectVisitors
+    , rules = List.map (\(RuleProjectVisitor rule) -> rule.backToRule ()) ruleProjectVisitors
     , extracts =
         if reviewOptions.extract then
-            List.foldl (\(RuleProjectVisitor rule) dict -> rule.addDataExtract dict) Dict.empty result.ruleProjectVisitors
+            List.foldl (\(RuleProjectVisitor rule) dict -> rule.addDataExtract dict) Dict.empty ruleProjectVisitors
 
         else
             Dict.empty
