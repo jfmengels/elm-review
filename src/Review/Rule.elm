@@ -779,12 +779,7 @@ computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
                 []
                 ruleProjectVisitors
         , rules = List.map (\(RuleProjectVisitor rule) -> rule.backToRule ()) ruleProjectVisitors
-        , extracts =
-            if reviewOptions.extract then
-                List.foldl (\(RuleProjectVisitor rule) dict -> rule.addDataExtract dict) Dict.empty ruleProjectVisitors
-
-            else
-                Dict.empty
+        , extracts = List.foldl (\(RuleProjectVisitor rule) dict -> rule.addDataExtract dict) Dict.empty ruleProjectVisitors
         }
 
     else
