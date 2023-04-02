@@ -767,20 +767,19 @@ runRules (ReviewOptionsInternal reviewOptions) ruleProjectVisitors project =
 computeErrorsAndRulesAndExtracts : ReviewOptionsData -> List RuleProjectVisitor -> { errors : List ReviewError, rules : List Rule, extracts : Dict String Encode.Value }
 computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
     if reviewOptions.extract then
-        { errors =
-            List.foldl
-                (\(RuleProjectVisitor rule) errorsAcc ->
-                    let
-                        errors_ =
-                            rule.getErrors () |> List.map errorToReviewError
-                    in
-                    List.append errors_ errorsAcc
-                )
-                []
-                ruleProjectVisitors
-        , rules = List.map (\(RuleProjectVisitor rule) -> rule.backToRule ()) ruleProjectVisitors
-        , extracts = List.foldl (\(RuleProjectVisitor rule) dict -> rule.addDataExtract dict) Dict.empty ruleProjectVisitors
-        }
+        List.foldl
+            (\(RuleProjectVisitor rule) { errors, rules, extracts } ->
+                let
+                    errors_ =
+                        rule.getErrors () |> List.map errorToReviewError
+                in
+                { errors = List.append errors_ errors
+                , rules = rule.backToRule () :: rules
+                , extracts = rule.addDataExtract extracts
+                }
+            )
+            { errors = [], rules = [], extracts = Dict.empty }
+            ruleProjectVisitors
 
     else
         { errors =
