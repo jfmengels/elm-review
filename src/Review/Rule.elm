@@ -754,7 +754,15 @@ runRules (ReviewOptionsInternal reviewOptions) ruleProjectVisitors project =
                 }
 
         errors =
-            List.concatMap (\(RuleProjectVisitor rule) -> rule.getErrors () |> List.map errorToReviewError) result.ruleProjectVisitors
+            List.concatMap
+                (\(RuleProjectVisitor rule) ->
+                    let
+                        errors_ =
+                            rule.getErrors () |> List.map errorToReviewError
+                    in
+                    errors_
+                )
+                result.ruleProjectVisitors
     in
     { errors = errors
     , fixedErrors = FixedErrors.toDict result.fixedErrors
