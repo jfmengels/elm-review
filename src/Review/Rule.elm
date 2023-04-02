@@ -771,7 +771,7 @@ computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
             (\(RuleProjectVisitor rule) { errors, rules, extracts } ->
                 let
                     errors_ =
-                        rule.getErrors () |> List.map errorToReviewError
+                        List.map errorToReviewError (rule.getErrors ())
                 in
                 { errors = List.append errors_ errors
                 , rules = rule.backToRule () :: rules
