@@ -4333,19 +4333,6 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
                 reviewOptions
                 (computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErrors)
 
-        DataExtract ->
-            let
-                newRuleProjectVisitors : List RuleProjectVisitor
-                newRuleProjectVisitors =
-                    List.map
-                        (\(RuleProjectVisitor rule) -> rule.dataExtractVisitor reviewOptions)
-                        ruleProjectVisitors
-            in
-            { project = project
-            , ruleProjectVisitors = newRuleProjectVisitors
-            , fixedErrors = fixedErrors
-            }
-
         Abort ->
             { project = project
             , ruleProjectVisitors = ruleProjectVisitors
@@ -4359,7 +4346,6 @@ type Step
     | Dependencies
     | Modules (Zipper GraphModule)
     | FinalProjectEvaluation
-    | DataExtract
     | Abort
 
 
@@ -4631,7 +4617,7 @@ computeFinalProjectEvaluation reviewOptions project ruleProjectVisitors fixedErr
         Nothing ->
             { project = project
             , ruleProjectVisitors = newRuleProjectVisitors
-            , step = DataExtract
+            , step = Abort
             , fixedErrors = fixedErrors
             }
 
