@@ -780,12 +780,12 @@ computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
                             ( errors, True )
                             (rule.getErrors ())
 
-                    (RuleProjectVisitor newRule) =
+                    ( newExtracts2, RuleProjectVisitor newRule ) =
                         if canComputeExtract then
-                            rule.dataExtractVisitor reviewOptions
+                            rule.dataExtractVisitor reviewOptions extracts
 
                         else
-                            RuleProjectVisitor rule
+                            ( extracts, RuleProjectVisitor rule )
 
                     ( RuleProjectVisitor finalRule, newExtracts ) =
                         if canComputeExtract then
@@ -5303,7 +5303,7 @@ type alias RuleProjectVisitorOperations t =
     , dependenciesVisitor : Maybe (ValidProject -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> ( List (Error {}), t ))
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> String -> ContentHash -> Graph.Adjacency () -> Maybe (AvailableData -> RuleModuleVisitor))
     , finalProjectEvaluation : Maybe (() -> ( List (Error {}), t ))
-    , dataExtractVisitor : ReviewOptionsData -> t
+    , dataExtractVisitor : ReviewOptionsData -> Dict String Encode.Value -> ( Dict String Encode.Value, t )
     , addDataExtract : Dict String Encode.Value -> ( t, Dict String Encode.Value )
     , getErrorsForModule : String -> List (Error {})
     , getErrors : () -> List (Error {})
@@ -5541,14 +5541,15 @@ createDataExtractVisitor :
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     -> ProjectRuleCache projectContext
     -> ReviewOptionsData
-    -> RuleProjectVisitor
+    -> Dict String Encode.Value
+    -> ( Dict String Encode.Value, RuleProjectVisitor )
 createDataExtractVisitor schema raise cache =
     case schema.dataExtractor of
         Nothing ->
-            \_ -> raise cache
+            \_ extracts -> ( extracts, raise cache )
 
         Just dataExtractor ->
-            \reviewOptions ->
+            \reviewOptions extracts ->
                 if reviewOptions.extract then
                     let
                         errors : List (Error {})
@@ -5569,16 +5570,18 @@ createDataExtractVisitor schema raise cache =
                         in
                         case reuseProjectRuleCache cachePredicate .extract cache of
                             Just _ ->
-                                raise cache
+                                ( extracts, raise cache )
 
                             Nothing ->
-                                raise { cache | extract = Just { inputContext = ContextHash.create inputContext, extract = dataExtractor inputContext } }
+                                ( extracts
+                                , raise { cache | extract = Just { inputContext = ContextHash.create inputContext, extract = dataExtractor inputContext } }
+                                )
 
                     else
-                        raise cache
+                        ( extracts, raise cache )
 
                 else
-                    raise cache
+                    ( extracts, raise cache )
 
 
 createModuleVisitorFromProjectVisitor :
