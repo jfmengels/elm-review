@@ -521,14 +521,7 @@ to compare them or the model that holds them.
 -}
 reviewV2 : List Rule -> Maybe ProjectData -> Project -> { errors : List ReviewError, rules : List Rule, projectData : Maybe ProjectData }
 reviewV2 rules maybeProjectData project =
-    case
-        getModulesSortedByImport project
-            |> Result.andThen
-                (\validProject ->
-                    checkForConfigurationErrors validProject rules
-                        |> Result.map (Tuple.pair validProject)
-                )
-    of
+    case getValidProjectAndRules project rules of
         Ok ( validProject, ruleProjectVisitors ) ->
             runReviewForV2 ReviewOptions.defaults validProject ruleProjectVisitors
 
@@ -591,14 +584,7 @@ reviewV3 :
         , extracts : Dict String Encode.Value
         }
 reviewV3 reviewOptions rules project =
-    case
-        getModulesSortedByImport project
-            |> Result.andThen
-                (\validProject ->
-                    checkForConfigurationErrors validProject rules
-                        |> Result.map (Tuple.pair validProject)
-                )
-    of
+    case getValidProjectAndRules project rules of
         Ok ( validProject, ruleProjectVisitors ) ->
             let
                 result : { errors : List ReviewError, fixedErrors : FixedErrors, rules : List Rule, project : ValidProject, extracts : Dict String Encode.Value }
@@ -619,6 +605,16 @@ reviewV3 reviewOptions rules project =
             , project = project
             , extracts = Dict.empty
             }
+
+
+getValidProjectAndRules : Project -> List Rule -> Result (List ReviewError) ( ValidProject, List RuleProjectVisitor )
+getValidProjectAndRules project rules =
+    getModulesSortedByImport project
+        |> Result.andThen
+            (\validProject ->
+                checkForConfigurationErrors validProject rules
+                    |> Result.map (Tuple.pair validProject)
+            )
 
 
 checkForConfigurationErrors : ValidProject -> List Rule -> Result (List ReviewError) (List RuleProjectVisitor)
