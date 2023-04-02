@@ -780,22 +780,15 @@ computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
                             ( errors, True )
                             (rule.getErrors ())
 
-                    ( newExtracts2, RuleProjectVisitor newRule ) =
+                    ( newExtracts, RuleProjectVisitor newRule ) =
                         if canComputeExtract then
                             rule.dataExtractVisitor reviewOptions extracts
 
                         else
                             ( extracts, RuleProjectVisitor rule )
-
-                    ( RuleProjectVisitor finalRule, newExtracts ) =
-                        if canComputeExtract then
-                            newRule.addDataExtract extracts
-
-                        else
-                            ( RuleProjectVisitor newRule, extracts )
                 in
                 { errors = newErrors
-                , rules = finalRule.backToRule () :: rules
+                , rules = newRule.backToRule () :: rules
                 , extracts = newExtracts
                 }
             )
