@@ -771,7 +771,12 @@ computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
             (\(RuleProjectVisitor rule) { errors, rules, extracts } ->
                 let
                     errors_ =
-                        List.map errorToReviewError (rule.getErrors ())
+                        List.foldl
+                            (\err acc ->
+                                errorToReviewError err :: acc
+                            )
+                            []
+                            (rule.getErrors ())
                 in
                 { errors = List.append errors_ errors
                 , rules = rule.backToRule () :: rules
