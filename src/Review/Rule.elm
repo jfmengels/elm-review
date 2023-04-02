@@ -3426,11 +3426,6 @@ preventExtract (Error err) =
     Error (Review.Error.preventExtract err)
 
 
-doesPreventExtract : Error a -> Bool
-doesPreventExtract (Error err) =
-    Review.Error.doesPreventExtract err
-
-
 removeErrorPhantomTypes : List (Error something) -> List (Error {})
 removeErrorPhantomTypes list =
     -- This function could be replaced by `identity` at runtime
@@ -5538,43 +5533,32 @@ createDataExtractVisitor schema raise cache =
             \reviewOptions extracts ->
                 if reviewOptions.extract then
                     let
-                        errors : List (Error {})
-                        errors =
-                            -- TODO Can we compute this as we traverse the file?
-                            -- We can probably store whether each entry has preventable errors, which would not require us to loop over the errors (again)
-                            errorsFromCache cache
+                        inputContext : projectContext
+                        inputContext =
+                            computeFinalContext schema cache
+
+                        cachePredicate : ExtractCache projectContext -> Bool
+                        cachePredicate extract =
+                            extract.inputContext == ContextHash.create inputContext
+
+                        ( Extract extractData, newCache ) =
+                            case reuseProjectRuleCache cachePredicate .extract cache of
+                                Just { extract } ->
+                                    ( extract, cache )
+
+                                Nothing ->
+                                    let
+                                        extract : Extract
+                                        extract =
+                                            dataExtractor inputContext
+                                    in
+                                    ( extract
+                                    , { cache | extract = Just { inputContext = ContextHash.create inputContext, extract = extract } }
+                                    )
                     in
-                    if not (List.any doesPreventExtract errors) then
-                        let
-                            inputContext : projectContext
-                            inputContext =
-                                computeFinalContext schema cache
-
-                            cachePredicate : ExtractCache projectContext -> Bool
-                            cachePredicate extract =
-                                extract.inputContext == ContextHash.create inputContext
-
-                            ( Extract extractData, newCache ) =
-                                case reuseProjectRuleCache cachePredicate .extract cache of
-                                    Just { extract } ->
-                                        ( extract, cache )
-
-                                    Nothing ->
-                                        let
-                                            extract : Extract
-                                            extract =
-                                                dataExtractor inputContext
-                                        in
-                                        ( extract
-                                        , { cache | extract = Just { inputContext = ContextHash.create inputContext, extract = extract } }
-                                        )
-                        in
-                        ( Dict.insert schema.name extractData extracts
-                        , raise newCache
-                        )
-
-                    else
-                        ( extracts, raise cache )
+                    ( Dict.insert schema.name extractData extracts
+                    , raise newCache
+                    )
 
                 else
                     ( extracts, raise cache )
