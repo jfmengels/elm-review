@@ -784,15 +784,8 @@ computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
 
     else
         { errors =
-            List.foldl
-                (\(RuleProjectVisitor rule) errorsAcc ->
-                    let
-                        errors_ =
-                            rule.getErrors () |> List.map errorToReviewError
-                    in
-                    List.append errors_ errorsAcc
-                )
-                []
+            List.concatMap
+                (\(RuleProjectVisitor rule) -> rule.getErrors () |> List.map errorToReviewError)
                 ruleProjectVisitors
         , rules = List.map (\(RuleProjectVisitor rule) -> rule.backToRule ()) ruleProjectVisitors
         , extracts = Dict.empty
