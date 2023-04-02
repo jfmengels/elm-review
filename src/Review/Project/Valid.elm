@@ -107,12 +107,7 @@ parse ((Project p) as project) =
                             |> Err
 
                     Ok acyclicGraph ->
-                        case Zipper.fromList (Graph.topologicalSort acyclicGraph) of
-                            Nothing ->
-                                Err InvalidProjectError.NoModulesError
-
-                            Just zipper ->
-                                Ok (fromProjectAndGraph graph acyclicGraph project)
+                        Ok (fromProjectAndGraph graph acyclicGraph project)
 
 
 {-| This is unsafe because we assume that there are some modules. We do check for this earlier in the exposed functions.
