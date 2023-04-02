@@ -5569,12 +5569,22 @@ createDataExtractVisitor schema raise cache =
                                 extract.inputContext == ContextHash.create inputContext
                         in
                         case reuseProjectRuleCache cachePredicate .extract cache of
-                            Just _ ->
-                                ( extracts, raise cache )
+                            Just { extract } ->
+                                let
+                                    (Extract extractData) =
+                                        extract
+                                in
+                                ( Dict.insert schema.name extractData extracts
+                                , raise cache
+                                )
 
                             Nothing ->
-                                ( extracts
-                                , raise { cache | extract = Just { inputContext = ContextHash.create inputContext, extract = dataExtractor inputContext } }
+                                let
+                                    ((Extract extractData) as extract) =
+                                        dataExtractor inputContext
+                                in
+                                ( Dict.insert schema.name extractData extracts
+                                , raise { cache | extract = Just { inputContext = ContextHash.create inputContext, extract = extract } }
                                 )
 
                     else
