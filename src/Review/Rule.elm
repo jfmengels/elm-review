@@ -770,33 +770,33 @@ computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
         List.foldl
             (\(RuleProjectVisitor rule) { errors, rules, extracts } ->
                 let
-                    ( errors_, hasErrorThatPreventsFix ) =
+                    ( errors_, canComputeExtract ) =
                         List.foldl
-                            (\(Error err) ( accErrors, hasErrorThatPreventsFix_ ) ->
+                            (\(Error err) ( accErrors, canComputeExtract_ ) ->
                                 ( Review.Error.ReviewError err :: accErrors
-                                , hasErrorThatPreventsFix_ || Review.Error.doesPreventExtract err
+                                , canComputeExtract_ && not (Review.Error.doesPreventExtract err)
                                 )
                             )
-                            ( [], False )
+                            ( [], True )
                             (rule.getErrors ())
 
                     (RuleProjectVisitor newRule) =
-                        if hasErrorThatPreventsFix then
-                            RuleProjectVisitor rule
+                        if canComputeExtract then
+                            rule.dataExtractVisitor reviewOptions
 
                         else
-                            rule.dataExtractVisitor reviewOptions
+                            RuleProjectVisitor rule
 
                     newExtracts : Dict String Encode.Value
                     newExtracts =
-                        if hasErrorThatPreventsFix then
-                            extracts
+                        if canComputeExtract then
+                            newRule.addDataExtract extracts
 
                         else
-                            newRule.addDataExtract extracts
+                            extracts
                 in
                 { errors = List.append errors_ errors
-                , rules = newRule.backToRule () :: rules
+                , rules = newRule.backToRule canComputeExtract :: rules
                 , extracts = newExtracts
                 }
             )
@@ -808,7 +808,7 @@ computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
             List.concatMap
                 (\(RuleProjectVisitor rule) -> rule.getErrors () |> List.map errorToReviewError)
                 ruleProjectVisitors
-        , rules = List.map (\(RuleProjectVisitor rule) -> rule.backToRule ()) ruleProjectVisitors
+        , rules = List.map (\(RuleProjectVisitor rule) -> rule.backToRule False) ruleProjectVisitors
         , extracts = Dict.empty
         }
 
@@ -5308,7 +5308,7 @@ type alias RuleProjectVisitorOperations t =
     , addDataExtract : Dict String Encode.Value -> Dict String Encode.Value
     , getErrorsForModule : String -> List (Error {})
     , getErrors : () -> List (Error {})
-    , backToRule : () -> Rule
+    , backToRule : Bool -> Rule
     , requestedData : RequestedData
     }
 
@@ -5350,7 +5350,7 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
     , getErrorsForModule = \filePath -> getErrorsForModule cache filePath
     , getErrors = \() -> errorsFromCache (finalCacheMarker schema.name hidden.ruleData.ruleId cache)
     , backToRule =
-        \() ->
+        \shouldComputeExtract ->
             Rule
                 { name = schema.name
                 , id = hidden.ruleData.ruleId
