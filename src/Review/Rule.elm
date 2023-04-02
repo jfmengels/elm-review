@@ -774,7 +774,7 @@ computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
                         List.foldl
                             (\(Error err) ( accErrors, hasErrorThatPreventsFix_ ) ->
                                 ( Review.Error.ReviewError err :: accErrors
-                                , hasErrorThatPreventsFix_
+                                , hasErrorThatPreventsFix_ || Review.Error.doesPreventExtract err
                                 )
                             )
                             ( [], False )
