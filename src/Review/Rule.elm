@@ -754,14 +754,15 @@ runRules (ReviewOptionsInternal reviewOptions) ruleProjectVisitors project =
                 }
 
         errors =
-            List.concatMap
-                (\(RuleProjectVisitor rule) ->
+            List.foldl
+                (\(RuleProjectVisitor rule) errorsAcc ->
                     let
                         errors_ =
                             rule.getErrors () |> List.map errorToReviewError
                     in
-                    errors_
+                    List.append errors_ errorsAcc
                 )
+                []
                 result.ruleProjectVisitors
     in
     { errors = errors
