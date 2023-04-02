@@ -795,7 +795,7 @@ computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
                             ( RuleProjectVisitor newRule, extracts )
                 in
                 { errors = newErrors
-                , rules = finalRule.backToRule canComputeExtract :: rules
+                , rules = finalRule.backToRule () :: rules
                 , extracts = newExtracts
                 }
             )
@@ -807,7 +807,7 @@ computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
             List.concatMap
                 (\(RuleProjectVisitor rule) -> rule.getErrors () |> List.map errorToReviewError)
                 ruleProjectVisitors
-        , rules = List.map (\(RuleProjectVisitor rule) -> rule.backToRule False) ruleProjectVisitors
+        , rules = List.map (\(RuleProjectVisitor rule) -> rule.backToRule ()) ruleProjectVisitors
         , extracts = Dict.empty
         }
 
@@ -5307,7 +5307,7 @@ type alias RuleProjectVisitorOperations t =
     , addDataExtract : Dict String Encode.Value -> ( t, Dict String Encode.Value )
     , getErrorsForModule : String -> List (Error {})
     , getErrors : () -> List (Error {})
-    , backToRule : Bool -> Rule
+    , backToRule : () -> Rule
     , requestedData : RequestedData
     }
 
@@ -5349,7 +5349,7 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
     , getErrorsForModule = \filePath -> getErrorsForModule cache filePath
     , getErrors = \() -> errorsFromCache (finalCacheMarker schema.name hidden.ruleData.ruleId cache)
     , backToRule =
-        \shouldComputeExtract ->
+        \() ->
             Rule
                 { name = schema.name
                 , id = hidden.ruleData.ruleId
