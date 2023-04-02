@@ -772,8 +772,8 @@ computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
                 let
                     ( errors_, hasErrorThatPreventsFix ) =
                         List.foldl
-                            (\err ( accErrors, hasErrorThatPreventsFix_ ) ->
-                                ( errorToReviewError err :: accErrors
+                            (\(Error err) ( accErrors, hasErrorThatPreventsFix_ ) ->
+                                ( Review.Error.ReviewError err :: accErrors
                                 , hasErrorThatPreventsFix_
                                 )
                             )
