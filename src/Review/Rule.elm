@@ -5317,14 +5317,14 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
     , dataExtractVisitor = createDataExtractVisitor schema raiseCache cache
     , addDataExtract =
         \extracts ->
-            case Maybe.map .extract (finalCacheMarker schema.name hidden.ruleData.ruleId cache).extract of
+            case Maybe.map .extract cache.extract of
                 Just (Extract extract) ->
                     Dict.insert schema.name extract extracts
 
                 Nothing ->
                     extracts
     , getErrorsForModule = \filePath -> getErrorsForModule cache filePath
-    , getErrors = \() -> errorsFromCache cache
+    , getErrors = \() -> errorsFromCache (finalCacheMarker schema.name hidden.ruleData.ruleId cache)
     , backToRule =
         \() ->
             Rule
