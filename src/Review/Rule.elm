@@ -622,7 +622,7 @@ checkForConfigurationErrors project rules =
     let
         ( allRulesToRun, allConfigurationErrors ) =
             List.foldl
-                (\(Rule rule) ( rulesToRun, configurationErrors ) ->
+                (\(Rule rule) ( rulesToRunAcc, configurationErrors ) ->
                     case rule.ruleProjectVisitor of
                         Ok ruleProjectVisitor ->
                             ( ruleProjectVisitor
@@ -631,12 +631,12 @@ checkForConfigurationErrors project rules =
                                 , ruleId = rule.id
                                 , requestedData = rule.requestedData
                                 }
-                                :: rulesToRun
+                                :: rulesToRunAcc
                             , configurationErrors
                             )
 
                         Err { message, details } ->
-                            ( rulesToRun
+                            ( rulesToRunAcc
                             , Review.Error.ReviewError
                                 { filePath = "CONFIGURATION ERROR"
                                 , ruleName = rule.name
