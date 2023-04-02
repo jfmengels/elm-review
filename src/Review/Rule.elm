@@ -1238,7 +1238,15 @@ fromProjectRuleSchema (ProjectRuleSchema schema) =
                 (Maybe.map requestedDataFromContextCreator schema.moduleContextCreator)
                 (Maybe.map (.fromModuleToProject >> requestedDataFromContextCreator) schema.folder)
         , providesFixes = schema.providesFixes
-        , ruleProjectVisitor = Ok (\project ruleData -> createRuleProjectVisitor schema project ruleData)
+        , ruleProjectVisitor =
+            Ok
+                (\project ruleData ->
+                    createRuleProjectVisitor
+                        schema
+                        project
+                        ruleData
+                        (initialCacheMarker schema.name ruleData.ruleId emptyCache)
+                )
         }
 
 
@@ -5281,11 +5289,11 @@ type alias RuleProjectVisitorOperations t =
     }
 
 
-createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> ValidProject -> ChangeableRuleData -> RuleProjectVisitor
-createRuleProjectVisitor schema project ruleData =
+createRuleProjectVisitor : ProjectRuleSchemaData projectContext moduleContext -> ValidProject -> ChangeableRuleData -> ProjectRuleCache projectContext -> RuleProjectVisitor
+createRuleProjectVisitor schema project ruleData cache =
     If.create RuleProjectVisitor
         (\raise hidden -> projectRuleImplementation schema raise hidden)
-        { cache = removeUnknownModulesFromInitialCache project (initialCacheMarker schema.name ruleData.ruleId emptyCache)
+        { cache = removeUnknownModulesFromInitialCache project cache
         , ruleData = ruleData
         }
 
@@ -5325,7 +5333,7 @@ projectRuleImplementation schema baseRaise ({ cache } as hidden) =
                 , exceptions = hidden.ruleData.exceptions
                 , requestedData = hidden.ruleData.requestedData
                 , providesFixes = schema.providesFixes
-                , ruleProjectVisitor = Ok (\project ruleData -> createRuleProjectVisitor schema project ruleData)
+                , ruleProjectVisitor = Ok (\project ruleData -> createRuleProjectVisitor schema project ruleData cache)
                 }
     , requestedData = hidden.ruleData.requestedData
     }
