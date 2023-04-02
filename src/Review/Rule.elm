@@ -779,10 +779,18 @@ computeErrorsAndRulesAndExtracts reviewOptions ruleProjectVisitors =
                             )
                             ( [], False )
                             (rule.getErrors ())
+
+                    newExtracts : Dict String Encode.Value
+                    newExtracts =
+                        if hasErrorThatPreventsFix then
+                            extracts
+
+                        else
+                            rule.addDataExtract extracts
                 in
                 { errors = List.append errors_ errors
                 , rules = rule.backToRule () :: rules
-                , extracts = rule.addDataExtract extracts
+                , extracts = newExtracts
                 }
             )
             { errors = [], rules = [], extracts = Dict.empty }
