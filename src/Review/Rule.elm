@@ -466,7 +466,7 @@ review rules project =
             )
 
         Ok validProject ->
-            case checkForConfigurationErrors validProject rules of
+            case checkForConfigurationErrors validProject rules [] of
                 Err configurationErrors ->
                     ( configurationErrors, rules )
 
@@ -612,52 +612,59 @@ getValidProjectAndRules project rules =
     getModulesSortedByImport project
         |> Result.andThen
             (\validProject ->
-                checkForConfigurationErrors validProject rules
+                checkForConfigurationErrors validProject rules []
                     |> Result.map (Tuple.pair validProject)
             )
 
 
-checkForConfigurationErrors : ValidProject -> List Rule -> Result (List ReviewError) (List RuleProjectVisitor)
-checkForConfigurationErrors project rules =
-    let
-        ( allRulesToRun, allConfigurationErrors ) =
-            List.foldl
-                (\(Rule rule) ( rulesToRunAcc, configurationErrors ) ->
-                    case rule.ruleProjectVisitor of
-                        Ok ruleProjectVisitor ->
-                            ( ruleProjectVisitor
-                                project
-                                { exceptions = rule.exceptions
-                                , ruleId = rule.id
-                                , requestedData = rule.requestedData
-                                }
-                                :: rulesToRunAcc
-                            , configurationErrors
-                            )
+checkForConfigurationErrors : ValidProject -> List Rule -> List RuleProjectVisitor -> Result (List ReviewError) (List RuleProjectVisitor)
+checkForConfigurationErrors project rules rulesToRunAcc =
+    case rules of
+        [] ->
+            Ok rulesToRunAcc
 
-                        Err { message, details } ->
-                            ( rulesToRunAcc
-                            , Review.Error.ReviewError
-                                { filePath = "CONFIGURATION ERROR"
-                                , ruleName = rule.name
-                                , message = message
-                                , details = details
-                                , range = Range.emptyRange
-                                , fixes = Nothing
-                                , target = Review.Error.Global
-                                , preventsExtract = False
-                                }
-                                :: configurationErrors
-                            )
-                )
-                ( [], [] )
-                rules
-    in
-    if List.isEmpty allConfigurationErrors then
-        Ok allRulesToRun
+        (Rule rule) :: remainingRules ->
+            case rule.ruleProjectVisitor of
+                Ok ruleProjectVisitor ->
+                    checkForConfigurationErrors
+                        project
+                        remainingRules
+                        (ruleProjectVisitor
+                            project
+                            { exceptions = rule.exceptions
+                            , ruleId = rule.id
+                            , requestedData = rule.requestedData
+                            }
+                            :: rulesToRunAcc
+                        )
 
-    else
-        Err allConfigurationErrors
+                Err _ ->
+                    Err (collectConfigurationErrors rules)
+
+
+collectConfigurationErrors : List Rule -> List ReviewError
+collectConfigurationErrors rules =
+    List.filterMap
+        (\(Rule rule) ->
+            case rule.ruleProjectVisitor of
+                Err { message, details } ->
+                    Just
+                        (Review.Error.ReviewError
+                            { filePath = "CONFIGURATION ERROR"
+                            , ruleName = rule.name
+                            , message = message
+                            , details = details
+                            , range = Range.emptyRange
+                            , fixes = Nothing
+                            , target = Review.Error.Global
+                            , preventsExtract = False
+                            }
+                        )
+
+                Ok _ ->
+                    Nothing
+        )
+        rules
 
 
 getModulesSortedByImport : Project -> Result (List ReviewError) ValidProject
