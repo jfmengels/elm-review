@@ -4331,14 +4331,7 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
                 newRuleProjectVisitors : List RuleProjectVisitor
                 newRuleProjectVisitors =
                     List.map
-                        (\((RuleProjectVisitor rule) as untouched) ->
-                            case rule.dataExtractVisitor of
-                                Just dataExtract ->
-                                    dataExtract reviewOptions
-
-                                Nothing ->
-                                    untouched
-                        )
+                        (\(RuleProjectVisitor rule) -> rule.dataExtractVisitor reviewOptions)
                         ruleProjectVisitors
             in
             { project = project
@@ -5318,7 +5311,7 @@ type alias RuleProjectVisitorOperations t =
     , dependenciesVisitor : Maybe (ValidProject -> { all : Dict String Review.Project.Dependency.Dependency, direct : Dict String Review.Project.Dependency.Dependency } -> ( List (Error {}), t ))
     , createModuleVisitorFromProjectVisitor : Maybe (ValidProject -> String -> ContentHash -> Graph.Adjacency () -> Maybe (AvailableData -> RuleModuleVisitor))
     , finalProjectEvaluation : Maybe (() -> ( List (Error {}), t ))
-    , dataExtractVisitor : Maybe (ReviewOptionsData -> t)
+    , dataExtractVisitor : ReviewOptionsData -> t
     , addDataExtract : Dict String Encode.Value -> Dict String Encode.Value
     , getErrorsForModule : String -> List (Error {})
     , getErrors : () -> List (Error {})
@@ -5555,46 +5548,45 @@ createDataExtractVisitor :
     ProjectRuleSchemaData projectContext moduleContext
     -> (ProjectRuleCache projectContext -> RuleProjectVisitor)
     -> ProjectRuleCache projectContext
-    -> Maybe (ReviewOptionsData -> RuleProjectVisitor)
+    -> ReviewOptionsData
+    -> RuleProjectVisitor
 createDataExtractVisitor schema raise cache =
     case schema.dataExtractor of
         Nothing ->
-            Nothing
+            \_ -> raise cache
 
         Just dataExtractor ->
-            Just
-                (\reviewOptions ->
-                    if reviewOptions.extract then
+            \reviewOptions ->
+                if reviewOptions.extract then
+                    let
+                        errors : List (Error {})
+                        errors =
+                            -- TODO Can we compute this as we traverse the file?
+                            -- We can probably store whether each entry has preventable errors, which would not require us to loop over the errors (again)
+                            errorsFromCache cache
+                    in
+                    if not (List.any doesPreventExtract errors) then
                         let
-                            errors : List (Error {})
-                            errors =
-                                -- TODO Can we compute this as we traverse the file?
-                                -- We can probably store whether each entry has preventable errors, which would not require us to loop over the errors (again)
-                                errorsFromCache cache
+                            inputContext : projectContext
+                            inputContext =
+                                computeFinalContext schema cache
+
+                            cachePredicate : ExtractCache projectContext -> Bool
+                            cachePredicate extract =
+                                extract.inputContext == ContextHash.create inputContext
                         in
-                        if not (List.any doesPreventExtract errors) then
-                            let
-                                inputContext : projectContext
-                                inputContext =
-                                    computeFinalContext schema cache
+                        case reuseProjectRuleCache cachePredicate .extract cache of
+                            Just _ ->
+                                raise cache
 
-                                cachePredicate : ExtractCache projectContext -> Bool
-                                cachePredicate extract =
-                                    extract.inputContext == ContextHash.create inputContext
-                            in
-                            case reuseProjectRuleCache cachePredicate .extract cache of
-                                Just _ ->
-                                    raise cache
-
-                                Nothing ->
-                                    raise { cache | extract = Just { inputContext = ContextHash.create inputContext, extract = dataExtractor inputContext } }
-
-                        else
-                            raise cache
+                            Nothing ->
+                                raise { cache | extract = Just { inputContext = ContextHash.create inputContext, extract = dataExtractor inputContext } }
 
                     else
                         raise cache
-                )
+
+                else
+                    raise cache
 
 
 createModuleVisitorFromProjectVisitor :
