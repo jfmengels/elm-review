@@ -5567,25 +5567,25 @@ createDataExtractVisitor schema raise cache =
                             cachePredicate : ExtractCache projectContext -> Bool
                             cachePredicate extract =
                                 extract.inputContext == ContextHash.create inputContext
-                        in
-                        case reuseProjectRuleCache cachePredicate .extract cache of
-                            Just { extract } ->
-                                let
-                                    (Extract extractData) =
-                                        extract
-                                in
-                                ( Dict.insert schema.name extractData extracts
-                                , raise cache
-                                )
 
-                            Nothing ->
-                                let
-                                    ((Extract extractData) as extract) =
-                                        dataExtractor inputContext
-                                in
-                                ( Dict.insert schema.name extractData extracts
-                                , raise { cache | extract = Just { inputContext = ContextHash.create inputContext, extract = extract } }
-                                )
+                            ( Extract extractData, newCache ) =
+                                case reuseProjectRuleCache cachePredicate .extract cache of
+                                    Just { extract } ->
+                                        ( extract, cache )
+
+                                    Nothing ->
+                                        let
+                                            extract : Extract
+                                            extract =
+                                                dataExtractor inputContext
+                                        in
+                                        ( extract
+                                        , { cache | extract = Just { inputContext = ContextHash.create inputContext, extract = extract } }
+                                        )
+                        in
+                        ( Dict.insert schema.name extractData extracts
+                        , raise newCache
+                        )
 
                     else
                         ( extracts, raise cache )
