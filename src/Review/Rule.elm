@@ -819,12 +819,13 @@ runRulesHelp reviewOptions acc =
                 acc.fixedErrors
                 acc.project
     in
-    if InternalOptions.shouldAbort reviewOptions result.fixedErrors then
-        result
+    if InternalOptions.shouldContinueLookingForFixes reviewOptions result.fixedErrors then
+        if FixedErrors.hasChanged result.fixedErrors acc.fixedErrors then
+            -- TODO Reevaluate whether this makes sense
+            runRulesHelp reviewOptions result
 
-    else if FixedErrors.hasChanged result.fixedErrors acc.fixedErrors then
-        -- TODO Reevaluate whether this makes sense
-        runRulesHelp reviewOptions result
+        else
+            result
 
     else
         result
@@ -5016,14 +5017,14 @@ findFix reviewOptions project errors fixedErrors maybeModuleZipper =
                     newFixedErrors =
                         FixedErrors.insert fixResult.error fixedErrors
                 in
-                if InternalOptions.shouldAbort reviewOptions newFixedErrors then
-                    ( ShouldAbort newFixedErrors, fixResult )
-
-                else
+                if InternalOptions.shouldContinueLookingForFixes reviewOptions newFixedErrors then
                     ( ShouldContinue newFixedErrors, fixResult )
                         |> Logger.log
                             reviewOptions.logger
                             (fixedError newFixedErrors { ruleName = errorRuleName fixResult.error, filePath = errorFilePath fixResult.error })
+
+                else
+                    ( ShouldAbort newFixedErrors, fixResult )
             )
 
 
