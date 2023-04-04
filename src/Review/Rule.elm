@@ -6441,3 +6441,7 @@ fixedError fixedErrors data =
     , ( "filePath", Encode.string data.filePath )
     , ( "count", Encode.int (FixedErrors.count fixedErrors) )
     ]
+
+
+
+-- TODO Check that rules have a RequestedData relevant only to their implementatio, and not the combined one for all.
