@@ -17,7 +17,7 @@ type ModuleEntry error context
 
 createModuleEntry :
     { contentHash : ContentHash
-    , inputContext : context
+    , inputContextHash : ContextHash context
     , isFileIgnored : Bool
     , errors : List error
     , outputContext : context
@@ -26,7 +26,7 @@ createModuleEntry :
 createModuleEntry entry =
     ModuleEntry
         { contentHash = entry.contentHash
-        , inputContext = ContextHash.create entry.inputContext
+        , inputContext = entry.inputContextHash
         , isFileIgnored = entry.isFileIgnored
         , errors = entry.errors
         , outputContext = entry.outputContext
