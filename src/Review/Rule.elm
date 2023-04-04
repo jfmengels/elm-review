@@ -4735,7 +4735,7 @@ computeModuleWithRuleVisitors params inputRuleModuleVisitors filePath (Requested
         outputRuleProjectVisitors : List RuleProjectVisitor
         outputRuleProjectVisitors =
             inputRuleModuleVisitors
-                |> visitModuleForProjectRule ast availableData
+                |> visitModuleForProjectRule availableData
                 |> List.map (\(RuleModuleVisitor ruleModuleVisitor) -> ruleModuleVisitor.toProjectVisitor ())
     in
     case findFixInComputeModuleResults { params | project = newProject } (List.append rulesNotToRun outputRuleProjectVisitors) of
@@ -5130,16 +5130,16 @@ isFixable predicate err =
             Nothing
 
 
-visitModuleForProjectRule : File -> AvailableData -> List (AvailableData -> RuleModuleVisitor) -> List RuleModuleVisitor
-visitModuleForProjectRule ast availableData ruleModuleVisitors =
+visitModuleForProjectRule : AvailableData -> List (AvailableData -> RuleModuleVisitor) -> List RuleModuleVisitor
+visitModuleForProjectRule availableData ruleModuleVisitors =
     ruleModuleVisitors
         |> List.map (\createRuleVisitor -> createRuleVisitor availableData)
-        |> List.map (\acc -> runVisitor .moduleDefinitionVisitor ast.moduleDefinition acc)
+        |> List.map (\acc -> runVisitor .moduleDefinitionVisitor availableData.ast.moduleDefinition acc)
         |> List.map (\acc -> runVisitor .moduleDocumentationVisitor availableData.moduleDocumentation acc)
-        |> List.map (\acc -> runVisitor .commentVisitor ast.comments acc)
-        |> List.map (\acc -> runVisitor .importsVisitor ast.imports acc)
-        |> List.map (\acc -> runVisitor .declarationListVisitor ast.declarations acc)
-        |> visitDeclarationsAndExpressions ast.declarations
+        |> List.map (\acc -> runVisitor .commentVisitor availableData.ast.comments acc)
+        |> List.map (\acc -> runVisitor .importsVisitor availableData.ast.imports acc)
+        |> List.map (\acc -> runVisitor .declarationListVisitor availableData.ast.declarations acc)
+        |> visitDeclarationsAndExpressions availableData.ast.declarations
         |> List.map (\acc -> runVisitor .finalModuleEvaluation () acc)
 
 
