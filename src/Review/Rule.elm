@@ -4735,7 +4735,7 @@ computeModuleWithRuleVisitors params inputRuleModuleVisitors filePath (Requested
         outputRuleProjectVisitors : List RuleProjectVisitor
         outputRuleProjectVisitors =
             inputRuleModuleVisitors
-                |> visitModuleForProjectRule params.module_ availableData
+                |> visitModuleForProjectRule ast availableData
                 |> List.map (\(RuleModuleVisitor ruleModuleVisitor) -> ruleModuleVisitor.toProjectVisitor ())
     in
     case findFixInComputeModuleResults { params | project = newProject } (List.append rulesNotToRun outputRuleProjectVisitors) of
@@ -5130,13 +5130,8 @@ isFixable predicate err =
             Nothing
 
 
-visitModuleForProjectRule : OpaqueProjectModule -> AvailableData -> List (AvailableData -> RuleModuleVisitor) -> List RuleModuleVisitor
-visitModuleForProjectRule module_ availableData ruleModuleVisitors =
-    let
-        ast : File
-        ast =
-            ProjectModule.ast module_
-    in
+visitModuleForProjectRule : File -> AvailableData -> List (AvailableData -> RuleModuleVisitor) -> List RuleModuleVisitor
+visitModuleForProjectRule ast availableData ruleModuleVisitors =
     ruleModuleVisitors
         |> List.map (\createRuleVisitor -> createRuleVisitor availableData)
         |> List.map (\acc -> runVisitor .moduleDefinitionVisitor ast.moduleDefinition acc)
