@@ -4298,23 +4298,15 @@ computeStepsForProject reviewOptions { project, ruleProjectVisitors, fixedErrors
                 (computeDependencies reviewOptions project ruleProjectVisitors fixedErrors)
 
         Modules moduleZipper ->
-            let
-                result : { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, step : Step, fixedErrors : FixedErrors }
-                result =
-                    computeModules
-                        reviewOptions
-                        (Just moduleZipper)
-                        project
-                        ruleProjectVisitors
-                        fixedErrors
-            in
             computeStepsForProject
                 reviewOptions
-                { project = result.project
-                , ruleProjectVisitors = result.ruleProjectVisitors
-                , fixedErrors = result.fixedErrors
-                , step = result.step
-                }
+                (computeModules
+                    reviewOptions
+                    (Just moduleZipper)
+                    project
+                    ruleProjectVisitors
+                    fixedErrors
+                )
 
         FinalProjectEvaluation ->
             computeStepsForProject
