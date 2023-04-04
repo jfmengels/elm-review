@@ -5476,10 +5476,15 @@ createDependenciesVisitor schema { exceptions } raise cache { allVisitor, direct
 
 getMostAppropriateFunctionContent : projectContext -> List (Maybe (Cache.EntryMaybe error projectContext)) -> projectContext
 getMostAppropriateFunctionContent defaultContext possibleInputContexts =
-    List.filterMap identity possibleInputContexts
-        |> List.head
-        |> Maybe.map Cache.outputContextMaybe
-        |> Maybe.withDefault defaultContext
+    case possibleInputContexts of
+        [] ->
+            defaultContext
+
+        (Just cacheEntry) :: _ ->
+            Cache.outputContextMaybe cacheEntry
+
+        Nothing :: rest ->
+            getMostAppropriateFunctionContent defaultContext rest
 
 
 createFinalProjectEvaluationVisitor :
