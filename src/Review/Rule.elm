@@ -4652,7 +4652,7 @@ computeModule params =
         filePath =
             ProjectModule.path params.module_
 
-        ( inputRuleModuleVisitors, RequestedData requestedData, rulesNotToRun ) =
+        ( inputRuleModuleVisitors, requestedData, rulesNotToRun ) =
             List.foldl
                 (\((RuleProjectVisitor ruleProjectVisitor) as rule) ( with, requestedAcc, without ) ->
                     case ruleProjectVisitor.createModuleVisitorFromProjectVisitor of
@@ -4681,60 +4681,71 @@ computeModule params =
         }
 
     else
-        let
-            moduleName : ModuleName
-            moduleName =
-                Node.value (moduleNameNode (ProjectModule.ast params.module_).moduleDefinition)
+        computeModuleWithRuleVisitors params inputRuleModuleVisitors filePath requestedData rulesNotToRun
 
-            ( moduleNameLookupTable, newProject ) =
-                -- TODO If the file has changed, then compute the module docs anyway.
-                if requestedData.moduleNameLookupTable then
-                    Review.ModuleNameLookupTable.Compute.compute moduleName params.module_ params.project
+
+computeModuleWithRuleVisitors :
+    DataToComputeSingleModule
+    -> List (AvailableData -> RuleModuleVisitor)
+    -> String
+    -> RequestedData
+    -> List RuleProjectVisitor
+    -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
+computeModuleWithRuleVisitors params inputRuleModuleVisitors filePath (RequestedData requestedData) rulesNotToRun =
+    let
+        moduleName : ModuleName
+        moduleName =
+            Node.value (moduleNameNode (ProjectModule.ast params.module_).moduleDefinition)
+
+        ( moduleNameLookupTable, newProject ) =
+            -- TODO If the file has changed, then compute the module docs anyway.
+            if requestedData.moduleNameLookupTable then
+                Review.ModuleNameLookupTable.Compute.compute moduleName params.module_ params.project
+
+            else
+                ( ModuleNameLookupTableInternal.empty moduleName, params.project )
+
+        ast : File
+        ast =
+            ProjectModule.ast params.module_
+
+        availableData : AvailableData
+        availableData =
+            { ast = ast
+            , moduleKey = ModuleKey (ProjectModule.path params.module_)
+            , moduleNameLookupTable = moduleNameLookupTable
+
+            -- TODO Avoid computing the module docs if we don't need them. Or use `elm-syntax`'s AST node when that's available.
+            , moduleDocumentation = findModuleDocumentation ast
+            , extractSourceCode =
+                if requestedData.sourceCodeExtractor then
+                    let
+                        lines : List String
+                        lines =
+                            String.lines (ProjectModule.source params.module_)
+                    in
+                    \range -> extractSourceCode lines range
 
                 else
-                    ( ModuleNameLookupTableInternal.empty moduleName, params.project )
+                    always ""
+            , filePath = filePath
+            , isInSourceDirectories = ProjectModule.isInSourceDirectories params.module_
+            }
 
-            ast : File
-            ast =
-                ProjectModule.ast params.module_
+        outputRuleProjectVisitors : List RuleProjectVisitor
+        outputRuleProjectVisitors =
+            List.map
+                (\(RuleModuleVisitor ruleModuleVisitor) ->
+                    ruleModuleVisitor.toProjectVisitor ()
+                )
+                (visitModuleForProjectRule params.module_ availableData inputRuleModuleVisitors)
+    in
+    case findFixInComputeModuleResults { params | project = newProject } (List.append rulesNotToRun outputRuleProjectVisitors) of
+        ContinueWithNextStep nextStepResult ->
+            nextStepResult
 
-            availableData : AvailableData
-            availableData =
-                { ast = ast
-                , moduleKey = ModuleKey (ProjectModule.path params.module_)
-                , moduleNameLookupTable = moduleNameLookupTable
-
-                -- TODO Avoid computing the module docs if we don't need them. Or use `elm-syntax`'s AST node when that's available.
-                , moduleDocumentation = findModuleDocumentation ast
-                , extractSourceCode =
-                    if requestedData.sourceCodeExtractor then
-                        let
-                            lines : List String
-                            lines =
-                                String.lines (ProjectModule.source params.module_)
-                        in
-                        \range -> extractSourceCode lines range
-
-                    else
-                        always ""
-                , filePath = filePath
-                , isInSourceDirectories = ProjectModule.isInSourceDirectories params.module_
-                }
-
-            outputRuleProjectVisitors : List RuleProjectVisitor
-            outputRuleProjectVisitors =
-                List.map
-                    (\(RuleModuleVisitor ruleModuleVisitor) ->
-                        ruleModuleVisitor.toProjectVisitor ()
-                    )
-                    (visitModuleForProjectRule params.module_ availableData inputRuleModuleVisitors)
-        in
-        case findFixInComputeModuleResults { params | project = newProject } (List.append rulesNotToRun outputRuleProjectVisitors) of
-            ContinueWithNextStep nextStepResult ->
-                nextStepResult
-
-            ReComputeModule newParams ->
-                computeModule newParams
+        ReComputeModule newParams ->
+            computeModule newParams
 
 
 type ComputeModuleFindFixResult projectContext moduleContext
