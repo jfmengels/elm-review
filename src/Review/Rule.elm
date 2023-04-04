@@ -5015,15 +5015,19 @@ findFix reviewOptions project errors fixedErrors maybeModuleZipper =
                     newFixedErrors : FixedErrors
                     newFixedErrors =
                         FixedErrors.insert fixResult.error fixedErrors
-                in
-                if InternalOptions.shouldContinueLookingForFixes reviewOptions newFixedErrors then
-                    ( ShouldContinue newFixedErrors, fixResult )
-                        |> Logger.log
-                            reviewOptions.logger
-                            (fixedError newFixedErrors { ruleName = errorRuleName fixResult.error, filePath = errorFilePath fixResult.error })
 
-                else
-                    ( ShouldAbort newFixedErrors, fixResult )
+                    nextStep : PostFixStatus
+                    nextStep =
+                        if InternalOptions.shouldContinueLookingForFixes reviewOptions newFixedErrors then
+                            ShouldContinue newFixedErrors
+                                |> Logger.log
+                                    reviewOptions.logger
+                                    (fixedError newFixedErrors { ruleName = errorRuleName fixResult.error, filePath = errorFilePath fixResult.error })
+
+                        else
+                            ShouldAbort newFixedErrors
+                in
+                ( nextStep, fixResult )
             )
 
 
