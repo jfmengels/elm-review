@@ -5429,9 +5429,13 @@ createDependenciesVisitor schema { exceptions } raise cache { allVisitor, direct
                         inputContextHash =
                             ContextHash.create inputContext
 
+                        dependenciesHash : Maybe ContentHash
+                        dependenciesHash =
+                            ValidProject.dependenciesHash project
+
                         cachePredicate : CacheEntryMaybe projectContext -> Bool
                         cachePredicate entry =
-                            Cache.matchMaybe (ValidProject.dependenciesHash project) inputContextHash entry
+                            Cache.matchMaybe dependenciesHash inputContextHash entry
                     in
                     case reuseProjectRuleCache cachePredicate .dependencies cache of
                         Just entry ->
@@ -5462,7 +5466,7 @@ createDependenciesVisitor schema { exceptions } raise cache { allVisitor, direct
                                 dependenciesEntry : CacheEntryMaybe projectContext
                                 dependenciesEntry =
                                     Cache.createEntryMaybe
-                                        { contentHash = ValidProject.dependenciesHash project
+                                        { contentHash = dependenciesHash
                                         , errors = errors
                                         , inputContextHash = inputContextHash
                                         , outputContext = finalOutputContext
