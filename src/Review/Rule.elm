@@ -823,7 +823,8 @@ runRulesHelp reviewOptions acc =
         InternalOptions.shouldContinueLookingForFixes reviewOptions result.fixedErrors
             && FixedErrors.hasChanged result.fixedErrors acc.fixedErrors
     then
-        -- TODO Reevaluate whether this makes sense
+        -- TODO Reevaluate whether this makes sense. Haven't we already re-applied all fixes that we could have found?
+        -- In other words, will `FixedErrors.hasChanged result.fixedErrors acc.fixedErrors` ever be `True`?
         runRulesHelp reviewOptions result
 
     else
