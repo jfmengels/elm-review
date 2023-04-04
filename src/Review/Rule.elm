@@ -4693,9 +4693,13 @@ computeModuleWithRuleVisitors :
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
 computeModuleWithRuleVisitors params inputRuleModuleVisitors filePath (RequestedData requestedData) rulesNotToRun =
     let
+        ast : File
+        ast =
+            ProjectModule.ast params.module_
+
         moduleName : ModuleName
         moduleName =
-            Node.value (moduleNameNode (ProjectModule.ast params.module_).moduleDefinition)
+            Node.value (moduleNameNode ast.moduleDefinition)
 
         ( moduleNameLookupTable, newProject ) =
             -- TODO If the file has changed, then compute the module docs anyway.
@@ -4704,10 +4708,6 @@ computeModuleWithRuleVisitors params inputRuleModuleVisitors filePath (Requested
 
             else
                 ( ModuleNameLookupTableInternal.empty moduleName, params.project )
-
-        ast : File
-        ast =
-            ProjectModule.ast params.module_
 
         availableData : AvailableData
         availableData =
