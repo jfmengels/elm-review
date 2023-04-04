@@ -4646,18 +4646,18 @@ type alias DataToComputeSingleModule =
 computeModule :
     DataToComputeSingleModule
     -> { project : ValidProject, ruleProjectVisitors : List RuleProjectVisitor, nextStep : NextStep, fixedErrors : FixedErrors }
-computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
+computeModule params =
     let
         filePath : String
         filePath =
-            ProjectModule.path module_
+            ProjectModule.path params.module_
 
         ( inputRuleModuleVisitors, RequestedData requestedData, rulesNotToRun ) =
             List.foldl
                 (\((RuleProjectVisitor ruleProjectVisitor) as rule) ( with, requestedAcc, without ) ->
                     case ruleProjectVisitor.createModuleVisitorFromProjectVisitor of
                         Just moduleVisitorCreator ->
-                            case moduleVisitorCreator project filePath (ProjectModule.contentHash module_) incoming of
+                            case moduleVisitorCreator params.project filePath (ProjectModule.contentHash params.module_) params.incoming of
                                 Just moduleVisitor ->
                                     ( moduleVisitor :: with
                                     , RequestedData.combineJust ruleProjectVisitor.requestedData requestedAcc
@@ -4671,11 +4671,11 @@ computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
                             ( with, requestedAcc, rule :: without )
                 )
                 ( [], RequestedData.none, [] )
-                ruleProjectVisitors
+                params.ruleProjectVisitors
     in
     if List.isEmpty inputRuleModuleVisitors then
-        { project = project
-        , ruleProjectVisitors = ruleProjectVisitors
+        { project = params.project
+        , ruleProjectVisitors = params.ruleProjectVisitors
         , nextStep = ModuleVisitStep (Zipper.next params.moduleZipper)
         , fixedErrors = params.fixedErrors
         }
@@ -4684,24 +4684,24 @@ computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
         let
             moduleName : ModuleName
             moduleName =
-                Node.value (moduleNameNode (ProjectModule.ast module_).moduleDefinition)
+                Node.value (moduleNameNode (ProjectModule.ast params.module_).moduleDefinition)
 
             ( moduleNameLookupTable, newProject ) =
                 -- TODO If the file has changed, then compute the module docs anyway.
                 if requestedData.moduleNameLookupTable then
-                    Review.ModuleNameLookupTable.Compute.compute moduleName module_ project
+                    Review.ModuleNameLookupTable.Compute.compute moduleName params.module_ params.project
 
                 else
-                    ( ModuleNameLookupTableInternal.empty moduleName, project )
+                    ( ModuleNameLookupTableInternal.empty moduleName, params.project )
 
             ast : File
             ast =
-                ProjectModule.ast module_
+                ProjectModule.ast params.module_
 
             availableData : AvailableData
             availableData =
                 { ast = ast
-                , moduleKey = ModuleKey (ProjectModule.path module_)
+                , moduleKey = ModuleKey (ProjectModule.path params.module_)
                 , moduleNameLookupTable = moduleNameLookupTable
 
                 -- TODO Avoid computing the module docs if we don't need them. Or use `elm-syntax`'s AST node when that's available.
@@ -4711,14 +4711,14 @@ computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
                         let
                             lines : List String
                             lines =
-                                String.lines (ProjectModule.source module_)
+                                String.lines (ProjectModule.source params.module_)
                         in
                         \range -> extractSourceCode lines range
 
                     else
                         always ""
                 , filePath = filePath
-                , isInSourceDirectories = ProjectModule.isInSourceDirectories module_
+                , isInSourceDirectories = ProjectModule.isInSourceDirectories params.module_
                 }
 
             outputRuleProjectVisitors : List RuleProjectVisitor
@@ -4727,7 +4727,7 @@ computeModule ({ ruleProjectVisitors, module_, project, incoming } as params) =
                     (\(RuleModuleVisitor ruleModuleVisitor) ->
                         ruleModuleVisitor.toProjectVisitor ()
                     )
-                    (visitModuleForProjectRule module_ availableData inputRuleModuleVisitors)
+                    (visitModuleForProjectRule params.module_ availableData inputRuleModuleVisitors)
         in
         case findFixInComputeModuleResults { params | project = newProject } (List.append rulesNotToRun outputRuleProjectVisitors) of
             ContinueWithNextStep nextStepResult ->
