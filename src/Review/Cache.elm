@@ -68,7 +68,7 @@ type EntryMaybe error context
 
 createEntryMaybe :
     { contentHash : Maybe ContentHash
-    , inputContext : context
+    , inputContextHash : ContextHash context
     , errors : List error
     , outputContext : context
     }
@@ -76,7 +76,7 @@ createEntryMaybe :
 createEntryMaybe entry =
     EntryMaybe
         { contentHash = entry.contentHash
-        , inputContext = ContextHash.create entry.inputContext
+        , inputContext = entry.inputContextHash
         , errors = entry.errors
         , outputContext = entry.outputContext
         }

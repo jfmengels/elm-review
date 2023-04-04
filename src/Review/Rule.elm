@@ -5350,7 +5350,7 @@ createProjectVisitor :
              -> data
              -> ( List (Error {}), RuleProjectVisitor )
             )
-createProjectVisitor schema hidden maybeVisitor possibleInputContexts contentHash cacheGetter toRuleProjectVisitor =
+createProjectVisitor schema hidden maybeVisitor possibleInputContexts computeContentHash cacheGetter toRuleProjectVisitor =
     case maybeVisitor of
         Nothing ->
             Nothing
@@ -5366,9 +5366,17 @@ createProjectVisitor schema hidden maybeVisitor possibleInputContexts contentHas
                                 |> Maybe.map Cache.outputContextMaybe
                                 |> Maybe.withDefault schema.initialProjectContext
 
+                        contentHash : Maybe ContentHash
+                        contentHash =
+                            computeContentHash project
+
+                        inputContextHash : ContextHash projectContext
+                        inputContextHash =
+                            ContextHash.create inputContext
+
                         cachePredicate : CacheEntryMaybe projectContext -> Bool
                         cachePredicate elmJson =
-                            Cache.matchMaybe (ValidProject.elmJsonHash project) (ContextHash.create inputContext) elmJson
+                            Cache.matchMaybe contentHash inputContextHash elmJson
                     in
                     case reuseProjectRuleCache cachePredicate cacheGetter hidden.cache of
                         Just entry ->
@@ -5385,9 +5393,9 @@ createProjectVisitor schema hidden maybeVisitor possibleInputContexts contentHas
                             in
                             ( errors
                             , Cache.createEntryMaybe
-                                { contentHash = contentHash project
+                                { contentHash = contentHash
                                 , errors = errors
-                                , inputContext = inputContext
+                                , inputContextHash = inputContextHash
                                 , outputContext = outputContext
                                 }
                                 |> toRuleProjectVisitor
@@ -5426,9 +5434,13 @@ createDependenciesVisitor schema { exceptions } raise cache { allVisitor, direct
                                 |> Maybe.map Cache.outputContextMaybe
                                 |> Maybe.withDefault schema.initialProjectContext
 
+                        inputContextHash : ContextHash projectContext
+                        inputContextHash =
+                            ContextHash.create inputContext
+
                         cachePredicate : CacheEntryMaybe projectContext -> Bool
                         cachePredicate entry =
-                            Cache.matchMaybe (ValidProject.dependenciesHash project) (ContextHash.create inputContext) entry
+                            Cache.matchMaybe (ValidProject.dependenciesHash project) inputContextHash entry
                     in
                     case reuseProjectRuleCache cachePredicate .dependencies cache of
                         Just entry ->
@@ -5461,7 +5473,7 @@ createDependenciesVisitor schema { exceptions } raise cache { allVisitor, direct
                                     Cache.createEntryMaybe
                                         { contentHash = ValidProject.dependenciesHash project
                                         , errors = errors
-                                        , inputContext = inputContext
+                                        , inputContextHash = inputContextHash
                                         , outputContext = finalOutputContext
                                         }
                             in
