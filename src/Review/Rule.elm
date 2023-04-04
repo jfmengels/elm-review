@@ -4344,10 +4344,6 @@ computeElmJson :
     -> { project : ValidProject, step : Step, ruleProjectVisitors : List RuleProjectVisitor, fixedErrors : FixedErrors }
 computeElmJson reviewOptions project ruleProjectVisitors fixedErrors =
     let
-        projectElmJson : Maybe { path : String, raw : String, project : Elm.Project.Project }
-        projectElmJson =
-            ValidProject.elmJson project
-
         elmJsonData : Maybe { elmJsonKey : ElmJsonKey, project : Elm.Project.Project }
         elmJsonData =
             Maybe.map
@@ -4356,7 +4352,7 @@ computeElmJson reviewOptions project ruleProjectVisitors fixedErrors =
                     , project = elmJson.project
                     }
                 )
-                projectElmJson
+                (ValidProject.elmJson project)
 
         ( errors, newRuleProjectVisitors ) =
             List.foldl
