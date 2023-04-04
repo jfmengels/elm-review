@@ -819,13 +819,12 @@ runRulesHelp reviewOptions acc =
                 acc.fixedErrors
                 acc.project
     in
-    if InternalOptions.shouldContinueLookingForFixes reviewOptions result.fixedErrors then
-        if FixedErrors.hasChanged result.fixedErrors acc.fixedErrors then
-            -- TODO Reevaluate whether this makes sense
-            runRulesHelp reviewOptions result
-
-        else
-            result
+    if
+        InternalOptions.shouldContinueLookingForFixes reviewOptions result.fixedErrors
+            && FixedErrors.hasChanged result.fixedErrors acc.fixedErrors
+    then
+        -- TODO Reevaluate whether this makes sense
+        runRulesHelp reviewOptions result
 
     else
         result
