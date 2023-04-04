@@ -55,4 +55,4 @@ shouldAbort reviewOptionsData fixedErrors =
             False
 
         Disabled ->
-            False
+            True
