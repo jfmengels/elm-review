@@ -4734,11 +4734,9 @@ computeModuleWithRuleVisitors params inputRuleModuleVisitors filePath (Requested
 
         outputRuleProjectVisitors : List RuleProjectVisitor
         outputRuleProjectVisitors =
-            List.map
-                (\(RuleModuleVisitor ruleModuleVisitor) ->
-                    ruleModuleVisitor.toProjectVisitor ()
-                )
-                (visitModuleForProjectRule params.module_ availableData inputRuleModuleVisitors)
+            inputRuleModuleVisitors
+                |> visitModuleForProjectRule params.module_ availableData
+                |> List.map (\(RuleModuleVisitor ruleModuleVisitor) -> ruleModuleVisitor.toProjectVisitor ())
     in
     case findFixInComputeModuleResults { params | project = newProject } (List.append rulesNotToRun outputRuleProjectVisitors) of
         ContinueWithNextStep nextStepResult ->
