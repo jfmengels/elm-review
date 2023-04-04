@@ -60,7 +60,7 @@ ruleCaresAboutIgnoredFiles (RequestedData { ignoredFiles }) =
 type EntryMaybe error context
     = EntryMaybe
         { contentHash : Maybe ContentHash
-        , inputContext : ContextHash context
+        , inputContextHash : ContextHash context
         , errors : List error
         , outputContext : context
         }
@@ -76,7 +76,7 @@ createEntryMaybe :
 createEntryMaybe entry =
     EntryMaybe
         { contentHash = entry.contentHash
-        , inputContext = entry.inputContextHash
+        , inputContextHash = entry.inputContextHash
         , errors = entry.errors
         , outputContext = entry.outputContext
         }
@@ -105,7 +105,7 @@ errorsMaybe maybeEntry =
 matchMaybe : Maybe ContentHash -> ContextHash context -> EntryMaybe error context -> Bool
 matchMaybe contentHash context (EntryMaybe entry) =
     ContentHash.areEqualForMaybe contentHash entry.contentHash
-        && ContextHash.areEqual context entry.inputContext
+        && ContextHash.areEqual context entry.inputContextHash
 
 
 {-| Variant for final operations like the final evaluation or the extract
