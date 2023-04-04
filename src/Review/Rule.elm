@@ -5360,13 +5360,13 @@ createProjectVisitor schema hidden maybeVisitor possibleInputContexts computeCon
                         inputContext =
                             getMostAppropriateFunctionContent schema.initialProjectContext possibleInputContexts
 
-                        contentHash : Maybe ContentHash
-                        contentHash =
-                            computeContentHash project
-
                         inputContextHash : ContextHash projectContext
                         inputContextHash =
                             ContextHash.create inputContext
+
+                        contentHash : Maybe ContentHash
+                        contentHash =
+                            computeContentHash project
 
                         cachePredicate : CacheEntryMaybe projectContext -> Bool
                         cachePredicate elmJson =
